@@ -19,7 +19,7 @@ Each item is what exists and what checks it.
 - **Change sets.** A watch that delivers change sets sends a baseline and then JSON Patch change sets, each acknowledged before the next is computed against the state it established, and recovers with a baseline of a new generation that nothing earlier can affect. Lists projected from elements change by element, through identities kept beside the result. A current snapshot applies each update atomically and gives a stale one no effect. Checked by the tests of computing and of applying change sets, each against expected patches and results and together, of the dispatcher and the current snapshot, and of watches delivering to a receiver.
 - **The package.** The bundle, with its TypeScript declarations checked against `Domql` and against a TypeScript caller; the READMEs' examples run as tests.
 
-What is not built: the C# half and editor tooling.
+What is not built: conditional and logical expressions, editor tooling and the C# half.
 
 ## Decisions
 
@@ -187,6 +187,275 @@ Domql.read(rows); // A DomqlQuery like any other.
 
 State: **done.** Built by step 8, with the departures it records.
 
+### D10. Expressions, conditions and Boolean composition
+
+#### Expressions, conditions, and Boolean composition
+
+DOMQL’s query language consists of expressions that produce values. A query, a call argument, and an object field each accept an expression. The grammar describes their syntax; resolution and validation determine whether their subjects, names, and types are valid.
+
+The language supports:
+
+- **Chains:** an initial expression followed by member calls or object projections.
+- **Predicate tests:** `is` or `has` applied to one predicate name.
+- **Logical expressions:** Boolean expressions combined with `and` and `or`.
+- **Conditional expressions:** `if condition then consequent else alternative`.
+- **Groups:** parentheses around any expression.
+
+#### One meaning for logical operators
+
+`is` and `has` each read exactly one predicate name, supplied as a string or a fixed parameter. `and` and `or` combine complete Boolean expressions; they never implicitly carry a predicate’s subject or verb into another operand.
+
+```text
+@panel is "attached" and @enabled
+
+@enabled and @panel is "attached"
+
+@panel is "attached" and @input has "selection"
+```
+
+Inside an object, predicates can use the current subject:
+
+```text
+@panel {
+    available: is "attached" and is "visible",
+    occupied: has "children" or has "selection"
+}
+```
+
+This replaces the earlier shorthand:
+
+```text
+@panel is "attached" and "visible"
+```
+
+That text no longer applies two predicates to the panel. Its right operand is a string, so it fails Boolean type validation. Write:
+
+```text
+@panel is "attached" and @panel is "visible"
+```
+
+There is no separate grammar for composing predicate names. Consequently, there is one grouping rule and no requirement to parenthesize a predicate merely to combine it with another Boolean expression.
+
+#### Complete grammar
+
+In this notation, `[...]` means optional, `{...}` means repetition, `|` separates alternatives, `-` means exclusion, and `? ... ?` describes a special sequence.
+
+```ebnf
+query              = expression end-of-input
+
+expression         = conditional | disjunction
+conditional        = "if" expression "then" expression
+                     { "elseif" expression "then" expression }
+                     "else" expression
+
+disjunction        = conjunction { "or" conjunction }
+conjunction        = operand { "and" operand }
+operand            = chain [ predicate ] | predicate
+
+chain              = phrase | initial { "." call | object }
+initial            = parameter | literal | object | call | group
+group              = "(" expression ")"
+
+call               = identifier [ "(" [ argument { "," argument } [ "," ] ] ")" ]
+phrase             = identifier separator ( literal | parameter )
+                     { separator ( literal | parameter ) }
+argument           = [ identifier ":" ] expression
+
+object             = "{" [ field { "," field } [ "," ] ] "}"
+field              = [ identifier ":" ] expression
+
+predicate          = "is" ( string | parameter | "null" )
+                   | "has" ( string | parameter )
+
+parameter          = "@" identifier
+literal            = string | number | "true" | "false" | "null"
+
+identifier         = name - keyword
+name               = letter { letter | digit }
+keyword            = "true" | "false" | "null"
+                   | "is" | "has" | "and" | "or"
+                   | "if" | "then" | "elseif" | "else"
+
+number             = [ "-" ] integer [ fraction ] [ exponent ]
+integer            = "0" | nonzero-digit { digit }
+fraction           = "." digit { digit }
+exponent           = ( "e" | "E" ) [ "+" | "-" ] digit { digit }
+
+string             = '"' { string-character | string-escape } '"'
+string-character   = ? any character except double quote or backslash ?
+string-escape      = '\' ( '"' | '\' )
+
+letter             = ? ASCII A–Z or a–z ?
+digit              = "0" | nonzero-digit
+nonzero-digit      = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+
+separator          = trivia { trivia }
+trivia             = whitespace | line-comment | block-comment
+whitespace         = ? a character matched by ECMAScript \s ?
+
+line-comment       = "//" { line-character } [ line-feed ]
+line-character     = ? any character except LF ?
+line-feed          = ? LF ?
+
+block-comment      = "/*" block-content "*/"
+block-content      = ? characters up to, but excluding, the first closing */ ?
+
+end-of-input       = ? end of input ?
+```
+
+#### Lexical rules
+
+Whitespace and comments are ignored between tokens, including before and after the query. The explicit `separator` in a phrase requires at least one whitespace character or comment between its components; an implementation must retain enough token-position information to enforce that requirement.
+
+```text
+operation 1 -2       // Two arguments.
+operation 1-2        // Refused: missing argument separator.
+```
+
+Names and numbers consume the longest matching token. Keywords match whole names, so `isVisible` remains an identifier. Names are case-sensitive and contain only ASCII letters and digits, beginning with a letter.
+
+Strings support only `\"` and `\\` as escapes. Comment markers inside strings are ordinary text. Block comments do not nest and must close.
+
+#### Precedence and grouping
+
+Member access and object projection form a chain before a following predicate tests its result. Predicate tests bind more tightly than `and`, which binds more tightly than `or`.
+
+```text
+@panel is "attached" or @input is "disabled" and @enabled
+```
+
+The conjunction combines the input predicate and `@enabled` before the disjunction combines their result with the panel predicate.
+
+Parentheses group any expression:
+
+```text
+(@panel is "attached" or @input is "disabled") and @enabled
+```
+
+Each position in a conditional accepts a complete expression. Consequently:
+
+```text
+if @enabled then @first else @second and @third
+```
+
+places the conjunction inside the alternative. To combine the whole conditional with another expression, write:
+
+```text
+(if @enabled then @first else @second) and @third
+```
+
+Both conditional branches are mandatory. Conditional expressions may nest in any of the three positions. There is no `?:` or closing `end`.
+
+#### Validation and evaluation
+
+The condition of an `if`, and every operand of general `and` or `or`, must have type `boolean` or `boolean?`. These are type requirements, not syntax restrictions.
+
+Thus, the following parse but fail validation:
+
+```text
+if 42 then "ready" else "waiting"
+
+@panel.rect and true
+
+(if @enabled then "ready" else "waiting") or false
+```
+
+True selects a conditional’s consequent; false or null selects its alternative. Only the selected branch is evaluated, and its result is preserved, including false or null. A nullable condition does not by itself make the result nullable.
+
+The branches have one underlying type, compared structurally for object types, and may differ in nullability. For example, `number` paired with `number?` or `null` produces `number?`; `number` paired with `string` is refused.
+
+All expressions are resolved and validated before evaluation, including branches and logical operands that may be skipped. Logical operators evaluate left to right and short-circuit when the result is determined. Watches track dependencies of the expressions actually evaluated.
+
+Existing structural rules remain: objects must be nonempty, field names must be unique, unnamed fields must have an inferable name, positional arguments precede named arguments, and implicit member or predicate access requires a current subject. Fields containing conditionals or general logical compositions require explicit names.
+
+A predicate-name parameter must supply a fixed, non-null string. An ordinary Boolean parameter used after `and` or `or` is evaluated as a Boolean expression.
+
+#### Nullable logical operands
+
+The grammar allows nullable Boolean operands, and they follow three-valued logic:
+
+| Left | Right | `and` | `or` |
+|---|---|---|---|
+| true | true | true | true |
+| true | false | false | true |
+| true | null | null | true |
+| false | true | false | true |
+| false | false | false | false |
+| false | null | false | null |
+| null | true | null | true |
+| null | false | false | null |
+| null | null | null | null |
+
+Null represents an unavailable Boolean: false determines `and`, true determines `or`, and otherwise null remains unknown. A null left operand alone cannot short-circuit either operator, so the next operand is evaluated, since it may determine the result. This is separate from the rule that an `if` condition of null selects the alternative.
+
+#### Definition and builder consequences
+
+A conditional node has `kind: "conditional"` and expression properties `condition`, `consequent`, and `alternative`.
+
+General logical nodes have `kind: "and"` or `kind: "or"` and an `operands` array. Predicate nodes no longer contain logical trees of names: each holds, under `name`, where it held `names`, one string-literal node or parameter node identifying its predicate, or the literal null of `is null`.
+
+Grouping adds no definition node; the resulting expression tree records the grouping.
+
+The proposed builder operations are:
+
+```text
+condition.conditional(consequent, alternative)
+expression.and(other)
+expression.or(other)
+```
+
+JavaScript’s own conditional and logical operators cannot record these operations on builder objects.
+
+#### elseif
+
+A conditional may test further conditions, in order, before its alternative. Conditions are evaluated in order: true selects that clause's result, false or null advances to the next clause, and where none is true the alternative is evaluated. `elseif` is a keyword.
+
+```text
+if @panel.parent is "attached" then "ready" elseif is null then "unknown" else "waiting"
+
+if @panel.parent is "attached" then "ready" elseif @panel.parent is null then "unknown" else "waiting"
+
+if @panel.parent is "attached" then
+    "ready"
+elseif is null then
+    "unknown"
+else
+    "waiting"
+```
+
+- **Subject inheritance.** What an `elseif` omits is the predicate's subject, never its condition. An initial condition that is a predicate with an explicit subject establishes the conditional's subject; a subjectless predicate in an `elseif` tests that subject, and an explicit subject in an `elseif` overrides it for that clause alone. Where the initial condition has no single identifiable subject, as `@panel is "attached" and @input is "disabled"` has none, there is none to inherit, and the `elseif` writes its subject. The inherited subject is the subject expression itself, evaluated again when its clause is reached, so the forms above are exactly equivalent; keeping its earlier value would be another decision.
+- **`is null`.** `is null` is the language's own test of absence: true for a null subject and false otherwise, never null itself, and distinct from `is "null"`, which names a registered predicate. `has` takes no `null`.
+- **Where a subjectless predicate's subject comes from.** In order: the predicate's explicit subject; the conditional's inherited subject; the surrounding current value; and an error where there is none. An initial condition that combines several subjects never selects one of them to inherit, so an `elseif` after it falls back to the current value, as a subjectless predicate does anywhere else:
+
+  ```text
+  @input {
+      status: if @enabled then "enabled"
+              elseif is "disabled" then "disabled"
+              else "other"
+  }
+  ```
+
+  Here the `elseif` tests `@input`.
+- **How a definition records an `elseif`.** As a conditional nested in the `alternative` of the one before it, with no field of its own. The parser writes an inherited subject out as the predicate's explicit target, before the distinction is lost, so the shorthand and the explicit form give one definition, and the builder nests `conditional` calls for an `elseif`.
+- **How a definition is written back as text.** A nested alternative is written as `elseif` only where that keeps every subject resolving as it did, and as `else if` otherwise. In
+
+  ```text
+  @input {
+      status: if @panel is "attached" then "panel"
+              else if is "disabled" then "disabled"
+              else "other"
+  }
+  ```
+
+  the nested `if` tests the current value, `@input`; written as `elseif`, it would inherit `@panel` and mean something else, so it stays `else if`. Parsing, writing and parsing again gives the same definition, where it can be flattened and here alike.
+- **How `is null` is recorded.** Its `name` is a literal node whose value is null, as a string name is a literal node holding a string, never a bare null; validation accepts it under `is` and refuses it under `has`.
+
+#### The principle
+
+The language composes queries through member access, object expressions, predicate expressions and conditional expressions. Arithmetic, ordering and other computations are provided by vocabulary members or performed by the caller.
+
+State: **decided.** Built by step 10.
+
 ## Steps
 
 A step is done when its tests pass in the gate, its documents say what it built, and its state here says so.
@@ -303,7 +572,15 @@ Make reads and watches cheaper where a measurement shows the work, leaving every
   - A list's change set by its longest increasing subsequence, which sends one operation to move the first item to the end, where the current diff sends one for every other item. The current diff takes at most half a millisecond for 1,000 items in any order, so this is a question of a change set's size and of what applying and sending it costs downstream, which the workloads do not yet measure; it changes which operations are sent, and their order, ties and repeated elements are settled with it.
 - **State:** in progress. The workloads and their baseline are built, and so are the first two changes, each measured against the code just before it, run alternately on one machine. The first reads 24 to 34 percent faster and refreshes a watch 18 to 21 percent faster; the second reads 14 to 25 percent faster again, the median of five runs for the large read, and leaves a watch's refresh within its noise. Keeping a watch's sessions refreshes a watch 37 to 39 percent faster again, the median of three runs, changed or not, and leaves reads within their noise. Of the third change, naming each object expression's fields once reads 5 to 9 percent faster, and parsing each declared structure's field types once reads the large list 23 percent faster again, while the small read from text, which checks no structure, measured 4 percent slower over five runs; the tolerance and the defaults of a `get` step have shown no cost yet.
 
-### 10. Editor tooling
+### 10. Conditional and logical expressions
+
+Choose between two values, group expressions and combine Boolean expressions, as D10 decides.
+
+- **Needs:** D10.
+- **Done when:** text, a definition and the builder each write a conditional, an `elseif`, a group and a logical expression, parsed, validated, written and resolved as D10 sets out, a definition written back as text with the parentheses its grouping needs; `is` and `has` read one predicate name, held under `name`, and `and` and `or` combine complete Boolean expressions alone, answering as the three-valued table gives; `is null` answers whether its subject is null; an `elseif` inherits its subject, or falls back to the current value, as D10 sets out, and a definition is written back with `elseif` only where that keeps every subject as it was, parsing, writing and parsing again giving the same definition; a phrase's arguments are refused without a separator between them; true, false and null conditions select their branches; branches of one type with different nullability answer the nullable type, and branches of different types fail with a validation error naming both; only the selected branch and the operands evaluation reaches are evaluated, and a watch follows what was; a group starts a chain, as `(if @wide then @panel else @sidebar).rect.width` does; and the specification, the design and the READMEs describe them, the earlier shorthand of predicate names replaced.
+- **State:** not started.
+
+### 11. Editor tooling
 
 Diagnostics and completion over the grammar and the declaration metadata, without running a capability.
 
@@ -311,7 +588,7 @@ Diagnostics and completion over the grammar and the declaration metadata, withou
 - **Done when:** a query text is checked against the declarations available to its project, reporting the same positions and messages as resolution.
 - **State:** not started.
 
-### 11. The C# half
+### 12. The C# half
 
 `Parse`, `TryParse`, typed mapping and snapshots for a .NET host.
 
