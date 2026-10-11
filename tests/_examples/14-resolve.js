@@ -1,6 +1,6 @@
-const resolved = Domql.resolve(Domql.parse('@panel.children.count', {
+const resolved = Domql.resolve('@panel.children.count', {
     panel: Domql.bind(null, 'element?')
-}));
+});
 
 resolved.kind;            // 'query'
 resolved.type.toString(); // 'number?'

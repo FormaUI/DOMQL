@@ -1,8 +1,8 @@
-Domql.read(Domql.parse(`
+Domql.read(`
     @panel {
         count: children.count,
         is "attached",
         has "children",
     }
-`, { panel }));
+`, { panel });
 // { count: 3, attached: true, children: true }

@@ -45,7 +45,7 @@ The package serves `domql.d.ts` beside `domql.js`, so a TypeScript project that 
 ```ts
 import { Domql } from '/_content/domql/domql.js';
 
-const count = Domql.read<number>(Domql.parse('@panel.children.count', { panel }));
+const count = Domql.read<number>('@panel.children.count', { panel });
 ```
 
 ## Read a query
@@ -208,13 +208,13 @@ The object expression reads what the event carried, such as its `target`, `butto
 Chains follow members with a dot. Properties and operations are named in camelCase, such as `clientSize`, `attributeOf`, `computedStyleOf` and `matchesMedia`, and a member has the same name wherever it is written. All DOMQL names are case-sensitive.
 
 ```js
-Domql.read(Domql.parse('@panel.children.count', { panel }));
+Domql.read('@panel.children.count', { panel });
 // 3
 
-Domql.read(Domql.parse('@panel.get("children.count")', { panel }));
+Domql.read('@panel.get("children.count")', { panel });
 // 3
 
-Domql.read(Domql.parse('@panel is "attached"', { panel }));
+Domql.read('@panel is "attached"', { panel });
 // true
 ```
 
@@ -243,13 +243,13 @@ Multiple bare arguments are separated by whitespace. A member written that way e
 An object expression chooses output fields. An explicit alias controls the output name. Without an alias, the field uses the final member name; `get` and a predicate expression of one name infer the final segment of the name they read, and a predicate expression that combines names or takes one from a parameter needs an alias.
 
 ```js
-Domql.read(Domql.parse(`
+Domql.read(`
     @panel {
         count: children.count,
         is "attached",
         has "children",
     }
-`, { panel }));
+`, { panel });
 // { count: 3, attached: true, children: true }
 ```
 
@@ -258,12 +258,12 @@ Trailing commas, `//` line comments and `/* */` block comments are supported.
 An object expression following a list projects each item:
 
 ```js
-Domql.read(Domql.parse(`
+Domql.read(`
     @panel.all("[data-key]") {
         key: attributeOf "data-key",
         selected: matches "[aria-selected=true]"
     }
-`, { panel }));
+`, { panel });
 // [
 //   { key: 'a1', selected: false },
 //   { key: 'a2', selected: true },
@@ -274,14 +274,14 @@ Domql.read(Domql.parse(`
 A member following a list operates on the list itself. Use `count`, `first`, `last` and `at(index)` to inspect it, or `where`, `max`, `min` and `sum` with expressions evaluated against each item:
 
 ```js
-Domql.read(Domql.parse(`
+Domql.read(`
     @panel.all("[data-key]")
         .where(matches "[aria-selected=true]")
         .count
-`, { panel }));
+`, { panel });
 // 1
 
-Domql.read(Domql.parse('@panel.all("[data-key]").max(rect.height)', { panel }));
+Domql.read('@panel.all("[data-key]").max(rect.height)', { panel });
 // 64
 ```
 
@@ -292,10 +292,10 @@ Domql.read(Domql.parse('@panel.all("[data-key]").max(rect.height)', { panel }));
 Null represents a missing or unavailable value; it does not hide an invalid query. A chain or targeted object expression whose receiver is null returns null.
 
 ```js
-Domql.read(Domql.parse(
+Domql.read(
     '@panel.first(".missing").attributeOf("data-key")',
     { panel }
-));
+);
 // null
 ```
 
@@ -345,9 +345,9 @@ Keep independent results in a top-level object expression when one target may be
 `resolve` checks a query without a browser and without reading anything:
 
 ```js
-const resolved = Domql.resolve(Domql.parse('@panel.children.count', {
+const resolved = Domql.resolve('@panel.children.count', {
     panel: Domql.bind(null, 'element?')
-}));
+});
 
 resolved.kind;            // 'query'
 resolved.type.toString(); // 'number?'
@@ -365,7 +365,7 @@ Failures report a `DomqlError` with a `kind`, `message` and structured `location
 
 ```js
 try {
-    Domql.read(Domql.parse('@panel.attributeOf(200)', { panel }));
+    Domql.read('@panel.attributeOf(200)', { panel });
 } catch (error) {
     if (error?.name !== 'DomqlError') {
         throw error;
@@ -412,7 +412,7 @@ const metricsModule = Domql.createModule('metrics', {
 
 Domql.registerModule(metricsModule);
 
-Domql.read(Domql.parse('@panel.metrics { childCount }', { panel }));
+Domql.read('@panel.metrics { childCount }', { panel });
 // { childCount: 3 }
 ```
 
