@@ -1,5 +1,5 @@
 /**
- * Expression — what a build's callback works with in place of a value: a DOMQL expression, recorded as the definition node it is, to which each member read or called on it, and each shape and test written on it, adds a node
+ * Expression — what a build's callback works with in place of a value: a DOMQL expression, recorded as the definition node it is, to which each member read or called on it, and each object expression and predicate expression written on it, adds a node
  */
 
 import { DomqlError } from '../language/DomqlError.mjs';
@@ -42,7 +42,7 @@ export class Expression {
     static #read(node, builder, key) {
         if (key === Symbol.toPrimitive) {
             return () => {
-                throw DomqlError.structure('An expression records the query as it is built and holds no value yet, so arithmetic, concatenation and comparisons over it are refused; a member or a shape of the query computes what it needs', {});
+                throw DomqlError.structure('An expression records the query as it is built and holds no value yet, so arithmetic, concatenation and comparisons over it are refused; a member or an object expression of the query computes what it needs', {});
             };
         }
 
@@ -56,7 +56,7 @@ export class Expression {
                 return projection => builder.select(node, projection);
             case 'is':
             case 'has':
-                return names => builder.test(node, key, names);
+                return text => builder.predicate(node, key, text);
             default:
                 return Expression.create(builder.member(node, key), builder);
         }

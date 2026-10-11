@@ -88,22 +88,22 @@ export class QueryBuilder {
         return Expression.create({ ...node, arguments: [...positional, ...named] }, this);
     }
 
-    /** A shape that follows the node, whose fields the projection returns from an expression for the current value. */
+    /** An object expression that follows the node, whose fields the projection returns from an expression for the current value. */
     select(node, projection) {
         if (typeof projection !== 'function') {
-            throw DomqlError.structure('`select` takes a projection, a function that returns the shape\'s fields', {});
+            throw DomqlError.structure('`select` takes a projection, a function that returns the object\'s fields', {});
         }
 
         const fields = this.#fields(projection(Expression.create(null, this)));
 
-        return Expression.create(node === null ? { kind: 'shape', fields } : { kind: 'shape', target: node, fields }, this);
+        return Expression.create(node === null ? { kind: 'object', fields } : { kind: 'object', target: node, fields }, this);
     }
 
-    /** A test of the node, reading the predicate names as text writes them after the verb. */
-    test(node, verb, names) {
-        const test = PredicateNamesParser.parse(names);
+    /** A predicate expression of the node, reading the predicate names as text writes them after the verb. */
+    predicate(node, verb, text) {
+        const names = PredicateNamesParser.parse(text);
 
-        return Expression.create(node === null ? { kind: 'predicate', verb, test } : { kind: 'predicate', verb, target: node, test }, this);
+        return Expression.create(node === null ? { kind: 'predicate', verb, names } : { kind: 'predicate', verb, target: node, names }, this);
     }
 
     /** Where a query starts: the document or the window as the roots they stand for, a value bound under the name an object gives it, or one bound under a name the build gives. */
@@ -161,10 +161,10 @@ export class QueryBuilder {
         throw DomqlError.structure(`An expression argument answers an expression, a string, a number or null, and this one answers ${QueryBuilder.#describe(result)}, which \`!\`, \`===\` and other operators over an expression answer as the query is built`, {});
     }
 
-    /** A projection's fields, in order: each an expression, a nested shape, or a string, a number or null as it is written. */
+    /** A projection's fields, in order: each an expression, a nested object, or a string, a number or null as it is written. */
     #fields(object) {
         if (!QueryBuilder.#isPlainObject(object)) {
-            throw DomqlError.structure('A projection returns an object whose properties are the shape\'s fields', {});
+            throw DomqlError.structure('A projection returns an object whose properties are the fields of the object expression', {});
         }
 
         return Object.entries(object).map(([name, value]) => ({ name, value: this.#field(name, value) }));
@@ -176,14 +176,14 @@ export class QueryBuilder {
         }
 
         if (QueryBuilder.#isPlainObject(value)) {
-            return { kind: 'shape', fields: this.#fields(value) };
+            return { kind: 'object', fields: this.#fields(value) };
         }
 
         if (value === null || ['string', 'number'].includes(typeof value)) {
             return { kind: 'literal', value };
         }
 
-        throw DomqlError.structure(`The field '${name}' is an expression, a nested shape, a string, a number or null, and is ${QueryBuilder.#describe(value)}; \`true\` and \`false\` are refused, since \`!\` and \`===\` over an expression answer them as the query is built, so a Boolean field is written in text`, {});
+        throw DomqlError.structure(`The field '${name}' is an expression, a nested object, a string, a number or null, and is ${QueryBuilder.#describe(value)}; \`true\` and \`false\` are refused, since \`!\` and \`===\` over an expression answer them as the query is built, so a Boolean field is written in text`, {});
     }
 
     #nodeOf(expression, what) {

@@ -27,9 +27,9 @@ describe('Domql', () => {
             const query = Domql.parse('@panel { size, hasFocus: matches(":focus-within") }');
 
             expect(query.definition).toEqual({
-                version: 1,
+                version: 2,
                 query: {
-                    kind: 'shape',
+                    kind: 'object',
                     target: parameter('panel'),
                     fields: [
                         { value: member('size') },
@@ -39,13 +39,13 @@ describe('Domql', () => {
             });
         });
 
-        it('reads a path as a chain of targets', () => {
+        it('reads a chain as a succession of targets', () => {
             const { definition } = Domql.parse('@panel.all("li").count');
 
             expect(definition.query).toEqual(member('count', [], member('all', [{ value: literal('li') }], parameter('panel'))));
         });
 
-        it('reads a member that starts a path with its arguments unparenthesized, as the call it stands for', () => {
+        it('reads a member that starts a chain with its arguments unparenthesized, as the call it stands for', () => {
             expect(Domql.parse('@target { attributeOf "id" }').definition).toEqual(Domql.parse('@target { attributeOf("id") }').definition);
             expect(Domql.parse('@target { intersects @panel 200 }').definition).toEqual(Domql.parse('@target { intersects(@panel, 200) }').definition);
         });
@@ -67,10 +67,10 @@ describe('Domql', () => {
             expect(definition.query).toEqual(member('parent', [], member('intersects', [{ value: parameter('panel') }], parameter('target'))));
         });
 
-        it('takes a shape after a call whose arguments are parenthesized', () => {
+        it('takes an object expression after a call whose arguments are parenthesized', () => {
             const { definition } = Domql.parse('@table.all("tr") { height: rect.height }');
 
-            expect(definition.query.kind).toBe('shape');
+            expect(definition.query.kind).toBe('object');
             expect(definition.query.target.arguments).toEqual([{ value: literal('tr') }]);
         });
 
@@ -105,12 +105,12 @@ describe('Domql', () => {
             expect(getError(() => Domql.parse('@panel { /* outer /* inner */ still a comment */ size }')).kind).toBe('syntax');
         });
 
-        it('reads a shape following no value as one keeping the current value', () => {
+        it('reads an object expression following no value as one keeping the current value', () => {
             const { definition } = Domql.parse('@panel { layout: { width: size.width } }');
 
             expect(definition.query.fields[0]).toEqual({
                 name: 'layout',
-                value: { kind: 'shape', fields: [{ name: 'width', value: member('width', [], member('size')) }] },
+                value: { kind: 'object', fields: [{ name: 'width', value: member('width', [], member('size')) }] },
             });
         });
 
@@ -152,51 +152,51 @@ describe('Domql', () => {
         });
     });
 
-    describe('predicate tests', () => {
-        const test = (verb, names, target) => (target ? { kind: 'predicate', verb, target, test: names } : { kind: 'predicate', verb, test: names });
+    describe('predicate expressions', () => {
+        const predicate = (verb, names, target) => (target ? { kind: 'predicate', verb, target, names } : { kind: 'predicate', verb, names });
 
-        it('test the value of the path before the verb, which a dot binds tighter than', () => {
-            expect(Domql.parse('@document is "visible"').definition.query).toEqual(test('is', literal('visible'), parameter('document')));
-            expect(Domql.parse('@panel.parent is "attached"').definition.query).toEqual(test('is', literal('attached'), member('parent', [], parameter('panel'))));
-            expect(Domql.parse('@input has "selection"').definition.query).toEqual(test('has', literal('selection'), parameter('input')));
+        it('test the value of the chain before the verb, which a dot binds tighter than', () => {
+            expect(Domql.parse('@document is "visible"').definition.query).toEqual(predicate('is', literal('visible'), parameter('document')));
+            expect(Domql.parse('@panel.parent is "attached"').definition.query).toEqual(predicate('is', literal('attached'), member('parent', [], parameter('panel'))));
+            expect(Domql.parse('@input has "selection"').definition.query).toEqual(predicate('has', literal('selection'), parameter('input')));
         });
 
-        it('test the current value without a subject, inside a shape or an expression', () => {
-            const shaped = Domql.parse('@panel { attached: is "attached" }').definition.query;
+        it('test the current value without a subject, inside an object expression or an expression argument', () => {
+            const inObject = Domql.parse('@panel { attached: is "attached" }').definition.query;
             const filtered = Domql.parse('@panel.all("input").where(is "disabled")').definition.query;
 
-            expect(shaped.fields[0].value).toEqual(test('is', literal('attached')));
-            expect(filtered.arguments[0].value).toEqual(test('is', literal('disabled')));
+            expect(inObject.fields[0].value).toEqual(predicate('is', literal('attached')));
+            expect(filtered.arguments[0].value).toEqual(predicate('is', literal('disabled')));
         });
 
         it('follow a member whose arguments are unparenthesized', () => {
-            expect(Domql.parse('@panel { open: first ".row" is "attached" }').definition.query.fields[0].value).toEqual(test('is', literal('attached'), member('first', [{ value: literal('.row') }])));
+            expect(Domql.parse('@panel { open: first ".row" is "attached" }').definition.query.fields[0].value).toEqual(predicate('is', literal('attached'), member('first', [{ value: literal('.row') }])));
         });
 
         it('combine names under one verb, and binding tighter than or', () => {
             const { query } = Domql.parse('@input is "disabled" or "readOnly" and "textEditable"').definition;
 
-            expect(query.test).toEqual({ kind: 'or', operands: [literal('disabled'), { kind: 'and', operands: [literal('readOnly'), literal('textEditable')] }] });
+            expect(query.names).toEqual({ kind: 'or', operands: [literal('disabled'), { kind: 'and', operands: [literal('readOnly'), literal('textEditable')] }] });
         });
 
         it('group names in parentheses', () => {
             const { query } = Domql.parse('@input is ("disabled" or "readOnly") and "textEditable"').definition;
 
-            expect(query.test).toEqual({ kind: 'and', operands: [{ kind: 'or', operands: [literal('disabled'), literal('readOnly')] }, literal('textEditable')] });
+            expect(query.names).toEqual({ kind: 'and', operands: [{ kind: 'or', operands: [literal('disabled'), literal('readOnly')] }, literal('textEditable')] });
         });
 
         it('gather a run of one operator into one combination', () => {
-            expect(Domql.parse('@input has "children" or "selection" or "focus"').definition.query.test.operands).toHaveLength(3);
+            expect(Domql.parse('@input has "children" or "selection" or "focus"').definition.query.names.operands).toHaveLength(3);
         });
 
         it('take names from parameters', () => {
             const { query } = Domql.parse('@panel is @first and @second', { panel: document.body, first: 'attached', second: 'focused' }).definition;
 
-            expect(query.test).toEqual({ kind: 'and', operands: [parameter('first'), parameter('second')] });
+            expect(query.names).toEqual({ kind: 'and', operands: [parameter('first'), parameter('second')] });
         });
 
         it('name a field after a single literal name, and leave a combined or bound one to be named', () => {
-            expect(Domql.parse('@panel { is "attached", has "children", is "scroll.atEnd" }').definition.query.fields.map(field => field.value.test.value)).toEqual(['attached', 'children', 'scroll.atEnd']);
+            expect(Domql.parse('@panel { is "attached", has "children", is "scroll.atEnd" }').definition.query.fields.map(field => field.value.names.value)).toEqual(['attached', 'children', 'scroll.atEnd']);
 
             for (const text of ['@panel { is "disabled" or "readOnly" }', '@panel { is @state }']) {
                 expect(getError(() => Domql.parse(text, { panel: document.body, state: 'disabled' })).kind).toBe('structure');
@@ -212,14 +212,14 @@ describe('Domql', () => {
         });
 
         it.each([
-            ['a verb other than is or has', test('was', literal('attached'), parameter('panel')), '/query/verb'],
-            ['a test of the current value at the top level', test('is', literal('visible')), '/query'],
-            ['a name that is no string', test('is', literal(3), parameter('panel')), '/query/test/value'],
-            ['a name that is a member', test('is', member('size', [], parameter('panel')), parameter('panel')), '/query/test'],
-            ['a combination of one name', test('is', { kind: 'and', operands: [literal('attached')] }, parameter('panel')), '/query/test/operands'],
+            ['a verb other than is or has', predicate('was', literal('attached'), parameter('panel')), '/query/verb'],
+            ['a predicate expression of the current value at the top level', predicate('is', literal('visible')), '/query'],
+            ['a name that is no string', predicate('is', literal(3), parameter('panel')), '/query/names/value'],
+            ['a name that is a member', predicate('is', member('size', [], parameter('panel')), parameter('panel')), '/query/names'],
+            ['a combination of one name', predicate('is', { kind: 'and', operands: [literal('attached')] }, parameter('panel')), '/query/names/operands'],
             ['a combination outside a test', { kind: 'or', operands: [literal('a'), literal('b')] }, '/query'],
         ])('refuse a definition with %s', (_, query, pointer) => {
-            const error = getError(() => Domql.create({ version: 1, query }, { panel: document.body }));
+            const error = getError(() => Domql.create({ version: 2, query }, { panel: document.body }));
 
             expect(error.kind).toBe('structure');
             expect(error.location.pointer).toBe(pointer);
@@ -232,7 +232,7 @@ describe('Domql', () => {
             ['an expression argument without parentheses', '@table.max rect.height', 1, 12],
             ['arguments after a dot without parentheses', '@sentinel.intersects @panel 200', 1, 22],
             ['a member with unparenthesized arguments continued by a dot', '@panel { first ".row".rect }', 1, 22],
-            ['a member with unparenthesized arguments followed by a shape', '@panel { all "tr" { size } }', 1, 19],
+            ['a member with unparenthesized arguments followed by an object expression', '@panel { all "tr" { size } }', 1, 19],
             ['is written as a member', '@target.is "attached"', 1, 9],
             ['a test mixing is and has', '@input is "a" and has "b"', 1, 19],
             ['a predicate named by a number', '@input is 3', 1, 11],
@@ -267,7 +267,7 @@ describe('Domql', () => {
 
     describe('structure', () => {
         it.each([
-            ['an empty shape', '@panel {}', '/query'],
+            ['an empty object expression', '@panel {}', '/query'],
             ['two fields named alike', '@target { width: rect.width, width: size.width }', '/query/fields/1'],
             ['two fields inferring one name', '@target { rect.width, size.width }', '/query/fields/1'],
             ['a field inferring the name another is written with', '@target { get "rect", rect }', '/query/fields/1'],
@@ -277,12 +277,12 @@ describe('Domql', () => {
             ['a field ending in an is of a bound name', '@target { is @name }', '/query/fields/0'],
             ['a field ending in a has of a bound name', '@target { has @name }', '/query/fields/0'],
             ['a field ending in a combined test', '@target { is "disabled" or "readOnly" }', '/query/fields/0'],
-            ['a test of the current value at the top level', 'is "visible"', '/query'],
+            ['a predicate expression of the current value at the top level', 'is "visible"', '/query'],
             ['a predicate inferring the name another field is written with', '@target { disabled: size, is "disabled" }', '/query/fields/1'],
             ['a positional argument after a named one', '@target.rect(relativeTo: @other, 1)', '/query/arguments/1'],
             ['two named arguments alike', '@sentinel.intersects(root: @panel, root: @other)', '/query/arguments/1'],
             ['a path at the top level starting with a member', 'rect.width', '/query/target'],
-            ['a field of a top-level shape starting with a member', '{ width: rect.width }', '/query/fields/0/value/target'],
+            ['a field of a top-level object expression starting with a member', '{ width: rect.width }', '/query/fields/0/value/target'],
         ])('rejects %s, naming where', (_, text, pointer) => {
             const error = getError(() => Domql.parse(text));
 
@@ -327,7 +327,7 @@ describe('Domql', () => {
         });
 
         it('copies and freezes the definition it is given', () => {
-            const definition = { version: 1, query: { kind: 'shape', target: parameter('panel'), fields: [{ value: member('size') }] } };
+            const definition = { version: 2, query: { kind: 'object', target: parameter('panel'), fields: [{ value: member('size') }] } };
             const query = Domql.create(definition);
 
             definition.query.fields.push({ value: member('clientSize') });
@@ -337,18 +337,18 @@ describe('Domql', () => {
         });
 
         it.each([
-            ['a version other than 1', { version: 2, query: parameter('panel') }, '/version'],
-            ['a property no part has', { version: 1, query: { ...parameter('panel'), extra: true } }, '/query'],
-            ['an unknown kind', { version: 1, query: { kind: 'call', name: 'size' } }, '/query'],
-            ['a member without arguments', { version: 1, query: { kind: 'member', target: parameter('panel'), name: 'size' } }, '/query'],
-            ['a name that is no name', { version: 1, query: parameter('2panel') }, '/query/name'],
-            ['a name ending in a hyphen', { version: 1, query: parameter('panel-') }, '/query/name'],
-            ['a reserved literal naming a parameter', { version: 1, query: parameter('null') }, '/query/name'],
-            ['a reserved literal naming a member', { version: 1, query: member('true', [], parameter('panel')) }, '/query/name'],
-            ['a reserved literal naming a field', { version: 1, query: { kind: 'shape', target: parameter('panel'), fields: [{ name: 'false', value: member('size') }] } }, '/query/fields/0/name'],
-            ['a reserved literal naming an argument', { version: 1, query: member('rect', [{ name: 'null', value: parameter('other') }], parameter('panel')) }, '/query/arguments/0/name'],
-            ['a literal that is no JSON scalar', { version: 1, query: literal(Number.NaN) }, '/query/value'],
-            ['a shape whose fields are no array', { version: 1, query: { kind: 'shape', target: parameter('panel'), fields: {} } }, '/query/fields'],
+            ['a version other than 2', { version: 1, query: parameter('panel') }, '/version'],
+            ['a property no part has', { version: 2, query: { ...parameter('panel'), extra: true } }, '/query'],
+            ['an unknown kind', { version: 2, query: { kind: 'call', name: 'size' } }, '/query'],
+            ['a member without arguments', { version: 2, query: { kind: 'member', target: parameter('panel'), name: 'size' } }, '/query'],
+            ['a name that is no name', { version: 2, query: parameter('2panel') }, '/query/name'],
+            ['a name ending in a hyphen', { version: 2, query: parameter('panel-') }, '/query/name'],
+            ['a reserved literal naming a parameter', { version: 2, query: parameter('null') }, '/query/name'],
+            ['a reserved literal naming a member', { version: 2, query: member('true', [], parameter('panel')) }, '/query/name'],
+            ['a reserved literal naming a field', { version: 2, query: { kind: 'object', target: parameter('panel'), fields: [{ name: 'false', value: member('size') }] } }, '/query/fields/0/name'],
+            ['a reserved literal naming an argument', { version: 2, query: member('rect', [{ name: 'null', value: parameter('other') }], parameter('panel')) }, '/query/arguments/0/name'],
+            ['a literal that is no JSON scalar', { version: 2, query: literal(Number.NaN) }, '/query/value'],
+            ['an object expression whose fields are no array', { version: 2, query: { kind: 'object', target: parameter('panel'), fields: {} } }, '/query/fields'],
         ])('rejects %s, naming its node', (_, definition, pointer) => {
             const error = getError(() => Domql.create(definition));
 
@@ -1032,7 +1032,7 @@ describe('Domql runAsync', () => {
         expect(runs[0].signal.aborted).toBe(false);
     });
 
-    it('shapes the result by the shape that follows the action, as immutable data', async () => {
+    it('shapes the result by the object expression that follows the action, as immutable data', async () => {
         const result = await isolated.runAsync('@panel.pick { id: attributeOf "id" }', { panel });
 
         expect(result).toEqual({ id: 'first' });

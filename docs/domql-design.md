@@ -1,4 +1,4 @@
-# DOMQL Design v1.0.9
+# DOMQL Design v2.0.0
 
 The [DOMQL specification](domql-specification.md) defines the language. This design sets out how DOMQL runs and is used: how requests are built and prepared, how a read waits and a watch stays current, how results and changes are delivered, how occurrences hold their observations, and how modules extend the vocabulary.
 
@@ -8,7 +8,7 @@ This design describes the whole runtime. Building a query fluently, reading it o
 
 | Decision | Contract |
 | --- | --- |
-| A small language | Paths, shapes and lists, with literals and parameters. Arithmetic, conditions, ordering and anything else a query needs computed belongs to a member or to the caller. |
+| A small language | Chains, object expressions and lists, with literals and parameters. Arithmetic, conditions, ordering and anything else a query needs computed belongs to a member or to the caller. |
 | An open vocabulary | Everything a query can ask about is a member a vocabulary contributes; the built-in vocabulary and every extension follow one contract, and adding a member leaves the grammar unchanged. |
 | Queries read, requests act | Reading, watching or subscribing to a query reads the document and changes nothing, whatever vocabulary it uses; an action or a behavior request is a request of its own kind, carried out only when its caller runs or activates it. |
 | One meaning | A query evaluates the same way for every caller, however it was written. |
@@ -29,7 +29,7 @@ A maintained member is pending until its first sample arrives, as the specificat
 
 - **`readAsync`, and a watch's first snapshot,** wait for the first sample of every pending member they read, evaluating again as samples arrive, until an evaluation reads no pending member; only that result is delivered. The caller can cancel the wait, and a member that can produce no sample reports itself unavailable. The wait completes at the first evaluation that reads no pending member; dependencies that keep introducing pending members can keep it waiting until the caller cancels it.
 - **A maintained member a watch first reads after its first snapshot** is pending in the snapshot the watch reports, and the watch evaluates again when its first sample arrives.
-- **Inside an occurrence's shape,** a maintained member answers its latest sample, or null while pending, and is never waited for.
+- **Inside an occurrence's object expression,** a maintained member answers its latest sample, or null while pending, and is never waited for.
 
 ### Sessions
 
@@ -50,7 +50,7 @@ A watch's dependencies are what its last evaluation actually read, recorded as i
 - **Every evaluation records its dependencies afresh,** and the watch subscribes to the observations the new set names and releases the ones it no longer names. What a watch observes therefore follows the document: in `@table.all("tbody tr").max(rect.height)`, the watch depends on what the selector matches within the table, and on the height of each row it matched. A row added starts being observed after the evaluation the addition causes, and a row removed stops being observed.
 - **A value argument is a dependency of its own.** `@target.intersects(root: @panel)` depends on the intersection of the target with the panel; `intersects(root: parent)` also depends on which element is the parent, and a new parent is observed after the evaluation its change causes.
 - **An expression argument contributes its dependencies for every item** it was evaluated against.
-- **A path that met null depends on what it read before the null,** so `closest(".row")` finding nothing still depends on the ancestors it searched, and the watch evaluates again when one starts to match.
+- **A chain that met null depends on what it read before the null,** so `closest(".row")` finding nothing still depends on the ancestors it searched, and the watch evaluates again when one starts to match.
 - **A watch keeps its bindings.** Binding different values starts the watch afresh.
 
 Invalidation, evaluation and delivery each keep their own schedule. An observation invalidates the watch at once. The watch evaluates at the next animation frame, once however many observations fired, or immediately, in the task that reported the change, where its caller needs a change handled at the moment it is reported, such as at mutation delivery. When the caller receives the snapshot is the caller's own. Watches that depend on the same target through the same observation share one observation.
@@ -80,7 +80,7 @@ A watch keeps its result as cached state and hands its caller snapshots, change 
 A snapshot never changes once delivered. A new snapshot reuses every immutable branch that did not change and builds new ones only along the paths that did, and a caller taking change sets receives no full snapshot after its baseline. Live state is the one value that changes under its holder: reading it at two moments can give two results, so it is chosen explicitly and is never a snapshot.
 
 - **Baseline.** The first delivery is the complete result.
-- **Change sets.** A change set is a [JSON Patch](https://www.rfc-editor.org/rfc/rfc6902) document limited to `replace`, `add`, `remove` and `move`, whose paths are JSON Pointers into the result; applying it to the state it was computed against gives the new result. A field the change set leaves out is unchanged, and a field that became null is replaced with null. A shape's fields are fixed, so `add` and `remove` apply to list items alone.
+- **Change sets.** A change set is a [JSON Patch](https://www.rfc-editor.org/rfc/rfc6902) document limited to `replace`, `add`, `remove` and `move`, whose paths are JSON Pointers into the result; applying it to the state it was computed against gives the new result. A field the change set leaves out is unchanged, and a field that became null is replaced with null. An object expression's fields are fixed, so `add` and `remove` apply to list items alone.
 - **Lists.** A list whose items come from elements changes by element: an element entering is added, one leaving is removed, one changing position is moved, and one whose result changed is changed inside its item. Any other list changes by position.
 - **Coalescing.** Pending changes combine into one change set, computed against the state the change set in flight establishes once accepted, so it carries everything since that one, and changes that cancel out send nothing.
 - **Recovery.** Where the receiver's baseline cannot be trusted, after a failed delivery, a lost connection or a new target, the watch sends a fresh complete baseline.
@@ -112,9 +112,9 @@ A watch reports a snapshot that differs from the last one it reported, compared 
 
 ## Occurrence delivery
 
-An occurrence's shape is evaluated as the specification defines, and its result, immutable data, reaches the caller by the caller's own delivery.
+An occurrence's object expression is evaluated as the specification defines, and its result, immutable data, reaches the caller by the caller's own delivery.
 
-A maintained member in an occurrence's shape reads its latest sample, or null while it is pending, never waits for a later one and never revises a result already delivered:
+A maintained member in an occurrence's object expression reads its latest sample, or null while it is pending, never waits for a later one and never revises a result already delivered:
 
 ```
 @button.eventsOf("click") {
@@ -122,7 +122,7 @@ A maintained member in an occurrence's shape reads its latest sample, or null wh
 }
 ```
 
-The subscription holds the sessions its shapes acquire. After each successful evaluation it keeps the sessions that evaluation read and disposes the rest, so an observation one occurrence started serves the next: the first occurrence reports null for a member still pending, and a later one reads the sample that arrived meanwhile. A failed evaluation delivers no result and reports its failure; the subscription keeps the sessions it held before it and disposes those the failed attempt acquired. Ending the subscription disposes every session it holds, and an observation another holder still has a session on runs on.
+The subscription holds the sessions its object expressions acquire. After each successful evaluation it keeps the sessions that evaluation read and disposes the rest, so an observation one occurrence started serves the next: the first occurrence reports null for a member still pending, and a later one reads the sample that arrived meanwhile. A failed evaluation delivers no result and reports its failure; the subscription keeps the sessions it held before it and disposes those the failed attempt acquired. Ending the subscription disposes every session it holds, and an observation another holder still has a session on runs on.
 
 ## Modules
 
@@ -156,7 +156,7 @@ A module is given the capability it exposes, never an instance of it, since inst
 
 Preparation is authoritative: it validates every request against the vocabulary available before the request runs, whether text, a fluent builder or a definition produced it. Three properties keep validation open to editor tooling, such as analyzers and completion, which can follow without changing the language:
 
-- **Locations.** Text positions and definition-node locations are kept, so a diagnostic names the member, argument or shape that failed; the mapping from text to definition can be kept apart from the definition.
+- **Locations.** Text positions and definition-node locations are kept, so a diagnostic names the member, argument or object expression that failed; the mapping from text to definition can be kept apart from the definition.
 - **Declarative metadata.** A module's declarations are data, so a tool understands them without running a capability's implementation.
 - **Independent validation.** Structural and vocabulary validation run without a browser, given the metadata and the bindings' types.
 
@@ -255,20 +255,20 @@ DomqlQuery query = Domql.Parse(
     ("ids", Domql.Bind(Array.Empty<int>(), "list<number>")));
 ```
 
-With the bindings of the first example, the result is the following: a shape following the null `panel` is null, and `ids` is the empty list.
+With the bindings of the first example, the result is the following: an object expression following the null `panel` is null, and `ids` is the empty list.
 
 ```json
 { "panel": null, "ids": [] }
 ```
 
-A `DomqlQuery<T>` answers a `T`, mapped by its declared contract, which matches the result's fields to the constructor parameters of `T` by name regardless of case, so a field `nearend` fills a parameter `NearEnd`, and reports an ambiguity where two fields differ only in case, since DOMQL itself tells them apart; a `DomqlQuery` answers a `DomqlSnapshot` giving structured access to its values. C# has no fluent builder and no C# type standing for each vocabulary concept: a module contributes its declarations and implementations, and the text names what the query reads. A `TryParse` checks the syntax and the structural rules that need no vocabulary, an empty shape, a duplicate field and a reserved name among them; an expected failure there answers false with a diagnostic and no query, and a vocabulary failure, such as an unknown member, arrives when the query is prepared.
+A `DomqlQuery<T>` answers a `T`, mapped by its declared contract, which matches the result's fields to the constructor parameters of `T` by name regardless of case, so a field `nearend` fills a parameter `NearEnd`, and reports an ambiguity where two fields differ only in case, since DOMQL itself tells them apart; a `DomqlQuery` answers a `DomqlSnapshot` giving structured access to its values. C# has no fluent builder and no C# type standing for each vocabulary concept: a module contributes its declarations and implementations, and the text names what the query reads. A `TryParse` checks the syntax and the structural rules that need no vocabulary, an empty object expression, a duplicate field and a reserved name among them; an expected failure there answers false with a diagnostic and no query, and a vocabulary failure, such as an unknown member, arrives when the query is prepared.
 
 - **The builder.** `Domql.build(callback)` is the one entry point: it calls the callback once with a builder, `q`, and answers the query the callback's result describes, a `DomqlQuery` like any other. A query starts at `q.from`, as one starts at `from` in LINQ, and `from` is the builder's one word; `Domql` keeps its entry points alone.
-- **Targets.** `q.from(target)` starts a path at an element and binds it as a parameter, one parameter however often the same element is given. `q.from({ panel })` binds it under the name the object gives it, `panel`, so a caller who rebinds the definition through `create` uses the name it wrote; `q.from(panel)` binds it under a name the builder gives, `p1`, `p2` and so on in the order the build first meets each target. A typed binding is given where the value would be, `q.from({ panel: Domql.bind(null, 'element?') })`. `q.from(document)` and `q.from(window)` start at the roots, which stand for the document and the window the query is read in, as `@document` and `@window` do in text.
-- **Members.** A member is a property, and a member taking arguments is a method: `view.size`, `row.attributeOf("data-key")`. A builder spells a member by its DOMQL name, `row.attributeOf("data-key")` and `view.computedStyleOf("--x")`, with no conversion, and apart from the function that carries it out: renaming that function never changes the builder. A string, a number, a Boolean or null given as an argument is a literal, a path is the value it reaches, an element or other value is bound as a parameter, as a target is, and a plain object as the last argument gives arguments by name, as `{ root: panel }` does.
-- **Shapes.** `select` adds a shape, from a projection that receives the current value and returns an object whose properties are the shape's fields, in order. A field is an expression, a nested object, which is a shape following no value, or a string, a number or null written as it is; `q.from` inside a projection starts a path at another target, as a nested `from` does in LINQ.
+- **Targets.** `q.from(target)` starts a chain at an element and binds it as a parameter, one parameter however often the same element is given. `q.from({ panel })` binds it under the name the object gives it, `panel`, so a caller who rebinds the definition through `create` uses the name it wrote; `q.from(panel)` binds it under a name the builder gives, `p1`, `p2` and so on in the order the build first meets each target. A typed binding is given where the value would be, `q.from({ panel: Domql.bind(null, 'element?') })`. `q.from(document)` and `q.from(window)` start at the roots, which stand for the document and the window the query is read in, as `@document` and `@window` do in text.
+- **Members.** A member is a property, and a member taking arguments is a method: `view.size`, `row.attributeOf("data-key")`. A builder spells a member by its DOMQL name, `row.attributeOf("data-key")` and `view.computedStyleOf("--x")`, with no conversion, and apart from the function that carries it out: renaming that function never changes the builder. A string, a number, a Boolean or null given as an argument is a literal, a chain is the value it reaches, an element or other value is bound as a parameter, as a target is, and a plain object as the last argument gives arguments by name, as `{ root: panel }` does.
+- **Objects.** `select` adds an object expression, from a projection that receives the current value and returns an object whose properties are its fields, in order. A field is an expression, a nested object, which is an object expression following no value, or a string, a number or null written as it is; `q.from` inside a projection starts a chain at another target, as a nested `from` does in LINQ.
 - **Expression arguments.** A list member taking an expression, such as `where`, `max`, `min` or `sum`, takes a callback receiving the item.
-- **Tests.** `view.is("attached")` and `view.has("children")` build a predicate test of the value they follow, and their names are written as text writes them after `is` or `has`, so `view.is("disabled or readOnly")` is `is "disabled" or "readOnly"`, with `and` binding tighter and parentheses grouping.
+- **Predicates.** `view.is("attached")` and `view.has("children")` build a predicate expression of the value they follow, and their names are written as text writes them after `is` or `has`, so `view.is("disabled or readOnly")` is `is "disabled" or "readOnly"`, with `and` binding tighter and parentheses grouping.
 - **Checked as it is built.** `build` checks the definition's structure and resolves it against the vocabulary, so a misspelled member fails on the line that builds the query. A failure names the failing node as the DOMQL text that would write it, and the member it is an argument of, since a built query has no text of its own.
 - **Typed as it is built.** In TypeScript an expression is typed by the vocabulary type of its value, so an editor completes its members and refuses one it lacks, and `build` answers a `DomqlQuery<T>` whose `T` is the result the projection describes, which every call that takes the query carries on. The types of the built-in vocabulary are generated from its declarations; an expression whose type only resolution decides, such as a member a module adds, is a `DomqlUnresolvedExpression`, on which any member and any call answers another until resolution accepts or refuses it.
 - **Built again for nothing.** A query built again alike shares its definition with the first, and a resolution is kept for its definition and the types of its bindings, so a function that builds a query for its arguments resolves it once however many elements it is built for.
@@ -276,7 +276,7 @@ A `DomqlQuery<T>` answers a `T`, mapped by its declared contract, which matches 
 
 ### The fluent callback contract
 
-A fluent callback runs once, as the query is built, against expressions: each is a DOMQL expression, recorded as the definition node it is, and a member access or a supported call on it adds a node, and a projection object describes a shape. JavaScript's operators reach no property and make no call, so an expression records only what property reads and calls write; DOMQL has no operator of its own but the verbs and the `and` and `or` of a test, which the builder writes as calls, so every DOMQL expression can be built. It never runs against a live element, so native control flow over an expression decides nothing about the document:
+A fluent callback runs once, as the query is built, against expressions: each is a DOMQL expression, recorded as the definition node it is, and a member access or a supported call on it adds a node, and a projection object describes an object expression. JavaScript's operators reach no property and make no call, so an expression records only what property reads and calls write; DOMQL has no operator of its own but the verbs and the `and` and `or` of a predicate expression, which the builder writes as calls, so every DOMQL expression can be built. It never runs against a live element, so native control flow over an expression decides nothing about the document:
 
 ```js
 // Unsupported: the conditional runs while the query is built.
@@ -288,7 +288,7 @@ Domql.build(q => q.from(viewport).select(view => ({
 `view.is("attached")` is an expression, which JavaScript treats as truthy, so the first branch is recorded as though it were the whole expression. The builder's guarantee is bounded to what it can detect:
 
 - It refuses converting an expression into a number or a string, so arithmetic, concatenation and ordering comparisons fail as the query is built.
-- It accepts a projection field only as an expression, a nested shape, a string, a number or null, and refuses `true` and `false`, which `!` and `===` over an expression answer, so a Boolean literal field is written in text.
+- It accepts a projection field only as an expression, a nested object, a string, a number or null, and refuses `true` and `false`, which `!` and `===` over an expression answer, so a Boolean literal field is written in text.
 - `&&`, `||`, `?:` and other native branching over expressions are unsupported, and not every use of them can be detected.
 
 Any builder constructs the definition directly, never text for the parser to read again.

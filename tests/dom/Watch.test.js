@@ -861,9 +861,9 @@ describe('Watch', () => {
             expect(state).toEqual({ n: '1' });
         });
 
-        it('is refused for a result that is no shape or list, or that can be null', () => {
+        it('is refused for a result that is no object or list, or that can be null', () => {
             expect(() => watch('@panel.attributeOf("data-n")', { panel }, { updateStrategy: 'liveState' })).toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringContaining('Live state keeps one object current') }));
-            expect(() => watch('@item { n: attributeOf "data-n" }', { item: isolated.bind(null, 'element?') }, { updateStrategy: 'liveState' })).toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringContaining('put it in a top-level shape') }));
+            expect(() => watch('@item { n: attributeOf "data-n" }', { item: isolated.bind(null, 'element?') }, { updateStrategy: 'liveState' })).toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringContaining('put it in a top-level object expression') }));
         });
 
         it('is held only by a watch that keeps live state', async () => {

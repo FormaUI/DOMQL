@@ -28,7 +28,7 @@ export class QueryEvaluator {
     #environment;
     #locations;
 
-    /** The element each item of a list a shape projected came from, by the list it produced, for the evaluation in progress. @type {WeakMap<unknown[], (Element | null)[]>} */
+    /** The element each item of a list an object expression projected came from, by the list it produced, for the evaluation in progress. @type {WeakMap<unknown[], (Element | null)[]>} */
     #elementsOf = new WeakMap();
 
     /** What the evaluation in progress records, or null where none does. @type {{ observations: import('./Observations.mjs').Observations, onChange: () => void, holdsAll: boolean, replaces: QueryEvaluation[] | null, dependencies: object[], sessions: object[], held: Map<object, Map<unknown, object[]>> | null, unheld: object[], isPending: boolean } | null} */
@@ -110,8 +110,8 @@ export class QueryEvaluator {
     }
 
     /**
-     * The result of an action, checked against the type the action declares and shaped by the shape that follows it, if one does: an immutable snapshot containing no live DOM references.
-     * The shape is evaluated as a read evaluates a query, so a member maintained by an observation fails it. A result of another type, or a shape that fails, throws an evaluation error.
+     * The result of an action, checked against the type the action declares and read through the object expression that follows it, if one does: an immutable snapshot containing no live DOM references.
+     * The object expression is evaluated as a read evaluates a query, so a member maintained by an observation fails it. A result of another type, or an object expression that fails, throws an evaluation error.
      * @param {unknown} result What the action's function answered, or null for an action that was not run, since its receiver or an argument was null.
      * @param {{ wasRun?: boolean }} [run] Whether the action was run, so its result is checked against the type it declares.
      */
@@ -156,7 +156,7 @@ export class QueryEvaluator {
     }
 
     /**
-     * Evaluates the shape that follows the occurrence source against one occurrence, as its source captured it, and records the observations its maintained members read.
+     * Evaluates the object expression that follows the occurrence source against one occurrence, as its source captured it, and records the observations its maintained members read.
      * A maintained member answers its latest sample, or null while the sample is pending, and is never waited for; the evaluation holds the sessions that keep its samples, so the caller keeps them for the next occurrence and disposes the evaluation once it has the next one. A failure ends the evaluation without throwing.
      * @param {unknown} occurrence The occurrence, as `capture` answered it.
      * @param {object} recording Where the dependencies are observed.
@@ -230,17 +230,17 @@ export class QueryEvaluator {
             case 'member':
                 return this.#member(node, current);
             case 'predicate':
-                return this.#test(node, current);
+                return this.#predicate(node, current);
             default:
-                return this.#shape(node, current);
+                return this.#object(node, current);
         }
     }
 
-    /** Tests the subject, evaluated once, against the predicates the test reaches; a test of null is null. */
-    #test(node, current) {
+    /** Tests the subject, evaluated once, against the predicates the predicate expression reaches; a predicate expression of null is null. */
+    #predicate(node, current) {
         const subject = node.target === undefined ? current : this.#evaluate(node.target, current);
 
-        return subject === null ? null : this.#holds(node.test, subject);
+        return subject === null ? null : this.#holds(node.names, subject);
     }
 
     /** Whether the names hold of the subject: an and stops at the first that does not, an or at the first that does, so a predicate the result does not need is never read. */
@@ -318,7 +318,7 @@ export class QueryEvaluator {
         return args;
     }
 
-    /** Follows the path a get names, each step from the value before it, answering null from the first null. */
+    /** Follows the chain of names a get reads, each step from the value before it, answering null from the first null. */
     #follow(steps, receiver, node) {
         let value = receiver;
 
@@ -501,12 +501,12 @@ export class QueryEvaluator {
         }
     }
 
-    /** The member a subscription, an action or a behavior request ends in, and where it stands: the shapes of a request each follow the one before, and the first follows that member. */
+    /** The member a subscription, an action or a behavior request ends in, and where it stands: the object expressions of a request each follow the one before, and the first follows that member. */
     #endNode() {
         let node = this.#resolvedDefinition.definition.query;
         let pointer = '/query';
 
-        while (node.kind === 'shape') {
+        while (node.kind === 'object') {
             node = node.target;
             pointer = `${pointer}/target`;
         }
@@ -546,7 +546,7 @@ export class QueryEvaluator {
         return captured;
     }
 
-    #shape(node, current) {
+    #object(node, current) {
         const hasTarget = node.target !== undefined;
         const target = hasTarget ? this.#evaluate(node.target, current) : current;
         const apply = item => item === null && hasTarget
@@ -567,7 +567,7 @@ export class QueryEvaluator {
         return items;
     }
 
-    /** The object a shape gives the item: each of its fields, in order, under its name, evaluated against the item. */
+    /** The object an object expression gives the item: each of its fields, in order, under its name, evaluated against the item. */
     #fieldsOf(node, item) {
         const names = this.#resolvedDefinition.fieldNamesOf(node);
         const object = {};
@@ -592,7 +592,7 @@ export class QueryEvaluator {
                 return true;
             case 'list':
                 return Array.isArray(value) && QueryEvaluator.#holeOf(value) === -1 && value.every(item => this.#conforms(item, type.item));
-            case 'shape':
+            case 'object':
                 return QueryEvaluator.#isRecord(value) && [...type.fields].every(([name, field]) => this.#conforms(value[name], field));
             default:
                 return this.#conformsNamed(value, type.name);
@@ -694,7 +694,7 @@ export class QueryEvaluator {
     }
 
     /**
-     * A frozen copy of the data sharing no structure with the original; the identities that follow its shape are left in `#detachedIdentities`: for a list projected from elements, the element each item came from, and null where nothing beneath holds one.
+     * A frozen copy of the data sharing no structure with the original; the identities that follow its structure are left in `#detachedIdentities`: for a list projected from elements, the element each item came from, and null where nothing beneath holds one.
      */
     #detach(value) {
         if (Array.isArray(value)) {

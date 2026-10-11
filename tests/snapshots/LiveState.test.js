@@ -10,7 +10,7 @@ const freeze = value => (Array.isArray(value)
 /** Elements that stand for themselves, by which a projected list is matched. */
 const elements = (...names) => names.map(name => ({ nodeType: 1, name }));
 
-/** The identities of a top-level shape whose field `rows` was projected from the elements. */
+/** The identities of a top-level object whose field `rows` was projected from the elements. */
 const rowsOf = rowElements => ({ fields: { rows: { elements: rowElements, items: rowElements.map(() => null) } } });
 
 describe('LiveState', () => {

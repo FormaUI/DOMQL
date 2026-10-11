@@ -40,20 +40,20 @@ export class Parser {
         return { definition: { version: Specification.definitionVersion, query }, spans: this.#spans };
     }
 
-    /** Reads a value: a path, a path followed by a test of its value, or a test of the current value. */
+    /** Reads a value: a chain, a chain followed by a predicate expression of its value, or a predicate expression of the current value. */
     #parseValue() {
         const start = this.#token.start;
 
         if (this.#isVerb()) {
-            return this.#parseTest(null, start);
+            return this.#parsePredicate(null, start);
         }
 
-        const path = this.#parsePath();
+        const chain = this.#parseChain();
 
-        return this.#isVerb() ? this.#parseTest(path, start) : path;
+        return this.#isVerb() ? this.#parsePredicate(chain, start) : chain;
     }
 
-    #parsePath() {
+    #parseChain() {
         const start = this.#token.start;
         let node;
 
@@ -62,16 +62,16 @@ export class Parser {
 
             node = member;
 
-            // A member whose arguments follow it without parentheses is a phrase, which ends its path.
+            // A member whose arguments follow it without parentheses is a phrase, which ends its chain.
             if (isPhrase) {
                 if (this.#token.type === '.' || this.#token.type === '{') {
-                    throw DomqlError.syntax('A member whose arguments are not in parentheses ends its path; put them in parentheses to continue from its result', this.#text, this.#token.start);
+                    throw DomqlError.syntax('A member whose arguments are not in parentheses ends its chain; put them in parentheses to continue from its result', this.#text, this.#token.start);
                 }
 
                 return node;
             }
         } else {
-            node = this.#parseStart();
+            node = this.#parseInitial();
         }
 
         for (;;) {
@@ -84,14 +84,14 @@ export class Parser {
 
                 node = this.#parseMember(node, start, false).member;
             } else if (this.#token.type === '{') {
-                node = this.#parseShape(node, start);
+                node = this.#parseObject(node, start);
             } else {
                 return node;
             }
         }
     }
 
-    #parseStart() {
+    #parseInitial() {
         const token = this.#token;
 
         switch (token.type) {
@@ -106,7 +106,7 @@ export class Parser {
 
                 return this.#span({ kind: 'literal', value: token.value }, token.start);
             case '{':
-                return this.#parseShape(null, token.start);
+                return this.#parseObject(null, token.start);
             default:
                 throw this.#unexpected('a value');
         }
@@ -126,8 +126,8 @@ export class Parser {
         return this.#span({ kind: 'parameter', name: name.value }, token.start);
     }
 
-    /** Reads a member: a name, and its arguments in parentheses or, where it starts a path, without them, which makes it a phrase. */
-    #parseMember(target, start, startsPath) {
+    /** Reads a member: a name, and its arguments in parentheses or, where it starts a chain, without them, which makes it a phrase. */
+    #parseMember(target, start, startsChain) {
         const name = this.#expect('name');
         const member = target ? { kind: 'member', target, name: name.value, arguments: [] } : { kind: 'member', name: name.value, arguments: [] };
         let isPhrase = false;
@@ -136,7 +136,7 @@ export class Parser {
             this.#advance();
             this.#parseList(')', () => member.arguments.push(this.#parseEntry()));
         } else if (this.#token.type === 'literal' || this.#token.type === '@') {
-            if (!startsPath) {
+            if (!startsChain) {
                 throw DomqlError.syntax(`Arguments after a dot are enclosed in parentheses: write '${name.value}(…)'`, this.#text, this.#token.start);
             }
 
@@ -152,14 +152,14 @@ export class Parser {
         return { member: this.#span(member, start), isPhrase };
     }
 
-    /** Reads a test: its verb and the predicate names it reads, combined with `and` and `or`, of the subject's value or, without one, of the current value. */
-    #parseTest(subject, start) {
+    /** Reads a predicate expression: its verb and the predicate names it reads, combined with `and` and `or`, of the subject's value or, without one, of the current value. */
+    #parsePredicate(subject, start) {
         const verb = this.#token.value;
 
         this.#advance();
 
-        const test = this.#parseCombination('or', () => this.#parseCombination('and', () => this.#parseOperand(verb)));
-        const node = subject ? { kind: 'predicate', verb, target: subject, test } : { kind: 'predicate', verb, test };
+        const names = this.#parseCombination('or', () => this.#parseCombination('and', () => this.#parseOperand(verb)));
+        const node = subject ? { kind: 'predicate', verb, target: subject, names } : { kind: 'predicate', verb, names };
 
         return this.#span(node, start);
     }
@@ -208,16 +208,16 @@ export class Parser {
         }
 
         if (this.#isVerb()) {
-            throw DomqlError.syntax(`A test uses one verb: this one reads its names under '${verb}', and '${token.value}' cannot join it`, this.#text, token.start);
+            throw DomqlError.syntax(`A predicate expression uses one verb: this one reads its names under '${verb}', and '${token.value}' cannot join it`, this.#text, token.start);
         }
 
         throw this.#unexpected('a predicate named by a string or a parameter');
     }
 
-    #parseShape(target, start) {
+    #parseObject(target, start) {
         this.#expect('{');
 
-        const node = target ? { kind: 'shape', target, fields: [] } : { kind: 'shape', fields: [] };
+        const node = target ? { kind: 'object', target, fields: [] } : { kind: 'object', fields: [] };
         this.#parseList('}', () => node.fields.push(this.#parseEntry()));
 
         return this.#span(node, start);

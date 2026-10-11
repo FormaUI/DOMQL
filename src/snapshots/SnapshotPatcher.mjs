@@ -3,7 +3,7 @@
  */
 
 /**
- * The elements a result's lists were projected from, following the result's shape: a list projected from elements holds the element of each item, and a part that holds no such list is null.
+ * The elements a result's lists were projected from, following the result's structure: a list projected from elements holds the element of each item, and a part that holds no such list is null.
  * The result never holds them, and neither does a change set; they tell two items apart that project to the same data.
  * @typedef {{ elements: (Element | null)[] | null, items: Identities[] } | { fields: Record<string, Identities> } | null} Identities
  */

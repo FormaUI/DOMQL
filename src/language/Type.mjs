@@ -1,5 +1,5 @@
 /**
- * Type — a DOMQL type: a named type, a list, an occurrence source, a shape or a type variable, each nullable or not
+ * Type — a DOMQL type: a named type, a list, an occurrence source, an object type or a type variable, each nullable or not
  */
 
 const NAME = /^@?[A-Za-z][A-Za-z0-9]*$/;
@@ -9,7 +9,7 @@ export class Type {
     /** @type {Map<string, Type | null>} */
     static #parsed = new Map();
 
-    /** The type's kind: named, list, occurrence, shape, variable or null. */
+    /** The type's kind: named, list, occurrence, object, variable or null. */
     kind;
 
     /** The type's name, for a named type or a variable. */
@@ -18,7 +18,7 @@ export class Type {
     /** The type of a list's or an occurrence's items. */
     item;
 
-    /** A shape's fields by name. */
+    /** An object type's fields by name. */
     fields;
 
     /** Whether the type admits null. */
@@ -57,9 +57,9 @@ export class Type {
         return new Type('occurrence', { item, isNullable });
     }
 
-    /** The shape of the fields, by name. */
-    static shape(fields, isNullable = false) {
-        return new Type('shape', { fields, isNullable });
+    /** The object type of the fields, by name. */
+    static object(fields, isNullable = false) {
+        return new Type('object', { fields, isNullable });
     }
 
     /** The type of a written null. */
@@ -105,7 +105,7 @@ export class Type {
             case 'occurrence':
                 text = `${this.kind}<${this.item}>`;
                 break;
-            case 'shape':
+            case 'object':
                 text = `{ ${[...this.fields].map(([name, field]) => `${name}: ${field}`).join(', ')} }`;
                 break;
             case 'null':
@@ -117,7 +117,7 @@ export class Type {
         return this.isNullable ? `${text}?` : text;
     }
 
-    /** Matches a pattern's variables against the type, binding each to the part it stands for, or answers false where the shapes differ. */
+    /** Matches a pattern's variables against the type, binding each to the part it stands for, or answers false where their structures differ. */
     static unify(pattern, actual, bindings) {
         if (pattern.kind === 'variable') {
             const bound = bindings.get(pattern.name);

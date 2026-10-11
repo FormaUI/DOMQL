@@ -320,8 +320,8 @@ export class Domql {
         const resolved = Domql.#resolveFor(WATCH, query, { watch: true, acceptPartialObservation: acceptPartialObservation === true });
 
         // Live state is one object that keeps its identity, which null and a single value have none of.
-        if (updateStrategy === 'liveState' && (resolved.type.isNullable || (resolved.type.kind !== 'shape' && resolved.type.kind !== 'list'))) {
-            throw DomqlError.validation(`Live state keeps one object current, so its result is a shape or a list that is never null, and this one is ${resolved.type}; put it in a top-level shape`, ParsedTexts.locationsOf(query.definition)?.locate('/query') ?? { pointer: '/query' });
+        if (updateStrategy === 'liveState' && (resolved.type.isNullable || (resolved.type.kind !== 'object' && resolved.type.kind !== 'list'))) {
+            throw DomqlError.validation(`Live state keeps one object current, so its result is an object or a list that is never null, and this one is ${resolved.type}; put it in a top-level object expression`, ParsedTexts.locationsOf(query.definition)?.locate('/query') ?? { pointer: '/query' });
         }
         const evaluator = Domql.#createEvaluator(query, resolved, window);
 
@@ -341,7 +341,7 @@ export class Domql {
 
     /**
      * Subscribes to an event source and passes each projected result to `onEvent`. Returns the event listener, which listens from the call on, so an event that follows the call is heard; a source that cannot start fails the call.
-     * Each result is the shape that follows the source, evaluated against the event in the task the event is delivered in. The source's receiver and arguments are evaluated once, as listening starts.
+     * Each result is the object expression that follows the source, evaluated against the event in the task the event is delivered in. The source's receiver and arguments are evaluated once, as listening starts.
      *
      * @overload
      * @param {string} text The subscription text, parsed as `parse` parses it, through the same cache.
@@ -375,7 +375,7 @@ export class Domql {
     }
 
     /**
-     * Runs an action once and returns a promise of its result, an immutable snapshot containing no live DOM references, shaped by the shape that follows the action where one does.
+     * Runs an action once and returns a promise of its result, an immutable snapshot containing no live DOM references, read through the object expression that follows the action where one does.
      * The receiver and arguments are evaluated first; a failure there rejects and runs nothing, and where one of them is null the action is not run and its result is null. The action's function receives the signal, and may return its result or a promise of it, which must be of the type the action declares.
      * A failure of the action rejects with an evaluation error whose cause is what it threw. A signal that aborts rejects with its reason at once; the action learns of it through the signal, its result is then discarded, and a failure it reports afterwards goes to the window's error reporting. DOMQL never undoes what an action changed.
      *

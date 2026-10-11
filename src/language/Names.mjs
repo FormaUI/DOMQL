@@ -16,12 +16,12 @@ export class Names {
 
     /** The name a field holding the value infers, as the definition spells it, or null where it infers none. */
     static inferField(value) {
-        if (value.kind === 'shape') {
+        if (value.kind === 'object') {
             return value.target ? Names.inferField(value.target) : null;
         }
 
         if (value.kind === 'predicate') {
-            return Names.#lastSegment(value.test);
+            return Names.#lastSegment(value.names);
         }
 
         if (value.kind !== 'member') {

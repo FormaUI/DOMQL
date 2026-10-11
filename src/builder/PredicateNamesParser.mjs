@@ -1,5 +1,5 @@
 /**
- * PredicateNamesParser — reads the predicate names of a built test from text, as DOMQL text writes them after `is` or `has`: names joined by `and` and `or`, `and` binding tighter, parentheses grouping
+ * PredicateNamesParser — reads the predicate names of a built predicate expression from text, as DOMQL text writes them after `is` or `has`: names joined by `and` and `or`, `and` binding tighter, parentheses grouping
  */
 
 import { DomqlError } from '../language/DomqlError.mjs';
@@ -7,7 +7,7 @@ import { DomqlError } from '../language/DomqlError.mjs';
 /** A name, an operator or a parenthesis. */
 const TOKEN = /\s*(\(|\)|[A-Za-z][A-Za-z0-9]*)/y;
 
-/** The words a test joins its names with, which no name can be. */
+/** The words a predicate expression joins its names with, which no name can be. */
 const OPERATORS = new Set(['and', 'or']);
 
 export class PredicateNamesParser {
@@ -22,19 +22,19 @@ export class PredicateNamesParser {
     }
 
     /**
-     * The names as a definition writes a test's names: a literal for each name, and an and or an or of two or more.
+     * The names as a definition writes a predicate expression's names: a literal for each name, and an and or an or of two or more.
      * @param {string} text The names, as `disabled or readOnly`.
      */
     static parse(text) {
         if (typeof text !== 'string') {
-            throw DomqlError.structure('A test names its predicates as text, as `is("disabled or readOnly")`', {});
+            throw DomqlError.structure('A predicate expression names its predicates as text, as `is("disabled or readOnly")`', {});
         }
 
         const names = new PredicateNamesParser(text);
         const node = names.#parseCombination('or');
 
         if (names.#position < names.#tokens.length) {
-            names.#fail(`'${names.#tokens[names.#position]}' follows a complete test`);
+            names.#fail(`'${names.#tokens[names.#position]}' follows a complete predicate expression`);
         }
 
         return node;
@@ -54,7 +54,7 @@ export class PredicateNamesParser {
                     break;
                 }
 
-                throw DomqlError.structure(`The test '${text}' names its predicates by names, and, or and parentheses`, {});
+                throw DomqlError.structure(`The predicate expression '${text}' names its predicates by names, and, or and parentheses`, {});
             }
 
             tokens.push(match[1]);
@@ -103,6 +103,6 @@ export class PredicateNamesParser {
     }
 
     #fail(problem) {
-        throw DomqlError.structure(`The test '${this.#text}' cannot be read: ${problem}`, {});
+        throw DomqlError.structure(`The predicate expression '${this.#text}' cannot be read: ${problem}`, {});
     }
 }

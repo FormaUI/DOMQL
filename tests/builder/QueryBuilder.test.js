@@ -34,9 +34,9 @@ describe('QueryBuilder', () => {
             ['a member called with an argument', '@p1.attributeOf("data-key")', { p1: panel }, q => q.from(panel).attributeOf('data-key')],
             ['arguments by name, an element among them bound', '@p1.intersects(root: @p2, margin: 10)', { p1: panel, p2: other }, q => q.from(panel).intersects({ root: other, margin: 10 })],
             ['arguments by position, then by name', '@p1.intersects(@p2, margin: 5)', { p1: panel, p2: other }, q => q.from(panel).intersects(other, { margin: 5 })],
-            ['a shape of a value', '@p1 { size: size, key: attributeOf("data-key") }', { p1: panel }, q => q.from(panel).select(view => ({ size: view.size, key: view.attributeOf('data-key') }))],
-            ['a nested shape and literal fields', '@p1 { box: { width: size.width }, kind: "panel", rank: 3, none: null }', { p1: panel }, q => q.from(panel).select(view => ({ box: { width: view.size.width }, kind: 'panel', rank: 3, none: null }))],
-            ['a shape of each item of a list', '@p1.children { id: attributeOf("id") }', { p1: panel }, q => q.from(panel).children.select(item => ({ id: item.attributeOf('id') }))],
+            ['an object expression of a value', '@p1 { size: size, key: attributeOf("data-key") }', { p1: panel }, q => q.from(panel).select(view => ({ size: view.size, key: view.attributeOf('data-key') }))],
+            ['a nested object and literal fields', '@p1 { box: { width: size.width }, kind: "panel", rank: 3, none: null }', { p1: panel }, q => q.from(panel).select(view => ({ box: { width: view.size.width }, kind: 'panel', rank: 3, none: null }))],
+            ['an object expression of each item of a list', '@p1.children { id: attributeOf("id") }', { p1: panel }, q => q.from(panel).children.select(item => ({ id: item.attributeOf('id') }))],
             ['expressions over the items of a list', '@document { attached: @p1.children.where(is "attached").count, widest: @p1.children.max(size.width), total: @p1.children.sum(size.width), narrowest: @p1.children.min(size.width) }', { p1: panel },
                 q => q.from(document).select(() => ({
                     attached: q.from(panel).children.where(item => item.is('attached')).count,
@@ -124,7 +124,7 @@ describe('QueryBuilder', () => {
             expect(getError(() => Domql.build(q => q.from(panel).attributeOf('id')('class')))).toMatchObject({ kind: 'structure', message: expect.stringContaining('Only a member is called, and once') });
         });
 
-        it('refuses a test whose names cannot be read', () => {
+        it('refuses a predicate expression whose names cannot be read', () => {
             expect(getError(() => Domql.build(q => q.from(panel).is('attached or')))).toMatchObject({ kind: 'structure', message: expect.stringContaining('it ends where a name should be') });
             expect(getError(() => Domql.build(q => q.from(panel).is('(attached')))).toMatchObject({ kind: 'structure', message: expect.stringContaining('never closed') });
             expect(getError(() => Domql.build(q => q.from(panel).is('a-b')))).toMatchObject({ kind: 'structure' });
@@ -140,7 +140,7 @@ describe('QueryBuilder', () => {
             expect(error.message).toContain('in `intersect(root: @p2)`, an argument of `where`');
         });
 
-        it('names a misspelled member of a path by the path that reaches it', () => {
+        it('names a misspelled member of a chain by the chain that reaches it', () => {
             const error = getError(() => Domql.build(q => q.from(panel).sise.width));
 
             expect(error).toMatchObject({ kind: 'validation', location: { text: '@p1.sise' } });

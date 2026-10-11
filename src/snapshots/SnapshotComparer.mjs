@@ -24,7 +24,7 @@ export class SnapshotComparer {
     }
 
     #reconcileNode(node, previous, previousIdentities, next, nextIdentities) {
-        if (node.kind !== 'shape' || next === null || typeof next !== 'object') {
+        if (node.kind !== 'object' || next === null || typeof next !== 'object') {
             return SnapshotComparer.#merge(previous, next, this.#toleranceOf(node));
         }
 
@@ -32,7 +32,7 @@ export class SnapshotComparer {
             return this.#reconcileFields(node, previous, previousIdentities, next, nextIdentities);
         }
 
-        // A shape that follows a list projects each of its items, which are matched by element where the list was projected from elements and by position otherwise.
+        // An object expression that follows a list projects each of its items, which are matched by element where the list was projected from elements and by position otherwise.
         const before = Array.isArray(previous) ? previous : [];
         const matched = SnapshotComparer.#matchByElement(previousIdentities, before.length, nextIdentities, next.length);
         const items = next.map((item, index) => {

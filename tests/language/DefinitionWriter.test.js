@@ -20,7 +20,7 @@ describe('DefinitionWriter', () => {
         expect(Domql.parse(DefinitionWriter.write(definition.query), { panel }).definition).toEqual(definition);
     });
 
-    it('writes a member by its path and its arguments, by name where they are named', () => {
+    it('writes a member by its chain and its arguments, by name where they are named', () => {
         const { definition } = Domql.parse('@panel.intersects(@panel, margin: 5)', { panel });
 
         expect(DefinitionWriter.write(definition.query)).toBe('@panel.intersects(@panel, margin: 5)');

@@ -22,7 +22,7 @@ export class DefinitionWriter {
             case 'predicate': {
                 const target = node.target === undefined ? '' : `${DefinitionWriter.write(node.target)} `;
 
-                return `${target}${node.verb} ${DefinitionWriter.#names(node.test, null)}`;
+                return `${target}${node.verb} ${DefinitionWriter.#names(node.names, null)}`;
             }
             default: {
                 const target = node.target === undefined ? '' : `${DefinitionWriter.write(node.target)} `;
@@ -36,7 +36,7 @@ export class DefinitionWriter {
         return entry.name === undefined ? DefinitionWriter.write(entry.value) : `${entry.name}: ${DefinitionWriter.write(entry.value)}`;
     }
 
-    /** The names a test reads, an or inside an and in parentheses, since and binds tighter. */
+    /** The names a predicate expression reads, an or inside an and in parentheses, since and binds tighter. */
     static #names(node, within) {
         if (node.kind !== 'and' && node.kind !== 'or') {
             return DefinitionWriter.write(node);

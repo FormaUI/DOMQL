@@ -38,8 +38,8 @@ describe('Type', () => {
             expect(Type.parse(text).toString()).toBe(text);
         });
 
-        it('writes a shape by its fields', () => {
-            expect(Type.shape(new Map([['width', Type.named('number')]])).toString()).toBe('{ width: number }');
+        it('writes an object type by its fields', () => {
+            expect(Type.object(new Map([['width', Type.named('number')]])).toString()).toBe('{ width: number }');
         });
     });
 

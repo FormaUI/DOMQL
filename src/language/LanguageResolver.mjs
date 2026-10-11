@@ -42,7 +42,7 @@ export class LanguageResolver {
         const resultType = result.kind === 'subscription' && result.type.kind === 'occurrence' ? result.type.item : result.type;
 
         if (result.kind !== 'behavior' && !this.#isData(resultType)) {
-            this.#fail(`The result would hold ${resultType}, which is no data; shape it into the facts it needs`, '/query');
+            this.#fail(`The result would hold ${resultType}, which is no data; read the facts it needs through an object expression`, '/query');
         }
 
         if (this.#options.watch === true && result.kind === 'query') {
@@ -61,14 +61,14 @@ export class LanguageResolver {
             case 'member':
                 return this.#member(node, pointer, scope);
             case 'predicate':
-                return this.#test(node, pointer, scope);
+                return this.#predicate(node, pointer, scope);
             default:
-                return this.#shape(node, pointer, scope);
+                return this.#object(node, pointer, scope);
         }
     }
 
-    /** Resolves a test: its subject, and every predicate name it reads, each under its verb and against the subject's type. */
-    #test(node, pointer, scope) {
+    /** Resolves a predicate expression: its subject, and every predicate name it reads, each under its verb and against the subject's type. */
+    #predicate(node, pointer, scope) {
         const { verb } = node;
         const subject = node.target === undefined ? { type: scope.current, kind: 'query' } : this.#node(node.target, `${pointer}/target`, scope);
 
@@ -84,14 +84,14 @@ export class LanguageResolver {
             this.#fail(`'${verb}' tests null, which no predicate applies to`, pointer);
         }
 
-        this.#resolveNames(node.test, `${pointer}/test`, verb, subject.type);
+        this.#resolveNames(node.names, `${pointer}/names`, verb, subject.type);
 
         const type = Type.named('boolean');
 
         return { type: subject.type.isNullable ? type.toNullable() : type, kind: 'query', isFixed: false };
     }
 
-    /** Resolves each predicate name a test reads, every branch of an and or an or included, so a test is validated whole before any of it is evaluated. */
+    /** Resolves each predicate name a predicate expression reads, every branch of an and or an or included, so one is validated whole before any of it is evaluated. */
     #resolveNames(node, pointer, verb, subjectType) {
         if (node.kind === 'and' || node.kind === 'or') {
             node.operands.forEach((operand, index) => this.#resolveNames(operand, `${pointer}/operands/${index}`, verb, subjectType));
@@ -347,7 +347,7 @@ export class LanguageResolver {
         }
     }
 
-    /** Resolves the path a get names, each segment against the type before it, answering the type of the last. */
+    /** Resolves the chain of names a get reads, each segment against the type before it, answering the type of the last. */
     #selectMember(receiverType, path, pointer) {
         let current = receiverType;
         let isNullable = false;
@@ -382,21 +382,21 @@ export class LanguageResolver {
         return { selected: { name: path, type: isNullable ? current.toNullable() : current }, steps };
     }
 
-    #shape(node, pointer, scope) {
+    #object(node, pointer, scope) {
         const target = node.target === undefined ? null : this.#node(node.target, `${pointer}/target`, scope);
 
         if (target?.kind === 'behavior') {
-            this.#fail('A behavior request ends its path and takes no shape', pointer);
+            this.#fail('A behavior request ends its chain and takes no object expression', pointer);
         }
 
-        // A shape that follows an action shapes its result, and the request stays an action.
+        // An object expression that follows an action shapes its result, and the request stays an action.
         const kind = target?.kind === 'action' ? 'action' : 'query';
 
         let current = scope.current;
 
         if (target !== null) {
             if (target.type.kind === 'null') {
-                this.#fail('A shape follows null, which has no value to shape', pointer);
+                this.#fail('An object expression follows null, which has no value to read fields of', pointer);
             }
 
             current = target.type.kind === 'list' || target.type.kind === 'occurrence' ? target.type.item.toNonNullable() : target.type.toNonNullable();
@@ -414,24 +414,24 @@ export class LanguageResolver {
             }
 
             if (!this.#isData(result.type)) {
-                this.#fail(`The field '${name}' would hold ${result.type}, which is no data; shape it into the facts it needs`, `${fieldPointer}/value`);
+                this.#fail(`The field '${name}' would hold ${result.type}, which is no data; read the facts it needs through an object expression`, `${fieldPointer}/value`);
             }
 
             fields.set(name, result.type);
         });
 
-        const shape = Type.shape(fields);
+        const object = Type.object(fields);
         const isNullable = target?.type.isNullable === true;
 
         if (target?.type.kind === 'list') {
-            return { type: Type.list(shape, isNullable), kind, isFixed: false };
+            return { type: Type.list(object, isNullable), kind, isFixed: false };
         }
 
         if (target?.type.kind === 'occurrence') {
-            return { type: Type.occurrence(shape, isNullable), kind: 'subscription', isFixed: false };
+            return { type: Type.occurrence(object, isNullable), kind: 'subscription', isFixed: false };
         }
 
-        return { type: isNullable ? shape.toNullable() : shape, kind, isFixed: false };
+        return { type: isNullable ? object.toNullable() : object, kind, isFixed: false };
     }
 
     #checkWatch() {
@@ -450,9 +450,9 @@ export class LanguageResolver {
         }
     }
 
-    /** The field a structured or shaped type declares under the name, or null. */
+    /** The field a structured type or an object type declares under the name, or null. */
     #getField(type, name) {
-        if (type.kind === 'shape') {
+        if (type.kind === 'object') {
             return type.fields.get(name) ?? null;
         }
 
@@ -468,7 +468,7 @@ export class LanguageResolver {
                 return true;
             case 'list':
                 return this.#isData(type.item);
-            case 'shape':
+            case 'object':
                 return [...type.fields.values()].every(field => this.#isData(field));
             case 'named': {
                 if (DATA.has(type.name)) {
@@ -522,7 +522,7 @@ export class LanguageResolver {
 
         return [on].flat().some(text => {
             if (text === 'any') {
-                return base.kind === 'named' || base.kind === 'list' || base.kind === 'shape';
+                return base.kind === 'named' || base.kind === 'list' || base.kind === 'object';
             }
 
             return Type.unify(Type.parse(text), base, bindings);
@@ -537,7 +537,7 @@ export class LanguageResolver {
                 type = Type.list(LanguageResolver.#toType(binding.item));
                 break;
             case 'object':
-                type = Type.shape(new Map([...binding.fields].map(([name, field]) => [name, LanguageResolver.#toType(field)])));
+                type = Type.object(new Map([...binding.fields].map(([name, field]) => [name, LanguageResolver.#toType(field)])));
                 break;
             default:
                 type = Type.named(binding.kind);

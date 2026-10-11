@@ -115,7 +115,7 @@ describe('SnapshotComparer', () => {
             expect(next[1]).not.toBe(previous[0]);
         });
 
-        it('compares the items of a shape over a list', () => {
+        it('compares the items of an object expression over a list', () => {
             const snapshotComparer = snapshotComparerOf('@element.children { key: attributeOf "key" }', { element });
             const previous = freeze([{ key: 'a' }, null]);
 

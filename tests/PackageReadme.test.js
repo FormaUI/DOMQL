@@ -34,9 +34,9 @@ const examples = [
     { file: '06-live-state.js', observed: 'printed', answers: [['1'], ['2']] },
     { file: '07-subscribe.js', observed: 'printed', answers: [["'a2'"]] },
     { file: '08-paths.js', observed: 'reads', answers: [['3'], ['3'], ['true']] },
-    { file: '09-shapes.js', observed: 'reads', answers: [['{ count: 3, attached: true, children: true }']] },
+    { file: '09-objects.js', observed: 'reads', answers: [['{ count: 3, attached: true, children: true }']] },
     {
-        file: '10-shapes-of-lists.js',
+        file: '10-objects-of-lists.js',
         observed: 'reads',
         answers: [['[', "  { key: 'a1', selected: false },", "  { key: 'a2', selected: true },", "  { key: 'a3', selected: false }", ']']],
     },

@@ -43,7 +43,7 @@ describe('LanguageResolver', () => {
             expect(resolve('@panel.children.at(0).size').type.toString()).toBe('size?');
         });
 
-        it('types a shape by its inferred field names', () => {
+        it('types an object expression by its inferred field names', () => {
             expect(resolve('@panel { size, hasFocus: is "focused" }').type.toString()).toBe('{ size: size?, hasFocus: boolean }');
         });
 
@@ -70,7 +70,7 @@ describe('LanguageResolver', () => {
     });
 
     describe('requests', () => {
-        it('resolves a path of properties and operations as a query', () => {
+        it('resolves a chain of properties and operations as a query', () => {
             expect(resolve('@panel.size').kind).toBe('query');
         });
 
@@ -132,20 +132,20 @@ describe('LanguageResolver', () => {
             expect(resolved.type.toString()).toBe('boolean');
         });
 
-        it('shapes the result of an action by the shape that follows it, which stays an action request', () => {
+        it('shapes the result of an action by the object expression that follows it, which stays an action request', () => {
             const resolved = resolveWith('@panel.pick { id: attributeOf "id" }');
 
             expect(resolved.kind).toBe('action');
             expect(resolved.type.toString()).toBe('{ id: string? }');
         });
 
-        it('refuses an action whose result is no data, unless a shape follows it', () => {
+        it('refuses an action whose result is no data, unless an object expression follows it', () => {
             expect(failureWith('@panel.pick').message).toContain('no data');
         });
 
-        it('resolves a behavior as a behavior request, which takes no shape', () => {
+        it('resolves a behavior as a behavior request, which takes no object expression', () => {
             expect(resolveWith('@panel.focusTrap').kind).toBe('behavior');
-            expect(failureWith('@panel.focusTrap { id: attributeOf "id" }').message).toContain('A behavior request ends its path and takes no shape');
+            expect(failureWith('@panel.focusTrap { id: attributeOf "id" }').message).toContain('A behavior request ends its chain and takes no object expression');
         });
 
         it('refuses a member after an action, and an action or a behavior inside a query', () => {
@@ -243,7 +243,7 @@ describe('LanguageResolver', () => {
             const resolved = resolve('@panel is "disabled"');
 
             expect(resolved.type.toString()).toBe('boolean');
-            expect(resolved.getResolution('/query/test').predicate.name).toBe('disabled');
+            expect(resolved.getResolution('/query/names').predicate.name).toBe('disabled');
         });
 
         it('takes the name from a bound string', () => {
@@ -266,12 +266,12 @@ describe('LanguageResolver', () => {
             expect(failure('@panel is @document').message).toContain('never null');
         });
 
-        it('resolves the path a get names to the type at its end', () => {
+        it('resolves the chain of names a get reads to the type at its end', () => {
             expect(resolve('@panel.get("size.width")').type.toString()).toBe('number?');
             expect(resolve('@panel.get("children.count")').type.toString()).toBe('number');
         });
 
-        it('refuses a get of a path that names nothing', () => {
+        it('refuses a get of a chain that names nothing', () => {
             expect(failure('@panel.get("size.depth")').message).toContain("'depth' names no property");
             expect(failure('@panel.get("matches")').message).toContain('reads without arguments');
         });
@@ -344,7 +344,7 @@ describe('LanguageResolver', () => {
 
         it('points into a definition that has no text', () => {
             const definition = {
-                version: 1,
+                version: 2,
                 query: { kind: 'member', target: { kind: 'parameter', name: 'panel' }, name: 'nonsense', arguments: [] },
             };
 
@@ -364,27 +364,27 @@ describe('LanguageResolver', () => {
         });
     });
 
-    describe('predicate tests', () => {
-        it('type a test as a Boolean, nullable where its subject is', () => {
+    describe('predicate expressions', () => {
+        it('type a predicate expression as a Boolean, nullable where its subject is', () => {
             expect(resolve('@panel is "attached"').type.toString()).toBe('boolean');
             expect(resolve('@panel.parent is "attached" or "focused"').type.toString()).toBe('boolean?');
         });
 
-        it('resolve every name a test reads under its verb, each branch with its own location', () => {
+        it('resolve every name a predicate expression reads under its verb, each branch with its own location', () => {
             const resolved = resolve('@panel is "attached" or ("disabled" and "focused")');
 
-            expect(resolved.getResolution('/query/test/operands/0').predicate.name).toBe('attached');
-            expect(resolved.getResolution('/query/test/operands/1/operands/1').predicate.name).toBe('focused');
+            expect(resolved.getResolution('/query/names/operands/0').predicate.name).toBe('attached');
+            expect(resolved.getResolution('/query/names/operands/1/operands/1').predicate.name).toBe('focused');
         });
 
         it('validate a branch that evaluation might never reach', () => {
             const error = failure('@panel is "attached" or "nonsense"');
 
             expect(error.message).toContain('\'is "nonsense"\' is no predicate');
-            expect(error.location.pointer).toBe('/query/test/operands/1');
+            expect(error.location.pointer).toBe('/query/names/operands/1');
         });
 
-        it('read every name under the one verb of the test', () => {
+        it('read every name under the one verb of the predicate expression', () => {
             expect(failure('@panel is "attached" or "children"').message).toContain('\'is "children"\' is no predicate');
             expect(resolve('@panel has "children"').type.toString()).toBe('boolean');
         });
@@ -403,7 +403,7 @@ describe('LanguageResolver', () => {
     });
 
     describe('the resolved definition', () => {
-        it('names each field of each shape once, as given or as it infers', () => {
+        it('names each field of each object expression once, as given or as it infers', () => {
             const resolved = resolve('@panel { size, kind: attributeOf "role", is "attached", get "clientSize", rows: all("i") { rect } }');
             const { query } = resolved.definition;
 
@@ -420,8 +420,8 @@ describe('LanguageResolver', () => {
             expect(resolved.resolutionOf(query.target).declaration.name).toBe('all');
             expect(resolved.pointerOf(height.target)).toBe('/query/fields/0/value/target');
             expect(resolved.resolutionOf(height).kind).toBe('field');
-            expect(resolved.pointerOf(on.test.operands[1])).toBe('/query/fields/1/value/test/operands/1');
-            expect(resolved.resolutionOf(on.test.operands[1]).predicate.name).toBe('focused');
+            expect(resolved.pointerOf(on.names.operands[1])).toBe('/query/fields/1/value/names/operands/1');
+            expect(resolved.resolutionOf(on.names.operands[1]).predicate.name).toBe('focused');
             expect(resolved.resolutionOf(query)).toBeUndefined();
         });
     });

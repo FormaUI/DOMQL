@@ -128,7 +128,7 @@ describe('QueryEvaluator', () => {
         });
     });
 
-    describe('shapes', () => {
+    describe('object expressions', () => {
         it('names fields by inference and keeps their order', () => {
             const answer = read('@panel { count: children.count, id: attributeOf "id", is "attached", has "children" }', { panel });
 
@@ -136,7 +136,7 @@ describe('QueryEvaluator', () => {
             expect(Object.keys(answer)).toEqual(['count', 'id', 'attached', 'children']);
         });
 
-        it('applies a shape to each item of a list, in order', () => {
+        it('applies an object expression to each item of a list, in order', () => {
             expect(read('@panel.children { key: attributeOf "data-key", selected: matches "[aria-selected=true]" }', { panel })).toEqual([
                 { key: 'a1', selected: false },
                 { key: 'a2', selected: true },
@@ -144,7 +144,7 @@ describe('QueryEvaluator', () => {
             ]);
         });
 
-        it('shapes a top-level list of facts', () => {
+        it('reads a top-level list of facts', () => {
             expect(read('{ items: @panel.children.count, kind: "list", none: null }', { panel })).toEqual({ items: 3, kind: 'list', none: null });
         });
     });
@@ -188,7 +188,7 @@ describe('QueryEvaluator', () => {
             expect(read('@panel.get(@name)', { panel, name: 'children.count' })).toBe(3);
         });
 
-        it('answers null where a step of the path is null', () => {
+        it('answers null where a step of the chain is null', () => {
             const detached = document.createElement('div');
 
             expect(read('@detached.get("size.width")', { detached })).toBeNull();
@@ -249,7 +249,7 @@ describe('QueryEvaluator', () => {
         });
     });
 
-    describe('predicate tests', () => {
+    describe('predicate expressions', () => {
         /** A module whose predicates answer what the test sets and count how often they are read. */
         const probes = () => {
             const record = { yes: 0, no: 0 };
@@ -305,12 +305,12 @@ describe('QueryEvaluator', () => {
             expect(read('@panel.first(".none") is "attached" or "focused"', { panel })).toBeNull();
         });
 
-        it('test the current value inside a shape and an expression', () => {
+        it('test the current value inside an object expression and an expression argument', () => {
             expect(read('@panel { attached: is "attached", empty: has "children" }', { panel })).toEqual({ attached: true, empty: true });
             expect(read('@panel.children.where(is "attached" and "focused").count', { panel })).toBe(0);
         });
 
-        it('take the names of a test from its bindings', () => {
+        it('take the names of a predicate expression from its bindings', () => {
             expect(read('@panel is @state or @other', { panel, state: 'focused', other: 'attached' })).toBe(true);
         });
     });
@@ -513,12 +513,12 @@ describe('QueryEvaluator evaluation', () => {
             expect(measured.every(dependency => dependency.observations[0].type === 'resize')).toBe(true);
         });
 
-        it('stand where each member is written, inside the items of a list and the operands of a test', () => {
+        it('stand where each member is written, inside the items of a list and the operands of a predicate expression', () => {
             const evaluation = evaluate('@panel.all("i") { h: rect.height, on: is "attached" or "focused" }', { panel });
 
             expect(evaluation.dependencies.map(dependency => [dependency.member, dependency.pointer])).toEqual([
                 ['all', '/query/target'],
-                ...rows.flatMap(() => [['rect', '/query/fields/0/value/target'], ['attached', '/query/fields/1/value/test/operands/0']]),
+                ...rows.flatMap(() => [['rect', '/query/fields/0/value/target'], ['attached', '/query/fields/1/value/names/operands/0']]),
             ]);
         });
 
@@ -530,7 +530,7 @@ describe('QueryEvaluator evaluation', () => {
             expect(overlaps.observations.some(observation => observation.type === 'resize' && observation.target === panel.parentElement)).toBe(true);
         });
 
-        it('include what a path read before it met null, and nothing after', () => {
+        it('include what a chain read before it met null, and nothing after', () => {
             const evaluation = evaluate('@panel.closest(".none").attributeOf("id")', { panel });
 
             expect(evaluation.value).toBeNull();
@@ -553,7 +553,7 @@ describe('QueryEvaluator evaluation', () => {
             expect(evaluation.dependencies.flatMap(dependency => dependency.observations).some(observation => observation.type === 'attachment')).toBe(false);
         });
 
-        it('include the predicates a test reached, and none it did not need', () => {
+        it('include the predicates a predicate expression reached, and none it did not need', () => {
             const reached = evaluate('@panel is "attached" or "focused"', { panel });
             const both = evaluate('@panel is "focused" or "attached"', { panel });
 
@@ -871,7 +871,7 @@ describe('QueryEvaluator projection', () => {
     });
 
     describe('an occurrence', () => {
-        it('is projected through the shape that follows its source, as detached, immutable data', () => {
+        it('is projected through the object expression that follows its source, as detached, immutable data', () => {
             const evaluator = evaluatorOf('@panel.ticks("tick") { at, label, count: @panel.children.count }', { panel }, [ticks('tick')]);
             const projection = projectionOf(evaluator, { at: 3, label: 'third' });
 

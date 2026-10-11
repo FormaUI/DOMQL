@@ -19,7 +19,7 @@ export class LiveState {
 
     /**
      * Brings the state to the snapshot, in place, and returns the change set that did, frozen. The first snapshot builds the state, and returns no changes.
-     * @param {object | unknown[]} snapshot The result, a shape or a list.
+     * @param {object | unknown[]} snapshot The result, an object or a list.
      * @param {import('./SnapshotPatcher.mjs').Identities} identities The elements its lists were projected from.
      * @returns {readonly import('./SnapshotPatcher.mjs').ChangeOperation[]}
      */

@@ -47,11 +47,11 @@ describe('read', () => {
         Domql.read(rows);
     });
 
-    bench('a small shape, as a query', () => {
+    bench('a small object, as a query', () => {
         Domql.read(small);
     });
 
-    bench('a small shape, from its text and bindings', () => {
+    bench('a small object, from its text and bindings', () => {
         Domql.read('@panel { key: attributeOf("data-key"), open: matches(".open"), count: children.count }', { panel });
     });
 });

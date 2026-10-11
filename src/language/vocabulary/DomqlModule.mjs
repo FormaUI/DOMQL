@@ -55,7 +55,7 @@ export class DomqlModule {
      * @param {object[]} [contents.members] The properties, operations, sources, actions and behaviors it adds.
      * @param {object[]} [contents.types] The structured types it declares, each with its fields.
      * @param {object[]} [contents.eventTypes] The event types it declares, each with the type of its occurrences.
-     * @param {object[]} [contents.predicates] The predicates a test reads under `is` and `has`.
+     * @param {object[]} [contents.predicates] The predicates a predicate expression reads under `is` and `has`.
      * @param {string[]} [contents.features] The features `supports` names.
      * @param {object[]} [contents.observationTypes] The types of observation it declares, each with the function that starts one.
      * @param {Record<string, Function> | null} [functions] The functions that carry the members out, by the key each member names.

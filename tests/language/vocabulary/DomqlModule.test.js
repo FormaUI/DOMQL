@@ -84,7 +84,7 @@ describe('DomqlModule', () => {
         expect(() => new DomqlModule('charts', { members: [selecting('feature')] })).not.toThrow();
     });
 
-    it('refuses a member that selects a predicate, which only a test reads', () => {
+    it('refuses a member that selects a predicate, which only a predicate expression reads', () => {
         const selecting = declaration({ name: 'charts', parameters: [parameter({ fixed: true, selects: 'predicate' })] });
 
         expect(messageOf(() => new DomqlModule('charts', { members: [selecting] }))).toContain('declares what it selects');

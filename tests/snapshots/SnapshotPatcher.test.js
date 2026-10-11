@@ -9,7 +9,7 @@ const freeze = value => (Array.isArray(value)
 /** Elements that stand for themselves, by which a projected list is matched. */
 const elements = (...names) => names.map(name => ({ nodeType: 1, name }));
 
-/** The identities of a top-level shape whose field `rows` was projected from the elements. */
+/** The identities of a top-level object whose field `rows` was projected from the elements. */
 const rowsOf = rowElements => ({ fields: { rows: { elements: rowElements, items: rowElements.map(() => null) } } });
 
 describe('SnapshotPatcher', () => {
@@ -32,7 +32,7 @@ describe('SnapshotPatcher', () => {
             expect(SnapshotPatcher.between(freeze({ panel: null }), null, freeze({ panel: { width: 1 } }), null)).toEqual([{ op: 'replace', path: '/panel', value: { width: 1 } }]);
         });
 
-        it('replaces the whole result where it is no shape', () => {
+        it('replaces the whole result where it is no object', () => {
             expect(SnapshotPatcher.between(3, null, 4, null)).toEqual([{ op: 'replace', path: '', value: 4 }]);
         });
 

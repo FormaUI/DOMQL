@@ -39,7 +39,7 @@ export function generate() {
     return lines.join('\n');
 }
 
-/** The expression of a named type: its fields, its members, its tests and its shape. */
+/** The expression of a named type: its fields, its members, its predicate expressions and its object expression. */
 function namedExpression(vocabulary, name, structured) {
     const fields = structured.get(name) ?? {};
     const lines = [`/** An expression of ${article(name)} \`${name}\` in a build, null where \`N\` is. */`, `export interface ${expressionName(name)}<N extends null = never> {`];
@@ -58,16 +58,16 @@ function namedExpression(vocabulary, name, structured) {
     if (vocabulary.predicates.some(predicate => [predicate.on].flat().includes(name))) {
         const names = verb => vocabulary.predicates.filter(predicate => predicate.verb === verb && [predicate.on].flat().includes(name)).map(predicate => predicate.name);
 
-        lines.push(`    /** A test of the value, by the names \`is\` reads on it, ${names('is').join(', ') || 'none'}, joined by \`and\` and \`or\`. */`, '    is(names: string): DomqlValueExpression<boolean | N>;');
+        lines.push(`    /** A predicate expression of the value, by the names \`is\` reads on it, ${names('is').join(', ') || 'none'}, joined by \`and\` and \`or\`. */`, '    is(names: string): DomqlValueExpression<boolean | N>;');
 
         if (names('has').length > 0) {
-            lines.push(`    /** A test of the value, by the names \`has\` reads on it, ${names('has').join(', ')}, joined by \`and\` and \`or\`. */`, '    has(names: string): DomqlValueExpression<boolean | N>;');
+            lines.push(`    /** A predicate expression of the value, by the names \`has\` reads on it, ${names('has').join(', ')}, joined by \`and\` and \`or\`. */`, '    has(names: string): DomqlValueExpression<boolean | N>;');
         }
     }
 
     lines.push(
-        '    /** A shape of the value, whose fields the projection returns. */',
-        `    select<P extends DomqlProjection>(projection: (value: ${expressionName(name)}) => P): DomqlShapeExpression<DomqlProjected<P>, N>;`,
+        '    /** An object expression of the value, whose fields the projection returns. */',
+        `    select<P extends DomqlProjection>(projection: (value: ${expressionName(name)}) => P): DomqlObjectExpression<DomqlProjected<P>, N>;`,
         '    /** A member read by its name, as the vocabulary resolves it. */',
         '    get(name: string): DomqlUnresolvedExpression;',
         '}',
@@ -76,7 +76,7 @@ function namedExpression(vocabulary, name, structured) {
     return lines;
 }
 
-/** The expression of a list, whose items are expressions of the type `I`: the list's members, and a shape of each item. */
+/** The expression of a list, whose items are expressions of the type `I`: the list's members, and an object expression of each item. */
 function listExpression(vocabulary) {
     const lines = [
         '/** An expression of a list in a build, whose items are expressions of the type `I`, null where `N` is. */',
@@ -90,8 +90,8 @@ function listExpression(vocabulary) {
     }
 
     lines.push(
-        '    /** A shape of each item, whose fields the projection returns. */',
-        '    select<P extends DomqlProjection>(projection: (item: I) => P): DomqlListExpression<DomqlShapeExpression<DomqlProjected<P>>, N>;',
+        '    /** An object expression of each item, whose fields the projection returns. */',
+        '    select<P extends DomqlProjection>(projection: (item: I) => P): DomqlListExpression<DomqlObjectExpression<DomqlProjected<P>>, N>;',
         '    /** A member read by its name, as the vocabulary resolves it. */',
         '    get(name: string): DomqlUnresolvedExpression;',
         '}',
@@ -107,7 +107,7 @@ function withNull(named) {
         'export type DomqlWithNull<P, M extends null> =',
         ...named.map(name => `    P extends { readonly [domqlType]: '${name}' } ? ${expressionName(name)}<M> :`),
         "    P extends { readonly [domqlType]: 'list' } ? (P extends DomqlListExpression<infer I, null> ? DomqlListExpression<I, M> : P) :",
-        "    P extends { readonly [domqlType]: 'shape'; readonly [domqlValue]: infer S } ? DomqlShapeExpression<Exclude<S, null>, M> :",
+        "    P extends { readonly [domqlType]: 'object'; readonly [domqlValue]: infer S } ? DomqlObjectExpression<Exclude<S, null>, M> :",
         '    P extends { readonly [domqlValue]: infer V } ? DomqlValueExpression<V | M> :',
         '    P;',
     ];

@@ -14,7 +14,7 @@ export class ResolvedDefinition {
     /** Each node of the definition's query, by the node itself, with its JSON Pointer and what it resolved to. @type {Map<object, { pointer: string, resolution: object | undefined }>} */
     #nodes = new Map();
 
-    /** The name of each field of each shape of the definition's query, in order, by the shape's node. @type {Map<object, string[]>} */
+    /** The name of each field of each object expression of the definition's query, in order, by the expression's node. @type {Map<object, string[]>} */
     #fieldNames = new Map();
 
     /**
@@ -75,7 +75,7 @@ export class ResolvedDefinition {
     }
 
     /**
-     * The name of each field of the shape node of the definition, in order: the name it was given, or the one it infers.
+     * The name of each field of the object expression node of the definition, in order: the name it was given, or the one it infers.
      * @internal
      */
     fieldNamesOf(node) {
@@ -94,12 +94,12 @@ export class ResolvedDefinition {
             case 'member':
                 node.arguments.forEach((argument, index) => this.#index(argument.value, `${pointer}/arguments/${index}/value`));
                 break;
-            case 'shape':
+            case 'object':
                 node.fields.forEach((field, index) => this.#index(field.value, `${pointer}/fields/${index}/value`));
                 this.#fieldNames.set(node, node.fields.map(field => field.name ?? Names.inferField(field.value)));
                 break;
             case 'predicate':
-                this.#index(node.test, `${pointer}/test`);
+                this.#index(node.names, `${pointer}/names`);
                 break;
             case 'and':
             case 'or':

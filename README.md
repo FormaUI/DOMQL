@@ -119,9 +119,9 @@ With the markup above rendered without additional styling, the result is:
 The query describes the answer directly:
 
 - `@panel` refers to the element supplied in the bindings.
-- Paths such as `rect.height` read members.
-- Shapes choose fields and their output names.
-- A shape after a list projects each item.
+- Chains such as `rect.height` read members.
+- Object expressions choose fields and their output names.
+- An object expression after a list projects each item.
 - `where` filters items, and `max` evaluates an expression across them.
 
 The result contains data, not live DOM references. You can retain it, serialize it or pass it to another part of your application.

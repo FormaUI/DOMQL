@@ -178,11 +178,11 @@ await live.refreshAsync();
 live.dispose();
 ```
 
-The object belongs to the watch, so read it and never write it, and copy it or watch snapshots where a version must be kept. Its result is a shape or a list that is never null, since null has no identity to keep.
+The object belongs to the watch, so read it and never write it, and copy it or watch snapshots where a version must be kept. Its result is an object or a list that is never null, since null has no identity to keep.
 
 ## Subscribe to events
 
-`subscribe` evaluates the shape that follows an occurrence source, such as `eventsOf`, for each event, and hands `onEvent` the result:
+`subscribe` evaluates the object expression that follows an occurrence source, such as `eventsOf`, for each event, and hands `onEvent` the result:
 
 ```js
 const clicks = Domql.subscribe(`
@@ -199,13 +199,13 @@ panel.querySelector('[data-key="a2"]').click();
 clicks.dispose();
 ```
 
-The shape reads what the event carried, such as its `target`, `button` or `clientX`, and anything else a parameter reaches, at the moment the event is dispatched. The event listener it answers starts listening in the call, observes events as they reach the receiver and leaves their course to the page. A value the browser keeps, such as `intersects`, is null until the browser first reports it, and is never waited for. Pass `onError` to hear of a failed projection or a failing callback; the event listener keeps listening until `dispose` ends it.
+The object expression reads what the event carried, such as its `target`, `button` or `clientX`, and anything else a parameter reaches, at the moment the event is dispatched. The event listener it answers starts listening in the call, observes events as they reach the receiver and leaves their course to the page. A value the browser keeps, such as `intersects`, is null until the browser first reports it, and is never waited for. Pass `onError` to hear of a failed projection or a failing callback; the event listener keeps listening until `dispose` ends it.
 
 ## The language
 
-### Paths, operations and names
+### Chains, operations and names
 
-Paths follow members with a dot. Properties and operations are named in camelCase, such as `clientSize`, `attributeOf`, `computedStyleOf` and `matchesMedia`, and a member has the same name wherever it is written. All DOMQL names are case-sensitive.
+Chains follow members with a dot. Properties and operations are named in camelCase, such as `clientSize`, `attributeOf`, `computedStyleOf` and `matchesMedia`, and a member has the same name wherever it is written. All DOMQL names are case-sensitive.
 
 ```js
 Domql.read(Domql.parse('@panel.children.count', { panel }));
@@ -218,7 +218,7 @@ Domql.read(Domql.parse('@panel is "attached"', { panel }));
 // true
 ```
 
-`get` reads a named member or path. `is` asks about a state or classification and `has` about presence: they are operators that test the value before them against predicates the vocabulary registers, and `and` and `or` combine names under one verb:
+`get` reads a named member or chain of members. `is` asks about a state or classification and `has` about presence: they are operators that test the value before them against predicates the vocabulary registers, and `and` and `or` combine names under one verb:
 
 ```text
 @input is "disabled" or "readOnly"
@@ -226,9 +226,9 @@ Domql.read(Domql.parse('@panel is "attached"', { panel }));
 @panel has "children"
 ```
 
-`and` binds tighter than `or`, parentheses group, and a test stops reading predicates once its result is decided. Inside a shape or an expression, a test without a value before it tests the current value, as `where(is "disabled")` does. The strings that name members and predicates are case-sensitive too. Selectors, attribute names and other strings passed to browser APIs follow the browser's own rules.
+`and` binds tighter than `or`, parentheses group, and a predicate expression stops reading predicates once its result is decided. Inside an object expression or an expression argument, a predicate expression without a value before it tests the current value, as `where(is "disabled")` does. The strings that name members and predicates are case-sensitive too. Selectors, attribute names and other strings passed to browser APIs follow the browser's own rules.
 
-After a dot, arguments are enclosed in parentheses. A member that starts a path, inside a shape or an expression, can take simple literals and parameter references without them:
+After a dot, arguments are enclosed in parentheses. A member that starts a chain, inside an object expression or an expression argument, can take simple literals and parameter references without them:
 
 ```text
 @panel.attributeOf("data-key")
@@ -236,11 +236,11 @@ attributeOf "data-key"
 attributeOf @attributeName
 ```
 
-Multiple bare arguments are separated by whitespace. A member written that way ends its path; to continue from its result, use parentheses, as in `first(".row").rect.height`. Named arguments and expression arguments use parentheses. Commas separate shape fields and parenthesized arguments.
+Multiple bare arguments are separated by whitespace. A member written that way ends its chain; to continue from its result, use parentheses, as in `first(".row").rect.height`. Named arguments and expression arguments use parentheses. Commas separate the fields of an object expression and parenthesized arguments.
 
-### Shapes and lists
+### Objects and lists
 
-A shape chooses output fields. An explicit alias controls the output name. Without an alias, the field uses the final member name; `get` and a test of one name infer the final segment of the name they read, and a test that combines names or takes one from a parameter needs an alias.
+An object expression chooses output fields. An explicit alias controls the output name. Without an alias, the field uses the final member name; `get` and a predicate expression of one name infer the final segment of the name they read, and a predicate expression that combines names or takes one from a parameter needs an alias.
 
 ```js
 Domql.read(Domql.parse(`
@@ -255,7 +255,7 @@ Domql.read(Domql.parse(`
 
 Trailing commas, `//` line comments and `/* */` block comments are supported.
 
-A shape following a list projects each item:
+An object expression following a list projects each item:
 
 ```js
 Domql.read(Domql.parse(`
@@ -289,7 +289,7 @@ Domql.read(Domql.parse('@panel.all("[data-key]").max(rect.height)', { panel }));
 
 ### Null and unavailable values
 
-Null represents a missing or unavailable value; it does not hide an invalid query. A path or targeted shape whose receiver is null returns null.
+Null represents a missing or unavailable value; it does not hide an invalid query. A chain or targeted object expression whose receiver is null returns null.
 
 ```js
 Domql.read(Domql.parse(
@@ -320,7 +320,7 @@ Domql.read(optional);
 // { panel: null, ids: [] }
 ```
 
-Keep independent results in a top-level shape when one target may be null. Writing `@panel { size, ids: @ids }` instead would make the entire result null while `panel` is null.
+Keep independent results in a top-level object expression when one target may be null. Writing `@panel { size, ids: @ids }` instead would make the entire result null while `panel` is null.
 
 ## API and errors
 
@@ -338,7 +338,7 @@ Keep independent results in a top-level shape when one target may be null. Writi
 | `Domql.watch(text, bindings, configuration)`, `Domql.watch(query, configuration)` | Keep a query's result current: `onChange` receives a snapshot, then each snapshot that differs; `updateStrategy` chooses change sets or live state instead. Returns a handle with `status`, `lastSnapshot`, `liveState`, `refreshAsync()` and `dispose()`. |
 | `Domql.subscribe(text, bindings, configuration)`, `Domql.subscribe(query, configuration)` | Subscribe to an event source: `onEvent` receives each projected result, evaluated as the event is dispatched. Returns an event listener with `status` and `dispose()`. |
 | `Domql.createSnapshot()` | Create the current snapshot a watch with `updateStrategy: 'changeSet'` builds: `apply(update)` applies a baseline or a change set atomically and answers `accepted`, `stale` or `failed`, which the host reports to the watch through `acknowledge(update)` or `recover()`, and `value` is the snapshot last accepted. |
-| `Domql.runAsync(text, bindings, options)`, `Domql.runAsync(query, options)` | Run an action once. Returns a promise of its result, shaped by a shape that follows the action; `signal` cancels it, and what the action changed stays changed. |
+| `Domql.runAsync(text, bindings, options)`, `Domql.runAsync(query, options)` | Run an action once. Returns a promise of its result, read through the object expression that follows the action; `signal` cancels it, and what the action changed stays changed. |
 | `Domql.activate(text, bindings, options)`, `Domql.activate(query, options)` | Activate a behavior, in effect once the call returns. Returns a handle with `status`, `update(bindings)` and `dispose()`. |
 | `Domql.registerModule(module)` | Make a module available to query resolution. |
 
@@ -378,7 +378,7 @@ try {
 }
 ```
 
-A misspelled operation is an error and a missing selector match is null. Raw elements are not valid result data: `@panel.children` fails because its result would hold elements, so project their properties with a shape.
+A misspelled operation is an error and a missing selector match is null. Raw elements are not valid result data: `@panel.children` fails because its result would hold elements, so project their properties with an object expression.
 
 ## Environments
 
@@ -450,7 +450,7 @@ await Domql.runAsync('@panel.mark("reviewed")', { panel });
 // true
 ```
 
-A shape can follow an action to shape its result. Pass a `signal` to cancel the run: the promise rejects with the signal's reason, and the action is told through the signal it receives. DOMQL never undoes what an action changed, including when it fails.
+An object expression can follow an action to shape its result. Pass a `signal` to cancel the run: the promise rejects with the signal's reason, and the action is told through the signal it receives. DOMQL never undoes what an action changed, including when it fails.
 
 A behavior stays in effect until it is disposed. `activate` puts it into effect before it returns, and the handle it returns updates it with new bindings or ends it:
 
