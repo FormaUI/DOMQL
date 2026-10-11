@@ -14,23 +14,23 @@ describe('Alignment', () => {
     const project = read('nuget/Forma.DOMQL.csproj');
 
     it('has a specification whose version is that of the implementation', () => {
-        const [, version] = specification.match(/^# DOMQL Specification v(\d+\.\d+\.\d+)$/m);
+        const [, version] = specification.match(/^# DOMQL Specification v(\S+)$/m);
 
         expect(version).toBe(Domql.specificationVersion);
     });
 
     it('has a design titled with the version of the specification', () => {
-        const [, version] = design.match(/^# DOMQL Design v(\d+\.\d+\.\d+)$/m);
+        const [, version] = design.match(/^# DOMQL Design v(\S+)$/m);
 
         expect(version).toBe(Domql.specificationVersion);
     });
 
-    it('has a package version whose major and minor are those of the specification and whose preview is its revision', () => {
-        const [, major, minor, preview] = project.match(/<Version>(\d+)\.(\d+)\.\d+(?:-preview\.(\d+))?<\/Version>/);
-        const [specificationMajor, specificationMinor, revision] = Domql.specificationVersion.split('.');
+    it('has a package that is the alpha of the specification, numbered by the commits it is built from', () => {
+        const [, prefix] = project.match(/<VersionPrefix>(.+?)<\/VersionPrefix>/);
 
-        expect([major, minor]).toEqual([specificationMajor, specificationMinor]);
-        expect(preview === undefined || preview === revision).toBe(true);
+        expect(`${prefix}-alpha`).toBe(Domql.specificationVersion);
+        expect(project).toContain('<Version>$(VersionPrefix)-alpha.$(CommitCount)</Version>');
+        expect(project).toContain('git rev-list --count HEAD');
     });
 
     it('has a specification whose example definition is of the version the implementation writes', () => {

@@ -3,8 +3,8 @@
  */
 
 export class Specification {
-    /** The specification's version, major.minor.revision: the major and minor are the package's, and the revision is raised with every change to the specification. */
-    static version = '2.0.0';
+    /** The specification's version, `1.0.0-alpha`, which the package numbers by the commits it is built from. */
+    static version = '1.0.0-alpha';
 
     /** The version of a definition's format, which a definition records. */
     static definitionVersion = 2;

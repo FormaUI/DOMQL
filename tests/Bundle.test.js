@@ -38,7 +38,7 @@ describe('Bundle', () => {
 
         expect(query.definition.query.fields.map(field => field.name ?? 'inferred')).toEqual(['inferred', 'hasFocus']);
         expect(bundled.Domql.create(query.definition, { panel: 2 }).bindings.get('panel')).toBe(2);
-        expect(bundled.Domql.specificationVersion).toMatch(/^\d+\.\d+\.\d+$/);
+        expect(bundled.Domql.specificationVersion).toMatch(/^\d+\.\d+\.\d+(?:-alpha)?$/);
     });
 
     it('keeps the errors the sources raise', () => {

@@ -1,4 +1,4 @@
-# DOMQL Specification v2.0.0
+# DOMQL Specification v1.0.0-alpha
 
 DOMQL is a small language for querying the DOM: a query names what its caller wants to know about a document and its elements, and evaluating it gives one result shaped the way it asked. The same query is read once, watched for changes, or evaluated at each occurrence of something that happened in the document, and the actions and behaviors a caller asks the browser for are requests of their own kinds. The language knows how to name values and shape results; what can be asked about, an element's size, a computed style, whether it matches a selector, comes from a vocabulary beside it, so adding to what can be asked never changes the language.
 

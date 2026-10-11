@@ -12,7 +12,7 @@
     <PropertyGroup>
         <IsPackable>true</IsPackable>
         <PackageId>formaui-net.DOMQL</PackageId>
-        <Version>2.0.0-preview.0</Version>
+        <VersionPrefix>1.0.0</VersionPrefix>
         <Authors>Eyal Alon</Authors>
         <Description>DOMQL is a small, extensible query language for reading DOM state as plain data. Describe what you need, and receive a snapshot shaped by your query.</Description>
         <PackageTags>domql;dom;query;language;csharp;javascript;dotnet;browser;forma;formaui</PackageTags>
@@ -27,6 +27,17 @@
         <None Include="..\NOTICE" Pack="true" PackagePath="\" Visible="false" />
         <None Include="README.md" Pack="true" PackagePath="\" />
     </ItemGroup>
+
+    <!-- The version: an alpha of 1.0.0 numbered by the commits of the history it is built from, so a clone counts only as much history as it holds. -->
+    <Target Name="NumberAlphaByCommits" BeforeTargets="GetAssemblyVersion;GenerateNuspec">
+        <Exec Command="git rev-list --count HEAD" ConsoleToMSBuild="true" StandardOutputImportance="low" WorkingDirectory="$(MSBuildProjectDirectory)">
+            <Output TaskParameter="ConsoleOutput" PropertyName="CommitCount" />
+        </Exec>
+        <PropertyGroup>
+            <Version>$(VersionPrefix)-alpha.$(CommitCount)</Version>
+            <PackageVersion>$(Version)</PackageVersion>
+        </PropertyGroup>
+    </Target>
 
     <!-- A package without the bundle would ship nothing, so packing stops until publish.ps1 has made it. -->
     <Target Name="EnsureBundle" BeforeTargets="Pack">

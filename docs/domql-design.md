@@ -1,4 +1,4 @@
-# DOMQL Design v2.0.0
+# DOMQL Design v1.0.0-alpha
 
 The [DOMQL specification](domql-specification.md) defines the language. This design sets out how DOMQL runs and is used: how requests are built and prepared, how a read waits and a watch stays current, how results and changes are delivered, how occurrences hold their observations, and how modules extend the vocabulary.
 
