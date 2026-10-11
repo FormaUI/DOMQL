@@ -2,6 +2,8 @@
  * ResolvedDefinition — a definition resolved against the vocabulary: its request kind, the type of its result, and what each of its nodes resolved to
  */
 
+import { Names } from './Names.mjs';
+
 export class ResolvedDefinition {
     #definition;
     #kind;
@@ -11,6 +13,9 @@ export class ResolvedDefinition {
 
     /** Each node of the definition's query, by the node itself, with its JSON Pointer and what it resolved to. @type {Map<object, { pointer: string, resolution: object | undefined }>} */
     #nodes = new Map();
+
+    /** The name of each field of each shape of the definition's query, in order, by the shape's node. @type {Map<object, string[]>} */
+    #fieldNames = new Map();
 
     /**
      * @param {object} definition The request's definition, whose every node is an object of its own.
@@ -69,6 +74,14 @@ export class ResolvedDefinition {
         return this.#nodes.get(node)?.pointer;
     }
 
+    /**
+     * The name of each field of the shape node of the definition, in order: the name it was given, or the one it infers.
+     * @internal
+     */
+    fieldNamesOf(node) {
+        return this.#fieldNames.get(node);
+    }
+
     /** Records the node at the pointer and every node beneath it, each with its pointer and its resolution. */
     #index(node, pointer) {
         this.#nodes.set(node, { pointer, resolution: this.#resolutions.get(pointer) });
@@ -83,6 +96,7 @@ export class ResolvedDefinition {
                 break;
             case 'shape':
                 node.fields.forEach((field, index) => this.#index(field.value, `${pointer}/fields/${index}/value`));
+                this.#fieldNames.set(node, node.fields.map(field => field.name ?? Names.inferField(field.value)));
                 break;
             case 'predicate':
                 this.#index(node.test, `${pointer}/test`);

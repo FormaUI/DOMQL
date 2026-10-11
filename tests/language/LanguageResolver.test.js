@@ -51,6 +51,22 @@ describe('LanguageResolver', () => {
             expect(resolve('@count', { count: 3 }).type.toString()).toBe('number');
             expect(resolve('@nothing', { nothing: Domql.bind(null, 'string?') }).type.toString()).toBe('string?');
         });
+
+        it.each([
+            ['the result', '@panel.loose'],
+            ['a field', '@panel { v: loose }'],
+            ['an argument', '@panel.children.at(@panel.loose)'],
+            ['an expression', '@panel.children.where(loose).count'],
+            ['a receiver', '@panel.loose.count'],
+            ['a subject', '@panel.loose is "attached"'],
+        ])('refuses a type variable no receiver binds as %s, so its value never reaches a result', (_, text) => {
+            const registry = new ModuleRegistry([Vocabulary.module, new DomqlModule('loose', {
+                members: [{ name: 'loose', function: 'loose', kind: 'property', on: 'element', parameters: [], result: 'T', changes: 'constant', reads: 'fresh' }],
+            }, null)]);
+            const query = Domql.parse(text, { panel });
+
+            expect(() => new LanguageResolver(registry, query.bindings, null, {}).resolveDefinition(query.definition)).toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringMatching(/\bT\b/) }));
+        });
     });
 
     describe('requests', () => {
@@ -361,36 +377,6 @@ describe('LanguageResolver', () => {
             expect(resolved.getResolution('/query/test/operands/1/operands/1').predicate.name).toBe('focused');
         });
 
-        it.each([
-            ['the result', '@panel.loose'],
-            ['a field', '@panel { v: loose }'],
-            ['an argument', '@panel.children.at(@panel.loose)'],
-            ['an expression', '@panel.children.where(loose).count'],
-            ['a receiver', '@panel.loose.count'],
-            ['a subject', '@panel.loose is "attached"'],
-        ])('refuse a type variable no receiver binds as %s, so its value never reaches a result', (_, text) => {
-            const registry = new ModuleRegistry([Vocabulary.module, new DomqlModule('loose', {
-                members: [{ name: 'loose', function: 'loose', kind: 'property', on: 'element', parameters: [], result: 'T', changes: 'constant', reads: 'fresh' }],
-            }, null)]);
-            const query = Domql.parse(text, { panel });
-
-            expect(() => new LanguageResolver(registry, query.bindings, null, {}).resolveDefinition(query.definition)).toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringMatching(/\bT\b/) }));
-        });
-
-        it('find each node, by the node itself, with its pointer and its resolution', () => {
-            const resolved = resolve('@panel.all("i") { h: size.height, on: is "attached" or "focused" }');
-            const { query } = resolved.definition;
-            const [height, on] = query.fields.map(field => field.value);
-
-            expect(resolved.pointerOf(query.target)).toBe('/query/target');
-            expect(resolved.resolutionOf(query.target).declaration.name).toBe('all');
-            expect(resolved.pointerOf(height.target)).toBe('/query/fields/0/value/target');
-            expect(resolved.resolutionOf(height).kind).toBe('field');
-            expect(resolved.pointerOf(on.test.operands[1])).toBe('/query/fields/1/value/test/operands/1');
-            expect(resolved.resolutionOf(on.test.operands[1]).predicate.name).toBe('focused');
-            expect(resolved.resolutionOf(query)).toBeUndefined();
-        });
-
         it('validate a branch that evaluation might never reach', () => {
             const error = failure('@panel is "attached" or "nonsense"');
 
@@ -413,6 +399,30 @@ describe('LanguageResolver', () => {
 
             expect(error.message).toContain('is textEditable');
             expect(() => resolve('@panel is "attached" or "textEditable"', { panel }, { watch: true, acceptPartialObservation: true })).not.toThrow();
+        });
+    });
+
+    describe('the resolved definition', () => {
+        it('names each field of each shape once, as given or as it infers', () => {
+            const resolved = resolve('@panel { size, kind: attributeOf "role", is "attached", get "clientSize", rows: all("i") { rect } }');
+            const { query } = resolved.definition;
+
+            expect(resolved.fieldNamesOf(query)).toEqual(['size', 'kind', 'attached', 'clientSize', 'rows']);
+            expect(resolved.fieldNamesOf(query.fields[4].value)).toEqual(['rect']);
+        });
+
+        it('finds each node, by the node itself, with its pointer and its resolution', () => {
+            const resolved = resolve('@panel.all("i") { h: size.height, on: is "attached" or "focused" }');
+            const { query } = resolved.definition;
+            const [height, on] = query.fields.map(field => field.value);
+
+            expect(resolved.pointerOf(query.target)).toBe('/query/target');
+            expect(resolved.resolutionOf(query.target).declaration.name).toBe('all');
+            expect(resolved.pointerOf(height.target)).toBe('/query/fields/0/value/target');
+            expect(resolved.resolutionOf(height).kind).toBe('field');
+            expect(resolved.pointerOf(on.test.operands[1])).toBe('/query/fields/1/value/test/operands/1');
+            expect(resolved.resolutionOf(on.test.operands[1]).predicate.name).toBe('focused');
+            expect(resolved.resolutionOf(query)).toBeUndefined();
         });
     });
 });

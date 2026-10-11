@@ -2,8 +2,6 @@
  * SnapshotComparer — compares the snapshots of a query's result, so a watch reports one that differs and shares what did not change
  */
 
-import { Names } from '../language/Names.mjs';
-
 export class SnapshotComparer {
     #resolvedDefinition;
 
@@ -49,9 +47,10 @@ export class SnapshotComparer {
     #reconcileFields(node, previous, previousIdentities, next, nextIdentities) {
         const before = SnapshotComparer.#isRecord(previous) ? previous : undefined;
         const fields = {};
+        const names = this.#resolvedDefinition.fieldNamesOf(node);
 
-        node.fields.forEach(field => {
-            const name = field.name ?? Names.inferField(field.value);
+        node.fields.forEach((field, index) => {
+            const name = names[index];
 
             fields[name] = this.#reconcileNode(field.value, before?.[name], previousIdentities?.fields?.[name] ?? null, next[name], nextIdentities?.fields?.[name] ?? null);
         });

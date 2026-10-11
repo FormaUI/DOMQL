@@ -3,7 +3,6 @@
  */
 
 import { DomqlError } from '../language/DomqlError.mjs';
-import { Names } from '../language/Names.mjs';
 import { Type } from '../language/Type.mjs';
 import { Observations } from './Observations.mjs';
 import { QueryEvaluation } from './QueryEvaluation.mjs';
@@ -20,6 +19,9 @@ const ATTACHMENT = Object.freeze({ type: 'attachment', of: 'receiver' });
 const NO_ARGUMENTS = Object.freeze({});
 
 export class QueryEvaluator {
+    /** The fields of each declared structure, each with its type parsed, by the structure: valid for as long as the structure, which is frozen, and released with it. @type {WeakMap<object, [string, Type][]>} */
+    static #fieldTypes = new WeakMap();
+
     #moduleRegistry;
     #resolvedDefinition;
     #parameterBindings;
@@ -529,8 +531,7 @@ export class QueryEvaluator {
 
         const captured = {};
 
-        for (const [name, text] of Object.entries(structure.fields)) {
-            const fieldType = Type.parse(text);
+        for (const [name, fieldType] of QueryEvaluator.#fieldTypesOf(structure)) {
             const value = occurrence?.[name];
 
             if (this.#conforms(value, fieldType)) {
@@ -550,7 +551,7 @@ export class QueryEvaluator {
         const target = hasTarget ? this.#evaluate(node.target, current) : current;
         const apply = item => item === null && hasTarget
             ? null
-            : Object.fromEntries(node.fields.map(field => [field.name ?? Names.inferField(field.value), this.#evaluate(field.value, item)]));
+            : this.#fieldsOf(node, item);
 
         if (!(hasTarget && Array.isArray(target))) {
             return apply(target);
@@ -564,6 +565,16 @@ export class QueryEvaluator {
         }
 
         return items;
+    }
+
+    /** The object a shape gives the item: each of its fields, in order, under its name, evaluated against the item. */
+    #fieldsOf(node, item) {
+        const names = this.#resolvedDefinition.fieldNamesOf(node);
+        const object = {};
+
+        node.fields.forEach((field, index) => QueryEvaluator.#define(object, names[index], this.#evaluate(field.value, item)));
+
+        return object;
     }
 
     /** Whether the value is one the type admits. */
@@ -605,7 +616,7 @@ export class QueryEvaluator {
             default: {
                 const structure = this.#moduleRegistry.getType(name);
 
-                return structure !== undefined && QueryEvaluator.#isRecord(value) && Object.entries(structure.fields).every(([field, text]) => this.#conforms(value[field], Type.parse(text)));
+                return structure !== undefined && QueryEvaluator.#isRecord(value) && QueryEvaluator.#fieldTypesOf(structure).every(([field, type]) => this.#conforms(value[field], type));
             }
         }
     }
@@ -621,6 +632,18 @@ export class QueryEvaluator {
 
     #locate(pointer) {
         return this.#locations?.locate(pointer) ?? { pointer };
+    }
+
+    /** The fields of the declared structure, in order, each with its type. */
+    static #fieldTypesOf(structure) {
+        let fields = QueryEvaluator.#fieldTypes.get(structure);
+
+        if (fields === undefined) {
+            fields = Object.entries(structure.fields).map(([name, text]) => [name, Type.parse(text)]);
+            QueryEvaluator.#fieldTypes.set(structure, fields);
+        }
+
+        return fields;
     }
 
     static #isRecord(value) {
