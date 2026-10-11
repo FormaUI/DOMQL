@@ -71,6 +71,40 @@ export class Observations {
     }
 
     /**
+     * The values a request was resolved with, as a copy: its type, its target and its arguments, a list copied item by item, so a list the caller changes in place later is told apart.
+     * @param {{ type: string, target: object, arguments: Record<string, any> }} request The request, as `resolve` answers it.
+     */
+    static valuesOf(request) {
+        const values = {};
+
+        for (const [name, value] of Object.entries(request.arguments)) {
+            values[name] = Observations.#copy(value);
+        }
+
+        return { type: request.type, target: request.target, arguments: values };
+    }
+
+    /**
+     * Whether resolving the observation against the call would give the request the values were recorded from: the same type, the same target, and arguments the same by the rules an identity follows, a list item by item and an object by reference, with null and a missing value alike.
+     * @param {object} observation The observation a declaration names.
+     * @param {{ receiver: unknown, args: Record<string, unknown> }} call The call's receiver and its arguments by parameter name.
+     * @param {{ type: string, target: object, arguments: Record<string, any> }} values The values, as `valuesOf` answers them.
+     */
+    resolvesTo(observation, { receiver, args }, values) {
+        if (observation.type !== values.type || this.#targetOf(observation.of, receiver, args) !== values.target) {
+            return false;
+        }
+
+        for (const name in observation) {
+            if (!OBSERVATION_PROPERTIES.has(name) && !Observations.#resolvesValueTo(observation[name], args, values.arguments[name])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * Holds the observation the request names, starting it where no equivalent request holds one, and answers the session.
      * @param {{ type: string, target: object, arguments: Record<string, any> } | null} request What to observe, as `resolve` answers it.
      * @param {() => void} onChange Called, synchronously, when something may have changed. What it returns is ignored: a promise it returns is not awaited, and a rejection of it is not caught here.
@@ -163,6 +197,37 @@ export class Observations {
         }
 
         return value;
+    }
+
+    /** Whether a value an observation declares resolves against the arguments to the recorded value. */
+    static #resolvesValueTo(declared, args, recorded) {
+        if (Array.isArray(declared)) {
+            return Array.isArray(recorded) && recorded.length === declared.length && declared.every((item, index) => Observations.#resolvesValueTo(item, args, recorded[index]));
+        }
+
+        if (declared !== null && typeof declared === 'object') {
+            return Observations.#isSame(args[declared.argument], recorded);
+        }
+
+        return declared === recorded;
+    }
+
+    /** Whether two values are the same by the rules an identity follows. */
+    static #isSame(value, recorded) {
+        if (value === null || value === undefined) {
+            return recorded === null || recorded === undefined;
+        }
+
+        if (Array.isArray(value)) {
+            return Array.isArray(recorded) && recorded.length === value.length && value.every((item, index) => Observations.#isSame(item, recorded[index]));
+        }
+
+        return value === recorded;
+    }
+
+    /** A copy of the value in which each list is copied item by item, and everything else, an object included, is itself, as an identity tells objects apart. */
+    static #copy(value) {
+        return Array.isArray(value) ? value.map(item => Observations.#copy(item)) : value;
     }
 
     #start(type, request, notify) {

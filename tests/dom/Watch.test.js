@@ -308,6 +308,112 @@ describe('Watch', () => {
         });
     });
 
+    describe('the sessions of its evaluations', () => {
+        /** Registers a member observed through a probe of its element, which fails for an element marked bad, and answers what the probes show: the elements observed, how often one started and stopped, and how to report a change of one. */
+        const registerProbe = () => {
+            const probes = { live: new Set(), started: 0, stopped: 0, notify: new Map(), calls: 0, during: null };
+
+            isolated.registerModule(isolated.createModule('probe', {
+                observationTypes: [{ name: 'probe', contract: 'invalidation', function: 'observeProbe' }],
+                members: [{ name: 'probe', function: 'probe', kind: 'property', on: 'element', parameters: [], result: 'number', changes: 'observable', reads: 'fresh', observations: [{ type: 'probe', of: 'receiver' }] }],
+            }, {
+                observeProbe: ({ target }, notify) => {
+                    probes.started++;
+                    probes.live.add(target);
+                    probes.notify.set(target, notify);
+
+                    return {
+                        stop: () => {
+                            probes.stopped++;
+                            probes.live.delete(target);
+                        },
+                    };
+                },
+                probe: element => {
+                    probes.calls++;
+
+                    const during = probes.during;
+
+                    probes.during = null;
+                    during?.();
+
+                    if (element.hasAttribute('data-bad')) {
+                        throw new Error('bad');
+                    }
+
+                    return Number(element.getAttribute('data-n'));
+                },
+            }));
+
+            return probes;
+        };
+
+        it('pass from evaluation to evaluation through failures, keep reporting, and are all let go when the watch is disposed', async () => {
+            const probes = registerProbe();
+            const watched = watch('@panel.children { p: probe }', { panel });
+            const [first, second] = [...panel.children];
+
+            await watched.refreshAsync();
+
+            expect([...probes.live]).toEqual([first, second]);
+
+            // A failure that takes over the probes of the first two items and acquires one for the third.
+            const third = document.createElement('i');
+
+            third.setAttribute('data-bad', '');
+            panel.append(third);
+            await rejection(watched.refreshAsync());
+            await settle();
+
+            expect(watched.status).toBe('failed');
+            expect([probes.started, probes.stopped]).toEqual([3, 0]);
+
+            // A second failure, which no longer reads the first item.
+            first.remove();
+            await rejection(watched.refreshAsync());
+            await settle();
+
+            expect([...probes.live]).toEqual([second, third]);
+            expect([probes.started, probes.stopped]).toEqual([3, 1]);
+
+            // The recovery takes over what the failures held.
+            third.removeAttribute('data-bad');
+            third.setAttribute('data-n', '3');
+            await watched.refreshAsync();
+
+            expect(watched.status).toBe('ready');
+            expect(snapshots.at(-1)).toEqual([{ p: 2 }, { p: 3 }]);
+            expect([probes.started, probes.stopped]).toEqual([3, 1]);
+
+            // A probe the recovery took over still reports to the watch.
+            second.setAttribute('data-n', '7');
+            probes.notify.get(second)();
+            await settle();
+
+            expect(snapshots.at(-1)).toEqual([{ p: 7 }, { p: 3 }]);
+
+            watched.dispose();
+
+            expect(probes.live.size).toBe(0);
+            expect(probes.stopped).toBe(probes.started);
+        });
+
+        it('ask for another evaluation when one of them reports a change during an evaluation', async () => {
+            const probes = registerProbe();
+            const watched = watch('{ p: @panel.probe }', { panel });
+
+            await watched.refreshAsync();
+
+            const calls = probes.calls;
+
+            probes.during = () => probes.notify.get(panel)();
+            await watched.refreshAsync();
+            await settle();
+
+            expect(probes.calls - calls).toBe(2);
+        });
+    });
+
     describe('a callback that fails', () => {
         it('is reported to the failure callback and leaves the watch running with the state it was handed accepted', async () => {
             let fails = true;

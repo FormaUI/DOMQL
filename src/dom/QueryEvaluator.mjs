@@ -5,12 +5,19 @@
 import { DomqlError } from '../language/DomqlError.mjs';
 import { Names } from '../language/Names.mjs';
 import { Type } from '../language/Type.mjs';
+import { Observations } from './Observations.mjs';
 import { QueryEvaluation } from './QueryEvaluation.mjs';
 
 /** @typedef {{ window: Window, document: Document }} Environment */
 
 /** What a predicate answers. */
 const BOOLEAN = Type.named('boolean');
+
+/** The observation of whether an element is attached, which a member that answered null for a detached element depends on. */
+const ATTACHMENT = Object.freeze({ type: 'attachment', of: 'receiver' });
+
+/** The arguments of a call that takes none. */
+const NO_ARGUMENTS = Object.freeze({});
 
 export class QueryEvaluator {
     #moduleRegistry;
@@ -22,7 +29,7 @@ export class QueryEvaluator {
     /** The element each item of a list a shape projected came from, by the list it produced, for the evaluation in progress. @type {WeakMap<unknown[], (Element | null)[]>} */
     #elementsOf = new WeakMap();
 
-    /** What the evaluation in progress records, or null where none does. @type {{ observations: import('./Observations.mjs').Observations, onChange: () => void, holdsAll: boolean, dependencies: object[], sessions: object[], unheld: object[], isPending: boolean } | null} */
+    /** What the evaluation in progress records, or null where none does. @type {{ observations: import('./Observations.mjs').Observations, onChange: () => void, holdsAll: boolean, replaces: QueryEvaluation[] | null, dependencies: object[], sessions: object[], held: Map<object, Map<unknown, object[]>> | null, unheld: object[], isPending: boolean } | null} */
     #recording = null;
 
     /** The identities of the value `#detach` detached last. @type {import('../snapshots/SnapshotPatcher.mjs').Identities} */
@@ -60,9 +67,10 @@ export class QueryEvaluator {
      * @param {import('./Observations.mjs').Observations} recording.observations The observations of the window the query is evaluated in.
      * @param {() => void} recording.onChange Called, synchronously, when something the result depends on may have changed.
      * @param {boolean} [recording.holdsAll] Whether every dependency's observation is held, as a watch holds them, rather than those a pending evaluation waits on.
+     * @param {QueryEvaluation[] | null} [recording.replaces] The evaluations this one replaces, as a watch's next evaluation replaces its last: it takes over a session of theirs wherever its call would acquire that same observation again, a shared one, and a later evaluation may take over its own. Null where none is replaced.
      */
-    evaluate({ observations, onChange, holdsAll = false }) {
-        return this.#record({ observations, onChange, holdsAll, waits: true }, () => this.#result());
+    evaluate({ observations, onChange, holdsAll = false, replaces = null }) {
+        return this.#record({ observations, onChange, holdsAll, replaces, waits: true }, () => this.#result());
     }
 
     /**
@@ -153,7 +161,7 @@ export class QueryEvaluator {
      * @param {import('./Observations.mjs').Observations} recording.observations The observations of the window the subscription listens in.
      */
     project(occurrence, { observations }) {
-        return this.#record({ observations, onChange: () => {}, holdsAll: false, waits: false }, () => {
+        return this.#record({ observations, onChange: () => {}, holdsAll: false, replaces: null, waits: false }, () => {
             const { node } = this.#endNode();
 
             this.#occurrence = { node, value: occurrence };
@@ -169,8 +177,8 @@ export class QueryEvaluator {
     }
 
     /** Runs an evaluation that records what it depends on, answering the evaluation; one that waits holds what a pending result waits on, and lets a failure seen through a pending member pass. */
-    #record({ observations, onChange, holdsAll, waits }, produce) {
-        const recording = { observations, onChange, holdsAll, dependencies: [], sessions: [], unheld: [], isPending: false };
+    #record({ observations, onChange, holdsAll, replaces, waits }, produce) {
+        const recording = { observations, onChange, holdsAll, replaces, dependencies: [], sessions: [], held: replaces === null ? null : new Map(), unheld: [], isPending: false };
         let value;
         let identities = null;
         let error = null;
@@ -197,7 +205,7 @@ export class QueryEvaluator {
             }
         }
 
-        return new QueryEvaluation({ value, identities, isPending: recording.isPending, dependencies: recording.dependencies, sessions: recording.sessions, error });
+        return new QueryEvaluation({ value, identities, isPending: recording.isPending, dependencies: recording.dependencies, sessions: recording.sessions, held: recording.held, error });
     }
 
     /** The detached result, and the identities of the elements its lists were projected from, which the result itself never holds. */
@@ -378,16 +386,17 @@ export class QueryEvaluator {
         const samples = [];
         let isPending = false;
 
-        for (const observation of declaration.observations ?? []) {
-            const request = observations.resolve(observation, { receiver, args });
+        (declaration.observations ?? []).forEach((observation, place) => {
+            const takenOver = this.#takeOver(node, place, receiver, observation, args);
+            const request = takenOver?.request ?? observations.resolve(observation, { receiver, args });
 
             if (request === null) {
-                continue;
+                return;
             }
 
             requests.push(request);
 
-            const session = this.#hold(request);
+            const session = takenOver?.session ?? this.#hold(request, node, place, receiver);
 
             if (session?.contract === 'maintained') {
                 const sample = session.sample();
@@ -395,7 +404,7 @@ export class QueryEvaluator {
                 isPending ||= sample.pending;
                 samples.push(sample.value);
             }
-        }
+        });
 
         dependencies.push({ member: declaration.name, pointer: this.#pointerOf(node), observations: requests });
 
@@ -414,15 +423,22 @@ export class QueryEvaluator {
             return;
         }
 
-        const request = this.#recording.observations.resolve({ type: 'attachment', of: 'receiver' }, { receiver, args: {} });
+        const takenOver = this.#takeOver(node, 'attachment', receiver, ATTACHMENT, NO_ARGUMENTS);
+        const request = takenOver?.request ?? this.#recording.observations.resolve(ATTACHMENT, { receiver, args: NO_ARGUMENTS });
 
-        this.#hold(request);
+        if (takenOver === null) {
+            this.#hold(request, node, 'attachment', receiver);
+        }
+
         this.#recording.dependencies.push({ member: declaration.name, pointer: this.#pointerOf(node), observations: [request] });
     }
 
-    /** Holds the observation of the request, answering its session, or leaves it unheld where only a pending evaluation needs it and answers null. */
-    #hold(request) {
-        const { observations, onChange, holdsAll, sessions, unheld } = this.#recording;
+    /**
+     * Holds the observation of the request, answering its session, or leaves it unheld where only a pending evaluation needs it and answers null.
+     * A session of a shared observation is kept where the node's call acquired it, at the observation's place among those the call observes and for its receiver, for a later evaluation to take over.
+     */
+    #hold(request, node, place, receiver) {
+        const { observations, onChange, holdsAll, sessions, held, unheld } = this.#recording;
         const type = this.#moduleRegistry.getObservationType(request.type);
 
         if (type !== undefined && type.contract === 'invalidation' && !holdsAll) {
@@ -435,7 +451,52 @@ export class QueryEvaluator {
 
         sessions.push(session);
 
+        if (held !== null && type.shared !== false) {
+            this.#keep(node, receiver, { place, request, session, values: Observations.valuesOf(request) });
+        }
+
         return session;
+    }
+
+    /** The session an evaluation this one replaces holds for the observation, where resolving it against the call would give that session's request again, which becomes this evaluation's own; null where none does. */
+    #takeOver(node, place, receiver, observation, args) {
+        const { observations, replaces, sessions } = this.#recording;
+
+        if (replaces === null) {
+            return null;
+        }
+
+        for (const evaluation of replaces) {
+            const held = evaluation.takeOver(node, place, receiver, values => observations.resolvesTo(observation, { receiver, args }, values));
+
+            if (held !== null) {
+                sessions.push(held.session);
+                this.#keep(node, receiver, held);
+
+                return held;
+            }
+        }
+
+        return null;
+    }
+
+    /** Keeps the session where the node's call acquired it, for its receiver, for a later evaluation to take over. */
+    #keep(node, receiver, held) {
+        const byNode = this.#recording.held;
+        let byReceiver = byNode.get(node);
+
+        if (byReceiver === undefined) {
+            byReceiver = new Map();
+            byNode.set(node, byReceiver);
+        }
+
+        const candidates = byReceiver.get(receiver);
+
+        if (candidates === undefined) {
+            byReceiver.set(receiver, [held]);
+        } else {
+            candidates.push(held);
+        }
     }
 
     /** The member a subscription, an action or a behavior request ends in, and where it stands: the shapes of a request each follow the one before, and the first follows that member. */

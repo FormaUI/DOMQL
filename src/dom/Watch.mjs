@@ -30,6 +30,9 @@ export class Watch {
     /** @type {import('./QueryEvaluation.mjs').QueryEvaluation | null} */
     #failedEvaluation = null;
 
+    /** What every session the watch holds calls when something the result depends on may have changed, the one function its evaluations share. */
+    #onChange = () => this.#invalidate();
+
     /** The animation frame the next evaluation waits for. */
     #frame = null;
     #isRunning = false;
@@ -211,7 +214,10 @@ export class Watch {
         this.#isRunning = true;
 
         try {
-            this.#settle(this.#evaluator.evaluate({ observations: this.#observations, onChange: () => this.#invalidate(), holdsAll: true }), waiting);
+            // The next evaluation takes over the sessions of the ones it replaces wherever it observes the same again.
+            const replaces = [this.#successfulEvaluation, this.#failedEvaluation].filter(evaluation => evaluation !== null);
+
+            this.#settle(this.#evaluator.evaluate({ observations: this.#observations, onChange: this.#onChange, holdsAll: true, replaces }), waiting);
         } finally {
             this.#isRunning = false;
         }

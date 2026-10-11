@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, it, expect } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { BrowserModule } from '#domql/dom/BrowserModule.mjs';
 import { Observations } from '#domql/dom/Observations.mjs';
 import { QueryEvaluator } from '#domql/dom/QueryEvaluator.mjs';
@@ -624,6 +624,149 @@ describe('QueryEvaluator evaluation', () => {
             await new Promise(resolve => setTimeout(resolve));
 
             expect(changes).toBe(1);
+        });
+    });
+
+    describe('sessions an evaluation replaces', () => {
+        let started;
+        let stopped;
+
+        beforeEach(() => {
+            started = 0;
+            stopped = 0;
+        });
+
+        /** A member observed through a probe of its receiver, shared or not, whose identity is the names its argument gives, none by default. */
+        const probeModule = (shared = true) => new DomqlModule('probe', {
+            observationTypes: [{ name: 'probe', contract: 'invalidation', identity: ['names'], shared, function: 'observeProbe' }],
+            members: [{
+                name: 'probe', function: 'probe', kind: 'property', on: 'element', result: 'number', changes: 'observable', reads: 'fresh',
+                parameters: [{ name: 'names', kind: 'value', type: 'list<string>', required: false, default: [], fixed: false, nulls: 'propagate' }],
+                observations: [{ type: 'probe', of: 'receiver', names: { argument: 'names' } }],
+            }],
+        }, {
+            observeProbe: () => {
+                started++;
+
+                return { stop: () => stopped++ };
+            },
+            probe: () => 1,
+        });
+
+        /** Evaluates the query again and again in one window, as a watch does, counting what each evaluation acquires. */
+        const evaluationsOf = (text, bindings, modules) => {
+            const registry = new ModuleRegistry([BrowserModule.create(), ...modules]);
+            const query = Domql.parse(text, bindings);
+            const resolved = new LanguageResolver(registry, query.bindings, null, { watch: true, acceptPartialObservation: true }).resolveDefinition(query.definition);
+            const evaluator = new QueryEvaluator(registry, resolved, query.bindings, { window, document }, null);
+            const shared = new Observations(registry, { window, document });
+            const acquire = vi.spyOn(shared, 'acquire');
+
+            observations = shared;
+
+            return {
+                acquired: () => acquire.mock.calls.length,
+                evaluate: replaces => {
+                    const evaluation = evaluator.evaluate({ observations: shared, onChange: () => changes++, holdsAll: true, replaces });
+
+                    evaluations.push(evaluation);
+
+                    return evaluation;
+                },
+            };
+        };
+
+        it('are taken over where the evaluation observes the same again, so nothing is acquired or stopped', () => {
+            const run = evaluationsOf('@panel.children { p: probe }', { panel }, [probeModule()]);
+            const first = run.evaluate([]);
+            const acquired = run.acquired();
+            const second = run.evaluate([first]);
+
+            first.dispose();
+
+            expect(run.acquired()).toBe(acquired);
+            expect([started, stopped]).toEqual([3, 0]);
+            expect(second.dependencies).toEqual(first.dependencies);
+
+            second.dispose();
+
+            expect([started, stopped]).toEqual([3, 3]);
+            expect(observations.running).toBe(0);
+        });
+
+        it('are acquired again where an argument changed, a bound list changed in place included, and the old one is let go', () => {
+            const names = ['a'];
+            const run = evaluationsOf('@panel.probe(@names)', { panel, names }, [probeModule()]);
+            const first = run.evaluate([]);
+
+            names.push('b');
+
+            const second = run.evaluate([first]);
+
+            first.dispose();
+
+            expect([started, stopped]).toEqual([2, 1]);
+
+            run.evaluate([second]);
+            second.dispose();
+
+            expect([started, stopped]).toEqual([2, 1]);
+        });
+
+        it('are each taken over once where the evaluation reaches one place with one receiver twice', () => {
+            const run = evaluationsOf('@items { p: probe }', { items: [rows[0], rows[0]] }, [probeModule()]);
+            const first = run.evaluate([]);
+
+            expect(run.acquired()).toBe(2);
+
+            const second = run.evaluate([first]);
+
+            first.dispose();
+
+            expect(run.acquired()).toBe(2);
+            expect([started, stopped]).toEqual([1, 0]);
+
+            second.dispose();
+
+            expect([started, stopped]).toEqual([1, 1]);
+        });
+
+        it('leave an unshared observation to start afresh each evaluation', () => {
+            const run = evaluationsOf('@panel.probe', { panel }, [probeModule(false)]);
+            const first = run.evaluate([]);
+            const second = run.evaluate([first]);
+
+            first.dispose();
+
+            expect([started, stopped]).toEqual([2, 1]);
+
+            second.dispose();
+
+            expect([started, stopped]).toEqual([2, 2]);
+        });
+
+        it('are acquired again where the window\'s observations ended those the replaced evaluation held', () => {
+            const run = evaluationsOf('@panel.probe', { panel }, [probeModule()]);
+            const first = run.evaluate([]);
+
+            observations.dispose();
+
+            run.evaluate([first]);
+            first.dispose();
+
+            expect([started, stopped]).toEqual([2, 1]);
+            expect(observations.running).toBe(1);
+        });
+
+        it('are neither taken over nor kept for one where the evaluation replaces none', () => {
+            const run = evaluationsOf('@panel.probe', { panel }, [probeModule()]);
+            const first = run.evaluate(null);
+
+            run.evaluate([first]);
+            first.dispose();
+
+            expect([started, stopped]).toEqual([1, 0]);
+            expect(run.acquired()).toBe(2);
         });
     });
 });
