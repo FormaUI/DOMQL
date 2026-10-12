@@ -374,6 +374,17 @@ An occurrence source delivers things that happened. It is subscribed to, never r
 | --- | --- | --- | --- | --- | --- |
 | Element, document, window | `eventsOf(type)` | `type`: `string` → `occurrence<T>` for the event type `type` names | The native events of that type as they reach it, each with the members its declared event type offers, such as a pointer event's `button`, `clientX` and `clientY`; a type the vocabulary declares no event type for is a validation error | Captured at dispatch | `type` |
 
+The built-in event types, and the members each occurrence offers:
+
+| Event types | Occurrence type | Members |
+| --- | --- | --- |
+| `click`, `pointerdown`, `pointerup` | `pointerEvent` | `target`: `element`, `button`: `number`, `buttons`: `number`, `clientX`: `number`, `clientY`: `number`, `pointerType`: `string?` |
+| `keydown`, `keyup` | `keyboardEvent` | `target`: `element`, `key`: `string`, `code`: `string` |
+| `drop` | `dragEvent` | `target`: `element`, `clientX`: `number`, `clientY`: `number` |
+| `focus`, `blur`, `input`, `scroll`, `resize` | `domEvent` | `target`: `element?` |
+
+An occurrence is captured as the members its type declares when it is dispatched. A member the event carries no value of its type for is null where its type is nullable, as `domEvent`'s `target` is for a scroll or a resize that targets the document or the window, and `pointerEvent`'s `pointerType` for a browser that dispatches a click as a mouse event; where its type is not nullable, the capture fails, and the subscription reports it as it reports a failed object expression. `eventsOf` listens passively, so it never delays or prevents what the page does with an event.
+
 `is "focused"` asks whether the element itself is focused, `matches(":focus-within")` whether focus is anywhere within it, and an extension can offer richer focus semantics under names of its own; they are separate questions with separate names.
 
 `is "readOnly"` and `is "textEditable"` are separate questions too, and neither is the other's opposite:
