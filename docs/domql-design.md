@@ -8,7 +8,7 @@ This design describes the whole runtime. Building a query fluently, reading it o
 
 | Decision | Contract |
 | --- | --- |
-| A small language | Chains, object expressions and lists, with literals and parameters. Arithmetic, conditions, ordering and anything else a query needs computed belongs to a member or to the caller. |
+| A small language | Chains, object expressions, lists, predicate expressions and logical expressions, with literals and parameters. Arithmetic, ordering and anything else a query needs computed belongs to a member or to the caller. |
 | An open vocabulary | Everything a query can ask about is a member a vocabulary contributes; the built-in vocabulary and every extension follow one contract, and adding a member leaves the grammar unchanged. |
 | Queries read, requests act | Reading, watching or subscribing to a query reads the document and changes nothing, whatever vocabulary it uses; an action or a behavior request is a request of its own kind, carried out only when its caller runs or activates it. |
 | One meaning | A query evaluates the same way for every caller, however it was written. |
@@ -126,7 +126,7 @@ The subscription holds the sessions its object expressions acquire. After each s
 
 ## Modules
 
-An extension is registered as a module, which declares under its name the state members, occurrence sources, actions and behaviors it contributes and supplies the implementation that carries each out; requests resolve against those declarations. The declarations are data, each member's DOMQL name, signature, result type, argument types and kinds and the request kinds it supports, so they can be read without running the implementations. A module associates three things explicitly, and nothing derives one from another: an operation's DOMQL name, `computedStyleOf`, its public builder name, `computedStyle`, and the function that carries it out, whatever that function is called. A module registers under a name of its own, and registering a name twice is an error.
+An extension is registered as a module, which declares under its name the state members, occurrence sources, actions and behaviors it contributes and supplies the implementation that carries each out; requests resolve against those declarations. The declarations are data, each member's DOMQL name, signature, result type, argument types and kinds and the request kinds it supports, so they can be read without running the implementations. A module associates two things explicitly, and neither is derived from the other: an operation's DOMQL name, `computedStyleOf`, which the builder spells the same, and the function that carries it out, whatever that function is called. A module registers under a name of its own, and registering a name twice is an error.
 
 ```js
 Domql.registerModule(new VirtualizerDomqlModule(Virtualizer));
@@ -276,7 +276,7 @@ A `DomqlQuery<T>` answers a `T`, mapped by its declared contract, which matches 
 
 ### The fluent callback contract
 
-A fluent callback runs once, as the query is built, against expressions: each is a DOMQL expression, recorded as the definition node it is, and a member access or a supported call on it adds a node, and a projection object describes an object expression. JavaScript's operators reach no property and make no call, so an expression records only what property reads and calls write; DOMQL has no operator of its own but the verbs and the `and` and `or` of a predicate expression, which the builder writes as calls, so every DOMQL expression can be built. It never runs against a live element, so native control flow over an expression decides nothing about the document:
+A fluent callback runs once, as the query is built, against expressions: each is a DOMQL expression, recorded as the definition node it is, and a member access or a supported call on it adds a node, and a projection object describes an object expression. JavaScript's operators reach no property and make no call, so an expression records only what property reads and calls write; the builder writes DOMQL's own operators, the verbs of a predicate expression and the `and` and `or` of a logical expression, as calls, so every DOMQL expression can be built. It never runs against a live element, so native control flow over an expression decides nothing about the document:
 
 ```js
 // Unsupported: the conditional runs while the query is built.
