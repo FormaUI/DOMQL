@@ -47,8 +47,8 @@ export class TextLocations {
             this.#collect(part.target, `${pointer}/target`, spans);
         }
 
-        if (part.names) {
-            this.#collect(part.names, `${pointer}/names`, spans);
+        if (part.kind === 'predicate') {
+            this.#collect(part.name, `${pointer}/name`, spans);
         }
 
         part.operands?.forEach((operand, index) => this.#collect(operand, `${pointer}/operands/${index}`, spans));

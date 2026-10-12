@@ -44,8 +44,11 @@ describe('QueryBuilder', () => {
                     total: q.from(panel).children.sum(item => item.size.width),
                     narrowest: q.from(panel).children.min(item => item.size.width),
                 }))],
-            ['a test of a value, its names combined', '@p1 is ("attached" or "focused") and "disabled"', { p1: panel }, q => q.from(panel).is('(attached or focused) and disabled')],
-            ['a test of the current value, and has', '@p1 { open: is "attached", full: has "children" }', { p1: panel }, q => q.from(panel).select(view => ({ open: view.is('attached'), full: view.has('children') }))],
+            ['predicate expressions combined, a run of one operator continued', '(@p1 is "attached" or @p1 is "focused") and @p1 is "disabled" and @p1 has "children"', { p1: panel },
+                q => q.from(panel).is('attached').or(q.from(panel).is('focused')).and(q.from(panel).is('disabled')).and(q.from(panel).has('children'))],
+            ['predicate expressions of the current value combined', '@p1 { either: is "attached" or has "children" }', { p1: panel }, q => q.from(panel).select(view => ({ either: view.is('attached').or(view.has('children')) }))],
+            ['a predicate named by a bound string', '@p1 is @state', { p1: panel, state: 'focused' }, q => q.from(panel).is(q.from({ state: 'focused' }))],
+            ['a predicate expression of the current value, and has', '@p1 { open: is "attached", full: has "children" }', { p1: panel }, q => q.from(panel).select(view => ({ open: view.is('attached'), full: view.has('children') }))],
             ['the roots', '@window { ratio: devicePixelRatio, visible: @document is "visible" }', {}, q => q.from(window).select(view => ({ ratio: view.devicePixelRatio, visible: q.from(document).is('visible') }))],
             ['another target inside a projection', '@window { ratio: devicePixelRatio, width: @p1.size.width }', { p1: panel }, q => q.from(window).select(view => ({ ratio: view.devicePixelRatio, width: q.from(panel).size.width }))],
             ['an occurrence source, shaped', '@p1.eventsOf("click") { button: button, x: clientX }', { p1: panel }, q => q.from(panel).eventsOf('click').select(event => ({ button: event.button, x: event.clientX }))],
@@ -124,10 +127,12 @@ describe('QueryBuilder', () => {
             expect(getError(() => Domql.build(q => q.from(panel).attributeOf('id')('class')))).toMatchObject({ kind: 'structure', message: expect.stringContaining('Only a member is called, and once') });
         });
 
-        it('refuses a predicate expression whose names cannot be read', () => {
-            expect(getError(() => Domql.build(q => q.from(panel).is('attached or')))).toMatchObject({ kind: 'structure', message: expect.stringContaining('it ends where a name should be') });
-            expect(getError(() => Domql.build(q => q.from(panel).is('(attached')))).toMatchObject({ kind: 'structure', message: expect.stringContaining('never closed') });
-            expect(getError(() => Domql.build(q => q.from(panel).is('a-b')))).toMatchObject({ kind: 'structure' });
+        it('refuses a predicate named by anything but a string or a bound parameter, and an and or an or of anything but expressions', () => {
+            expect(getError(() => Domql.build(q => q.from(panel).is(3)))).toMatchObject({ kind: 'structure', message: expect.stringContaining('`is` reads one predicate') });
+            expect(getError(() => Domql.build(q => q.from(panel).is(q.from(panel).size)))).toMatchObject({ kind: 'structure', message: expect.stringContaining('`is` reads one predicate') });
+            expect(getError(() => Domql.build(q => q.from(panel).is('attached').and(true)))).toMatchObject({ kind: 'structure', message: expect.stringContaining('`and` combines expressions') });
+            expect(getError(() => Domql.build(q => q.from(panel).is('attached').or()))).toMatchObject({ kind: 'structure', message: expect.stringContaining('`or` combines expressions') });
+            expect(getError(() => Domql.build(q => q.from(panel).select(view => ({ x: view.and(view.is('attached')) }))))).toMatchObject({ kind: 'structure', message: expect.stringContaining('never the current value itself') });
         });
     });
 

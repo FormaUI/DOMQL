@@ -218,15 +218,15 @@ Domql.read('@panel is "attached"', { panel });
 // true
 ```
 
-`get` reads a named member or chain of members. `is` asks about a state or classification and `has` about presence: they are operators that test the value before them against predicates the vocabulary registers, and `and` and `or` combine names under one verb:
+`get` reads a named member or chain of members. `is` asks about a state or classification and `has` about presence: they are operators that test the value before them against one predicate the vocabulary registers. `and` and `or` combine Boolean expressions:
 
 ```text
-@input is "disabled" or "readOnly"
-@input is "disabled" or ("readOnly" and "textEditable")
-@panel has "children"
+@input is "disabled" or @input is "readOnly"
+@input is "disabled" or (@input is "readOnly" and @input is "textEditable")
+@panel has "children" and @enabled
 ```
 
-`and` binds tighter than `or`, parentheses group, and a predicate expression stops reading predicates once its result is decided. Inside an object expression or an expression argument, a predicate expression without a value before it tests the current value, as `where(is "disabled")` does. The strings that name members and predicates are case-sensitive too. Selectors, attribute names and other strings passed to browser APIs follow the browser's own rules.
+`and` binds tighter than `or`, parentheses group any expression, and evaluation stops at the first operand that decides the result. An operand that is null decides neither: `and` answers false where an operand is false, otherwise null where one is null, and true where none is; `or` answers true where an operand is true, otherwise null where one is null, and false where none is. Inside an object expression or an expression argument, a predicate expression without a value before it tests the current value, as `where(is "disabled")` does. The strings that name members and predicates are case-sensitive too. Selectors, attribute names and other strings passed to browser APIs follow the browser's own rules.
 
 After a dot, arguments are enclosed in parentheses. A member that starts a chain, inside an object expression or an expression argument, can take simple literals and parameter references without them:
 
@@ -240,7 +240,7 @@ Multiple bare arguments are separated by whitespace. A member written that way e
 
 ### Objects and lists
 
-An object expression chooses output fields. An explicit alias controls the output name. Without an alias, the field uses the final member name; `get` and a predicate expression of one name infer the final segment of the name they read, and a predicate expression that combines names or takes one from a parameter needs an alias.
+An object expression chooses output fields. An explicit alias controls the output name. Without an alias, the field uses the final member name; `get` and a predicate expression of a literal name infer the final segment of the name they read, and a predicate expression that takes its name from a parameter, or an `and` or an `or`, needs an alias.
 
 ```js
 Domql.read(`

@@ -168,13 +168,13 @@ export type DomqlDefinitionNode =
     | { readonly kind: 'parameter'; readonly name: string }
     | { readonly kind: 'member'; readonly target?: DomqlDefinitionNode; readonly name: string; readonly arguments: readonly DomqlDefinitionEntry[] }
     | { readonly kind: 'object'; readonly target?: DomqlDefinitionNode; readonly fields: readonly DomqlDefinitionEntry[] }
-    | { readonly kind: 'predicate'; readonly verb: 'is' | 'has'; readonly target?: DomqlDefinitionNode; readonly names: DomqlPredicateNames };
+    | { readonly kind: 'predicate'; readonly verb: 'is' | 'has'; readonly target?: DomqlDefinitionNode; readonly name: DomqlPredicateName }
+    | { readonly kind: 'and' | 'or'; readonly operands: readonly DomqlDefinitionNode[] };
 
-/** The predicate names a predicate expression reads: a string, a parameter, or an and or an or of two or more of them, so a tree of names whose leaves are names. */
-export type DomqlPredicateNames =
+/** The one predicate a predicate expression reads: named by a string, or by a parameter bound to one. */
+export type DomqlPredicateName =
     | { readonly kind: 'literal'; readonly value: string }
-    | { readonly kind: 'parameter'; readonly name: string }
-    | { readonly kind: 'and' | 'or'; readonly operands: readonly DomqlPredicateNames[] };
+    | { readonly kind: 'parameter'; readonly name: string };
 
 /** An argument of a member or a field of an object expression, with the name written for it, if any. */
 export interface DomqlDefinitionEntry {
@@ -230,6 +230,10 @@ export interface DomqlValueExpression<V> {
     readonly [domqlType]: 'value';
     /** A member read by its name, as the vocabulary resolves it. */
     get(name: string): DomqlUnresolvedExpression;
+    /** The Boolean expression and the others combined by `and`: false where one is false, else null where one is null, else true. */
+    and<O extends DomqlExpression<boolean | null>[]>(this: DomqlValueExpression<boolean | null>, ...others: O): DomqlValueExpression<boolean | Extract<V | DomqlValueOf<O[number]>, null>>;
+    /** The Boolean expression and the others combined by `or`: true where one is true, else null where one is null, else false. */
+    or<O extends DomqlExpression<boolean | null>[]>(this: DomqlValueExpression<boolean | null>, ...others: O): DomqlValueExpression<boolean | Extract<V | DomqlValueOf<O[number]>, null>>;
 }
 
 /** An object expression a projection describes, whose fields are expressions of its values. */
@@ -342,10 +346,10 @@ export interface DomqlElementExpression<N extends null = never> {
     eventsOf(type: 'scroll'): DomqlOccurrenceExpression<DomqlDomEventExpression<never>>;
     /** The `resize` events that reach the value, each a `domEvent`. */
     eventsOf(type: 'resize'): DomqlOccurrenceExpression<DomqlDomEventExpression<never>>;
-    /** A predicate expression of the value, by the names `is` reads on it, attached, disabled, readOnly, textEditable, focused, joined by `and` and `or`. */
-    is(names: string): DomqlValueExpression<boolean | N>;
-    /** A predicate expression of the value, by the names `has` reads on it, children, selection, joined by `and` and `or`. */
-    has(names: string): DomqlValueExpression<boolean | N>;
+    /** A predicate expression of the value, reading one predicate `is` names on it: attached, disabled, readOnly, textEditable, focused. */
+    is(name: string | DomqlExpression<string>): DomqlValueExpression<boolean | N>;
+    /** A predicate expression of the value, reading one predicate `has` names on it: children, selection. */
+    has(name: string | DomqlExpression<string>): DomqlValueExpression<boolean | N>;
     /** An object expression of the value, whose fields the projection returns. */
     select<P extends DomqlProjection>(projection: (value: DomqlElementExpression) => P): DomqlObjectExpression<DomqlProjected<P>, N>;
     /** A member read by its name, as the vocabulary resolves it. */
@@ -420,10 +424,10 @@ export interface DomqlDocumentExpression<N extends null = never> {
     eventsOf(type: 'scroll'): DomqlOccurrenceExpression<DomqlDomEventExpression<never>>;
     /** The `resize` events that reach the value, each a `domEvent`. */
     eventsOf(type: 'resize'): DomqlOccurrenceExpression<DomqlDomEventExpression<never>>;
-    /** A predicate expression of the value, by the names `is` reads on it, visible, joined by `and` and `or`. */
-    is(names: string): DomqlValueExpression<boolean | N>;
-    /** A predicate expression of the value, by the names `has` reads on it, focus, joined by `and` and `or`. */
-    has(names: string): DomqlValueExpression<boolean | N>;
+    /** A predicate expression of the value, reading one predicate `is` names on it: visible. */
+    is(name: string | DomqlExpression<string>): DomqlValueExpression<boolean | N>;
+    /** A predicate expression of the value, reading one predicate `has` names on it: focus. */
+    has(name: string | DomqlExpression<string>): DomqlValueExpression<boolean | N>;
     /** An object expression of the value, whose fields the projection returns. */
     select<P extends DomqlProjection>(projection: (value: DomqlDocumentExpression) => P): DomqlObjectExpression<DomqlProjected<P>, N>;
     /** A member read by its name, as the vocabulary resolves it. */

@@ -62,12 +62,15 @@ export class LanguageResolver {
                 return this.#member(node, pointer, scope);
             case 'predicate':
                 return this.#predicate(node, pointer, scope);
+            case 'and':
+            case 'or':
+                return this.#logical(node, pointer, scope);
             default:
                 return this.#object(node, pointer, scope);
         }
     }
 
-    /** Resolves a predicate expression: its subject, and every predicate name it reads, each under its verb and against the subject's type. */
+    /** Resolves a predicate expression: its subject, and the predicate name it reads, under its verb and against the subject's type. */
     #predicate(node, pointer, scope) {
         const { verb } = node;
         const subject = node.target === undefined ? { type: scope.current, kind: 'query' } : this.#node(node.target, `${pointer}/target`, scope);
@@ -84,21 +87,15 @@ export class LanguageResolver {
             this.#fail(`'${verb}' tests null, which no predicate applies to`, pointer);
         }
 
-        this.#resolveNames(node.names, `${pointer}/names`, verb, subject.type);
+        this.#resolveName(node.name, `${pointer}/name`, verb, subject.type);
 
         const type = Type.named('boolean');
 
         return { type: subject.type.isNullable ? type.toNullable() : type, kind: 'query', isFixed: false };
     }
 
-    /** Resolves each predicate name a predicate expression reads, every branch of an and or an or included, so one is validated whole before any of it is evaluated. */
-    #resolveNames(node, pointer, verb, subjectType) {
-        if (node.kind === 'and' || node.kind === 'or') {
-            node.operands.forEach((operand, index) => this.#resolveNames(operand, `${pointer}/operands/${index}`, verb, subjectType));
-
-            return;
-        }
-
+    /** Resolves the predicate name a predicate expression reads, under its verb and against the subject's type. */
+    #resolveName(node, pointer, verb, subjectType) {
         const named = this.#node(node, pointer, { current: null });
 
         if (!named.isFixed || typeof named.value !== 'string') {
@@ -114,6 +111,30 @@ export class LanguageResolver {
 
         this.#resolutions.set(pointer, { kind: 'predicate', predicate });
         this.#used.push({ declaration: { name: `${verb} ${name}`, changes: predicate.changes, reads: predicate.reads, misses: predicate.misses }, pointer });
+    }
+
+    /** Resolves an and or an or: every expression it combines, each a Boolean, so the whole is validated before any of it is evaluated, and answers a Boolean that is nullable where an operand is. */
+    #logical(node, pointer, scope) {
+        let isNullable = false;
+
+        node.operands.forEach((operand, index) => {
+            const operandPointer = `${pointer}/operands/${index}`;
+            const result = this.#node(operand, operandPointer, scope);
+
+            if (result.kind !== 'query') {
+                this.#fail(`'${node.kind}' combines Boolean expressions, and this one is ${LanguageResolver.#nameOf(result.kind)}`, operandPointer);
+            }
+
+            if (result.type.kind !== 'null' && !(result.type.kind === 'named' && result.type.name === 'boolean')) {
+                this.#fail(`'${node.kind}' combines Boolean expressions, and this one is ${result.type}`, operandPointer);
+            }
+
+            isNullable ||= result.type.isNullable;
+        });
+
+        const type = Type.named('boolean');
+
+        return { type: isNullable ? type.toNullable() : type, kind: 'query', isFixed: false };
     }
 
     #literal(node) {

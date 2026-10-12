@@ -99,7 +99,7 @@ export class ResolvedDefinition {
                 this.#fieldNames.set(node, node.fields.map(field => field.name ?? Names.inferField(field.value)));
                 break;
             case 'predicate':
-                this.#index(node.names, `${pointer}/names`);
+                this.#index(node.name, `${pointer}/name`);
                 break;
             case 'and':
             case 'or':

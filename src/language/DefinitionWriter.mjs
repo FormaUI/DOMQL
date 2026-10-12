@@ -1,6 +1,12 @@
 /**
- * DefinitionWriter — a definition's node as the DOMQL text that writes it, for a message about a query that has no text of its own
+ * DefinitionWriter — a definition's node as the DOMQL text that writes it, for a message about a query that has no text of its own, parenthesized where its grouping needs it
  */
+
+/** How tightly each kind of expression binds, the loosest lowest: one written where a tighter one stands is parenthesized. */
+const BINDING = { or: 1, and: 2, predicate: 3 };
+
+/** How tightly a chain binds: a member, an object expression, a literal or a parameter. */
+const CHAIN = 4;
 
 export class DefinitionWriter {
     /**
@@ -14,18 +20,21 @@ export class DefinitionWriter {
             case 'parameter':
                 return `@${node.name}`;
             case 'member': {
-                const target = node.target === undefined ? '' : `${DefinitionWriter.write(node.target)}.`;
+                const target = node.target === undefined ? '' : `${DefinitionWriter.#within(node.target, CHAIN)}.`;
                 const args = node.arguments.length === 0 ? '' : `(${node.arguments.map(entry => DefinitionWriter.#entry(entry)).join(', ')})`;
 
                 return `${target}${node.name}${args}`;
             }
             case 'predicate': {
-                const target = node.target === undefined ? '' : `${DefinitionWriter.write(node.target)} `;
+                const target = node.target === undefined ? '' : `${DefinitionWriter.#within(node.target, CHAIN)} `;
 
-                return `${target}${node.verb} ${DefinitionWriter.#names(node.names, null)}`;
+                return `${target}${node.verb} ${DefinitionWriter.write(node.name)}`;
             }
+            case 'and':
+            case 'or':
+                return node.operands.map(operand => DefinitionWriter.#within(operand, BINDING[node.kind] + 1)).join(` ${node.kind} `);
             default: {
-                const target = node.target === undefined ? '' : `${DefinitionWriter.write(node.target)} `;
+                const target = node.target === undefined ? '' : `${DefinitionWriter.#within(node.target, CHAIN)} `;
 
                 return `${target}{ ${node.fields.map(entry => DefinitionWriter.#entry(entry)).join(', ')} }`;
             }
@@ -36,14 +45,10 @@ export class DefinitionWriter {
         return entry.name === undefined ? DefinitionWriter.write(entry.value) : `${entry.name}: ${DefinitionWriter.write(entry.value)}`;
     }
 
-    /** The names a predicate expression reads, an or inside an and in parentheses, since and binds tighter. */
-    static #names(node, within) {
-        if (node.kind !== 'and' && node.kind !== 'or') {
-            return DefinitionWriter.write(node);
-        }
+    /** The text of the node where an expression binding at least as tightly as the given binding stands: in parentheses where it binds more loosely. */
+    static #within(node, binding) {
+        const text = DefinitionWriter.write(node);
 
-        const text = node.operands.map(operand => DefinitionWriter.#names(operand, node.kind)).join(` ${node.kind} `);
-
-        return within === 'and' && node.kind === 'or' ? `(${text})` : text;
+        return (BINDING[node.kind] ?? CHAIN) < binding ? `(${text})` : text;
     }
 }

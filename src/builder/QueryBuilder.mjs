@@ -7,7 +7,6 @@ import { DomqlError } from '../language/DomqlError.mjs';
 import { Specification } from '../language/Specification.mjs';
 import { TypedBinding } from '../language/TypedBinding.mjs';
 import { Expression } from './Expression.mjs';
-import { PredicateNamesParser } from './PredicateNamesParser.mjs';
 
 export class QueryBuilder {
     /** The name each bound value is bound under. @type {Map<unknown, string>} */
@@ -99,11 +98,30 @@ export class QueryBuilder {
         return Expression.create(node === null ? { kind: 'object', fields } : { kind: 'object', target: node, fields }, this);
     }
 
-    /** A predicate expression of the node, reading the predicate names as text writes them after the verb. */
-    predicate(node, verb, text) {
-        const names = PredicateNamesParser.parse(text);
+    /** A predicate expression of the node, reading the one predicate the name names: a string, or an expression of a parameter bound to one. */
+    predicate(node, verb, name) {
+        const nameNode = typeof name === 'string' ? { kind: 'literal', value: name } : Expression.isExpression(name) ? Expression.nodeOf(name) : null;
 
-        return Expression.create(node === null ? { kind: 'predicate', verb, names } : { kind: 'predicate', verb, target: node, names }, this);
+        if (nameNode?.kind !== 'literal' && nameNode?.kind !== 'parameter') {
+            throw DomqlError.structure(`\`${verb}\` reads one predicate, named by a string or by a parameter \`q.from\` binds, and was given ${QueryBuilder.#describe(name)}; combine predicate expressions with \`and\` and \`or\``, {});
+        }
+
+        return Expression.create(node === null ? { kind: 'predicate', verb, name: nameNode } : { kind: 'predicate', verb, target: node, name: nameNode }, this);
+    }
+
+    /** The node and the expressions given combined by the operator, an and that follows an and continuing it, as the text that writes them reads. */
+    logical(operator, node, others) {
+        if (node === null) {
+            throw DomqlError.structure(`\`${operator}\` follows an expression, never the current value itself`, {});
+        }
+
+        if (others.length === 0 || !others.every(other => Expression.isExpression(other))) {
+            throw DomqlError.structure(`\`${operator}\` combines expressions, and was given ${others.length === 0 ? 'none' : others.map(other => (Expression.isExpression(other) ? 'an expression' : QueryBuilder.#describe(other))).join(', ')}`, {});
+        }
+
+        const rest = others.map(other => this.#nodeOf(other, `An operand of \`${operator}\``));
+
+        return Expression.create({ kind: operator, operands: node.kind === operator ? [...node.operands, ...rest] : [node, ...rest] }, this);
     }
 
     /** Where a query starts: the document or the window as the roots they stand for, a value bound under the name an object gives it, or one bound under a name the build gives. */

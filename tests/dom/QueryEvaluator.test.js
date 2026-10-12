@@ -267,51 +267,44 @@ describe('QueryEvaluator', () => {
         };
 
         it.each([
-            ['"yes" and "yes"', true],
-            ['"yes" and "no"', false],
-            ['"no" or "yes"', true],
-            ['"no" or "no"', false],
-            ['"no" or "yes" and "yes"', true],
-            ['("no" or "yes") and "no"', false],
-        ])('answer is %s as and, or and grouping define', (names, expected) => {
-            expect(readWith(probes().module, `@panel is ${names}`, { panel })).toBe(expected);
+            [true, true, true, true],
+            [true, false, false, true],
+            [true, null, null, true],
+            [false, true, false, true],
+            [false, false, false, false],
+            [false, null, false, null],
+            [null, true, null, true],
+            [null, false, false, null],
+            [null, null, null, null],
+        ])('answer %s and %s as %s, and %s or %s as %s, by three-valued logic', (left, right, and, or) => {
+            const bindings = { left: Domql.bind(left, 'boolean?'), right: Domql.bind(right, 'boolean?') };
+
+            expect(read('@left and @right', bindings)).toBe(and);
+            expect(read('@left or @right', bindings)).toBe(or);
         });
 
-        it('read no predicate the result does not need', () => {
+        it('read no operand once the result is decided, and read on past a null', () => {
             const { module, record } = probes();
 
-            expect(readWith(module, '@panel is "no" and "yes"', { panel })).toBe(false);
+            expect(readWith(module, '@panel is "no" and @panel is "yes"', { panel })).toBe(false);
             expect(record).toEqual({ yes: 0, no: 1 });
-            expect(readWith(module, '@panel is "yes" or "no"', { panel })).toBe(true);
+            expect(readWith(module, '@panel is "yes" or @panel is "no"', { panel })).toBe(true);
             expect(record).toEqual({ yes: 1, no: 1 });
-        });
-
-        it('evaluate the subject once, whatever number of predicates it reaches', () => {
-            const { module, record } = probes();
-            let reads = 0;
-            const counting = new DomqlModule('counted', {
-                members: [{ name: 'counted', function: 'counted', kind: 'property', on: 'element', parameters: [], result: 'element', changes: 'constant', reads: 'fresh' }],
-            }, { counted: element => { reads++; return element; } });
-            const registry = new ModuleRegistry([Vocabulary.module, module, counting]);
-            const query = Domql.parse('@panel.counted is "yes" and "yes" and "yes"', { panel });
-            const resolved = new LanguageResolver(registry, query.bindings, null, {}).resolveDefinition(query.definition);
-
-            expect(new QueryEvaluator(registry, resolved, query.bindings, { window, document }, null).read()).toBe(true);
-            expect(reads).toBe(1);
-            expect(record.yes).toBe(3);
+            expect(readWith(module, '@nothing or @panel is "yes"', { panel, nothing: Domql.bind(null, 'boolean?') })).toBe(true);
+            expect(record).toEqual({ yes: 2, no: 1 });
         });
 
         it('answer null for a subject that is null', () => {
-            expect(read('@panel.first(".none") is "attached" or "focused"', { panel })).toBeNull();
+            expect(read('@panel.first(".none") is "attached"', { panel })).toBeNull();
         });
 
         it('test the current value inside an object expression and an expression argument', () => {
             expect(read('@panel { attached: is "attached", empty: has "children" }', { panel })).toEqual({ attached: true, empty: true });
-            expect(read('@panel.children.where(is "attached" and "focused").count', { panel })).toBe(0);
+            expect(read('@panel.children.where(is "attached" and is "focused").count', { panel })).toBe(0);
         });
 
-        it('take the names of a predicate expression from its bindings', () => {
-            expect(read('@panel is @state or @other', { panel, state: 'focused', other: 'attached' })).toBe(true);
+        it('take the name of a predicate expression from its bindings', () => {
+            expect(read('@panel is @state or @panel is @other', { panel, state: 'focused', other: 'attached' })).toBe(true);
         });
     });
 
@@ -513,12 +506,12 @@ describe('QueryEvaluator evaluation', () => {
             expect(measured.every(dependency => dependency.observations[0].type === 'resize')).toBe(true);
         });
 
-        it('stand where each member is written, inside the items of a list and the operands of a predicate expression', () => {
-            const evaluation = evaluate('@panel.all("i") { h: rect.height, on: is "attached" or "focused" }', { panel });
+        it('stand where each member is written, inside the items of a list and the operands of an or', () => {
+            const evaluation = evaluate('@panel.all("i") { h: rect.height, on: is "attached" or is "focused" }', { panel });
 
             expect(evaluation.dependencies.map(dependency => [dependency.member, dependency.pointer])).toEqual([
                 ['all', '/query/target'],
-                ...rows.flatMap(() => [['rect', '/query/fields/0/value/target'], ['attached', '/query/fields/1/value/names/operands/0']]),
+                ...rows.flatMap(() => [['rect', '/query/fields/0/value/target'], ['attached', '/query/fields/1/value/operands/0/name']]),
             ]);
         });
 
@@ -553,9 +546,9 @@ describe('QueryEvaluator evaluation', () => {
             expect(evaluation.dependencies.flatMap(dependency => dependency.observations).some(observation => observation.type === 'attachment')).toBe(false);
         });
 
-        it('include the predicates a predicate expression reached, and none it did not need', () => {
-            const reached = evaluate('@panel is "attached" or "focused"', { panel });
-            const both = evaluate('@panel is "focused" or "attached"', { panel });
+        it('include the predicates an or reached, and none it did not need', () => {
+            const reached = evaluate('@panel is "attached" or @panel is "focused"', { panel });
+            const both = evaluate('@panel is "focused" or @panel is "attached"', { panel });
 
             expect(membersOf(reached)).toEqual(['attached']);
             expect(membersOf(both)).toEqual(['focused', 'attached']);

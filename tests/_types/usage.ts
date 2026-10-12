@@ -1,6 +1,6 @@
 // How a TypeScript caller uses DOMQL, which the declarations must accept; the test compiles this file.
 import { Domql } from '../../src/domql.js';
-import type { DomqlBehavior, DomqlChangeOperation, DomqlDefinitionNode, DomqlUnresolvedExpression, DomqlReadOnly, DomqlError, DomqlEventListener, DomqlModule, DomqlCurrentSnapshot, DomqlReadAsyncOptions, DomqlSubscribeConfiguration, DomqlWatch, DomqlWatchChangeSetConfiguration, DomqlWatchConfiguration, DomqlModuleContents, DomqlModuleFunctions, DomqlPredicateNames, DomqlResolvedDefinition, DomqlSnapshotBaseline, DomqlSnapshotChangeSet, DomqlSnapshotUpdate } from '../../src/domql.js';
+import type { DomqlBehavior, DomqlQuery, DomqlChangeOperation, DomqlDefinitionNode, DomqlUnresolvedExpression, DomqlReadOnly, DomqlError, DomqlEventListener, DomqlModule, DomqlCurrentSnapshot, DomqlReadAsyncOptions, DomqlSubscribeConfiguration, DomqlWatch, DomqlWatchChangeSetConfiguration, DomqlWatchConfiguration, DomqlModuleContents, DomqlModuleFunctions, DomqlPredicateName, DomqlResolvedDefinition, DomqlSnapshotBaseline, DomqlSnapshotChangeSet, DomqlSnapshotUpdate } from '../../src/domql.js';
 
 const panel = document.createElement('div');
 
@@ -138,15 +138,26 @@ const latest: { count: number } | null = current.value;
 // @ts-expect-error The update strategy of a watch is snapshots or change sets.
 Domql.watch(query, { onChange: () => {}, updateStrategy: 'patch' });
 
-const tested = Domql.parse('@panel is "attached" or ("disabled" and "focused")', { panel }).definition.query;
+const tested = Domql.parse('@panel is "attached" or @panel is "focused"', { panel }).definition.query;
 
-if (tested.kind === 'predicate') {
-    const verb: 'is' | 'has' = tested.verb;
-    const names: DomqlPredicateNames = tested.names;
+if (tested.kind === 'or') {
+    const first: DomqlDefinitionNode = tested.operands[0];
+
+    if (first.kind === 'predicate') {
+        const verb: 'is' | 'has' = first.verb;
+        const name: DomqlPredicateName = first.name;
+    }
 }
 
-// @ts-expect-error A test reads its names under is or has.
-const misread: DomqlDefinitionNode = { kind: 'predicate', verb: 'was', names: { kind: 'literal', value: 'attached' } };
+// @ts-expect-error A predicate expression reads its predicate under is or has.
+const misread: DomqlDefinitionNode = { kind: 'predicate', verb: 'was', name: { kind: 'literal', value: 'attached' } };
+
+// Predicate expressions combine into a Boolean, nullable where an operand is.
+const combined: DomqlQuery<boolean> = Domql.build(q => q.from(panel).is('attached').and(q.from(panel).has('children')));
+const maybe: DomqlQuery<boolean | null> = Domql.build(q => q.from(panel).is('attached').or(q.from(panel).parent.is('attached')));
+
+// @ts-expect-error Only a Boolean expression combines by and or or.
+Domql.build(q => q.from(panel).size.width.and(q.from(panel).is('attached')));
 
 // @ts-expect-error A query's text is a string.
 Domql.parse(42);

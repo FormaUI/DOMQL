@@ -34,14 +34,19 @@ export class Parser {
 
     /** Reads the text into its definition, with the span of text each of its nodes, fields and arguments came from. */
     parse() {
-        const query = this.#parseValue();
+        const query = this.#parseExpression();
         this.#expect('end');
 
         return { definition: { version: Specification.definitionVersion, query }, spans: this.#spans };
     }
 
-    /** Reads a value: a chain, a chain followed by a predicate expression of its value, or a predicate expression of the current value. */
-    #parseValue() {
+    /** Reads an expression: operands joined by `and` and `or`, `and` binding tighter. */
+    #parseExpression() {
+        return this.#parseLogical('or', () => this.#parseLogical('and', () => this.#parseOperand()));
+    }
+
+    /** Reads an operand: a chain, a chain followed by a predicate expression of its value, or a predicate expression of the current value. */
+    #parseOperand() {
         const start = this.#token.start;
 
         if (this.#isVerb()) {
@@ -107,6 +112,14 @@ export class Parser {
                 return this.#span({ kind: 'literal', value: token.value }, token.start);
             case '{':
                 return this.#parseObject(null, token.start);
+            case '(': {
+                // A group records the expression it holds, which a chain may then continue from.
+                this.#advance();
+                const expression = this.#parseExpression();
+                this.#expect(')');
+
+                return expression;
+            }
             default:
                 throw this.#unexpected('a value');
         }
@@ -152,20 +165,20 @@ export class Parser {
         return { member: this.#span(member, start), isPhrase };
     }
 
-    /** Reads a predicate expression: its verb and the predicate names it reads, combined with `and` and `or`, of the subject's value or, without one, of the current value. */
+    /** Reads a predicate expression: its verb and the one predicate name it reads, of the subject's value or, without one, of the current value. */
     #parsePredicate(subject, start) {
         const verb = this.#token.value;
 
         this.#advance();
 
-        const names = this.#parseCombination('or', () => this.#parseCombination('and', () => this.#parseOperand(verb)));
-        const node = subject ? { kind: 'predicate', verb, target: subject, names } : { kind: 'predicate', verb, names };
+        const name = this.#parsePredicateName(verb);
+        const node = subject ? { kind: 'predicate', verb, target: subject, name } : { kind: 'predicate', verb, name };
 
         return this.#span(node, start);
     }
 
     /** Reads operands joined by the operator, answering the operand alone where there is one. */
-    #parseCombination(operator, parseOperand) {
+    #parseLogical(operator, parseOperand) {
         const start = this.#token.start;
         const first = parseOperand();
 
@@ -183,8 +196,8 @@ export class Parser {
         return this.#span({ kind: operator, operands }, start);
     }
 
-    /** Reads a predicate's name, a string or a parameter, or a group of names in parentheses. */
-    #parseOperand(verb) {
+    /** Reads the one predicate name a predicate expression reads: a string or a parameter. */
+    #parsePredicateName(verb) {
         const token = this.#token;
 
         if (token.type === 'literal' && typeof token.value === 'string') {
@@ -198,17 +211,7 @@ export class Parser {
         }
 
         if (token.type === '(') {
-            this.#advance();
-
-            const group = this.#parseCombination('or', () => this.#parseCombination('and', () => this.#parseOperand(verb)));
-
-            this.#expect(')');
-
-            return group;
-        }
-
-        if (this.#isVerb()) {
-            throw DomqlError.syntax(`A predicate expression uses one verb: this one reads its names under '${verb}', and '${token.value}' cannot join it`, this.#text, token.start);
+            throw DomqlError.syntax(`'${verb}' reads one predicate name; combine predicate expressions with and and or, as in '@panel is "attached" and @panel is "visible"'`, this.#text, token.start);
         }
 
         throw this.#unexpected('a predicate named by a string or a parameter');
@@ -254,10 +257,10 @@ export class Parser {
             const name = this.#token.value;
             this.#index += 2;
 
-            return this.#span({ name, value: this.#parseValue() }, start);
+            return this.#span({ name, value: this.#parseExpression() }, start);
         }
 
-        return this.#span({ value: this.#parseValue() }, start);
+        return this.#span({ value: this.#parseExpression() }, start);
     }
 
     get #token() {

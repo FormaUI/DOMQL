@@ -231,28 +231,58 @@ export class QueryEvaluator {
                 return this.#member(node, current);
             case 'predicate':
                 return this.#predicate(node, current);
+            case 'and':
+                return this.#and(node, current);
+            case 'or':
+                return this.#or(node, current);
             default:
                 return this.#object(node, current);
         }
     }
 
-    /** Tests the subject, evaluated once, against the predicates the predicate expression reaches; a predicate expression of null is null. */
+    /** Tests the subject, evaluated once, against the predicate the predicate expression names; a predicate expression of null is null. */
     #predicate(node, current) {
         const subject = node.target === undefined ? current : this.#evaluate(node.target, current);
 
-        return subject === null ? null : this.#holds(node.names, subject);
+        return subject === null ? null : this.#invoke(this.#resolvedDefinition.resolutionOf(node.name).predicate, subject, {}, BOOLEAN, node.name);
     }
 
-    /** Whether the names hold of the subject: an and stops at the first that does not, an or at the first that does, so a predicate the result does not need is never read. */
-    #holds(node, subject) {
-        switch (node.kind) {
-            case 'and':
-                return node.operands.every(operand => this.#holds(operand, subject) === true);
-            case 'or':
-                return node.operands.some(operand => this.#holds(operand, subject) === true);
-            default:
-                return this.#invoke(this.#resolvedDefinition.resolutionOf(node).predicate, subject, {}, BOOLEAN, node);
+    /** The operands combined by and, left to right: false as soon as one is false, so no operand after it is evaluated, and otherwise null where one was null and true where none was. */
+    #and(node, current) {
+        let result = true;
+
+        for (const operand of node.operands) {
+            const value = this.#evaluate(operand, current);
+
+            if (value === false) {
+                return false;
+            }
+
+            if (value === null) {
+                result = null;
+            }
         }
+
+        return result;
+    }
+
+    /** The operands combined by or, left to right: true as soon as one is true, so no operand after it is evaluated, and otherwise null where one was null and false where none was. */
+    #or(node, current) {
+        let result = false;
+
+        for (const operand of node.operands) {
+            const value = this.#evaluate(operand, current);
+
+            if (value === true) {
+                return true;
+            }
+
+            if (value === null) {
+                result = null;
+            }
+        }
+
+        return result;
     }
 
     #parameter(node) {

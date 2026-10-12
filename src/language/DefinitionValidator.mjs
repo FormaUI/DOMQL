@@ -14,14 +14,13 @@ const NODES = {
     parameter: { properties: ['kind', 'name'], required: ['name'] },
     member: { properties: ['kind', 'target', 'name', 'arguments'], required: ['name', 'arguments'] },
     object: { properties: ['kind', 'target', 'fields'], required: ['fields'] },
-    predicate: { properties: ['kind', 'verb', 'target', 'names'], required: ['verb', 'names'] },
+    predicate: { properties: ['kind', 'verb', 'target', 'name'], required: ['verb', 'name'] },
+    and: { properties: ['kind', 'operands'], required: ['operands'] },
+    or: { properties: ['kind', 'operands'], required: ['operands'] },
 };
 
-/** The verbs a predicate expression reads its predicates under. */
+/** The verbs a predicate expression reads its predicate under. */
 const VERBS = ['is', 'has'];
-
-/** What combines a predicate expression's names, and what each holds. */
-const COMBINATIONS = { and: { properties: ['kind', 'operands'], required: ['operands'] }, or: { properties: ['kind', 'operands'], required: ['operands'] } };
 
 const ENTRY = { properties: ['name', 'value'], required: ['value'] };
 
@@ -49,7 +48,7 @@ export class DefinitionValidator {
 
     #validateNode(node, pointer, scope) {
         if (!DefinitionValidator.#isObject(node) || !Object.hasOwn(NODES, node.kind)) {
-            this.#fail(pointer, Object.hasOwn(COMBINATIONS, node?.kind) ? `An ${node.kind} combines a predicate expression's names, inside one alone` : 'A node is an object whose kind is literal, parameter, member, object or predicate');
+            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, member, object, predicate, and or or');
         }
 
         this.#requireProperties(node, pointer, NODES[node.kind]);
@@ -65,6 +64,9 @@ export class DefinitionValidator {
                 return this.#validateMember(node, pointer, scope);
             case 'predicate':
                 return this.#validatePredicate(node, pointer, scope);
+            case 'and':
+            case 'or':
+                return this.#validateLogical(node, pointer, scope);
             default:
                 return this.#validateObject(node, pointer, scope);
         }
@@ -72,7 +74,7 @@ export class DefinitionValidator {
 
     #validatePredicate(node, pointer, scope) {
         if (!VERBS.includes(node.verb)) {
-            this.#fail(`${pointer}/verb`, 'A predicate expression reads its predicates under is or has');
+            this.#fail(`${pointer}/verb`, 'A predicate expression reads its predicate under is or has');
         }
 
         const target = node.target === undefined ? undefined : this.#validateNode(node.target, `${pointer}/target`, scope);
@@ -81,26 +83,15 @@ export class DefinitionValidator {
             this.#fail(pointer, `'${node.verb}' without a subject tests the current value, and the top level has none; a predicate expression there follows the value it tests`);
         }
 
-        const names = this.#validateNames(node.names, `${pointer}/names`);
+        const name = this.#validateName(node.name, `${pointer}/name`);
 
-        return Object.freeze(target === undefined ? { kind: 'predicate', verb: node.verb, names } : { kind: 'predicate', verb: node.verb, target, names });
+        return Object.freeze(target === undefined ? { kind: 'predicate', verb: node.verb, name } : { kind: 'predicate', verb: node.verb, target, name });
     }
 
-    /** Validates the names a predicate expression reads: a string, a parameter, or an and or an or of two or more of them. */
-    #validateNames(node, pointer) {
-        if (DefinitionValidator.#isObject(node) && Object.hasOwn(COMBINATIONS, node.kind)) {
-            this.#requireProperties(node, pointer, COMBINATIONS[node.kind]);
-            this.#requireArray(node.operands, `${pointer}/operands`);
-
-            if (node.operands.length < 2) {
-                this.#fail(`${pointer}/operands`, `An ${node.kind} combines two or more names`);
-            }
-
-            return Object.freeze({ kind: node.kind, operands: Object.freeze(node.operands.map((operand, index) => this.#validateNames(operand, `${pointer}/operands/${index}`))) });
-        }
-
+    /** Validates the one name a predicate expression reads: a string or a parameter. */
+    #validateName(node, pointer) {
         if (!DefinitionValidator.#isObject(node) || (node.kind !== 'literal' && node.kind !== 'parameter')) {
-            this.#fail(pointer, 'A predicate expression names its predicates by strings and parameters, combined with and and or');
+            this.#fail(pointer, 'A predicate expression names its predicate by a string or a parameter');
         }
 
         const name = this.#validateNode(node, pointer, Scope.unknown);
@@ -110,6 +101,17 @@ export class DefinitionValidator {
         }
 
         return name;
+    }
+
+    /** Validates an and or an or: two or more expressions it combines, each with the current value the and or the or has. */
+    #validateLogical(node, pointer, scope) {
+        this.#requireArray(node.operands, `${pointer}/operands`);
+
+        if (node.operands.length < 2) {
+            this.#fail(`${pointer}/operands`, `An ${node.kind} combines two or more expressions`);
+        }
+
+        return Object.freeze({ kind: node.kind, operands: Object.freeze(node.operands.map((operand, index) => this.#validateNode(operand, `${pointer}/operands/${index}`, scope))) });
     }
 
     #validateLiteral(node, pointer) {
@@ -191,7 +193,7 @@ export class DefinitionValidator {
             const name = field.name ?? Names.inferField(value);
 
             if (name === null) {
-                this.#fail(fieldPointer, 'This field infers no name and takes one of its own: a parameter, a literal or an object expression alone names nothing, and nor does a get of a bound name or a predicate expression that combines names or takes one from a parameter');
+                this.#fail(fieldPointer, 'This field infers no name and takes one of its own: a parameter, a literal or an object expression alone names nothing, and nor does a get of a bound name, a predicate expression that takes its name from a parameter, or an and or an or');
             }
 
             if (names.has(name)) {

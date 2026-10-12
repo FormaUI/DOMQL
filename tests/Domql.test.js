@@ -153,7 +153,7 @@ describe('Domql', () => {
     });
 
     describe('predicate expressions', () => {
-        const predicate = (verb, names, target) => (target ? { kind: 'predicate', verb, target, names } : { kind: 'predicate', verb, names });
+        const predicate = (verb, name, target) => (target ? { kind: 'predicate', verb, target, name } : { kind: 'predicate', verb, name });
 
         it('test the value of the chain before the verb, which a dot binds tighter than', () => {
             expect(Domql.parse('@document is "visible"').definition.query).toEqual(predicate('is', literal('visible'), parameter('document')));
@@ -173,51 +173,77 @@ describe('Domql', () => {
             expect(Domql.parse('@panel { open: first ".row" is "attached" }').definition.query.fields[0].value).toEqual(predicate('is', literal('attached'), member('first', [{ value: literal('.row') }])));
         });
 
-        it('combine names under one verb, and binding tighter than or', () => {
-            const { query } = Domql.parse('@input is "disabled" or "readOnly" and "textEditable"').definition;
-
-            expect(query.names).toEqual({ kind: 'or', operands: [literal('disabled'), { kind: 'and', operands: [literal('readOnly'), literal('textEditable')] }] });
+        it('take their name from a parameter', () => {
+            expect(Domql.parse('@panel is @state', { panel: document.body, state: 'attached' }).definition.query).toEqual(predicate('is', parameter('state'), parameter('panel')));
         });
 
-        it('group names in parentheses', () => {
-            const { query } = Domql.parse('@input is ("disabled" or "readOnly") and "textEditable"').definition;
-
-            expect(query.names).toEqual({ kind: 'and', operands: [{ kind: 'or', operands: [literal('disabled'), literal('readOnly')] }, literal('textEditable')] });
-        });
-
-        it('gather a run of one operator into one combination', () => {
-            expect(Domql.parse('@input has "children" or "selection" or "focus"').definition.query.names.operands).toHaveLength(3);
-        });
-
-        it('take names from parameters', () => {
-            const { query } = Domql.parse('@panel is @first and @second', { panel: document.body, first: 'attached', second: 'focused' }).definition;
-
-            expect(query.names).toEqual({ kind: 'and', operands: [parameter('first'), parameter('second')] });
-        });
-
-        it('name a field after a single literal name, and leave a combined or bound one to be named', () => {
-            expect(Domql.parse('@panel { is "attached", has "children", is "scroll.atEnd" }').definition.query.fields.map(field => field.value.names.value)).toEqual(['attached', 'children', 'scroll.atEnd']);
-
-            for (const text of ['@panel { is "disabled" or "readOnly" }', '@panel { is @state }']) {
-                expect(getError(() => Domql.parse(text, { panel: document.body, state: 'disabled' })).kind).toBe('structure');
-            }
-
-            expect(() => Domql.parse('@panel { unavailable: is "disabled" or "readOnly", state: is @state }', { panel: document.body, state: 'disabled' })).not.toThrow();
-        });
-
-        it('are created from a definition as they are parsed from text', () => {
-            const parsed = Domql.parse('@input is "disabled" or ("readOnly" and "textEditable")', { input: document.body });
-
-            expect(Domql.create(parsed.definition, { input: document.body }).definition).toEqual(parsed.definition);
+        it('name a field after a literal name, and leave a bound one to be named', () => {
+            expect(Domql.parse('@panel { is "attached", has "children", is "scroll.atEnd" }').definition.query.fields.map(field => field.value.name.value)).toEqual(['attached', 'children', 'scroll.atEnd']);
+            expect(getError(() => Domql.parse('@panel { is @state }', { panel: document.body, state: 'disabled' })).kind).toBe('structure');
+            expect(() => Domql.parse('@panel { state: is @state }', { panel: document.body, state: 'disabled' })).not.toThrow();
         });
 
         it.each([
             ['a verb other than is or has', predicate('was', literal('attached'), parameter('panel')), '/query/verb'],
             ['a predicate expression of the current value at the top level', predicate('is', literal('visible')), '/query'],
-            ['a name that is no string', predicate('is', literal(3), parameter('panel')), '/query/names/value'],
-            ['a name that is a member', predicate('is', member('size', [], parameter('panel')), parameter('panel')), '/query/names'],
-            ['a combination of one name', predicate('is', { kind: 'and', operands: [literal('attached')] }, parameter('panel')), '/query/names/operands'],
-            ['a combination outside a test', { kind: 'or', operands: [literal('a'), literal('b')] }, '/query'],
+            ['a name that is no string', predicate('is', literal(3), parameter('panel')), '/query/name/value'],
+            ['a name that is a member', predicate('is', member('size', [], parameter('panel')), parameter('panel')), '/query/name'],
+            ['names combined under one verb', predicate('is', { kind: 'and', operands: [literal('attached'), literal('disabled')] }, parameter('panel')), '/query/name'],
+        ])('refuse a definition with %s', (_, query, pointer) => {
+            const error = getError(() => Domql.create({ version: 2, query }, { panel: document.body }));
+
+            expect(error.kind).toBe('structure');
+            expect(error.location.pointer).toBe(pointer);
+        });
+    });
+
+    describe('logical expressions and groups', () => {
+        const predicate = (verb, name, target) => (target ? { kind: 'predicate', verb, target, name } : { kind: 'predicate', verb, name });
+
+        it('combine whole expressions, and binding tighter than or', () => {
+            const { query } = Domql.parse('@panel is "attached" or @input is "disabled" and @enabled').definition;
+
+            expect(query).toEqual({
+                kind: 'or',
+                operands: [
+                    predicate('is', literal('attached'), parameter('panel')),
+                    { kind: 'and', operands: [predicate('is', literal('disabled'), parameter('input')), parameter('enabled')] },
+                ],
+            });
+        });
+
+        it('gather a run of one operator into one expression', () => {
+            expect(Domql.parse('@first or @second or @third').definition.query.operands).toEqual([parameter('first'), parameter('second'), parameter('third')]);
+        });
+
+        it('group any expression in parentheses, recording the expression the group holds', () => {
+            expect(Domql.parse('(@first or @second) and @third').definition.query).toEqual({ kind: 'and', operands: [{ kind: 'or', operands: [parameter('first'), parameter('second')] }, parameter('third')] });
+            expect(Domql.parse('((@first))').definition.query).toEqual(parameter('first'));
+        });
+
+        it('start a chain from a group', () => {
+            expect(Domql.parse('(@panel).children.count').definition.query).toEqual(member('count', [], member('children', [], parameter('panel'))));
+        });
+
+        it('read the earlier shorthand of names as an and whose second operand is a string', () => {
+            expect(Domql.parse('@panel is "attached" and "visible"').definition.query).toEqual({ kind: 'and', operands: [predicate('is', literal('attached'), parameter('panel')), literal('visible')] });
+        });
+
+        it('leave a field holding an and or an or to be named', () => {
+            expect(getError(() => Domql.parse('@panel { is "attached" or is "disabled" }')).kind).toBe('structure');
+            expect(() => Domql.parse('@panel { unavailable: is "attached" or is "disabled" }')).not.toThrow();
+        });
+
+        it('are created from a definition as they are parsed from text', () => {
+            const parsed = Domql.parse('@input is "disabled" or (@input is "readOnly" and @input is "textEditable")', { input: document.body });
+
+            expect(Domql.create(parsed.definition, { input: document.body }).definition).toEqual(parsed.definition);
+        });
+
+        it.each([
+            ['an and of one expression', { kind: 'and', operands: [parameter('panel')] }, '/query/operands'],
+            ['an or whose operands are no array', { kind: 'or', operands: parameter('panel') }, '/query/operands'],
+            ['an operand that tests the current value at the top level', { kind: 'or', operands: [predicate('is', literal('visible')), parameter('panel')] }, '/query/operands/0'],
         ])('refuse a definition with %s', (_, query, pointer) => {
             const error = getError(() => Domql.create({ version: 2, query }, { panel: document.body }));
 
@@ -234,9 +260,10 @@ describe('Domql', () => {
             ['a member with unparenthesized arguments continued by a dot', '@panel { first ".row".rect }', 1, 22],
             ['a member with unparenthesized arguments followed by an object expression', '@panel { all "tr" { size } }', 1, 19],
             ['is written as a member', '@target.is "attached"', 1, 9],
-            ['a test mixing is and has', '@input is "a" and has "b"', 1, 19],
+            ['a predicate expression reading a group of names', '@input is ("a" or "b")', 1, 11],
             ['a predicate named by a number', '@input is 3', 1, 11],
-            ['a group of names never closed', '@input is ("a" or "b"', 1, 22],
+            ['a group never closed', '(@first or @second', 1, 19],
+            ['a group closing nothing', '@first)', 1, 7],
             ['an operator naming a field', '@panel { is: size }', 1, 10],
             ['an operator naming a parameter', '@and { size }', 1, 2],
             ['a hyphen in a member\'s name', '@panel.attribute-of("id")', 1, 17],
@@ -276,7 +303,7 @@ describe('Domql', () => {
             ['a field ending in a get of a bound name', '@target { get(@name) }', '/query/fields/0'],
             ['a field ending in an is of a bound name', '@target { is @name }', '/query/fields/0'],
             ['a field ending in a has of a bound name', '@target { has @name }', '/query/fields/0'],
-            ['a field ending in a combined test', '@target { is "disabled" or "readOnly" }', '/query/fields/0'],
+            ['a field holding an or', '@target { is "disabled" or is "readOnly" }', '/query/fields/0'],
             ['a predicate expression of the current value at the top level', 'is "visible"', '/query'],
             ['a predicate inferring the name another field is written with', '@target { disabled: size, is "disabled" }', '/query/fields/1'],
             ['a positional argument after a named one', '@target.rect(relativeTo: @other, 1)', '/query/arguments/1'],

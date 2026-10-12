@@ -58,10 +58,10 @@ function namedExpression(vocabulary, name, structured) {
     if (vocabulary.predicates.some(predicate => [predicate.on].flat().includes(name))) {
         const names = verb => vocabulary.predicates.filter(predicate => predicate.verb === verb && [predicate.on].flat().includes(name)).map(predicate => predicate.name);
 
-        lines.push(`    /** A predicate expression of the value, by the names \`is\` reads on it, ${names('is').join(', ') || 'none'}, joined by \`and\` and \`or\`. */`, '    is(names: string): DomqlValueExpression<boolean | N>;');
+        lines.push(`    /** A predicate expression of the value, reading one predicate \`is\` names on it: ${names('is').join(', ') || 'none'}. */`, '    is(name: string | DomqlExpression<string>): DomqlValueExpression<boolean | N>;');
 
         if (names('has').length > 0) {
-            lines.push(`    /** A predicate expression of the value, by the names \`has\` reads on it, ${names('has').join(', ')}, joined by \`and\` and \`or\`. */`, '    has(names: string): DomqlValueExpression<boolean | N>;');
+            lines.push(`    /** A predicate expression of the value, reading one predicate \`has\` names on it: ${names('has').join(', ')}. */`, '    has(name: string | DomqlExpression<string>): DomqlValueExpression<boolean | N>;');
         }
     }
 

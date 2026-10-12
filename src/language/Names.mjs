@@ -21,7 +21,7 @@ export class Names {
         }
 
         if (value.kind === 'predicate') {
-            return Names.#lastSegment(value.names);
+            return Names.#lastSegment(value.name);
         }
 
         if (value.kind !== 'member') {
@@ -37,7 +37,7 @@ export class Names {
         return value.arguments.length === 1 && argument.name === undefined ? Names.#lastSegment(argument.value) : null;
     }
 
-    /** The last segment of the name a literal string holds; a bound or combined name infers nothing. */
+    /** The last segment of the name a literal string holds; a bound name infers nothing. */
     static #lastSegment(node) {
         if (node.kind !== 'literal' || typeof node.value !== 'string') {
             return null;
