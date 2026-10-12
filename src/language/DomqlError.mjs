@@ -11,8 +11,6 @@
  * @property {string} [binding] The failing binding's name.
  * @property {string} [module] The failing module's name.
  * @property {string} [declaration] The failing declaration's name.
- * @property {string} [text] The failing node, written as DOMQL text, for a query that has no text of its own.
- * @property {string} [argumentOf] The name of the member the failing node is an argument of.
  */
 
 export class DomqlError extends Error {
@@ -21,9 +19,6 @@ export class DomqlError extends Error {
 
     /** @type {Location} */
     location;
-
-    /** What is wrong, without where. */
-    #reason;
 
     /**
      * @param {'syntax' | 'structure' | 'validation' | 'module' | 'evaluation'} kind The stage the request failed in.
@@ -37,15 +32,6 @@ export class DomqlError extends Error {
         this.name = 'DomqlError';
         this.kind = kind;
         this.location = location;
-        this.#reason = message;
-    }
-
-    /**
-     * The same failure, located further: its location with the given parts added, and its cause kept.
-     * @param {Location} location What the location adds.
-     */
-    relocate(location) {
-        return new DomqlError(this.kind, this.#reason, { ...this.location, ...location }, this.cause === undefined ? undefined : { cause: this.cause });
     }
 
     /** A text that does not follow the syntax, failing at the offset. */
@@ -88,10 +74,6 @@ export class DomqlError extends Error {
 
     static #describe(location) {
         const parts = [];
-
-        if (location.text !== undefined) {
-            parts.push(location.argumentOf === undefined ? `in \`${location.text}\`` : `in \`${location.text}\`, an argument of \`${location.argumentOf}\``);
-        }
 
         if (location.line !== undefined) {
             parts.push(`line ${location.line}, column ${location.column}`);

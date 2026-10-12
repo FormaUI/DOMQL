@@ -36,7 +36,7 @@ const items = Domql.read(`
 
 `@panel` refers to the supplied element; it is not an ID selector. If an item has no layout box, DOMQL reports its height as `null`.
 
-A DOMQL request can be written as text, built fluently or created from a JSON definition. All three forms use the same language and vocabulary rules. Constructing a request does not evaluate it against the DOM: the same query can be read repeatedly, watched for changes or recreated with different bindings.
+A DOMQL request can be written as text or created from a JSON definition. Both forms use the same language and vocabulary rules. Constructing a request does not evaluate it against the DOM: the same query can be read repeatedly, watched for changes or recreated with different bindings.
 
 The runtime also supports subscriptions that project events into data, actions that run once, and behaviors that remain active until disposed. Actions and behaviors are supplied by extension modules. Queries remain read-only.
 
@@ -252,7 +252,7 @@ DOMQL is in preview and is not yet published to npm or NuGet.
 
 Available today:
 
-- Text queries, JSON definitions and queries built fluently, with the result type inferred in TypeScript.
+- Text queries and JSON definitions.
 - Binding, name and type validation.
 - Synchronous reads and asynchronous reads of maintained values.
 - Watching a query, with a snapshot each time its result changes, a baseline and then change sets, or one object kept current in place.

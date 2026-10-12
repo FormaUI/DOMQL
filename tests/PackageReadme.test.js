@@ -28,7 +28,6 @@ const examples = [
         answers: [['{', '  count: 3,', '  items: [', "    { key: 'a1', selected: false },", "    { key: 'a2', selected: true },", "    { key: 'a3', selected: false }", '  ]', '}']],
     },
     { file: '02-read-again.js', observed: 'reads', answers: [['3'], ['0']] },
-    { file: '03-build-a-query.js', observed: 'reads', answers: [["[ { key: 'a2' } ]"]] },
     { file: '04-read-async.js', observed: 'reads', answers: [['true']] },
     { file: '05-watch.js', observed: 'printed', answers: [['0'], ['1']] },
     { file: '06-live-state.js', observed: 'printed', answers: [['1'], ['2']] },

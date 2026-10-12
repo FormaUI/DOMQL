@@ -2,7 +2,7 @@
 
 The [DOMQL specification](domql-specification.md) defines the language. This design sets out how DOMQL runs and is used: how requests are built and prepared, how a read waits and a watch stays current, how results and changes are delivered, how occurrences hold their observations, how actions run and behaviors are activated, what DOMQL owns beside its host, how modules extend the vocabulary, and the API a caller uses.
 
-This design describes the whole runtime. Building a query fluently, reading it once, watching it as snapshots, change sets or live state, subscribing to events, running actions and activating behaviors are built, and the [README](../README.md#status) states what this implementation covers.
+This design describes the whole runtime. Reading a query once, watching it as snapshots, change sets or live state, subscribing to events, running actions and activating behaviors are built, and the [README](../README.md#status) states what this implementation covers.
 
 ## Scope
 
@@ -12,7 +12,7 @@ This design describes the whole runtime. Building a query fluently, reading it o
 | An open vocabulary | Everything a query can ask about is a member a vocabulary contributes; the built-in vocabulary and every extension follow one contract, and adding a member leaves the grammar unchanged. |
 | Queries read, requests act | Reading, watching or subscribing to a query reads the document and changes nothing, whatever vocabulary it uses; an action or a behavior request is a request of its own kind, carried out only when its caller runs or activates it. |
 | One meaning | A query evaluates the same way for every caller, however it was written. |
-| Three ways in | A query is parsed from text, built fluently, or created from its JSON definition, and each produces a definition with the same meaning, validated and evaluated alike. |
+| Two ways in | A query is parsed from text or created from its JSON definition, and each produces a definition with the same meaning, validated and evaluated alike. |
 | Visible mistakes | A misspelling or a wrong argument is an error before anything is evaluated; null is always a result. |
 
 ## Preparation
@@ -21,7 +21,7 @@ An extension a request names is loaded when the request is prepared, before it i
 
 ### Reading
 
-A read resolves the query, then evaluates it once against the document in a single synchronous pass, following the resolution rather than looking names up again. A resolution is kept for its definition, for the options it was made under, for the types of its bindings and the strings, numbers, Booleans and nulls they bind, which can select what a member reads, and for the vocabulary it was made against, and is released with the definition, so an unchanged query, and every query parsed or built alike, is resolved once however often it is read; what a read evaluates is always the document as it is. A read needs a browser window, the one it is given or the one the environment holds, and fails with an evaluation error where there is none, while parsing, creating and resolving need none. The result is a detached copy, frozen, that holds nothing of the document. A member whose function answers a type other than the one it declares has broken its contract, and the read fails with an evaluation error naming the member and where it stands in the query; so does a member whose function throws, with the thrown error as its cause. A member a module declares and does not implement fails the read the same way. A member maintained by an observation cannot be read in a single synchronous pass and fails it, with an evaluation error naming the member. A subscription, which ends in an occurrence source, is a request of another kind, and a read refuses it with a validation error once it is resolved, before anything is read; so do a watch of one, and a subscription to a query.
+A read resolves the query, then evaluates it once against the document in a single synchronous pass, following the resolution rather than looking names up again. A resolution is kept for its definition, for the options it was made under, for the types of its bindings and the strings, numbers, Booleans and nulls they bind, which can select what a member reads, and for the vocabulary it was made against, and is released with the definition, so an unchanged query, and every query parsed alike, is resolved once however often it is read; what a read evaluates is always the document as it is. A read needs a browser window, the one it is given or the one the environment holds, and fails with an evaluation error where there is none, while parsing, creating and resolving need none. The result is a detached copy, frozen, that holds nothing of the document. A member whose function answers a type other than the one it declares has broken its contract, and the read fails with an evaluation error naming the member and where it stands in the query; so does a member whose function throws, with the thrown error as its cause. A member a module declares and does not implement fails the read the same way. A member maintained by an observation cannot be read in a single synchronous pass and fails it, with an evaluation error naming the member. A subscription, which ends in an occurrence source, is a request of another kind, and a read refuses it with a validation error once it is resolved, before anything is read; so do a watch of one, and a subscription to a query.
 
 ### Waiting for maintained members
 
@@ -185,7 +185,7 @@ DOMQL owns the semantics every host shares: evaluation, dependency recording, ob
 
 ## Modules
 
-An extension is registered as a module, which declares under its name the state members, occurrence sources, actions and behaviors it contributes and supplies the implementation that carries each out; requests resolve against those declarations. The declarations are data, each member's DOMQL name, signature, result type, argument types and kinds and the request kinds it supports, so they can be read without running the implementations. A module associates two things explicitly, and neither is derived from the other: an operation's DOMQL name, `computedStyleOf`, which the builder spells the same, and the function that carries it out, whatever that function is called. A module registers under a name of its own, and registering a name twice is an error.
+An extension is registered as a module, which declares under its name the state members, occurrence sources, actions and behaviors it contributes and supplies the implementation that carries each out; requests resolve against those declarations. The declarations are data, each member's DOMQL name, signature, result type, argument types and kinds and the request kinds it supports, so they can be read without running the implementations. A module associates two things explicitly, and neither is derived from the other: an operation's DOMQL name, `computedStyleOf`, and the function that carries it out, whatever that function is called. A module registers under a name of its own, and registering a name twice is an error.
 
 ```js
 Domql.registerModule(new VirtualizerDomqlModule(Virtualizer));
@@ -196,7 +196,7 @@ Domql.registerModule(new InputRouterDomqlModule(InputRouter));
 
 A module is created with its members and, once it can carry them out, the functions they name; declarations are validated when the module is created and checked against the registry when it is registered. The built-in vocabulary is the module `builtIn`, whose identity no other module takes and whose members stand without a namespace; any other module adds members to its own types and a single member named for itself to any other.
 
-- **A declaration** names the member's DOMQL name, which the fluent builder spells the same way, and the key of its function in the module's functions, independent of its name; its kind, one of property, operation, source, action and behavior; the types it applies to; its parameters; its result type; its observation coverage; and, for a member that answers a number, the `tolerance` within which a watch compares it, exactly where it declares none.
+- **A declaration** names the member's DOMQL name, and the key of its function in the module's functions, independent of its name; its kind, one of property, operation, source, action and behavior; the types it applies to; its parameters; its result type; its observation coverage; and, for a member that answers a number, the `tolerance` within which a watch compares it, exactly where it declares none.
 - **A parameter** is a value or an expression. An expression is evaluated against each item of the list it follows and declares the type it produces. A parameter declares whether it is required, its default where it is not, and whether a null argument propagates, making the call answer null, or is accepted.
 - **A fixed parameter** names something the vocabulary resolves before any evaluation, and declares what it selects: a member, a predicate, an occurrence or a feature.
 - **Observations.** A member that changes observably or partly observably names the observations that cover its changes. An observation is of a type, observes the receiver, the window, the document or an argument of the member, and gives the arguments its type takes, as `{ type: 'resize', of: 'receiver' }` does; a member that changes in any other way names none. A module declares a type of observation by a camelCase name, its contract, the arguments that belong to an observation's identity, whether equivalent requests share one, and the function that starts one, which takes the request, the function it calls when something may have changed and the environment, and answers an object whose `stop` ends the observation and, for a maintained type, whose `sample` answers its latest sample. The built-in vocabulary's types are `resize`, `mutation`, `attachment`, `intersection`, `media`, `pixelRatio`, `event` and `visibility`, each shared; `intersection` is maintained, and the others are invalidations. A type is either an invalidation observation, which says that a result may have changed and carries no value, or a maintained observation, which provides a sample a member reads and is pending until its first arrives; a member that reads maintained values names a maintained observation, and no other member does.
@@ -214,7 +214,7 @@ A module is given the capability it exposes, never an instance of it, since inst
 
 ## Tooling
 
-Preparation is authoritative: it validates every request against the vocabulary available before the request runs, whether text, a fluent builder or a definition produced it. Three properties keep validation open to editor tooling, such as analyzers and completion, which can follow without changing the language:
+Preparation is authoritative: it validates every request against the vocabulary available before the request runs, whether text or a definition produced it. Three properties keep validation open to editor tooling, such as analyzers and completion, which can follow without changing the language:
 
 - **Locations.** Text positions and definition-node locations are kept, so a diagnostic names the member, argument or object expression that failed; the mapping from text to definition can be kept apart from the definition.
 - **Declarative metadata.** A module's declarations are data, so a tool understands them without running a capability's implementation.
@@ -234,7 +234,6 @@ Each entry point and handle is listed here with what it takes, and the section i
 | --- | --- | --- |
 | `Domql.parse(text, bindings)` | `Domql.Parse(text, bindings)`, `Domql.Parse<T>(text, bindings)` | Parses text into a query, binding its parameters |
 | | `Domql.TryParse(…)`, `Domql.TryParse<T>(…)` | Parses text, answering false with a diagnostic and no query for text that does not follow the syntax or the structural rules |
-| `Domql.build(q => …)` | | Builds a query fluently, from the builder the callback receives, as [building a query](#building-a-query) sets out |
 | `Domql.create(definition, bindings)` | `Domql.Create(definition, bindings)`, `Domql.Create<T>(definition, bindings)` | Creates a query from its definition, binding its parameters |
 | `query.definition` | `query.Definition` | The query's definition, without its bound values |
 | `Domql.bind(value, type)` | `Domql.Bind(value, type)` | A typed binding, for a value that reveals no type of its own |
@@ -259,34 +258,13 @@ Each entry point and handle is listed here with what it takes, and the section i
 - **Text or a query.** A call that resolves, reads, watches, subscribes, runs or activates takes a query or its text: given text, it parses it as `parse` does, through the same cache of parsed texts, with the bindings between the text and the options or the configuration, always in that place, so a request made once needs no query of its own and a query built once serves every call that reuses it.
 - **Names.** Almost every operation answers directly, so the plain name is the synchronous one, and every operation that answers a promise takes the suffix `Async`, as `readAsync`, `refreshAsync` and `runAsync` do.
 
-### Building a query
+### Making a query
 
-A query is parsed from text, built fluently, or created from a definition, and each produces a definition with the same meaning, prepared, validated and evaluated alike. A builder generates the names of the parameters it binds, so two equivalent definitions can name them differently; equivalence lies in their meaning and their results. Constructing a request describes work: it reads nothing in the document, starts no observation and makes no call across an interop boundary, and reading, watching, subscribing, running and activating belong to the caller that carries it out. A definition created directly serves tooling and integrations. A query belongs to the instance of the library that made it, and an instance refuses another's query with an error that names how to reuse it. A page can hold several instances, as independently bundled libraries each carry their own, and a query passes between them as its definition and a plain object of bindings, which the receiving instance validates and resolves against its own vocabulary; a typed binding passes as one that instance makes. The refusal decides ownership alone, and validation and resolution enforce the contracts a definition meets.
+A query is parsed from text or created from a definition, and each produces a definition with the same meaning, prepared, validated and evaluated alike. Constructing a request describes work: it reads nothing in the document, starts no observation and makes no call across an interop boundary, and reading, watching, subscribing, running and activating belong to the caller that carries it out. A definition created directly serves tooling and integrations. A query belongs to the instance of the library that made it, and an instance refuses another's query with an error that names how to reuse it. A page can hold several instances, as independently bundled libraries each carry their own, and a query passes between them as its definition and a plain object of bindings, which the receiving instance validates and resolves against its own vocabulary; a typed binding passes as one that instance makes. The refusal decides ownership alone, and validation and resolution enforce the contracts a definition meets.
 
-JavaScript builds fluently or parses text:
+JavaScript parses text, or creates a query from a definition:
 
 ```js
-// Fluently, from a target.
-const panelState = Domql.build(q => q
-    .from(panel)
-    .select(view => ({
-        size: view.size,
-        hasFocus: view.matches(":focus-within")
-    })));
-
-// A collection, filtered and shaped.
-const rows = Domql.build(q => q
-    .from(table)
-    .all("tbody tr")
-    .where(row => row.intersects({ root: panel }))
-    .select(row => ({
-        key: row.attributeOf("data-key"),
-        height: row.rect.height
-    })));
-
-// An aggregate.
-const tallest = Domql.build(q => q.from(table).all("tbody tr").max(row => row.rect.height));
-
 // From text, binding its parameters by name.
 const parsed = Domql.parse(`
     @panel {
@@ -343,36 +321,7 @@ With the bindings of the first example, the result is the following: an object e
 { "panel": null, "ids": [] }
 ```
 
-A `DomqlQuery<T>` answers a `T`, mapped by its declared contract, which matches the result's fields to the constructor parameters of `T` by name regardless of case, so a field `nearend` fills a parameter `NearEnd`, and reports an ambiguity where two fields differ only in case, since DOMQL itself tells them apart; a `DomqlQuery` answers a `DomqlSnapshot` giving structured access to its values. C# has no fluent builder and no C# type standing for each vocabulary concept: a module contributes its declarations and implementations, and the text names what the query reads. A `TryParse` checks the syntax and the structural rules that need no vocabulary, an empty object expression, a duplicate field and a reserved name among them; an expected failure there answers false with a diagnostic and no query, and a vocabulary failure, such as an unknown member, arrives when the query is prepared.
+A `DomqlQuery<T>` answers a `T`, mapped by its declared contract, which matches the result's fields to the constructor parameters of `T` by name regardless of case, so a field `nearend` fills a parameter `NearEnd`, and reports an ambiguity where two fields differ only in case, since DOMQL itself tells them apart; a `DomqlQuery` answers a `DomqlSnapshot` giving structured access to its values. C# has no C# type standing for each vocabulary concept: a module contributes its declarations and implementations, and the text names what the query reads. A `TryParse` checks the syntax and the structural rules that need no vocabulary, an empty object expression, a duplicate field and a reserved name among them; an expected failure there answers false with a diagnostic and no query, and a vocabulary failure, such as an unknown member, arrives when the query is prepared.
 
-- **The builder.** `Domql.build(callback)` is the one entry point: it calls the callback once with a builder, `q`, and answers the query the callback's result describes, a `DomqlQuery` like any other. A query starts at `q.from`, as one starts at `from` in LINQ, and `from` is the builder's one word; `Domql` keeps its entry points alone.
-- **Targets.** `q.from(target)` starts a chain at an element and binds it as a parameter, one parameter however often the same element is given. `q.from({ panel })` binds it under the name the object gives it, `panel`, so a caller who rebinds the definition through `create` uses the name it wrote; `q.from(panel)` binds it under a name the builder gives, `p1`, `p2` and so on in the order the build first meets each target. A typed binding is given where the value would be, `q.from({ panel: Domql.bind(null, 'element?') })`. `q.from(document)` and `q.from(window)` start at the roots, which stand for the document and the window the query is read in, as `@document` and `@window` do in text.
-- **Members.** A member is a property, and a member taking arguments is a method: `view.size`, `row.attributeOf("data-key")`. A builder spells a member by its DOMQL name, `row.attributeOf("data-key")` and `view.computedStyleOf("--x")`, with no conversion, and apart from the function that carries it out: renaming that function never changes the builder. A string, a number, a Boolean or null given as an argument is a literal, a chain is the value it reaches, an element or other value is bound as a parameter, as a target is, and a plain object as the last argument gives arguments by name, as `{ root: panel }` does, so a plain object meant as a value is bound first, as `q.from({ data })` binds it.
-- **Objects.** `select` adds an object expression, from a projection that receives the current value and returns an object whose properties are its fields, in order. A field is an expression, a nested object, which is an object expression following no value, or a string, a number or null written as it is; `q.from` inside a projection starts a chain at another target, as a nested `from` does in LINQ.
-- **The builder's own words.** `select`, `is`, `has`, `and` and `or` on an expression are the builder's object expression, predicate expressions and logical expressions, so a member a module names with one of them is read through `get`.
-- **Expression arguments.** A list member taking an expression, such as `where`, `max`, `min` or `sum`, takes a callback receiving the item.
-- **Predicates.** `view.is("attached")` and `view.has("children")` build a predicate expression of the value they follow, reading one predicate, named by a string or by a bound string, `view.is(q.from({ state }))`. `.and` and `.or` combine Boolean expressions, so `view.is("disabled").or(view.is("readOnly"))` is `is "disabled" or is "readOnly"`, and a run of one operator is one expression, as text writes it; the order of the calls groups them as parentheses do in text, so `a.or(b).and(c)` is `(a or b) and c`.
-- **Checked as it is built.** `build` checks the definition's structure and resolves it against the vocabulary, so a misspelled member fails on the line that builds the query, and it refuses a callback that answers no expression starting at `q.from`. A failure names the failing node as the DOMQL text that would write it, and the member it is an argument of, since a built query has no text of its own.
-- **Typed as it is built.** In TypeScript an expression is typed by the vocabulary type of its value, so an editor completes its members and refuses one it lacks, and `build` answers a `DomqlQuery<T>` whose `T` is the result the projection describes, which every call that takes the query carries on. The types of the built-in vocabulary are generated from its declarations; an expression whose type only resolution decides, such as a member a module adds, a typed binding or what `get` answers, is a `DomqlUnresolvedExpression`, on which any member and any call answers another until resolution accepts or refuses it.
-- **Built again for nothing.** A query built again alike shares its definition with the first, and a resolution is kept for its definition and the types of its bindings, so a function that builds a query for its arguments resolves it once however many elements it is built for.
-- **Text and definitions.** Parsing and creating bind the parameters a text or a definition names, by name, and a definition serves any binding. A text is parsed once and kept.
-
-### The fluent callback contract
-
-A fluent callback runs once, as the query is built, against expressions: each is a DOMQL expression, recorded as the definition node it is, and a member access or a supported call on it adds a node, and a projection object describes an object expression. JavaScript's operators reach no property and make no call, so an expression records only what property reads and calls write; the builder writes DOMQL's own operators, the verbs of a predicate expression and the `and` and `or` of a logical expression, as calls, so every DOMQL expression can be built. It never runs against a live element, so native control flow over an expression decides nothing about the document:
-
-```js
-// Unsupported: the conditional runs while the query is built.
-Domql.build(q => q.from(viewport).select(view => ({
-    width: view.is("attached") ? view.size.width : 0
-})));
-```
-
-`view.is("attached")` is an expression, which JavaScript treats as truthy, so the first branch is recorded as though it were the whole expression. The builder's guarantee is bounded to what it can detect:
-
-- It refuses converting an expression into a number or a string, so arithmetic, concatenation and ordering comparisons fail as the query is built.
-- It accepts a projection field only as an expression, a nested object, a string, a number or null, and refuses `true` and `false`, which `!` and `===` over an expression answer, so a Boolean literal field is written in text.
-- `&&`, `||`, `?:` and other native branching over expressions are unsupported, and not every use of them can be detected.
-
-Any builder constructs the definition directly, never text for the parser to read again.
+Parsing and creating bind the parameters a text or a definition names, by name, and a definition serves any binding. A text is parsed once and kept.
 

@@ -233,6 +233,15 @@ describe('QueryEvaluator', () => {
             expect(read('@document has "focus"')).toBeTypeOf('boolean');
         });
 
+        it('gives a member the document and the window it is read in where an argument names a root', () => {
+            const module = new DomqlModule('inside', {
+                members: [{ name: 'inside', function: 'inside', kind: 'operation', on: 'element', parameters: [{ name: 'of', kind: 'value', type: 'document', required: true, nulls: 'propagate' }], result: 'boolean', changes: 'unobserved', reads: 'fresh' }],
+            }, { inside: (element, { of }) => element.ownerDocument === of && of === document });
+            const panel = document.body.appendChild(document.createElement('div'));
+
+            expect(readWith(module, '@panel.inside(@document)', { panel })).toBe(true);
+        });
+
         it('answers a selection of a text control', () => {
             const input = document.createElement('input');
             input.value = 'hello';

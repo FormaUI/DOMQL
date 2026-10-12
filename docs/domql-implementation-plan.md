@@ -7,9 +7,8 @@ This plan records the steps that take DOMQL from what is built to what the [spec
 Each item is what exists and what checks it.
 
 - **The language.** Parsing text and creating queries from their definition, with the position of every mistake. Checked by the tests of parsing and of the definition.
-- **The fluent builder.** `Domql.build(q => q.from(target)…)` records the query its callback describes as expressions, binds the targets and values it meets, checks the definition and resolves it as it is built, naming a failure's failing node as DOMQL text, and answers a query typed by the result its projection describes; a query built again alike shares its definition and its resolution. Checked by the tests of the builder against the definitions the equivalent texts parse to, of writing a definition as text, and of the declarations, which a TypeScript caller compiles against and which a test keeps in step with the vocabulary.
 - **The vocabulary.** The built-in vocabulary declared as module data, and modules that extend it. Checked by the tests of modules, the registry and the vocabulary.
-- **Resolution.** Resolving a definition against the vocabulary and typing its result, without a browser; the resolution is kept for its definition, so the queries parsed or built alike share it. Checked by the resolver tests and the tests of `Domql.resolve`.
+- **Resolution.** Resolving a definition against the vocabulary and typing its result, without a browser; the resolution is kept for its definition, so the queries parsed alike share it. Checked by the resolver tests and the tests of `Domql.resolve`.
 - **Reading.** `read` reads every built-in member except `intersects`, which is maintained, and fails it with an evaluation error that says so; a subscription, which ends in an occurrence source such as `eventsOf`, is subscribed to and never read. `readAsync` waits for the first sample of a maintained member, evaluates again as samples arrive and as what the query depends on changes, and lets go of its observations when it answers, fails or is canceled. Each evaluation records its dependencies. A read answers detached, immutable data. Checked by the evaluator tests, in a simulated DOM, and by the browser tests, in Chromium, for geometry, for state the browser decides and for the reads that wait.
 - **Observations.** The built-in vocabulary names the observations that cover its members' changes, as types a module declares, and observations are started, shared and ended through sessions. There is no public API for them yet. Checked by the tests of declarations, of the sessions and of the browser observers, and in Chromium by a test of each type of observation reporting a change.
 - **Watching.** `Domql.watch` evaluates a query, reports its snapshot, and evaluates again when what the result depends on changes, at the next animation frame or in the task that reported the change, reporting a snapshot that differs and sharing the branches of the last that did not. A watch follows the document, keeps its dependencies through a failed evaluation, recovers, and is refreshed and disposed through its handle. Checked by the tests of watches and of comparing snapshots, in a simulated DOM, and in Chromium by a watch of a size and of a maintained member.
@@ -35,7 +34,7 @@ Each decision is open until its state says otherwise, and a step that needs it d
 - **D6. Predicate expressions and parenthesized arguments.** Done; D10 replaces its predicate names combined under one verb, which step 11 removed, and its phrases, which step 10 removes.
 - **D7. One camelCase name for every member.** Done.
 - **D8. How a caller holds live state.** Done, built by step 7.
-- **D9. The fluent builder.** Done, built by step 8; D12 retires it, and step 10 removes it.
+- **D9. The fluent builder.** Done, built by step 8; D12 retires it, and step 10 removed it.
 
 ### Open
 
@@ -660,7 +659,7 @@ A step is done when its tests pass in the gate, its documents say what it built,
 - **5. Occurrence sources.** Done.
 - **6. Actions and behaviors.** Done.
 - **7. Live state.** Done.
-- **8. The fluent builder.** Done; step 10 removes it, as D12 decides.
+- **8. The fluent builder.** Done; step 10 removed it, as D12 decides.
 
 ### 9. Measured performance
 
@@ -685,7 +684,7 @@ Write every receiver, and tell member access, calls and named operations apart, 
 
 - **Needs:** D10, D12.
 - **Done when:** the fluent builder is removed first, as D12 decides, with its generated types, the script that generates them and the documents that describe it, and every parser, writer and definition test it exercised kept as a test of its own; text and a definition each write member access, calls and named operations with explicit receivers, parsed, validated, written and resolved as D10 sets out, in definitions of version 3; `self` denotes the current value and is refused where there is none, and a definition whose member, call, named operation or predicate expression has no target is refused; an object argument is read by its declaration's input form; a bare member and a subjectless predicate are refused with an error giving the form with `self`; every operation and occurrence source declares its form and its input, the built-in vocabulary's as D10's table gives, a direct declaration having exactly one parameter, and a form its declaration does not take is refused with an error giving the one it does; an options object maps its fields onto the declared parameters before evaluation, each following its parameter's rules, refusing an unknown field, requiring the required and defaulting the optional; a named operation requires its separators; `rectRelativeTo` reads a rectangle relative to an element; every field is written with its name, a field without one is refused by the syntax and by the definition, and nothing infers one; a parameter is one token with its `@`, and an empty object expression is a syntax error; and the specification, the design, the READMEs and every example and test are written with explicit receivers, the specification stating what `self` is for every parameter.
-- **State:** not started.
+- **State:** in progress. The fluent builder is removed, with its generated types, the script that generated them and the documents that described it; nothing it exercised was left untested elsewhere, since the parser, the writer and definitions keep tests of their own. Written field names, empty objects and parameters as one token remain, and so do explicit receivers, calls and named operations.
 
 ### 11. Conditional and logical expressions
 

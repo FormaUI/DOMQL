@@ -154,7 +154,7 @@ Because the kind is part of the signature, the evaluator validates every kind be
 
 Every name in DOMQL is case-sensitive, and nothing normalizes one: `size` and `Size` are different names, and so are `@panel` and `@Panel`. A name is resolved exactly as it is written, and each kind of name is spelled by its own convention:
 
-- **Members** are named in camelCase, properties and operations alike: `size`, `clientSize`, `matchesMedia`, `attributeOf`, `eventsOf`. A member has one name, the same in a text, a definition and the fluent builder, whether its arguments are parenthesized or not. `get "clientSize"` reads that property by the same name.
+- **Members** are named in camelCase, properties and operations alike: `size`, `clientSize`, `matchesMedia`, `attributeOf`, `eventsOf`. A member has one name, the same in a text and a definition, whether its arguments are parenthesized or not. `get "clientSize"` reads that property by the same name.
 - **Predicates** keep their declared spelling, which `is` and `has` read from a string: `is "readOnly"`, `is "scroll.atEnd"`.
 - **Aliases and bindings** keep the exact spelling their author gave them, so `hasFocus` and `hasfocus` are two fields, and a binding `panel` is not a binding `Panel`.
 - **Strings** are preserved exactly: `kind: "List"` answers `List`. A string is read as a DOMQL name only where a member interprets it as one, as `get`, `is` and `has` do, and it is then read exactly. A value passed to a browser API, such as a selector, an attribute's name or value, or an event type, follows that API's own case rules.
@@ -456,7 +456,7 @@ An extension can define types of its own, occurrence sources, actions and behavi
 
 ## Definition
 
-A query's **definition** is a JSON document recording its meaning: every query, parsed from text, built fluently or created directly, is one definition, and preparation, validation and evaluation work on the definition alone. It records what the text means, never its punctuation, and comments, commas and the omission of parentheses leave no trace in it.
+A query's **definition** is a JSON document recording its meaning: every query, parsed from text or created directly, is one definition, and preparation, validation and evaluation work on the definition alone. It records what the text means, never its punctuation, and comments, commas and the omission of parentheses leave no trace in it.
 
 A document holds the definition's `version` and the `query` node. Each node is an object whose `kind` says what it is:
 

@@ -1,11 +1,9 @@
 /**
- * Domql — constructs and builds, resolves, reads and watches queries, subscribes to events, runs actions and activates behaviors
+ * Domql — constructs, resolves, reads and watches queries, subscribes to events, runs actions and activates behaviors
  */
 
 import { SnapshotComparer } from './snapshots/SnapshotComparer.mjs';
 import { Behavior } from './dom/Behavior.mjs';
-import { DefinitionInterning } from './builder/DefinitionInterning.mjs';
-import { QueryBuilder } from './builder/QueryBuilder.mjs';
 import { BrowserModule } from './dom/BrowserModule.mjs';
 import { Observations } from './dom/Observations.mjs';
 import { QueryEvaluator } from './dom/QueryEvaluator.mjs';
@@ -93,7 +91,7 @@ export class Domql {
 
     /**
      * The resolutions of each definition, by the options they were made under and the resolution key of the bindings they were made against, valid for the registry revision they were made at and released with the definition.
-     * Queries that share a definition, as the texts parsed alike and the queries built alike do, and whose bindings have one resolution key, share its resolution.
+     * Queries that share a definition, as the texts parsed alike do, and whose bindings have one resolution key, share its resolution.
      * @type {WeakMap<object, { revision: number, byKey: Map<string, import('./language/ResolvedDefinition.mjs').ResolvedDefinition> }>}
      */
     static #resolutionCache = new WeakMap();
@@ -131,27 +129,6 @@ export class Domql {
      */
     static create(definition, bindings = {}) {
         return new DomqlQuery(new DefinitionValidator().validate(definition), new ParameterBindings(bindings));
-    }
-
-    /**
-     * Builds a query fluently: calls the callback once with the builder, `q`, whose query starts at `q.from`, and returns the query the callback's result describes, a query like any other.
-     * The callback works with expressions that record the query rather than with values. The build checks the definition's structure and resolves it against the vocabulary, so a misspelled member fails here; a failure names the failing node as DOMQL text, since a built query has no text of its own.
-     * A target or a value the query meets is bound under a name the build gives, `p1`, `p2` and so on in the order it meets them, or under the name `q.from({ name: value })` gives it. A query built again alike shares its definition, and with it its resolution.
-     * @param {(q: { from: (target: unknown) => unknown }) => unknown} callback Describes the query, starting at `q.from`.
-     * @returns {DomqlQuery}
-     */
-    static build(callback) {
-        const { definition, bindings } = QueryBuilder.build(callback);
-
-        try {
-            const query = new DomqlQuery(DefinitionInterning.intern(new DefinitionValidator().validate(definition)), new ParameterBindings(bindings));
-
-            Domql.#resolve(query, {});
-
-            return query;
-        } catch (error) {
-            throw QueryBuilder.locate(error, definition);
-        }
     }
 
     /**

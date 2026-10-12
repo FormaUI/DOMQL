@@ -1,5 +1,5 @@
 /**
- * DefinitionWriter — a definition's node as the DOMQL text that writes it, for a message about a query that has no text of its own, parenthesized where its grouping needs it
+ * DefinitionWriter — a definition's node as the DOMQL text that writes it, parenthesized where its grouping needs it
  */
 
 /** How tightly each kind of expression binds, the loosest lowest: one written where a tighter one stands is parenthesized. */

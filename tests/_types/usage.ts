@@ -1,6 +1,6 @@
 // How a TypeScript caller uses DOMQL, which the declarations must accept; the test compiles this file.
 import { Domql } from '../../src/domql.js';
-import type { DomqlBehavior, DomqlQuery, DomqlChangeOperation, DomqlDefinitionNode, DomqlUnresolvedExpression, DomqlReadOnly, DomqlError, DomqlEventListener, DomqlModule, DomqlCurrentSnapshot, DomqlReadAsyncOptions, DomqlSubscribeConfiguration, DomqlWatch, DomqlWatchChangeSetConfiguration, DomqlWatchConfiguration, DomqlModuleContents, DomqlModuleFunctions, DomqlPredicateName, DomqlResolvedDefinition, DomqlSnapshotBaseline, DomqlSnapshotChangeSet, DomqlSnapshotUpdate } from '../../src/domql.js';
+import type { DomqlBehavior, DomqlChangeOperation, DomqlDefinitionNode, DomqlReadOnly, DomqlError, DomqlEventListener, DomqlModule, DomqlCurrentSnapshot, DomqlReadAsyncOptions, DomqlSubscribeConfiguration, DomqlWatch, DomqlWatchChangeSetConfiguration, DomqlWatchConfiguration, DomqlModuleContents, DomqlModuleFunctions, DomqlPredicateName, DomqlResolvedDefinition, DomqlSnapshotBaseline, DomqlSnapshotChangeSet, DomqlSnapshotUpdate } from '../../src/domql.js';
 
 const panel = document.createElement('div');
 
@@ -152,44 +152,11 @@ if (tested.kind === 'or') {
 // @ts-expect-error A predicate expression reads its predicate under is or has.
 const misread: DomqlDefinitionNode = { kind: 'predicate', verb: 'was', name: { kind: 'literal', value: 'attached' } };
 
-// Predicate expressions combine into a Boolean, nullable where an operand is.
-const combined: DomqlQuery<boolean> = Domql.build(q => q.from(panel).is('attached').and(q.from(panel).has('children')));
-const maybe: DomqlQuery<boolean | null> = Domql.build(q => q.from(panel).is('attached').or(q.from(panel).parent.is('attached')));
-
-// @ts-expect-error Only a Boolean expression combines by and or or.
-Domql.build(q => q.from(panel).size.width.and(q.from(panel).is('attached')));
-
 // @ts-expect-error A query's text is a string.
 Domql.parse(42);
 
 // @ts-expect-error A member is one of the kinds the language has.
 Domql.createModule('bad', { members: [{ name: 'bad', function: 'bad', kind: 'method', on: 'element', result: 'number', changes: 'constant', reads: 'fresh' }] });
-
-// A built query infers the type of the result it reads, through every call that takes it.
-const table = document.createElement('table');
-const visibleRows = Domql.build(q => q
-    .from(table)
-    .all('tbody tr')
-    .where(row => row.intersects({ root: panel }))
-    .select(row => ({ key: row.attributeOf('data-key'), height: row.rect.height })));
-const awaitedRows: Promise<{ key: string | null; height: number | null }[]> = Domql.readAsync(visibleRows);
-const builtCount: number = Domql.read(Domql.build(q => q.from(panel).children.count));
-const builtSize: DomqlWatch<{ width: number; height: number } | null> = Domql.watch(Domql.build(q => q.from(panel).size), { onChange: size => size?.width });
-const builtNames = Domql.build(({ from }) => from(panel).select(view => ({ ratio: from(window).devicePixelRatio, visible: from(document).is('visible'), label: 'panel', box: { width: view.clientSize.width } })));
-const named: { ratio: number; visible: boolean; label: string; box: { width: number | null } } = Domql.read(builtNames);
-
-Domql.subscribe(Domql.build(q => q.from(panel).eventsOf('click').select(event => ({ x: event.clientX, id: event.target.attributeOf('id') }))), {
-    onEvent: click => [click.x.toFixed(), click.id?.length],
-});
-
-// A member a module adds is an expression whose type resolution decides.
-Domql.build(q => (q.from(panel) as unknown as DomqlUnresolvedExpression).zoom);
-
-// @ts-expect-error The editor refuses a member the vocabulary lacks.
-Domql.build(q => q.from(panel).sise);
-
-// @ts-expect-error A projection field is an expression, a nested object, or a string, a number or null.
-Domql.build(q => q.from(panel).select(() => ({ hidden: true })));
 
 // Live state is one object the watch keeps current, which the caller reads and never writes.
 const living: DomqlWatch<{ rows: { key: string }[] }> = Domql.watch<{ rows: { key: string }[] }>('{ rows: @panel.children { key: attributeOf "data-key" } }', { panel }, {
@@ -233,4 +200,4 @@ Domql.watch<number>(query, changeSetWatching);
 Domql.subscribe<{ key: string }>('@panel.eventsOf("keydown") { key }', { panel }, subscribing);
 Domql.readAsync(query, reading);
 
-export { count, anything, kind, typeText, listening, sourceFunctions, moved, stepped, trapping, held, awaitedRows, builtCount, builtSize, named };
+export { count, anything, kind, typeText, listening, sourceFunctions, moved, stepped, trapping, held };
