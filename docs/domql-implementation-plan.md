@@ -19,7 +19,7 @@ Each item is what exists and what checks it.
 - **Change sets.** A watch that delivers change sets sends a baseline and then JSON Patch change sets, each acknowledged before the next is computed against the state it established, and recovers with a baseline of a new generation that nothing earlier can affect. Lists projected from elements change by element, through identities kept beside the result. A current snapshot applies each update atomically and gives a stale one no effect. Checked by the tests of computing and of applying change sets, each against expected patches and results and together, of the dispatcher and the current snapshot, and of watches delivering to a receiver.
 - **The package.** The bundle, with its TypeScript declarations checked against `Domql` and against a TypeScript caller; the READMEs' examples run as tests.
 
-What is not built: conditional and logical expressions, editor tooling and the C# half.
+What is not built: explicit receivers, calls and named operations, conditional expressions, editor tooling and the C# half.
 
 ## Decisions
 
@@ -454,7 +454,117 @@ else
 
 The language composes queries through member access, object expressions, predicate expressions and conditional expressions. Arithmetic, ordering and other computations are provided by vocabulary members or performed by the caller.
 
-State: **decided.** Built by step 10.
+State: **decided,** with D11 replacing its subjectless predicates, the subject inheritance and fallback of `elseif`, and its phrases. Built by step 11.
+
+### D11. Explicit receivers, calls and named operations
+
+Every member access, call, named operation and predicate expression has an explicit receiver, and `self` denotes the current value. Member access, calls and named operations are three distinct constructs, not alternate spellings, and the vocabulary declares which form each operation takes.
+
+| Construct | Syntax | Example |
+|---|---|---|
+| Member access | `receiver.member` | `self.rect.width` |
+| Call | `receiver.method(...)` | `self.closest(".row")` |
+| Named operation | `receiver operation argument` | `self attributeOf "data-key"` |
+
+```text
+self.rect.width                              // Member access.
+self.closest(".row").rect.width              // Call, then member access.
+self attributeOf "data-key"                  // Named operation.
+(self someNamedOperation "value").something  // Access its result.
+```
+
+#### Grammar
+
+These productions replace D10's `operand`, `chain`, `initial`, `call`, `phrase` and `argument`, and `self` joins the keywords; the rest of D10's grammar stands.
+
+```ebnf
+operand         = chain [ predicate ]
+chain           = initial { "." ( identifier | call ) | object }
+                  [ separator named-operation ]
+
+initial         = "self" | parameter | literal | object | group
+group           = "(" expression ")"
+
+call            = identifier "(" [ expression ] ")"
+named-operation = identifier [ separator initial ]
+
+keyword         = "true" | "false" | "null" | "self"
+                | "is" | "has" | "and" | "or"
+                | "if" | "then" | "elseif" | "else"
+```
+
+#### Rules
+
+- **`self`.** `self` denotes the current value, and is invalid where there is none, at the top level among them. It is a keyword, so no field, alias or member is named `self`.
+- **Explicit receivers.** A bare member and a subjectless predicate are refused, with an error that gives the form with `self`:
+
+  ```text
+  rect.width
+  is "disabled"
+  ```
+
+- **Member access** reads a property and takes no argument; whitespace never replaces its dot, so `self rect width` is refused.
+- **A call** is parenthesized and takes no argument or one, any expression, which needs no group since the parentheses delimit it; the chain continues after it.
+- **A named operation** follows its receiver after a separator, takes no argument or one, an initial expression after another separator, and ends its chain; a group continues from its result, with resolution checking which members that result's type has.
+- **Separation.** A named operation requires a separator between its receiver and its name, and between its name and its argument, so the tokenizer keeps whether trivia came before each token and `self attributeOf"data-key"` is refused. Nothing else requires a separator.
+- **One form per declaration.** A property is accessed. An operation or an occurrence source declares its form, a call or a named operation, independent of its return type: calls are the default, and named operations are a deliberate set. That a named operation reads as a sentence about its receiver is guidance for choosing one, never a rule a user applies; the declaration and the documentation decide the form. The built-in vocabulary's forms:
+
+  | Form | Members |
+  |---|---|
+  | Named operation | `attributeOf`, `computedStyleOf`, `matches`, `matchesMedia`, `supports`, `intersects`, `overlaps`, `eventsOf` |
+  | Call | `closest`, `first`, `all`, `at`, `where`, `max`, `min`, `sum`, `get` |
+
+- **The form written is checked.** The parser tells the forms apart by their syntax, and the definition records which was written; resolution refuses a form the declaration does not take, with an error giving the one it does: `'attributeOf' is a named operation: write 'self attributeOf "data-key"'`. Neither a call's nor a named operation's syntax accepts named arguments or several positional ones:
+
+  ```text
+  self.attributeOf("data-key")
+  @panel intersects root: @container margin: 200
+  @panel intersects @container 200
+  ```
+
+- **Input form.** A declaration states its input, which its parameter count never selects:
+  - **Direct:** the argument supplies the value or the expression of the declaration's one parameter; a direct declaration has exactly one, checked when its module registers.
+  - **Options:** the argument is an object expression written in place, whose fields supply the declared parameters.
+
+  Changing a declaration's input form is a breaking change, as renaming it is, so an operation that may grow is declared with options from the start.
+- **Options.** The fields are mapped to the parameters before anything is evaluated, and each follows its parameter's rules: a fixed parameter takes a literal or a bound parameter, and an expression parameter is evaluated in its declared context, so the object is never evaluated whole. A field the declaration has no parameter for is refused, naming those it has; a required parameter must be given; a missing optional one takes its default; and where every parameter is optional, the argument can be left out, as in `@sentinel intersects`. The fields follow the rules of every object expression, their names written or inferred, and there is no positional shortcut:
+
+  ```text
+  @panel intersects {
+      root: @container,
+      margin: 200
+  }
+
+  self overlaps { other: @sidebar }
+  ```
+
+- **What `self` is in an argument,** stated for each parameter, a parameter an options object supplies included: an expression parameter supplies its declared evaluation context, and a value parameter uses the surrounding current value. The built-in expression parameters are those of `where`, `max`, `min` and `sum`, whose `self` is each item of the receiver; the specification states it for every parameter, so what `self` means is predictable without editor tooling.
+
+  ```text
+  @items.where(self is "attached" and self is "visible").count
+  @panel { nearEnd: @sentinel intersects { root: self, margin: 200 } }
+  ```
+
+  In the first, `self` is each item; in the second, the panel.
+- **Properties take no arguments,** so `rect` relative to an element is a call of its own, a distinct request with a distinct name:
+
+  ```text
+  self.rect
+  self.rectRelativeTo(@panel)
+  ```
+
+#### Definition and builder consequences
+
+- **The definition's version is 3.** A `member` node is a member access, with no argument; a `call` node and a `namedOperation` node each hold an optional `argument`, one node, recorded as written, which resolution maps onto the declared parameters. `self` is a `self` node, and every member, call, named operation and predicate expression holds its receiver as its `target`. A member, call, named operation or predicate expression without a `target` is refused as a structure error; an omitted target never stands for `self`, so `self.size` and `@panel.size` are distinct definitions.
+- **Field names** are inferred as before, from the last member, call or named operation of a chain and from a predicate's literal name: `self.rect.width` is `width`, `self.closest(".row")` is `closest`, `self attributeOf "data-key"` is `attributeOf` and `self is "disabled"` is `disabled`; `self` alone infers nothing.
+- **The builder.** The callback records each member read or called on an expression as it is written, and `build` settles its form when it resolves the query, as it already does once the callback returns: the definition it answers records a member access, a call or a named operation as each declaration specifies, so `view.intersects({ root: panel, margin: 200 })` gives a named-operation node, which the writer writes as `@p1 intersects { root: @p2, margin: 200 }`. A form a declaration does not take never arises from the builder, since its JavaScript spelling is the same for all three; only the definition `build` answers is a contract, and what the callback records on the way never leaves the builder. The projection's parameter stands for `self`.
+- **A plain object is read by the declaration's input form.** For an options declaration, its fields map to the parameters; for a direct declaration whose parameter takes an object, it is that parameter's value. A plain object never means options by itself, in the builder or in text, and this replaces the rule that a plain object given last always gives arguments by name.
+
+#### What it replaces
+
+D10's subjectless predicates, and with them the subject an `elseif` inherits, the order a subjectless predicate falls back through and the condition on writing `elseif` back, since every subject is now written; D10's phrases and the separator between their arguments; named arguments; and the rule that positional arguments come before named ones. D10's conditionals, `is null`, logical expressions and groups stand, their examples written with explicit receivers.
+
+State: **decided.** Built by step 10, before the conditionals of step 11.
 
 ## Steps
 
@@ -572,15 +682,23 @@ Make reads and watches cheaper where a measurement shows the work, leaving every
   - A list's change set by its longest increasing subsequence, which sends one operation to move the first item to the end, where the current diff sends one for every other item. The current diff takes at most half a millisecond for 1,000 items in any order, so this is a question of a change set's size and of what applying and sending it costs downstream, which the workloads do not yet measure; it changes which operations are sent, and their order, ties and repeated elements are settled with it.
 - **State:** in progress. The workloads and their baseline are built, and so are the first two changes, each measured against the code just before it, run alternately on one machine. The first reads 24 to 34 percent faster and refreshes a watch 18 to 21 percent faster; the second reads 14 to 25 percent faster again, the median of five runs for the large read, and leaves a watch's refresh within its noise. Keeping a watch's sessions refreshes a watch 37 to 39 percent faster again, the median of three runs, changed or not, and leaves reads within their noise. Of the third change, naming each object expression's fields once reads 5 to 9 percent faster, and parsing each declared structure's field types once reads the large list 23 percent faster again, while the small read from text, which checks no structure, measured 4 percent slower over five runs; the tolerance and the defaults of a `get` step have shown no cost yet.
 
-### 10. Conditional and logical expressions
+### 10. Explicit receivers, calls and named operations
 
-Choose between two values, group expressions and combine Boolean expressions, as D10 decides.
+Write every receiver, and tell member access, calls and named operations apart, as D11 decides.
 
-- **Needs:** D10.
-- **Done when:** text, a definition and the builder each write a conditional, an `elseif`, a group and a logical expression, parsed, validated, written and resolved as D10 sets out, a definition written back as text with the parentheses its grouping needs; `is` and `has` read one predicate name, held under `name`, and `and` and `or` combine complete Boolean expressions alone, answering as the three-valued table gives; `is null` answers whether its subject is null; an `elseif` inherits its subject, or falls back to the current value, as D10 sets out, and a definition is written back with `elseif` only where that keeps every subject as it was, parsing, writing and parsing again giving the same definition; a phrase's arguments are refused without a separator between them; true, false and null conditions select their branches; branches of one type with different nullability answer the nullable type, and branches of different types fail with a validation error naming both; only the selected branch and the operands evaluation reaches are evaluated, and a watch follows what was; a group starts a chain, as `(if @wide then @panel else @sidebar).rect.width` does; and the specification, the design and the READMEs describe them, the earlier shorthand of predicate names replaced.
-- **State:** in progress. Groups and logical expressions are built: `is` and `has` read one predicate name under `name`, `and` and `or` combine Boolean expressions by the three-valued table, a definition is written back with the parentheses its grouping needs, and the builder combines with `.and` and `.or`. Conditionals, `elseif`, `is null` and the phrase separator remain.
+- **Needs:** D11.
+- **Done when:** text, a definition and the builder each write member access, calls and named operations with explicit receivers, parsed, validated, written and resolved as D11 sets out, in definitions of version 3; `self` denotes the current value and is refused where there is none, and a definition whose member, call, named operation or predicate expression has no target is refused; the builder settles each form when it resolves, and reads a plain object by its declaration's input form; a bare member and a subjectless predicate are refused with an error giving the form with `self`; every operation and occurrence source declares its form and its input, the built-in vocabulary's as D11's table gives, a direct declaration having exactly one parameter, and a form its declaration does not take is refused with an error giving the one it does; an options object maps its fields onto the declared parameters before evaluation, each following its parameter's rules, refusing an unknown field, requiring the required and defaulting the optional; a named operation requires its separators; `rectRelativeTo` reads a rectangle relative to an element; and the specification, the design, the READMEs and every example and test are written with explicit receivers, the specification stating what `self` is for every parameter.
+- **State:** not started.
 
-### 11. Editor tooling
+### 11. Conditional and logical expressions
+
+Choose between two values, group expressions and combine Boolean expressions, as D10 decides, with the explicit receivers of D11.
+
+- **Needs:** D10, D11, step 10.
+- **Done when:** text, a definition and the builder each write a conditional, an `elseif`, a group and a logical expression, parsed, validated, written and resolved as D10 sets out, a definition written back as text with the parentheses its grouping needs; `is` and `has` read one predicate name, held under `name`, and `and` and `or` combine complete Boolean expressions alone, answering as the three-valued table gives; an `elseif` is recorded as a conditional nested in the alternative before it and written back as `elseif`, parsing, writing and parsing again giving the same definition; `is null` answers whether its subject is null; true, false and null conditions select their branches; branches of one type with different nullability answer the nullable type, and branches of different types fail with a validation error naming both; only the selected branch and the operands evaluation reaches are evaluated, and a watch follows what was; a group starts a chain, as `(if @wide then @panel else @sidebar).rect.width` does; and the specification, the design and the READMEs describe them, the earlier shorthand of predicate names replaced.
+- **State:** in progress. Groups and logical expressions are built: `is` and `has` read one predicate name under `name`, `and` and `or` combine Boolean expressions by the three-valued table, a definition is written back with the parentheses its grouping needs, and the builder combines with `.and` and `.or`. Conditionals, `elseif` and `is null` remain, after step 10.
+
+### 12. Editor tooling
 
 Diagnostics and completion over the grammar and the declaration metadata, without running a capability.
 
@@ -588,7 +706,7 @@ Diagnostics and completion over the grammar and the declaration metadata, withou
 - **Done when:** a query text is checked against the declarations available to its project, reporting the same positions and messages as resolution.
 - **State:** not started.
 
-### 12. The C# half
+### 13. The C# half
 
 `Parse`, `TryParse`, typed mapping and snapshots for a .NET host.
 
