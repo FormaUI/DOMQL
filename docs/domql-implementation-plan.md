@@ -23,442 +23,41 @@ What is not built: explicit receivers, calls and named operations, conditional e
 
 ## Decisions
 
-Each decision is open until its state says otherwise, and a step that needs it does not start before.
+Each decision is open until its state says otherwise, and a step that needs it does not start before. A decision that is built keeps its line here alone, and what it decided is in the specification or the design.
 
-### D1. How a declaration names the observations that cover its changes
+### Done
 
-A declaration states how a member changes as a category. A watch needs the observations themselves.
+- **D1. How a declaration names the observations that cover its changes.** Done, built by step 1.
+- **D2. How a read waits.** Done, built by step 2.
+- **D3. The public API of a watch and an event listener.** Done, built by steps 3 to 5 and 7.
+- **D4. What DOMQL owns and what a host owns.** Accepted, and stated by the design.
+- **D5. The API of actions and behaviors.** Done, built by step 6.
+- **D6. Predicate expressions and parenthesized arguments.** Done; D10 replaces its predicate names combined under one verb, which step 11 removed, and its phrases, which step 10 removes.
+- **D7. One camelCase name for every member.** Done.
+- **D8. How a caller holds live state.** Done, built by step 7.
+- **D9. The fluent builder.** Done, built by step 8.
 
-- **Recommended: observations are of named types.** A declaration lists the observations that cover its changes, each of a named type with its target and the arguments that matter to it, such as `{ type: 'resize', of: 'receiver' }`. The built-in vocabulary defines the types it observes with: resize, attributes and structure, intersection, media query, focus and selection events, and document visibility. A module can contribute types of its own, each with the function that starts the observation and releases it. Declarations stay data, so a tool reads them without running anything, and a custom observation stays possible.
-- **Two contracts, one lifecycle.** An *invalidation* observation says that the result may have changed and the query should be evaluated again; it carries no value. A *maintained* observation provides a sampled value that a member reads, and is pending until its first sample. Both are started, shared and released the same way; their contracts differ and a type is one or the other.
-- **Identity.** Equivalent observation requests share an underlying observation where their type permits it. A request's identity is its type, its target, the arguments that change what is observed, such as an intersection's root and margin or the attributes an observation filters on, and the DOM environment it belongs to. A type states which of its arguments belong to the identity and whether sharing is permitted at all.
-- **Alternative: a function per member.** A member supplies a function that subscribes and returns its release. It is the most flexible and leaves nothing for a tool to read.
+### Open
 
-State: **done.** Built in its recommended form by step 1.
+- **Negation.** How a query negates a Boolean, which no construct does yet.
+- **A behavior that waits.** A behavior that needs to wait before it is in effect would be activated by an `activateAsync` of its own, decided when one is needed.
+- **The occurrence sources a behavior offers.** The specification subscribes to them as subscriptions of their own; how a behavior offers one is decided once a behavior that offers one exists.
 
-### D2. How a read waits
+### D10. Expressions, receivers and calls
 
-The design has a read wait for the first sample of every maintained member it reads, and a wait cannot be synchronous.
+A query, an argument and an object field each take an expression, which produces a value. The grammar describes their syntax; resolution and validation decide whether their receivers, names and types are valid. Every member access, call, named operation and predicate expression has an explicit receiver, and `self` denotes the current value.
 
-- **Chosen: `read` stays synchronous and `readAsync` waits.** `Domql.read(query, options)` answers the data itself and fails with an evaluation error for a query that reads a maintained member, naming the member. `Domql.readAsync(query, { signal, window })` answers a promise, waits for the samples of every maintained member the query reads, can be canceled, and also reads a query with no maintained member, so a caller can use it for every query.
-- **The name follows the exception.** Almost every operation DOMQL has answers directly, so the plain name is the synchronous one, and every operation that answers a promise takes the suffix `Async`, as `readAsync`, `refreshAsync` and `runAsync` do.
-- **Guarantees of `readAsync`.**
-  - Cancellation and failure dispose every session the read opened.
-  - Waiting evaluates again as samples arrive and as dependencies change. It never answers while a maintained member the result reads is still pending, including one that a later evaluation introduced.
-  - The result uses fresh reads and the samples available when the last evaluation ran. It does not promise that every measurement was taken at the same instant.
-- **Alternative:** `read` answers a promise and `readSync` answers the data, as Node names `readFile` and `readFileSync`. It gives the short name to the form that reads every query, and puts the suffix on the greater part of the operations.
+The language has:
 
-State: **done.** Built in its chosen form by step 2.
-
-### D3. The public API of a watch and an event listener
-
-- **Chosen:** `Domql.watch(query, configuration)` answers a handle, and `Domql.subscribe(query, configuration)` answers an event listener, the handle for a subscription. Each takes a query or its text, as `read` and `readAsync` do: `(text, bindings, configuration)` parses the text through the same cache as `parse`, and `(query, configuration)` reuses a query. The configuration holds the callbacks, which a watch and an event listener require, and chooses the schedule, the update strategy and whether the watch accepts partial observation. A caller chooses where a snapshot is delivered; DOMQL never decides it.
-- **Status.** A watch's handle has a `status`: `pending`, `ready`, `failed` or `disposed`, and an event listener's `ready` or `disposed`, as step 5 records. The snapshot, which can be null, is read beside the status, never in place of it.
-  - **A watch** is `pending` until its first snapshot is available, including the samples of the maintained members it reads, and `ready` from then on. After an evaluation fails it is `failed`, keeps running, and keeps its last successful snapshot, if it has one. It returns to `ready` with its next successful evaluation, even when that snapshot equals the last one; the design's rule that the snapshot is reported after a failure holds.
-  - **An event listener** is `ready` from the call that creates it, which establishes its occurrence subscription, and never waits for an event. An event whose evaluation fails is reported to the error callback and leaves the event listener `ready`.
-- **The first snapshot.** It is delivered through the same callback as every later one, as the baseline, so a caller has one path for all of them.
-- **Callbacks.** A callback receives each delivery in delivery order, and DOMQL does not wait for the promise a callback returns. The continuations of asynchronous callbacks can overlap; a caller that needs them one at a time arranges that at its own delivery boundary.
-  - A callback that throws, or whose promise rejects, leaves the state it was handed accepted, as the design says, and the failure is reported to the error callback; it does not stop the watch.
-  - A failure of the error callback itself, by throwing or rejecting, never calls it again and interrupts no other subscription. It goes to the diagnostic reporting boundary, as a failure of an observation's callback does.
-- **`refreshAsync()`.** It answers a promise that settles once the evaluation it caused has completed and the delivery it produced, if any, has been handed to the callback; it does not wait for a promise the callback returns, so a callback can await a refresh without a cycle.
-  - It rejects with the failure of its evaluation, which is also reported to the error callback.
-  - It resolves without delivering when disposal cancels it.
-  - It rejects when called after disposal.
-- **`dispose()`.** It cancels scheduled evaluation, disposes every session, sets the status to `disposed`, and prevents any new callback invocation; a callback already running may finish. Disposing again does nothing.
-- **Update strategies.** A snapshot is immutable and never changes once delivered. A change set is relative to the state it was computed against. Live state is one object with a stable identity, updated in place, so it is chosen explicitly and is never a snapshot. Each update to live state is fully applied before its callback begins; a consumer that is asynchronous and needs to retain one version chooses snapshots, since live state can change while it waits.
-- **An event listener.** It delivers the result of each event's projection through its callback, `onEvent`, with the same callback, failure and disposal rules.
-
-State: **done.** Built by steps 3 to 5 and 7, with the departures each records.
-
-### D4. What DOMQL owns and what a host owns
-
-State: **accepted.**
-
-- **DOMQL owns** the semantics every host shares: evaluation, dependency recording, observation sessions, snapshots, baselines, revisions, change-set computation and the atomic application of a change set. It also owns the ordering rules that stop a stale update from being accepted.
-- **A host owns** transport, acknowledgments, reconnection, who owns a watch, and asking for a replacement baseline when its receiver cannot be trusted.
-- **A host never keeps a second watch or patch implementation.** A baseline is how a host recovers; DOMQL does not know what a connection is.
-
-### D5. The API of actions and behaviors
-
-```js
-const result = await Domql.runAsync(query, options);
-const behavior = Domql.activate(query, options);
-
-behavior.update(bindings);
-behavior.dispose();
-```
-
-```js
-const focusTrap = Domql.activate('@dialog.focusTrap', { dialog }); // DomqlBehavior
-
-focusTrap.update({ dialog: anotherDialog });
-focusTrap.dispose(); // Stops trapping focus.
-```
-
-- **Chosen: two entry points, each taking options.** `Domql.runAsync` runs an action once and answers a promise of its result; `Domql.activate` answers a `DomqlBehavior`, the handle of the behavior it puts into effect, which belongs to the caller that activated it, and disposing it leaves its module registered. Neither needs a callback, so each takes options, every one of which has a default: `runAsync` takes `window` and `signal`, and `activate` takes `window`. A query never runs an action or activates a behavior.
-- **The request's kind.** Each refuses a request of another kind with a validation error after resolution and before anything is evaluated or started, as reading, watching and subscribing do: `runAsync` takes an action request, `activate` a behavior request, and the other calls refuse both.
-- **Text.** Each takes a request or its text, as the other entry points do: `(text, bindings?, options?)` parses the text through the same cache as `parse`, and `(query, options?)` reuses a request.
-- **Running an action.**
-  - The receiver and the arguments are evaluated first, synchronously, as a read evaluates them; a failure there rejects the promise and runs nothing.
-  - The action's function receives the receiver, the arguments, the environment and the signal, and may answer its result or a promise of it, which is why the call waits. Its result must be of the type the action declares, and data alone; a result of another type rejects the promise with an evaluation error naming the action. An object expression that follows the action is evaluated against the result once it arrives, and the promise answers detached, immutable data.
-  - A failure of the action, whatever it throws, rejects the promise with an evaluation error naming the action, whose cause is what was thrown. Nothing goes to the error reporting while the caller holds the promise.
-  - Cancellation: a signal already aborted rejects with its reason and runs nothing. A signal that aborts while the action runs rejects the promise with its reason at once, as a waiting read does, and the action learns of it through the signal it was given. What the action does after that is its own: its result is discarded, and a failure it reports afterwards goes to the window's error reporting, since no caller waits for it.
-  - Partial failure: an action can change the document before it fails or is canceled. DOMQL never rolls back what it did; the rejection says the action failed, and what it changed stays changed. An action that can be undone offers that as an action of its own.
-- **Activating a behavior.** `activate` is synchronous: the behavior's function receives the receiver, the arguments and the environment, starts the behavior before it returns, and answers an object with `update` and `dispose`. A failure to start, or an answer without both, throws an evaluation error naming the behavior, whose cause is what was thrown, and leaves nothing running. A behavior that needs to wait before it is in effect is outside this decision; it would be activated by an `activateAsync` of its own, decided when one is needed.
-- **The handle.** A `DomqlBehavior` has a `status`, `ready` from the call on and `disposed` once ended, with `update(bindings)` and `dispose()`. A failure inside the running behavior, after it started, goes to the window's error reporting; the behavior's function receives the reporter for it.
-- **Updating bindings.** `update(bindings)` replaces the bindings whole, as `create` binds a definition, so a caller states every parameter and nothing is left over from before. It is synchronous and validates first: the bindings are checked, the request is resolved again against them, and the receiver and arguments are evaluated. Any failure throws, a validation or an evaluation error, and leaves the behavior running as it was, with its earlier bindings. A resolution that would select a different member, as a fixed argument bound to another value can, is refused with a validation error, since that is another behavior to activate. Only once all of that succeeds does the behavior's `update` receive the new receiver and arguments; a failure there throws an evaluation error naming the behavior, and the behavior keeps the bindings it last accepted, since its module promises that an update that fails changed nothing. Updating a disposed behavior throws.
-- **Disposal.** `dispose()` ends the behavior once and is idempotent. It calls the behavior's `dispose`, reports a failure of it to the window's error reporting, and marks the handle `disposed` whatever happened, so nothing is left to call again. Since activating and updating are synchronous, no work is pending when it is disposed.
-- **The module contract.** An action's function is `(receiver, args, environment, { signal })` and answers a result or a promise of it; a behavior's function is `(receiver, args, environment, { reportError })` and answers `{ update(receiver, args), dispose() }`.
-- **Left for later:** the occurrence sources a behavior offers, which the specification subscribes to as subscriptions of their own, are a decision of their own once a behavior that offers one exists.
-
-State: **done.** Built by step 6, with the departures it records.
-
-### D6. Predicate expressions and parenthesized arguments
-
-`@document.is "visible"` read as a member glued to its receiver with its argument set apart, and it made `is` and `has` members although they have no function, a fixed argument that selects a predicate and a contract that comes from the predicate.
-
-- **Chosen: `is` and `has` are operators of the language.** A predicate expression applies a verb to the value before it, or to the current value inside an object expression or an expression argument, and reads predicates the vocabulary registers: `@document is "visible"`, `@panel { attached: is "attached" }`. `and` and `or` combine names under the one verb, `and` binding tighter and parentheses grouping; the subject is evaluated once, and a predicate expression stops at the first operand that decides it while every branch is resolved and validated beforehand. Names are strings or bound parameters, a predicate expression of null is null, one of one literal name infers its field's name, and a definition records it as a `predicate` node whose `names` holds the names and their `and` and `or`.
-- **Arguments after a dot are parenthesized.** A member that starts a chain may take bare literals and parameters, and such a phrase ends its chain; after a dot, arguments take parentheses, and `@sentinel.intersects @panel 200` is a syntax error saying so.
-- **Alternative:** keep `is` and `has` as members, writing `@document.is("visible")` by convention. It leaves two members unlike every other and gives composition no place.
-- **Left for later:** negation, and a test that mixes `is` and `has`, each a decision of its own.
-
-The specification's revision 1.0.6 defines it. State: **done.**
-
-### D7. One camelCase name for every member
-
-Operations were kebab-case in a query, `attribute-of`, and camelCase in the fluent builder, `attributeOf`, so each declaration carried a builder name beside its DOMQL name.
-
-- **Chosen: every member is named in camelCase,** properties and operations alike, the same in a text, a definition and the builder, with parentheses or without: `@panel.attributeOf("data-key")`, `@window.matchesMedia("(prefers-color-scheme: dark)")`, `{ key: attributeOf "data-key" }`. A declaration carries no builder name, since its DOMQL name is the builder's spelling.
-- **A name holds no hyphen.** A name is a letter followed by letters and digits, so every name a module declares is a JavaScript identifier and kebab-case cannot return through a module; a hyphen in a name is a syntax error saying so. The built-in module is named `builtIn`, and observation types are named the same way, as `pixelRatio` is.
-- **Alternative:** camelCase for the built-in members only, keeping hyphens in the grammar and the builder name in declarations. It leaves two spellings a module could choose between, and a conversion the builder would have to make.
-
-The specification's revision 1.0.7 defines it. State: **done.**
-
-### D8. How a caller holds live state
-
-D3 accepts live state as the third update strategy: one object with a stable identity, updated in place, chosen explicitly and never a snapshot. How a caller chooses it, what its callback receives and what keeps its identity are this decision's.
-
-```js
-const watch = Domql.watch('@panel { count: children.count, items: all("[data-key]") { key: attributeOf "data-key" } }', { panel }, {
-    updateStrategy: 'liveState',
-    onChange: (state, changes) => render(state, changes)
-});
-
-watch.liveState; // The same object onChange receives, every time.
-```
-
-- **Chosen: an update strategy.** `updateStrategy: 'liveState'` chooses it, beside `snapshot` and `changeSet`, so it is explicit and a watch delivers one kind of update. Its configuration is a `DomqlWatchLiveStateConfiguration<T>`, as change sets have their own.
-- **What the callback receives.** `onChange(state, changes)`: the live object, the same one at every call, and the change set that was just applied to it, as the JSON Patch operations a change-set watch would send. A caller that renders the whole object ignores the changes; one that patches a view of its own reads them. The first call is the baseline: the object as first built, and an empty change set.
-- **What has a stable identity.** The root, and every object and list beneath it while its path holds an object or a list: a field that changes is set on the object that holds it, an item added, removed or moved changes the list in place, and an item of a list projected from elements keeps its object as it moves, as change sets move it by element. A branch is a new object only where its value stops being one, as when a field turns from an object to null and back.
-- **What it can hold.** The result must be an object or a list that is not nullable, since null has no identity to keep; a watch over another result is refused with a validation error that suggests a top-level object expression, which the README already recommends where a target may be null. Its values are data, as every result is.
-- **Ownership.** The object belongs to the watch, which writes it; a caller reads it and never writes it, and the declarations type it as read-only. It is not frozen, since the watch updates it, and a caller that keeps a version copies it or chooses snapshots.
-- **Timing and failure.** Each change set is applied whole before `onChange` begins, in the evaluation that produced it. A failed evaluation leaves the object as it was, reports to `onError` and sets the watch's status to `failed`, as for every strategy; the next successful one brings the object up to date in one change set. A watch disposed stops changing the object, and the caller keeps it as it last was.
-- **The handle.** `watch.liveState` is the live object, beside `lastSnapshot`, which still answers an immutable snapshot of the same result; a watch of another strategy has no live state.
-- **Alternative:** a store with `get()` and `subscribe()`, as some frameworks expect. It gives no stable object to bind to, which is what live state is for, and a caller can build one on top of this.
-
-State: **done.** Built by step 7.
-
-### D9. The fluent builder
-
-The design describes how a query is built fluently; this decision gives the builder one entry point, starts every query at `from`, and settles what the design left open.
-
-```js
-const rows = Domql.build(q => q
-    .from(table)
-    .all('tbody tr')
-    .where(row => row.intersects({ root: panel }))
-    .select(row => ({ key: row.attributeOf('data-key'), height: row.rect.height })));
-
-Domql.read(rows); // A DomqlQuery like any other.
-```
-
-- **Chosen: one entry point, `Domql.build(callback)`.** The callback receives the builder, `q`, and `build` answers a `DomqlQuery`, which every call that takes a query takes as it is. `Domql` keeps its entry points alone.
-- **Chosen: a query starts at `q.from`, as in LINQ, and `from` is the builder's one word.**
-  - `q.from(document)` and `q.from(window)` start at the roots, which stand for the document and the window the query is read in.
-  - An object expression across targets starts at one and reaches the others with `q.from` inside its projection, as a nested `from` does.
-  - A string, a number or null in a projection or an argument is a literal, written as it is, and an element or other value given as an argument is bound as a parameter, as a target is. A bare `true` or `false` in a projection is refused, since `!` and `===` over an expression answer one, so a Boolean literal field is written in text.
-  - A predicate expression's names are written as text writes them after `is` or `has`: `view.is('disabled or readOnly')`.
-- **Chosen: parameter names.** `q.from(panel)`, and an element given as an argument, bind under a name the builder gives, `p1`, `p2` and so on in the order the build first meets each target, so the same build always answers the same definition, and one value given twice is one parameter. `q.from({ panel })` binds under the name the object gives instead, for a caller who rebinds the definition through `create` by a name it wrote. A typed binding is given where the value would be: `q.from({ panel: Domql.bind(null, 'element?') })`.
-- **Chosen: the builder lives in `builder/`.** The builder, the expressions that record a chain, an object expression or a predicate expression, and the construction of the definition and bindings they record are a folder of their own, which depends on `language/` alone. Their TypeScript declarations stay in `domql.d.ts`, the one file the package ships.
-- **Chosen: names are checked as the query is built.** `build` checks the definition's structure, refuses what the callback contract can detect, and resolves the query against the vocabulary, so a misspelled member or predicate fails on the line that builds it rather than at the first read. It costs no more than before: every call resolves the query anyway, and the resolution `build` makes is the one they reuse; a module registered later makes the next call resolve again, as the registry's revision already does.
-- **Chosen: the result's type is inferred from the projection.** An expression is typed by the vocabulary type of its value, so the editor completes the members that type has and refuses one it lacks, and `build` answers a `DomqlQuery<T>` whose `T` is the object type the projection describes: `rows` above is a `DomqlQuery<{ key: string | null; height: number | null }[]>`, and `readAsync(rows)` answers that type with no annotation. The types of the built-in vocabulary are generated from its declarations by a script, into `domql.d.ts`, and a test fails when they are out of date; an expression whose type only resolution decides, such as a member a module adds, is a `DomqlUnresolvedExpression`, on which any member and any call answers another until resolution accepts or refuses it.
-- **Chosen: rebuilding costs what rebinding does.** A query built again with other elements, as a function that builds it for its arguments does, reuses the resolution of the same definition with bindings of the same types: resolutions are kept by the definition's content and its bindings' types rather than by the query, valid for the registry revision they were made at, and released with the last definition that shares them. So the friendly way to run one query over another table is a function, and the generated names never need to be known.
-- **Chosen: a build's failure names its failing node as DOMQL text.** A built query has no text of its own, so a failure names the failing node as the text that would write it, and the member it is an argument of, as `intersects(root: @p2)`, an argument of `where`, beside the JSON Pointer.
-
-State: **done.** Built by step 8, with the departures it records.
-
-### D10. Expressions, conditions and Boolean composition
-
-#### Expressions, conditions, and Boolean composition
-
-DOMQL’s query language consists of expressions that produce values. A query, a call argument, and an object field each accept an expression. The grammar describes their syntax; resolution and validation determine whether their subjects, names, and types are valid.
-
-The language supports:
-
-- **Chains:** an initial expression followed by member calls or object projections.
-- **Predicate tests:** `is` or `has` applied to one predicate name.
+- **Chains:** an initial expression followed by member access, calls and object expressions, which a named operation may end.
+- **Predicate expressions:** `is` or `has` applied to one predicate name.
 - **Logical expressions:** Boolean expressions combined with `and` and `or`.
 - **Conditional expressions:** `if condition then consequent else alternative`.
 - **Groups:** parentheses around any expression.
 
-#### One meaning for logical operators
+#### Member access, calls and named operations
 
-`is` and `has` each read exactly one predicate name, supplied as a string or a fixed parameter. `and` and `or` combine complete Boolean expressions; they never implicitly carry a predicate’s subject or verb into another operand.
-
-```text
-@panel is "attached" and @enabled
-
-@enabled and @panel is "attached"
-
-@panel is "attached" and @input has "selection"
-```
-
-Inside an object, predicates can use the current subject:
-
-```text
-@panel {
-    available: is "attached" and is "visible",
-    occupied: has "children" or has "selection"
-}
-```
-
-This replaces the earlier shorthand:
-
-```text
-@panel is "attached" and "visible"
-```
-
-That text no longer applies two predicates to the panel. Its right operand is a string, so it fails Boolean type validation. Write:
-
-```text
-@panel is "attached" and @panel is "visible"
-```
-
-There is no separate grammar for composing predicate names. Consequently, there is one grouping rule and no requirement to parenthesize a predicate merely to combine it with another Boolean expression.
-
-#### Complete grammar
-
-In this notation, `[...]` means optional, `{...}` means repetition, `|` separates alternatives, `-` means exclusion, and `? ... ?` describes a special sequence.
-
-```ebnf
-query              = expression end-of-input
-
-expression         = conditional | disjunction
-conditional        = "if" expression "then" expression
-                     { "elseif" expression "then" expression }
-                     "else" expression
-
-disjunction        = conjunction { "or" conjunction }
-conjunction        = operand { "and" operand }
-operand            = chain [ predicate ] | predicate
-
-chain              = phrase | initial { "." call | object }
-initial            = parameter | literal | object | call | group
-group              = "(" expression ")"
-
-call               = identifier [ "(" [ argument { "," argument } [ "," ] ] ")" ]
-phrase             = identifier separator ( literal | parameter )
-                     { separator ( literal | parameter ) }
-argument           = [ identifier ":" ] expression
-
-object             = "{" [ field { "," field } [ "," ] ] "}"
-field              = [ identifier ":" ] expression
-
-predicate          = "is" ( string | parameter | "null" )
-                   | "has" ( string | parameter )
-
-parameter          = "@" identifier
-literal            = string | number | "true" | "false" | "null"
-
-identifier         = name - keyword
-name               = letter { letter | digit }
-keyword            = "true" | "false" | "null"
-                   | "is" | "has" | "and" | "or"
-                   | "if" | "then" | "elseif" | "else"
-
-number             = [ "-" ] integer [ fraction ] [ exponent ]
-integer            = "0" | nonzero-digit { digit }
-fraction           = "." digit { digit }
-exponent           = ( "e" | "E" ) [ "+" | "-" ] digit { digit }
-
-string             = '"' { string-character | string-escape } '"'
-string-character   = ? any character except double quote or backslash ?
-string-escape      = '\' ( '"' | '\' )
-
-letter             = ? ASCII A–Z or a–z ?
-digit              = "0" | nonzero-digit
-nonzero-digit      = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
-
-separator          = trivia { trivia }
-trivia             = whitespace | line-comment | block-comment
-whitespace         = ? a character matched by ECMAScript \s ?
-
-line-comment       = "//" { line-character } [ line-feed ]
-line-character     = ? any character except LF ?
-line-feed          = ? LF ?
-
-block-comment      = "/*" block-content "*/"
-block-content      = ? characters up to, but excluding, the first closing */ ?
-
-end-of-input       = ? end of input ?
-```
-
-#### Lexical rules
-
-Whitespace and comments are ignored between tokens, including before and after the query. The explicit `separator` in a phrase requires at least one whitespace character or comment between its components; an implementation must retain enough token-position information to enforce that requirement.
-
-```text
-operation 1 -2       // Two arguments.
-operation 1-2        // Refused: missing argument separator.
-```
-
-Names and numbers consume the longest matching token. Keywords match whole names, so `isVisible` remains an identifier. Names are case-sensitive and contain only ASCII letters and digits, beginning with a letter.
-
-Strings support only `\"` and `\\` as escapes. Comment markers inside strings are ordinary text. Block comments do not nest and must close.
-
-#### Precedence and grouping
-
-Member access and object projection form a chain before a following predicate tests its result. Predicate tests bind more tightly than `and`, which binds more tightly than `or`.
-
-```text
-@panel is "attached" or @input is "disabled" and @enabled
-```
-
-The conjunction combines the input predicate and `@enabled` before the disjunction combines their result with the panel predicate.
-
-Parentheses group any expression:
-
-```text
-(@panel is "attached" or @input is "disabled") and @enabled
-```
-
-Each position in a conditional accepts a complete expression. Consequently:
-
-```text
-if @enabled then @first else @second and @third
-```
-
-places the conjunction inside the alternative. To combine the whole conditional with another expression, write:
-
-```text
-(if @enabled then @first else @second) and @third
-```
-
-Both conditional branches are mandatory. Conditional expressions may nest in any of the three positions. There is no `?:` or closing `end`.
-
-#### Validation and evaluation
-
-The condition of an `if`, and every operand of general `and` or `or`, must have type `boolean` or `boolean?`. These are type requirements, not syntax restrictions.
-
-Thus, the following parse but fail validation:
-
-```text
-if 42 then "ready" else "waiting"
-
-@panel.rect and true
-
-(if @enabled then "ready" else "waiting") or false
-```
-
-True selects a conditional’s consequent; false or null selects its alternative. Only the selected branch is evaluated, and its result is preserved, including false or null. A nullable condition does not by itself make the result nullable.
-
-The branches have one underlying type, compared structurally for object types, and may differ in nullability. For example, `number` paired with `number?` or `null` produces `number?`; `number` paired with `string` is refused.
-
-All expressions are resolved and validated before evaluation, including branches and logical operands that may be skipped. Logical operators evaluate left to right and short-circuit when the result is determined. Watches track dependencies of the expressions actually evaluated.
-
-Existing structural rules remain: objects must be nonempty, field names must be unique, unnamed fields must have an inferable name, positional arguments precede named arguments, and implicit member or predicate access requires a current subject. Fields containing conditionals or general logical compositions require explicit names.
-
-A predicate-name parameter must supply a fixed, non-null string. An ordinary Boolean parameter used after `and` or `or` is evaluated as a Boolean expression.
-
-#### Nullable logical operands
-
-The grammar allows nullable Boolean operands, and they follow three-valued logic:
-
-| Left | Right | `and` | `or` |
-|---|---|---|---|
-| true | true | true | true |
-| true | false | false | true |
-| true | null | null | true |
-| false | true | false | true |
-| false | false | false | false |
-| false | null | false | null |
-| null | true | null | true |
-| null | false | false | null |
-| null | null | null | null |
-
-Null represents an unavailable Boolean: false determines `and`, true determines `or`, and otherwise null remains unknown. A null left operand alone cannot short-circuit either operator, so the next operand is evaluated, since it may determine the result. This is separate from the rule that an `if` condition of null selects the alternative.
-
-#### Definition and builder consequences
-
-A conditional node has `kind: "conditional"` and expression properties `condition`, `consequent`, and `alternative`.
-
-General logical nodes have `kind: "and"` or `kind: "or"` and an `operands` array. Predicate nodes no longer contain logical trees of names: each holds, under `name`, where it held `names`, one string-literal node or parameter node identifying its predicate, or the literal null of `is null`.
-
-Grouping adds no definition node; the resulting expression tree records the grouping.
-
-The proposed builder operations are:
-
-```text
-condition.conditional(consequent, alternative)
-expression.and(other)
-expression.or(other)
-```
-
-JavaScript’s own conditional and logical operators cannot record these operations on builder objects.
-
-#### elseif
-
-A conditional may test further conditions, in order, before its alternative. Conditions are evaluated in order: true selects that clause's result, false or null advances to the next clause, and where none is true the alternative is evaluated. `elseif` is a keyword.
-
-```text
-if @panel.parent is "attached" then "ready" elseif is null then "unknown" else "waiting"
-
-if @panel.parent is "attached" then "ready" elseif @panel.parent is null then "unknown" else "waiting"
-
-if @panel.parent is "attached" then
-    "ready"
-elseif is null then
-    "unknown"
-else
-    "waiting"
-```
-
-- **Subject inheritance.** What an `elseif` omits is the predicate's subject, never its condition. An initial condition that is a predicate with an explicit subject establishes the conditional's subject; a subjectless predicate in an `elseif` tests that subject, and an explicit subject in an `elseif` overrides it for that clause alone. Where the initial condition has no single identifiable subject, as `@panel is "attached" and @input is "disabled"` has none, there is none to inherit, and the `elseif` writes its subject. The inherited subject is the subject expression itself, evaluated again when its clause is reached, so the forms above are exactly equivalent; keeping its earlier value would be another decision.
-- **`is null`.** `is null` is the language's own test of absence: true for a null subject and false otherwise, never null itself, and distinct from `is "null"`, which names a registered predicate. `has` takes no `null`.
-- **Where a subjectless predicate's subject comes from.** In order: the predicate's explicit subject; the conditional's inherited subject; the surrounding current value; and an error where there is none. An initial condition that combines several subjects never selects one of them to inherit, so an `elseif` after it falls back to the current value, as a subjectless predicate does anywhere else:
-
-  ```text
-  @input {
-      status: if @enabled then "enabled"
-              elseif is "disabled" then "disabled"
-              else "other"
-  }
-  ```
-
-  Here the `elseif` tests `@input`.
-- **How a definition records an `elseif`.** As a conditional nested in the `alternative` of the one before it, with no field of its own. The parser writes an inherited subject out as the predicate's explicit target, before the distinction is lost, so the shorthand and the explicit form give one definition, and the builder nests `conditional` calls for an `elseif`.
-- **How a definition is written back as text.** A nested alternative is written as `elseif` only where that keeps every subject resolving as it did, and as `else if` otherwise. In
-
-  ```text
-  @input {
-      status: if @panel is "attached" then "panel"
-              else if is "disabled" then "disabled"
-              else "other"
-  }
-  ```
-
-  the nested `if` tests the current value, `@input`; written as `elseif`, it would inherit `@panel` and mean something else, so it stays `else if`. Parsing, writing and parsing again gives the same definition, where it can be flattened and here alike.
-- **How `is null` is recorded.** Its `name` is a literal node whose value is null, as a string name is a literal node holding a string, never a bare null; validation accepts it under `is` and refuses it under `has`.
-
-#### The principle
-
-The language composes queries through member access, object expressions, predicate expressions and conditional expressions. Arithmetic, ordering and other computations are provided by vocabulary members or performed by the caller.
-
-State: **decided,** with D11 replacing its subjectless predicates, the subject inheritance and fallback of `elseif`, and its phrases. Built by step 11.
-
-### D11. Explicit receivers, calls and named operations
-
-Every member access, call, named operation and predicate expression has an explicit receiver, and `self` denotes the current value. Member access, calls and named operations are three distinct constructs, not alternate spellings, and the vocabulary declares which form each operation takes.
+Member access, calls and named operations are three distinct constructs, not alternate spellings, and the vocabulary declares which form each operation takes.
 
 | Construct | Syntax | Example |
 |---|---|---|
@@ -473,30 +72,89 @@ self attributeOf "data-key"                  // Named operation.
 (self someNamedOperation "value").something  // Access its result.
 ```
 
-#### Grammar
+#### Complete grammar
 
-These productions replace D10's `operand`, `chain`, `initial`, `call`, `phrase` and `argument`, and `self` joins the keywords; the rest of D10's grammar stands.
+In this notation, `[...]` means optional, `{...}` means repetition, `|` separates alternatives, `-` means exclusion, and `? ... ?` describes a special sequence.
 
 ```ebnf
-operand         = chain [ predicate ]
-chain           = initial { "." ( identifier | call ) | object }
-                  [ separator named-operation ]
+query            = expression end-of-input
 
-initial         = "self" | parameter | literal | object | group
-group           = "(" expression ")"
+expression       = conditional | disjunction
+conditional      = "if" expression "then" expression
+                   { "elseif" expression "then" expression }
+                   "else" expression
 
-call            = identifier "(" [ expression ] ")"
-named-operation = identifier [ separator initial ]
+disjunction      = conjunction { "or" conjunction }
+conjunction      = operand { "and" operand }
+operand          = chain [ predicate ]
 
-keyword         = "true" | "false" | "null" | "self"
-                | "is" | "has" | "and" | "or"
-                | "if" | "then" | "elseif" | "else"
+chain            = initial { "." ( identifier | call ) | object }
+                   [ separator named-operation ]
+initial          = "self" | parameter | literal | object | group
+group            = "(" expression ")"
+
+call             = identifier "(" [ expression ] ")"
+named-operation  = identifier [ separator initial ]
+
+object           = "{" [ field { "," field } [ "," ] ] "}"
+field            = [ identifier ":" ] expression
+
+predicate        = "is" ( string | parameter | "null" )
+                 | "has" ( string | parameter )
+
+parameter        = "@" identifier
+literal          = string | number | "true" | "false" | "null"
+
+identifier       = name - keyword
+name             = letter { letter | digit }
+keyword          = "true" | "false" | "null" | "self"
+                 | "is" | "has" | "and" | "or"
+                 | "if" | "then" | "elseif" | "else"
+
+number           = [ "-" ] integer [ fraction ] [ exponent ]
+integer          = "0" | nonzero-digit { digit }
+fraction         = "." digit { digit }
+exponent         = ( "e" | "E" ) [ "+" | "-" ] digit { digit }
+
+string           = '"' { string-character | string-escape } '"'
+string-character = ? any character except double quote or backslash ?
+string-escape    = '\' ( '"' | '\' )
+
+letter           = ? ASCII A–Z or a–z ?
+digit            = "0" | nonzero-digit
+nonzero-digit    = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+
+separator        = trivia { trivia }
+trivia           = whitespace | line-comment | block-comment
+whitespace       = ? a character matched by ECMAScript \s ?
+
+line-comment     = "//" { line-character } [ line-feed ]
+line-character   = ? any character except LF ?
+line-feed        = ? LF ?
+
+block-comment    = "/*" block-content "*/"
+block-content    = ? characters up to, but excluding, the first closing */ ?
+
+end-of-input     = ? end of input ?
 ```
 
-#### Rules
+#### Lexical rules
+
+Whitespace and comments are ignored between tokens, including before and after the query, except where `separator` requires them: a named operation needs at least one whitespace character or comment between its receiver and its name, and between its name and its argument, so the tokenizer keeps whether trivia came before each token.
+
+```text
+self attributeOf "data-key"   // A named operation.
+self attributeOf"data-key"    // Refused: no separator before its argument.
+```
+
+Names and numbers consume the longest matching token. Keywords match whole names, so `isVisible` remains an identifier. Names are case-sensitive and contain only ASCII letters and digits, beginning with a letter.
+
+Strings support only `\"` and `\\` as escapes. Comment markers inside strings are ordinary text. Block comments do not nest and must close.
+
+#### Receivers, calls and named operations
 
 - **`self`.** `self` denotes the current value, and is invalid where there is none, at the top level among them. It is a keyword, so no field, alias or member is named `self`.
-- **Explicit receivers.** A bare member and a subjectless predicate are refused, with an error that gives the form with `self`:
+- **Explicit receivers.** A bare member and a predicate expression without a subject are refused, with an error that gives the form with `self`:
 
   ```text
   rect.width
@@ -506,7 +164,6 @@ keyword         = "true" | "false" | "null" | "self"
 - **Member access** reads a property and takes no argument; whitespace never replaces its dot, so `self rect width` is refused.
 - **A call** is parenthesized and takes no argument or one, any expression, which needs no group since the parentheses delimit it; the chain continues after it.
 - **A named operation** follows its receiver after a separator, takes no argument or one, an initial expression after another separator, and ends its chain; a group continues from its result, with resolution checking which members that result's type has.
-- **Separation.** A named operation requires a separator between its receiver and its name, and between its name and its argument, so the tokenizer keeps whether trivia came before each token and `self attributeOf"data-key"` is refused. Nothing else requires a separator.
 - **One form per declaration.** A property is accessed. An operation or an occurrence source declares its form, a call or a named operation, independent of its return type: calls are the default, and named operations are a deliberate set. That a named operation reads as a sentence about its receiver is guidance for choosing one, never a rule a user applies; the declaration and the documentation decide the form. The built-in vocabulary's forms:
 
   | Form | Members |
@@ -553,111 +210,139 @@ keyword         = "true" | "false" | "null" | "self"
   self.rectRelativeTo(@panel)
   ```
 
+#### One meaning for logical operators
+
+`is` and `has` each read exactly one predicate name, supplied as a string or a fixed parameter. `and` and `or` combine complete Boolean expressions, and never carry a predicate's subject or verb into another operand:
+
+```text
+@panel is "attached" and @enabled
+
+@enabled and @panel is "attached"
+
+@panel is "attached" and @input has "selection"
+
+@panel {
+    available: self is "attached" and self is "visible",
+    occupied: self has "children" or self has "selection"
+}
+```
+
+The earlier shorthand `@panel is "attached" and "visible"` no longer applies two predicates to the panel: its right operand is a string, so it fails Boolean type validation, and `@panel is "attached" and @panel is "visible"` is written instead. There is no separate grammar for composing predicate names, so there is one grouping rule, and no predicate is parenthesized merely to combine it with another Boolean expression.
+
+Nullable Boolean operands follow three-valued logic:
+
+| Left | Right | `and` | `or` |
+|---|---|---|---|
+| true | true | true | true |
+| true | false | false | true |
+| true | null | null | true |
+| false | true | false | true |
+| false | false | false | false |
+| false | null | false | null |
+| null | true | null | true |
+| null | false | false | null |
+| null | null | null | null |
+
+Null is a Boolean that is unavailable: false decides `and`, true decides `or`, and otherwise null stays unknown. A null operand decides neither operator, so the next operand is evaluated, since it may decide the result. This is separate from the rule that an `if` condition of null selects the alternative.
+
+#### Precedence and grouping
+
+Member access, calls, object expressions and a named operation form a chain before a predicate that follows tests its result. Predicate expressions bind more tightly than `and`, which binds more tightly than `or`.
+
+```text
+@panel is "attached" or @input is "disabled" and @enabled
+```
+
+The conjunction combines the input's predicate expression and `@enabled` before the disjunction combines their result with the panel's.
+
+Parentheses group any expression:
+
+```text
+(@panel is "attached" or @input is "disabled") and @enabled
+```
+
+Each position in a conditional takes a complete expression, so
+
+```text
+if @enabled then @first else @second and @third
+```
+
+places the conjunction inside the alternative. To combine the whole conditional with another expression, write:
+
+```text
+(if @enabled then @first else @second) and @third
+```
+
+Both branches of a conditional are mandatory. Conditionals may nest in any of their three positions. There is no `?:` and no closing `end`.
+
+#### Validation and evaluation
+
+The condition of an `if`, and every operand of `and` and `or`, must have type `boolean` or `boolean?`. These are type requirements, not syntax restrictions, so the following parse and fail validation:
+
+```text
+if 42 then "ready" else "waiting"
+
+@panel.rect and true
+
+(if @enabled then "ready" else "waiting") or false
+```
+
+True selects a conditional's consequent; false or null selects its alternative. Only the selected branch is evaluated, and its result is kept as it is, false and null included. A nullable condition does not by itself make the result nullable.
+
+The branches have one underlying type, compared structurally for object types, and may differ in nullability: `number` paired with `number?` or `null` answers `number?`, and `number` paired with `string` is refused.
+
+Every expression is resolved and validated before anything is evaluated, branches and logical operands that may be skipped included. Logical operators evaluate from left to right and stop once the result is decided. A watch follows the dependencies of the expressions actually evaluated.
+
+The structural rules stand: an object is never empty, its field names are unique, an unnamed field has a name to infer, and `self` requires a current value. A field holding a conditional or a logical expression takes a name of its own.
+
+A parameter that names a predicate supplies a fixed, non-null string. An ordinary Boolean parameter after `and` or `or` is evaluated as a Boolean expression.
+
+#### Conditionals and `elseif`
+
+A conditional may test further conditions, in order, before its alternative: true selects that clause's result, false or null moves to the next clause, and where none is true the alternative is evaluated. `elseif` is a keyword.
+
+```text
+if @panel.parent is "attached" then "ready" elseif @panel.parent is null then "unknown" else "waiting"
+
+if @panel.parent is "attached" then
+    "ready"
+elseif @panel.parent is null then
+    "unknown"
+else
+    "waiting"
+```
+
+- **`is null`** is the language's own test of absence: true for a null subject and false otherwise, never null itself, and distinct from `is "null"`, which names a registered predicate. `has` takes no `null`.
+- **Every clause writes its subject,** as every predicate expression does, so an `elseif` inherits nothing from the clause before it.
+- **How a definition records an `elseif`.** As a conditional nested in the `alternative` of the one before it, with no field of its own; the builder nests `conditional` calls for one. A conditional nested in an alternative is written back as `elseif`, so parsing, writing and parsing again gives the same definition.
+- **How `is null` is recorded.** Its `name` is a literal node whose value is null, as a string name is a literal node holding a string, never a bare null; validation accepts it under `is` and refuses it under `has`.
+
 #### Definition and builder consequences
 
 - **The definition's version is 3.** A `member` node is a member access, with no argument; a `call` node and a `namedOperation` node each hold an optional `argument`, one node, recorded as written, which resolution maps onto the declared parameters. `self` is a `self` node, and every member, call, named operation and predicate expression holds its receiver as its `target`. A member, call, named operation or predicate expression without a `target` is refused as a structure error; an omitted target never stands for `self`, so `self.size` and `@panel.size` are distinct definitions.
-- **Field names** are inferred as before, from the last member, call or named operation of a chain and from a predicate's literal name: `self.rect.width` is `width`, `self.closest(".row")` is `closest`, `self attributeOf "data-key"` is `attributeOf` and `self is "disabled"` is `disabled`; `self` alone infers nothing.
-- **The builder.** The callback records each member read or called on an expression as it is written, and `build` settles its form when it resolves the query, as it already does once the callback returns: the definition it answers records a member access, a call or a named operation as each declaration specifies, so `view.intersects({ root: panel, margin: 200 })` gives a named-operation node, which the writer writes as `@p1 intersects { root: @p2, margin: 200 }`. A form a declaration does not take never arises from the builder, since its JavaScript spelling is the same for all three; only the definition `build` answers is a contract, and what the callback records on the way never leaves the builder. The projection's parameter stands for `self`.
+- **Expressions.** A conditional node has `kind: "conditional"` and the expressions `condition`, `consequent` and `alternative`. A logical node has `kind: "and"` or `kind: "or"` and an `operands` array. A predicate node holds, under `name`, one string-literal node or parameter node naming its predicate, or the literal null of `is null`. A group adds no node; the expression tree records the grouping.
+- **Field names** are inferred from the last member, call or named operation of a chain and from a predicate's literal name: `self.rect.width` is `width`, `self.closest(".row")` is `closest`, `self attributeOf "data-key"` is `attributeOf` and `self is "disabled"` is `disabled`; `self` alone infers nothing.
+- **The builder.** JavaScript's own conditional and logical operators cannot record anything on builder objects, so the builder writes them as calls: `condition.conditional(consequent, alternative)`, `expression.and(other)` and `expression.or(other)`. The callback records each member read or called on an expression as it is written, and `build` settles its form when it resolves the query, as it already does once the callback returns: the definition it answers records a member access, a call or a named operation as each declaration specifies, so `view.intersects({ root: panel, margin: 200 })` gives a named-operation node, which the writer writes as `@p1 intersects { root: @p2, margin: 200 }`. A form a declaration does not take never arises from the builder, since its JavaScript spelling is the same for all three; only the definition `build` answers is a contract, and what the callback records on the way never leaves the builder. The projection's parameter stands for `self`.
 - **A plain object is read by the declaration's input form.** For an options declaration, its fields map to the parameters; for a direct declaration whose parameter takes an object, it is that parameter's value. A plain object never means options by itself, in the builder or in text, and this replaces the rule that a plain object given last always gives arguments by name.
 
-#### What it replaces
+#### The principle
 
-D10's subjectless predicates, and with them the subject an `elseif` inherits, the order a subjectless predicate falls back through and the condition on writing `elseif` back, since every subject is now written; D10's phrases and the separator between their arguments; named arguments; and the rule that positional arguments come before named ones. D10's conditionals, `is null`, logical expressions and groups stand, their examples written with explicit receivers.
+The language composes queries through member access, calls, named operations, object expressions, predicate expressions, logical expressions and conditional expressions. Arithmetic, ordering and other computations are provided by vocabulary members or performed by the caller.
 
-State: **decided.** Built by step 10, before the conditionals of step 11.
+State: **decided.** Step 11 has built logical expressions and groups; step 10 builds explicit receivers, calls and named operations, and step 11 then builds conditionals.
 
 ## Steps
 
-A step is done when its tests pass in the gate, its documents say what it built, and its state here says so.
+A step is done when its tests pass in the gate, its documents say what it built, and its state here says so. A step that is done keeps its line here alone.
 
-### 1. Observation types and observations
-
-Name the observations a declaration carries (D1), and build the layer that starts, shares and ends observations through sessions: equivalent requests share one observation, started on first use and stopped when its last session is disposed.
-
-- **Needs:** D1.
-- **Done when:** every member of the built-in vocabulary names its observations, each an invalidation observation or a maintained one; a session starts an observation once for equivalent requests and ends it when the last is disposed; requests that differ in an argument that belongs to the identity do not share; each type of observation reports a change in a real browser.
-- **State:** done. The pixel ratio is checked with a window whose ratio the test controls, because a test cannot change the ratio of the browser it runs in.
-
-### 2. Dependencies and maintained members
-
-Record what an evaluation read, member by member and item by item, with each member's observations. Read maintained members from their observation's latest sample, pending until the first arrives, and build the waiting `readAsync`.
-
-- **Needs:** step 1, D2.
-- **Done when:** a query's dependencies are the ones the design lists, including those of expression arguments, of a path that met null and of a detached element; `intersects` reads in a real browser; `readAsync` waits for the first sample, evaluates again for a member a later evaluation introduces, and disposes its sessions on cancellation and on failure.
-- **State:** done. Where it departs from the design: a member that answered null for a detached element records the element's attachment in the evaluator, once for every member, instead of each declaration naming it; an evaluation that fails while a maintained member is pending reports nothing and waits, since the failure may come from the null the pending member answered; a read holds the observations of a maintained member always, and the others only while it waits, since a result that is complete needs nothing more observed, where a watch holds them all; and the reads in one window share one set of observations.
-
-### 3. Watches
-
-Evaluate, report and evaluate again when an observation fires, reporting only a snapshot that differs: the schedule, the subscriptions that follow the dependencies, the comparison with a member's tolerance, a failed evaluation, an element that leaves the document and returns, and acceptance of partial observation. Snapshots are the first delivery.
-
-- **Needs:** steps 1 and 2, D3.
-- **Done when:** a watch follows the document as the design describes; its status, first delivery, `refreshAsync`, failing callback and disposal behave as D3 defines; it delivers snapshots that share their unchanged parts, and disposes every session when it ends.
-- **State:** done. Where it departs from the design: a member declares its tolerance as `tolerance`, and no built-in member declares one yet, so their numbers compare exactly; the first evaluation follows the call that creates the watch, so no callback runs before the caller has the handle; and `updateStrategy` takes `snapshot` alone until step 4 builds change sets.
-
-### 4. Change sets and recovery
-
-Deliver a baseline and then change sets as JSON Patch limited to `replace`, `add`, `remove` and `move`, with coalescing and the rules of ordering that recovery relies on: DOMQL numbers its baselines and revisions, accepts a change set only against the state it was computed against, applies it atomically, and gives a stale update no effect.
-
-- **Needs:** step 3, D4.
-- **Done when:** applying each change set to the state it was computed against gives the next result; the design's rules of recovery hold under failed, late and out-of-order deliveries; a host that asks for a replacement baseline gets one that nothing earlier can affect.
-- **List projections** keep an internal identity for each element they project, so a change set expresses insertions, removals and moves without a result holding an element reference. Tests include projected values that repeat, and a list that is reordered and updated in one change.
-- **State:** done. Where it departs from the design or adds to it: the acknowledgment contract is the watch's `acknowledge(update)` and `recover()`, with `updateStrategy: 'changeSet'` choosing change sets, beside D3's handle, and an update names its generation and the revisions it goes from and to; the receiving side is `Domql.createSnapshot()`, a current snapshot whose `apply(update)` answers `accepted`, `stale` or `failed` and whose `value` is the snapshot last accepted; and a recovery from a failed evaluation whose result did not change delivers an empty change set, as D3's rule that the result is reported after a failure asks. Live state, the third delivery kind, is not built.
-
-### 5. Occurrence sources
-
-Deliver what an occurrence source reports: `eventsOf` captures what the event carries at dispatch, the object expression after it is evaluated for each occurrence, and the sessions its object expressions open are held across occurrences.
-
-- **Needs:** steps 1 and 2, D3.
-- **Done when:** a subscription delivers one immutable result for each occurrence and releases everything when it ends. Its tests include:
-  - the first occurrence answering null for a maintained member whose sample is still pending, and a later occurrence reading the sample that arrived;
-  - an evaluation that depends on different members from the one before it keeping what it reads and releasing the rest;
-  - a failed projection delivering nothing, keeping the sessions it held before and disposing those the failed attempt opened.
-- **State:** done. Where it departs from D3 or adds to the design:
-  - An event listener starts its source in the call that creates it, so an occurrence dispatched right after the call is heard, and a source that cannot start fails the call with an evaluation error, whose cause is whatever the source threw. Its status is `ready` from the call on and `disposed` once ended, so it is never `pending`.
-  - A source may deliver while it starts. Those occurrences are captured and projected at once, and their callbacks run once the caller has the event listener, before those of any later occurrence; where the start fails, their callbacks never run and the sessions they opened are let go of.
-  - Its callback is `onEvent`, beside `onError` and `window`; the callback and failure rules are the watch's, and both carry them out alike.
-  - The source's receiver and arguments are evaluated once, as listening starts; an event listener does not follow a receiver that changes, and listens to nothing where the receiver or an argument is null.
-  - An occurrence is captured as the fields its event type declares, inside the source's delivery: a field the occurrence carries no value of its type for is null where the type is nullable and fails the capture where it is not, which is reported as a projection's failure is. So `domEvent`'s `target` is nullable, for a scroll or a resize that targets the document or the window, and so is `pointerEvent`'s `pointerType`, for a browser that dispatches a click as a mouse event.
-  - A source's function takes the receiver, the arguments, the environment and the function it delivers each occurrence to, and answers an object whose `stop` ends the listening; the built-in `eventsOf` listens passively.
-  - Disposing an evaluation disposes every session even where one fails to be. A watch, an event listener and a waiting read each attempt every cleanup, report a failure of one to the window's error reporting, and never let it replace their result, their error or their cancellation.
-
-### 6. Actions and behaviors
-
-Run an action once and receive its result, and activate, update and dispose of a behavior whose instance belongs to its caller. Registering a module makes its capability understood; activating a behavior creates an instance.
-
-- **Needs:** D5; independent of steps 1 to 5.
-- **Done when:** an extension's action and behavior run through their request kinds, a query never performs either, and disposing an instance leaves its module registered.
-- **State:** done. Where it departs from D5 or adds to it:
-  - An object expression that follows an action shapes its result, as the specification allows, and is evaluated as a read evaluates a query, so a member maintained by an observation fails it. Resolution had refused one there before.
-  - An action whose receiver or an argument is null is not run, and its result is null, as a member's is.
-  - A behavior whose receiver or an argument is null has nothing to activate: the handle is `ready` with no instance, an update that supplies a receiver activates one, and an update that leaves it null disposes the one that ran.
-  - A failure of an action names the action and what it threw; a failure of a behavior's activation or update names the behavior, with what it threw as the cause.
-  - The check that refuses bindings selecting a different member is in place, though no request the vocabulary allows today can reach another behavior by its bindings.
-
-### 7. Live state
-
-Deliver a watch's result as live state: one object with a stable identity that the watch updates in place, the third update strategy D3 accepts. It is chosen explicitly and is never a snapshot, and each update is fully applied before its callback begins.
-
-- **Needs:** steps 3 and 4, D3, D8.
-- **Done when:** a watch that delivers live state keeps one object current through every change a snapshot or a change set would report, including lists that are reordered and items that come and go, applies each change before the callback sees it, and reports a failed evaluation without changing the state.
-- **State:** done. Where it adds to D8: the change sets live state applies are the ones a change-set watch would send, computed against the snapshot the object was last brought to, and `lastSnapshot` still reports the immutable result a snapshot watch would.
-
-### 8. The fluent builder
-
-Build queries from calls that produce the same definition text or JSON would, so they resolve and read alike.
-
-- **Needs:** D9; nothing of the runtime, since it works on definitions and resolution, which are built.
-- **Done when:**
-  - the definition a builder produces equals the one the equivalent text parses to, for every construct the language has, and binds its targets and argument values as D9 names them;
-  - a build refuses what the callback contract can detect and a name the vocabulary lacks, as it is built, naming the failing node as DOMQL text;
-  - a built query reads, watches, subscribes, runs and activates as a parsed one does;
-  - the result type of a built query is inferred in a TypeScript caller, the generated types of the built-in vocabulary match its declarations, and a module's member is reachable through the fallback;
-  - a query built again with other elements reuses the resolution of the first, which a measurement shows.
-- **State:** done. Where it departs from D9 or adds to it:
-  - `select`, `is` and `has` on an expression are the builder's object expression and predicate expressions, so a member a module names `select` is read through `get`, and a plain object as a call's last argument always gives arguments by name, so a data object given last is given by name or bound first.
-  - A built query starts at `q.from`, so an object expression across targets follows one of them; a callback that answers no expression is refused.
-  - A typed binding is a `DomqlUnresolvedExpression` in TypeScript, since its type is written as text, and so is the expression `get` answers.
-  - Resolutions are kept by definition rather than by query for every query, so the queries parsed from one text with bindings of one resolution key share theirs too; a binding gives that key its type, and its value where that is a string, a number, a Boolean or null, since a bound string can select what a member reads.
+- **1. Observation types and observations.** Done.
+- **2. Dependencies and maintained members.** Done.
+- **3. Watches.** Done.
+- **4. Change sets and recovery.** Done.
+- **5. Occurrence sources.** Done.
+- **6. Actions and behaviors.** Done.
+- **7. Live state.** Done.
+- **8. The fluent builder.** Done.
 
 ### 9. Measured performance
 
@@ -665,36 +350,30 @@ Make reads and watches cheaper where a measurement shows the work, leaving every
 
 - **Needs:** nothing new; it works inside what is built.
 - **Done when:** each change below is measured on its own and kept only for a gain on the workload it targets that is repeatable beyond that workload's noise, with no meaningful loss on another, compared in the same environment on the same workloads; it lands with the regression tests that hold what it must keep, and the gate passes unchanged; the two changes that alter behavior are decided before they are built.
-- **The workloads:** `npm run bench` from `tests/`, outside the gate, in the simulated DOM the tests use: a read of 1,000 shaped rows, and a small read by query and by text; a watch of 1,000 rows refreshed unchanged, and with one row changed under each update strategy; the change set of 1,000 items in six orders. Each baseline is kept under `.local/`.
-- **What the baseline showed:** a watch's refresh costs about three and a half reads of the same rows, changed or not. Acquiring and releasing the observation sessions of each evaluation takes a third of it, and comparing snapshots a sixteenth. Looking a node's resolution up by the pointer string built for it takes a sixth of a read and a seventh of a refresh, and detaching the result another sixth of a read. The simulated DOM's own work is under a tenth. These shares point to where the work is; they are neither promised gains nor costs that add up.
+- **The workloads:** `npm run bench` from `tests/`, outside the gate, in the simulated DOM the tests use: a read of 1,000 shaped rows, and a small read by query and by text; a watch of 1,000 rows refreshed unchanged, and with one row changed under each update strategy; the change set of 1,000 items in six orders. Each baseline, and the measurements of each change, are kept under `.local/`.
 - **The changes, in order:**
-  1. A node's resolution found by the node, kept within its resolved definition so it never crosses bindings or options, with each node's pointer built once as the definition is resolved, for an error or a dependency to name the same location as now, inside an item of a list too.
-  2. Detaching a result in one pass, giving the same frozen result and identities.
-  3. Each of these where a measurement shows its cost: each object expression's field names, each declared structure's field types, each node's tolerance and each `get` step's default arguments computed once, from inputs that are frozen; an object expression's object built so that a field named `__proto__` is still an ordinary property.
-  4. The key of a call's bindings computed once, likewise, and a watch's change callback made once, which keeping a watch's sessions needs and which is built with it.
+  1. A node's resolution found by the node, kept within its resolved definition so it never crosses bindings or options, with each node's pointer built once as the definition is resolved. Built: reads 24 to 34 percent faster, a watch's refresh 18 to 21 percent.
+  2. Detaching a result in one pass, giving the same frozen result and identities. Built: reads 14 to 25 percent faster again.
+  3. Each of these where a measurement shows its cost: each object expression's field names, each declared structure's field types, each node's tolerance and each `get` step's default arguments computed once, from inputs that are frozen; an object expression's object built so that a field named `__proto__` is still an ordinary property. Field names and structure field types are built, reading 5 to 9 and 23 percent faster; the tolerance and the defaults of a `get` step have shown no cost yet.
+  4. The key of a call's bindings computed once, likewise, and a watch's change callback made once, which keeping a watch's sessions needs and which was built with it.
 - **Decided separately, before they are built:**
-  - Keeping an observation's session across a watch's evaluations when the same request repeats. It is the largest gain for a watch, so its design starts alongside the first two changes rather than after the rest. **Decided:** a watch's new evaluation takes over the sessions of the evaluations it replaces, for shared observation types and for watches first; unshared types keep a fresh observation each evaluation, and reading once or subscribing follow only where a measurement shows the gain. Built, as decided.
-    - **What is taken over.** A session is found by the node that acquired it, the observation's place among those its call observes, the attachment of a detached element included, and the receiver, and is taken over only where its type, its target and every argument it reads equal what the new call would give, by the rules an identity already follows: so its request is the one resolving would give, and its observation the one acquiring would join, since resolving a request runs no module code, a declaration naming its target as the receiver, the window, the document or an argument, and its values as literals or arguments.
-    - **What a session records.** The values it was acquired with, as a copy: a list item by item, a nested list too, and an object or an element by reference, as an identity tells them apart; a bound list is the caller's own and may change between evaluations.
-    - **Who owns it.** One evaluation at a time. The sessions the last successful and the last failed evaluation hold are offered together, each location holding every candidate it was acquired for, since one evaluation can reach a location with one receiver more than once, and each candidate is taken at most once; what is not taken is disposed when its evaluation is released, and disposing the watch releases both.
-    - **What it keeps.** A session taken over never stops, so its observation reports through the evaluation, preserving the continuity holding before releasing gives while removing the bookkeeping; its change reaches the watch through the one callback the watch keeps, and a change during an evaluation asks for another as it does now. An evaluation records the same dependencies, each taken-over session bringing its request.
-    - **Tests that land with it:** an unchanged refresh keeps its sessions and the observations running; a changed argument, a bound list changed in place included, acquires a new session and releases the old; a location reached twice with one receiver holds two sessions; a successful evaluation, a failure that takes over some sessions and acquires others, a second failure with other dependencies, a recovery and a disposal leave nothing running and dispose each session once; a change during an evaluation asks for another; an unshared type starts a fresh observation each evaluation.
-  - A list's change set by its longest increasing subsequence, which sends one operation to move the first item to the end, where the current diff sends one for every other item. The current diff takes at most half a millisecond for 1,000 items in any order, so this is a question of a change set's size and of what applying and sending it costs downstream, which the workloads do not yet measure; it changes which operations are sent, and their order, ties and repeated elements are settled with it.
-- **State:** in progress. The workloads and their baseline are built, and so are the first two changes, each measured against the code just before it, run alternately on one machine. The first reads 24 to 34 percent faster and refreshes a watch 18 to 21 percent faster; the second reads 14 to 25 percent faster again, the median of five runs for the large read, and leaves a watch's refresh within its noise. Keeping a watch's sessions refreshes a watch 37 to 39 percent faster again, the median of three runs, changed or not, and leaves reads within their noise. Of the third change, naming each object expression's fields once reads 5 to 9 percent faster, and parsing each declared structure's field types once reads the large list 23 percent faster again, while the small read from text, which checks no structure, measured 4 percent slower over five runs; the tolerance and the defaults of a `get` step have shown no cost yet.
+  - Keeping an observation's session across a watch's evaluations when the same request repeats. Decided and built for watches, as the design's sessions set out, refreshing a watch 37 to 39 percent faster again; reading once and subscribing take sessions over only where a measurement shows the gain.
+  - A list's change set by its longest increasing subsequence, which sends one operation to move the first item to the end, where the current diff sends one for every other item. The current diff takes at most half a millisecond for 1,000 items in any order, so this is a question of a change set's size and of what applying and sending it costs downstream, which the workloads do not yet measure; it changes which operations are sent, and their order, ties and repeated elements are settled with it. Open.
+- **State:** in progress. Changes 1 and 2, and the session take-over, are built; change 3 is built in part, and so is change 4, whose key of a call's bindings remains with the change set by longest increasing subsequence.
 
 ### 10. Explicit receivers, calls and named operations
 
-Write every receiver, and tell member access, calls and named operations apart, as D11 decides.
+Write every receiver, and tell member access, calls and named operations apart, as D10 decides.
 
-- **Needs:** D11.
-- **Done when:** text, a definition and the builder each write member access, calls and named operations with explicit receivers, parsed, validated, written and resolved as D11 sets out, in definitions of version 3; `self` denotes the current value and is refused where there is none, and a definition whose member, call, named operation or predicate expression has no target is refused; the builder settles each form when it resolves, and reads a plain object by its declaration's input form; a bare member and a subjectless predicate are refused with an error giving the form with `self`; every operation and occurrence source declares its form and its input, the built-in vocabulary's as D11's table gives, a direct declaration having exactly one parameter, and a form its declaration does not take is refused with an error giving the one it does; an options object maps its fields onto the declared parameters before evaluation, each following its parameter's rules, refusing an unknown field, requiring the required and defaulting the optional; a named operation requires its separators; `rectRelativeTo` reads a rectangle relative to an element; and the specification, the design, the READMEs and every example and test are written with explicit receivers, the specification stating what `self` is for every parameter.
+- **Needs:** D10.
+- **Done when:** text, a definition and the builder each write member access, calls and named operations with explicit receivers, parsed, validated, written and resolved as D10 sets out, in definitions of version 3; `self` denotes the current value and is refused where there is none, and a definition whose member, call, named operation or predicate expression has no target is refused; the builder settles each form when it resolves, and reads a plain object by its declaration's input form; a bare member and a subjectless predicate are refused with an error giving the form with `self`; every operation and occurrence source declares its form and its input, the built-in vocabulary's as D10's table gives, a direct declaration having exactly one parameter, and a form its declaration does not take is refused with an error giving the one it does; an options object maps its fields onto the declared parameters before evaluation, each following its parameter's rules, refusing an unknown field, requiring the required and defaulting the optional; a named operation requires its separators; `rectRelativeTo` reads a rectangle relative to an element; and the specification, the design, the READMEs and every example and test are written with explicit receivers, the specification stating what `self` is for every parameter.
 - **State:** not started.
 
 ### 11. Conditional and logical expressions
 
-Choose between two values, group expressions and combine Boolean expressions, as D10 decides, with the explicit receivers of D11.
+Choose between two values, group expressions and combine Boolean expressions, as D10 decides.
 
-- **Needs:** D10, D11, step 10.
+- **Needs:** D10, step 10.
 - **Done when:** text, a definition and the builder each write a conditional, an `elseif`, a group and a logical expression, parsed, validated, written and resolved as D10 sets out, a definition written back as text with the parentheses its grouping needs; `is` and `has` read one predicate name, held under `name`, and `and` and `or` combine complete Boolean expressions alone, answering as the three-valued table gives; an `elseif` is recorded as a conditional nested in the alternative before it and written back as `elseif`, parsing, writing and parsing again giving the same definition; `is null` answers whether its subject is null; true, false and null conditions select their branches; branches of one type with different nullability answer the nullable type, and branches of different types fail with a validation error naming both; only the selected branch and the operands evaluation reaches are evaluated, and a watch follows what was; a group starts a chain, as `(if @wide then @panel else @sidebar).rect.width` does; and the specification, the design and the READMEs describe them, the earlier shorthand of predicate names replaced.
 - **State:** in progress. Groups and logical expressions are built: `is` and `has` read one predicate name under `name`, `and` and `or` combine Boolean expressions by the three-valued table, a definition is written back with the parentheses its grouping needs, and the builder combines with `.and` and `.or`. Conditionals, `elseif` and `is null` remain, after step 10.
 
@@ -715,4 +394,4 @@ Diagnostics and completion over the grammar and the declaration metadata, withou
 
 ## Departures from the design
 
-None yet. A departure is recorded here as it happens, with the reason, until the design is brought into line.
+None. A departure is recorded here as it happens, with the reason, until the design is brought into line.
