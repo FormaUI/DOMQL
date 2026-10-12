@@ -35,7 +35,7 @@ Each decision is open until its state says otherwise, and a step that needs it d
 - **D6. Predicate expressions and parenthesized arguments.** Done; D10 replaces its predicate names combined under one verb, which step 11 removed, and its phrases, which step 10 removes.
 - **D7. One camelCase name for every member.** Done.
 - **D8. How a caller holds live state.** Done, built by step 7.
-- **D9. The fluent builder.** Done, built by step 8; D12 retires it.
+- **D9. The fluent builder.** Done, built by step 8; D12 retires it, and step 10 removes it.
 
 ### Open
 
@@ -480,7 +480,8 @@ rowsQuery.select(0, "height");
 
 A selection offers `select(...path)`, `evaluate(options?)`, `evaluateAsync(options?)`, `watch(onChange, options?)` and `watch(options?)`. A path holds the names of written fields and list indices that are not negative.
 
-- A field the result does not have, and a path item of another kind, fail validation.
+- **A path's shape is checked at once.** `query.select(...)` refuses, without resolving anything, a path item that is neither a written field's name nor an index that is a whole number and not negative, as `-1` and `1.5` are not.
+- **A path's fit is checked at resolution.** Whether a field exists, and whether an index applies to a list, is checked when an operation resolves the query, before anything is evaluated or observed; a selection of a query whose vocabulary is not yet registered is therefore made without failing.
 - A nullable ancestor and a list index out of range give null.
 - A list index follows a position, never a particular element.
 - A selection reads the whole query's result, so the whole query decides its dependencies, its failures and its readiness.
@@ -545,7 +546,7 @@ sizeAttachment.dispose(); // Detaches one consumer.
 watcher.dispose();        // Stops the watch and detaches every consumer.
 ```
 
-- **A snapshot watch** offers `attach(onChange)` and `select(...path)`, whether it was started with a callback or without; a callback given to `watch` is its first attachment.
+- **A snapshot watch** offers `attach(onChange)` and `select(...path)`, whether it was started with a callback or without; a callback given to `watch` is its first attachment. Its query is resolved when the watch starts, so `watcher.select(...)` checks the whole path at once, its shape and its fit to the result's type alike, even before the first snapshot arrives.
 - **A selected view** offers `snapshot`, `status`, `error`, `select(...path)`, `attach(onChange)` and `readyAsync(options?)`. It starts no evaluation of its own and needs no disposal.
 - **An attachment** offers `status`, `"ready"` or `"disposed"`, and `dispose()`, which detaches its consumer.
 - **A late attachment** receives the current snapshot before the updates after it. A failing consumer is isolated from the others, and its failure goes to the owning watch's `onError`.
@@ -616,21 +617,35 @@ An operation that answers a handle, given a signal already aborted, answers a di
 
 | API | What it is |
 |---|---|
-| `domql.format(source)` | The canonical text of a query's text or definition |
+| `domql.format(source)` | The canonical text of a text, a definition or a query object |
 | `query.resolve(options?)` | Resolution without evaluation, with its `watch` and `acceptPartialObservation` options |
 | `domql.createModule(name, contents, functions)` | A module |
 | `domql.registerModule(module)` | Registers a module's vocabulary |
 | `domql.createSnapshot()` | A change-set receiver |
 
-There is no `parse`: `domql.query(text).definition` gives a text's immutable definition, without evaluating anything. Module declarations and their implementation contracts stay as designed, observation sessions stay internal, and definitions stay open to programmatic authoring.
+There is no `parse`: `domql.query(text).definition` gives a text's immutable definition, without evaluating anything.
+
+`domql.format` takes a text, a definition or a query object, and all three give the same canonical text, which the definition writer writes:
+
+```js
+domql.format(text)
+domql.format(definition)
+domql.format(query)
+```
+
+- **What it keeps.** The definition's meaning, and the order of its locals and fields as declared; comments and the original layout are discarded, as a definition holds neither.
+- **What it needs.** Neither bindings nor a registered vocabulary: it parses and checks structure as `domql.query` does, and resolves nothing.
+- **The layout.** Four spaces of indentation for each level of an object expression; an object expression of one field, with no locals, on one line, `{ size: self.size }`, and one of more on one line for each entry; a conditional with an `elseif` on one line for each clause; one space on each side of `and`, `or`, `is`, `has` and a named operation's separators; and no trailing comma.
+- **It is stable.** Formatting text already formatted gives the same text. Module declarations and their implementation contracts stay as designed, observation sessions stay internal, and definitions stay open to programmatic authoring.
 
 #### What it changes
 
-- **The fluent builder is retired,** superseding D9 and what step 8 built: `Domql.build`, the builder's generated vocabulary types, and D10's builder operations. A text's result is `unknown` in TypeScript, and a result generic a caller gives is an assertion of its own, never inferred or checked; a definition given to `domql.query` leaves room for a builder later.
+- **The fluent builder is retired,** superseding D9 and what step 8 built: `Domql.build`, the builder's generated vocabulary types and the script that generates them, and D10's builder operations. Step 10 removes it first, before the language changes, so it is never migrated to what it would not survive. A text's result is `unknown` in TypeScript, and a result generic a caller gives is an assertion of its own, never inferred or checked; a definition given to `domql.query` leaves room for a builder later.
+- **Exports.** The package exports `domql` and `DomqlError` by name, `import { domql, DomqlError } from "…/domql.js"`; the error class keeps its name, and `domql.specificationVersion` is the version of the specification the implementation follows.
 - **Renamed:** `Domql` becomes `domql`, and `Domql.bind` becomes `domql.typed`. Reading a query becomes evaluating it, running an action executing it, and activating a behavior applying it, in the API and in the documents alike: `evaluate`, `evaluateAsync`, `executeAsync` and `apply`; a query's rebinding is `with`, and `resolve` keeps its name, since it resolves the query.
 - **Moved onto the query:** evaluating, watching, subscribing, executing and applying, so `Domql.read(text, bindings)` and the other one-call forms give way to `domql.query(text, bindings).evaluate()` and its siblings.
 - **Removed:** `parse`, which `query(...).definition` covers.
-- **C#** mirrors the query object, with `Domql.Query(text, bindings)` and its operations, and `CancellationToken` for cancellation.
+- **C#** mirrors the query object, with `Domql.Query(text, bindings)` and its operations, and `CancellationToken` for cancellation. `Domql.TryQuery` attempts exactly what `Domql.Query` does, creating a query and checking its syntax and structure without resolving its vocabulary or evaluating anything, so a successful return means the query was created, not that it is ready to be carried out: a syntax or structure failure returns false with a diagnostic, and any other failure is thrown, never swallowed.
 
 State: **decided.** Built by step 13, after step 12.
 
@@ -645,7 +660,7 @@ A step is done when its tests pass in the gate, its documents say what it built,
 - **5. Occurrence sources.** Done.
 - **6. Actions and behaviors.** Done.
 - **7. Live state.** Done.
-- **8. The fluent builder.** Done; step 13 retires it, as D12 decides.
+- **8. The fluent builder.** Done; step 10 removes it, as D12 decides.
 
 ### 9. Measured performance
 
@@ -668,8 +683,8 @@ Make reads and watches cheaper where a measurement shows the work, leaving every
 
 Write every receiver, and tell member access, calls and named operations apart, as D10 decides.
 
-- **Needs:** D10.
-- **Done when:** text and a definition each write member access, calls and named operations with explicit receivers, parsed, validated, written and resolved as D10 sets out, in definitions of version 3; `self` denotes the current value and is refused where there is none, and a definition whose member, call, named operation or predicate expression has no target is refused; an object argument is read by its declaration's input form; a bare member and a subjectless predicate are refused with an error giving the form with `self`; every operation and occurrence source declares its form and its input, the built-in vocabulary's as D10's table gives, a direct declaration having exactly one parameter, and a form its declaration does not take is refused with an error giving the one it does; an options object maps its fields onto the declared parameters before evaluation, each following its parameter's rules, refusing an unknown field, requiring the required and defaulting the optional; a named operation requires its separators; `rectRelativeTo` reads a rectangle relative to an element; every field is written with its name, a field without one is refused by the syntax and by the definition, and nothing infers one; a parameter is one token with its `@`, and an empty object expression is a syntax error; and the specification, the design, the READMEs and every example and test are written with explicit receivers, the specification stating what `self` is for every parameter.
+- **Needs:** D10, D12.
+- **Done when:** the fluent builder is removed first, as D12 decides, with its generated types, the script that generates them and the documents that describe it, and every parser, writer and definition test it exercised kept as a test of its own; text and a definition each write member access, calls and named operations with explicit receivers, parsed, validated, written and resolved as D10 sets out, in definitions of version 3; `self` denotes the current value and is refused where there is none, and a definition whose member, call, named operation or predicate expression has no target is refused; an object argument is read by its declaration's input form; a bare member and a subjectless predicate are refused with an error giving the form with `self`; every operation and occurrence source declares its form and its input, the built-in vocabulary's as D10's table gives, a direct declaration having exactly one parameter, and a form its declaration does not take is refused with an error giving the one it does; an options object maps its fields onto the declared parameters before evaluation, each following its parameter's rules, refusing an unknown field, requiring the required and defaulting the optional; a named operation requires its separators; `rectRelativeTo` reads a rectangle relative to an element; every field is written with its name, a field without one is refused by the syntax and by the definition, and nothing infers one; a parameter is one token with its `@`, and an empty object expression is a syntax error; and the specification, the design, the READMEs and every example and test are written with explicit receivers, the specification stating what `self` is for every parameter.
 - **State:** not started.
 
 ### 11. Conditional and logical expressions
@@ -690,10 +705,10 @@ Name a value once in an object expression and use it after, as D11 decides.
 
 ### 13. The API
 
-Carry every operation out through a query object, and retire the fluent builder, as D12 decides.
+Carry every operation out through a query object, as D12 decides.
 
 - **Needs:** D12, step 12.
-- **Done when:** `domql.query` takes text or a definition with its bindings and answers a query object that evaluates nothing until an operation is carried out, a text's definition reused for identical text; `with` answers a new query and `domql.typed` binds a value's type; evaluating, selecting, watching, attaching, subscribing, executing and applying behave as D12 sets out, an operation the request's kind does not take refused with an error naming the one it does, every handle with the members its table gives, a signal ending each lifetime, and an aborted one starting nothing; the fluent builder, its generated types and `parse` are gone, and `Domql` is `domql`; and the specification, the design, the READMEs, the repository's own instructions, which describe the builder's folder and the script that generates its types, and every example and test use the query object, and the documents evaluate queries, execute actions and apply behaviors in D12's words.
+- **Done when:** `domql.query` takes text or a definition with its bindings and answers a query object that evaluates nothing until an operation is carried out, a text's definition reused for identical text; `with` answers a new query and `domql.typed` binds a value's type; evaluating, selecting, watching, attaching, subscribing, executing and applying behave as D12 sets out, an operation the request's kind does not take refused with an error naming the one it does, every handle with the members its table gives, a signal ending each lifetime, and an aborted one starting nothing; a path's shape is checked when it is selected and its fit when the query is resolved, and a watch's selections at once; `domql.format` gives one canonical text for a text, a definition or a query object, stable when formatted again; `parse` is gone, `Domql` is `domql`, and the package exports `domql` and `DomqlError`; the TypeScript declarations are complete without the builder's, and compile checks cover the exports, the query object's operations, selections, handles, attachments and every overload of `watch`; the benchmarks and the browser tests use the query object and run, each by its own command; and the specification, the design, the READMEs, the repository's own instructions and every example and test use the query object, and the documents evaluate queries, execute actions and apply behaviors in D12's words.
 - **State:** not started.
 
 ### 14. Editor tooling
@@ -706,7 +721,7 @@ Diagnostics and completion over the grammar and the declaration metadata, withou
 
 ### 15. The C# half
 
-The query object of D12 for a .NET host: `Domql.Query(text, bindings)` and its operations, typed mapping and snapshots, with `CancellationToken` for cancellation.
+The query object of D12 for a .NET host: `Domql.Query(text, bindings)` and its operations, `Domql.TryQuery`, typed mapping and snapshots, with `CancellationToken` for cancellation.
 
 - **Needs:** the JavaScript API settled (step 13), D4, D12.
 - **State:** not started.
