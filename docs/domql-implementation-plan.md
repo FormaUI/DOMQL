@@ -443,12 +443,14 @@ const query = domql.query(`
 | `query.executeAsync(options?)` | Executes its action once |
 | `query.apply(options?)` | Applies its behavior |
 
-Evaluating a query only reads state; executing an action or applying a behavior explicitly requests effects. The request's source decides its kind, so the one entry point serves every request kind, and resolution refuses an operation the kind does not take before anything is evaluated or started, with an error that names the operation it takes:
+Evaluating a query only reads state; executing an action or applying a behavior explicitly requests effects. The request's source decides its kind, so the one entry point serves every request kind, and resolution refuses an operation the kind does not take before anything is evaluated or started, with an error that says what the request does and names the operation it takes:
 
 ```text
-Cannot execute '@panel.size': it describes a query, not an action.
+Cannot execute '@panel.size': it produces a value.
 Use evaluate() or evaluateAsync().
 ```
+
+The object `domql.query` answers is a query object, whatever it holds, and what it describes is its request kind: a query, a subscription, an action or a behavior, as the specification names them. An error a caller reads says what the request does, a value it produces, occurrences it listens to, an effect it executes or a behavior it applies, rather than naming the kind.
 
 #### Evaluating
 
