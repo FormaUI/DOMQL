@@ -1,7 +1,7 @@
 Domql.read(`
     @panel.all("[data-key]") {
-        key: attributeOf "data-key",
-        selected: matches "[aria-selected=true]"
+        key: self attributeOf "data-key",
+        selected: self matches "[aria-selected=true]"
     }
 `, { panel });
 // [

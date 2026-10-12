@@ -75,14 +75,14 @@ export class SnapshotComparer {
 
     /** The tolerance of the member that produced the value, which a field of its value shares; null for a value that is no member's. */
     #toleranceOf(node) {
-        if (node.kind !== 'member') {
+        if (node.kind !== 'member' && node.kind !== 'call' && node.kind !== 'namedOperation') {
             return null;
         }
 
         const resolution = this.#resolvedDefinition.resolutionOf(node);
 
         if (resolution?.kind === 'field') {
-            return node.target === undefined ? null : this.#toleranceOf(node.target);
+            return this.#toleranceOf(node.target);
         }
 
         return resolution?.declaration?.tolerance ?? null;

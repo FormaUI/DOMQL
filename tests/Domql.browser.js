@@ -24,28 +24,28 @@ describe('Domql readAsync in a browser', () => {
     });
 
     it('reads whether an element intersects the viewport, once the browser has reported it', async () => {
-        expect(await Domql.readAsync(Domql.parse('@item.intersects', { item: inside }))).toBe(true);
-        expect(await Domql.readAsync(Domql.parse('@item.intersects', { item: outside }))).toBe(false);
+        expect(await Domql.readAsync(Domql.parse('@item intersects', { item: inside }))).toBe(true);
+        expect(await Domql.readAsync(Domql.parse('@item intersects', { item: outside }))).toBe(false);
     });
 
     it('reads whether an element intersects a root, with the margin that widens it', async () => {
-        expect(await Domql.readAsync(Domql.parse('@item.intersects(root: @panel)', { item: outside, panel }))).toBe(false);
-        expect(await Domql.readAsync(Domql.parse('@item.intersects(root: @panel, margin: 500)', { item: outside, panel }))).toBe(true);
+        expect(await Domql.readAsync(Domql.parse('@item intersects { root: @panel }', { item: outside, panel }))).toBe(false);
+        expect(await Domql.readAsync(Domql.parse('@item intersects { root: @panel, margin: 500 }', { item: outside, panel }))).toBe(true);
     });
 
     it('reads it among the other members of an object expression', async () => {
-        const snapshot = await Domql.readAsync(Domql.parse('@item { near: intersects, height: size.height, id: attributeOf "id" }', { item: inside }));
+        const snapshot = await Domql.readAsync(Domql.parse('@item { near: self intersects, height: self.size.height, id: self attributeOf "id" }', { item: inside }));
 
         expect(snapshot).toEqual({ near: true, height: 40, id: 'inside' });
     });
 
     it('is refused by read, which cannot wait for the sample', () => {
-        expect(() => Domql.read(Domql.parse('@item.intersects', { item: inside }))).toThrow("The member 'intersects' is maintained by an observation");
+        expect(() => Domql.read(Domql.parse('@item intersects', { item: inside }))).toThrow("The member 'intersects' is maintained by an observation");
     });
 
     it('is canceled by a signal before the browser reports', async () => {
         const controller = new AbortController();
-        const reading = Domql.readAsync(Domql.parse('@item.intersects', { item: inside }), { signal: controller.signal }).catch(error => error);
+        const reading = Domql.readAsync(Domql.parse('@item intersects', { item: inside }), { signal: controller.signal }).catch(error => error);
 
         controller.abort(new Error('not needed'));
 
@@ -84,7 +84,7 @@ describe('Domql readAsync in a browser', () => {
 
         it('waits for the browser to report a member it keeps, then follows it', async () => {
             const snapshots = [];
-            const watch = Domql.watch(Domql.parse('@item.intersects(root: @panel)', { item: outside, panel }), { onChange: snapshot => snapshots.push(snapshot) });
+            const watch = Domql.watch(Domql.parse('@item intersects { root: @panel }', { item: outside, panel }), { onChange: snapshot => snapshots.push(snapshot) });
 
             watches.push(watch);
             await frame();
@@ -119,7 +119,7 @@ describe('Domql readAsync in a browser', () => {
             it('delivers the projection of a click, with what the event carried', () => {
                 const results = [];
 
-                listeners.push(Domql.subscribe('@panel.eventsOf("click") { id: target.attributeOf("id"), button: button, height: target.size.height }', { panel }, { onEvent: result => results.push(result) }));
+                listeners.push(Domql.subscribe('(@panel eventsOf "click") { id: self.target attributeOf "id", button: self.button, height: self.target.size.height }', { panel }, { onEvent: result => results.push(result) }));
                 inside.click();
 
                 expect(results).toEqual([{ id: 'inside', button: 0, height: 40 }]);
@@ -128,7 +128,7 @@ describe('Domql readAsync in a browser', () => {
             it('answers null for a member the browser has not reported yet, and its sample at a later occurrence', async () => {
                 const results = [];
 
-                listeners.push(Domql.subscribe('@panel.eventsOf("click") { near: @item.intersects(root: @panel) }', { panel, item: outside }, { onEvent: result => results.push(result) }));
+                listeners.push(Domql.subscribe('(@panel eventsOf "click") { near: @item intersects { root: @panel } }', { panel, item: outside }, { onEvent: result => results.push(result) }));
 
                 panel.click();
                 await frame();

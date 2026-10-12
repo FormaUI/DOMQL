@@ -4,8 +4,8 @@ import type { DomqlBehavior, DomqlChangeOperation, DomqlDefinitionNode, DomqlRea
 
 const panel = document.createElement('div');
 
-const query = Domql.parse('@panel { count: children.count }', { panel });
-const optional = Domql.parse('@panel { size: size }', { panel: Domql.bind(null, 'element?'), ids: Domql.bind([], 'list<number>') });
+const query = Domql.parse('@panel { count: self.children.count }', { panel });
+const optional = Domql.parse('@panel { size: self.size }', { panel: Domql.bind(null, 'element?'), ids: Domql.bind([], 'list<number>') });
 const created = Domql.create(query.definition, { panel });
 
 const answer = Domql.read<{ count: number }>(query);
@@ -76,11 +76,11 @@ Domql.read(query, { panel }, { window });
 // @ts-expect-error A watch of a text takes its bindings before its configuration, `{}` where it has none.
 Domql.watch('@window.size', { onChange: () => {} });
 
-const clicks: DomqlEventListener<{ x: number }> = Domql.subscribe<{ x: number }>(Domql.parse('@panel.eventsOf("click") { x: clientX }', { panel }), {
+const clicks: DomqlEventListener<{ x: number }> = Domql.subscribe<{ x: number }>(Domql.parse('(@panel eventsOf "click") { x: self.clientX }', { panel }), {
     onEvent: click => click.x,
     onError: error => console.error(error),
 });
-const keys: DomqlEventListener<{ key: string }> = Domql.subscribe<{ key: string }>('@panel.eventsOf("keydown") { key: key }', { panel }, { onEvent: press => press.key, window });
+const keys: DomqlEventListener<{ key: string }> = Domql.subscribe<{ key: string }>('(@panel eventsOf "keydown") { key: self.key }', { panel }, { onEvent: press => press.key, window });
 const listening: 'ready' | 'disposed' = clicks.status;
 
 keys.dispose();
@@ -159,7 +159,7 @@ Domql.parse(42);
 Domql.createModule('bad', { members: [{ name: 'bad', function: 'bad', kind: 'method', on: 'element', result: 'number', changes: 'constant', reads: 'fresh' }] });
 
 // Live state is one object the watch keeps current, which the caller reads and never writes.
-const living: DomqlWatch<{ rows: { key: string }[] }> = Domql.watch<{ rows: { key: string }[] }>('{ rows: @panel.children { key: attributeOf "data-key" } }', { panel }, {
+const living: DomqlWatch<{ rows: { key: string }[] }> = Domql.watch<{ rows: { key: string }[] }>('{ rows: @panel.children { key: self attributeOf "data-key" } }', { panel }, {
     updateStrategy: 'liveState',
     onChange: (state, changes) => {
         const first: string | undefined = state.rows[0]?.key;
@@ -176,7 +176,7 @@ const held: DomqlReadOnly<{ rows: { key: string }[] }> | null = living.liveState
 // An action runs once and promises its result; a behavior is in effect until its handle is disposed.
 const moved: Promise<boolean> = Domql.runAsync<boolean>('@panel.step("forward")', { panel }, { window, signal: new AbortController().signal });
 const stepped: Promise<boolean> = Domql.runAsync<boolean>(query, { window });
-const trap: DomqlBehavior = Domql.activate('@dialog.focusTrap', { dialog: panel });
+const trap: DomqlBehavior = Domql.activate('@dialog.focusTrap()', { dialog: panel });
 const trapping: 'ready' | 'disposed' = trap.status;
 
 trap.update({ dialog: panel });
@@ -184,7 +184,7 @@ trap.dispose();
 Domql.activate(query, { window });
 
 // @ts-expect-error A behavior's handle is updated with bindings.
-trap.update('@dialog.focusTrap');
+trap.update('@dialog.focusTrap()');
 
 // @ts-expect-error A query carries its own bindings, so only its options follow it.
 Domql.activate(query, { panel }, { window });
@@ -197,7 +197,7 @@ const reading: DomqlReadAsyncOptions = { window, signal: new AbortController().s
 
 Domql.watch<number>(query, watching);
 Domql.watch<number>(query, changeSetWatching);
-Domql.subscribe<{ key: string }>('@panel.eventsOf("keydown") { key: key }', { panel }, subscribing);
+Domql.subscribe<{ key: string }>('(@panel eventsOf "keydown") { key: self.key }', { panel }, subscribing);
 Domql.readAsync(query, reading);
 
 export { count, anything, kind, typeText, listening, sourceFunctions, moved, stepped, trapping, held };

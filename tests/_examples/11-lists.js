@@ -1,9 +1,9 @@
 Domql.read(`
     @panel.all("[data-key]")
-        .where(matches "[aria-selected=true]")
+        .where(self matches "[aria-selected=true]")
         .count
 `, { panel });
 // 1
 
-Domql.read('@panel.all("[data-key]").max(rect.height)', { panel });
+Domql.read('@panel.all("[data-key]").max(self.rect.height)', { panel });
 // 64

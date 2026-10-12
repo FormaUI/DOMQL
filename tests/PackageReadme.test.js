@@ -46,7 +46,7 @@ const examples = [
     {
         file: '15-errors.js',
         observed: 'logged',
-        answers: [['validation'], ["The argument 'name' of 'attributeOf' expects string and finds number", '(line 1, column 20, at /query/arguments/0/value)']],
+        answers: [['validation'], ["The argument 'name' of 'attributeOf' expects string and finds number", '(line 1, column 20, at /query/argument)']],
     },
     { file: '16-module.js', observed: 'reads', answers: [['{ childCount: 3 }']] },
     { file: '17-run-action.js', observed: 'reads', answers: [['true']] },

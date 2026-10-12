@@ -90,7 +90,7 @@ describe('EventListener', () => {
     const registerBeats = start => isolated.registerModule(isolated.createModule('beats', {
         types: [{ name: 'beat', fields: { n: 'number' } }],
         eventTypes: [{ name: 'beat', payload: 'beat' }],
-        members: [{ name: 'beats', function: 'beats', kind: 'source', on: 'element', parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, fixed: true, selects: 'occurrence', nulls: 'propagate' }], result: 'occurrence<@selected>', changes: 'constant', reads: 'captured' }],
+        members: [{ name: 'beats', function: 'beats', kind: 'source', on: 'element', input: 'direct', parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, fixed: true, selects: 'occurrence', nulls: 'propagate' }], result: 'occurrence<@selected>', changes: 'constant', reads: 'captured' }],
     }, { beats: start }));
 
     /** Dispatches an input event at the element, which bubbles to the panel. */
@@ -98,7 +98,7 @@ describe('EventListener', () => {
 
     describe('subscribing', () => {
         it('starts in the call, so an occurrence that follows it is heard in the task it is dispatched in', () => {
-            const listener = subscribe('@panel.eventsOf("input") { id: target.attributeOf("id") }', { panel });
+            const listener = subscribe('(@panel eventsOf "input") { id: self.target attributeOf "id" }', { panel });
 
             expect(listener.status).toBe('ready');
 
@@ -110,7 +110,7 @@ describe('EventListener', () => {
         });
 
         it('hears the occurrences that reach its receiver alone', () => {
-            subscribe('@first.eventsOf("input") { id: target.attributeOf("id") }', { first: panel.children[0] });
+            subscribe('(@first eventsOf "input") { id: self.target attributeOf "id" }', { first: panel.children[0] });
 
             input(panel.children[1]);
             input(panel.children[0]);
@@ -119,7 +119,7 @@ describe('EventListener', () => {
         });
 
         it('captures what the event carries when it is dispatched', () => {
-            subscribe('@panel.eventsOf("click") { button: button, x: clientX, kind: pointerType }', { panel });
+            subscribe('(@panel eventsOf "click") { button: self.button, x: self.clientX, kind: self.pointerType }', { panel });
 
             panel.dispatchEvent(new window.PointerEvent('click', { bubbles: true, button: 2, clientX: 12, pointerType: 'pen' }));
 
@@ -127,7 +127,7 @@ describe('EventListener', () => {
         });
 
         it('takes a subscription given as its text', () => {
-            listeners.push(isolated.subscribe('@panel.eventsOf("input") { id: target.attributeOf("id") }', { panel }, { onEvent: result => results.push(result) }));
+            listeners.push(isolated.subscribe('(@panel eventsOf "input") { id: self.target attributeOf "id" }', { panel }, { onEvent: result => results.push(result) }));
 
             input(panel);
 
@@ -146,7 +146,7 @@ describe('EventListener', () => {
                 return { stop: () => stopped++ };
             });
 
-            const listener = subscribe('@panel.beats("beat") { n: n }', { panel });
+            const listener = subscribe('@panel.beats("beat") { n: self.n }', { panel });
 
             deliver({ n: 5 });
             listener.dispose();
@@ -169,7 +169,7 @@ describe('EventListener', () => {
                 return { stop: () => {} };
             });
 
-            subscribe('@panel.beats("beat") { n: n, level: @item.level }', { panel, item: first });
+            subscribe('@panel.beats("beat") { n: self.n, level: @item.level }', { panel, item: first });
 
             expect(results).toEqual([]);
             expect(failures).toEqual([]);
@@ -197,8 +197,8 @@ describe('EventListener', () => {
 
             const [first, second] = panel.children;
 
-            expect(() => subscribe('@item.beats("beat") { n: n }', { item: first })).toThrow(expect.objectContaining({ kind: 'evaluation', message: expect.stringContaining("The source 'beats' failed to start listening"), cause: expect.objectContaining({ message: 'closed' }) }));
-            expect(() => subscribe('@item.beats("beat") { n: n }', { item: second })).toThrow(expect.objectContaining({ kind: 'evaluation', message: expect.stringContaining('answered nothing that stops it') }));
+            expect(() => subscribe('@item.beats("beat") { n: self.n }', { item: first })).toThrow(expect.objectContaining({ kind: 'evaluation', message: expect.stringContaining("The source 'beats' failed to start listening"), cause: expect.objectContaining({ message: 'closed' }) }));
+            expect(() => subscribe('@item.beats("beat") { n: self.n }', { item: second })).toThrow(expect.objectContaining({ kind: 'evaluation', message: expect.stringContaining('answered nothing that stops it') }));
         });
 
         it('fails the call with what the source threw as its cause, even where that is no error', () => {
@@ -209,7 +209,7 @@ describe('EventListener', () => {
             let error;
 
             try {
-                subscribe('@panel.beats("beat") { n: n }', { panel });
+                subscribe('@panel.beats("beat") { n: self.n }', { panel });
             } catch (failure) {
                 error = failure;
             }
@@ -227,7 +227,7 @@ describe('EventListener', () => {
                 throw new Error('closed');
             });
 
-            expect(() => subscribe('@panel.beats("beat") { n: n, level: @item.level }', { panel, item: first })).toThrow(expect.objectContaining({ kind: 'evaluation' }));
+            expect(() => subscribe('@panel.beats("beat") { n: self.n, level: @item.level }', { panel, item: first })).toThrow(expect.objectContaining({ kind: 'evaluation' }));
             await Promise.resolve();
 
             expect(results).toEqual([]);
@@ -235,7 +235,7 @@ describe('EventListener', () => {
         });
 
         it('listens to nothing where the receiver of its source is null', () => {
-            const listener = subscribe('@panel.first(".none").eventsOf("input") { id: target.attributeOf("id") }', { panel });
+            const listener = subscribe('(@panel.first(".none") eventsOf "input") { id: self.target attributeOf "id" }', { panel });
 
             input(panel);
 
@@ -244,7 +244,7 @@ describe('EventListener', () => {
         });
 
         it('refuses a request that is not a subscription, and options it cannot use', () => {
-            const subscription = isolated.parse('@panel.eventsOf("input") { id: target.attributeOf("id") }', { panel });
+            const subscription = isolated.parse('(@panel eventsOf "input") { id: self.target attributeOf "id" }', { panel });
 
             expect(() => isolated.subscribe(isolated.parse('@panel.children.count', { panel }), { onEvent: () => {} })).toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringContaining('A query request is not subscribed to') }));
             expect(() => isolated.subscribe(subscription, {})).toThrow(expect.objectContaining({ kind: 'structure' }));
@@ -256,7 +256,7 @@ describe('EventListener', () => {
         it('answer null for a maintained member still pending, and the sample that arrived for a later occurrence', () => {
             const [first] = panel.children;
 
-            subscribe('@panel.eventsOf("input") { level: target.level }', { panel });
+            subscribe('(@panel eventsOf "input") { level: self.target.level }', { panel });
 
             input(first);
             gauges.get(first).sample = { pending: false, value: 4 };
@@ -269,7 +269,7 @@ describe('EventListener', () => {
         it('keep what the last projection read and let go of the rest', () => {
             const [first, second] = panel.children;
 
-            subscribe('@panel.eventsOf("input") { level: target.level }', { panel });
+            subscribe('(@panel eventsOf "input") { level: self.target.level }', { panel });
 
             input(first);
             input(second);
@@ -280,7 +280,7 @@ describe('EventListener', () => {
 
         it('are kept as they were through a projection that fails, which lets go of those it opened and delivers nothing', () => {
             const [first, second] = panel.children;
-            const listener = subscribe('@panel.eventsOf("input") { level: target.level, n: target.flaky }', { panel });
+            const listener = subscribe('(@panel eventsOf "input") { level: self.target.level, n: self.target.flaky }', { panel });
 
             input(first);
             broken = true;
@@ -310,7 +310,7 @@ describe('EventListener', () => {
                 return { stop: () => {} };
             });
 
-            const listener = subscribe('@panel.beats("beat") { n: n }', { panel });
+            const listener = subscribe('@panel.beats("beat") { n: self.n }', { panel });
 
             deliver({ n: 'one' });
             deliver({ n: 2 });
@@ -326,7 +326,7 @@ describe('EventListener', () => {
         it('report a callback that throws or rejects to the error callback, and keep listening', async () => {
             let calls = 0;
 
-            subscribe('@panel.eventsOf("input") { id: target.attributeOf("id") }', { panel }, {
+            subscribe('(@panel eventsOf "input") { id: self.target attributeOf "id" }', { panel }, {
                 onEvent: () => {
                     calls++;
 
@@ -347,8 +347,8 @@ describe('EventListener', () => {
         });
 
         it('send a failure of the error callback, and a failure where there is none, to the window\'s error reporting', () => {
-            subscribe('@panel.eventsOf("input") { n: target.flaky }', { panel }, { onError: () => { throw new Error('unheard'); } });
-            listeners.push(isolated.subscribe('@panel.eventsOf("input") { n: target.flaky }', { panel }, { onEvent: () => {} }));
+            subscribe('(@panel eventsOf "input") { n: self.target.flaky }', { panel }, { onError: () => { throw new Error('unheard'); } });
+            listeners.push(isolated.subscribe('(@panel eventsOf "input") { n: self.target.flaky }', { panel }, { onEvent: () => {} }));
 
             broken = true;
             input(panel);
@@ -360,7 +360,7 @@ describe('EventListener', () => {
     describe('disposal', () => {
         it('lets go of every session even where an observation fails to stop, and reports the failure', () => {
             const [first, second] = panel.children;
-            const listener = subscribe('@panel.eventsOf("input") { a: @first.level, b: @second.level }', { panel, first, second });
+            const listener = subscribe('(@panel eventsOf "input") { a: @first.level, b: @second.level }', { panel, first, second });
 
             stuck.add(first);
             input(panel);
@@ -374,7 +374,7 @@ describe('EventListener', () => {
 
         it('stops listening, lets go of every session and calls nothing again', () => {
             const [first] = panel.children;
-            const listener = subscribe('@panel.eventsOf("input") { level: target.level }', { panel });
+            const listener = subscribe('(@panel eventsOf "input") { level: self.target.level }', { panel });
 
             input(first);
             listener.dispose();
@@ -389,7 +389,7 @@ describe('EventListener', () => {
         it('reports a source that fails to stop, and ends the event listener all the same', () => {
             registerBeats(() => ({ stop: () => { throw new Error('stuck'); } }));
 
-            const listener = subscribe('@panel.beats("beat") { n: n }', { panel });
+            const listener = subscribe('@panel.beats("beat") { n: self.n }', { panel });
 
             listener.dispose();
 

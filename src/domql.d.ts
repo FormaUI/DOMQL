@@ -166,9 +166,11 @@ export interface DomqlDefinition {
 export type DomqlDefinitionNode =
     | { readonly kind: 'literal'; readonly value: string | number | boolean | null }
     | { readonly kind: 'parameter'; readonly name: string }
-    | { readonly kind: 'member'; readonly target?: DomqlDefinitionNode; readonly name: string; readonly arguments: readonly DomqlDefinitionEntry[] }
+    | { readonly kind: 'self' }
+    | { readonly kind: 'member'; readonly target: DomqlDefinitionNode; readonly name: string }
+    | { readonly kind: 'call' | 'namedOperation'; readonly target: DomqlDefinitionNode; readonly name: string; readonly argument?: DomqlDefinitionNode }
     | { readonly kind: 'object'; readonly target?: DomqlDefinitionNode; readonly fields: readonly DomqlDefinitionField[] }
-    | { readonly kind: 'predicate'; readonly verb: 'is' | 'has'; readonly target?: DomqlDefinitionNode; readonly name: DomqlPredicateName }
+    | { readonly kind: 'predicate'; readonly verb: 'is' | 'has'; readonly target: DomqlDefinitionNode; readonly name: DomqlPredicateName }
     | { readonly kind: 'and' | 'or'; readonly operands: readonly DomqlDefinitionNode[] };
 
 /** The one predicate a predicate expression reads: named by a string, or by a parameter bound to one. */
@@ -179,12 +181,6 @@ export type DomqlPredicateName =
 /** A field of an object expression: its name, always written, and its value. */
 export interface DomqlDefinitionField {
     readonly name: string;
-    readonly value: DomqlDefinitionNode;
-}
-
-/** An argument of a member, with the name written for it, if any. */
-export interface DomqlDefinitionEntry {
-    readonly name?: string;
     readonly value: DomqlDefinitionNode;
 }
 
@@ -323,6 +319,10 @@ export interface DomqlMemberDeclaration {
     /** The key of the function that carries it out, among the module's functions. */
     function?: string;
     kind: 'property' | 'operation' | 'source' | 'action' | 'behavior';
+    /** How a member that is no property is written: called, `self.closest(".row")`, the default, or named, `self attributeOf "data-key"`. A property declares none. */
+    form?: 'call' | 'named';
+    /** What its argument supplies, where it has parameters: its one parameter, directly, or every parameter, as the fields of an options object. */
+    input?: 'direct' | 'options';
     /** The types it applies to, in DOMQL's notation. */
     on: string | string[];
     parameters?: DomqlParameterDeclaration[];

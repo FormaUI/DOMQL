@@ -87,26 +87,26 @@ describe('QueryEvaluator', () => {
         it('reads children, counts and selects', () => {
             expect(read('@panel.children.count', { panel })).toBe(3);
             expect(read('@panel.all("[data-key]").count', { panel })).toBe(3);
-            expect(read('@panel.first("[aria-selected=true]").attributeOf("data-key")', { panel })).toBe('a2');
-            expect(read('@item.closest("#panel").attributeOf("id")', { item: items[0] })).toBe('panel');
+            expect(read('@panel.first("[aria-selected=true]") attributeOf "data-key"', { panel })).toBe('a2');
+            expect(read('@item.closest("#panel") attributeOf "id"', { item: items[0] })).toBe('panel');
         });
 
         it('answers an empty list where nothing matches and null where an element is expected', () => {
             expect(read('@panel.all(".none").count', { panel })).toBe(0);
-            expect(read('@panel.first(".none").attributeOf("id")', { panel })).toBeNull();
-            expect(read('@panel.closest(".none") { id: attributeOf "id" }', { panel })).toBeNull();
+            expect(read('@panel.first(".none") attributeOf "id"', { panel })).toBeNull();
+            expect(read('@panel.closest(".none") { id: self attributeOf "id" }', { panel })).toBeNull();
         });
 
         it('reads list items by position', () => {
-            expect(read('@panel.children.first { key: attributeOf "data-key" }', { panel })).toEqual({ key: 'a1' });
-            expect(read('@panel.children.last { key: attributeOf "data-key" }', { panel })).toEqual({ key: 'a3' });
-            expect(read('@panel.children.at(1) { key: attributeOf "data-key" }', { panel })).toEqual({ key: 'a2' });
-            expect(read('@panel.children.at(3) { key: attributeOf "data-key" }', { panel })).toBeNull();
-            expect(read('@panel.children.at(-1) { key: attributeOf "data-key" }', { panel })).toBeNull();
+            expect(read('@panel.children.first { key: self attributeOf "data-key" }', { panel })).toEqual({ key: 'a1' });
+            expect(read('@panel.children.last { key: self attributeOf "data-key" }', { panel })).toEqual({ key: 'a3' });
+            expect(read('@panel.children.at(1) { key: self attributeOf "data-key" }', { panel })).toEqual({ key: 'a2' });
+            expect(read('@panel.children.at(3) { key: self attributeOf "data-key" }', { panel })).toBeNull();
+            expect(read('@panel.children.at(-1) { key: self attributeOf "data-key" }', { panel })).toBeNull();
         });
 
         it('reads the parent', () => {
-            expect(read('@item.parent { id: attributeOf "id" }', { item: items[0] })).toEqual({ id: 'panel' });
+            expect(read('@item.parent { id: self attributeOf "id" }', { item: items[0] })).toEqual({ id: 'panel' });
         });
     });
 
@@ -116,28 +116,28 @@ describe('QueryEvaluator', () => {
 
             expect(read('@detached.parent.size', { detached })).toBeNull();
             expect(read('@detached.parent.children.count', { detached })).toBeNull();
-            expect(read('@detached { parent: parent.size, tag: attributeOf "id" }', { detached })).toEqual({ parent: null, tag: null });
+            expect(read('@detached { parent: self.parent.size, tag: self attributeOf "id" }', { detached })).toEqual({ parent: null, tag: null });
         });
 
         it('answers null for an attribute the element does not have', () => {
-            expect(read('@panel.attributeOf("nothing")', { panel })).toBeNull();
+            expect(read('@panel attributeOf "nothing"', { panel })).toBeNull();
         });
 
         it('answers null for a null argument of a propagating parameter without calling the member', () => {
-            expect(read('@panel.attributeOf(@name)', { panel, name: Domql.bind(null, 'string?') })).toBeNull();
+            expect(read('@panel attributeOf @name', { panel, name: Domql.bind(null, 'string?') })).toBeNull();
         });
     });
 
     describe('object expressions', () => {
         it('names each field as it is written, and keeps their order', () => {
-            const answer = read('@panel { count: children.count, id: attributeOf "id", attached: is "attached", children: has "children" }', { panel });
+            const answer = read('@panel { count: self.children.count, id: self attributeOf "id", attached: self is "attached", children: self has "children" }', { panel });
 
             expect(answer).toEqual({ count: 3, id: 'panel', attached: true, children: true });
             expect(Object.keys(answer)).toEqual(['count', 'id', 'attached', 'children']);
         });
 
         it('applies an object expression to each item of a list, in order', () => {
-            expect(read('@panel.children { key: attributeOf "data-key", selected: matches "[aria-selected=true]" }', { panel })).toEqual([
+            expect(read('@panel.children { key: self attributeOf "data-key", selected: self matches "[aria-selected=true]" }', { panel })).toEqual([
                 { key: 'a1', selected: false },
                 { key: 'a2', selected: true },
                 { key: 'a3', selected: false },
@@ -151,29 +151,29 @@ describe('QueryEvaluator', () => {
 
     describe('lists', () => {
         it('aggregates the numbers an expression produces', () => {
-            expect(read('@panel.children.max(rect.height)', { panel })).toBe(64);
-            expect(read('@panel.children.min(rect.height)', { panel })).toBe(48);
-            expect(read('@panel.children.sum(rect.height)', { panel })).toBe(160);
+            expect(read('@panel.children.max(self.rect.height)', { panel })).toBe(64);
+            expect(read('@panel.children.min(self.rect.height)', { panel })).toBe(48);
+            expect(read('@panel.children.sum(self.rect.height)', { panel })).toBe(160);
         });
 
         it('answers the aggregates of an empty list', () => {
-            expect(read('@panel.all(".none").max(rect.height)', { panel })).toBeNull();
-            expect(read('@panel.all(".none").min(rect.height)', { panel })).toBeNull();
-            expect(read('@panel.all(".none").sum(rect.height)', { panel })).toBe(0);
+            expect(read('@panel.all(".none").max(self.rect.height)', { panel })).toBeNull();
+            expect(read('@panel.all(".none").min(self.rect.height)', { panel })).toBeNull();
+            expect(read('@panel.all(".none").sum(self.rect.height)', { panel })).toBe(0);
         });
 
         it('skips the items an expression produces null for', () => {
             const detached = [document.createElement('div'), document.createElement('div')];
 
-            expect(read('@els.max(rect.height)', { els: detached })).toBeNull();
-            expect(read('@els.sum(rect.height)', { els: detached })).toBe(0);
-            expect(read('@els.max(rect.height)', { els: [items[0], ...detached] })).toBe(48);
+            expect(read('@els.max(self.rect.height)', { els: detached })).toBeNull();
+            expect(read('@els.sum(self.rect.height)', { els: detached })).toBe(0);
+            expect(read('@els.max(self.rect.height)', { els: [items[0], ...detached] })).toBe(48);
         });
 
         it('keeps the items a Boolean expression holds for', () => {
-            expect(read('@panel.children.where(matches "[aria-selected=true]").count', { panel })).toBe(1);
-            expect(read('@panel.children.where(has "children").count', { panel })).toBe(0);
-            expect(read('@els.where(overlaps @panel).count', { els: [items[0], document.createElement('div')], panel })).toBe(1);
+            expect(read('@panel.children.where(self matches "[aria-selected=true]").count', { panel })).toBe(1);
+            expect(read('@panel.children.where(self has "children").count', { panel })).toBe(0);
+            expect(read('@els.where(self overlaps { other: @panel }).count', { els: [items[0], document.createElement('div')], panel })).toBe(1);
         });
     });
 
@@ -181,7 +181,7 @@ describe('QueryEvaluator', () => {
         it('reads what a name resolves to, as direct access does', () => {
             expect(read('@panel.get("children.count")', { panel })).toBe(3);
             expect(read('@panel.get("size.width")', { panel })).toBe(640);
-            expect(read('@panel { size: get "size", clientSize: get "clientSize" }', { panel }).size).toEqual({ width: 640, height: 480 });
+            expect(read('@panel { size: self.get("size"), clientSize: self.get("clientSize") }', { panel }).size).toEqual({ width: 640, height: 480 });
         });
 
         it('takes the name from a bound string', () => {
@@ -235,7 +235,7 @@ describe('QueryEvaluator', () => {
 
         it('gives a member the document and the window it is read in where an argument names a root', () => {
             const module = new DomqlModule('inside', {
-                members: [{ name: 'inside', function: 'inside', kind: 'operation', on: 'element', parameters: [{ name: 'of', kind: 'value', type: 'document', required: true, nulls: 'propagate' }], result: 'boolean', changes: 'unobserved', reads: 'fresh' }],
+                members: [{ name: 'inside', function: 'inside', kind: 'operation', on: 'element', input: 'direct', parameters: [{ name: 'of', kind: 'value', type: 'document', required: true, nulls: 'propagate' }], result: 'boolean', changes: 'unobserved', reads: 'fresh' }],
             }, { inside: (element, { of }) => element.ownerDocument === of && of === document });
             const panel = document.body.appendChild(document.createElement('div'));
 
@@ -248,13 +248,13 @@ describe('QueryEvaluator', () => {
             document.body.append(input);
             input.setSelectionRange(1, 3);
 
-            expect(read('@input.selection { start: start, end: end }', { input })).toEqual({ start: 1, end: 3 });
+            expect(read('@input.selection { start: self.start, end: self.end }', { input })).toEqual({ start: 1, end: 3 });
             expect(read('@input has "selection"', { input })).toBe(true);
 
             input.setSelectionRange(2, 2);
 
             expect(read('@input has "selection"', { input })).toBe(false);
-            expect(read('@panel.selection { start: start }', { panel })).toBeNull();
+            expect(read('@panel.selection { start: self.start }', { panel })).toBeNull();
         });
     });
 
@@ -308,8 +308,8 @@ describe('QueryEvaluator', () => {
         });
 
         it('test the current value inside an object expression and an expression argument', () => {
-            expect(read('@panel { attached: is "attached", empty: has "children" }', { panel })).toEqual({ attached: true, empty: true });
-            expect(read('@panel.children.where(is "attached" and is "focused").count', { panel })).toBe(0);
+            expect(read('@panel { attached: self is "attached", empty: self has "children" }', { panel })).toEqual({ attached: true, empty: true });
+            expect(read('@panel.children.where(self is "attached" and self is "focused").count', { panel })).toBe(0);
         });
 
         it('take the name of a predicate expression from its bindings', () => {
@@ -320,7 +320,7 @@ describe('QueryEvaluator', () => {
     describe('geometry', () => {
         it('reads a rectangle from the layout viewport and relative to another element', () => {
             expect(read('@item.rect', { item: items[1] })).toEqual({ left: 0, top: 50, right: 640, bottom: 114, width: 640, height: 64 });
-            expect(read('@item.rect(relativeTo: @panel)', { item: items[1], panel })).toEqual({ left: 0, top: 50, right: 640, bottom: 114, width: 640, height: 64 });
+            expect(read('@item.rectRelativeTo(@panel)', { item: items[1], panel })).toEqual({ left: 0, top: 50, right: 640, bottom: 114, width: 640, height: 64 });
             expect(read('@item.rect.height', { item: items[1] })).toBe(64);
         });
 
@@ -328,8 +328,8 @@ describe('QueryEvaluator', () => {
             const detached = document.createElement('div');
 
             expect(read('@detached.rect', { detached })).toBeNull();
-            expect(read('@item.rect(relativeTo: @detached)', { item: items[0], detached })).toBeNull();
-            expect(read('@item.rect(relativeTo: @none)', { item: items[0], none: Domql.bind(null, 'element?') })).toBeNull();
+            expect(read('@item.rectRelativeTo(@detached)', { item: items[0], detached })).toBeNull();
+            expect(read('@item.rectRelativeTo(@none)', { item: items[0], none: Domql.bind(null, 'element?') })).toBeNull();
         });
 
         it('answers null for an attached element without a layout box and the actual zero of one with a box of no size', () => {
@@ -347,14 +347,14 @@ describe('QueryEvaluator', () => {
             expect(read('@hidden.clientSize', { hidden })).toBeNull();
             expect(read('@hidden.grid.columns', { hidden })).toBeNull();
             expect(read('@hidden is "attached"', { hidden })).toBe(true);
-            expect(read('@item.rect(relativeTo: @hidden)', { item: items[0], hidden })).toBeNull();
-            expect(read('@hidden.overlaps(@item)', { hidden, item: items[0] })).toBeNull();
+            expect(read('@item.rectRelativeTo(@hidden)', { item: items[0], hidden })).toBeNull();
+            expect(read('@hidden overlaps { other: @item }', { hidden, item: items[0] })).toBeNull();
         });
 
         it('compares two boxes', () => {
-            expect(read('@a.overlaps(@b)', { a: items[0], b: items[1] })).toBe(false);
-            expect(read('@a.overlaps(@b, margin: 10)', { a: items[0], b: items[1] })).toBe(true);
-            expect(read('@a.overlaps(@b)', { a: items[0], b: items[0] })).toBe(true);
+            expect(read('@a overlaps { other: @b }', { a: items[0], b: items[1] })).toBe(false);
+            expect(read('@a overlaps { other: @b, margin: 10 }', { a: items[0], b: items[1] })).toBe(true);
+            expect(read('@a overlaps { other: @b }', { a: items[0], b: items[0] })).toBe(true);
         });
     });
 
@@ -362,8 +362,8 @@ describe('QueryEvaluator', () => {
         it('reads the window and its media queries', () => {
             expect(read('@window.size.width')).toBeTypeOf('number');
             expect(read('@window.devicePixelRatio')).toBeTypeOf('number');
-            expect(read('@window.matchesMedia("(min-width: 0px)")')).toBe(true);
-            expect(read('@window { share: supports "share" }').share).toBeTypeOf('boolean');
+            expect(read('@window matchesMedia "(min-width: 0px)"')).toBe(true);
+            expect(read('@window { share: self supports "share" }').share).toBeTypeOf('boolean');
         });
 
         it('reads the window it is given', () => {
@@ -377,14 +377,14 @@ describe('QueryEvaluator', () => {
         it('reads a custom property and answers null for one that is not set', () => {
             panel.style.setProperty('--tier', 'medium');
 
-            expect(read('@panel.computedStyleOf("--tier")', { panel })).toBe('medium');
-            expect(read('@panel.computedStyleOf("--none")', { panel })).toBeNull();
+            expect(read('@panel computedStyleOf "--tier"', { panel })).toBe('medium');
+            expect(read('@panel computedStyleOf "--none"', { panel })).toBeNull();
         });
     });
 
     describe('answers', () => {
         it('are the same for a parsed query and one created from its definition', () => {
-            const parsed = Domql.parse('@panel { count: children.count, keys: children { key: attributeOf "data-key" } }', { panel });
+            const parsed = Domql.parse('@panel { count: self.children.count, keys: self.children { key: self attributeOf "data-key" } }', { panel });
             const created = Domql.create(parsed.definition, { panel });
 
             expect(Domql.read(created)).toEqual(Domql.read(parsed));
@@ -397,18 +397,18 @@ describe('QueryEvaluator', () => {
             expect(answer).toEqual(numbers);
             expect(answer).not.toBe(numbers);
             expect(Object.isFrozen(answer)).toBe(true);
-            expect(Object.isFrozen(read('@panel { size: size }', { panel }))).toBe(true);
+            expect(Object.isFrozen(read('@panel { size: self.size }', { panel }))).toBe(true);
         });
 
         it('read a field of a bound object', () => {
             expect(read('@box.width', { box: { width: 5, height: 6 } })).toBe(5);
-            expect(read('@box { width: width, other: height }', { box: { width: 5, height: 6 } })).toEqual({ width: 5, other: 6 });
+            expect(read('@box { width: self.width, other: self.height }', { box: { width: 5, height: 6 } })).toEqual({ width: 5, other: 6 });
         });
     });
 
     describe('errors', () => {
         it('fail where a member fails, naming it and where', () => {
-            const error = failure('@panel.matches("[")', { panel });
+            const error = failure('@panel matches "["', { panel });
 
             expect(error.message).toContain("The member 'matches' failed");
             expect(error.location.line).toBe(1);
@@ -425,7 +425,7 @@ describe('QueryEvaluator', () => {
         });
 
         it('refuse a member maintained by an observation', () => {
-            expect(failure('@item.intersects', { item: items[0] }).message).toContain("The member 'intersects' is maintained by an observation");
+            expect(failure('@item intersects', { item: items[0] }).message).toContain("The member 'intersects' is maintained by an observation");
         });
 
         it('refuse a request that is not valid before reading anything', () => {
@@ -496,7 +496,7 @@ describe('QueryEvaluator evaluation', () => {
 
     describe('dependencies', () => {
         it('are each member applied to its receiver and arguments, with the observations that cover it', () => {
-            const evaluation = evaluate('@panel.attributeOf("id")', { panel });
+            const evaluation = evaluate('@panel attributeOf "id"', { panel });
 
             expect(evaluation.value).toBe('panel');
             expect(evaluation.dependencies).toEqual([{
@@ -507,7 +507,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('follow the document: the members read for each item the selector matched', () => {
-            const evaluation = evaluate('@panel.all("i").max(rect.height)', { panel });
+            const evaluation = evaluate('@panel.all("i").max(self.rect.height)', { panel });
             const measured = evaluation.dependencies.filter(dependency => dependency.member === 'rect');
 
             expect(membersOf(evaluation).slice(0, 2)).toEqual(['all', 'max']);
@@ -516,7 +516,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('stand where each member is written, inside the items of a list and the operands of an or', () => {
-            const evaluation = evaluate('@panel.all("i") { h: rect.height, on: is "attached" or is "focused" }', { panel });
+            const evaluation = evaluate('@panel.all("i") { h: self.rect.height, on: self is "attached" or self is "focused" }', { panel });
 
             expect(evaluation.dependencies.map(dependency => [dependency.member, dependency.pointer])).toEqual([
                 ['all', '/query/target'],
@@ -525,7 +525,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('include those of an argument that is a value of its own', () => {
-            const evaluation = evaluate('@row.overlaps(@panel.parent)', { row: rows[0], panel });
+            const evaluation = evaluate('@row overlaps { other: @panel.parent }', { row: rows[0], panel });
             const overlaps = evaluation.dependencies.find(dependency => dependency.member === 'overlaps');
 
             expect(membersOf(evaluation)).toContain('parent');
@@ -533,7 +533,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('include what a chain read before it met null, and nothing after', () => {
-            const evaluation = evaluate('@panel.closest(".none").attributeOf("id")', { panel });
+            const evaluation = evaluate('@panel.closest(".none") attributeOf "id"', { panel });
 
             expect(evaluation.value).toBeNull();
             expect(membersOf(evaluation)).toEqual(['closest']);
@@ -550,7 +550,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('leave the attachment out for an element that is attached', () => {
-            const evaluation = evaluate('@element.attributeOf("id")', { element: panel });
+            const evaluation = evaluate('@element attributeOf "id"', { element: panel });
 
             expect(evaluation.dependencies.flatMap(dependency => dependency.observations).some(observation => observation.type === 'attachment')).toBe(false);
         });
@@ -564,7 +564,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are kept with the failure of an evaluation that recorded them before it failed', () => {
-            const evaluation = evaluate('{ id: @panel.attributeOf("id"), boom: @panel.boom }', { panel }, [propertyModule('boom', () => { throw new Error('no'); })]);
+            const evaluation = evaluate('{ id: @panel attributeOf "id", boom: @panel.boom }', { panel }, [propertyModule('boom', () => { throw new Error('no'); })]);
 
             expect(evaluation.error).toBeInstanceOf(DomqlError);
             expect(evaluation.error.message).toContain("The member 'boom' failed");
@@ -587,7 +587,7 @@ describe('QueryEvaluator evaluation', () => {
 
     describe('observations', () => {
         it('are not held for an answer that is complete, which needs nothing more observed', () => {
-            const evaluation = evaluate('@panel.attributeOf("id")', { panel });
+            const evaluation = evaluate('@panel attributeOf "id"', { panel });
 
             expect(evaluation.isPending).toBe(false);
             expect(evaluation.dependencies.length).toBe(1);
@@ -595,7 +595,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are all held for a pending answer, which waits on any of them changing', () => {
-            const evaluation = evaluate('{ id: @panel.attributeOf("id"), level: @panel.level }', { panel }, [waitingModule()]);
+            const evaluation = evaluate('{ id: @panel attributeOf "id", level: @panel.level }', { panel }, [waitingModule()]);
 
             expect(evaluation.isPending).toBe(true);
             expect(evaluation.value).toEqual({ id: 'panel', level: null });
@@ -603,13 +603,13 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are all held where the caller keeps the answer current', () => {
-            evaluate('@panel.attributeOf("id")', { panel }, [], true);
+            evaluate('@panel attributeOf "id"', { panel }, [], true);
 
             expect(observations.running).toBe(1);
         });
 
         it('are held while the evaluation is, and let go when it is disposed', () => {
-            const evaluation = evaluate('@panel.attributeOf("id")', { panel }, [], true);
+            const evaluation = evaluate('@panel attributeOf "id"', { panel }, [], true);
 
             expect(observations.running).toBe(1);
 
@@ -620,7 +620,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('call the evaluation back when something it depends on changes', async () => {
-            evaluate('@panel.attributeOf("id")', { panel }, [], true);
+            evaluate('@panel attributeOf "id"', { panel }, [], true);
             panel.setAttribute('id', 'renamed');
 
             await new Promise(resolve => setTimeout(resolve));
@@ -642,7 +642,8 @@ describe('QueryEvaluator evaluation', () => {
         const probeModule = (shared = true) => new DomqlModule('probe', {
             observationTypes: [{ name: 'probe', contract: 'invalidation', identity: ['names'], shared, function: 'observeProbe' }],
             members: [{
-                name: 'probe', function: 'probe', kind: 'property', on: 'element', result: 'number', changes: 'observable', reads: 'fresh',
+                name: 'probe', function: 'probe', kind: 'operation', on: 'element', result: 'number', changes: 'observable', reads: 'fresh',
+                input: 'direct',
                 parameters: [{ name: 'names', kind: 'value', type: 'list<string>', required: false, default: [], fixed: false, nulls: 'propagate' }],
                 observations: [{ type: 'probe', of: 'receiver', names: { argument: 'names' } }],
             }],
@@ -679,7 +680,7 @@ describe('QueryEvaluator evaluation', () => {
         };
 
         it('are taken over where the evaluation observes the same again, so nothing is acquired or stopped', () => {
-            const run = evaluationsOf('@panel.children { p: probe }', { panel }, [probeModule()]);
+            const run = evaluationsOf('@panel.children { p: self.probe() }', { panel }, [probeModule()]);
             const first = run.evaluate([]);
             const acquired = run.acquired();
             const second = run.evaluate([first]);
@@ -716,7 +717,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are each taken over once where the evaluation reaches one place with one receiver twice', () => {
-            const run = evaluationsOf('@items { p: probe }', { items: [rows[0], rows[0]] }, [probeModule()]);
+            const run = evaluationsOf('@items { p: self.probe() }', { items: [rows[0], rows[0]] }, [probeModule()]);
             const first = run.evaluate([]);
 
             expect(run.acquired()).toBe(2);
@@ -734,7 +735,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('leave an unshared observation to start afresh each evaluation', () => {
-            const run = evaluationsOf('@panel.probe', { panel }, [probeModule(false)]);
+            const run = evaluationsOf('@panel.probe()', { panel }, [probeModule(false)]);
             const first = run.evaluate([]);
             const second = run.evaluate([first]);
 
@@ -748,7 +749,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are acquired again where the window\'s observations ended those the replaced evaluation held', () => {
-            const run = evaluationsOf('@panel.probe', { panel }, [probeModule()]);
+            const run = evaluationsOf('@panel.probe()', { panel }, [probeModule()]);
             const first = run.evaluate([]);
 
             observations.dispose();
@@ -761,7 +762,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are neither taken over nor kept for one where the evaluation replaces none', () => {
-            const run = evaluationsOf('@panel.probe', { panel }, [probeModule()]);
+            const run = evaluationsOf('@panel.probe()', { panel }, [probeModule()]);
             const first = run.evaluate(null);
 
             run.evaluate([first]);
@@ -792,7 +793,7 @@ describe('QueryEvaluator projection', () => {
     const ticks = payload => new DomqlModule('ticks', {
         types: [{ name: 'tick', fields: { at: 'number', label: 'string?' } }],
         eventTypes: [{ name: 'tick', payload }],
-        members: [{ name: 'ticks', function: 'ticks', kind: 'source', on: 'element', parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, fixed: true, selects: 'occurrence', nulls: 'propagate' }], result: 'occurrence<@selected>', changes: 'constant', reads: 'captured' }],
+        members: [{ name: 'ticks', function: 'ticks', kind: 'source', on: 'element', input: 'direct', parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, fixed: true, selects: 'occurrence', nulls: 'propagate' }], result: 'occurrence<@selected>', changes: 'constant', reads: 'captured' }],
     }, {
         ticks: () => {
             started.push(true);
@@ -826,7 +827,7 @@ describe('QueryEvaluator projection', () => {
 
     describe('the source', () => {
         it('resolves into what starts it: the function, and the receiver and arguments evaluated now', () => {
-            const source = evaluatorOf('@panel.ticks("tick") { at: at }', { panel }, [ticks('tick')]).resolveSource();
+            const source = evaluatorOf('@panel.ticks("tick") { at: self.at }', { panel }, [ticks('tick')]).resolveSource();
 
             expect(source).toMatchObject({ name: 'ticks', receiver: panel, args: { type: 'tick' }, environment: { window, document } });
             expect(typeof source.start).toBe('function');
@@ -834,7 +835,7 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('is null where its receiver is, since there is nothing to listen to', () => {
-            expect(evaluatorOf('@panel.first(".none").ticks("tick") { at: at }', { panel }, [ticks('tick')]).resolveSource()).toBeNull();
+            expect(evaluatorOf('@panel.first(".none").ticks("tick") { at: self.at }', { panel }, [ticks('tick')]).resolveSource()).toBeNull();
         });
 
         it('is refused for a request that is not a subscription', () => {
@@ -842,7 +843,7 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('captures an occurrence as the fields its type declares, a nullable one it does not carry as null', () => {
-            const { capture } = evaluatorOf('@panel.ticks("tick") { at: at, label: label }', { panel }, [ticks('tick')]).resolveSource();
+            const { capture } = evaluatorOf('@panel.ticks("tick") { at: self.at, label: self.label }', { panel }, [ticks('tick')]).resolveSource();
 
             expect(capture({ at: 1, label: 'first', extra: true })).toEqual({ at: 1, label: 'first' });
             expect(capture({ at: 1 })).toEqual({ at: 1, label: null });
@@ -850,7 +851,7 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('fails a capture where the occurrence carries no value a field that is not nullable admits', () => {
-            const { capture } = evaluatorOf('@panel.ticks("tick") { at: at }', { panel }, [ticks('tick')]).resolveSource();
+            const { capture } = evaluatorOf('@panel.ticks("tick") { at: self.at }', { panel }, [ticks('tick')]).resolveSource();
 
             expect(failureOf(() => capture({ at: 'soon' }))).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The source 'ticks' delivered an occurrence whose 'at' is \"soon\", and its type declares number") });
             expect(failureOf(() => capture(null))).toMatchObject({ kind: 'evaluation' });
@@ -864,7 +865,7 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('captures a native event with its target, and null for a target that is no element', () => {
-            const { capture } = evaluatorOf('@document.eventsOf("scroll") { id: target.attributeOf("id") }').resolveSource();
+            const { capture } = evaluatorOf('(@document eventsOf "scroll") { id: self.target attributeOf "id" }').resolveSource();
 
             expect(capture(new window.Event('scroll'))).toEqual({ target: null });
             expect(capture({ target: panel })).toEqual({ target: panel });
@@ -874,7 +875,7 @@ describe('QueryEvaluator projection', () => {
 
     describe('an occurrence', () => {
         it('is projected through the object expression that follows its source, as detached, immutable data', () => {
-            const evaluator = evaluatorOf('@panel.ticks("tick") { at: at, label: label, count: @panel.children.count }', { panel }, [ticks('tick')]);
+            const evaluator = evaluatorOf('@panel.ticks("tick") { at: self.at, label: self.label, count: @panel.children.count }', { panel }, [ticks('tick')]);
             const projection = projectionOf(evaluator, { at: 3, label: 'third' });
 
             expect(projection.error).toBeNull();
@@ -883,14 +884,14 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('reads what it captured, and the document as it is', () => {
-            const evaluator = evaluatorOf('@document.eventsOf("scroll") { id: target.attributeOf("id") }');
+            const evaluator = evaluatorOf('(@document eventsOf "scroll") { id: self.target attributeOf "id" }');
 
             expect(projectionOf(evaluator, { target: panel }).value).toEqual({ id: 'panel' });
             expect(projectionOf(evaluator, { target: document }).value).toEqual({ id: null });
         });
 
         it('fails its projection where a member fails, without throwing', () => {
-            const evaluator = evaluatorOf('@panel.ticks("tick") { match: @panel.matches("[") }', { panel }, [ticks('tick')]);
+            const evaluator = evaluatorOf('@panel.ticks("tick") { match: @panel matches "[" }', { panel }, [ticks('tick')]);
             const projection = projectionOf(evaluator, { at: 1 });
 
             expect(projection.value).toBeUndefined();
@@ -898,7 +899,7 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('stands for its source, which the projection never starts or reads', () => {
-            const evaluator = evaluatorOf('@panel.ticks("tick") { at: at }', { panel }, [ticks('tick')]);
+            const evaluator = evaluatorOf('@panel.ticks("tick") { at: self.at }', { panel }, [ticks('tick')]);
 
             projectionOf(evaluator, { at: 1 });
             projectionOf(evaluator, { at: 2 });

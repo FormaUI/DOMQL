@@ -50,10 +50,22 @@ describe('DomqlModule', () => {
         expect(() => new DomqlModule('charts', { members: [declaration({ name: 'charts', changes: 'unobserved' })] })).not.toThrow();
     });
 
-    it('refuses a required parameter after an optional one', () => {
-        const parameters = [parameter({ name: 'first', required: false, default: 1 }), parameter({ name: 'second' })];
+    it('writes a property by access alone, and an operation as a call unless it is named', () => {
+        const zoom = new DomqlModule('charts', { members: [declaration({ kind: 'operation', input: 'direct', parameters: [parameter()] }), declaration({ name: 'pan', function: 'pan', kind: 'operation', form: 'named' })] });
 
-        expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ parameters })] }))).toContain('follows an optional one');
+        expect(zoom.members.map(member => member.form)).toEqual(['call', 'named']);
+        expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ parameters: [parameter()] })] }))).toContain('A property is accessed');
+        expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ form: 'call' })] }))).toContain('A property is accessed');
+        expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ kind: 'operation', form: 'phrase' })] }))).toContain('written as call or named');
+    });
+
+    it('requires an operation with parameters to declare its input, direct for exactly one parameter', () => {
+        const two = [parameter({ name: 'first' }), parameter({ name: 'second', required: false, default: 1 })];
+
+        expect(() => new DomqlModule('charts', { members: [declaration({ kind: 'operation', input: 'options', parameters: two })] })).not.toThrow();
+        expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ kind: 'operation', parameters: [parameter()] })] }))).toContain('declares its input');
+        expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ kind: 'operation', input: 'direct', parameters: two })] }))).toContain('exactly one parameter');
+        expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ kind: 'operation', input: 'direct' })] }))).toContain('declares no input');
     });
 
     it('refuses a default on a required parameter and a fixed parameter that selects nothing', () => {
@@ -77,7 +89,7 @@ describe('DomqlModule', () => {
     });
 
     it('carries a member that selects a member out through what its name resolves to', () => {
-        const selecting = selects => declaration({ name: 'charts', parameters: [parameter({ fixed: true, selects })] });
+        const selecting = selects => declaration({ name: 'charts', kind: 'operation', input: 'direct', parameters: [parameter({ fixed: true, selects })] });
 
         expect(() => new DomqlModule('charts', { members: [{ ...selecting('member'), function: undefined }] })).not.toThrow();
         expect(messageOf(() => new DomqlModule('charts', { members: [selecting('member')] }))).toContain('no function');
@@ -106,7 +118,7 @@ describe('observations', () => {
         it('observe the receiver, the window, the document or an argument of the member', () => {
             const parameters = [parameter({ name: 'other', type: 'element' })];
 
-            expect(() => new DomqlModule('charts', { members: [observed({ parameters, observations: [{ type: 'resize', of: { argument: 'other' } }] })] })).not.toThrow();
+            expect(() => new DomqlModule('charts', { members: [observed({ kind: 'operation', input: 'direct', parameters, observations: [{ type: 'resize', of: { argument: 'other' } }] })] })).not.toThrow();
             expect(() => new DomqlModule('charts', { members: [observed({ observations: [{ type: 'event', of: 'window', types: ['focus'] }, { type: 'visibility', of: 'document' }] })] })).not.toThrow();
             expect(fails({ members: [observed({ observations: [{ type: 'resize', of: 'parent' }] })] })).toContain('observes the receiver, the window, the document or an argument');
             expect(fails({ members: [observed({ observations: [{ type: 'resize', of: { argument: 'missing' } }] })] })).toContain('observes the receiver, the window, the document or an argument');
@@ -116,7 +128,7 @@ describe('observations', () => {
         it('give their arguments literals, lists of literals and arguments of the member', () => {
             const parameters = [parameter({ name: 'name', type: 'string' })];
 
-            expect(() => new DomqlModule('charts', { members: [observed({ parameters, observations: [{ type: 'mutation', of: 'receiver', attributes: [{ argument: 'name' }, 'type'], subtree: false, depth: 2 }] })] })).not.toThrow();
+            expect(() => new DomqlModule('charts', { members: [observed({ kind: 'operation', input: 'direct', parameters, observations: [{ type: 'mutation', of: 'receiver', attributes: [{ argument: 'name' }, 'type'], subtree: false, depth: 2 }] })] })).not.toThrow();
             expect(fails({ members: [observed({ observations: [{ type: 'mutation', of: 'receiver', attributes: { anything: 1 } }] })] })).toContain('no literal, list of literals or argument of the member');
             expect(fails({ members: [observed({ observations: [{ type: 'mutation', of: 'receiver', attributes: [{ argument: 'missing' }] }] })] })).toContain('no literal, list of literals or argument of the member');
         });

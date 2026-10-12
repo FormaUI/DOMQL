@@ -34,17 +34,17 @@ describe('LanguageResolver', () => {
 
         it('types a list property and an aggregate over its items', () => {
             expect(resolve('@panel.children.count').type.toString()).toBe('number');
-            expect(resolve('@panel.children.sum(size.width)').type.toString()).toBe('number');
-            expect(resolve('@panel.children.max(size.width)').type.toString()).toBe('number?');
+            expect(resolve('@panel.children.sum(self.size.width)').type.toString()).toBe('number');
+            expect(resolve('@panel.children.max(self.size.width)').type.toString()).toBe('number?');
         });
 
         it('keeps the item type through where, first and at', () => {
-            expect(resolve('@panel.children.where(is "attached").first.size').type.toString()).toBe('size?');
+            expect(resolve('@panel.children.where(self is "attached").first.size').type.toString()).toBe('size?');
             expect(resolve('@panel.children.at(0).size').type.toString()).toBe('size?');
         });
 
         it('types an object expression by its written field names', () => {
-            expect(resolve('@panel { size: size, hasFocus: is "focused" }').type.toString()).toBe('{ size: size?, hasFocus: boolean }');
+            expect(resolve('@panel { size: self.size, hasFocus: self is "focused" }').type.toString()).toBe('{ size: size?, hasFocus: boolean }');
         });
 
         it('types a bound value by the type it has', () => {
@@ -54,9 +54,9 @@ describe('LanguageResolver', () => {
 
         it.each([
             ['the result', '@panel.loose'],
-            ['a field', '@panel { v: loose }'],
+            ['a field', '@panel { v: self.loose }'],
             ['an argument', '@panel.children.at(@panel.loose)'],
-            ['an expression', '@panel.children.where(loose).count'],
+            ['an expression', '@panel.children.where(self.loose).count'],
             ['a receiver', '@panel.loose.count'],
             ['a subject', '@panel.loose is "attached"'],
         ])('refuses a type variable no receiver binds as %s, so its value never reaches a result', (_, text) => {
@@ -75,14 +75,14 @@ describe('LanguageResolver', () => {
         });
 
         it('resolves an occurrence source as a subscription', () => {
-            const resolved = resolve('@document.eventsOf("keydown") { key: key }');
+            const resolved = resolve('(@document eventsOf "keydown") { key: self.key }');
 
             expect(resolved.kind).toBe('subscription');
             expect(resolved.type.toString()).toBe('occurrence<{ key: string }>');
         });
 
         it('shapes the occurrences of a source by the fields of its payload', () => {
-            const resolved = resolve('@panel.eventsOf("click") { clientX: clientX, button: button }');
+            const resolved = resolve('(@panel eventsOf "click") { clientX: self.clientX, button: self.button }');
 
             expect(resolved.kind).toBe('subscription');
             expect(resolved.type.toString()).toBe('occurrence<{ clientX: number, button: number }>');
@@ -90,15 +90,15 @@ describe('LanguageResolver', () => {
 
         it('refuses an answer that is no data', () => {
             expect(failure('@panel.parent').message).toContain('no data');
-            expect(failure('@panel.eventsOf("click"){ target: target }').message).toContain('no data');
+            expect(failure('(@panel eventsOf "click") { target: self.target }').message).toContain('no data');
         });
 
         it('refuses a member after an occurrence source', () => {
-            expect(failure('@panel.eventsOf("click").count').message).toContain('occurrence source');
+            expect(failure('(@panel eventsOf "click").count').message).toContain('occurrence source');
         });
 
         it('refuses an occurrence source as an argument', () => {
-            expect(failure('@panel.matches(selector: @panel.eventsOf("click"))').message).toContain('occurrence source');
+            expect(failure('@panel matches (@panel eventsOf "click")').message).toContain('occurrence source');
         });
     });
 
@@ -126,32 +126,32 @@ describe('LanguageResolver', () => {
         };
 
         it('resolves an action as an action request, typed by its result', () => {
-            const resolved = resolveWith('@panel.step');
+            const resolved = resolveWith('@panel.step()');
 
             expect(resolved.kind).toBe('action');
             expect(resolved.type.toString()).toBe('boolean');
         });
 
         it('shapes the result of an action by the object expression that follows it, which stays an action request', () => {
-            const resolved = resolveWith('@panel.pick { id: attributeOf "id" }');
+            const resolved = resolveWith('@panel.pick() { id: self attributeOf "id" }');
 
             expect(resolved.kind).toBe('action');
             expect(resolved.type.toString()).toBe('{ id: string? }');
         });
 
         it('refuses an action whose result is no data, unless an object expression follows it', () => {
-            expect(failureWith('@panel.pick').message).toContain('no data');
+            expect(failureWith('@panel.pick()').message).toContain('no data');
         });
 
         it('resolves a behavior as a behavior request, which takes no object expression', () => {
-            expect(resolveWith('@panel.focusTrap').kind).toBe('behavior');
-            expect(failureWith('@panel.focusTrap { id: attributeOf "id" }').message).toContain('A behavior request ends its chain and takes no object expression');
+            expect(resolveWith('@panel.focusTrap()').kind).toBe('behavior');
+            expect(failureWith('@panel.focusTrap() { id: self attributeOf "id" }').message).toContain('A behavior request ends its chain and takes no object expression');
         });
 
         it('refuses a member after an action, and an action or a behavior inside a query', () => {
-            expect(failureWith('@panel.step.count').message).toContain('follows an action');
-            expect(failureWith('{ moved: @panel.step }').message).toContain('is an action');
-            expect(failureWith('@panel.matches(selector: @panel.focusTrap)').message).toContain('is a behavior');
+            expect(failureWith('@panel.step().count').message).toContain('follows an action');
+            expect(failureWith('{ moved: @panel.step() }').message).toContain('is an action');
+            expect(failureWith('@panel matches (@panel.focusTrap())').message).toContain('is a behavior');
         });
     });
 
@@ -176,30 +176,52 @@ describe('LanguageResolver', () => {
         });
 
         it('refuses an expression on a receiver that has no items', () => {
-            expect(failure('@panel.sum(size.width)').message).toContain('not available');
+            expect(failure('@panel.sum(self.size.width)').message).toContain('not available');
         });
     });
 
     describe('arguments', () => {
         it('refuses a missing required argument', () => {
-            expect(failure('@panel.matches').message).toContain("requires the argument 'selector'");
+            expect(failure('@panel matches').message).toContain("requires the argument 'selector'");
         });
 
-        it('refuses too many arguments', () => {
-            expect(failure('@panel.matches("a", "b")').message).toContain('takes 1 argument');
+        it('refuses a value where an operation takes its arguments as the fields of an object', () => {
+            const error = failure('@panel overlaps @panel');
+
+            expect(error.message).toContain('as the fields of an object');
+            expect(error.location.pointer).toBe('/query/argument');
+        });
+
+        it('refuses an argument given to an operation that takes none', () => {
+            const registry = new ModuleRegistry([Vocabulary.module, new DomqlModule('ping', {
+                members: [{ name: 'ping', function: 'ping', kind: 'operation', on: 'element', parameters: [], result: 'boolean', changes: 'constant', reads: 'fresh' }],
+            }, null)]);
+            const query = Domql.parse('@panel.ping(1)', { panel });
+
+            expect(() => new LanguageResolver(registry, query.bindings, null, {}).resolveDefinition(query.definition)).toThrow(expect.objectContaining({ message: expect.stringContaining("'ping' takes no argument") }));
         });
 
         it('refuses an argument of the wrong type', () => {
-            expect(failure('@panel.matches(3)').message).toContain('expects string and finds number');
+            expect(failure('@panel matches 3').message).toContain('expects string and finds number');
         });
 
-        it('refuses an unknown named argument and a repeated one', () => {
-            expect(failure('@panel.matches(nonsense: "a")').message).toContain("no parameter 'nonsense'");
-            expect(failure('@panel.matches("a", selector: "b")').message).toContain('given twice');
+        it('refuses a field of an options object that names no parameter, and one that leaves a required parameter out', () => {
+            const unknown = failure('@panel overlaps { other: @panel, nonsense: 1 }');
+
+            expect(unknown.message).toContain("no parameter 'nonsense'; it takes other, margin");
+            expect(unknown.location.pointer).toBe('/query/argument/fields/1');
+            expect(failure('@panel overlaps { margin: 1 }').message).toContain("requires the argument 'other'");
+        });
+
+        it('refuses a member written in a form its declaration does not take, giving the form it does', () => {
+            expect(failure('@panel.attributeOf("id")').message).toContain(`'attributeOf' is a named operation: write '@panel attributeOf "id"'`);
+            expect(failure('@panel closest ".row"').message).toContain(`'closest' is a call: write '@panel.closest(".row")'`);
+            expect(failure('@panel.parent()').message).toContain("'parent' is a property: write '@panel.parent'");
+            expect(failure('@panel.size.width()').message).toContain("write '@panel.size.width'");
         });
 
         it('resolves an omitted argument to its default', () => {
-            const resolved = resolve('@panel.intersects');
+            const resolved = resolve('@panel intersects');
             const [, margin] = resolved.getResolution('/query').arguments;
 
             expect(resolved.type.toString()).toBe('boolean?');
@@ -208,20 +230,20 @@ describe('LanguageResolver', () => {
         });
 
         it('accepts a null for a parameter that accepts it', () => {
-            expect(resolve('@panel.intersects(null)').type.toString()).toBe('boolean?');
+            expect(resolve('@panel intersects { root: null }').type.toString()).toBe('boolean?');
         });
     });
 
     describe('null', () => {
         it('makes a call answer null for a null argument of a propagating parameter', () => {
-            const resolved = resolve('@panel.matches(@selector)', { panel, selector: Domql.bind(null, 'string?') });
+            const resolved = resolve('@panel matches @selector', { panel, selector: Domql.bind(null, 'string?') });
 
             expect(resolved.type.toString()).toBe('boolean?');
         });
 
         it('makes a call answer null for a written null on a propagating parameter', () => {
-            expect(resolve('@window.matchesMedia("(min-width: 1px)")').type.toString()).toBe('boolean');
-            expect(resolve('@window.matchesMedia(null)').type.toString()).toBe('boolean?');
+            expect(resolve('@window matchesMedia "(min-width: 1px)"').type.toString()).toBe('boolean');
+            expect(resolve('@window matchesMedia null').type.toString()).toBe('boolean?');
         });
 
         it('makes a call on a nullable receiver nullable', () => {
@@ -230,11 +252,11 @@ describe('LanguageResolver', () => {
         });
 
         it('lets an aggregate expression produce null per item', () => {
-            expect(resolve('@panel.children.sum(size.width)').type.toString()).toBe('number');
+            expect(resolve('@panel.children.sum(self.size.width)').type.toString()).toBe('number');
         });
 
         it('refuses an aggregate expression of another type', () => {
-            expect(failure('@panel.children.sum(attributeOf "id")').message).toContain('must produce number?');
+            expect(failure('@panel.children.sum(self attributeOf "id")').message).toContain('must produce number?');
         });
     });
 
@@ -277,13 +299,13 @@ describe('LanguageResolver', () => {
         });
 
         it('resolves an event type and a feature', () => {
-            expect(resolve('@document.eventsOf("keydown") { key: key }').type.toString()).toBe('occurrence<{ key: string }>');
-            expect(resolve('@window.supports("share")').type.toString()).toBe('boolean');
+            expect(resolve('(@document eventsOf "keydown") { key: self.key }').type.toString()).toBe('occurrence<{ key: string }>');
+            expect(resolve('@window supports "share"').type.toString()).toBe('boolean');
         });
 
         it('refuses an event type or a feature the vocabulary does not declare', () => {
-            expect(failure('@panel.eventsOf("nonsense")').message).toContain('no event type');
-            expect(failure('@window.supports("nonsense")').message).toContain('no feature');
+            expect(failure('@panel eventsOf "nonsense"').message).toContain('no event type');
+            expect(failure('@window supports "nonsense"').message).toContain('no feature');
         });
     });
 
@@ -302,7 +324,7 @@ describe('LanguageResolver', () => {
 
                 return new LanguageResolver(registry, query.bindings, null, {}).resolveDefinition(query.definition);
             };
-            const events = resolveWith('@panel.eventsOf("chart-selected") { value: value }');
+            const events = resolveWith('(@panel eventsOf "chart-selected") { value: self.value }');
             const predicate = resolveWith('@panel is "plotted"');
 
             expect(events.type.toString()).toBe('occurrence<{ value: number }>');
@@ -312,14 +334,14 @@ describe('LanguageResolver', () => {
 
     describe('observation', () => {
         it('lets a query follow anything', () => {
-            expect(() => resolve('@panel.matches(":hover")')).not.toThrow();
+            expect(() => resolve('@panel matches ":hover"')).not.toThrow();
         });
 
         it('refuses a watch of a partly observable member unless it accepts partial observation', () => {
-            const error = failure('@panel.matches(":hover")', { panel }, { watch: true });
+            const error = failure('@panel matches ":hover"', { panel }, { watch: true });
 
             expect(error.message).toContain('misses pointer state');
-            expect(() => resolve('@panel.matches(":hover")', { panel }, { watch: true, acceptPartialObservation: true })).not.toThrow();
+            expect(() => resolve('@panel matches ":hover"', { panel }, { watch: true, acceptPartialObservation: true })).not.toThrow();
         });
 
         it('lets a watch follow what is observable', () => {
@@ -335,11 +357,11 @@ describe('LanguageResolver', () => {
 
     describe('errors', () => {
         it('locates an error in the query text', () => {
-            const error = failure('@panel.matches(3)');
+            const error = failure('@panel matches 3');
 
             expect(error.location.line).toBe(1);
             expect(error.location.column).toBe(16);
-            expect(error.location.pointer).toBe('/query/arguments/0/value');
+            expect(error.location.pointer).toBe('/query/argument');
         });
 
         it('points into a definition that has no text', () => {
@@ -376,7 +398,7 @@ describe('LanguageResolver', () => {
         });
 
         it('refuse a subject that is no value, or null', () => {
-            expect(failure('@panel.eventsOf("click") { clientX: clientX } is "attached"').message).toContain('occurrence source');
+            expect(failure('(@panel eventsOf "click") { clientX: self.clientX } is "attached"').message).toContain('occurrence source');
             expect(failure('null is "attached"').message).toContain('tests null');
         });
 
@@ -391,7 +413,7 @@ describe('LanguageResolver', () => {
         });
 
         it('resolve every operand with its own location, the current value of each the one around the expression', () => {
-            const resolved = resolve('@panel { both: is "attached" and (is "disabled" or is "focused") }');
+            const resolved = resolve('@panel { both: self is "attached" and (self is "disabled" or self is "focused") }');
 
             expect(resolved.getResolution('/query/fields/0/value/operands/0/name').predicate.name).toBe('attached');
             expect(resolved.getResolution('/query/fields/0/value/operands/1/operands/1/name').predicate.name).toBe('focused');
@@ -423,13 +445,13 @@ describe('LanguageResolver', () => {
         });
 
         it('let a group start a chain', () => {
-            expect(resolve('(@panel).children.count').type.toString()).toBe('number');
+            expect(resolve('@panel.children.count').type.toString()).toBe('number');
         });
     });
 
     describe('the resolved definition', () => {
         it('names each field of each object expression once, as it is written', () => {
-            const resolved = resolve('@panel { size: size, kind: attributeOf "role", attached: is "attached", clientSize: get "clientSize", rows: all("i") { rect: rect } }');
+            const resolved = resolve('@panel { size: self.size, kind: self attributeOf "role", attached: self is "attached", clientSize: self.get("clientSize"), rows: self.all("i") { rect: self.rect } }');
             const { query } = resolved.definition;
 
             expect(resolved.fieldNamesOf(query)).toEqual(['size', 'kind', 'attached', 'clientSize', 'rows']);
@@ -437,7 +459,7 @@ describe('LanguageResolver', () => {
         });
 
         it('finds each node, by the node itself, with its pointer and its resolution', () => {
-            const resolved = resolve('@panel.all("i") { h: size.height, on: is "attached" or is "focused" }');
+            const resolved = resolve('@panel.all("i") { h: self.size.height, on: self is "attached" or self is "focused" }');
             const { query } = resolved.definition;
             const [height, on] = query.fields.map(field => field.value);
 

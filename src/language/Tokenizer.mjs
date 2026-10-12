@@ -7,10 +7,11 @@ import { Names } from './Names.mjs';
 
 /**
  * @typedef {object} Token
- * @property {'name' | 'parameter' | 'literal' | 'operator' | 'end' | '.' | ',' | ':' | '(' | ')' | '{' | '}'} type
+ * @property {'name' | 'parameter' | 'literal' | 'operator' | 'self' | 'end' | '.' | ',' | ':' | '(' | ')' | '{' | '}'} type
  * @property {unknown} [value] A name's, a parameter's or an operator's text, or a literal's value.
  * @property {number} start
  * @property {number} end
+ * @property {boolean} spaced Whether trivia, whitespace or a comment, comes before it, as a named operation's separator requires.
  */
 
 const PUNCTUATION = new Set(['.', ',', ':', '(', ')', '{', '}']);
@@ -46,8 +47,16 @@ export class Tokenizer {
     }
 
     #read() {
+        const before = this.#offset;
+
         this.#skipSpaceAndComments();
 
+        const spaced = this.#offset > before;
+
+        return { ...this.#readToken(), spaced };
+    }
+
+    #readToken() {
         const start = this.#offset;
 
         if (start >= this.#text.length) {
@@ -88,6 +97,10 @@ export class Tokenizer {
 
             if (KEYWORDS.has(name)) {
                 return { type: 'literal', value: KEYWORDS.get(name), start, end: this.#offset };
+            }
+
+            if (name === 'self') {
+                return { type: 'self', start, end: this.#offset };
             }
 
             return { type: OPERATORS.has(name) ? 'operator' : 'name', value: name, start, end: this.#offset };

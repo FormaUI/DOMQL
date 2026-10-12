@@ -34,7 +34,7 @@ describe('Bundle', () => {
     });
 
     it('parses and creates queries as the sources do', () => {
-        const query = bundled.Domql.parse('@panel { size: size, hasFocus: matches ":focus-within" }', { panel: 1 });
+        const query = bundled.Domql.parse('@panel { size: self.size, hasFocus: self matches ":focus-within" }', { panel: 1 });
 
         expect(query.definition.query.fields.map(field => field.name)).toEqual(['size', 'hasFocus']);
         expect(bundled.Domql.create(query.definition, { panel: 2 }).bindings.get('panel')).toBe(2);

@@ -227,7 +227,11 @@ export class QueryEvaluator {
                 return node.value;
             case 'parameter':
                 return this.#parameter(node);
+            case 'self':
+                return current;
             case 'member':
+            case 'call':
+            case 'namedOperation':
                 return this.#member(node, current);
             case 'predicate':
                 return this.#predicate(node, current);
@@ -242,7 +246,7 @@ export class QueryEvaluator {
 
     /** Tests the subject, evaluated once, against the predicate the predicate expression names; a predicate expression of null is null. */
     #predicate(node, current) {
-        const subject = node.target === undefined ? current : this.#evaluate(node.target, current);
+        const subject = this.#evaluate(node.target, current);
 
         return subject === null ? null : this.#invoke(this.#resolvedDefinition.resolutionOf(node.name).predicate, subject, {}, BOOLEAN, node.name);
     }
@@ -302,7 +306,7 @@ export class QueryEvaluator {
             return this.#occurrence.value;
         }
 
-        const receiver = node.target === undefined ? current : this.#evaluate(node.target, current);
+        const receiver = this.#evaluate(node.target, current);
 
         if (receiver === null) {
             return null;

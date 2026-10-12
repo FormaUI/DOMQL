@@ -60,10 +60,10 @@ Accepting partial observation is an option of the watch, chosen when the caller 
 
 A watch's dependencies are what its last evaluation actually read, recorded as it evaluated: each member applied to its receiver and arguments, with that member's observations. Dependencies belong to the complete query.
 
-- **Every evaluation records its dependencies afresh,** and the watch subscribes to the observations the new set names and releases the ones it no longer names. What a watch observes therefore follows the document: in `@table.all("tbody tr").max(rect.height)`, the watch depends on what the selector matches within the table, and on the height of each row it matched. A row added starts being observed after the evaluation the addition causes, and a row removed stops being observed.
-- **A value argument is a dependency of its own.** `@target.intersects(root: @panel)` depends on the intersection of the target with the panel; `intersects(root: parent)` also depends on which element is the parent, and a new parent is observed after the evaluation its change causes.
+- **Every evaluation records its dependencies afresh,** and the watch subscribes to the observations the new set names and releases the ones it no longer names. What a watch observes therefore follows the document: in `@table.all("tbody tr").max(self.rect.height)`, the watch depends on what the selector matches within the table, and on the height of each row it matched. A row added starts being observed after the evaluation the addition causes, and a row removed stops being observed.
+- **A value argument is a dependency of its own.** `@target intersects { root: @panel }` depends on the intersection of the target with the panel; `self intersects { root: self.parent }` also depends on which element is the parent, and a new parent is observed after the evaluation its change causes.
 - **An expression argument contributes its dependencies for every item** it was evaluated against.
-- **A chain that met null depends on what it read before the null,** so `closest(".row")` finding nothing still depends on the ancestors it searched, and the watch evaluates again when one starts to match.
+- **A chain that met null depends on what it read before the null,** so `self.closest(".row")` finding nothing still depends on the ancestors it searched, and the watch evaluates again when one starts to match.
 - **A watch keeps its bindings.** Binding different values starts the watch afresh.
 
 Invalidation, evaluation and delivery each keep their own schedule. An observation invalidates the watch at once. The watch evaluates at the next animation frame, once however many observations fired, or immediately, in the task that reported the change, where its caller needs a change handled at the moment it is reported, such as at mutation delivery. When the caller receives the snapshot is the caller's own. Watches that depend on the same target through the same observation share one observation.
@@ -141,8 +141,8 @@ An occurrence's object expression is evaluated as the specification defines, and
 A maintained member in an occurrence's object expression reads its latest sample, or null while it is pending, never waits for a later one and never revises a result already delivered:
 
 ```
-@button.eventsOf("click") {
-    nearEnd: @sentinel.intersects(root: @panel)
+(@button eventsOf "click") {
+    nearEnd: @sentinel intersects { root: @panel }
 }
 ```
 
@@ -196,11 +196,11 @@ Domql.registerModule(new InputRouterDomqlModule(InputRouter));
 
 A module is created with its members and, once it can carry them out, the functions they name; declarations are validated when the module is created and checked against the registry when it is registered. The built-in vocabulary is the module `builtIn`, whose identity no other module takes and whose members stand without a namespace; any other module adds members to its own types and a single member named for itself to any other.
 
-- **A declaration** names the member's DOMQL name, and the key of its function in the module's functions, independent of its name; its kind, one of property, operation, source, action and behavior; the types it applies to; its parameters; its result type; its observation coverage; and, for a member that answers a number, the `tolerance` within which a watch compares it, exactly where it declares none.
+- **A declaration** names the member's DOMQL name, and the key of its function in the module's functions, independent of its name; its kind, one of property, operation, source, action and behavior; for a member that is no property, its form, a call by default or a named operation, and, where it has parameters, its input, direct for its one parameter or options for several, as the specification sets out; the types it applies to; its parameters; its result type; its observation coverage; and, for a member that answers a number, the `tolerance` within which a watch compares it, exactly where it declares none.
 - **A parameter** is a value or an expression. An expression is evaluated against each item of the list it follows and declares the type it produces. A parameter declares whether it is required, its default where it is not, and whether a null argument propagates, making the call answer null, or is accepted.
 - **A fixed parameter** names something the vocabulary resolves before any evaluation, and declares what it selects: a member, a predicate, an occurrence or a feature.
 - **Observations.** A member that changes observably or partly observably names the observations that cover its changes. An observation is of a type, observes the receiver, the window, the document or an argument of the member, and gives the arguments its type takes, as `{ type: 'resize', of: 'receiver' }` does; a member that changes in any other way names none. A module declares a type of observation by a camelCase name, its contract, the arguments that belong to an observation's identity, whether equivalent requests share one, and the function that starts one, which takes the request, the function it calls when something may have changed and the environment, and answers an object whose `stop` ends the observation and, for a maintained type, whose `sample` answers its latest sample. The built-in vocabulary's types are `resize`, `mutation`, `attachment`, `intersection`, `media`, `pixelRatio`, `event` and `visibility`, each shared; `intersection` is maintained, and the others are invalidations. A type is either an invalidation observation, which says that a result may have changed and carries no value, or a maintained observation, which provides a sample a member reads and is pending until its first arrives; a member that reads maintained values names a maintained observation, and no other member does.
-- **Functions.** A member or a predicate takes its receiver, its arguments by name and the environment, and a member that reads maintained values also its samples, in the order its declaration names the observations. A source takes its receiver, its arguments, the environment and the function it delivers each occurrence to, and answers an object whose `stop` ends the listening. An action takes its receiver, its arguments, the environment and `{ signal: signal }`, and answers its result or a promise of it. A behavior takes its receiver, its arguments, the environment and `{ reportError: reportError }`, starts before it returns, and answers an object whose `update(receiver, args)` applies new arguments and whose `dispose` ends it.
+- **Functions.** A member or a predicate takes its receiver, its arguments by name and the environment, and a member that reads maintained values also its samples, in the order its declaration names the observations. A source takes its receiver, its arguments, the environment and the function it delivers each occurrence to, and answers an object whose `stop` ends the listening. An action takes its receiver, its arguments, the environment and `{ signal }`, and answers its result or a promise of it. A behavior takes its receiver, its arguments, the environment and `{ reportError }`, starts before it returns, and answers an object whose `update(receiver, args)` applies new arguments and whose `dispose` ends it.
 - **Types, events, predicates and features** are contributed by modules as data: structured types with their fields, event types with the type of their occurrences, predicates under `is` or `has` with the types they apply to, and the features `supports` names.
 - **Observation coverage** states how a member changes (constant, observable, partly observable with the changes it misses, unobserved, or derived from its receiver and arguments) and how it reads (fresh, maintained, captured or derived).
 
@@ -268,8 +268,8 @@ JavaScript parses text, or creates a query from a definition:
 // From text, binding its parameters by name.
 const parsed = Domql.parse(`
     @panel {
-        size: size,
-        hasFocus: matches(":focus-within")
+        size: self.size,
+        hasFocus: self matches ":focus-within"
     }
 `, { panel });
 
@@ -291,13 +291,13 @@ DomqlQuery<PanelState> typed = Domql.Parse<PanelState>(
     """,
     ("panel", panel));
 
-DomqlQuery untyped = Domql.Parse("@panel { size: size }", ("panel", panel));
+DomqlQuery untyped = Domql.Parse("@panel { size: self.size }", ("panel", panel));
 ```
 
 A binding whose value does not reveal its type, an unavailable element, an empty list or a list holding a null, supplies the type with it, and supplies it again through `Create`; a declared type must fit every part of the value, as the specification sets out.
 
 ```js
-const query = Domql.parse('{ panel: @panel { size: size }, ids: @ids }', {
+const query = Domql.parse('{ panel: @panel { size: self.size }, ids: @ids }', {
     panel: Domql.bind(null, 'element?'),
     ids: Domql.bind([], 'list<number>')
 });
@@ -310,7 +310,7 @@ const another = Domql.create(query.definition, {
 
 ```csharp
 DomqlQuery query = Domql.Parse(
-    "{ panel: @panel { size: size }, ids: @ids }",
+    "{ panel: @panel { size: self.size }, ids: @ids }",
     ("panel", Domql.Bind(null, "element?")),
     ("ids", Domql.Bind(Array.Empty<int>(), "list<number>")));
 ```

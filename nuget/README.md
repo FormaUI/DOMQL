@@ -67,10 +67,10 @@ const panel = document.getElementById('panel');
 
 const query = Domql.parse(`
     @panel {
-        count: children.count,
-        items: all("[data-key]") {
-            key: attributeOf "data-key",
-            selected: matches "[aria-selected=true]"
+        count: self.children.count,
+        items: self.all("[data-key]") {
+            key: self attributeOf "data-key",
+            selected: self matches "[aria-selected=true]"
         }
     }
 `, { panel });
@@ -116,7 +116,7 @@ A query belongs to the DOMQL instance that created it. A page holds more than on
 Some values come from a browser observation, such as whether an element intersects the viewport. `read` refuses them, since their first sample cannot arrive during a synchronous read; `readAsync` waits for it:
 
 ```js
-const inView = await Domql.readAsync('@panel.intersects', { panel });
+const inView = await Domql.readAsync('@panel intersects', { panel });
 // true
 ```
 
@@ -169,8 +169,8 @@ The object belongs to the watch, so read it and never write it, and copy it or w
 
 ```js
 const clicks = Domql.subscribe(`
-    @panel.eventsOf("click") {
-        key: target.closest("[data-key]").attributeOf("data-key")
+    (@panel eventsOf "click") {
+        key: self.target.closest("[data-key]") attributeOf "data-key"
     }
 `, { panel }, {
     onEvent: click => console.log(click.key)
@@ -188,7 +188,7 @@ The object expression reads what the event carried, such as its `target`, `butto
 
 ### Chains, operations and names
 
-Chains follow members with a dot. Properties and operations are named in camelCase, such as `clientSize`, `attributeOf`, `computedStyleOf` and `matchesMedia`, and a member has the same name wherever it is written. All DOMQL names are case-sensitive.
+Every member has its receiver written before it, and `self` is the current value, the one an object expression or an argument works on. A property is read with a dot, `@panel.children`; an operation is a call, with parentheses, `@panel.closest(".row")`, or a named operation, after a space, `@panel attributeOf "data-key"`, as the vocabulary declares each. Members are named in camelCase, such as `clientSize`, `attributeOf`, `computedStyleOf` and `matchesMedia`, and all DOMQL names are case-sensitive.
 
 ```js
 Domql.read('@panel.children.count', { panel });
@@ -209,17 +209,19 @@ Domql.read('@panel is "attached"', { panel });
 @panel has "children" and @enabled
 ```
 
-`and` binds tighter than `or`, parentheses group any expression, and evaluation stops at the first operand that decides the result. An operand that is null decides neither: `and` answers false where an operand is false, otherwise null where one is null, and true where none is; `or` answers true where an operand is true, otherwise null where one is null, and false where none is. Inside an object expression or an expression argument, a predicate expression without a value before it tests the current value, as `where(is "disabled")` does. The strings that name members and predicates are case-sensitive too. Selectors, attribute names and other strings passed to browser APIs follow the browser's own rules.
+`and` binds tighter than `or`, parentheses group any expression, and evaluation stops at the first operand that decides the result. An operand that is null decides neither: `and` answers false where an operand is false, otherwise null where one is null, and true where none is; `or` answers true where an operand is true, otherwise null where one is null, and false where none is. Inside an object expression or an expression argument, `self` tests the current value, as `where(self is "disabled")` does. The strings that name members and predicates are case-sensitive too. Selectors, attribute names and other strings passed to browser APIs follow the browser's own rules.
 
-After a dot, arguments are enclosed in parentheses. A member that starts a chain, inside an object expression or an expression argument, can take simple literals and parameter references without them:
+A call or a named operation takes one argument. A named operation's argument is a literal, a parameter, `self`, an object or a group, and an operation with several parameters takes them as the fields of one object:
 
 ```text
-@panel.attributeOf("data-key")
-attributeOf "data-key"
-attributeOf @attributeName
+self.closest(".row").rect.height
+self attributeOf "data-key"
+self attributeOf @attributeName
+@sentinel intersects { root: @panel, margin: 200 }
+(self.closest("[data-group]") attributeOf "data-group") is "set"
 ```
 
-Multiple bare arguments are separated by whitespace. A member written that way ends its chain; to continue from its result, use parentheses, as in `first(".row").rect.height`. Named arguments and expression arguments use parentheses. Commas separate the fields of an object expression and parenthesized arguments.
+A named operation ends its chain, and a group continues from its result. Writing a member in a form it does not take is an error that gives the one it does, as `'attributeOf' is a named operation: write 'self attributeOf "data-key"'`. Commas separate the fields of an object expression.
 
 ### Objects and lists
 
@@ -228,9 +230,9 @@ An object expression chooses output fields, each written with the name it answer
 ```js
 Domql.read(`
     @panel {
-        count: children.count,
-        attached: is "attached",
-        children: has "children",
+        count: self.children.count,
+        attached: self is "attached",
+        children: self has "children",
     }
 `, { panel });
 // { count: 3, attached: true, children: true }
@@ -243,8 +245,8 @@ An object expression following a list projects each item:
 ```js
 Domql.read(`
     @panel.all("[data-key]") {
-        key: attributeOf "data-key",
-        selected: matches "[aria-selected=true]"
+        key: self attributeOf "data-key",
+        selected: self matches "[aria-selected=true]"
     }
 `, { panel });
 // [
@@ -259,12 +261,12 @@ A member following a list operates on the list itself. Use `count`, `first`, `la
 ```js
 Domql.read(`
     @panel.all("[data-key]")
-        .where(matches "[aria-selected=true]")
+        .where(self matches "[aria-selected=true]")
         .count
 `, { panel });
 // 1
 
-Domql.read('@panel.all("[data-key]").max(rect.height)', { panel });
+Domql.read('@panel.all("[data-key]").max(self.rect.height)', { panel });
 // 64
 ```
 
@@ -276,7 +278,7 @@ Null represents a missing or unavailable value; it does not hide an invalid quer
 
 ```js
 Domql.read(
-    '@panel.first(".missing").attributeOf("data-key")',
+    '@panel.first(".missing") attributeOf "data-key"',
     { panel }
 );
 // null
@@ -291,7 +293,7 @@ Bindings may contain elements or supported data. Use `Domql.bind(value, type)` w
 ```js
 const optional = Domql.parse(`
     {
-        panel: @panel { size: size },
+        panel: @panel { size: self.size },
         ids: @ids
     }
 `, {
@@ -303,7 +305,7 @@ Domql.read(optional);
 // { panel: null, ids: [] }
 ```
 
-Keep independent results in a top-level object expression when one target may be null. Writing `@panel { size: size, ids: @ids }` instead would make the entire result null while `panel` is null.
+Keep independent results in a top-level object expression when one target may be null. Writing `@panel { size: self.size, ids: @ids }` instead would make the entire result null while `panel` is null.
 
 ## API and errors
 
@@ -347,7 +349,7 @@ Failures report a `DomqlError` with a `kind`, `message` and structured `location
 
 ```js
 try {
-    Domql.read('@panel.attributeOf(200)', { panel });
+    Domql.read('@panel attributeOf 200', { panel });
 } catch (error) {
     if (error?.name !== 'DomqlError') {
         throw error;
@@ -356,7 +358,7 @@ try {
     console.error(error.kind, error.message, error.location);
     // validation
     // The argument 'name' of 'attributeOf' expects string and finds number
-    // (line 1, column 20, at /query/arguments/0/value)
+    // (line 1, column 20, at /query/argument)
 }
 ```
 
@@ -394,7 +396,7 @@ const metricsModule = Domql.createModule('metrics', {
 
 Domql.registerModule(metricsModule);
 
-Domql.read('@panel.metrics { childCount: childCount }', { panel });
+Domql.read('@panel.metrics { childCount: self.childCount }', { panel });
 // { childCount: 3 }
 ```
 
@@ -413,6 +415,7 @@ Domql.registerModule(Domql.createModule('mark', {
         function: 'mark',
         kind: 'action',
         on: 'element',
+        input: 'direct',
         parameters: [{ name: 'label', kind: 'value', type: 'string', required: true, nulls: 'propagate' }],
         result: 'boolean',
         changes: 'unobserved',
@@ -443,6 +446,7 @@ Domql.registerModule(Domql.createModule('highlight', {
         function: 'highlight',
         kind: 'behavior',
         on: 'element',
+        input: 'direct',
         parameters: [{ name: 'color', kind: 'value', type: 'string', required: true, nulls: 'propagate' }],
         result: 'null',
         changes: 'unobserved',

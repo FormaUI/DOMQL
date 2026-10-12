@@ -8,7 +8,7 @@ const ROWS = 1000;
 const CHANGED = ROWS / 2;
 
 /** Each row as data: its key, whether it is selected, and its box. */
-const ROWS_TEXT = '@table.all("tr") { key: attributeOf("data-key"), selected: matches(".selected"), box: rect { width: width, height: height } }';
+const ROWS_TEXT = '@table.all("tr") { key: self attributeOf "data-key", selected: self matches ".selected", box: self.rect { width: self.width, height: self.height } }';
 
 /** A table of rows, in the document, each with a key. */
 const createTable = () => {
@@ -41,7 +41,7 @@ describe('read', () => {
     document.body.append(panel);
 
     const rows = Domql.parse(ROWS_TEXT, { table });
-    const small = Domql.parse('@panel { key: attributeOf("data-key"), open: matches(".open"), count: children.count }', { panel });
+    const small = Domql.parse('@panel { key: self attributeOf "data-key", open: self matches ".open", count: self.children.count }', { panel });
 
     bench(`a list of ${ROWS} rows, each shaped`, () => {
         Domql.read(rows);
@@ -52,7 +52,7 @@ describe('read', () => {
     });
 
     bench('a small object, from its text and bindings', () => {
-        Domql.read('@panel { key: attributeOf("data-key"), open: matches(".open"), count: children.count }', { panel });
+        Domql.read('@panel { key: self attributeOf "data-key", open: self matches ".open", count: self.children.count }', { panel });
     });
 });
 

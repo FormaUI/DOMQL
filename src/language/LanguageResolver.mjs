@@ -2,12 +2,16 @@
  * LanguageResolver — resolves a DOMQL definition against the vocabulary and validates its types, before anything is evaluated
  */
 
+import { DefinitionWriter } from './DefinitionWriter.mjs';
 import { DomqlError } from './DomqlError.mjs';
 import { ResolvedDefinition } from './ResolvedDefinition.mjs';
 import { Type } from './Type.mjs';
 
 const DATA = new Set(['number', 'string', 'boolean']);
 const READABLE = new Set(['property', 'operation']);
+
+/** How each form of a declaration is written, and the node that writes it. */
+const FORMS = { access: 'member', call: 'call', named: 'namedOperation' };
 
 export class LanguageResolver {
     #registry;
@@ -57,7 +61,15 @@ export class LanguageResolver {
                 return this.#literal(node);
             case 'parameter':
                 return this.#parameter(node, pointer);
+            case 'self':
+                if (scope.current === null) {
+                    this.#fail("'self' is the current value, and there is none here", pointer);
+                }
+
+                return { type: scope.current, kind: 'query', isFixed: false };
             case 'member':
+            case 'call':
+            case 'namedOperation':
                 return this.#member(node, pointer, scope);
             case 'predicate':
                 return this.#predicate(node, pointer, scope);
@@ -72,11 +84,7 @@ export class LanguageResolver {
     /** Resolves a predicate expression: its subject, and the predicate name it reads, under its verb and against the subject's type. */
     #predicate(node, pointer, scope) {
         const { verb } = node;
-        const subject = node.target === undefined ? { type: scope.current, kind: 'query' } : this.#node(node.target, `${pointer}/target`, scope);
-
-        if (subject.type === null) {
-            this.#fail(`'${verb}' without a subject tests the current value, and there is none here`, pointer);
-        }
+        const subject = this.#node(node.target, `${pointer}/target`, scope);
 
         if (subject.kind !== 'query') {
             this.#fail(`'${verb}' tests ${LanguageResolver.#nameOf(subject.kind)}, which is no value`, pointer);
@@ -156,12 +164,8 @@ export class LanguageResolver {
     }
 
     #member(node, pointer, scope) {
-        const receiver = node.target === undefined ? { type: scope.current, kind: 'query' } : this.#node(node.target, `${pointer}/target`, scope);
+        const receiver = this.#node(node.target, `${pointer}/target`, scope);
         const receiverType = receiver.type;
-
-        if (receiverType === null) {
-            this.#fail(`'${node.name}' is a member of the current value, and there is none here`, pointer);
-        }
 
         if (receiver.kind !== 'query') {
             this.#fail(`'${node.name}' follows ${LanguageResolver.#nameOf(receiver.kind)}, which takes no members`, pointer);
@@ -174,8 +178,8 @@ export class LanguageResolver {
         const field = this.#getField(receiverType, node.name);
 
         if (field !== null) {
-            if (node.arguments.length > 0) {
-                this.#fail(`'${node.name}' is a field of ${receiverType.toNonNullable()} and takes no arguments`, pointer);
+            if (node.kind !== 'member') {
+                this.#fail(`'${node.name}' is a field of ${receiverType.toNonNullable()} and takes no argument: write '${DefinitionWriter.write({ kind: 'member', target: node.target, name: node.name })}'`, pointer);
             }
 
             this.#resolutions.set(pointer, { kind: 'field', name: node.name, receiverType });
@@ -194,6 +198,8 @@ export class LanguageResolver {
         if (declaration === undefined) {
             this.#fail(`'${node.name}' is not available on ${receiverType.toNonNullable()}; it is available on ${candidates.flatMap(candidate => [candidate.on].flat()).join(', ')}`, pointer);
         }
+
+        this.#checkForm(declaration, node, pointer);
 
         const matched = new Map();
         LanguageResolver.#matchesReceiver(declaration, receiverType, matched);
@@ -216,35 +222,60 @@ export class LanguageResolver {
         return { type, kind: LanguageResolver.#kindOf(declaration), isFixed: false };
     }
 
+    /** Refuses a member written in a form its declaration does not take, with the form it does: a property is accessed, and an operation called or named as its declaration says. */
+    #checkForm(declaration, node, pointer) {
+        const form = declaration.kind === 'property' ? 'access' : declaration.form;
+
+        if (FORMS[form] === node.kind) {
+            return;
+        }
+
+        const written = form === 'access' ? { kind: 'member', target: node.target, name: node.name } : { ...node, kind: FORMS[form] };
+        const described = { access: 'a property', call: 'a call', named: 'a named operation' }[form];
+
+        this.#fail(`'${node.name}' is ${described}: write '${DefinitionWriter.write(written)}'`, pointer);
+    }
+
+    /** The argument a call or a named operation is given, as the value of each parameter it supplies: the one parameter of a direct declaration, or the fields of an options object, each by its name. */
+    #suppliedArguments(declaration, node, pointer) {
+        const { parameters } = declaration;
+        const supplied = new Map();
+        const argumentPointer = `${pointer}/argument`;
+
+        if (node.argument === undefined) {
+            return supplied;
+        }
+
+        if (parameters.length === 0) {
+            this.#fail(`'${declaration.name}' takes no argument`, argumentPointer);
+        }
+
+        if (declaration.input !== 'options') {
+            supplied.set(parameters[0].name, { node: node.argument, pointer: argumentPointer });
+
+            return supplied;
+        }
+
+        if (node.argument.kind !== 'object' || node.argument.target !== undefined) {
+            this.#fail(`'${declaration.name}' takes its arguments as the fields of an object, as { ${parameters[0].name}: … }`, argumentPointer);
+        }
+
+        node.argument.fields.forEach((field, index) => {
+            const parameter = parameters.find(candidate => candidate.name === field.name);
+
+            if (parameter === undefined) {
+                this.#fail(`'${declaration.name}' has no parameter '${field.name}'; it takes ${parameters.map(candidate => candidate.name).join(', ')}`, `${argumentPointer}/fields/${index}`);
+            }
+
+            supplied.set(parameter.name, { node: field.value, pointer: `${argumentPointer}/fields/${index}/value` });
+        });
+
+        return supplied;
+    }
+
     #resolveArguments(declaration, node, pointer, scope, receiverType, matched) {
         const parameters = declaration.parameters;
-        const supplied = new Map();
-        let position = 0;
-
-        node.arguments.forEach((argument, index) => {
-            const argumentPointer = `${pointer}/arguments/${index}`;
-            let parameter;
-
-            if (argument.name === undefined) {
-                parameter = parameters[position++];
-
-                if (parameter === undefined) {
-                    this.#fail(`'${declaration.name}' takes ${parameters.length} ${parameters.length === 1 ? 'argument' : 'arguments'} and is given more`, argumentPointer);
-                }
-            } else {
-                parameter = parameters.find(candidate => candidate.name === argument.name);
-
-                if (parameter === undefined) {
-                    this.#fail(`'${declaration.name}' has no parameter '${argument.name}'`, argumentPointer);
-                }
-            }
-
-            if (supplied.has(parameter.name)) {
-                this.#fail(`The argument '${parameter.name}' of '${declaration.name}' is given twice`, argumentPointer);
-            }
-
-            supplied.set(parameter.name, { argument, pointer: argumentPointer });
-        });
+        const supplied = this.#suppliedArguments(declaration, node, pointer);
 
         const resolved = [];
         let isNullable = false;
@@ -263,7 +294,7 @@ export class LanguageResolver {
                 continue;
             }
 
-            const valuePointer = `${given.pointer}/value`;
+            const valuePointer = given.pointer;
             const expected = Type.substitute(Type.parse(parameter.type), matched);
             let result;
 
@@ -272,14 +303,14 @@ export class LanguageResolver {
                     this.#fail(`'${declaration.name}' evaluates its expression against the items of a list, and ${receiverType.toNonNullable()} has none`, valuePointer);
                 }
 
-                result = this.#node(given.argument.value, valuePointer, { current: receiverType.item.toNonNullable() });
+                result = this.#node(given.node, valuePointer, { current: receiverType.item.toNonNullable() });
                 this.#requireQuery(result, parameter, declaration, valuePointer);
 
                 if (!Type.isAssignable(result.type, expected)) {
                     this.#fail(`The expression of '${declaration.name}' must produce ${expected} and produces ${result.type}`, valuePointer);
                 }
             } else {
-                result = this.#node(given.argument.value, valuePointer, scope);
+                result = this.#node(given.node, valuePointer, scope);
                 this.#requireQuery(result, parameter, declaration, valuePointer);
 
                 if (!this.#checkValue(result, expected, parameter, declaration, valuePointer)) {
@@ -294,7 +325,7 @@ export class LanguageResolver {
                 steps = selection.steps ?? steps;
             }
 
-            resolved.push({ parameter, isDefault: false, pointer: valuePointer, node: given.argument.value, value: parameter.fixed === true ? result.value : undefined });
+            resolved.push({ parameter, isDefault: false, pointer: valuePointer, node: given.node, value: parameter.fixed === true ? result.value : undefined });
         }
 
         return { arguments: resolved, isNullable, selected, steps };

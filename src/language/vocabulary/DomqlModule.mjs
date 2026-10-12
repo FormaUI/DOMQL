@@ -8,6 +8,12 @@ import { Type } from '../Type.mjs';
 
 const MEMBER_KINDS = ['property', 'operation', 'source', 'action', 'behavior'];
 
+/** How a member that is no property is written: called, `self.closest(".row")`, or named, `self attributeOf "data-key"`. */
+const FORMS = ['call', 'named'];
+
+/** What a member's argument supplies: its one parameter, directly, or every parameter, as the fields of an options object. */
+const INPUTS = ['direct', 'options'];
+
 /** How a member changes: the specification's categories, and `derived` for a contract that comes from the member or expression a member selects or evaluates. */
 const OBSERVATION_CATEGORIES = ['constant', 'observable', 'partly-observable', 'unobserved', 'derived'];
 
@@ -325,12 +331,12 @@ export class DomqlModule {
             fail('It declares the type of its result', name);
         }
 
+        const parameters = member.parameters ?? [];
         const parameterNames = new Set();
-        let hasOptional = false;
 
-        DomqlModule.#validateObservations(member, new Set((member.parameters ?? []).map(parameter => parameter?.name)), name, fail);
+        DomqlModule.#validateObservations(member, new Set(parameters.map(parameter => parameter?.name)), name, fail);
 
-        for (const parameter of member.parameters ?? []) {
+        for (const parameter of parameters) {
             DomqlModule.#validateParameter(parameter, name, fail);
 
             if (parameterNames.has(parameter.name)) {
@@ -338,15 +344,42 @@ export class DomqlModule {
             }
 
             parameterNames.add(parameter.name);
-
-            if (!parameter.required) {
-                hasOptional = true;
-            } else if (hasOptional) {
-                fail(`The required parameter '${parameter.name}' follows an optional one`, name);
-            }
         }
 
-        return structuredClone({ parameters: [], observations: [], ...member });
+        DomqlModule.#validateForm(member, parameters, name, fail);
+
+        return structuredClone({ parameters: [], observations: [], ...(member.kind === 'property' ? {} : { form: 'call' }), ...member });
+    }
+
+    /** Checks how the member is written and what its argument supplies: a property is accessed and takes none, and any other member is a call by default or a named operation, whose input is direct for exactly one parameter or an options object. */
+    static #validateForm(member, parameters, name, fail) {
+        if (member.kind === 'property') {
+            if (member.form !== undefined || member.input !== undefined || parameters.length > 0) {
+                fail('A property is accessed, and declares no form, no input and no parameters', name);
+            }
+
+            return;
+        }
+
+        if (member.form !== undefined && !FORMS.includes(member.form)) {
+            fail(`It is written as ${FORMS.join(' or ')}`, name);
+        }
+
+        if (parameters.length === 0) {
+            if (member.input !== undefined) {
+                fail('It takes no argument, so it declares no input', name);
+            }
+
+            return;
+        }
+
+        if (!INPUTS.includes(member.input)) {
+            fail(`It declares its input, ${INPUTS.join(' or ')}`, name);
+        }
+
+        if (member.input === 'direct' && parameters.length !== 1) {
+            fail('A direct input supplies exactly one parameter; an options input supplies several', name);
+        }
     }
 
     static #validateParameter(parameter, declaration, fail) {

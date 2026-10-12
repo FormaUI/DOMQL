@@ -4,6 +4,7 @@ Domql.registerModule(Domql.createModule('mark', {
         function: 'mark',
         kind: 'action',
         on: 'element',
+        input: 'direct',
         parameters: [{ name: 'label', kind: 'value', type: 'string', required: true, nulls: 'propagate' }],
         result: 'boolean',
         changes: 'unobserved',

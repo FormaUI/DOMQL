@@ -12,17 +12,18 @@ import { Specification } from './Specification.mjs';
 const NODES = {
     literal: { properties: ['kind', 'value'], required: ['value'] },
     parameter: { properties: ['kind', 'name'], required: ['name'] },
-    member: { properties: ['kind', 'target', 'name', 'arguments'], required: ['name', 'arguments'] },
+    self: { properties: ['kind'], required: [] },
+    member: { properties: ['kind', 'target', 'name'], required: ['target', 'name'] },
+    call: { properties: ['kind', 'target', 'name', 'argument'], required: ['target', 'name'] },
+    namedOperation: { properties: ['kind', 'target', 'name', 'argument'], required: ['target', 'name'] },
     object: { properties: ['kind', 'target', 'fields'], required: ['fields'] },
-    predicate: { properties: ['kind', 'verb', 'target', 'name'], required: ['verb', 'name'] },
+    predicate: { properties: ['kind', 'verb', 'target', 'name'], required: ['verb', 'target', 'name'] },
     and: { properties: ['kind', 'operands'], required: ['operands'] },
     or: { properties: ['kind', 'operands'], required: ['operands'] },
 };
 
 /** The verbs a predicate expression reads its predicate under. */
 const VERBS = ['is', 'has'];
-
-const ENTRY = { properties: ['name', 'value'], required: ['value'] };
 
 /** What a field of an object expression holds: its name, always written, and its value. */
 const FIELD = { properties: ['name', 'value'], required: ['name', 'value'] };
@@ -51,7 +52,7 @@ export class DefinitionValidator {
 
     #validateNode(node, pointer, scope) {
         if (!DefinitionValidator.#isObject(node) || !Object.hasOwn(NODES, node.kind)) {
-            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, member, object, predicate, and or or');
+            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, member, call, namedOperation, object, predicate, and or or');
         }
 
         this.#requireProperties(node, pointer, NODES[node.kind]);
@@ -63,7 +64,15 @@ export class DefinitionValidator {
                 this.#requireName(node.name, `${pointer}/name`);
 
                 return Object.freeze({ kind: 'parameter', name: node.name });
+            case 'self':
+                if (scope === Scope.absent) {
+                    this.#fail(pointer, "'self' is the current value, and the top level has none; a chain there starts with a parameter, a literal or an object expression");
+                }
+
+                return Object.freeze({ kind: 'self' });
             case 'member':
+            case 'call':
+            case 'namedOperation':
                 return this.#validateMember(node, pointer, scope);
             case 'predicate':
                 return this.#validatePredicate(node, pointer, scope);
@@ -80,15 +89,10 @@ export class DefinitionValidator {
             this.#fail(`${pointer}/verb`, 'A predicate expression reads its predicate under is or has');
         }
 
-        const target = node.target === undefined ? undefined : this.#validateNode(node.target, `${pointer}/target`, scope);
-
-        if (target === undefined && scope === Scope.absent) {
-            this.#fail(pointer, `'${node.verb}' without a subject tests the current value, and the top level has none; a predicate expression there follows the value it tests`);
-        }
-
+        const target = this.#validateNode(node.target, `${pointer}/target`, scope);
         const name = this.#validateName(node.name, `${pointer}/name`);
 
-        return Object.freeze(target === undefined ? { kind: 'predicate', verb: node.verb, name } : { kind: 'predicate', verb: node.verb, target, name });
+        return Object.freeze({ kind: 'predicate', verb: node.verb, target, name });
     }
 
     /** Validates the one name a predicate expression reads: a string or a parameter. */
@@ -127,47 +131,19 @@ export class DefinitionValidator {
         return Object.freeze({ kind: 'literal', value });
     }
 
+    /** Validates a member access, a call or a named operation: its name, its receiver and the one argument a call or a named operation may take, whose current value its declaration decides. */
     #validateMember(node, pointer, scope) {
         this.#requireName(node.name, `${pointer}/name`);
 
-        const target = node.target === undefined ? undefined : this.#validateNode(node.target, `${pointer}/target`, scope);
+        const target = this.#validateNode(node.target, `${pointer}/target`, scope);
 
-        if (target === undefined && scope === Scope.absent) {
-            this.#fail(pointer, `'${node.name}' is a member of the current value, and the top level has none; a chain there starts with a parameter, a literal or an object expression`);
+        if (node.kind === 'member' || node.argument === undefined) {
+            return Object.freeze({ kind: node.kind, target, name: node.name });
         }
 
-        this.#requireArray(node.arguments, `${pointer}/arguments`);
+        const argument = this.#validateNode(node.argument, `${pointer}/argument`, Scope.unknown);
 
-        let isNamed = false;
-
-        /** @type {Set<string>} */
-        const argumentNames = new Set();
-
-        const entries = node.arguments.map((argument, index) => {
-            const argumentPointer = `${pointer}/arguments/${index}`;
-            this.#requireProperties(argument, argumentPointer, ENTRY);
-
-            if (argument.name !== undefined) {
-                this.#requireName(argument.name, `${argumentPointer}/name`);
-                isNamed = true;
-
-                if (argumentNames.has(argument.name)) {
-                    this.#fail(argumentPointer, `Two arguments of one call are named '${argument.name}'`);
-                }
-
-                argumentNames.add(argument.name);
-            } else if (isNamed) {
-                this.#fail(argumentPointer, 'Arguments given by position come before those given by name');
-            }
-
-            const value = this.#validateNode(argument.value, `${argumentPointer}/value`, Scope.unknown);
-
-            return Object.freeze(argument.name === undefined ? { value } : { name: argument.name, value });
-        });
-
-        return Object.freeze(target === undefined
-            ? { kind: 'member', name: node.name, arguments: Object.freeze(entries) }
-            : { kind: 'member', target, name: node.name, arguments: Object.freeze(entries) });
+        return Object.freeze({ kind: node.kind, target, name: node.name, argument });
     }
 
     #validateObject(node, pointer, scope) {

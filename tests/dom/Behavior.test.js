@@ -24,6 +24,7 @@ describe('Behavior', () => {
     const behavior = (name, activate) => isolated.createModule(name, {
         members: [{
             name, function: name, kind: 'behavior', on: 'element', result: 'null', changes: 'unobserved', reads: 'fresh',
+            input: 'direct',
             parameters: [{ name: 'color', kind: 'value', type: 'string', required: true, nulls: 'propagate' }],
         }],
     }, { [name]: activate });

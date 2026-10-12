@@ -89,8 +89,11 @@ export class ResolvedDefinition {
         }
 
         switch (node.kind) {
-            case 'member':
-                node.arguments.forEach((argument, index) => this.#index(argument.value, `${pointer}/arguments/${index}/value`));
+            case 'call':
+            case 'namedOperation':
+                if (node.argument !== undefined) {
+                    this.#index(node.argument, `${pointer}/argument`);
+                }
                 break;
             case 'object':
                 node.fields.forEach((field, index) => this.#index(field.value, `${pointer}/fields/${index}/value`));

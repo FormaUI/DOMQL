@@ -1,6 +1,6 @@
 const optional = Domql.parse(`
     {
-        panel: @panel { size: size },
+        panel: @panel { size: self.size },
         ids: @ids
     }
 `, {

@@ -19,5 +19,5 @@ const metricsModule = Domql.createModule('metrics', {
 
 Domql.registerModule(metricsModule);
 
-Domql.read('@panel.metrics { childCount: childCount }', { panel });
+Domql.read('@panel.metrics { childCount: self.childCount }', { panel });
 // { childCount: 3 }

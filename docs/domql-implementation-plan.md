@@ -18,7 +18,7 @@ Each item is what exists and what checks it.
 - **Change sets.** A watch that delivers change sets sends a baseline and then JSON Patch change sets, each acknowledged before the next is computed against the state it established, and recovers with a baseline of a new generation that nothing earlier can affect. Lists projected from elements change by element, through identities kept beside the result. A current snapshot applies each update atomically and gives a stale one no effect. Checked by the tests of computing and of applying change sets, each against expected patches and results and together, of the dispatcher and the current snapshot, and of watches delivering to a receiver.
 - **The package.** The bundle, with its TypeScript declarations checked against `Domql` and against a TypeScript caller; the READMEs' examples run as tests.
 
-What is not built: explicit receivers, calls and named operations, conditional expressions, local values, the query object, editor tooling and the C# half.
+What is not built: conditional expressions, local values, the query object, editor tooling and the C# half.
 
 ## Decisions
 
@@ -31,7 +31,7 @@ Each decision is open until its state says otherwise, and a step that needs it d
 - **D3. The public API of a watch and an event listener.** Done, built by steps 3 to 5 and 7.
 - **D4. What DOMQL owns and what a host owns.** Accepted, and stated by the design.
 - **D5. The API of actions and behaviors.** Done, built by step 6.
-- **D6. Predicate expressions and parenthesized arguments.** Done; D10 replaces its predicate names combined under one verb, which step 11 removed, and its phrases, which step 10 removes.
+- **D6. Predicate expressions and parenthesized arguments.** Done; D10 replaces its predicate names combined under one verb, which step 11 removed, and its phrases, which step 10 removed.
 - **D7. One camelCase name for every member.** Done.
 - **D8. How a caller holds live state.** Done, built by step 7.
 - **D9. The fluent builder.** Done, built by step 8; D12 retires it, and step 10 removed it.
@@ -338,7 +338,7 @@ else
 
 The language composes queries through member access, calls, named operations, object expressions, predicate expressions, logical expressions and conditional expressions. Arithmetic, ordering and other computations are provided by vocabulary members or performed by the caller.
 
-State: **decided.** Step 11 has built logical expressions and groups; step 10 builds explicit receivers, calls and named operations, and step 11 then builds conditionals.
+State: **decided.** Step 10 has built explicit receivers, calls and named operations, and step 11 logical expressions and groups; step 11 then builds conditionals.
 
 ### D11. Local values
 
@@ -684,7 +684,7 @@ Write every receiver, and tell member access, calls and named operations apart, 
 
 - **Needs:** D10, D12.
 - **Done when:** the fluent builder is removed first, as D12 decides, with its generated types, the script that generates them and the documents that describe it, and every parser, writer and definition test it exercised kept as a test of its own; text and a definition each write member access, calls and named operations with explicit receivers, parsed, validated, written and resolved as D10 sets out, in definitions of version 3; `self` denotes the current value and is refused where there is none, and a definition whose member, call, named operation or predicate expression has no target is refused; an object argument is read by its declaration's input form; a bare member and a subjectless predicate are refused with an error giving the form with `self`; every operation and occurrence source declares its form and its input, the built-in vocabulary's as D10's table gives, a direct declaration having exactly one parameter, and a form its declaration does not take is refused with an error giving the one it does; an options object maps its fields onto the declared parameters before evaluation, each following its parameter's rules, refusing an unknown field, requiring the required and defaulting the optional; a named operation requires its separators; `rectRelativeTo` reads a rectangle relative to an element; every field is written with its name, a field without one is refused by the syntax and by the definition, and nothing infers one; a parameter is one token with its `@`, and an empty object expression is a syntax error; and the specification, the design, the READMEs and every example and test are written with explicit receivers, the specification stating what `self` is for every parameter.
-- **State:** in progress. The fluent builder is removed, with its generated types, the script that generated them and the documents that described it; nothing it exercised was left untested elsewhere, since the parser, the writer and definitions keep tests of their own. Every field is written with its name, in text and in a definition, and nothing infers one; an object expression without a field is a syntax error; a parameter is one token with its `@`; and definitions are of version 3, which stays under development until step 10 is done. Explicit receivers, calls and named operations remain.
+- **State:** done. The builder went first, so it was never migrated. Every receiver is written, `self` is the current value, and member access, calls and named operations are distinct nodes of definitions of version 3, each checked against the form its declaration takes; an argument supplies its member's input, directly or as an options object, and `rect` relative to an element is `rectRelativeTo`. Every field is written with its name, an empty object expression is a syntax error, and a parameter is one token. The specification states what `self` is in an argument by the kind of its parameter, and names the built-in expression parameters.
 
 ### 11. Conditional and logical expressions
 

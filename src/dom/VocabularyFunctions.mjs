@@ -24,7 +24,8 @@ export class VocabularyFunctions {
                 return { width: root.clientWidth, height: root.clientHeight };
             },
             devicePixelRatio: window => window.devicePixelRatio,
-            rect: (element, { relativeTo }) => VocabularyFunctions.#rect(element, relativeTo),
+            // The property reads the rectangle against the layout viewport, and rectRelativeTo against the element it is given.
+            rect: (element, { relativeTo = null }) => VocabularyFunctions.#rect(element, relativeTo),
             size: element => {
                 const rect = VocabularyFunctions.#box(element);
 

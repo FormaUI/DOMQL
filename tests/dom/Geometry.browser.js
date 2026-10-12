@@ -55,13 +55,13 @@ describe('Geometry in a browser', () => {
             const parent = add('position: absolute; left: 40px; top: 60px; width: 200px; height: 200px');
             const child = add('position: absolute; left: 10px; top: 20px; width: 50px; height: 30px', parent);
 
-            expect(read('@child.rect(relativeTo: @parent)', { child, parent })).toEqual({ left: 10, top: 20, right: 60, bottom: 50, width: 50, height: 30 });
+            expect(read('@child.rectRelativeTo(@parent)', { child, parent })).toEqual({ left: 10, top: 20, right: 60, bottom: 50, width: 50, height: 30 });
         });
 
         it('follow a transform', () => {
             const box = add('position: absolute; left: 0; top: 0; width: 100px; height: 50px; transform: translate(15px, 25px)');
 
-            expect(read('@box.rect { left: left, top: top, width: width, height: height }', { box })).toEqual({ left: 15, top: 25, width: 100, height: 50 });
+            expect(read('@box.rect { left: self.left, top: self.top, width: self.width, height: self.height }', { box })).toEqual({ left: 15, top: 25, width: 100, height: 50 });
         });
 
         it('give the height an aggregate reads', () => {
@@ -69,8 +69,8 @@ describe('Geometry in a browser', () => {
 
             [48, 64, 48].forEach(height => add(`height: ${height}px`, list));
 
-            expect(read('@list.children.max(rect.height)', { list })).toBe(64);
-            expect(read('@list.children.sum(rect.height)', { list })).toBe(160);
+            expect(read('@list.children.max(self.rect.height)', { list })).toBe(64);
+            expect(read('@list.children.sum(self.rect.height)', { list })).toBe(160);
         });
     });
 
@@ -81,10 +81,10 @@ describe('Geometry in a browser', () => {
             const touching = add('position: absolute; left: 100px; top: 0; width: 50px; height: 50px');
             const across = add('position: absolute; left: 90px; top: 90px; width: 50px; height: 50px');
 
-            expect(read('@first.overlaps(@other)', { first, other: apart })).toBe(false);
-            expect(read('@first.overlaps(@other, margin: 20)', { first, other: apart })).toBe(true);
-            expect(read('@first.overlaps(@other)', { first, other: touching })).toBe(false);
-            expect(read('@first.overlaps(@other)', { first, other: across })).toBe(true);
+            expect(read('@first overlaps { other: @other }', { first, other: apart })).toBe(false);
+            expect(read('@first overlaps { other: @other, margin: 20 }', { first, other: apart })).toBe(true);
+            expect(read('@first overlaps { other: @other }', { first, other: touching })).toBe(false);
+            expect(read('@first overlaps { other: @other }', { first, other: across })).toBe(true);
         });
     });
 
@@ -124,7 +124,7 @@ describe('Geometry in a browser', () => {
             const box = add('width: 10px; height: 10px');
             const none = add('display: none');
 
-            expect(read('@box.overlaps(@other)', { box, other: none })).toBeNull();
+            expect(read('@box overlaps { other: @other }', { box, other: none })).toBeNull();
         });
     });
 
@@ -132,9 +132,9 @@ describe('Geometry in a browser', () => {
         it('read a custom property and a computed value, and answer null for one that is not set', () => {
             const box = add('--tier: medium; width: 120px');
 
-            expect(read('@box.computedStyleOf("--tier")', { box })).toBe('medium');
-            expect(read('@box.computedStyleOf("width")', { box })).toBe('120px');
-            expect(read('@box.computedStyleOf("--none")', { box })).toBeNull();
+            expect(read('@box computedStyleOf "--tier"', { box })).toBe('medium');
+            expect(read('@box computedStyleOf "width"', { box })).toBe('120px');
+            expect(read('@box computedStyleOf "--none"', { box })).toBeNull();
         });
 
         it('read the sizes of the column tracks of a grid, and none for an element that is no grid', () => {
@@ -187,15 +187,15 @@ describe('Geometry in a browser', () => {
             input.focus();
             input.setSelectionRange(2, 7);
 
-            expect(read('@input.selection { start: start, end: end }', { input })).toEqual({ start: 2, end: 7 });
+            expect(read('@input.selection { start: self.start, end: self.end }', { input })).toEqual({ start: 2, end: 7 });
             expect(read('@input has "selection"', { input })).toBe(true);
-            expect(read('@input.attributeOf("value")', { input })).toBeNull();
+            expect(read('@input attributeOf "value"', { input })).toBeNull();
         });
 
         it('answers the window around the document', () => {
             expect(read('@window.devicePixelRatio')).toBeGreaterThan(0);
-            expect(read('@window.matchesMedia("(min-width: 1px)")')).toBe(true);
-            expect(read('@window.matchesMedia("(max-width: 0px)")')).toBe(false);
+            expect(read('@window matchesMedia "(min-width: 1px)"')).toBe(true);
+            expect(read('@window matchesMedia "(max-width: 0px)"')).toBe(false);
             expect(read('@document is "visible"')).toBe(true);
         });
     });

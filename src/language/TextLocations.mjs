@@ -51,19 +51,21 @@ export class TextLocations {
             this.#collect(part.name, `${pointer}/name`, spans);
         }
 
+        if (part.argument) {
+            this.#collect(part.argument, `${pointer}/argument`, spans);
+        }
+
         part.operands?.forEach((operand, index) => this.#collect(operand, `${pointer}/operands/${index}`, spans));
 
-        for (const [key, entries] of [['arguments', part.arguments], ['fields', part.fields]]) {
-            entries?.forEach((entry, index) => {
-                const entryPointer = `${pointer}/${key}/${index}`;
-                const entrySpan = spans.get(entry);
+        part.fields?.forEach((field, index) => {
+            const fieldPointer = `${pointer}/fields/${index}`;
+            const fieldSpan = spans.get(field);
 
-                if (entrySpan) {
-                    this.#spans.set(entryPointer, entrySpan);
-                }
+            if (fieldSpan) {
+                this.#spans.set(fieldPointer, fieldSpan);
+            }
 
-                this.#collect(entry.value, `${entryPointer}/value`, spans);
-            });
-        }
+            this.#collect(field.value, `${fieldPointer}/value`, spans);
+        });
     }
 }

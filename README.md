@@ -27,9 +27,9 @@ const items = $(panel).find('[data-key]').map((_, item) => ({
 // DOMQL: the query describes the values and each object's shape.
 const items = Domql.read(`
     @panel.all("[data-key]") {
-        key: attributeOf "data-key",
-        height: rect.height,
-        selected: matches "[aria-selected=true]"
+        key: self attributeOf "data-key",
+        height: self.rect.height,
+        selected: self matches "[aria-selected=true]"
     }
 `, { panel });
 ```
@@ -79,20 +79,20 @@ const panel = document.getElementById('panel');
 
 const query = Domql.parse(`
     @panel {
-        count: children.count,
+        count: self.children.count,
 
-        items: all("[data-key]") {
-            key: attributeOf "data-key",
-            height: rect.height,
-            selected: matches "[aria-selected=true]"
+        items: self.all("[data-key]") {
+            key: self attributeOf "data-key",
+            height: self.rect.height,
+            selected: self matches "[aria-selected=true]"
         },
 
-        selected: all("[data-key]")
-            .where(matches "[aria-selected=true]") {
-                key: attributeOf "data-key"
+        selected: self.all("[data-key]")
+            .where(self matches "[aria-selected=true]") {
+                key: self attributeOf "data-key"
             },
 
-        tallest: all("[data-key]").max(rect.height)
+        tallest: self.all("[data-key]").max(self.rect.height)
     }
 `, { panel });
 
@@ -195,13 +195,13 @@ A query can combine independent targets and browser state into one answer:
 const surroundings = Domql.parse(`
     {
         panel: @panel {
-            size: size,
-            hasFocus: matches ":focus-within"
+            size: self.size,
+            hasFocus: self matches ":focus-within"
         },
 
         window: @window {
-            size: size,
-            dark: matchesMedia "(prefers-color-scheme: dark)"
+            size: self.size,
+            dark: self matchesMedia "(prefers-color-scheme: dark)"
         },
 
         visible: @document is "visible"
@@ -224,7 +224,7 @@ const sentinel = document.getElementById('sentinel');
 const controller = new AbortController();
 
 const sentinelQuery = Domql.parse(`
-    @sentinel.intersects(root: @panel, margin: 200)
+    @sentinel intersects { root: @panel, margin: 200 }
 `, { sentinel, panel });
 
 const nearEnd = await Domql.readAsync(sentinelQuery, {
