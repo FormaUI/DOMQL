@@ -43,8 +43,8 @@ describe('LanguageResolver', () => {
             expect(resolve('@panel.children.at(0).size').type.toString()).toBe('size?');
         });
 
-        it('types an object expression by its inferred field names', () => {
-            expect(resolve('@panel { size, hasFocus: is "focused" }').type.toString()).toBe('{ size: size?, hasFocus: boolean }');
+        it('types an object expression by its written field names', () => {
+            expect(resolve('@panel { size: size, hasFocus: is "focused" }').type.toString()).toBe('{ size: size?, hasFocus: boolean }');
         });
 
         it('types a bound value by the type it has', () => {
@@ -75,14 +75,14 @@ describe('LanguageResolver', () => {
         });
 
         it('resolves an occurrence source as a subscription', () => {
-            const resolved = resolve('@document.eventsOf("keydown") { key }');
+            const resolved = resolve('@document.eventsOf("keydown") { key: key }');
 
             expect(resolved.kind).toBe('subscription');
             expect(resolved.type.toString()).toBe('occurrence<{ key: string }>');
         });
 
         it('shapes the occurrences of a source by the fields of its payload', () => {
-            const resolved = resolve('@panel.eventsOf("click") { clientX, button }');
+            const resolved = resolve('@panel.eventsOf("click") { clientX: clientX, button: button }');
 
             expect(resolved.kind).toBe('subscription');
             expect(resolved.type.toString()).toBe('occurrence<{ clientX: number, button: number }>');
@@ -90,7 +90,7 @@ describe('LanguageResolver', () => {
 
         it('refuses an answer that is no data', () => {
             expect(failure('@panel.parent').message).toContain('no data');
-            expect(failure('@panel.eventsOf("click"){ target }').message).toContain('no data');
+            expect(failure('@panel.eventsOf("click"){ target: target }').message).toContain('no data');
         });
 
         it('refuses a member after an occurrence source', () => {
@@ -277,7 +277,7 @@ describe('LanguageResolver', () => {
         });
 
         it('resolves an event type and a feature', () => {
-            expect(resolve('@document.eventsOf("keydown") { key }').type.toString()).toBe('occurrence<{ key: string }>');
+            expect(resolve('@document.eventsOf("keydown") { key: key }').type.toString()).toBe('occurrence<{ key: string }>');
             expect(resolve('@window.supports("share")').type.toString()).toBe('boolean');
         });
 
@@ -302,7 +302,7 @@ describe('LanguageResolver', () => {
 
                 return new LanguageResolver(registry, query.bindings, null, {}).resolveDefinition(query.definition);
             };
-            const events = resolveWith('@panel.eventsOf("chart-selected") { value }');
+            const events = resolveWith('@panel.eventsOf("chart-selected") { value: value }');
             const predicate = resolveWith('@panel is "plotted"');
 
             expect(events.type.toString()).toBe('occurrence<{ value: number }>');
@@ -344,7 +344,7 @@ describe('LanguageResolver', () => {
 
         it('points into a definition that has no text', () => {
             const definition = {
-                version: 2,
+                version: 3,
                 query: { kind: 'member', target: { kind: 'parameter', name: 'panel' }, name: 'nonsense', arguments: [] },
             };
 
@@ -376,7 +376,7 @@ describe('LanguageResolver', () => {
         });
 
         it('refuse a subject that is no value, or null', () => {
-            expect(failure('@panel.eventsOf("click") { clientX } is "attached"').message).toContain('occurrence source');
+            expect(failure('@panel.eventsOf("click") { clientX: clientX } is "attached"').message).toContain('occurrence source');
             expect(failure('null is "attached"').message).toContain('tests null');
         });
 
@@ -428,8 +428,8 @@ describe('LanguageResolver', () => {
     });
 
     describe('the resolved definition', () => {
-        it('names each field of each object expression once, as given or as it infers', () => {
-            const resolved = resolve('@panel { size, kind: attributeOf "role", is "attached", get "clientSize", rows: all("i") { rect } }');
+        it('names each field of each object expression once, as it is written', () => {
+            const resolved = resolve('@panel { size: size, kind: attributeOf "role", attached: is "attached", clientSize: get "clientSize", rows: all("i") { rect: rect } }');
             const { query } = resolved.definition;
 
             expect(resolved.fieldNamesOf(query)).toEqual(['size', 'kind', 'attached', 'clientSize', 'rows']);

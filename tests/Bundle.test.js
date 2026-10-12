@@ -34,14 +34,14 @@ describe('Bundle', () => {
     });
 
     it('parses and creates queries as the sources do', () => {
-        const query = bundled.Domql.parse('@panel { size, hasFocus: matches ":focus-within" }', { panel: 1 });
+        const query = bundled.Domql.parse('@panel { size: size, hasFocus: matches ":focus-within" }', { panel: 1 });
 
-        expect(query.definition.query.fields.map(field => field.name ?? 'inferred')).toEqual(['inferred', 'hasFocus']);
+        expect(query.definition.query.fields.map(field => field.name)).toEqual(['size', 'hasFocus']);
         expect(bundled.Domql.create(query.definition, { panel: 2 }).bindings.get('panel')).toBe(2);
         expect(bundled.Domql.specificationVersion).toMatch(/^\d+\.\d+\.\d+(?:-alpha)?$/);
     });
 
     it('keeps the errors the sources raise', () => {
-        expect(() => bundled.Domql.parse('@panel {')).toThrow(/Expected/);
+        expect(() => bundled.Domql.parse('@panel {')).toThrow(/A field is written with its name/);
     });
 });

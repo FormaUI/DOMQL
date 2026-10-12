@@ -8,7 +8,7 @@ const ROWS = 1000;
 const CHANGED = ROWS / 2;
 
 /** Each row as data: its key, whether it is selected, and its box. */
-const ROWS_TEXT = '@table.all("tr") { key: attributeOf("data-key"), selected: matches(".selected"), box: rect { width, height } }';
+const ROWS_TEXT = '@table.all("tr") { key: attributeOf("data-key"), selected: matches(".selected"), box: rect { width: width, height: height } }';
 
 /** A table of rows, in the document, each with a key. */
 const createTable = () => {

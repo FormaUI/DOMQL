@@ -3,7 +3,6 @@
  */
 
 import { DomqlError } from './DomqlError.mjs';
-import { Names } from './Names.mjs';
 import { ResolvedDefinition } from './ResolvedDefinition.mjs';
 import { Type } from './Type.mjs';
 
@@ -427,7 +426,7 @@ export class LanguageResolver {
 
         node.fields.forEach((field, index) => {
             const fieldPointer = `${pointer}/fields/${index}`;
-            const name = field.name ?? Names.inferField(field.value);
+            const { name } = field;
             const result = this.#node(field.value, `${fieldPointer}/value`, { current });
 
             if (result.kind !== 'query') {

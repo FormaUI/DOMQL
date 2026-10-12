@@ -250,7 +250,7 @@ describe('Watch', () => {
             expect(snapshots).toEqual([{ a: 1 }]);
 
             // A watch of the list reads the second child's gauge once it has been added to what is read.
-            const listed = watch('@panel.children { level }', { panel });
+            const listed = watch('@panel.children { level: level }', { panel });
 
             await settle();
             gauges.get(first).notify();

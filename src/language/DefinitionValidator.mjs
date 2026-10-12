@@ -24,6 +24,9 @@ const VERBS = ['is', 'has'];
 
 const ENTRY = { properties: ['name', 'value'], required: ['value'] };
 
+/** What a field of an object expression holds: its name, always written, and its value. */
+const FIELD = { properties: ['name', 'value'], required: ['name', 'value'] };
+
 /** Where a node's current value stands: absent at the top level, present in an object expression following a value, unknown in an argument. */
 const Scope = Object.freeze({ absent: 'absent', present: 'present', unknown: 'unknown' });
 
@@ -183,18 +186,11 @@ export class DefinitionValidator {
 
         const fields = node.fields.map((field, index) => {
             const fieldPointer = `${pointer}/fields/${index}`;
-            this.#requireProperties(field, fieldPointer, ENTRY);
-
-            if (field.name !== undefined) {
-                this.#requireName(field.name, `${fieldPointer}/name`);
-            }
+            this.#requireProperties(field, fieldPointer, FIELD);
+            this.#requireName(field.name, `${fieldPointer}/name`);
 
             const value = this.#validateNode(field.value, `${fieldPointer}/value`, fieldScope);
-            const name = field.name ?? Names.inferField(value);
-
-            if (name === null) {
-                this.#fail(fieldPointer, 'This field infers no name and takes one of its own: a parameter, a literal or an object expression alone names nothing, and nor does a get of a bound name, a predicate expression that takes its name from a parameter, or an and or an or');
-            }
+            const { name } = field;
 
             if (names.has(name)) {
                 this.#fail(fieldPointer, `Two fields of one object expression are named '${name}'`);
@@ -202,7 +198,7 @@ export class DefinitionValidator {
 
             names.add(name);
 
-            return Object.freeze(field.name === undefined ? { value } : { name: field.name, value });
+            return Object.freeze({ name, value });
         });
 
         return Object.freeze(target === undefined

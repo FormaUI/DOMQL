@@ -167,7 +167,7 @@ export type DomqlDefinitionNode =
     | { readonly kind: 'literal'; readonly value: string | number | boolean | null }
     | { readonly kind: 'parameter'; readonly name: string }
     | { readonly kind: 'member'; readonly target?: DomqlDefinitionNode; readonly name: string; readonly arguments: readonly DomqlDefinitionEntry[] }
-    | { readonly kind: 'object'; readonly target?: DomqlDefinitionNode; readonly fields: readonly DomqlDefinitionEntry[] }
+    | { readonly kind: 'object'; readonly target?: DomqlDefinitionNode; readonly fields: readonly DomqlDefinitionField[] }
     | { readonly kind: 'predicate'; readonly verb: 'is' | 'has'; readonly target?: DomqlDefinitionNode; readonly name: DomqlPredicateName }
     | { readonly kind: 'and' | 'or'; readonly operands: readonly DomqlDefinitionNode[] };
 
@@ -176,7 +176,13 @@ export type DomqlPredicateName =
     | { readonly kind: 'literal'; readonly value: string }
     | { readonly kind: 'parameter'; readonly name: string };
 
-/** An argument of a member or a field of an object expression, with the name written for it, if any. */
+/** A field of an object expression: its name, always written, and its value. */
+export interface DomqlDefinitionField {
+    readonly name: string;
+    readonly value: DomqlDefinitionNode;
+}
+
+/** An argument of a member, with the name written for it, if any. */
 export interface DomqlDefinitionEntry {
     readonly name?: string;
     readonly value: DomqlDefinitionNode;

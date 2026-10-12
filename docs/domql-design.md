@@ -200,7 +200,7 @@ A module is created with its members and, once it can carry them out, the functi
 - **A parameter** is a value or an expression. An expression is evaluated against each item of the list it follows and declares the type it produces. A parameter declares whether it is required, its default where it is not, and whether a null argument propagates, making the call answer null, or is accepted.
 - **A fixed parameter** names something the vocabulary resolves before any evaluation, and declares what it selects: a member, a predicate, an occurrence or a feature.
 - **Observations.** A member that changes observably or partly observably names the observations that cover its changes. An observation is of a type, observes the receiver, the window, the document or an argument of the member, and gives the arguments its type takes, as `{ type: 'resize', of: 'receiver' }` does; a member that changes in any other way names none. A module declares a type of observation by a camelCase name, its contract, the arguments that belong to an observation's identity, whether equivalent requests share one, and the function that starts one, which takes the request, the function it calls when something may have changed and the environment, and answers an object whose `stop` ends the observation and, for a maintained type, whose `sample` answers its latest sample. The built-in vocabulary's types are `resize`, `mutation`, `attachment`, `intersection`, `media`, `pixelRatio`, `event` and `visibility`, each shared; `intersection` is maintained, and the others are invalidations. A type is either an invalidation observation, which says that a result may have changed and carries no value, or a maintained observation, which provides a sample a member reads and is pending until its first arrives; a member that reads maintained values names a maintained observation, and no other member does.
-- **Functions.** A member or a predicate takes its receiver, its arguments by name and the environment, and a member that reads maintained values also its samples, in the order its declaration names the observations. A source takes its receiver, its arguments, the environment and the function it delivers each occurrence to, and answers an object whose `stop` ends the listening. An action takes its receiver, its arguments, the environment and `{ signal }`, and answers its result or a promise of it. A behavior takes its receiver, its arguments, the environment and `{ reportError }`, starts before it returns, and answers an object whose `update(receiver, args)` applies new arguments and whose `dispose` ends it.
+- **Functions.** A member or a predicate takes its receiver, its arguments by name and the environment, and a member that reads maintained values also its samples, in the order its declaration names the observations. A source takes its receiver, its arguments, the environment and the function it delivers each occurrence to, and answers an object whose `stop` ends the listening. An action takes its receiver, its arguments, the environment and `{ signal: signal }`, and answers its result or a promise of it. A behavior takes its receiver, its arguments, the environment and `{ reportError: reportError }`, starts before it returns, and answers an object whose `update(receiver, args)` applies new arguments and whose `dispose` ends it.
 - **Types, events, predicates and features** are contributed by modules as data: structured types with their fields, event types with the type of their occurrences, predicates under `is` or `has` with the types they apply to, and the features `supports` names.
 - **Observation coverage** states how a member changes (constant, observable, partly observable with the changes it misses, unobserved, or derived from its receiver and arguments) and how it reads (fresh, maintained, captured or derived).
 
@@ -268,7 +268,7 @@ JavaScript parses text, or creates a query from a definition:
 // From text, binding its parameters by name.
 const parsed = Domql.parse(`
     @panel {
-        size,
+        size: size,
         hasFocus: matches(":focus-within")
     }
 `, { panel });
@@ -291,13 +291,13 @@ DomqlQuery<PanelState> typed = Domql.Parse<PanelState>(
     """,
     ("panel", panel));
 
-DomqlQuery untyped = Domql.Parse("@panel { size }", ("panel", panel));
+DomqlQuery untyped = Domql.Parse("@panel { size: size }", ("panel", panel));
 ```
 
 A binding whose value does not reveal its type, an unavailable element, an empty list or a list holding a null, supplies the type with it, and supplies it again through `Create`; a declared type must fit every part of the value, as the specification sets out.
 
 ```js
-const query = Domql.parse('{ panel: @panel { size }, ids: @ids }', {
+const query = Domql.parse('{ panel: @panel { size: size }, ids: @ids }', {
     panel: Domql.bind(null, 'element?'),
     ids: Domql.bind([], 'list<number>')
 });
@@ -310,7 +310,7 @@ const another = Domql.create(query.definition, {
 
 ```csharp
 DomqlQuery query = Domql.Parse(
-    "{ panel: @panel { size }, ids: @ids }",
+    "{ panel: @panel { size: size }, ids: @ids }",
     ("panel", Domql.Bind(null, "element?")),
     ("ids", Domql.Bind(Array.Empty<int>(), "list<number>")));
 ```

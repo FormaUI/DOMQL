@@ -119,7 +119,7 @@ describe('Domql readAsync in a browser', () => {
             it('delivers the projection of a click, with what the event carried', () => {
                 const results = [];
 
-                listeners.push(Domql.subscribe('@panel.eventsOf("click") { id: target.attributeOf("id"), button, height: target.size.height }', { panel }, { onEvent: result => results.push(result) }));
+                listeners.push(Domql.subscribe('@panel.eventsOf("click") { id: target.attributeOf("id"), button: button, height: target.size.height }', { panel }, { onEvent: result => results.push(result) }));
                 inside.click();
 
                 expect(results).toEqual([{ id: 'inside', button: 0, height: 40 }]);

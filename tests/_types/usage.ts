@@ -5,7 +5,7 @@ import type { DomqlBehavior, DomqlChangeOperation, DomqlDefinitionNode, DomqlRea
 const panel = document.createElement('div');
 
 const query = Domql.parse('@panel { count: children.count }', { panel });
-const optional = Domql.parse('@panel { size }', { panel: Domql.bind(null, 'element?'), ids: Domql.bind([], 'list<number>') });
+const optional = Domql.parse('@panel { size: size }', { panel: Domql.bind(null, 'element?'), ids: Domql.bind([], 'list<number>') });
 const created = Domql.create(query.definition, { panel });
 
 const answer = Domql.read<{ count: number }>(query);
@@ -80,7 +80,7 @@ const clicks: DomqlEventListener<{ x: number }> = Domql.subscribe<{ x: number }>
     onEvent: click => click.x,
     onError: error => console.error(error),
 });
-const keys: DomqlEventListener<{ key: string }> = Domql.subscribe<{ key: string }>('@panel.eventsOf("keydown") { key }', { panel }, { onEvent: press => press.key, window });
+const keys: DomqlEventListener<{ key: string }> = Domql.subscribe<{ key: string }>('@panel.eventsOf("keydown") { key: key }', { panel }, { onEvent: press => press.key, window });
 const listening: 'ready' | 'disposed' = clicks.status;
 
 keys.dispose();
@@ -197,7 +197,7 @@ const reading: DomqlReadAsyncOptions = { window, signal: new AbortController().s
 
 Domql.watch<number>(query, watching);
 Domql.watch<number>(query, changeSetWatching);
-Domql.subscribe<{ key: string }>('@panel.eventsOf("keydown") { key }', { panel }, subscribing);
+Domql.subscribe<{ key: string }>('@panel.eventsOf("keydown") { key: key }', { panel }, subscribing);
 Domql.readAsync(query, reading);
 
 export { count, anything, kind, typeText, listening, sourceFunctions, moved, stepped, trapping, held };

@@ -3,16 +3,17 @@
  */
 
 import { DomqlError } from './DomqlError.mjs';
+import { Names } from './Names.mjs';
 
 /**
  * @typedef {object} Token
- * @property {'name' | 'literal' | 'operator' | 'end' | '@' | '.' | ',' | ':' | '(' | ')' | '{' | '}'} type
- * @property {unknown} [value] A name's or an operator's text, or a literal's value.
+ * @property {'name' | 'parameter' | 'literal' | 'operator' | 'end' | '.' | ',' | ':' | '(' | ')' | '{' | '}'} type
+ * @property {unknown} [value] A name's, a parameter's or an operator's text, or a literal's value.
  * @property {number} start
  * @property {number} end
  */
 
-const PUNCTUATION = new Set(['@', '.', ',', ':', '(', ')', '{', '}']);
+const PUNCTUATION = new Set(['.', ',', ':', '(', ')', '{', '}']);
 const KEYWORDS = new Map([['true', true], ['false', false], ['null', null]]);
 
 /** The words that test a value and combine the names it is tested against. */
@@ -59,6 +60,10 @@ export class Tokenizer {
             this.#offset++;
 
             return { type: character, start, end: this.#offset };
+        }
+
+        if (character === '@') {
+            return this.#readParameter(start);
         }
 
         if (character === '"') {
@@ -112,6 +117,29 @@ export class Tokenizer {
                 return;
             }
         }
+    }
+
+    /** Reads a parameter, its `@` and its name one token, so nothing comes between them. */
+    #readParameter(start) {
+        NAME.lastIndex = start + 1;
+
+        if (!NAME.test(this.#text)) {
+            throw DomqlError.syntax("A parameter is written as '@' and its name, with nothing between them, as '@panel'", this.#text, start + 1);
+        }
+
+        this.#offset = NAME.lastIndex;
+
+        const name = this.#text.slice(start + 1, this.#offset);
+
+        if (this.#text[this.#offset] === '-') {
+            throw DomqlError.syntax(`A name holds no hyphen: '${name}-…' is written in camelCase, as attributeOf is`, this.#text, this.#offset);
+        }
+
+        if (!Names.isName(name)) {
+            throw DomqlError.syntax(`'@${name}' names no parameter: '${name}' is a keyword`, this.#text, start + 1);
+        }
+
+        return { type: 'parameter', value: name, start, end: this.#offset };
     }
 
     #readString(start) {

@@ -16,7 +16,7 @@ describe('DefinitionWriter', () => {
         '@first and (@second and @third)',
         '(@first or @second) or @third',
         '(@panel is "attached").size',
-        '(@first or @second) { size }',
+        '(@first or @second) { size: size }',
         '(@panel).children.count',
         '@panel has "children"',
         '@window { ratio: devicePixelRatio, visible: @document is "visible" }',

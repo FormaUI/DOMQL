@@ -28,8 +28,8 @@ call             = identifier [ "(" [ argument { "," argument } [ "," ] ] ")" ]
 phrase           = identifier ( literal | parameter ) { literal | parameter }
 argument         = [ identifier ":" ] expression
 
-object           = "{" [ field { "," field } [ "," ] ] "}"
-field            = [ identifier ":" ] expression
+object           = "{" field { "," field } [ "," ] "}"
+field            = identifier ":" expression
 
 predicate        = ( "is" | "has" ) ( string | parameter )
 
@@ -66,7 +66,7 @@ block-content    = ? characters up to, but excluding, the first closing */ ?
 end-of-input     = ? end of input ?
 ```
 
-An identifier is a name that is no keyword, as `matchesMedia` is; it holds no hyphen, so every identifier is also a JavaScript identifier. No keyword can be used as a name, and the restriction applies equally to text queries and to definitions created directly, wherever a name is declared or supplied: a member, a parameter, a field's name, a named argument, and an extension's or a predicate's declaration. A string holding a keyword stays an ordinary string, so `attributeOf "null"` reads the attribute named `null`. `document` and `window` name the roots, and no binding can take either. They are ordinary names everywhere else, so `window: @window { size }` names a field `window`. The tokens are names, numbers, strings and the punctuation the rules quote. Trivia, which is whitespace, line breaks included, and comments, may stand between any two tokens and never inside one: `@ panel` is `@panel`, and `- 5` is no number. A block comment does not nest, so the first `*/` closes it, and one never closed is a syntax error. Inside a string, `//` and `/*` are text, so `"https://example.com"` and `"/* */"` read as written.
+An identifier is a name that is no keyword, as `matchesMedia` is; it holds no hyphen, so every identifier is also a JavaScript identifier. No keyword can be used as a name, and the restriction applies equally to text queries and to definitions created directly, wherever a name is declared or supplied: a member, a parameter, a field's name, a named argument, and an extension's or a predicate's declaration. A string holding a keyword stays an ordinary string, so `attributeOf "null"` reads the attribute named `null`. `document` and `window` name the roots, and no binding can take either. They are ordinary names everywhere else, so `window: @window { size: size }` names a field `window`. The tokens are names, numbers, strings and the punctuation the rules quote. Trivia, which is whitespace, line breaks included, and comments, may stand between any two tokens and never inside one. A parameter is one token, its `@` and its name together, so `@ panel` and `@/* the panel */panel` are syntax errors, as `- 5` is no number. A block comment does not nest, so the first `*/` closes it, and one never closed is a syntax error. Inside a string, `//` and `/*` are text, so `"https://example.com"` and `"/* */"` read as written.
 
 ```
 @viewport {
@@ -86,7 +86,7 @@ A member that starts a chain can take its arguments without parentheses, as lite
 A chain is evaluated against a **current value**. A bare name is always a member of the current value, and a name starting with `@` is always a parameter, so a reader never has to guess which it is.
 
 - **At the top level** there is no current value, so a query starts with a parameter, a literal or an object expression.
-- **Inside an object expression**, the current value is the value it follows: in `@viewport { rect.width }`, `rect` is the viewport's. An object expression at the top level, `{ anchor: @anchor.rect, open: @popup.matches(":popover-open") }`, has no current value, so each of its fields starts with a parameter, a literal or an object expression.
+- **Inside an object expression**, the current value is the value it follows: in `@viewport { width: rect.width }`, `rect` is the viewport's. An object expression at the top level, `{ anchor: @anchor.rect, open: @popup.matches(":popover-open") }`, has no current value, so each of its fields starts with a parameter, a literal or an object expression.
 - **An object expression following no value** keeps the current value around it, so it groups fields: in `@panel { layout: { width: size.width, height: size.height } }`, `size` is the panel's. At the top level that value is absent.
 - **Parameters** resolve the same way everywhere, inside object expressions and arguments alike. A parameter's value is an element, or data: a number, a string, a Boolean, null, a list or an object, as a behavior's configuration is, and a list or an object can hold elements.
 - **The roots** are predefined parameters: `@document` is the document and `@window` is the browser window, its layout viewport and what it supports. No binding can take either name.
@@ -95,7 +95,7 @@ A chain is evaluated against a **current value**. A bare name is always a member
 
 Every parameter of a member is declared as one of two kinds, and the evaluator treats them differently.
 
-- A **value argument** is evaluated once, where the call is written, against the same current value as the chain it appears in. In `@viewport { first(".item").intersects(root: parent) }`, `parent` is the viewport's parent, not the item's. At the top level, where there is no current value, a value argument starts with a parameter, a literal or an object expression: `@target.intersects(root: @target.parent)`.
+- A **value argument** is evaluated once, where the call is written, against the same current value as the chain it appears in. In `@viewport { intersects: first(".item").intersects(root: parent) }`, `parent` is the viewport's parent, not the item's. At the top level, where there is no current value, a value argument starts with a parameter, a literal or an object expression: `@target.intersects(root: @target.parent)`.
 - An **expression argument** is evaluated by the member against a context the member's signature declares, such as each item of a list. In `@table.all("tbody tr").max(rect.height)`, `rect` is each row's.
 
 A value argument can be declared **fixed**, where it selects something validation needs before evaluation, such as the event type whose members `eventsOf` offers, the feature `supports` names or the member `get` reads. A fixed argument is a literal or a bound parameter, whose value is settled when the query is prepared; any other value is a validation error.
@@ -156,10 +156,10 @@ Every name in DOMQL is case-sensitive, and nothing normalizes one: `size` and `S
 
 - **Members** are named in camelCase, properties and operations alike: `size`, `clientSize`, `matchesMedia`, `attributeOf`, `eventsOf`. A member has one name, the same in a text and a definition, whether its arguments are parenthesized or not. `get "clientSize"` reads that property by the same name.
 - **Predicates** keep their declared spelling, which `is` and `has` read from a string: `is "readOnly"`, `is "scroll.atEnd"`.
-- **Aliases and bindings** keep the exact spelling their author gave them, so `hasFocus` and `hasfocus` are two fields, and a binding `panel` is not a binding `Panel`.
+- **Field names and bindings** keep the exact spelling their author gave them, so `hasFocus` and `hasfocus` are two fields, and a binding `panel` is not a binding `Panel`.
 - **Strings** are preserved exactly: `kind: "List"` answers `List`. A string is read as a DOMQL name only where a member interprets it as one, as `get`, `is` and `has` do, and it is then read exactly. A value passed to a browser API, such as a selector, an attribute's name or value, or an event type, follows that API's own case rules.
 
-A field without a name of its own takes the name of the member or segment it reads, in its declared spelling, so `size` answers the field `size` and `get "clientSize"` the field `clientSize`. An alias answers the key it was written as, and how a consumer matches keys to its own members is its own: a consumer that cannot tell `hasFocus` from `hasfocus` reports the ambiguity, and the language is unaffected. How a module names an operation in DOMQL, and which function carries it out, is the module's declaration.
+A field answers the key its name is written as, and how a consumer matches keys to its own members is its own: a consumer that cannot tell `hasFocus` from `hasfocus` reports the ambiguity, and the language is unaffected. How a module names an operation in DOMQL, and which function carries it out, is the module's declaration.
 
 ## Values
 
@@ -169,9 +169,8 @@ A result is data: numbers, strings, Booleans, null, lists and objects. An elemen
 
 ### Objects
 
-- A field takes the name given before its colon, or, with none, the name of the last member in its chain, so `rect.width` is `width` and `all("tr") { … }` is `all`; a `get` takes the name of the last segment of the name it reads, as the section on reading by name sets out, and a predicate expression of a literal name takes that name's last segment, so `is "disabled"` is `disabled`, `has "children"` is `children` and `is "scroll.atEnd"` is `atEnd`. A predicate expression that takes its name from a parameter, and a logical expression, take a name of their own: `unavailable: is "disabled" or is "readOnly"`.
-- A field whose chain follows no member, a parameter, a literal or an object expression on its own or followed by an object expression, has no name to take and requires one.
-- Two fields of one object expression with the same name are an error when the query is created, and so is an empty object expression.
+- A field is written with its name before its colon, `width: rect.width`, whatever its value is, and the language infers no name: a field without one is a syntax error, as is an object expression without a field.
+- Two fields of one object expression with the same name are an error when the query is created.
 - A result keeps its fields in the order the object expression names them.
 - An object expression following null is null.
 
@@ -419,8 +418,8 @@ A predicate is a name the vocabulary registers for `is` or `has` with its contra
 
 ```
 @target {
-    get "rect",
-    get "clientSize",
+    rect: get "rect",
+    clientSize: get "clientSize",
     disabled: is "disabled",
     hasChildren: has "children"
 }
@@ -430,15 +429,15 @@ This answers the fields `rect`, `clientSize`, `disabled` and `hasChildren`. The 
 
 ```
 {
-    window: @window { get "devicePixelRatio" },
-    input: @input { get "selection" }
+    window: @window { devicePixelRatio: get "devicePixelRatio" },
+    input: @input { selection: get "selection" }
 }
 ```
 
-- **Names.** Without a name of its own, a `get` field takes the name of the last segment of the name it reads, in its declared spelling: `get "rect"` is `rect` and `get "grid.columns"` is `columns`, as a predicate expression of one literal name does. A name that arrives through a bound parameter cannot be known when the query is created, so a field ending in one takes a name of its own. A field naming itself, as `bounds: get "rect"` does, keeps that name, and two fields of one object expression with the same name remain an error.
-- **Continuing.** A member after a `get` continues from the value it read, so `get("rect").width` is `rect.width` and takes the name `width`; an object expression after it reads that value's fields, so `get("rect") { width, height }` is the field `rect` holding them. Its argument takes parentheses there, since a phrase ends its chain.
+- **Names.** A field holding a `get` is named as every field is, `bounds: get "rect"`, whatever name the `get` reads.
+- **Continuing.** A member after a `get` continues from the value it read, so `get("rect").width` is `rect.width`; an object expression after it reads that value's fields, as `get("rect") { width: width, height: height }` does. Its argument takes parentheses there, since a phrase ends its chain.
 - **Readable members only.** A `get` reads a member that takes no arguments, or none it requires; an action, a behavior or an occurrence source it names is a validation error, so a `get` never acts.
-- **Fixed names.** The name is fixed, a literal or a bound parameter settled when the query is prepared, and a field whose chain ends in a `get` with a bound name takes a name of its own, since none can be inferred when its definition is created; `get(@name).width` still takes the name `width`.
+- **Fixed names.** The name is fixed, a literal or a bound parameter settled when the query is prepared.
 
 | Form | Asks | Example |
 | --- | --- | --- |
@@ -481,18 +480,18 @@ A group adds no node, the expression it holds standing in its place, so `@panel 
 }
 ```
 
-An argument is an object holding a `value` node and, for an argument given by name, its `name`; a member's arguments keep the order they were given in. A field is an object holding its `value` node and, where its name was written, its `name`; an object expression's fields keep their order. A field without a `name` takes the name its value infers, so the definition keeps the author's naming intent apart from the names the result takes.
+An argument is an object holding a `value` node and, for an argument given by name, its `name`; a member's arguments keep the order they were given in. A field is an object holding its `name` and its `value` node, both required; an object expression's fields keep their order, and an object expression holds at least one.
 
-`@panel { size, hasFocus: matches(":focus-within") }` has this definition:
+`@panel { size: size, hasFocus: matches(":focus-within") }` has this definition:
 
 ```json
 {
-  "version": 2,
+  "version": 3,
   "query": {
     "kind": "object",
     "target": { "kind": "parameter", "name": "panel" },
     "fields": [
-      { "value": { "kind": "member", "name": "size", "arguments": [] } },
+      { "name": "size", "value": { "kind": "member", "name": "size", "arguments": [] } },
       {
         "name": "hasFocus",
         "value": {
@@ -514,7 +513,7 @@ A definition names its parameters and never holds their values. An element is bo
 
 A query is validated in two stages, both before any evaluation.
 
-- **Structure,** when the query is created: the definition follows the node structures and structural validation rules this specification defines, which need no vocabulary: field names unique within an object expression, written and inferred names alike; no object expression empty; positional arguments before named ones, and no two named arguments of one call with the same name; no chain at the top level, nor a field of an object expression there, starting with a member or a predicate expression without a subject, since there is no current value for it to belong to; every predicate expression's verb `is` or `has`, and its name a string literal or a parameter; every `and` and `or` of two or more expressions; and no binding supplied under the name `document` or `window`. Text that does not follow the syntax fails here as a syntax error.
+- **Structure,** when the query is created: the definition follows the node structures and structural validation rules this specification defines, which need no vocabulary: every field with its name, unique within its object expression; no object expression without a field; positional arguments before named ones, and no two named arguments of one call with the same name; no chain at the top level, nor a field of an object expression there, starting with a member or a predicate expression without a subject, since there is no current value for it to belong to; every predicate expression's verb `is` or `has`, and its name a string literal or a parameter; every `and` and `or` of two or more expressions; and no binding supplied under the name `document` or `window`. Text that does not follow the syntax fails here as a syntax error.
 - **Vocabulary,** when the query is prepared: every member and extension exists, every receiver, argument, expression and binding has the type its signature declares and every argument its kind, every fixed argument is a literal or a bound parameter, every chain of members a `get` names resolves to a readable member, every predicate a predicate expression names is registered for its verb and applies to its subject, every operand of `and` and `or` is a Boolean, every expression is valid in the context its member declares, the request is used as its kind, the result holds only data, and a watch's members can be watched.
 
 A failure in either stage names where it is: its position in the text, or its node's location in the definition, as a JSON Pointer.
@@ -553,7 +552,7 @@ The query reads it:
 {
     // The panel itself.
     panel: @panel {
-        size,
+        size: size,
         hasFocus: matches ":focus-within",
         tier: computedStyleOf "--layout-tier",
         columns: grid.columns.count
@@ -573,7 +572,7 @@ The query reads it:
     current: @panel.first("[aria-selected=true]").attributeOf("data-key"),
 
     // The window around it.
-    window: @window { size, dark: matchesMedia "(prefers-color-scheme: dark)" },
+    window: @window { size: size, dark: matchesMedia "(prefers-color-scheme: dark)" },
     visible: @document is "visible",
     kind: "list"
 }
@@ -611,8 +610,8 @@ With no item selected, `current` is null. With an empty panel, `items` is an emp
 | How many columns a grid lays out | `@cards.grid.columns.count` |
 | A table's tallest row | `@table.all("tbody tr").max(rect.height)` |
 | Each column's key and width | `@table.all("[data-column]") { key: attributeOf("data-column"), width: rect.width }` |
-| A panel's size, and whether focus is within it | `@panel { size, hasFocus: matches(":focus-within") }` |
-| A text field's selection | `@field.selection { start, end }` |
+| A panel's size, and whether focus is within it | `@panel { size: size, hasFocus: matches(":focus-within") }` |
+| A text field's selection | `@field.selection { start: start, end: end }` |
 | Whether sharing is available | `@window.supports("share")` |
 | The ids of the text-editable elements in a panel | `@panel.all("*").where(is "textEditable") { id: attributeOf "id" }` |
 | An element's states and what it holds | `@target { attached: is "attached", disabled: is "disabled", hasChildren: has "children", hasSelection: has "selection" }` |

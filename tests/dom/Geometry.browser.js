@@ -61,7 +61,7 @@ describe('Geometry in a browser', () => {
         it('follow a transform', () => {
             const box = add('position: absolute; left: 0; top: 0; width: 100px; height: 50px; transform: translate(15px, 25px)');
 
-            expect(read('@box.rect { left, top, width, height }', { box })).toEqual({ left: 15, top: 25, width: 100, height: 50 });
+            expect(read('@box.rect { left: left, top: top, width: width, height: height }', { box })).toEqual({ left: 15, top: 25, width: 100, height: 50 });
         });
 
         it('give the height an aggregate reads', () => {
@@ -187,7 +187,7 @@ describe('Geometry in a browser', () => {
             input.focus();
             input.setSelectionRange(2, 7);
 
-            expect(read('@input.selection { start, end }', { input })).toEqual({ start: 2, end: 7 });
+            expect(read('@input.selection { start: start, end: end }', { input })).toEqual({ start: 2, end: 7 });
             expect(read('@input has "selection"', { input })).toBe(true);
             expect(read('@input.attributeOf("value")', { input })).toBeNull();
         });

@@ -2,8 +2,6 @@
  * ResolvedDefinition — a definition resolved against the vocabulary: its request kind, the type of its result, and what each of its nodes resolved to
  */
 
-import { Names } from './Names.mjs';
-
 export class ResolvedDefinition {
     #definition;
     #kind;
@@ -96,7 +94,7 @@ export class ResolvedDefinition {
                 break;
             case 'object':
                 node.fields.forEach((field, index) => this.#index(field.value, `${pointer}/fields/${index}/value`));
-                this.#fieldNames.set(node, node.fields.map(field => field.name ?? Names.inferField(field.value)));
+                this.#fieldNames.set(node, node.fields.map(field => field.name));
                 break;
             case 'predicate':
                 this.#index(node.name, `${pointer}/name`);

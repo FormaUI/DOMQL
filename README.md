@@ -195,12 +195,12 @@ A query can combine independent targets and browser state into one answer:
 const surroundings = Domql.parse(`
     {
         panel: @panel {
-            size,
+            size: size,
             hasFocus: matches ":focus-within"
         },
 
         window: @window {
-            size,
+            size: size,
             dark: matchesMedia "(prefers-color-scheme: dark)"
         },
 

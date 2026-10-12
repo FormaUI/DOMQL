@@ -36,6 +36,6 @@ describe('Alignment', () => {
     it('has a specification whose example definition is of the version the implementation writes', () => {
         const [, version] = specification.match(/"version": (\d+),\s+"query"/);
 
-        expect(Number(version)).toBe(Domql.parse('@panel { size }').definition.version);
+        expect(Number(version)).toBe(Domql.parse('@panel { size: size }').definition.version);
     });
 });

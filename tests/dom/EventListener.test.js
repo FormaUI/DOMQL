@@ -119,7 +119,7 @@ describe('EventListener', () => {
         });
 
         it('captures what the event carries when it is dispatched', () => {
-            subscribe('@panel.eventsOf("click") { button, x: clientX, kind: pointerType }', { panel });
+            subscribe('@panel.eventsOf("click") { button: button, x: clientX, kind: pointerType }', { panel });
 
             panel.dispatchEvent(new window.PointerEvent('click', { bubbles: true, button: 2, clientX: 12, pointerType: 'pen' }));
 
@@ -146,7 +146,7 @@ describe('EventListener', () => {
                 return { stop: () => stopped++ };
             });
 
-            const listener = subscribe('@panel.beats("beat") { n }', { panel });
+            const listener = subscribe('@panel.beats("beat") { n: n }', { panel });
 
             deliver({ n: 5 });
             listener.dispose();
@@ -169,7 +169,7 @@ describe('EventListener', () => {
                 return { stop: () => {} };
             });
 
-            subscribe('@panel.beats("beat") { n, level: @item.level }', { panel, item: first });
+            subscribe('@panel.beats("beat") { n: n, level: @item.level }', { panel, item: first });
 
             expect(results).toEqual([]);
             expect(failures).toEqual([]);
@@ -197,8 +197,8 @@ describe('EventListener', () => {
 
             const [first, second] = panel.children;
 
-            expect(() => subscribe('@item.beats("beat") { n }', { item: first })).toThrow(expect.objectContaining({ kind: 'evaluation', message: expect.stringContaining("The source 'beats' failed to start listening"), cause: expect.objectContaining({ message: 'closed' }) }));
-            expect(() => subscribe('@item.beats("beat") { n }', { item: second })).toThrow(expect.objectContaining({ kind: 'evaluation', message: expect.stringContaining('answered nothing that stops it') }));
+            expect(() => subscribe('@item.beats("beat") { n: n }', { item: first })).toThrow(expect.objectContaining({ kind: 'evaluation', message: expect.stringContaining("The source 'beats' failed to start listening"), cause: expect.objectContaining({ message: 'closed' }) }));
+            expect(() => subscribe('@item.beats("beat") { n: n }', { item: second })).toThrow(expect.objectContaining({ kind: 'evaluation', message: expect.stringContaining('answered nothing that stops it') }));
         });
 
         it('fails the call with what the source threw as its cause, even where that is no error', () => {
@@ -209,7 +209,7 @@ describe('EventListener', () => {
             let error;
 
             try {
-                subscribe('@panel.beats("beat") { n }', { panel });
+                subscribe('@panel.beats("beat") { n: n }', { panel });
             } catch (failure) {
                 error = failure;
             }
@@ -227,7 +227,7 @@ describe('EventListener', () => {
                 throw new Error('closed');
             });
 
-            expect(() => subscribe('@panel.beats("beat") { n, level: @item.level }', { panel, item: first })).toThrow(expect.objectContaining({ kind: 'evaluation' }));
+            expect(() => subscribe('@panel.beats("beat") { n: n, level: @item.level }', { panel, item: first })).toThrow(expect.objectContaining({ kind: 'evaluation' }));
             await Promise.resolve();
 
             expect(results).toEqual([]);
@@ -310,7 +310,7 @@ describe('EventListener', () => {
                 return { stop: () => {} };
             });
 
-            const listener = subscribe('@panel.beats("beat") { n }', { panel });
+            const listener = subscribe('@panel.beats("beat") { n: n }', { panel });
 
             deliver({ n: 'one' });
             deliver({ n: 2 });
@@ -389,7 +389,7 @@ describe('EventListener', () => {
         it('reports a source that fails to stop, and ends the event listener all the same', () => {
             registerBeats(() => ({ stop: () => { throw new Error('stuck'); } }));
 
-            const listener = subscribe('@panel.beats("beat") { n }', { panel });
+            const listener = subscribe('@panel.beats("beat") { n: n }', { panel });
 
             listener.dispose();
 

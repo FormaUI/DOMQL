@@ -129,8 +129,8 @@ describe('QueryEvaluator', () => {
     });
 
     describe('object expressions', () => {
-        it('names fields by inference and keeps their order', () => {
-            const answer = read('@panel { count: children.count, id: attributeOf "id", is "attached", has "children" }', { panel });
+        it('names each field as it is written, and keeps their order', () => {
+            const answer = read('@panel { count: children.count, id: attributeOf "id", attached: is "attached", children: has "children" }', { panel });
 
             expect(answer).toEqual({ count: 3, id: 'panel', attached: true, children: true });
             expect(Object.keys(answer)).toEqual(['count', 'id', 'attached', 'children']);
@@ -181,7 +181,7 @@ describe('QueryEvaluator', () => {
         it('reads what a name resolves to, as direct access does', () => {
             expect(read('@panel.get("children.count")', { panel })).toBe(3);
             expect(read('@panel.get("size.width")', { panel })).toBe(640);
-            expect(read('@panel { get "size", get "clientSize" }', { panel }).size).toEqual({ width: 640, height: 480 });
+            expect(read('@panel { size: get "size", clientSize: get "clientSize" }', { panel }).size).toEqual({ width: 640, height: 480 });
         });
 
         it('takes the name from a bound string', () => {
@@ -248,13 +248,13 @@ describe('QueryEvaluator', () => {
             document.body.append(input);
             input.setSelectionRange(1, 3);
 
-            expect(read('@input.selection { start, end }', { input })).toEqual({ start: 1, end: 3 });
+            expect(read('@input.selection { start: start, end: end }', { input })).toEqual({ start: 1, end: 3 });
             expect(read('@input has "selection"', { input })).toBe(true);
 
             input.setSelectionRange(2, 2);
 
             expect(read('@input has "selection"', { input })).toBe(false);
-            expect(read('@panel.selection { start }', { panel })).toBeNull();
+            expect(read('@panel.selection { start: start }', { panel })).toBeNull();
         });
     });
 
@@ -397,12 +397,12 @@ describe('QueryEvaluator', () => {
             expect(answer).toEqual(numbers);
             expect(answer).not.toBe(numbers);
             expect(Object.isFrozen(answer)).toBe(true);
-            expect(Object.isFrozen(read('@panel { size }', { panel }))).toBe(true);
+            expect(Object.isFrozen(read('@panel { size: size }', { panel }))).toBe(true);
         });
 
         it('read a field of a bound object', () => {
             expect(read('@box.width', { box: { width: 5, height: 6 } })).toBe(5);
-            expect(read('@box { width, other: height }', { box: { width: 5, height: 6 } })).toEqual({ width: 5, other: 6 });
+            expect(read('@box { width: width, other: height }', { box: { width: 5, height: 6 } })).toEqual({ width: 5, other: 6 });
         });
     });
 
@@ -826,7 +826,7 @@ describe('QueryEvaluator projection', () => {
 
     describe('the source', () => {
         it('resolves into what starts it: the function, and the receiver and arguments evaluated now', () => {
-            const source = evaluatorOf('@panel.ticks("tick") { at }', { panel }, [ticks('tick')]).resolveSource();
+            const source = evaluatorOf('@panel.ticks("tick") { at: at }', { panel }, [ticks('tick')]).resolveSource();
 
             expect(source).toMatchObject({ name: 'ticks', receiver: panel, args: { type: 'tick' }, environment: { window, document } });
             expect(typeof source.start).toBe('function');
@@ -834,7 +834,7 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('is null where its receiver is, since there is nothing to listen to', () => {
-            expect(evaluatorOf('@panel.first(".none").ticks("tick") { at }', { panel }, [ticks('tick')]).resolveSource()).toBeNull();
+            expect(evaluatorOf('@panel.first(".none").ticks("tick") { at: at }', { panel }, [ticks('tick')]).resolveSource()).toBeNull();
         });
 
         it('is refused for a request that is not a subscription', () => {
@@ -842,7 +842,7 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('captures an occurrence as the fields its type declares, a nullable one it does not carry as null', () => {
-            const { capture } = evaluatorOf('@panel.ticks("tick") { at, label }', { panel }, [ticks('tick')]).resolveSource();
+            const { capture } = evaluatorOf('@panel.ticks("tick") { at: at, label: label }', { panel }, [ticks('tick')]).resolveSource();
 
             expect(capture({ at: 1, label: 'first', extra: true })).toEqual({ at: 1, label: 'first' });
             expect(capture({ at: 1 })).toEqual({ at: 1, label: null });
@@ -850,7 +850,7 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('fails a capture where the occurrence carries no value a field that is not nullable admits', () => {
-            const { capture } = evaluatorOf('@panel.ticks("tick") { at }', { panel }, [ticks('tick')]).resolveSource();
+            const { capture } = evaluatorOf('@panel.ticks("tick") { at: at }', { panel }, [ticks('tick')]).resolveSource();
 
             expect(failureOf(() => capture({ at: 'soon' }))).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The source 'ticks' delivered an occurrence whose 'at' is \"soon\", and its type declares number") });
             expect(failureOf(() => capture(null))).toMatchObject({ kind: 'evaluation' });
@@ -874,7 +874,7 @@ describe('QueryEvaluator projection', () => {
 
     describe('an occurrence', () => {
         it('is projected through the object expression that follows its source, as detached, immutable data', () => {
-            const evaluator = evaluatorOf('@panel.ticks("tick") { at, label, count: @panel.children.count }', { panel }, [ticks('tick')]);
+            const evaluator = evaluatorOf('@panel.ticks("tick") { at: at, label: label, count: @panel.children.count }', { panel }, [ticks('tick')]);
             const projection = projectionOf(evaluator, { at: 3, label: 'third' });
 
             expect(projection.error).toBeNull();
@@ -898,7 +898,7 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('stands for its source, which the projection never starts or reads', () => {
-            const evaluator = evaluatorOf('@panel.ticks("tick") { at }', { panel }, [ticks('tick')]);
+            const evaluator = evaluatorOf('@panel.ticks("tick") { at: at }', { panel }, [ticks('tick')]);
 
             projectionOf(evaluator, { at: 1 });
             projectionOf(evaluator, { at: 2 });

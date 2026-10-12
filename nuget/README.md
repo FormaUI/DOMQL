@@ -223,14 +223,14 @@ Multiple bare arguments are separated by whitespace. A member written that way e
 
 ### Objects and lists
 
-An object expression chooses output fields. An explicit alias controls the output name. Without an alias, the field uses the final member name; `get` and a predicate expression of a literal name infer the final segment of the name they read, and a predicate expression that takes its name from a parameter, or an `and` or an `or`, needs an alias.
+An object expression chooses output fields, each written with the name it answers under, `width: rect.width`; DOMQL infers no name, so a field without one is a syntax error.
 
 ```js
 Domql.read(`
     @panel {
         count: children.count,
-        is "attached",
-        has "children",
+        attached: is "attached",
+        children: has "children",
     }
 `, { panel });
 // { count: 3, attached: true, children: true }
@@ -291,7 +291,7 @@ Bindings may contain elements or supported data. Use `Domql.bind(value, type)` w
 ```js
 const optional = Domql.parse(`
     {
-        panel: @panel { size },
+        panel: @panel { size: size },
         ids: @ids
     }
 `, {
@@ -303,7 +303,7 @@ Domql.read(optional);
 // { panel: null, ids: [] }
 ```
 
-Keep independent results in a top-level object expression when one target may be null. Writing `@panel { size, ids: @ids }` instead would make the entire result null while `panel` is null.
+Keep independent results in a top-level object expression when one target may be null. Writing `@panel { size: size, ids: @ids }` instead would make the entire result null while `panel` is null.
 
 ## API and errors
 
@@ -394,7 +394,7 @@ const metricsModule = Domql.createModule('metrics', {
 
 Domql.registerModule(metricsModule);
 
-Domql.read('@panel.metrics { childCount }', { panel });
+Domql.read('@panel.metrics { childCount: childCount }', { panel });
 // { childCount: 3 }
 ```
 

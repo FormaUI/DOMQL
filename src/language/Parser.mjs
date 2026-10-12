@@ -100,12 +100,10 @@ export class Parser {
         const token = this.#token;
 
         switch (token.type) {
-            case '@': {
+            case 'parameter':
                 this.#advance();
-                const name = this.#expect('name');
 
-                return this.#span({ kind: 'parameter', name: name.value }, token.start);
-            }
+                return this.#span({ kind: 'parameter', name: token.value }, token.start);
             case 'literal':
                 this.#advance();
 
@@ -130,13 +128,7 @@ export class Parser {
         const token = this.#token;
         this.#advance();
 
-        if (token.type === 'literal') {
-            return this.#span({ kind: 'literal', value: token.value }, token.start);
-        }
-
-        const name = this.#expect('name');
-
-        return this.#span({ kind: 'parameter', name: name.value }, token.start);
+        return this.#span(token.type === 'literal' ? { kind: 'literal', value: token.value } : { kind: 'parameter', name: token.value }, token.start);
     }
 
     /** Reads a member: a name, and its arguments in parentheses or, where it starts a chain, without them, which makes it a phrase. */
@@ -148,13 +140,13 @@ export class Parser {
         if (this.#token.type === '(') {
             this.#advance();
             this.#parseList(')', () => member.arguments.push(this.#parseEntry()));
-        } else if (this.#token.type === 'literal' || this.#token.type === '@') {
+        } else if (this.#token.type === 'literal' || this.#token.type === 'parameter') {
             if (!startsChain) {
                 throw DomqlError.syntax(`Arguments after a dot are enclosed in parentheses: write '${name.value}(…)'`, this.#text, this.#token.start);
             }
 
             // Arguments given without parentheses are literals and parameters alone, so where they end is decided by the text.
-            while (this.#token.type === 'literal' || this.#token.type === '@') {
+            while (this.#token.type === 'literal' || this.#token.type === 'parameter') {
                 const argumentStart = this.#token.start;
                 member.arguments.push(this.#span({ value: this.#parseLiteralOrParameter() }, argumentStart));
             }
@@ -206,7 +198,7 @@ export class Parser {
             return this.#span({ kind: 'literal', value: token.value }, token.start);
         }
 
-        if (token.type === '@') {
+        if (token.type === 'parameter') {
             return this.#parseLiteralOrParameter();
         }
 
@@ -221,7 +213,12 @@ export class Parser {
         this.#expect('{');
 
         const node = target ? { kind: 'object', target, fields: [] } : { kind: 'object', fields: [] };
-        this.#parseList('}', () => node.fields.push(this.#parseEntry()));
+
+        if (this.#token.type === '}') {
+            throw DomqlError.syntax('An object expression holds at least one field, as { size: size }', this.#text, this.#token.start);
+        }
+
+        this.#parseList('}', () => node.fields.push(this.#parseField()));
 
         return this.#span(node, start);
     }
@@ -239,6 +236,19 @@ export class Parser {
         }
 
         this.#advance();
+    }
+
+    /** Reads a field: its name, a colon and its value. */
+    #parseField() {
+        if (!(this.#token.type === 'name' && this.#tokens[this.#index + 1].type === ':')) {
+            if ((this.#token.type === 'literal' || this.#token.type === 'operator') && this.#tokens[this.#index + 1].type === ':') {
+                return this.#parseEntry();
+            }
+
+            throw DomqlError.syntax('A field is written with its name and a colon before its value, as size: size', this.#text, this.#token.start);
+        }
+
+        return this.#parseEntry();
     }
 
     /** Reads a field or an argument: a value, named where a name and a colon come first. */
