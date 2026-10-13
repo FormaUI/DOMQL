@@ -48,7 +48,7 @@ The runtime also supports subscriptions that project events into data, actions t
 | Reading data | Your code reads values and constructs a result | A query specifies the values and result shape |
 | Read result | Whatever your code constructs | An immutable snapshot without live DOM references |
 | Validation | JavaScript calls, with checks available through tooling | Request structure, vocabulary names and types checked before evaluation |
-| Keeping data current | Your code chooses when to repeat its reads | A watch tracks dependencies and reports changed results as snapshots, change sets or live state |
+| Keeping data current | Your code chooses when to repeat its reads | A watch tracks dependencies and reports changed results as snapshots or live state |
 | Events | Handlers receive events and perform your logic | Subscriptions project events into plain data |
 | Changing the page | DOM manipulation methods | Separate action and behavior requests supplied by modules |
 | Extension | Plugins add methods | Modules declare typed capabilities and their implementations |
@@ -260,7 +260,7 @@ Available today:
 - Text queries and JSON definitions.
 - Binding, name and type validation.
 - Synchronous reads and asynchronous reads of maintained values.
-- Watching a query, with a snapshot each time its result changes, a baseline and then change sets, or one object kept current in place.
+- Watching a query, with a snapshot each time its result changes, or one object kept current in place.
 - Subscribing to events, with the projection of each one.
 - Running actions once, and activating behaviors that stay in effect until disposed.
 - Immutable snapshots.

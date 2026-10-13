@@ -3,7 +3,6 @@
  */
 
 import { LiveState } from '../snapshots/LiveState.mjs';
-import { SnapshotDispatcher } from '../snapshots/SnapshotDispatcher.mjs';
 import { DomqlError } from '../language/DomqlError.mjs';
 import { CallbackDispatcher } from './CallbackDispatcher.mjs';
 
@@ -46,9 +45,6 @@ export class Watch {
     /** The refreshes waiting for the next evaluation to complete. @type {{ resolve: () => void, reject: (error: unknown) => void }[]} */
     #pendingRefreshes = [];
 
-    /** What delivers the snapshots as a baseline and then change sets, or null for a watch of another strategy. @type {SnapshotDispatcher | null} */
-    #snapshotDispatcher = null;
-
     /** The object a watch that delivers live state keeps current in place, or null for a watch of another strategy. @type {LiveState | null} */
     #liveState = null;
 
@@ -61,8 +57,8 @@ export class Watch {
      * @param {(error: unknown) => void} dependencies.reportError The diagnostic reporting boundary, which a failure of `onError` reaches and an error reaches where there is no `onError`.
      * @param {object} dependencies.configuration The watch configuration the caller chose.
      * @param {'frame' | 'immediate'} dependencies.configuration.schedule When an evaluation follows a change: at the next animation frame, once however many observations fired, or in the task that reported it.
-     * @param {'snapshot' | 'changeSet' | 'liveState'} dependencies.configuration.updateStrategy How the watch updates its caller, and so what `onChange` receives: each snapshot whole, a baseline and then the change sets between snapshots, each acknowledged before the next, or one object it keeps current in place.
-     * @param {(update: unknown, changes?: readonly object[]) => unknown} dependencies.configuration.onChange Receives each snapshot; where the watch delivers change sets, each baseline and change set, the first as the baseline; and where it delivers live state, the live object and the change set just applied to it. What it returns is not awaited.
+     * @param {'snapshot' | 'liveState'} dependencies.configuration.updateStrategy How the watch updates its caller, and so what `onChange` receives: each snapshot whole, or one object it keeps current in place.
+     * @param {(update: unknown, changes?: readonly object[]) => unknown} dependencies.configuration.onChange Receives each snapshot; where the watch delivers live state, the live object and the change set just applied to it. What it returns is not awaited.
      * @param {((error: unknown) => unknown) | undefined} dependencies.configuration.onError Receives a failure of an evaluation and of `onChange`; by default they go to the diagnostic reporting boundary.
      */
     constructor({ evaluator, observations, comparer, window, reportError, configuration: { schedule, updateStrategy = 'snapshot', onChange, onError } }) {
@@ -79,9 +75,7 @@ export class Watch {
             isDisposed: () => this.#status === 'disposed',
         });
 
-        if (updateStrategy === 'changeSet') {
-            this.#snapshotDispatcher = new SnapshotDispatcher(update => this.#callbackDispatcher.dispatch(update));
-        } else if (updateStrategy === 'liveState') {
+        if (updateStrategy === 'liveState') {
             this.#liveState = new LiveState();
         }
 
@@ -126,28 +120,6 @@ export class Watch {
                 this.#run();
             }
         });
-    }
-
-    /**
-     * Confirms that the receiver applied a delivery of a watch that delivers change sets, so the next change set is computed against the state it established.
-     * A delivery that recovery abandoned, or one confirmed already, changes nothing; acceptance is the host's to report, and a callback that fails after the receiver applied a delivery does not undo it.
-     * @param {object} update The update the current snapshot applied.
-     */
-    acknowledge(update) {
-        this.#requireChangeSets('acknowledged').acknowledge(update);
-    }
-
-    /** Abandons the deliveries of the current generation, the one waiting for acknowledgment included, and sends the current snapshot as a new baseline that nothing from before can change, for a receiver whose state cannot be trusted. */
-    recover() {
-        this.#requireChangeSets('recovered').recover();
-    }
-
-    #requireChangeSets(operationDescription) {
-        if (this.#snapshotDispatcher === null) {
-            throw DomqlError.structure(`A watch that delivers snapshots is not ${operationDescription}; a watch that delivers change sets is`, {});
-        }
-
-        return this.#snapshotDispatcher;
     }
 
     /** Ends the watch: cancels the evaluation it scheduled, disposes every session and prevents any new callback invocation; a callback already running may finish. Disposing again does nothing. */
@@ -278,9 +250,7 @@ export class Watch {
         this.#needsDelivery = false;
         this.#status = 'ready';
 
-        if (isReported && this.#snapshotDispatcher !== null) {
-            this.#snapshotDispatcher.dispatch(next, queryEvaluation.identities, isDue);
-        } else if (isReported && this.#liveState !== null) {
+        if (isReported && this.#liveState !== null) {
             // The change set is applied whole before the callback begins.
             const changes = this.#liveState.update(next, queryEvaluation.identities);
 

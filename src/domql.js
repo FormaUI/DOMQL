@@ -9,7 +9,6 @@ import { Observations } from './dom/Observations.mjs';
 import { QueryEvaluator } from './dom/QueryEvaluator.mjs';
 import { EventListener } from './dom/EventListener.mjs';
 import { Watch } from './dom/Watch.mjs';
-import { CurrentSnapshot } from './snapshots/CurrentSnapshot.mjs';
 import { DefinitionValidator } from './language/DefinitionValidator.mjs';
 import { DomqlError } from './language/DomqlError.mjs';
 import { DomqlModule } from './language/vocabulary/DomqlModule.mjs';
@@ -57,10 +56,10 @@ import { TypedBinding } from './language/TypedBinding.mjs';
 /**
  * How a query is watched.
  * @typedef {object} DomqlWatchConfiguration
- * @property {(update: unknown, changes?: readonly object[]) => unknown} onChange Receives each snapshot, which shares what did not change with the snapshot before it; where the watch delivers change sets, each baseline and change set; and where it delivers live state, the live object and the change set just applied to it. What it returns is not awaited.
+ * @property {(update: unknown, changes?: readonly object[]) => unknown} onChange Receives each snapshot, which shares what did not change with the snapshot before it; where the watch delivers live state, the live object and the change set just applied to it. What it returns is not awaited.
  * @property {(error: unknown) => unknown} [onError] Receives a failure of an evaluation and of `onChange`; by default they go to the window's error reporting.
  * @property {'frame' | 'immediate'} [schedule] When an evaluation follows a change: at the next animation frame, once however many observations fired, or in the task that reported it.
- * @property {'snapshot' | 'changeSet' | 'liveState'} [updateStrategy] What `onChange` receives: each snapshot whole; a baseline and then the change sets between snapshots, each acknowledged through the watch's `acknowledge` before the next is sent; or one object the watch keeps current in place, which keeps its identity.
+ * @property {'snapshot' | 'liveState'} [updateStrategy] What `onChange` receives: each snapshot whole, or one object the watch keeps current in place, which keeps its identity.
  * @property {boolean} [acceptPartialObservation] Whether the watch accepts a member whose observations only partly cover its changes.
  * @property {Window} [window] The window `@window` stands for, and whose document `@document` stands for.
  */
@@ -84,7 +83,7 @@ const ACTIVATE = { name: 'activate', kind: 'behavior', operationDescription: 'ac
 
 /** When a watch evaluates after a change, and what it delivers. */
 const WATCH_SCHEDULES = ['frame', 'immediate'];
-const WATCH_UPDATE_STRATEGIES = ['snapshot', 'changeSet', 'liveState'];
+const WATCH_UPDATE_STRATEGIES = ['snapshot', 'liveState'];
 
 export class Domql {
     static #moduleRegistry = new ModuleRegistry([BrowserModule.create()]);
@@ -261,7 +260,7 @@ export class Domql {
 
     /**
      * Watches a query: evaluates it, reports a snapshot of the result, and evaluates again when something the result depends on changes, reporting a snapshot that differs from the last.
-     * The first snapshot is reported after the call returns, as the baseline, through the same callback as every later one.
+     * The first snapshot is reported after the call returns, through the same callback as every later one.
      *
      * @overload
      * @param {string} text The query text, parsed as `parse` parses it, through the same cache.
@@ -458,11 +457,6 @@ export class Domql {
             prepare: bindings => resolveBehavior(new DomqlQuery(query.definition, new ParameterBindings(bindings))),
             reportError: Domql.#createErrorReporter(window),
         });
-    }
-
-    /** Creates the current snapshot a watch's change sets build: it applies each update atomically to the snapshot it was computed against and gives a stale one no effect. */
-    static createSnapshot() {
-        return new CurrentSnapshot();
     }
 
     /**

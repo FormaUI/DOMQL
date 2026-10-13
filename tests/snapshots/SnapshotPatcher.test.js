@@ -120,50 +120,6 @@ describe('SnapshotPatcher', () => {
         });
     });
 
-    describe('apply', () => {
-        const state = freeze({ count: 3, rows: [{ key: 'a' }, { key: 'b' }, { key: 'c' }], panel: { width: 10 } });
-
-        it('replaces, adds, removes and moves, giving the result each operation describes', () => {
-            expect(SnapshotPatcher.apply(state, [{ op: 'replace', path: '/panel/width', value: 12 }])).toEqual({ ...state, panel: { width: 12 } });
-            expect(SnapshotPatcher.apply(state, [{ op: 'add', path: '/rows/1', value: { key: 'x' } }]).rows).toEqual([{ key: 'a' }, { key: 'x' }, { key: 'b' }, { key: 'c' }]);
-            expect(SnapshotPatcher.apply(state, [{ op: 'add', path: '/rows/-', value: { key: 'z' } }]).rows.at(-1)).toEqual({ key: 'z' });
-            expect(SnapshotPatcher.apply(state, [{ op: 'remove', path: '/rows/0' }]).rows).toEqual([{ key: 'b' }, { key: 'c' }]);
-            expect(SnapshotPatcher.apply(state, [{ op: 'move', from: '/rows/2', path: '/rows/0' }]).rows).toEqual([{ key: 'c' }, { key: 'a' }, { key: 'b' }]);
-            expect(SnapshotPatcher.apply(state, [{ op: 'replace', path: '', value: 7 }])).toBe(7);
-        });
-
-        it('leaves the state it was given as it was, and shares what the change does not reach', () => {
-            const next = SnapshotPatcher.apply(state, [{ op: 'replace', path: '/rows/1/key', value: 'B' }]);
-
-            expect(state.rows[1].key).toBe('b');
-            expect(next.panel).toBe(state.panel);
-            expect(next.rows[0]).toBe(state.rows[0]);
-            expect(Object.isFrozen(next.rows[1])).toBe(true);
-        });
-
-        it('freezes what it adds, so a state built from a delivery stays immutable', () => {
-            const next = SnapshotPatcher.apply(state, [{ op: 'add', path: '/rows/0', value: { key: 'n', tags: ['x'] } }]);
-
-            expect(Object.isFrozen(next.rows[0])).toBe(true);
-            expect(Object.isFrozen(next.rows[0].tags)).toBe(true);
-        });
-
-        it.each([
-            ['a path past the end of a list', [{ op: 'replace', path: '/rows/3/key', value: 'x' }]],
-            ['a field the result does not hold', [{ op: 'replace', path: '/missing', value: 1 }]],
-            ['a path into a value that holds nothing', [{ op: 'replace', path: '/count/x', value: 1 }]],
-            ['an index that is no number', [{ op: 'remove', path: '/rows/first' }]],
-            ['an operation JSON Patch has but a change set does not', [{ op: 'copy', from: '/rows/0', path: '/rows/1' }]],
-            ['a pointer without its leading slash', [{ op: 'remove', path: 'rows/0' }]],
-            ['a later operation that fails after earlier ones applied', [{ op: 'remove', path: '/rows/0' }, { op: 'remove', path: '/rows/5' }]],
-        ])('refuses %s, whole, leaving the state untouched', (_, operations) => {
-            const before = JSON.stringify(state);
-
-            expect(() => SnapshotPatcher.apply(state, operations)).toThrow(TypeError);
-            expect(JSON.stringify(state)).toBe(before);
-        });
-    });
-
     /** A copy that is mutable throughout, as live state is. */
     const thaw = value => JSON.parse(JSON.stringify(value));
 
@@ -184,11 +140,7 @@ describe('SnapshotPatcher', () => {
         })()],
     ];
 
-    describe('changeSetBetween, then apply', () => {
-        it.each(roundTrips)('give the next result when the change set is applied to the previous one: %s', (_, previous, previousIdentities, next, nextIdentities) => {
-            expect(SnapshotPatcher.apply(previous, SnapshotPatcher.changeSetBetween(previous, previousIdentities, next, nextIdentities))).toEqual(next);
-        });
-
+    describe('changeSetBetween, then applyInPlace', () => {
         it.each(roundTrips)('give the next result when the change set is applied in place to the previous one: %s', (_, previous, previousIdentities, next, nextIdentities) => {
             const state = thaw(previous);
 

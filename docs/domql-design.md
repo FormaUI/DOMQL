@@ -2,7 +2,7 @@
 
 The [DOMQL specification](domql-specification.md) defines the language. This design sets out how DOMQL runs and is used: how requests are built and prepared, how a read waits and a watch stays current, how results and changes are delivered, how events hold their observations, how actions run and behaviors are activated, what DOMQL owns beside its host, how modules extend the vocabulary, and the API a caller uses.
 
-This design describes the whole runtime. Reading a query once, watching it as snapshots, change sets or live state, subscribing to events, running actions and activating behaviors are built, and the [README](../README.md#status) states what this implementation covers.
+This design describes the whole runtime. Reading a query once, watching it as snapshots or live state, subscribing to events, running actions and activating behaviors are built, and the [README](../README.md#status) states what this implementation covers.
 
 ## Scope
 
@@ -44,7 +44,7 @@ A watch keeps a query's result current: it evaluates the query, reports a snapsh
 
 ### The watch and its handle
 
-`Domql.watch` takes its configuration beside the query: `onChange`, which is required and receives every delivery; `onError`, which receives a failed evaluation and a failing `onChange`, and without which they reach the window's error reporting; its `schedule`, `frame` by default or `immediate`; its `updateStrategy`, `snapshot` by default, `changeSet` or `liveState`; whether it accepts partial observation; and its `window`. It answers a `DomqlWatch`, the watch's handle.
+`Domql.watch` takes its configuration beside the query: `onChange`, which is required and receives every delivery; `onError`, which receives a failed evaluation and a failing `onChange`, and without which they reach the window's error reporting; its `schedule`, `frame` by default or `immediate`; its `updateStrategy`, `snapshot` by default or `liveState`; whether it accepts partial observation; and its `window`. It answers a `DomqlWatch`, the watch's handle.
 
 - **The first evaluation** runs in a microtask the call queues, after `watch` returns and before any later task, so no callback runs before its caller holds the handle; a `refreshAsync` called before then runs that evaluation at once instead. Its result is the first delivery, through the same `onChange` as every later one.
 - **Status.** `status` is `pending` until the first snapshot is available, the samples of the maintained members it reads included, and `ready` from then on. After an evaluation fails it is `failed`: the watch keeps running and keeps its last successful snapshot, if it has one, and returns to `ready` with its next successful evaluation. Once ended it is `disposed`. `lastSnapshot` is the snapshot last reported, null before the first and where the snapshot itself is null, so it is read beside the status, never in place of it.
@@ -87,54 +87,34 @@ Moving a receiver, or one of its flat-tree ancestors, to another tree or slot ev
 
 ### When evaluation fails
 
-A watch whose evaluation fails reports the error to its caller, and keeps the dependencies of its last successful evaluation together with those the failed one recorded before failing. It evaluates again when any of them changes or its caller refreshes it, and its next successful evaluation reports its snapshot whether or not it equals the last one reported; a watch that delivers change sets sends an empty change set where the snapshot equals the last one.
+A watch whose evaluation fails reports the error to its caller, and keeps the dependencies of its last successful evaluation together with those the failed one recorded before failing. It evaluates again when any of them changes or its caller refreshes it, and its next successful evaluation reports its snapshot whether or not it equals the last one reported; a watch that keeps live state hands over an empty change set where the snapshot equals the last one.
 
-### Cached state, change sets and snapshots
+### Cached state, snapshots and change sets
 
-A watch keeps its result as cached state and hands its caller snapshots, change sets or live state:
+A watch keeps its result as cached state and hands its caller snapshots or live state:
 
 | Concept | Is |
 | --- | --- |
 | Cached state | The watch's own copy of its result, updated in place as individual values change |
-| Baseline | A complete result, establishing the state its receiver starts from |
-| Change set | The fields and list entries that changed, relative to the receiver state it was computed against |
 | Snapshot | An immutable result captured at one moment |
 | Live state | A stable object a JavaScript caller holds, updated in place as the cached state is |
+| Baseline | A complete result, establishing the state the changes after it are relative to |
+| Change set | The fields and list entries that changed, relative to the result it was computed against |
 
-A snapshot never changes once delivered. A new snapshot reuses every immutable branch that did not change and builds new ones only along the paths that did, and a caller taking change sets receives no full snapshot after its baseline. Live state is the one value that changes under its holder: reading it at two moments can give two results, so it is chosen explicitly and is never a snapshot.
+A snapshot never changes once delivered. A new snapshot reuses every immutable branch that did not change and builds new ones only along the paths that did. Live state is the one value that changes under its holder: reading it at two moments can give two results, so it is chosen explicitly and is never a snapshot. Live state is brought up to date by change sets, and each one it applies reaches its caller beside it.
 
-- **Baseline.** The first delivery is the complete result.
-- **Change sets.** A change set is a [JSON Patch](https://www.rfc-editor.org/rfc/rfc6902) document limited to `replace`, `add`, `remove` and `move`, whose paths are JSON Pointers into the result; applying it to the state it was computed against gives the new result. A field the change set leaves out is unchanged, and a field that became null is replaced with null. An object expression's fields are fixed, so `add` and `remove` apply to list items alone.
+- **Change sets.** A change set is a [JSON Patch](https://www.rfc-editor.org/rfc/rfc6902) document limited to `replace`, `add`, `remove` and `move`, whose paths are JSON Pointers into the result; applying it to the result it was computed against gives the new result. A field the change set leaves out is unchanged, and a field that became null is replaced with null. An object expression's fields are fixed, so `add` and `remove` apply to list items alone.
 - **Lists.** A list whose items come from elements changes by element: an element entering is added, one leaving is removed, one changing position is moved, and one whose result changed is changed inside its item. Any other list changes by position.
-- **Coalescing.** Pending changes combine into one change set, computed against the state the change set in flight establishes once accepted, so it carries everything since that one, and changes that cancel out send nothing.
-- **Recovery.** Where the receiver's baseline cannot be trusted, after a failed delivery, a lost connection or a new target, the watch sends a fresh complete baseline.
-
-Recovery abandons any delivery still unanswered and installs a fresh baseline, and nothing from before it can touch what follows:
-
-1. **A change set applies only to the state it was computed against.** Its predecessor was accepted, or a recovery established a new baseline.
-2. **Recovery invalidates older delivery work.** Once a recovery baseline is accepted, older pending changes and late completions update no state, advance no baseline and occupy no delivery slot.
-3. **Applying a change set is atomic to consumers.** One that fails exposes no partial result, and the receiver resynchronizes from a fresh baseline.
-4. **A failing handler leaves its state accepted.** It undoes no accepted change, and an accepted change set is never applied again.
-5. **Coalescing keeps the receiver's chain of states.** A change set waiting behind one in flight is computed against the state that one establishes once accepted, and a delivery whose outcome is uncertain is followed by a fresh baseline.
-
-Evaluating only what changed and delivering only what changed are separate: a watch that evaluates its whole query still delivers only the changes in its result.
-
-### Delivering change sets
-
-A watch delivers change sets when its caller chooses them as its update strategy, `updateStrategy: 'changeSet'`, which brings baselines, acknowledgment and recovery with it; it delivers each snapshot whole otherwise.
-
 - **Identity.** A list projected from elements is matched by element, and two elements can project to the same data, so the identity of each item cannot be read back from a snapshot. Evaluation keeps the element each item came from as metadata beside the result, which the comparer and the change sets use and which neither a result nor a change set ever holds. A list that was not projected from elements, one with a null item, and one in which an element stands twice are matched by position.
-- **What a change set reproduces.** A change set takes the accepted state to the reconciled snapshot, the one the watch reports, with every comparison and tolerance applied; it never describes a different, raw evaluation.
-- **An update** names its generation, the revision it starts from and the revision it reaches, whatever carries it, as `generation`, `from` and `to`, beside its `kind`. A baseline starts a generation at revision 0, from null, and carries the whole `snapshot`; a change set goes from one revision of its generation to the next and carries the `patch`.
-- **Acknowledgment.** A current snapshot confirms that it applied an update by having its host acknowledge it on the watch, with `watch.acknowledge(update)`. One update waits for acknowledgment at a time; while it waits, the watch keeps the latest snapshot, and once it is acknowledged it computes the next change set against the state that update established, so the changes since combine into one and changes that cancel out send nothing.
-- **Recovery.** Where a current snapshot failed to apply an update, was lost or is new, its host recovers the watch, with `watch.recover()`, which abandons the generation, the update waiting in it included, and sends the watch's snapshot as the baseline of the next. A late update or acknowledgment of an abandoned generation changes neither the current snapshot's value nor the watch's bookkeeping, and a watch of another strategy refuses both calls with a structure error.
-- **The current snapshot** is DOMQL's, the receiving side a host creates with `Domql.createSnapshot()`: its `apply(update)` applies an update atomically to the snapshot it was computed against, answers `accepted`, `stale` or `failed`, and leaves its value as it was where it fails. Its `value` is the snapshot last accepted, beside its `generation` and `revision`, and every snapshot it held before stays unchanged. The host owns the transport between the watch and the current snapshot, and reports what the current snapshot answered. A callback that fails after the current snapshot accepted an update does not make the update failed.
+- **What a change set reproduces.** A change set takes the result it was computed against to the reconciled snapshot, the one the watch reports, with every comparison and tolerance applied; it never describes a different, raw evaluation.
+
+Evaluating only what changed and delivering only what changed are separate: a watch that evaluates its whole query still hands live state only the changes in its result.
 
 ### Live state
 
-A watch keeps its result as live state when its caller chooses it as its update strategy, `updateStrategy: 'liveState'`, beside `snapshot` and `changeSet`, so a watch delivers one kind of update.
+A watch keeps its result as live state when its caller chooses it as its update strategy, `updateStrategy: 'liveState'`, beside `snapshot`, so a watch delivers one kind of update.
 
-- **What the callback receives.** `onChange(state, changes)`: the live object, the same one at every call, and the change set just applied to it, the JSON Patch operations a change-set watch would send, computed against the snapshot the object was last brought to. A caller that renders the whole object ignores the changes; one that patches a view of its own reads them. The first call is the baseline: the object as first built, and an empty change set.
+- **What the callback receives.** `onChange(state, changes)`: the live object, the same one at every call, and the change set just applied to it, computed against the snapshot the object was last brought to. A caller that renders the whole object ignores the changes; one that patches a view of its own reads them. The first call is the baseline: the object as first built, and an empty change set.
 - **What keeps its identity.** The root, and every object and list beneath it while its path holds an object or a list: a field that changes is set on the object that holds it, an item added, removed or moved changes the list in place, and an item of a list projected from elements keeps its object as it moves, as change sets move it by element. A branch is a new object only where its value stops being one, as when a field turns from an object to null and back.
 - **What it can hold.** The result must be an object or a list that is not nullable, since null has no identity to keep; a watch over another result is refused with a validation error that suggests a top-level object expression. Its values are data, as every result is.
 - **Ownership.** The object belongs to the watch, which writes it; a caller reads it and never writes it, and the declarations type it as read-only. It is not frozen, since the watch updates it, and a caller that keeps a version copies it or chooses snapshots.
@@ -194,7 +174,7 @@ An action is run once and a behavior activated, each through an entry point of i
 
 ## DOMQL and its host
 
-DOMQL owns the semantics every host shares: evaluation, dependency recording, observation sessions, snapshots, baselines, revisions, the computation of change sets and their atomic application, and the ordering rules that keep a stale update from being accepted. A host owns transport, acknowledgment, reconnection, who owns a watch, and asking for a replacement baseline when its receiver cannot be trusted. A host never keeps a second watch or patch implementation: a baseline is how it recovers, and DOMQL does not know what a connection is.
+DOMQL owns the semantics every host shares: evaluation, dependency recording, observation sessions, snapshots, live state, and the change sets that describe updates to that state, their format and the rules for applying them. A host owns transport, reconnection and who owns a watch, and maintains its own representation of the result by applying a watch's change sets in order, by DOMQL's rules: each change set is applied completely before the updated result is exposed. Where the host can no longer establish that its result is synchronized, it discards that result and starts a fresh watch, whose first delivery carries the complete result as its baseline, from which the host rebuilds its own. A host implements the application of change sets, never deciding for itself what changed or applying one by rules of its own, and DOMQL does not know what a connection is.
 
 ## Modules
 
@@ -254,7 +234,6 @@ Each entry point and handle is listed here with what it takes, and the section i
 | `Domql.read(query, options)` | | Reads a query once, as [reading](#reading) sets out; its option is `window` |
 | `Domql.readAsync(query, options)` | | Reads a query once, waiting for its maintained members, as [waiting for maintained members](#waiting-for-maintained-members) sets out; its options are `window` and `signal` |
 | `Domql.watch(query, configuration)` | | Watches a query, answering a `DomqlWatch`, as [the watch and its handle](#the-watch-and-its-handle) sets out |
-| `Domql.createSnapshot()` | | Creates the current snapshot a watch's change sets build, a `DomqlCurrentSnapshot`, as [delivering change sets](#delivering-change-sets) sets out |
 | `Domql.subscribe(query, configuration)` | | Subscribes to a subscription, answering a `DomqlEventListener`, as [event delivery](#event-delivery) sets out |
 | `Domql.runAsync(query, options)` | | Runs an action once, answering a promise of its result, as [running an action](#running-an-action) sets out |
 | `Domql.activate(query, options)` | | Activates a behavior, answering a `DomqlBehavior`, as [activating a behavior](#activating-a-behavior) sets out |
@@ -263,8 +242,7 @@ Each entry point and handle is listed here with what it takes, and the section i
 
 | Handle | Members | Defined in |
 | --- | --- | --- |
-| `DomqlWatch` | `status`, `lastSnapshot`, `liveState`, `refreshAsync()`, `dispose()`, and for change sets `acknowledge(update)` and `recover()` | [The watch and its handle](#the-watch-and-its-handle), [delivering change sets](#delivering-change-sets), [live state](#live-state) |
-| `DomqlCurrentSnapshot` | `value`, `generation`, `revision`, `apply(update)` | [Delivering change sets](#delivering-change-sets) |
+| `DomqlWatch` | `status`, `lastSnapshot`, `liveState`, `refreshAsync()`, `dispose()` | [The watch and its handle](#the-watch-and-its-handle), [live state](#live-state) |
 | `DomqlEventListener` | `status`, `dispose()` | [Event delivery](#event-delivery) |
 | `DomqlBehavior` | `status`, `update(bindings)`, `dispose()` | [Activating a behavior](#activating-a-behavior) |
 

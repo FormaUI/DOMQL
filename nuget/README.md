@@ -17,7 +17,7 @@ Available now:
 - Resolve queries without reading the DOM.
 - Perform synchronous one-shot reads and receive immutable data snapshots.
 - Wait for values the browser keeps, such as `intersects`, with `readAsync`.
-- Watch a query and receive a snapshot each time its result changes, change sets between them, or one object kept current in place.
+- Watch a query and receive a snapshot each time its result changes, or one object kept current in place.
 - Subscribe to events and receive the projection of each one.
 - Run actions once and activate behaviors that stay in effect until disposed.
 - Extend the vocabulary through modules.
@@ -346,9 +346,8 @@ Keep independent results in a top-level object expression when one target may be
 | `Domql.read(text, bindings, options)`, `Domql.read(query, options)` | Read once, optionally using an explicitly supplied `window`. A member kept by an observation, such as `intersects`, fails it. |
 | `Domql.readAsync(text, bindings, options)`, `Domql.readAsync(query, options)` | Read once, waiting for the first sample of every member kept by an observation. Returns a promise; `signal` cancels it, and the `window` is optional. |
 | `Domql.createModule(name, contents, functions)` | Create an extension module. |
-| `Domql.watch(text, bindings, configuration)`, `Domql.watch(query, configuration)` | Keep a query's result current: `onChange` receives a snapshot, then each snapshot that differs; `updateStrategy` chooses change sets or live state instead. Returns a handle with `status`, `lastSnapshot`, `liveState`, `refreshAsync()` and `dispose()`. |
+| `Domql.watch(text, bindings, configuration)`, `Domql.watch(query, configuration)` | Keep a query's result current: `onChange` receives a snapshot, then each snapshot that differs; `updateStrategy` chooses live state instead. Returns a handle with `status`, `lastSnapshot`, `liveState`, `refreshAsync()` and `dispose()`. |
 | `Domql.subscribe(text, bindings, configuration)`, `Domql.subscribe(query, configuration)` | Subscribe to an event source: `onEvent` receives each projected result, evaluated as the event is dispatched. Returns an event listener with `status` and `dispose()`. |
-| `Domql.createSnapshot()` | Create the current snapshot a watch with `updateStrategy: 'changeSet'` builds: `apply(update)` applies a baseline or a change set atomically and answers `accepted`, `stale` or `failed`, which the host reports to the watch through `acknowledge(update)` or `recover()`, and `value` is the snapshot last accepted. |
 | `Domql.runAsync(text, bindings, options)`, `Domql.runAsync(query, options)` | Run an action once. Returns a promise of its result, read through the object expression that follows the action; `signal` cancels it, and what the action changed stays changed. |
 | `Domql.activate(text, bindings, options)`, `Domql.activate(query, options)` | Activate a behavior, in effect once the call returns. Returns a handle with `status`, `update(bindings)` and `dispose()`. |
 | `Domql.registerModule(module)` | Make a module available to query resolution. |

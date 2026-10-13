@@ -1,5 +1,5 @@
 /**
- * SnapshotPatcher — the change set that takes one result to the next, and the result a change set gives when applied to the one it was computed against
+ * SnapshotPatcher — the change set that takes one result to the next, and applying it in place to the result it was computed against
  */
 
 /**
@@ -29,20 +29,6 @@ export class SnapshotPatcher {
         SnapshotPatcher.#compare(previous, previousIdentities, next, nextIdentities, '', operations);
 
         return operations;
-    }
-
-    /**
-     * The result the operations give when applied in order to the state, which is left as it was: a new result is built along the paths that change and shares the rest, frozen.
-     * Throws where an operation does not apply, so a change set applies whole or not at all.
-     * @param {unknown} snapshot The result the change set was computed against.
-     * @param {ChangeOperation[]} operations The change set.
-     */
-    static apply(snapshot, operations) {
-        if (!Array.isArray(operations)) {
-            throw new TypeError('A change set is a list of operations');
-        }
-
-        return operations.reduce((current, operation) => SnapshotPatcher.#applyOne(current, operation), snapshot);
     }
 
     /**
@@ -219,7 +205,7 @@ export class SnapshotPatcher {
         const previousIndexByElement = new Map(previousElements.map((element, index) => [element, index]));
         const nextIndexByElement = new Map(nextElements.map((element, index) => [element, index]));
 
-        // The current snapshot's list as the operations so far leave it, by element.
+        // The list as the operations so far leave it, by element.
         const currentElements = [...previousElements];
 
         for (let index = previous.length - 1; index >= 0; index--) {
@@ -267,88 +253,6 @@ export class SnapshotPatcher {
         return elements;
     }
 
-    static #applyOne(snapshot, operation) {
-        if (!SnapshotPatcher.#isRecord(operation) || typeof operation.path !== 'string') {
-            throw new TypeError('A change set operation names its kind and its path');
-        }
-
-        switch (operation.op) {
-            case 'replace':
-                return SnapshotPatcher.#change(snapshot, SnapshotPatcher.#parsePointer(operation.path), 'replace', operation.value);
-            case 'add':
-                return SnapshotPatcher.#change(snapshot, SnapshotPatcher.#parsePointer(operation.path), 'add', operation.value);
-            case 'remove':
-                return SnapshotPatcher.#change(snapshot, SnapshotPatcher.#parsePointer(operation.path), 'remove');
-            case 'move': {
-                const from = SnapshotPatcher.#parsePointer(operation.from);
-                const value = SnapshotPatcher.#valueAt(snapshot, from);
-
-                return SnapshotPatcher.#change(SnapshotPatcher.#change(snapshot, from, 'remove'), SnapshotPatcher.#parsePointer(operation.path), 'add', value);
-            }
-            default:
-                throw new TypeError(`'${operation.op}' is no change set operation: replace, add, remove or move`);
-        }
-    }
-
-    /** A copy of the node with the change made at the end of the path, sharing what the change does not reach. */
-    static #change(node, path, op, value) {
-        if (path.length === 0) {
-            if (op === 'remove') {
-                throw new TypeError('A change set cannot remove the whole result');
-            }
-
-            return SnapshotPatcher.#freeze(value);
-        }
-
-        const [token, ...rest] = path;
-
-        if (Array.isArray(node)) {
-            const isLast = rest.length === 0;
-            const index = token === '-' && isLast && op === 'add' ? node.length : SnapshotPatcher.#parseIndex(token);
-            const limit = isLast && op === 'add' ? node.length : node.length - 1;
-
-            if (index > limit) {
-                throw new TypeError(`The path reaches past the end of a list, at '${token}'`);
-            }
-
-            const items = [...node];
-
-            if (!isLast) {
-                items[index] = SnapshotPatcher.#change(node[index], rest, op, value);
-            } else if (op === 'add') {
-                items.splice(index, 0, SnapshotPatcher.#freeze(value));
-            } else if (op === 'remove') {
-                items.splice(index, 1);
-            } else {
-                items[index] = SnapshotPatcher.#freeze(value);
-            }
-
-            return Object.freeze(items);
-        }
-
-        if (SnapshotPatcher.#isRecord(node)) {
-            const isLast = rest.length === 0;
-
-            if (!Object.hasOwn(node, token) && !(isLast && op === 'add')) {
-                throw new TypeError(`The path names '${token}', which the result does not hold`);
-            }
-
-            const fields = { ...node };
-
-            if (!isLast) {
-                fields[token] = SnapshotPatcher.#change(node[token], rest, op, value);
-            } else if (op === 'remove') {
-                delete fields[token];
-            } else {
-                fields[token] = SnapshotPatcher.#freeze(value);
-            }
-
-            return Object.freeze(fields);
-        }
-
-        throw new TypeError(`The path reaches into ${node === null ? 'null' : `a ${typeof node}`}, which holds nothing, at '${token}'`);
-    }
-
     static #valueAt(node, path) {
         return path.reduce((current, token) => {
             if (Array.isArray(current)) {
@@ -388,19 +292,6 @@ export class SnapshotPatcher {
 
     static #escape(name) {
         return name.replaceAll('~', '~0').replaceAll('/', '~1');
-    }
-
-    /** The value as immutable data: a copy frozen throughout, where it is not frozen already. */
-    static #freeze(value) {
-        if (Array.isArray(value)) {
-            return Object.isFrozen(value) ? value : Object.freeze(value.map(item => SnapshotPatcher.#freeze(item)));
-        }
-
-        if (SnapshotPatcher.#isRecord(value)) {
-            return Object.isFrozen(value) ? value : Object.freeze(Object.fromEntries(Object.entries(value).map(([name, field]) => [name, SnapshotPatcher.#freeze(field)])));
-        }
-
-        return value;
     }
 
     static #sameNames(previous, next) {

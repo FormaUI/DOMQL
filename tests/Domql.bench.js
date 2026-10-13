@@ -71,8 +71,7 @@ describe(`a watch of ${ROWS} rows, refreshed`, () => {
         const watch = Domql.watch(Domql.parse(text, { table }), {
             updateStrategy,
             acceptPartialObservation: true,
-            // A change set is acknowledged as soon as it arrives, so the next is computed against it.
-            onChange: update => (updateStrategy === 'changeSet' ? watch.acknowledge(update) : undefined),
+            onChange: () => {},
         });
 
         return { watch, row: table.querySelectorAll('tr')[CHANGED] };
@@ -80,7 +79,6 @@ describe(`a watch of ${ROWS} rows, refreshed`, () => {
 
     const unchanged = createWatch('snapshot');
     const snapshots = createWatch('snapshot');
-    const changeSets = createWatch('changeSet');
     const liveState = createWatch('liveState');
     const locals = createWatch('snapshot', LOCALS_TEXT);
 
@@ -95,11 +93,6 @@ describe(`a watch of ${ROWS} rows, refreshed`, () => {
     bench('one row changed, delivering snapshots', async () => {
         snapshots.row.classList.toggle('selected');
         await snapshots.watch.refreshAsync();
-    });
-
-    bench('one row changed, delivering change sets', async () => {
-        changeSets.row.classList.toggle('selected');
-        await changeSets.watch.refreshAsync();
     });
 
     bench('one row changed, keeping live state', async () => {
