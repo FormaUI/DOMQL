@@ -7,18 +7,14 @@ import { Names } from './Names.mjs';
 
 /**
  * @typedef {object} Token
- * @property {'name' | 'parameter' | 'literal' | 'operator' | 'self' | 'end' | '.' | ',' | ':' | '(' | ')' | '{' | '}'} type
- * @property {unknown} [value] A name's, a parameter's or an operator's text, or a literal's value.
+ * @property {'name' | 'parameter' | 'literal' | 'keyword' | 'self' | 'end' | '.' | ',' | ':' | '(' | ')' | '{' | '}'} type
+ * @property {unknown} [value] A name's, a parameter's or a keyword's text, or a literal's value.
  * @property {number} start
  * @property {number} end
  * @property {boolean} spaced Whether trivia, whitespace or a comment, comes before it, as a named operation's separator requires.
  */
 
 const PUNCTUATION = new Set(['.', ',', ':', '(', ')', '{', '}']);
-const KEYWORDS = new Map([['true', true], ['false', false], ['null', null]]);
-
-/** The words that test a value, combine Boolean expressions, choose between values, and name a local. */
-const OPERATORS = new Set(['is', 'has', 'and', 'or', 'if', 'then', 'elseif', 'else', 'let']);
 const NAME = /[A-Za-z][A-Za-z0-9]*/y;
 const NUMBER = /-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?/y;
 const SPACE = /\s/;
@@ -95,15 +91,16 @@ export class Tokenizer {
                 throw DomqlError.syntax(`A name holds no hyphen: '${name}-…' is written in camelCase, as attributeOf is`, this.#text, this.#offset);
             }
 
-            if (KEYWORDS.has(name)) {
-                return { type: 'literal', value: KEYWORDS.get(name), start, end: this.#offset };
+            if (Names.isLiteral(name)) {
+                return { type: 'literal', value: Names.literalValueOf(name), start, end: this.#offset };
             }
 
+            // `self` stands where a value does, as a literal does, so it is a token of its own among the keywords.
             if (name === 'self') {
                 return { type: 'self', start, end: this.#offset };
             }
 
-            return { type: OPERATORS.has(name) ? 'operator' : 'name', value: name, start, end: this.#offset };
+            return { type: Names.isKeyword(name) ? 'keyword' : 'name', value: name, start, end: this.#offset };
         }
 
         throw DomqlError.syntax(`Unexpected '${character}'`, this.#text, start);
@@ -149,7 +146,7 @@ export class Tokenizer {
         }
 
         if (!Names.isName(name)) {
-            throw DomqlError.syntax(`'@${name}' names no parameter: '${name}' is a keyword`, this.#text, start + 1);
+            throw DomqlError.syntax(`'@${name}' names no parameter: '${name}' is a reserved word`, this.#text, start + 1);
         }
 
         return { type: 'parameter', value: name, start, end: this.#offset };

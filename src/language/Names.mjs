@@ -1,16 +1,33 @@
 /**
- * Names — DOMQL's names: how one is spelled
+ * Names — DOMQL's names: how one is spelled, and the words none can be
  */
 
 /** A letter followed by letters and digits, which is also a JavaScript identifier. */
 const PATTERN = /^[A-Za-z][A-Za-z0-9]*$/;
-
-/** The keywords: the literal tokens, `self` and the operators, which no name can be. */
-const RESERVED = new Set(['true', 'false', 'null', 'self', 'is', 'has', 'and', 'or', 'if', 'then', 'elseif', 'else', 'let']);
+const LITERALS = new Map([['true', true], ['false', false], ['null', null]]);
+const KEYWORDS = new Set(['self', 'is', 'has', 'and', 'or', 'if', 'then', 'elseif', 'else', 'let']);
 
 export class Names {
-    /** Whether the text is a name: a letter followed by letters and digits, and no keyword. */
+    /** The words no name can be: those that write a literal, and the keywords. */
+    static reservedWords = Object.freeze([...LITERALS.keys(), ...KEYWORDS]);
+
+    /** Whether the text is a name: a letter followed by letters and digits, and no reserved word. */
     static isName(text) {
-        return typeof text === 'string' && PATTERN.test(text) && !RESERVED.has(text);
+        return typeof text === 'string' && PATTERN.test(text) && !LITERALS.has(text) && !KEYWORDS.has(text);
+    }
+
+    /** Whether the word is a keyword. */
+    static isKeyword(word) {
+        return KEYWORDS.has(word);
+    }
+
+    /** Whether the word writes a literal. */
+    static isLiteral(word) {
+        return LITERALS.has(word);
+    }
+
+    /** The value of the literal the word writes. */
+    static literalValueOf(word) {
+        return LITERALS.get(word);
     }
 }

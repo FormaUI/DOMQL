@@ -46,9 +46,9 @@ export class Parser {
         return { definition: { version: Specification.definitionVersion, query }, spans: this.#spans };
     }
 
-    /** Reads an expression: a conditional, or operands joined by `and` and `or`, `and` binding tighter. */
+    /** Reads an expression: a conditional, or what a condition is. */
     #parseExpression() {
-        if (this.#isOperator('if')) {
+        if (this.#isKeyword('if')) {
             const start = this.#token.start;
 
             this.#advance();
@@ -56,18 +56,23 @@ export class Parser {
             return this.#parseClause(start);
         }
 
+        return this.#parseCondition();
+    }
+
+    /** Reads what a condition is: operands joined by `and` and `or`, `and` binding tighter, or an operand alone. */
+    #parseCondition() {
         return this.#parseLogical('or', () => this.#parseLogical('and', () => this.#parseOperand()));
     }
 
     /** Reads a conditional after its `if` or an `elseif`: its condition, a logical term or an operand, its consequent, and its alternative, an `elseif` being a conditional nested there. */
     #parseClause(start) {
-        if (this.#isOperator('if')) {
+        if (this.#isKeyword('if')) {
             throw DomqlError.syntax('A conditional that is a condition is enclosed in parentheses: write if (if … then … else …) then …', this.#text, this.#token.start);
         }
 
-        const condition = this.#parseLogical('or', () => this.#parseLogical('and', () => this.#parseOperand()));
+        const condition = this.#parseCondition();
 
-        if (!this.#isOperator('then')) {
+        if (!this.#isKeyword('then')) {
             throw this.#unexpected("'then' after the condition");
         }
 
@@ -76,12 +81,12 @@ export class Parser {
         const consequent = this.#parseExpression();
         let alternative;
 
-        if (this.#isOperator('elseif')) {
+        if (this.#isKeyword('elseif')) {
             const clause = this.#token.start;
 
             this.#advance();
             alternative = this.#parseClause(clause);
-        } else if (this.#isOperator('else')) {
+        } else if (this.#isKeyword('else')) {
             this.#advance();
             alternative = this.#parseExpression();
         } else {
@@ -91,7 +96,7 @@ export class Parser {
         return this.#span({ kind: 'conditional', condition, consequent, alternative }, start);
     }
 
-    /** Reads an operand: a chain, and a predicate expression of its value where a verb follows it. */
+    /** Reads an operand: a value, and a predicate expression of it where a verb follows it. */
     #parseOperand() {
         const start = this.#token.start;
 
@@ -99,17 +104,17 @@ export class Parser {
             throw DomqlError.syntax(`'${this.#token.value}' tests the value written before it: write 'self ${this.#token.value} …' to test the current value`, this.#text, start);
         }
 
-        if (this.#isOperator('if')) {
+        if (this.#isKeyword('if')) {
             throw DomqlError.syntax('A conditional that is an operand is enclosed in parentheses: write (if … then … else …)', this.#text, start);
         }
 
-        const chain = this.#parseChain();
+        const value = this.#parseValue();
 
-        return this.#isVerb() ? this.#parsePredicate(chain, start) : chain;
+        return this.#isVerb() ? this.#parsePredicate(value, start) : value;
     }
 
-    /** Reads a chain: an initial expression, the member accesses, calls and object expressions that follow it, and the named operation that may end it. */
-    #parseChain() {
+    /** Reads a value: an initial expression, the member accesses, calls and object expressions that continue it, and the named operation that may end it. */
+    #parseValue() {
         const start = this.#token.start;
 
         // A name that starts a chain is a local, which takes no argument, so one an argument follows is a member written without its receiver.
@@ -270,13 +275,13 @@ export class Parser {
         const start = this.#token.start;
         const first = parseOperand();
 
-        if (!this.#isOperator(operator)) {
+        if (!this.#isKeyword(operator)) {
             return first;
         }
 
         const operands = [first];
 
-        while (this.#isOperator(operator)) {
+        while (this.#isKeyword(operator)) {
             this.#advance();
             operands.push(parseOperand());
         }
@@ -388,7 +393,7 @@ export class Parser {
                 throw DomqlError.syntax(`'${this.#text.slice(token.start, token.end)}' is a literal, and names nothing`, this.#text, token.start);
             }
 
-            if (token.type === 'operator' || token.type === 'self') {
+            if (token.type === 'keyword' || token.type === 'self') {
                 throw DomqlError.syntax(`'${this.#text.slice(token.start, token.end)}' is a keyword, and names nothing`, this.#text, token.start);
             }
         }
@@ -409,16 +414,16 @@ export class Parser {
     }
 
     #isVerb() {
-        return this.#token.type === 'operator' && VERBS.has(this.#token.value);
+        return this.#token.type === 'keyword' && VERBS.has(this.#token.value);
     }
 
     /** Whether a local starts here: `let`, which a colon after it would make a field's name instead, a keyword that names nothing. */
     #isLocal() {
-        return this.#isOperator('let') && this.#tokens[this.#index + 1]?.type !== ':';
+        return this.#isKeyword('let') && this.#tokens[this.#index + 1]?.type !== ':';
     }
 
-    #isOperator(operator) {
-        return this.#token.type === 'operator' && this.#token.value === operator;
+    #isKeyword(word) {
+        return this.#token.type === 'keyword' && this.#token.value === word;
     }
 
     #advance() {

@@ -256,7 +256,7 @@ export class DefinitionValidator {
 
     #requireName(value, pointer) {
         if (!Names.isName(value)) {
-            this.#fail(pointer, 'A name is a letter followed by letters and digits, and no keyword: true, false, null, self, is, has, and, or, if, then, elseif, else or let');
+            this.#fail(pointer, `A name is a letter followed by letters and digits, and no reserved word: ${Names.reservedWords.join(', ')}`);
         }
     }
 
