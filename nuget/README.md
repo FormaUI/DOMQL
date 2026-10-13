@@ -4,6 +4,8 @@
 
 DOMQL is a small, extensible query language for reading DOM state as plain data. Describe what you need, and receive a snapshot shaped by your query.
 
+DOMQL is a FormaUI product, developed alongside [Forma](https://github.com/FormaUI/Forma). It is both a language and a JavaScript library, and it stands on its own.
+
 The `formaui-net.DOMQL` NuGet package supplies the JavaScript library as a single minified ES module at `_content/domql/domql.js`. It can be used by applications and libraries. The API documented here runs in JavaScript.
 
 ## Current capabilities

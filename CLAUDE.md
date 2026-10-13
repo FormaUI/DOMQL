@@ -20,7 +20,7 @@ The language knows only the DOM, and nothing here refers to a consumer of it.
 - Do keep experiments, spikes and notes that belong to a person under `.local/`, which git ignores whole.
 - Do write each module as one concept expressed as a class, taking its collaborators once in its constructor, with `#`-private mechanics; a family of pure helpers is a class with static members.
 - Do keep the entry composing its modules rather than re-exporting them.
-- Do keep DOMQL free of any consumer: no reference to Forma, a component, Blazor, a watcher or an engine, in code, comments or documents.
+- Do keep DOMQL free of any consumer: no code, comment or document depends on or describes Forma, a component, Blazor, a watcher or an engine as something DOMQL serves. FormaUI appears as DOMQL's publisher, and Forma as a product developed alongside it, only in the package's metadata and the READMEs' opening.
 - Do keep a module's registration apart from the instances it creates, as the design sets out.
 
 ## Scripts

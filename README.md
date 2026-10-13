@@ -4,6 +4,8 @@ DOMQL is a small, extensible query language for reading DOM state as plain data.
 
 Combine measurements, attributes, selection state and collection summaries in one query. Reuse that query as the document changes, or bind it to different elements.
 
+DOMQL is a FormaUI product, developed alongside [Forma](https://github.com/FormaUI/Forma). It is both a language and a JavaScript library, and it stands on its own.
+
 ## How DOMQL differs from jQuery
 
 jQuery gives JavaScript code methods for selecting elements, reading and changing the DOM, and handling events. To collect several facts into a result, your code calls those methods and assembles the data.
