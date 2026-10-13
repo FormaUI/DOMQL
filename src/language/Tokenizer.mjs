@@ -95,7 +95,7 @@ export class Tokenizer {
                 return { type: 'literal', value: Names.literalValueOf(name), start, end: this.#offset };
             }
 
-            // `self` stands where a value does, as a literal does, so it is a token of its own among the keywords.
+            // `self` is a keyword, given a token type of its own for the parser, which reads it where a value stands.
             if (name === 'self') {
                 return { type: 'self', start, end: this.#offset };
             }
