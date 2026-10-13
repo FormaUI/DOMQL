@@ -10,6 +10,9 @@ const CHANGED = ROWS / 2;
 /** Each row as data: its key, whether it is selected, and its box. */
 const ROWS_TEXT = '@table.all("tr") { key: self attributeOf "data-key", selected: self matches ".selected", box: self.rect { width: self.width, height: self.height } }';
 
+/** Each row as data again, its fields reading locals and choosing by conditionals. */
+const LOCALS_TEXT = '@table.all("tr") { let key: self attributeOf "data-key", let box: self.rect, key: key, state: if self matches ".selected" then "selected" else "plain", width: box.width, height: if key is null then 0 else box.height }';
+
 /** A table of rows, in the document, each with a key. */
 const createTable = () => {
     const table = document.createElement('table');
@@ -41,10 +44,15 @@ describe('read', () => {
     document.body.append(panel);
 
     const rows = Domql.parse(ROWS_TEXT, { table });
+    const locals = Domql.parse(LOCALS_TEXT, { table });
     const small = Domql.parse('@panel { key: self attributeOf "data-key", open: self matches ".open", count: self.children.count }', { panel });
 
     bench(`a list of ${ROWS} rows, each shaped`, () => {
         Domql.read(rows);
+    });
+
+    bench(`a list of ${ROWS} rows, each shaped through locals and conditionals`, () => {
+        Domql.read(locals);
     });
 
     bench('a small object, as a query', () => {
@@ -58,9 +66,9 @@ describe('read', () => {
 
 describe(`a watch of ${ROWS} rows, refreshed`, () => {
     /** A watch of a table of its own, and the table's row that changes. */
-    const createWatch = updateStrategy => {
+    const createWatch = (updateStrategy, text = ROWS_TEXT) => {
         const table = createTable();
-        const watch = Domql.watch(Domql.parse(ROWS_TEXT, { table }), {
+        const watch = Domql.watch(Domql.parse(text, { table }), {
             updateStrategy,
             acceptPartialObservation: true,
             // A change set is acknowledged as soon as it arrives, so the next is computed against it.
@@ -74,9 +82,14 @@ describe(`a watch of ${ROWS} rows, refreshed`, () => {
     const snapshots = createWatch('snapshot');
     const changeSets = createWatch('changeSet');
     const liveState = createWatch('liveState');
+    const locals = createWatch('snapshot', LOCALS_TEXT);
 
     bench('unchanged', async () => {
         await unchanged.watch.refreshAsync();
+    });
+
+    bench('unchanged, its rows shaped through locals and conditionals', async () => {
+        await locals.watch.refreshAsync();
     });
 
     bench('one row changed, delivering snapshots', async () => {
