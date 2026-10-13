@@ -332,6 +332,9 @@ A step is done when its tests pass in the gate, its documents say what it built,
 - **6. Actions and behaviors.** Done.
 - **7. Live state.** Done.
 - **8. The fluent builder.** Done; step 10 removed it, as D12 decides.
+- **10. Explicit receivers, calls and named operations.** Done: every receiver is written, and member access, calls and named operations are distinct, each written in the form its declaration takes.
+- **11. Conditional and logical expressions.** Done: conditionals with `elseif`, `is null`, groups, and `and` and `or` by the three-valued table, a watch comparing what a conditional gave by the branch it selected.
+- **12. Local values.** Done: `let` names a value once in an object expression, and the specification holds the complete grammar.
 
 ### 9. Measured performance
 
@@ -349,30 +352,6 @@ Make reads and watches cheaper where a measurement shows the work, leaving every
   - Keeping an observation's session across a watch's evaluations when the same request repeats. Decided and built for watches, as the design's sessions set out, refreshing a watch 37 to 39 percent faster again; reading once and subscribing take sessions over only where a measurement shows the gain.
   - A list's change set by its longest increasing subsequence, which sends one operation to move the first item to the end, where the current diff sends one for every other item. The current diff takes at most half a millisecond for 1,000 items in any order, so this is a question of a change set's size and of what applying and sending it costs downstream, which the workloads do not yet measure; it changes which operations are sent, and their order, ties and repeated elements are settled with it. Open.
 - **State:** in progress. Changes 1 and 2, and the session take-over, are built; change 3 is built in part, and so is change 4, whose key of a call's bindings remains with the change set by longest increasing subsequence.
-
-### 10. Explicit receivers, calls and named operations
-
-Write every receiver, and tell member access, calls and named operations apart, as D10 decides.
-
-- **Needs:** D10, D12.
-- **Done when:** the fluent builder is removed first, as D12 decides, with its generated types, the script that generates them and the documents that describe it, and every parser, writer and definition test it exercised kept as a test of its own; text and a definition each write member access, calls and named operations with explicit receivers, parsed, validated, written and resolved as D10 sets out, in definitions of version 3; `self` denotes the current value and is refused where there is none, and a definition whose member, call, named operation or predicate expression has no target is refused; an object argument is read by its declaration's input form; a bare member and a subjectless predicate are refused with an error giving the form with `self`; every operation and occurrence source declares its form and its input, the built-in vocabulary's as D10's table gives, a direct declaration having exactly one parameter, and a form its declaration does not take is refused with an error giving the one it does; an options object maps its fields onto the declared parameters before evaluation, each following its parameter's rules, refusing an unknown field, requiring the required and defaulting the optional; a named operation requires its separators; `rectRelativeTo` reads a rectangle relative to an element; every field is written with its name, a field without one is refused by the syntax and by the definition, and nothing infers one; a parameter is one token with its `@`, and an empty object expression is a syntax error; and the specification, the design, the READMEs and every example and test are written with explicit receivers, the specification stating what `self` is for every parameter.
-- **State:** done. The builder went first, so it was never migrated. Every receiver is written, `self` is the current value, and member access, calls and named operations are distinct nodes of definitions of version 3, each checked against the form its declaration takes; an argument supplies its member's input, directly or as an options object, and `rect` relative to an element is `rectRelativeTo`. Every field is written with its name, an empty object expression is a syntax error, and a parameter is one token. The specification states what `self` is in an argument by the kind of its parameter, and names the built-in expression parameters.
-
-### 11. Conditional and logical expressions
-
-Choose between two values, group expressions and combine Boolean expressions, as D10 decides.
-
-- **Needs:** D10, step 10.
-- **Done when:** text and a definition each write a conditional, an `elseif`, a group and a logical expression, parsed, validated, written and resolved as D10 sets out, a definition written back as text with the parentheses its grouping needs; `is` and `has` read one predicate name, held under `name`, and `and` and `or` combine complete Boolean expressions alone, answering as the three-valued table gives; an `elseif` is recorded as a conditional nested in the alternative before it and written back as `elseif`, parsing, writing and parsing again giving the same definition; `is null` answers whether its subject is null; true, false and null conditions select their branches; branches of one type with different nullability answer the nullable type, and branches of different types fail with a validation error naming both; only the selected branch and the operands evaluation reaches are evaluated, and a watch follows what was, matching a list a conditional gave by element and comparing a number it gave within the tolerance of the member its branch read, exactly where the branch changed; a group starts a chain, as `(if @wide then @panel else @sidebar).rect.width` does; and the specification, the design and the READMEs describe them, the earlier shorthand of predicate names replaced.
-- **State:** done. Groups and logical expressions came first: `is` and `has` read one predicate name under `name`, and `and` and `or` combine Boolean expressions by the three-valued table. Conditionals followed explicit receivers: a condition of false or null moves to the next clause, only the selected branch is evaluated, and the branches join into one type, nullable where either is; an `elseif` is a conditional nested in the alternative before it, written back as `elseif`; and `is null` answers whether its subject is null. Evaluation keeps the branch each conditional selected for each place in the result beside the elements its lists came from, so a watch compares what a conditional gave by the member its branch read, and every list projected from elements is matched by element wherever it stands.
-
-### 12. Local values
-
-Name a value once in an object expression and use it after, as D11 decides.
-
-- **Needs:** D11, step 10.
-- **Done when:** text and a definition each write locals, parsed, validated, written and resolved as D11 sets out; a bare name starting a chain is a local, and one no local in scope has is refused with an error giving the form with `self` where a member has that name; locals come before the fields, a local is visible only after it, and it refuses a name taken in its object expression or by an enclosing one, and is refused in an options object; its `self` is where it is written, which using it inside a nested projection leaves unchanged; each application of its object expression in each evaluation evaluates it at most once, at its first use there, so each item of a list gets its own and a later evaluation a fresh one; an unused local evaluates nothing and adds no dependency; it is never output, and a watch follows what it read, each of these with a test of its own; the specification, the design and the READMEs describe it; and the specification's grammar is D10's complete grammar, with its rule names and lexical rules, a condition and an operand of `and` or `or` any operand the grammar allows and Boolean by type, and a conditional that is a condition refused unless grouped, which the parser follows as its contract and which D10's retirement leaves to the specification alone.
-- **State:** done. An object expression names its locals with `let` before its fields, and a bare name that starts a chain uses one, resolved where it is written; a name no local in scope has is refused in resolution with the form of the current value's member of that name, and a duplicate or shadowing local by the structure. Each application of an object expression evaluates its locals at their first use, at most once, and a local gives the comparer the expression it names, so its tolerance and branches apply where it is used. The specification holds the complete grammar and every rule D10 and D11 decided, and both are retired.
 
 ### 13. The API
 
@@ -395,6 +374,14 @@ Diagnostics and completion over the grammar and the declaration metadata, withou
 The query object of D12 for a .NET host: `Domql.Query(text, bindings)` and its operations, `Domql.TryQuery`, typed mapping and snapshots, with `CancellationToken` for cancellation.
 
 - **Needs:** the JavaScript API settled (step 13), D4, D12.
+- **State:** not started.
+
+### 16. One type representation
+
+Describe the type a binding declares or reveals with `Type`, the representation resolution uses, so one model describes every type and resolution converts none.
+
+- **Needs:** nothing.
+- **Done when:** a binding's declared and inferred types are `Type` values, which resolution uses as they are; binding notation keeps exactly the types it admits, `number`, `string`, `boolean`, `element`, lists and object types, each nullable or not, so a binding still declares no type parameter, no occurrence type and no structured type a module declares, whatever reader the two notations share; and every error a binding reports reads as before.
 - **State:** not started.
 
 ## Departures from the design

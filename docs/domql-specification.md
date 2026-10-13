@@ -54,12 +54,11 @@ predicate        = "is" ( string | parameter | "null" )
 parameter        = "@" identifier
 literal          = string | number | "true" | "false" | "null"
 
-identifier       = name - keyword
+identifier       = name - reserved-word
 name             = letter { letter | digit }
-keyword          = "true" | "false" | "null" | "self"
-                 | "is" | "has" | "and" | "or"
-                 | "if" | "then" | "elseif" | "else"
-                 | "let"
+reserved-word    = "true" | "false" | "null" | keyword
+keyword          = "self" | "is" | "has" | "and" | "or"
+                 | "if" | "then" | "elseif" | "else" | "let"
 
 number           = [ "-" ] integer [ fraction ] [ exponent ]
 integer          = "0" | nonzero-digit { digit }
@@ -88,7 +87,7 @@ block-content    = ? characters up to, but excluding, the first closing */ ?
 end-of-input     = ? end of input ?
 ```
 
-An identifier is a name that is no keyword, as `matchesMedia` is; it holds no hyphen, so every identifier is also a JavaScript identifier. No keyword can be used as a name, and the restriction applies equally to text queries and to definitions created directly, wherever a name is declared or supplied: a member, a parameter, a field's or a local's name, and an extension's or a predicate's declaration. A string holding a keyword stays an ordinary string, so `self attributeOf "null"` reads the attribute named `null`. `document` and `window` name the roots, and no binding can take either. They are ordinary names everywhere else, so `window: @window { size: self.size }` names a field `window`. The tokens are names, numbers, strings and the punctuation the rules quote. Trivia, which is whitespace, line breaks included, and comments, may stand between any two tokens and never inside one, and is required where the grammar writes `separator`: between a named operation's receiver and its name, and between its name and its argument, so `self attributeOf"id"` is a syntax error. A parameter is one token, its `@` and its name together, so `@ panel` and `@/* the panel */panel` are syntax errors, as `- 5` is no number. Tokens are read by the longest match, and a keyword matches a whole name alone, so `isVisible` is an identifier; every match is exact, so `IS` is no keyword. A string takes `\"` and `\\` as its only escapes, and may hold a line break. A block comment does not nest, so the first `*/` closes it, and one never closed is a syntax error. Inside a string, `//` and `/*` are text, so `"https://example.com"` and `"/* */"` read as written.
+An identifier is a name that is no reserved word, as `matchesMedia` is; it holds no hyphen, so every identifier is also a JavaScript identifier. No reserved word, a literal's or a keyword, can be used as a name, and the restriction applies equally to text queries and to definitions created directly, wherever a name is declared or supplied: a member, a parameter, a field's or a local's name, and an extension's or a predicate's declaration. A string holding a reserved word stays an ordinary string, so `self attributeOf "null"` reads the attribute named `null`. `document` and `window` name the roots, and no binding can take either. They are ordinary names everywhere else, so `window: @window { size: self.size }` names a field `window`. The tokens are names, numbers, strings and the punctuation the rules quote. Trivia, which is whitespace, line breaks included, and comments, may stand between any two tokens and never inside one, and is required where the grammar writes `separator`: between a named operation's receiver and its name, and between its name and its argument, so `self attributeOf"id"` is a syntax error. A parameter is one token, its `@` and its name together, so `@ panel` and `@/* the panel */panel` are syntax errors, as `- 5` is no number. Tokens are read by the longest match, and a reserved word matches a whole name alone, so `isVisible` and `nullable` are identifiers; every match is exact, so `IS` is no keyword. A string takes `\"` and `\\` as its only escapes, and may hold a line break. A block comment does not nest, so the first `*/` closes it, and one never closed is a syntax error. Inside a string, `//` and `/*` are text, so `"https://example.com"` and `"/* */"` read as written.
 
 Each rule names what is written. A conjunction exists only where `and` is written, and a disjunction only where `or` is, so an expression with neither is an operand; a chain has at least one continuation, a member access, a call or an object expression, so `42` and `@panel` are initial expressions; and a `value` is the syntax that supplies a value, whose type resolution decides. A condition and an operand of `and` or `or` are Boolean by type, which validation checks, so a Boolean parameter, `if @wide then …`, and an operation answering a Boolean, `self matches ":focus" and @enabled`, are written as they read.
 

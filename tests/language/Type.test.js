@@ -7,9 +7,9 @@ describe('Type', () => {
             ['number', 'named', 'number', false],
             ['element?', 'named', 'element', true],
             ['rectangle', 'named', 'rectangle', false],
-            ['T', 'variable', 'T', false],
-            ['T?', 'variable', 'T', true],
-            ['@selected', 'variable', '@selected', false],
+            ['T', 'typeParameter', 'T', false],
+            ['T?', 'typeParameter', 'T', true],
+            ['@selected', 'typeParameter', '@selected', false],
             ['null', 'null', null, true],
         ])('reads %s', (text, kind, name, isNullable) => {
             const type = Type.parse(text);
@@ -20,7 +20,7 @@ describe('Type', () => {
         it('reads lists and occurrences by their item types', () => {
             expect(Type.parse('list<number>').itemType.name).toBe('number');
             expect(Type.parse('list<T>?')).toMatchObject({ kind: 'list', isNullable: true });
-            expect(Type.parse('occurrence<@selected>').itemType.kind).toBe('variable');
+            expect(Type.parse('occurrence<@selected>').itemType.kind).toBe('typeParameter');
             expect(Type.parse('list<list<element?>>').itemType.itemType.isNullable).toBe(true);
         });
 
@@ -38,7 +38,7 @@ describe('Type', () => {
             expect(Type.createNamedType('number').equals(Type.parse('number'))).toBe(true);
             expect(Type.createListType(Type.parse('element'), true).equals(Type.parse('list<element>?'))).toBe(true);
             expect(Type.createOccurrenceType(Type.parse('number')).equals(Type.parse('occurrence<number>'))).toBe(true);
-            expect(Type.createVariableType('T', true).equals(Type.parse('T?'))).toBe(true);
+            expect(Type.createTypeParameter('T', true).equals(Type.parse('T?'))).toBe(true);
             expect(Type.createObjectType(new Map([['width', Type.parse('number')]]), true).toString()).toBe('{ width: number }?');
         });
     });

@@ -704,7 +704,7 @@ export class QueryEvaluator {
         }
 
         switch (type.kind) {
-            case 'variable':
+            case 'typeParameter':
                 return true;
             case 'list':
                 return Array.isArray(value) && QueryEvaluator.#holeOf(value) === -1 && value.every(item => this.#conforms(item, type.itemType));

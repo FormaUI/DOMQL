@@ -1,18 +1,18 @@
 /**
- * Type — a DOMQL type: a named type, a list, an occurrence source, an object type or a type variable, each nullable or not
+ * Type — a DOMQL type: a named type, a list, an occurrence source, an object type or a type parameter, each nullable or not
  */
 
 const NAME = /^@?[A-Za-z][A-Za-z0-9]*$/;
-const VARIABLE = /^(?:[A-Z]|@[A-Za-z][A-Za-z0-9]*)$/;
+const TYPE_PARAMETER = /^(?:[A-Z]|@[A-Za-z][A-Za-z0-9]*)$/;
 
 export class Type {
     /** @type {Map<string, Type | null>} */
     static #parsed = new Map();
 
-    /** The type's kind: named, list, occurrence, object, variable or null. */
+    /** The type's kind: named, list, occurrence, object, typeParameter or null. */
     kind;
 
-    /** The type's name, for a named type or a variable. */
+    /** The type's name, for a named type or a type parameter. */
     name;
 
     /** The type of a list's or an occurrence's items. */
@@ -62,9 +62,9 @@ export class Type {
         return new Type('object', { fieldTypes, isNullable });
     }
 
-    /** A type variable, a parameter a declaration's types write that matching infers. */
-    static createVariableType(name, isNullable = false) {
-        return new Type('variable', { name, isNullable });
+    /** A type parameter a declaration's types write, whose argument matching infers. */
+    static createTypeParameter(name, isNullable = false) {
+        return new Type('typeParameter', { name, isNullable });
     }
 
     /** The type of a written null. */
@@ -129,7 +129,7 @@ export class Type {
      * @param {Map<string, Type>} typeArguments The arguments inferred so far, by parameter name, which matching adds to.
      */
     static tryMatchType(declaredType, actualType, typeArguments) {
-        if (declaredType.kind === 'variable') {
+        if (declaredType.kind === 'typeParameter') {
             const typeArgument = typeArguments.get(declaredType.name);
 
             if (typeArgument === undefined) {
@@ -153,7 +153,7 @@ export class Type {
      * @param {Map<string, Type>} typeArguments The arguments, by parameter name.
      */
     resolveTypeParameters(typeArguments) {
-        if (this.kind === 'variable') {
+        if (this.kind === 'typeParameter') {
             const typeArgument = typeArguments.get(this.name);
 
             if (typeArgument === undefined) {
@@ -281,8 +281,8 @@ class TypeReader {
             type = match[0] === 'list' ? Type.createListType(itemType) : Type.createOccurrenceType(itemType);
         } else if (match[0] === 'null') {
             type = Type.null;
-        } else if (VARIABLE.test(match[0])) {
-            type = Type.createVariableType(match[0]);
+        } else if (TYPE_PARAMETER.test(match[0])) {
+            type = Type.createTypeParameter(match[0]);
         } else if (match[0] === 'list' || match[0] === 'occurrence') {
             return null;
         } else {

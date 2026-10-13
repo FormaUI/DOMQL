@@ -59,7 +59,7 @@ describe('LanguageResolver', () => {
             ['an expression', '@panel.children.where(self.loose).count'],
             ['a receiver', '@panel.loose.count'],
             ['a subject', '@panel.loose is "attached"'],
-        ])('refuses a type variable no receiver binds as %s, so its value never reaches a result', (_, text) => {
+        ])('refuses a type parameter no receiver gives an argument as %s, so its value never reaches a result', (_, text) => {
             const registry = new ModuleRegistry([Vocabulary.module, new DomqlModule('loose', {
                 members: [{ name: 'loose', function: 'loose', kind: 'property', on: 'element', parameters: [], result: 'T', changes: 'constant', reads: 'fresh' }],
             }, null)]);

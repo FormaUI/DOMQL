@@ -223,9 +223,9 @@ export interface DomqlQuery<T = unknown> {
 }
 
 declare const domqlResult: unique symbol;
-/** A DOMQL type: a named type, a list, an occurrence source, an object type or a null, each nullable or not. */
+/** A DOMQL type: a named type, a list, an occurrence source, an object type, a type parameter or a null, each nullable or not. */
 export interface DomqlType {
-    readonly kind: 'named' | 'list' | 'occurrence' | 'object' | 'variable' | 'null';
+    readonly kind: 'named' | 'list' | 'occurrence' | 'object' | 'typeParameter' | 'null';
     readonly name: string | null;
     readonly itemType: DomqlType | null;
     readonly fieldTypes: ReadonlyMap<string, DomqlType> | null;
