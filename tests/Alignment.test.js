@@ -43,6 +43,6 @@ describe('Alignment', () => {
         const [, text, result] = specification.match(/## A complete query[\s\S]*?The query reads it:\s*```\n([\s\S]*?)```[\s\S]*?```json\n([\s\S]*?)```/);
         const resolved = Domql.resolve(Domql.parse(text, { panel: document.createElement('div'), sentinel: document.createElement('div') }));
 
-        expect([...resolved.type.fields.keys()]).toEqual(Object.keys(JSON.parse(result)));
+        expect([...resolved.type.fieldTypes.keys()]).toEqual(Object.keys(JSON.parse(result)));
     });
 });

@@ -227,8 +227,8 @@ declare const domqlResult: unique symbol;
 export interface DomqlType {
     readonly kind: 'named' | 'list' | 'occurrence' | 'object' | 'variable' | 'null';
     readonly name: string | null;
-    readonly item: DomqlType | null;
-    readonly fields: ReadonlyMap<string, DomqlType> | null;
+    readonly itemType: DomqlType | null;
+    readonly fieldTypes: ReadonlyMap<string, DomqlType> | null;
     readonly isNullable: boolean;
     /** The type in DOMQL's notation, such as `number?` or `list<element>`. */
     toString(): string;

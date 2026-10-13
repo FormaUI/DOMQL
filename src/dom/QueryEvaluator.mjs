@@ -10,7 +10,7 @@ import { QueryEvaluation } from './QueryEvaluation.mjs';
 /** @typedef {{ window: Window, document: Document }} Environment */
 
 /** What a predicate answers. */
-const BOOLEAN = Type.named('boolean');
+const BOOLEAN = Type.createNamedType('boolean');
 
 /** The observation of whether an element is attached, which a member that answered null for a detached element depends on. */
 const ATTACHMENT = Object.freeze({ type: 'attachment', of: 'receiver' });
@@ -611,12 +611,12 @@ export class QueryEvaluator {
     #capture(occurrence, node) {
         const pointer = this.#pointerOf(node);
         const { declaration, type } = this.#resolvedDefinition.resolutionOf(node);
-        const item = type.item;
-        const structure = item.kind === 'named' ? this.#moduleRegistry.getType(item.name) : undefined;
+        const { itemType } = type;
+        const structure = itemType.kind === 'named' ? this.#moduleRegistry.getType(itemType.name) : undefined;
 
         if (structure === undefined) {
-            if (!this.#conforms(occurrence, item)) {
-                this.#fail(`The source '${declaration.name}' delivered ${QueryEvaluator.#describe(occurrence)}, and its occurrences are ${item}`, pointer);
+            if (!this.#conforms(occurrence, itemType)) {
+                this.#fail(`The source '${declaration.name}' delivered ${QueryEvaluator.#describe(occurrence)}, and its occurrences are ${itemType}`, pointer);
             }
 
             return occurrence;
@@ -707,9 +707,9 @@ export class QueryEvaluator {
             case 'variable':
                 return true;
             case 'list':
-                return Array.isArray(value) && QueryEvaluator.#holeOf(value) === -1 && value.every(item => this.#conforms(item, type.item));
+                return Array.isArray(value) && QueryEvaluator.#holeOf(value) === -1 && value.every(item => this.#conforms(item, type.itemType));
             case 'object':
-                return QueryEvaluator.#isRecord(value) && [...type.fields].every(([name, field]) => this.#conforms(value[name], field));
+                return QueryEvaluator.#isRecord(value) && [...type.fieldTypes].every(([name, fieldType]) => this.#conforms(value[name], fieldType));
             default:
                 return this.#conformsNamed(value, type.name);
         }

@@ -16,19 +16,19 @@ export class Type {
     name;
 
     /** The type of a list's or an occurrence's items. */
-    item;
+    itemType;
 
-    /** An object type's fields by name. */
-    fields;
+    /** An object type's field types by name. */
+    fieldTypes;
 
     /** Whether the type admits null. */
     isNullable;
 
-    constructor(kind, { name = null, item = null, fields = null, isNullable = false } = {}) {
+    constructor(kind, { name = null, itemType = null, fieldTypes = null, isNullable = false } = {}) {
         this.kind = kind;
         this.name = name;
-        this.item = item;
-        this.fields = fields;
+        this.itemType = itemType;
+        this.fieldTypes = fieldTypes;
         this.isNullable = isNullable;
         Object.freeze(this);
     }
@@ -36,30 +36,35 @@ export class Type {
     /** The type the notation writes, or null where it is not a type. */
     static parse(text) {
         if (!Type.#parsed.has(text)) {
-            Type.#parsed.set(text, new Reader(text).readAll());
+            Type.#parsed.set(text, new TypeReader(text).readAll());
         }
 
         return Type.#parsed.get(text);
     }
 
     /** A named type. */
-    static named(name, isNullable = false) {
+    static createNamedType(name, isNullable = false) {
         return new Type('named', { name, isNullable });
     }
 
     /** A list of the item type. */
-    static list(item, isNullable = false) {
-        return new Type('list', { item, isNullable });
+    static createListType(itemType, isNullable = false) {
+        return new Type('list', { itemType, isNullable });
     }
 
     /** An occurrence source whose occurrences are of the item type. */
-    static occurrence(item, isNullable = false) {
-        return new Type('occurrence', { item, isNullable });
+    static createOccurrenceType(itemType, isNullable = false) {
+        return new Type('occurrence', { itemType, isNullable });
     }
 
-    /** The object type of the fields, by name. */
-    static object(fields, isNullable = false) {
-        return new Type('object', { fields, isNullable });
+    /** The object type of the field types, by name. */
+    static createObjectType(fieldTypes, isNullable = false) {
+        return new Type('object', { fieldTypes, isNullable });
+    }
+
+    /** A type variable, a parameter a declaration's types write that matching infers. */
+    static createVariableType(name, isNullable = false) {
+        return new Type('variable', { name, isNullable });
     }
 
     /** The type of a written null. */
@@ -71,26 +76,26 @@ export class Type {
 
     /** The same type, admitting null. */
     toNullable() {
-        return this.isNullable ? this : new Type(this.kind, { name: this.name, item: this.item, fields: this.fields, isNullable: true });
+        return this.isNullable ? this : new Type(this.kind, { name: this.name, itemType: this.itemType, fieldTypes: this.fieldTypes, isNullable: true });
     }
 
     /** The same type, admitting no null. */
     toNonNullable() {
-        return !this.isNullable || this.kind === 'null' ? this : new Type(this.kind, { name: this.name, item: this.item, fields: this.fields, isNullable: false });
+        return !this.isNullable || this.kind === 'null' ? this : new Type(this.kind, { name: this.name, itemType: this.itemType, fieldTypes: this.fieldTypes, isNullable: false });
     }
 
     /** Whether the two types are the same, nullability included. */
-    equals(other) {
-        if (this.kind !== other.kind || this.name !== other.name || this.isNullable !== other.isNullable) {
+    equals(otherType) {
+        if (this.kind !== otherType.kind || this.name !== otherType.name || this.isNullable !== otherType.isNullable) {
             return false;
         }
 
-        if (this.item !== null) {
-            return this.item.equals(other.item);
+        if (this.itemType !== null) {
+            return this.itemType.equals(otherType.itemType);
         }
 
-        if (this.fields !== null) {
-            return this.fields.size === other.fields.size && [...this.fields].every(([name, field]) => other.fields.get(name)?.equals(field) === true);
+        if (this.fieldTypes !== null) {
+            return this.fieldTypes.size === otherType.fieldTypes.size && [...this.fieldTypes].every(([name, fieldType]) => otherType.fieldTypes.get(name)?.equals(fieldType) === true);
         }
 
         return true;
@@ -103,10 +108,10 @@ export class Type {
         switch (this.kind) {
             case 'list':
             case 'occurrence':
-                text = `${this.kind}<${this.item}>`;
+                text = `${this.kind}<${this.itemType}>`;
                 break;
             case 'object':
-                text = `{ ${[...this.fields].map(([name, field]) => `${name}: ${field}`).join(', ')} }`;
+                text = `{ ${[...this.fieldTypes].map(([name, fieldType]) => `${name}: ${fieldType}`).join(', ')} }`;
                 break;
             case 'null':
                 return 'null';
@@ -117,115 +122,123 @@ export class Type {
         return this.isNullable ? `${text}?` : text;
     }
 
-    /** Matches a pattern's variables against the type, binding each to the part it stands for, or answers false where their structures differ. */
-    static unify(pattern, actual, bindings) {
-        if (pattern.kind === 'variable') {
-            const bound = bindings.get(pattern.name);
+    /**
+     * Whether the actual type matches the declared one, structure for structure: a type parameter the declared type writes matches any type, the first time it is met, and records that type as its argument; a parameter met again matches the type it recorded, nullability aside.
+     * @param {Type} declaredType
+     * @param {Type} actualType
+     * @param {Map<string, Type>} typeArguments The arguments inferred so far, by parameter name, which matching adds to.
+     */
+    static tryMatchType(declaredType, actualType, typeArguments) {
+        if (declaredType.kind === 'variable') {
+            const typeArgument = typeArguments.get(declaredType.name);
 
-            if (bound === undefined) {
-                bindings.set(pattern.name, actual);
+            if (typeArgument === undefined) {
+                typeArguments.set(declaredType.name, actualType);
 
                 return true;
             }
 
-            return bound.toNonNullable().equals(actual.toNonNullable());
+            return typeArgument.toNonNullable().equals(actualType.toNonNullable());
         }
 
-        if (pattern.kind !== actual.kind || pattern.name !== actual.name) {
+        if (declaredType.kind !== actualType.kind || declaredType.name !== actualType.name) {
             return false;
         }
 
-        return pattern.item === null || Type.unify(pattern.item, actual.item, bindings);
+        return declaredType.itemType === null || Type.tryMatchType(declaredType.itemType, actualType.itemType, typeArguments);
     }
 
-    /** The type with each bound variable replaced by what it stands for. */
-    static substitute(type, bindings) {
-        if (type.kind === 'variable') {
-            const bound = bindings.get(type.name);
+    /**
+     * The type with each type parameter that has an argument replaced by it, nullable where the parameter is; a concrete type, and a parameter with no argument, stay as they are.
+     * @param {Map<string, Type>} typeArguments The arguments, by parameter name.
+     */
+    resolveTypeParameters(typeArguments) {
+        if (this.kind === 'variable') {
+            const typeArgument = typeArguments.get(this.name);
 
-            if (bound === undefined) {
-                return type;
+            if (typeArgument === undefined) {
+                return this;
             }
 
-            return type.isNullable ? bound.toNullable() : bound;
+            return this.isNullable ? typeArgument.toNullable() : typeArgument;
         }
 
-        if (type.item !== null) {
-            return new Type(type.kind, { item: Type.substitute(type.item, bindings), isNullable: type.isNullable });
+        if (this.itemType !== null) {
+            return new Type(this.kind, { itemType: this.itemType.resolveTypeParameters(typeArguments), isNullable: this.isNullable });
         }
 
-        return type;
+        return this;
     }
 
     /**
      * The least type holding a value of either type: their one structure, nullable wherever either is, null being of every nullable type; null where their structures differ.
-     * @param {Type} first
-     * @param {Type} second
+     * @param {Type} firstType
+     * @param {Type} secondType
      */
-    static join(first, second) {
-        if (first.kind === 'null') {
-            return second.toNullable();
+    static merge(firstType, secondType) {
+        if (firstType.kind === 'null') {
+            return secondType.toNullable();
         }
 
-        if (second.kind === 'null') {
-            return first.toNullable();
+        if (secondType.kind === 'null') {
+            return firstType.toNullable();
         }
 
-        if (first.kind !== second.kind || first.name !== second.name) {
+        if (firstType.kind !== secondType.kind || firstType.name !== secondType.name) {
             return null;
         }
 
-        const isNullable = first.isNullable || second.isNullable;
+        const isNullable = firstType.isNullable || secondType.isNullable;
 
-        if (first.item !== null) {
-            const item = Type.join(first.item, second.item);
+        if (firstType.itemType !== null) {
+            const itemType = Type.merge(firstType.itemType, secondType.itemType);
 
-            return item === null ? null : new Type(first.kind, { item, isNullable });
+            return itemType === null ? null : new Type(firstType.kind, { itemType, isNullable });
         }
 
-        if (first.fields !== null) {
-            if (first.fields.size !== second.fields.size) {
+        if (firstType.fieldTypes !== null) {
+            if (firstType.fieldTypes.size !== secondType.fieldTypes.size) {
                 return null;
             }
 
-            const fields = new Map();
+            const fieldTypes = new Map();
 
-            for (const [name, field] of first.fields) {
-                const other = second.fields.get(name);
-                const joined = other === undefined ? null : Type.join(field, other);
+            for (const [name, fieldType] of firstType.fieldTypes) {
+                const otherFieldType = secondType.fieldTypes.get(name);
+                const merged = otherFieldType === undefined ? null : Type.merge(fieldType, otherFieldType);
 
-                if (joined === null) {
+                if (merged === null) {
                     return null;
                 }
 
-                fields.set(name, joined);
+                fieldTypes.set(name, merged);
             }
 
-            return new Type('object', { fields, isNullable });
+            return Type.createObjectType(fieldTypes, isNullable);
         }
 
-        return isNullable ? first.toNullable() : first;
+        return isNullable ? firstType.toNullable() : firstType;
     }
 
-    /** Whether a value of the actual type may stand where the expected type is declared, a list or an occurrence by its items. */
-    static isAssignable(actual, expected) {
-        if (actual.kind === 'null') {
-            return expected.isNullable;
+    /** Whether a value of this type may stand where the other type is declared, a list or an occurrence by its items. */
+    isAssignableTo(otherType) {
+        if (this.kind === 'null') {
+            return otherType.isNullable;
         }
 
-        if (actual.isNullable && !expected.isNullable) {
+        if (this.isNullable && !otherType.isNullable) {
             return false;
         }
 
-        if (actual.kind !== expected.kind || actual.name !== expected.name) {
+        if (this.kind !== otherType.kind || this.name !== otherType.name) {
             return false;
         }
 
-        return actual.item === null || Type.isAssignable(actual.item, expected.item);
+        return this.itemType === null || this.itemType.isAssignableTo(otherType.itemType);
     }
 }
 
-class Reader {
+class TypeReader {
     #text;
     #offset = 0;
 
@@ -258,22 +271,22 @@ class Reader {
             }
 
             this.#offset++;
-            const item = this.#readType();
+            const itemType = this.#readType();
 
-            if (item === null || this.#text[this.#offset] !== '>') {
+            if (itemType === null || this.#text[this.#offset] !== '>') {
                 return null;
             }
 
             this.#offset++;
-            type = new Type(match[0], { item });
+            type = match[0] === 'list' ? Type.createListType(itemType) : Type.createOccurrenceType(itemType);
         } else if (match[0] === 'null') {
             type = Type.null;
         } else if (VARIABLE.test(match[0])) {
-            type = new Type('variable', { name: match[0] });
+            type = Type.createVariableType(match[0]);
         } else if (match[0] === 'list' || match[0] === 'occurrence') {
             return null;
         } else {
-            type = Type.named(match[0]);
+            type = Type.createNamedType(match[0]);
         }
 
         if (this.#text[this.#offset] === '?') {

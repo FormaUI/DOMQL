@@ -42,7 +42,7 @@ export class LanguageResolver {
     resolveDefinition(definition) {
         const result = this.#node(definition.query, '/query', { current: null, locals: new Map() });
 
-        const resultType = result.kind === 'subscription' && result.type.kind === 'occurrence' ? result.type.item : result.type;
+        const resultType = result.kind === 'subscription' && result.type.kind === 'occurrence' ? result.type.itemType : result.type;
 
         if (result.kind !== 'behavior' && !this.#isData(resultType)) {
             this.#fail(`The result would hold ${resultType}, which is no data; read the facts it needs through an object expression`, '/query');
@@ -96,7 +96,7 @@ export class LanguageResolver {
 
         // Is null answers whether the subject is null, so it is never null itself.
         if (node.name.kind === 'literal' && node.name.value === null) {
-            return { type: Type.named('boolean'), kind: 'query', isFixed: false };
+            return { type: Type.createNamedType('boolean'), kind: 'query', isFixed: false };
         }
 
         if (subject.type.kind === 'null') {
@@ -105,7 +105,7 @@ export class LanguageResolver {
 
         this.#resolveName(node.name, `${pointer}/name`, verb, subject.type);
 
-        const type = Type.named('boolean');
+        const type = Type.createNamedType('boolean');
 
         return { type: subject.type.isNullable ? type.toNullable() : type, kind: 'query', isFixed: false };
     }
@@ -146,7 +146,7 @@ export class LanguageResolver {
 
             return result.type;
         });
-        const type = Type.join(...branches);
+        const type = Type.merge(...branches);
 
         if (type === null) {
             this.#fail(`The branches of 'if' are of one type, and these are ${branches[0]} and ${branches[1]}`, `${pointer}/alternative`);
@@ -174,7 +174,7 @@ export class LanguageResolver {
             isNullable ||= result.type.isNullable;
         });
 
-        const type = Type.named('boolean');
+        const type = Type.createNamedType('boolean');
 
         return { type: isNullable ? type.toNullable() : type, kind: 'query', isFixed: false };
     }
@@ -215,14 +215,14 @@ export class LanguageResolver {
 
     #literal(node) {
         const { value } = node;
-        const type = value === null ? Type.null : Type.named(typeof value);
+        const type = value === null ? Type.null : Type.createNamedType(typeof value);
 
         return { type, kind: 'query', isFixed: true, value };
     }
 
     #parameter(node, pointer) {
         if (node.name === 'document' || node.name === 'window') {
-            return { type: Type.named(node.name), kind: 'query', isFixed: false };
+            return { type: Type.createNamedType(node.name), kind: 'query', isFixed: false };
         }
 
         if (!this.#bindings.has(node.name)) {
@@ -270,18 +270,18 @@ export class LanguageResolver {
 
         this.#checkForm(declaration, node, pointer);
 
-        const matched = new Map();
-        LanguageResolver.#matchesReceiver(declaration, receiverType, matched);
+        const typeArguments = new Map();
+        LanguageResolver.#matchesReceiver(declaration, receiverType, typeArguments);
 
-        const resolved = this.#resolveArguments(declaration, node, pointer, scope, receiverType, matched);
+        const resolved = this.#resolveArguments(declaration, node, pointer, scope, receiverType, typeArguments);
 
-        const variables = new Map(matched);
+        const resultTypeArguments = new Map(typeArguments);
 
         if (resolved.selected !== undefined) {
-            variables.set('@selected', resolved.selected.type);
+            resultTypeArguments.set('@selected', resolved.selected.type);
         }
 
-        const declared = Type.substitute(Type.parse(declaration.result), variables);
+        const declared = Type.parse(declaration.result).resolveTypeParameters(resultTypeArguments);
 
         this.#used.push({ declaration, pointer });
         this.#resolutions.set(pointer, { kind: 'member', declaration, receiverType, type: declared, arguments: resolved.arguments, selected: resolved.selected, steps: resolved.steps });
@@ -346,7 +346,7 @@ export class LanguageResolver {
         return supplied;
     }
 
-    #resolveArguments(declaration, node, pointer, scope, receiverType, matched) {
+    #resolveArguments(declaration, node, pointer, scope, receiverType, typeArguments) {
         const parameters = declaration.parameters;
         const supplied = this.#suppliedArguments(declaration, node, pointer);
 
@@ -368,7 +368,7 @@ export class LanguageResolver {
             }
 
             const valuePointer = given.pointer;
-            const expected = Type.substitute(Type.parse(parameter.type), matched);
+            const expected = Type.parse(parameter.type).resolveTypeParameters(typeArguments);
             let result;
 
             if (parameter.kind === 'expression') {
@@ -376,10 +376,10 @@ export class LanguageResolver {
                     this.#fail(`'${declaration.name}' evaluates its expression against the items of a list, and ${receiverType.toNonNullable()} has none`, valuePointer);
                 }
 
-                result = this.#node(given.node, valuePointer, { current: receiverType.item.toNonNullable(), locals: scope.locals });
+                result = this.#node(given.node, valuePointer, { current: receiverType.itemType.toNonNullable(), locals: scope.locals });
                 this.#requireQuery(result, parameter, declaration, valuePointer);
 
-                if (!Type.isAssignable(result.type, expected)) {
+                if (!result.type.isAssignableTo(expected)) {
                     this.#fail(`The expression of '${declaration.name}' must produce ${expected} and produces ${result.type}`, valuePointer);
                 }
             } else {
@@ -422,14 +422,14 @@ export class LanguageResolver {
         }
 
         if (parameter.nulls === 'propagate') {
-            if (!Type.isAssignable(actual.toNonNullable(), expected.toNonNullable())) {
+            if (!actual.toNonNullable().isAssignableTo(expected.toNonNullable())) {
                 wrong();
             }
 
             return !actual.isNullable;
         }
 
-        if (!Type.isAssignable(actual, expected)) {
+        if (!actual.isAssignableTo(expected)) {
             wrong();
         }
 
@@ -467,7 +467,7 @@ export class LanguageResolver {
                     this.#fail(`'${name}' is no feature the vocabulary declares`, pointer);
                 }
 
-                return { selected: { name, type: Type.named('string') } };
+                return { selected: { name, type: Type.createNamedType('string') } };
         }
     }
 
@@ -495,9 +495,9 @@ export class LanguageResolver {
                 this.#fail(`'${segment}' names no property or operation of ${current.toNonNullable()} that reads without arguments`, pointer);
             }
 
-            const matched = new Map();
-            LanguageResolver.#matchesReceiver(declaration, current, matched);
-            current = Type.substitute(Type.parse(declaration.result), matched);
+            const typeArguments = new Map();
+            LanguageResolver.#matchesReceiver(declaration, current, typeArguments);
+            current = Type.parse(declaration.result).resolveTypeParameters(typeArguments);
             steps.push({ kind: 'member', declaration, type: current });
             isNullable ||= current.isNullable;
             this.#used.push({ declaration, pointer });
@@ -523,7 +523,7 @@ export class LanguageResolver {
                 this.#fail('An object expression follows null, which has no value to read fields of', pointer);
             }
 
-            current = target.type.kind === 'list' || target.type.kind === 'occurrence' ? target.type.item.toNonNullable() : target.type.toNonNullable();
+            current = target.type.kind === 'list' || target.type.kind === 'occurrence' ? target.type.itemType.toNonNullable() : target.type.toNonNullable();
         }
 
         // Each local is resolved where it is written, against the current value and the locals before it, and every field sees them all.
@@ -540,7 +540,7 @@ export class LanguageResolver {
             locals = new Map(locals).set(local.name, { result, value: local.value });
         });
 
-        const fields = new Map();
+        const fieldTypes = new Map();
 
         node.fields.forEach((field, index) => {
             const fieldPointer = `${pointer}/fields/${index}`;
@@ -555,18 +555,18 @@ export class LanguageResolver {
                 this.#fail(`The field '${name}' would hold ${result.type}, which is no data; read the facts it needs through an object expression`, `${fieldPointer}/value`);
             }
 
-            fields.set(name, result.type);
+            fieldTypes.set(name, result.type);
         });
 
-        const object = Type.object(fields);
+        const object = Type.createObjectType(fieldTypes);
         const isNullable = target?.type.isNullable === true;
 
         if (target?.type.kind === 'list') {
-            return { type: Type.list(object, isNullable), kind, isFixed: false };
+            return { type: Type.createListType(object, isNullable), kind, isFixed: false };
         }
 
         if (target?.type.kind === 'occurrence') {
-            return { type: Type.occurrence(object, isNullable), kind: 'subscription', isFixed: false };
+            return { type: Type.createOccurrenceType(object, isNullable), kind: 'subscription', isFixed: false };
         }
 
         return { type: isNullable ? object.toNullable() : object, kind, isFixed: false };
@@ -591,7 +591,7 @@ export class LanguageResolver {
     /** The field a structured type or an object type declares under the name, or null. */
     #getField(type, name) {
         if (type.kind === 'object') {
-            return type.fields.get(name) ?? null;
+            return type.fieldTypes.get(name) ?? null;
         }
 
         const structure = type.kind === 'named' ? this.#registry.getType(type.name) : undefined;
@@ -605,9 +605,9 @@ export class LanguageResolver {
             case 'null':
                 return true;
             case 'list':
-                return this.#isData(type.item);
+                return this.#isData(type.itemType);
             case 'object':
-                return [...type.fields.values()].every(field => this.#isData(field));
+                return [...type.fieldTypes.values()].every(fieldType => this.#isData(fieldType));
             case 'named': {
                 if (DATA.has(type.name)) {
                     return true;
@@ -650,12 +650,12 @@ export class LanguageResolver {
         }
     }
 
-    /** Whether the declaration applies to the receiver, binding the variables its types write. */
-    static #matchesReceiver(declaration, receiverType, bindings) {
-        return LanguageResolver.#matchesAny(declaration.on, receiverType, bindings);
+    /** Whether the declaration applies to the receiver, recording the arguments of the type parameters its types write. */
+    static #matchesReceiver(declaration, receiverType, typeArguments) {
+        return LanguageResolver.#matchesAny(declaration.on, receiverType, typeArguments);
     }
 
-    static #matchesAny(on, receiverType, bindings = new Map()) {
+    static #matchesAny(on, receiverType, typeArguments = new Map()) {
         const base = receiverType.toNonNullable();
 
         return [on].flat().some(text => {
@@ -663,7 +663,7 @@ export class LanguageResolver {
                 return base.kind === 'named' || base.kind === 'list' || base.kind === 'object';
             }
 
-            return Type.unify(Type.parse(text), base, bindings);
+            return Type.tryMatchType(Type.parse(text), base, typeArguments);
         });
     }
 
@@ -672,13 +672,13 @@ export class LanguageResolver {
 
         switch (binding.kind) {
             case 'list':
-                type = Type.list(LanguageResolver.#toType(binding.item));
+                type = Type.createListType(LanguageResolver.#toType(binding.item));
                 break;
             case 'object':
-                type = Type.object(new Map([...binding.fields].map(([name, field]) => [name, LanguageResolver.#toType(field)])));
+                type = Type.createObjectType(new Map([...binding.fields].map(([name, field]) => [name, LanguageResolver.#toType(field)])));
                 break;
             default:
-                type = Type.named(binding.kind);
+                type = Type.createNamedType(binding.kind);
         }
 
         return binding.isNullable ? type.toNullable() : type;

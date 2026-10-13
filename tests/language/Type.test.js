@@ -17,11 +17,11 @@ describe('Type', () => {
             expect(type).toMatchObject({ kind, name, isNullable });
         });
 
-        it('reads lists and occurrences by their items', () => {
-            expect(Type.parse('list<number>').item.name).toBe('number');
+        it('reads lists and occurrences by their item types', () => {
+            expect(Type.parse('list<number>').itemType.name).toBe('number');
             expect(Type.parse('list<T>?')).toMatchObject({ kind: 'list', isNullable: true });
-            expect(Type.parse('occurrence<@selected>').item.kind).toBe('variable');
-            expect(Type.parse('list<list<element?>>').item.item.isNullable).toBe(true);
+            expect(Type.parse('occurrence<@selected>').itemType.kind).toBe('variable');
+            expect(Type.parse('list<list<element?>>').itemType.itemType.isNullable).toBe(true);
         });
 
         it.each(['', 'list', 'list<>', 'list<number', 'number<number>', '1number', 'a-b', 'list<number>>', 'number?!', null, 5])('refuses %s', text => {
@@ -33,30 +33,47 @@ describe('Type', () => {
         });
     });
 
+    describe('create', () => {
+        it('makes each kind of type, nullable where asked', () => {
+            expect(Type.createNamedType('number').equals(Type.parse('number'))).toBe(true);
+            expect(Type.createListType(Type.parse('element'), true).equals(Type.parse('list<element>?'))).toBe(true);
+            expect(Type.createOccurrenceType(Type.parse('number')).equals(Type.parse('occurrence<number>'))).toBe(true);
+            expect(Type.createVariableType('T', true).equals(Type.parse('T?'))).toBe(true);
+            expect(Type.createObjectType(new Map([['width', Type.parse('number')]]), true).toString()).toBe('{ width: number }?');
+        });
+    });
+
     describe('toString', () => {
         it.each(['number', 'element?', 'list<T>', 'list<element>?', 'occurrence<@selected>', 'null'])('writes %s back as it was read', text => {
             expect(Type.parse(text).toString()).toBe(text);
         });
 
-        it('writes an object type by its fields', () => {
-            expect(Type.object(new Map([['width', Type.named('number')]])).toString()).toBe('{ width: number }');
+        it('writes an object type by its field types', () => {
+            expect(Type.createObjectType(new Map([['width', Type.createNamedType('number')]])).toString()).toBe('{ width: number }');
         });
     });
 
-    describe('unify', () => {
-        it('binds a variable to the part of the type it stands for', () => {
-            const bindings = new Map();
+    describe('tryMatchType', () => {
+        it('records the argument a type parameter matches', () => {
+            const typeArguments = new Map();
 
-            expect(Type.unify(Type.parse('list<T>'), Type.parse('list<element>'), bindings)).toBe(true);
-            expect(bindings.get('T').toString()).toBe('element');
+            expect(Type.tryMatchType(Type.parse('list<T>'), Type.parse('list<element>'), typeArguments)).toBe(true);
+            expect(typeArguments.get('T').toString()).toBe('element');
         });
 
-        it('keeps an item\'s nullability when it binds', () => {
-            const bindings = new Map();
+        it('keeps an item type\'s nullability in the argument it records', () => {
+            const typeArguments = new Map();
 
-            Type.unify(Type.parse('list<T>'), Type.parse('list<number?>'), bindings);
+            Type.tryMatchType(Type.parse('list<T>'), Type.parse('list<number?>'), typeArguments);
 
-            expect(bindings.get('T').toString()).toBe('number?');
+            expect(typeArguments.get('T').toString()).toBe('number?');
+        });
+
+        it('matches concrete types, recording nothing', () => {
+            const typeArguments = new Map();
+
+            expect(Type.tryMatchType(Type.parse('list<element>'), Type.parse('list<element>'), typeArguments)).toBe(true);
+            expect(typeArguments.size).toBe(0);
         });
 
         it.each([
@@ -64,57 +81,59 @@ describe('Type', () => {
             ['list<T>', 'occurrence<number>'],
             ['element', 'window'],
             ['rectangle', 'size'],
-        ])('refuses %s against %s', (pattern, actual) => {
-            expect(Type.unify(Type.parse(pattern), Type.parse(actual), new Map())).toBe(false);
+        ])('refuses %s against %s', (declaredType, actualType) => {
+            expect(Type.tryMatchType(Type.parse(declaredType), Type.parse(actualType), new Map())).toBe(false);
         });
 
-        it('requires a variable met twice to stand for one type', () => {
-            const bindings = new Map([['T', Type.parse('number')]]);
+        it('requires a type parameter met twice to match one type', () => {
+            const typeArguments = new Map([['T', Type.parse('number')]]);
 
-            expect(Type.unify(Type.parse('T'), Type.parse('number?'), bindings)).toBe(true);
-            expect(Type.unify(Type.parse('T'), Type.parse('string'), bindings)).toBe(false);
-        });
-    });
-
-    describe('substitute', () => {
-        it('replaces a bound variable, keeping the nullability the pattern wrote', () => {
-            const bindings = new Map([['T', Type.parse('element')]]);
-
-            expect(Type.substitute(Type.parse('T?'), bindings).toString()).toBe('element?');
-            expect(Type.substitute(Type.parse('list<T>'), bindings).toString()).toBe('list<element>');
-            expect(Type.substitute(Type.parse('number'), bindings).toString()).toBe('number');
-        });
-
-        it('leaves a variable nothing bound', () => {
-            expect(Type.substitute(Type.parse('U'), new Map()).toString()).toBe('U');
+            expect(Type.tryMatchType(Type.parse('T'), Type.parse('number?'), typeArguments)).toBe(true);
+            expect(Type.tryMatchType(Type.parse('T'), Type.parse('string'), typeArguments)).toBe(false);
         });
     });
 
-    describe('join', () => {
-        const join = (first, second) => Type.join(Type.parse(first), Type.parse(second))?.toString() ?? null;
+    describe('resolveTypeParameters', () => {
+        it('replaces a type parameter by its argument, keeping the nullability the parameter wrote', () => {
+            const typeArguments = new Map([['T', Type.parse('element')]]);
+
+            expect(Type.parse('T?').resolveTypeParameters(typeArguments).toString()).toBe('element?');
+            expect(Type.parse('list<T>').resolveTypeParameters(typeArguments).toString()).toBe('list<element>');
+        });
+
+        it('leaves a concrete type, and a type parameter with no argument, as they are', () => {
+            const concrete = Type.parse('number');
+
+            expect(concrete.resolveTypeParameters(new Map([['T', Type.parse('element')]]))).toBe(concrete);
+            expect(Type.parse('U').resolveTypeParameters(new Map()).toString()).toBe('U');
+        });
+    });
+
+    describe('merge', () => {
+        const merge = (firstType, secondType) => Type.merge(Type.parse(firstType), Type.parse(secondType))?.toString() ?? null;
 
         it('answers the one type of both, nullable where either is', () => {
-            expect(join('number', 'number')).toBe('number');
-            expect(join('number', 'number?')).toBe('number?');
-            expect(join('null', 'string')).toBe('string?');
-            expect(join('list<element>', 'list<element?>')).toBe('list<element?>');
+            expect(merge('number', 'number')).toBe('number');
+            expect(merge('number', 'number?')).toBe('number?');
+            expect(merge('null', 'string')).toBe('string?');
+            expect(merge('list<element>', 'list<element?>')).toBe('list<element?>');
         });
 
-        it('joins object types field by field, whatever their order', () => {
-            const first = Type.object(new Map([['a', Type.parse('number')], ['b', Type.parse('string')]]));
-            const second = Type.object(new Map([['b', Type.parse('string?')], ['a', Type.parse('number')]]));
+        it('merges object types field by field, whatever their order', () => {
+            const firstType = Type.createObjectType(new Map([['a', Type.parse('number')], ['b', Type.parse('string')]]));
+            const secondType = Type.createObjectType(new Map([['b', Type.parse('string?')], ['a', Type.parse('number')]]));
 
-            expect(Type.join(first, second).toString()).toBe('{ a: number, b: string? }');
+            expect(Type.merge(firstType, secondType).toString()).toBe('{ a: number, b: string? }');
         });
 
         it('answers null for types of different structures', () => {
-            expect(join('number', 'string')).toBeNull();
-            expect(join('list<number>', 'list<string>')).toBeNull();
-            expect(Type.join(Type.object(new Map([['a', Type.parse('number')]])), Type.object(new Map([['b', Type.parse('number')]])))).toBeNull();
+            expect(merge('number', 'string')).toBeNull();
+            expect(merge('list<number>', 'list<string>')).toBeNull();
+            expect(Type.merge(Type.createObjectType(new Map([['a', Type.parse('number')]])), Type.createObjectType(new Map([['b', Type.parse('number')]])))).toBeNull();
         });
     });
 
-    describe('isAssignable', () => {
+    describe('isAssignableTo', () => {
         it.each([
             ['number', 'number', true],
             ['number', 'number?', true],
@@ -129,8 +148,8 @@ describe('Type', () => {
             ['list<number>', 'list<string>', false],
             ['number', 'list<number>', false],
             ['element', 'window', false],
-        ])('answers %s to %s as %s', (actual, expected, answer) => {
-            expect(Type.isAssignable(Type.parse(actual), Type.parse(expected))).toBe(answer);
+        ])('answers %s to %s as %s', (actualType, otherType, answer) => {
+            expect(Type.parse(actualType).isAssignableTo(Type.parse(otherType))).toBe(answer);
         });
     });
 

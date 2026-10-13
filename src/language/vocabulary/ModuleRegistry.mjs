@@ -224,6 +224,6 @@ export class ModuleRegistry {
             return true;
         }
 
-        return Type.unify(Type.parse(first), Type.parse(second), new Map()) || Type.unify(Type.parse(second), Type.parse(first), new Map());
+        return Type.tryMatchType(Type.parse(first), Type.parse(second), new Map()) || Type.tryMatchType(Type.parse(second), Type.parse(first), new Map());
     }
 }
