@@ -1,5 +1,5 @@
 /**
- * QueryEvaluator — evaluates a resolved request, answering detached data: a query as it reads now, and a subscription's projection of each occurrence its source delivers
+ * QueryEvaluator — evaluates a resolved request, answering detached data: a query as it reads now, and a subscription's projection of each event its source delivers
  */
 
 import { DomqlError } from '../language/DomqlError.mjs';
@@ -46,8 +46,12 @@ export class QueryEvaluator {
     /** The identities of the value `#detach` detached last. @type {import('../snapshots/SnapshotPatcher.mjs').Identities} */
     #detachedIdentities = null;
 
-    /** The value that stands for the member the request ends in while its projection is evaluated, an occurrence or an action's result, and the member's node, or null outside a projection. @type {{ node: object, value: unknown } | null} */
-    #occurrence = null;
+    /**
+     * The terminal member's node and value while evaluating its projection.
+     * The value is an event or an action result. The context is null outside a projection.
+     * @type {{ node: object, value: unknown } | null}
+     */
+    #projectionContext = null;
 
     /**
      * @param {import('../language/vocabulary/ModuleRegistry.mjs').ModuleRegistry} moduleRegistry The vocabulary the request was resolved against.
@@ -85,15 +89,15 @@ export class QueryEvaluator {
     }
 
     /**
-     * Resolves the occurrence source the subscription ends in into what starts it: the source's name, the function that carries it out, the receiver and arguments it is called with and the environment, how each occurrence it delivers is captured, and where it stands, for a failure to name.
+     * Resolves the event source the subscription ends in into what starts it: the source's name, the function that carries it out, the receiver and arguments it is called with and the environment, how each event it delivers is captured, and where it stands, for a failure to name.
      * The receiver and arguments are evaluated once, now; where one of them is null there is nothing to listen to, and the answer is null.
-     * `capture` answers an occurrence as the fields its type declares, read as it is called: a field the occurrence does not carry as a value its type admits is null where the type is nullable, and fails the capture where it is not; an occurrence of a type with no fields is taken whole, where it is of its type.
-     * @returns {{ name: string, start: Function, capture: (occurrence: unknown) => unknown, receiver: unknown, args: Record<string, unknown>, environment: Environment, location: object } | null}
+     * `capture` answers an event as the fields its type declares, read as it is called: a field the event does not carry as a value its type admits is null where the type is nullable, and fails the capture where it is not; an event of a type with no fields is taken whole, where it is of its type.
+     * @returns {{ name: string, start: Function, capture: (event: unknown) => unknown, receiver: unknown, args: Record<string, unknown>, environment: Environment, location: object } | null}
      */
     resolveSource() {
         const call = this.#resolveCall('subscription', 'subscribed to');
 
-        return call.args === null ? null : { name: call.name, start: call.implementation, capture: occurrence => this.#capture(occurrence, call.node), receiver: call.receiver, args: call.args, environment: call.environment, location: call.location };
+        return call.args === null ? null : { name: call.name, start: call.implementation, capture: event => this.#capture(event, call.node), receiver: call.receiver, args: call.args, environment: call.environment, location: call.location };
     }
 
     /**
@@ -132,12 +136,12 @@ export class QueryEvaluator {
             this.#fail(`The action '${declaration.name}' answered ${QueryEvaluator.#describe(result)}, and it declares ${type}`, pointer);
         }
 
-        this.#occurrence = { node, value: result };
+        this.#projectionContext = { node, value: result };
 
         try {
             return this.#evaluateResult().value;
         } finally {
-            this.#occurrence = null;
+            this.#projectionContext = null;
         }
     }
 
@@ -163,22 +167,22 @@ export class QueryEvaluator {
     }
 
     /**
-     * Evaluates the object expression that follows the occurrence source against one occurrence, as its source captured it, and records the observations its maintained members read.
-     * A maintained member answers its latest sample, or null while the sample is pending, and is never waited for; the evaluation holds the sessions that keep its samples, so the caller keeps them for the next occurrence and disposes the evaluation once it has the next one. A failure ends the evaluation without throwing.
-     * @param {unknown} occurrence The occurrence, as `capture` answered it.
+     * Evaluates the object expression that follows the event source against one event, as its source captured it, and records the observations its maintained members read.
+     * A maintained member answers its latest sample, or null while the sample is pending, and is never waited for; the evaluation holds the sessions that keep its samples, so the caller keeps them for the next event and disposes the evaluation once it has the next one. A failure ends the evaluation without throwing.
+     * @param {unknown} event The event, as `capture` answered it.
      * @param {object} recording Where the dependencies are observed.
      * @param {import('./Observations.mjs').Observations} recording.observations The observations of the window the subscription listens in.
      */
-    project(occurrence, { observations }) {
+    project(event, { observations }) {
         return this.#record({ observations, onChange: () => {}, holdsAll: false, replaces: null, waits: false }, () => {
             const { node } = this.#endNode();
 
-            this.#occurrence = { node, value: occurrence };
+            this.#projectionContext = { node, value: event };
 
             try {
                 return this.#evaluateResult();
             } finally {
-                this.#occurrence = null;
+                this.#projectionContext = null;
             }
         });
     }
@@ -360,9 +364,9 @@ export class QueryEvaluator {
     }
 
     #member(node, current) {
-        // A projection stands the occurrence or the result where its member is, so that member is never read again.
-        if (node === this.#occurrence?.node) {
-            return this.#occurrence.value;
+        // A projection stands the event or the result where its member is, so that member is never read again.
+        if (node === this.#projectionContext?.node) {
+            return this.#projectionContext.value;
         }
 
         const receiver = this.#evaluate(node.target, current);
@@ -607,32 +611,32 @@ export class QueryEvaluator {
         return { node, pointer };
     }
 
-    /** The occurrence as the fields its type declares, read now, so a projection never holds what the source delivered. */
-    #capture(occurrence, node) {
+    /** The event as the fields its type declares, read now, so a projection never holds what the source delivered. */
+    #capture(event, node) {
         const pointer = this.#pointerOf(node);
         const { declaration, type } = this.#resolvedDefinition.resolutionOf(node);
         const { itemType } = type;
         const structure = itemType.kind === 'named' ? this.#moduleRegistry.getType(itemType.name) : undefined;
 
         if (structure === undefined) {
-            if (!this.#conforms(occurrence, itemType)) {
-                this.#fail(`The source '${declaration.name}' delivered ${QueryEvaluator.#describe(occurrence)}, and its occurrences are ${itemType}`, pointer);
+            if (!this.#conforms(event, itemType)) {
+                this.#fail(`The source '${declaration.name}' delivered ${QueryEvaluator.#describe(event)}, and its event data is ${itemType}`, pointer);
             }
 
-            return occurrence;
+            return event;
         }
 
         const captured = {};
 
         for (const [name, fieldType] of QueryEvaluator.#fieldTypesOf(structure)) {
-            const value = occurrence?.[name];
+            const value = event?.[name];
 
             if (this.#conforms(value, fieldType)) {
                 captured[name] = value;
             } else if (fieldType.isNullable) {
                 captured[name] = null;
             } else {
-                this.#fail(`The source '${declaration.name}' delivered an occurrence whose '${name}' is ${QueryEvaluator.#describe(value)}, and its type declares ${fieldType}`, pointer);
+                this.#fail(`The source '${declaration.name}' delivered an event whose '${name}' is ${QueryEvaluator.#describe(value)}, and its type declares ${fieldType}`, pointer);
             }
         }
 

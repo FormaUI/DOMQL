@@ -1,6 +1,6 @@
 # DOMQL Specification v1.0.0-alpha
 
-DOMQL is a small language for querying the DOM: a query names what its caller wants to know about a document and its elements, and evaluating it gives one result shaped the way it asked. The same query is read once, watched for changes, or evaluated at each occurrence of something that happened in the document, and the actions and behaviors a caller asks the browser for are requests of their own kinds. The language knows how to name values and shape results; what can be asked about, an element's size, a computed style, whether it matches a selector, comes from a vocabulary beside it, so adding to what can be asked never changes the language.
+DOMQL is a small language for querying the DOM: a query names what its caller wants to know about a document and its elements, and evaluating it gives one result shaped the way it asked. The same query is read once, watched for changes, or evaluated at each event in the document, and the actions and behaviors a caller asks the browser for are requests of their own kinds. The language knows how to name values and shape results; what can be asked about, an element's size, a computed style, whether it matches a selector, comes from a vocabulary beside it, so adding to what can be asked never changes the language.
 
 This specification defines the language: its syntax, what each request means, the contracts of its vocabulary and the definition every request has. The [DOMQL design](domql-design.md) sets out how requests are built, prepared and carried out.
 
@@ -8,7 +8,7 @@ This specification describes the whole language. An implementation may cover par
 
 ## Terms
 
-A **query** is a value expression whose evaluation produces a **result**. An **initial expression** is `self`, a parameter, a local, a literal, an object expression or a group, and a **chain** follows **members** from one, each of the value before it, its **receiver**: a **member access** reads a property, `self.rect`, a **call** invokes an operation with parentheses, `self.closest(".row")`, and a **named operation** follows its receiver after a space, `self attributeOf "data-key"`. A member belongs to a **type**, such as an element, a list or a rectangle, and a call or a named operation can take an **argument**. `self` is the **current value**, the value an object expression or an argument is evaluated against. An **object expression** names the **fields** of the **object** it produces, each with a value, and the object's **object type** describes those fields and their types. A **local** names a value in an object expression, written once with `let` and used by its name in the entries after it. A **predicate expression** asks whether a value satisfies a **predicate**, a name the vocabulary registers, with `is` or `has`. A **logical expression** combines Boolean expressions with `and` and `or`, a **conditional** chooses between two values by a Boolean condition, and a **group** is an expression in parentheses. A **parameter** is a name a query reads a value through, such as `@panel`, and a **binding** is the value the caller supplies for it, such as an element. A **vocabulary** is a set of types and their members; the **built-in vocabulary** comes with DOMQL, and an **extension** is a vocabulary registered under a name of its own. An **occurrence source** is a member whose value is a stream of occurrences, things that happened, rather than state. An **action** is an operation the browser carries out once, and a **behavior** one that runs on until it is updated or disposed; a **request** is a query, a subscription, an action or a behavior request. A query's **definition** is the JSON document recording its meaning, and every request has one.
+A **query** is a value expression whose evaluation produces a **result**. An **initial expression** is `self`, a parameter, a local, a literal, an object expression or a group, and a **chain** follows **members** from one, each of the value before it, its **receiver**: a **member access** reads a property, `self.rect`, a **call** invokes an operation with parentheses, `self.closest(".row")`, and a **named operation** follows its receiver after a space, `self attributeOf "data-key"`. A member belongs to a **type**, such as an element, a list or a rectangle, and a call or a named operation can take an **argument**. `self` is the **current value**, the value an object expression or an argument is evaluated against. An **object expression** names the **fields** of the **object** it produces, each with a value, and the object's **object type** describes those fields and their types. A **local** names a value in an object expression, written once with `let` and used by its name in the entries after it. A **predicate expression** asks whether a value satisfies a **predicate**, a name the vocabulary registers, with `is` or `has`. A **logical expression** combines Boolean expressions with `and` and `or`, a **conditional** chooses between two values by a Boolean condition, and a **group** is an expression in parentheses. A **parameter** is a name a query reads a value through, such as `@panel`, and a **binding** is the value the caller supplies for it, such as an element. A **vocabulary** is a set of types and their members; the **built-in vocabulary** comes with DOMQL, and an **extension** is a vocabulary registered under a name of its own. An **event source** is a member whose value is a stream of **events**, things that happened, rather than state; an event belongs to an **event type**, such as `click`, and what its source captured of it is its **event data**. An **action** is an operation the browser carries out once, and a **behavior** one that runs on until it is updated or disposed; a **request** is a query, a subscription, an action or a behavior request. A query's **definition** is the JSON document recording its meaning, and every request has one.
 
 ## Syntax
 
@@ -121,7 +121,7 @@ self attributeOf "data-key"                    // A named operation.
 - **A call** takes no argument or one, any expression, inside its parentheses, and the chain continues after it.
 - **A named operation** follows its receiver after a separator and takes no argument or one, an initial expression after another separator: `self`, a parameter, a local, a literal, an object expression or a group. It ends its chain, and a group continues from its result.
 - **One argument.** Neither form takes named arguments or several positional ones: an operation with several parameters takes them as the fields of one object, `@sentinel intersects { root: @panel, margin: 200 }`, so `self.closest(".a", ".b")` and `@panel intersects @container 200` are syntax errors.
-- **The form a member takes** is its declaration's: a property is accessed, and an operation or an occurrence source is a call unless it is declared a named operation. Writing a member in another form is a validation error that gives the form it takes: `'attributeOf' is a named operation: write 'self attributeOf "data-key"'`. The forms of the built-in vocabulary are in its tables.
+- **The form a member takes** is its declaration's: a property is accessed, and an operation or an event source is a call unless it is declared a named operation. Writing a member in another form is a validation error that gives the form it takes: `'attributeOf' is a named operation: write 'self attributeOf "data-key"'`. The forms of the built-in vocabulary are in its tables.
 
 The boundaries are decided by the text alone, never by how many parameters an operation declares, so the grammar needs no vocabulary and every member of every vocabulary takes it alike.
 
@@ -258,9 +258,9 @@ A field answers the key its name is written as, and how a consumer matches keys 
 
 ## Values
 
-A value is a number, a string, a Boolean, null, a list, a structured value such as a rectangle, an element, the window, the document, or an occurrence source. A member's signature declares its result type, as the section on types sets out, and a result marked `?` can be null by itself; any member answers null when its receiver or an argument is null and its parameter propagates null.
+A value is a number, a string, a Boolean, null, a list, a structured value such as a rectangle, an element, the window, the document, or an event source. A member's signature declares its result type, as the section on types sets out, and a result marked `?` can be null by itself; any member answers null when its receiver or an argument is null and its parameter propagates null.
 
-A result is data: numbers, strings, Booleans, null, lists and objects. An element or an occurrence source has no data form, so a query whose result would contain one is a validation error; a query reads the facts it needs of an element through an object expression.
+A result is data: numbers, strings, Booleans, null, lists and objects. An element or an event source has no data form, so a query whose result would contain one is a validation error; a query reads the facts it needs of an element through an object expression.
 
 ### Objects
 
@@ -284,11 +284,11 @@ CSS selectors and `where` are the two ways a query filters: a selector chooses e
 
 A value has a type, and every member declares the types it works with. Type checking is part of preparation: a request that cannot be typed is a validation error naming where it fails, the type it expected and the type it found, before anything is evaluated.
 
-The types are `number`, `string`, `boolean`, `element`, `window` and `document`; `list<T>` of items of type `T`; the structured values, each with named fields of declared types, such as `rectangle`, `size` and `selection`, the object types of the objects a query's object expressions produce, and any a module declares; and `occurrence<T>`, an occurrence source whose occurrences are of type `T`. A module can declare types of its own. `null` is a value of every type that is written with a `?`: `T?` is a `T` or null.
+The types are `number`, `string`, `boolean`, `element`, `window` and `document`; `list<T>` of items of type `T`; the structured values, each with named fields of declared types, such as `rectangle`, `size` and `selection`, the object types of the objects a query's object expressions produce, and any a module declares; and `event<T>`, an event source whose events carry event data of type `T`. A module can declare types of its own. `null` is a value of every type that is written with a `?`: `T?` is a `T` or null.
 
 ### What a member declares
 
-An operation's or an occurrence source's form is a call unless it is declared a named operation, which is a deliberate choice for one that reads as a sentence about its receiver, and the documentation states it. Its input is direct where it has exactly one parameter, which its module's registration checks, and options where it has several. Changing a member's input is a breaking change, as renaming it is, so an operation that may grow is declared with options from the start.
+An operation's or an event source's form is a call unless it is declared a named operation, which is a deliberate choice for one that reads as a sentence about its receiver, and the documentation states it. Its input is direct where it has exactly one parameter, which its module's registration checks, and options where it has several. Changing a member's input is a breaking change, as renaming it is, so an operation that may grow is declared with options from the start.
 
 A member's signature declares its receiver type, its form and its input, then each parameter's order, name, type, whether it is required or what it defaults to, and how it handles null, and its result type. Optional and nullable are separate: an optional parameter may be omitted, and a nullable one may be given null. Unless a table marks a parameter optional, it is required: omitting a required argument is a validation error, and supplying null follows its declared null policy. It is only part of the member's contract: the member also declares its evaluation context, how it changes and how it reads, and the request kind it belongs to. A parameter is a value argument or an expression argument, and an expression argument declares the type of the item it is evaluated against and the type it must produce:
 
@@ -298,7 +298,7 @@ A member's signature declares its receiver type, its form and its input, then ea
 
 These expressions declare a nullable result because they consume null per item instead of propagating it to the whole call: `where` leaves out an item whose expression is null, `max` and `min` skip it and answer null when every item was skipped, and `sum` skips it and answers zero when every item was skipped or the list is empty. So `@table.all("tbody tr").max(self.rect.height)` and `@panel.all("[data-key]").where(self intersects { root: @panel })` are valid although `rect.height` and `intersects` can answer null.
 
-- An object expression following an `occurrence<T>` is evaluated against that occurrence, a `T`.
+- An object expression following an `event<T>` is evaluated against that event, a `T`.
 
 ### No conversion
 
@@ -331,13 +331,13 @@ A request is one of four kinds, and the member its chain ends in decides which:
 | Kind | Its chain ends in | Its caller |
 | --- | --- | --- |
 | Query | A value | Reads it once or watches it |
-| Subscription | An occurrence source | Subscribes to it |
+| Subscription | An event source | Subscribes to it |
 | Action | An action | Runs it once, receiving its result |
 | Behavior request | A behavior | Activates it, updates it with new bindings, and disposes it |
 
 An action is an operation the browser carries out once, and a behavior is one that runs on in the browser until it is updated or disposed; both are members an extension declares, with signatures as every member has. An object expression can follow an action to shape its result. An action or a behavior ends its request's chain, so one inside a query, an argument or another request's object expression is a validation error.
 
-Reading or watching a query never performs an action or configures a behavior: a query only reads, and an action or a behavior request acts only when its caller runs or activates it. A behavior belongs to the caller that activated it, and the occurrence sources it offers are subscribed to, each as a subscription of its own.
+Reading or watching a query never performs an action or configures a behavior: a query only reads, and an action or a behavior request acts only when its caller runs or activates it. A behavior belongs to the caller that activated it, and the event sources it offers are subscribed to, each as a subscription of its own.
 
 ```
 // An action: step the viewport forward, answering whether it moved.
@@ -347,15 +347,15 @@ Reading or watching a query never performs an action or configures a behavior: a
 @viewport.scroll({ axis: "inline" }).wheelPaging({ modifier: "shift" })
 ```
 
-## Occurrences
+## Events
 
-A chain that ends in an occurrence source is subscribed to, in two stages. The source hands each occurrence to the evaluator, which evaluates the object expression following it at once, in the task the source delivers it in, with that occurrence as its current value. The result is immutable data, and that result, never the live event or the object expression still to evaluate, is what reaches the caller, by the caller's own delivery. Here the occurrence source is the built-in vocabulary's native drop event:
+A chain that ends in an event source is subscribed to, in two stages. The source hands each event to the evaluator, which evaluates the object expression following it at once, in the task the source delivers it in, with that event as its current value. The result is immutable data, and that result, never the browser's live event object or the object expression still to evaluate, is what reaches the caller, by the caller's own delivery. An event in DOMQL is what its source delivers, read through the event data it captured; the browser's own event object is never a value of the language. Here the event source is the built-in vocabulary's native drop event:
 
 ```
 (@zone eventsOf "drop") { key: self.target.closest("[data-drop-target]") attributeOf "data-drop-key" }
 ```
 
-The object expression reads the occurrence's own members, such as its target, and anything else a parameter reaches. Its members are read once per occurrence, never watched, so an unobserved member is allowed in it. An occurrence source documents its members, which of them it captured when the occurrence happened, and when it delivers the occurrence, such as before or after the browser carries out the action it reports; everything else it reads is read as it is evaluated. An extension's occurrence source can report only what its caller activated, so two callers subscribed on one element each hear their own.
+The object expression reads the event's own members, such as its target, and anything else a parameter reaches. Its members are read once per event, never watched, so an unobserved member is allowed in it. An event source documents its members, which of them it captured when the event happened, and when it delivers the event, such as before or after the browser carries out the action it reports; everything else it reads is read as it is evaluated. An extension's event source can report only what its caller activated, so two callers subscribed on one element each hear their own.
 
 ## Evaluation
 
@@ -367,7 +367,7 @@ Each member declares how it obtains its value.
 | --- | --- |
 | Fresh | Read from the document as the query evaluates, such as an attribute or a box. |
 | Maintained | Kept by an observation the member holds, and read as that observation's latest sample, such as the browser's intersection observation. |
-| Captured | A sample taken at a moment the member documents, such as the history a member keeps or what an occurrence carried. |
+| Captured | A sample taken at a moment the member documents, such as the history a member keeps or what an event carried. |
 
 Facts that must describe one measurement are members of one structured value, which is captured once and read by each of its members, as a rectangle's edges are.
 
@@ -415,8 +415,8 @@ A member of null is null, and so is a predicate expression of null, so a chain t
 | A condition that is no Boolean, or branches of different types | A validation error naming the types |
 | A receiver, an argument, an expression or a binding of the wrong type, an argument of the wrong kind, or a missing required one | A validation error naming where, the expected type and the type found |
 | A module returning a value of a type other than the one it declared | An evaluation error |
-| A result that would contain an element or an occurrence source | A validation error |
-| A request used as another kind: reading or watching an occurrence source, subscribing to a value, running a query, or reading an action or a behavior | A validation error |
+| A result that would contain an element or an event source | A validation error |
+| A request used as another kind: reading or watching an event source, subscribing to a value, running a query, or reading an action or a behavior | A validation error |
 | An action or a behavior inside a query, an argument or another request's object expression | A validation error |
 | Watching a partly observable member without accepting partial observation | A validation error naming each such member and the changes it misses |
 | A member failing unexpectedly while it evaluates | An evaluation error |
@@ -425,7 +425,7 @@ A query is validated before any evaluation, as the section on validation sets ou
 
 ## Built-in vocabulary
 
-The built-in vocabulary exposes properties and operations over familiar browser concepts. Properties and operations are named in camelCase. Names are case-sensitive. Measurements use CSS pixels unless stated otherwise. Built-in members expose state or occurrence sources; actions and behaviors come from extensions.
+The built-in vocabulary exposes properties and operations over familiar browser concepts. Properties and operations are named in camelCase. Names are case-sensitive. Measurements use CSS pixels unless stated otherwise. Built-in members expose state or event sources; actions and behaviors come from extensions.
 
 A property of a structured value, such as a rectangle's `width`, reads data the value holds and is constant for that value. A property is read by member access, and an operation is written as a call or as a named operation, as its declaration says; the tables write each as it is written, with a receiver left out.
 
@@ -466,24 +466,24 @@ An operation performs a lookup, a calculation or a selection with the argument i
 | List | `max(expression)`, `min(expression)`, `sum(expression)` | `expression`: `T` → `number?`; answers `number?`, `number?`, `number` | An aggregate over a number expression, as the section on lists defines | As their items and expressions | As their items |  |
 | List | `where(expression)` | `expression`: `T` → `boolean?`; answers `list<T>` | The items for which a Boolean expression holds | As its items and expression | As its items |  |
 
-### Occurrence sources
+### Event sources
 
-An occurrence source delivers things that happened. It is subscribed to, never read or watched, and the object expression following it is evaluated against each occurrence.
+An event source delivers things that happened. It is subscribed to, never read or watched, and the object expression following it is evaluated against each event.
 
 | Available on | Source | Type | Delivers | Reads | Fixed |
 | --- | --- | --- | --- | --- | --- |
-| Element, document, window | `eventsOf type` | `type`: `string` → `occurrence<T>` for the event type `type` names | The native events of that type as they reach it, each with the members its declared event type offers, such as a pointer event's `button`, `clientX` and `clientY`; a type the vocabulary declares no event type for is a validation error | Captured at dispatch | `type` |
+| Element, document, window | `eventsOf type` | `type`: `string` → `event<T>` for the event type `type` names | The native events of that type as they reach it, each with the members its declared event type offers, such as a pointer event's `button`, `clientX` and `clientY`; a type the vocabulary declares no event type for is a validation error | Captured at dispatch | `type` |
 
-The built-in event types, and the members each occurrence offers:
+The built-in event types, and the members each event offers:
 
-| Event types | Occurrence type | Members |
+| Event types | Event data type | Members |
 | --- | --- | --- |
 | `click`, `pointerdown`, `pointerup` | `pointerEvent` | `target`: `element`, `button`: `number`, `buttons`: `number`, `clientX`: `number`, `clientY`: `number`, `pointerType`: `string?` |
 | `keydown`, `keyup` | `keyboardEvent` | `target`: `element`, `key`: `string`, `code`: `string` |
 | `drop` | `dragEvent` | `target`: `element`, `clientX`: `number`, `clientY`: `number` |
 | `focus`, `blur`, `input`, `scroll`, `resize` | `domEvent` | `target`: `element?` |
 
-An occurrence is captured as the members its type declares when it is dispatched. A member the event carries no value of its type for is null where its type is nullable, as `domEvent`'s `target` is for a scroll or a resize that targets the document or the window, and `pointerEvent`'s `pointerType` for a browser that dispatches a click as a mouse event; where its type is not nullable, the capture fails, and the subscription reports it as it reports a failed object expression. `eventsOf` listens passively, so it never delays or prevents what the page does with an event.
+An event is captured as the members its type declares when it is dispatched. A member the event carries no value of its type for is null where its type is nullable, as `domEvent`'s `target` is for a scroll or a resize that targets the document or the window, and `pointerEvent`'s `pointerType` for a browser that dispatches a click as a mouse event; where its type is not nullable, the capture fails, and the subscription reports it as it reports a failed object expression. `eventsOf` listens passively, so it never delays or prevents what the page does with an event.
 
 `self is "focused"` asks whether the element itself is focused, `self matches ":focus-within"` whether focus is anywhere within it, and an extension can offer richer focus semantics under names of its own; they are separate questions with separate names.
 
@@ -537,7 +537,7 @@ This answers the fields `rect`, `clientSize`, `disabled` and `hasChildren`. The 
 
 - **Names.** A field holding a `get` is named as every field is, `bounds: self.get("rect")`, whatever name the `get` reads.
 - **Continuing.** A member after a `get` continues from the value it read, so `self.get("rect").width` is `self.rect.width`; an object expression after it reads that value's fields, as `self.get("rect") { width: self.width, height: self.height }` does.
-- **Readable members only.** A `get` reads a member that takes no arguments, or none it requires; an action, a behavior or an occurrence source it names is a validation error, so a `get` never acts.
+- **Readable members only.** A `get` reads a member that takes no arguments, or none it requires; an action, a behavior or an event source it names is a validation error, so a `get` never acts.
 - **Fixed names.** The name is fixed, a literal or a bound parameter settled when the query is prepared.
 
 | Form | Asks | Example |
@@ -552,7 +552,7 @@ An extension adds members under one name of its own, a member of a built-in type
 
 The built-in vocabulary declares the native event types its callers need, and an extension can declare more. A subscription observes an event as it reaches its target and leaves its course to the page.
 
-An extension can define types of its own, occurrence sources, actions and behaviors, and follows the built-in vocabulary's contract throughout: every member declares its signature, its argument kinds, its result type and how it changes, and evaluating a query stays read-only and synchronous.
+An extension can define types of its own, event sources, actions and behaviors, and follows the built-in vocabulary's contract throughout: every member declares its signature, its argument kinds, its result type and how it changes, and evaluating a query stays read-only and synchronous.
 
 ## Definition
 
@@ -637,7 +637,7 @@ result = evaluate(query, bindings: { panel: <the list panel>, sentinel: <the end
 
 The bindings name only what the caller chooses. The complete query below also uses `@document` and `@window`, which are absent from them because they are the document the query runs against and its window, so no caller chooses them and none can bind them.
 
-A caller can take that result once, keep it current as the document changes, or take one at each occurrence of an event the query subscribes to; how it asks for each is the [design](domql-design.md)'s to say. A value query is read or watched alike; subscribing needs an occurrence source, whose projection uses the same expression language.
+A caller can take that result once, keep it current as the document changes, or take one at each event the query subscribes to; how it asks for each is the [design](domql-design.md)'s to say. A value query is read or watched alike; subscribing needs an event source, whose projection uses the same expression language.
 
 ## A complete query
 

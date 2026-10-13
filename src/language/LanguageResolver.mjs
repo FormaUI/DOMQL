@@ -42,7 +42,7 @@ export class LanguageResolver {
     resolveDefinition(definition) {
         const result = this.#node(definition.query, '/query', { current: null, locals: new Map() });
 
-        const resultType = result.kind === 'subscription' && result.type.kind === 'occurrence' ? result.type.itemType : result.type;
+        const resultType = result.kind === 'subscription' && result.type.kind === 'event' ? result.type.itemType : result.type;
 
         if (result.kind !== 'behavior' && !this.#isData(resultType)) {
             this.#fail(`The result would hold ${resultType}, which is no data; read the facts it needs through an object expression`, '/query');
@@ -453,7 +453,7 @@ export class LanguageResolver {
         switch (parameter.selects) {
             case 'member':
                 return this.#selectMember(receiverType, name, pointer);
-            case 'occurrence': {
+            case 'eventType': {
                 const event = this.#registry.getEvent(name);
 
                 if (event === undefined) {
@@ -523,7 +523,7 @@ export class LanguageResolver {
                 this.#fail('An object expression follows null, which has no value to read fields of', pointer);
             }
 
-            current = target.type.kind === 'list' || target.type.kind === 'occurrence' ? target.type.itemType.toNonNullable() : target.type.toNonNullable();
+            current = target.type.kind === 'list' || target.type.kind === 'event' ? target.type.itemType.toNonNullable() : target.type.toNonNullable();
         }
 
         // Each local is resolved where it is written, against the current value and the locals before it, and every field sees them all.
@@ -565,8 +565,8 @@ export class LanguageResolver {
             return { type: Type.createListType(object, isNullable), kind, isFixed: false };
         }
 
-        if (target?.type.kind === 'occurrence') {
-            return { type: Type.createOccurrenceType(object, isNullable), kind: 'subscription', isFixed: false };
+        if (target?.type.kind === 'event') {
+            return { type: Type.createEventType(object, isNullable), kind: 'subscription', isFixed: false };
         }
 
         return { type: isNullable ? object.toNullable() : object, kind, isFixed: false };
@@ -626,11 +626,11 @@ export class LanguageResolver {
         throw DomqlError.validation(message, this.#locations?.locate(pointer) ?? { pointer });
     }
 
-    /** What a request of the kind is, for a message: a subscription is an occurrence source. */
+    /** What a request of the kind is, for a message: a subscription is an event source. */
     static #nameOf(kind) {
         switch (kind) {
             case 'subscription':
-                return 'an occurrence source';
+                return 'an event source';
             case 'action':
                 return 'an action';
             default:

@@ -223,9 +223,9 @@ export interface DomqlQuery<T = unknown> {
 }
 
 declare const domqlResult: unique symbol;
-/** A DOMQL type: a named type, a list, an occurrence source, an object type, a type parameter or a null, each nullable or not. */
+/** A DOMQL type: a named type, a list, an event source, an object type, a type parameter or a null, each nullable or not. */
 export interface DomqlType {
-    readonly kind: 'named' | 'list' | 'occurrence' | 'object' | 'typeParameter' | 'null';
+    readonly kind: 'named' | 'list' | 'event' | 'object' | 'typeParameter' | 'null';
     readonly name: string | null;
     readonly itemType: DomqlType | null;
     readonly fieldTypes: ReadonlyMap<string, DomqlType> | null;
@@ -312,7 +312,7 @@ export interface DomqlParameterDeclaration {
     default?: unknown;
     /** Whether the argument names something the vocabulary resolves before any evaluation. */
     fixed?: boolean;
-    selects?: 'member' | 'occurrence' | 'feature';
+    selects?: 'member' | 'eventType' | 'feature';
     /** Whether a null argument makes the call answer null, or is accepted. */
     nulls: 'propagate' | 'accept';
     /** What an expression argument is evaluated against. */
@@ -363,7 +363,7 @@ export interface DomqlModuleContents {
     members?: DomqlMemberDeclaration[];
     /** The structured types it declares, each with its fields' types. */
     types?: { name: string; fields: Record<string, string> }[];
-    /** The event types it declares, each with the type of its occurrences. */
+    /** The event types it declares, each with the type of its event data. */
     eventTypes?: { name: string; payload: string }[];
     predicates?: DomqlPredicateDeclaration[];
     /** The features `supports` names. */
@@ -375,7 +375,7 @@ export interface DomqlModuleContents {
 /**
  * The functions that carry a module's members, predicates and observation types out, by the key each declaration names.
  * A member or a predicate takes its receiver, its arguments by name and the environment, and a member that reads maintained values also its samples, in the order its declaration names the observations.
- * A source takes its receiver, its arguments and the environment, and the function it delivers each occurrence to, and returns an object whose `stop` ends the listening.
+ * A source takes its receiver, its arguments and the environment, and the function it delivers each event to, and returns an object whose `stop` ends the listening.
  * An action takes its receiver, its arguments, the environment and `{ signal }`, and returns its result or a promise of it.
  * A behavior takes its receiver, its arguments, the environment and `{ reportError }`, starts before it returns, and returns an object whose `update(receiver, args)` applies new arguments and whose `dispose` ends it.
  * An observation type takes the request, the function it calls when something may have changed and the environment, and returns an object whose `stop` ends the observation and, for a maintained one, whose `sample` returns its latest sample.

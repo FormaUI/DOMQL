@@ -165,7 +165,7 @@ The object belongs to the watch, so read it and never write it, and copy it or w
 
 ## Subscribe to events
 
-`subscribe` evaluates the object expression that follows an occurrence source, such as `eventsOf`, for each event, and hands `onEvent` the result:
+`subscribe` evaluates the object expression that follows an event source, such as `eventsOf`, for each event, and hands `onEvent` the result:
 
 ```js
 const clicks = Domql.subscribe(`
@@ -427,7 +427,7 @@ Domql.read('@panel.metrics { childCount: self.childCount }', { panel });
 
 The result can change, so it is not declared `constant`. This module names no observation and therefore declares `unobserved`: it supports reads, without promising watch support. Register a module once during setup, rather than before each read.
 
-Modules can also declare event types, predicates, supported feature names and occurrence sources. A source's function takes the receiver, the arguments, the environment and the function it delivers each occurrence to, and answers an object whose `stop` ends the listening; each occurrence is captured as the fields its event type declares. An action or a behavior is a member a module declares, as the next section shows.
+Modules can also declare event types, predicates, supported feature names and event sources. A source's function takes the receiver, the arguments, the environment and the function it delivers each event to, and answers an object whose `stop` ends the listening; each event is captured as the fields its event type declares. An action or a behavior is a member a module declares, as the next section shows.
 
 ## Run actions and activate behaviors
 

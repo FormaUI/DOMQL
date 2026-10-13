@@ -125,7 +125,7 @@ describe('Domql readAsync in a browser', () => {
                 expect(results).toEqual([{ id: 'inside', button: 0, height: 40 }]);
             });
 
-            it('answers null for a member the browser has not reported yet, and its sample at a later occurrence', async () => {
+            it('answers null for a member the browser has not reported yet, and its sample at a later event', async () => {
                 const results = [];
 
                 listeners.push(Domql.subscribe('(@panel eventsOf "click") { near: @item intersects { root: @panel } }', { panel, item: outside }, { onEvent: result => results.push(result) }));

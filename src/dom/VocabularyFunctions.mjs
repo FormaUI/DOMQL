@@ -13,7 +13,7 @@ const EDITABLE_VALUES = new Set(['', 'true', 'plaintext-only']);
 
 export class VocabularyFunctions {
     /**
-     * Each function takes the receiver, the arguments by parameter name, and the environment the request is read in; a source also takes the function it delivers each occurrence to, and answers what stops it.
+     * Each function takes the receiver, the arguments by parameter name, and the environment the request is read in; a source also takes the function it delivers each event to, and answers what stops it.
      * @type {Record<string, (receiver: unknown, args: Record<string, any>, environment: { window: Window, document: Document }) => unknown>}
      */
     static get functions() {

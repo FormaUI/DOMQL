@@ -47,7 +47,7 @@ The runtime also supports subscriptions that project events into data, actions t
 | Read result | Whatever your code constructs | An immutable snapshot without live DOM references |
 | Validation | JavaScript calls, with checks available through tooling | Request structure, vocabulary names and types checked before evaluation |
 | Keeping data current | Your code chooses when to repeat its reads | A watch tracks dependencies and reports changed results as snapshots, change sets or live state |
-| Events | Handlers receive events and perform your logic | Subscriptions project occurrences into plain data |
+| Events | Handlers receive events and perform your logic | Subscriptions project events into plain data |
 | Changing the page | DOM manipulation methods | Separate action and behavior requests supplied by modules |
 | Extension | Plugins add methods | Modules declare typed capabilities and their implementations |
 | Reuse | Functions encapsulate operations | Definitions can be reused with new bindings, stored or transmitted as JSON |

@@ -86,18 +86,18 @@ describe('EventListener', () => {
         return created;
     };
 
-    /** Registers a module whose source `beats` the function starts, delivering occurrences that carry a number. */
+    /** Registers a module whose source `beats` the function starts, delivering events that carry a number. */
     const registerBeats = start => isolated.registerModule(isolated.createModule('beats', {
         types: [{ name: 'beat', fields: { n: 'number' } }],
         eventTypes: [{ name: 'beat', payload: 'beat' }],
-        members: [{ name: 'beats', function: 'beats', kind: 'source', on: 'element', input: 'direct', parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, fixed: true, selects: 'occurrence', nulls: 'propagate' }], result: 'occurrence<@selected>', changes: 'constant', reads: 'captured' }],
+        members: [{ name: 'beats', function: 'beats', kind: 'source', on: 'element', input: 'direct', parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, fixed: true, selects: 'eventType', nulls: 'propagate' }], result: 'event<@selected>', changes: 'constant', reads: 'captured' }],
     }, { beats: start }));
 
     /** Dispatches an input event at the element, which bubbles to the panel. */
     const input = element => element.dispatchEvent(new window.Event('input', { bubbles: true }));
 
     describe('subscribing', () => {
-        it('starts in the call, so an occurrence that follows it is heard in the task it is dispatched in', () => {
+        it('starts in the call, so an event that follows it is heard in the task it is dispatched in', () => {
             const listener = subscribe('(@panel eventsOf "input") { id: self.target attributeOf "id" }', { panel });
 
             expect(listener.status).toBe('ready');
@@ -109,7 +109,7 @@ describe('EventListener', () => {
             expect(Object.isFrozen(results[0])).toBe(true);
         });
 
-        it('hears the occurrences that reach its receiver alone', () => {
+        it('hears the events that reach its receiver alone', () => {
             subscribe('(@first eventsOf "input") { id: self.target attributeOf "id" }', { first: panel.children[0] });
 
             input(panel.children[1]);
@@ -218,7 +218,7 @@ describe('EventListener', () => {
             expect(error.cause).toBeNull();
         });
 
-        it('lets go of what an occurrence delivered while the source started opened, and hands nothing over, where the start then fails', async () => {
+        it('lets go of what an event delivered while the source started opened, and hands nothing over, where the start then fails', async () => {
             const [first] = panel.children;
 
             registerBeats((_receiver, _args, _environment, deliver) => {
@@ -253,7 +253,7 @@ describe('EventListener', () => {
     });
 
     describe('sessions', () => {
-        it('answer null for a maintained member still pending, and the sample that arrived for a later occurrence', () => {
+        it('answer null for a maintained member still pending, and the sample that arrived for a later event', () => {
             const [first] = panel.children;
 
             subscribe('(@panel eventsOf "input") { level: self.target.level }', { panel });
@@ -301,7 +301,7 @@ describe('EventListener', () => {
     });
 
     describe('capture', () => {
-        it('reports an occurrence the source cannot capture to the error callback, and keeps listening', () => {
+        it('reports an event the source cannot capture to the error callback, and keeps listening', () => {
             let deliver;
 
             registerBeats((_receiver, _args, _environment, delivers) => {
@@ -316,7 +316,7 @@ describe('EventListener', () => {
             deliver({ n: 2 });
 
             expect(failures).toHaveLength(1);
-            expect(failures[0].message).toContain("The source 'beats' delivered an occurrence whose 'n' is \"one\", and its type declares number");
+            expect(failures[0].message).toContain("The source 'beats' delivered an event whose 'n' is \"one\", and its type declares number");
             expect(results).toEqual([{ n: 2 }]);
             expect(listener.status).toBe('ready');
         });

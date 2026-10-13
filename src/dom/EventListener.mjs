@@ -1,5 +1,5 @@
 /**
- * EventListener — owns an occurrence subscription, projects each occurrence,
+ * EventListener — owns an event subscription, projects each event,
  * and retains its observation sessions until replaced or disposed.
  */
 
@@ -17,15 +17,15 @@ export class EventListener {
     /** `ready` while the event listener listens, and `disposed` once it is ended. @type {'ready' | 'disposed'} */
     #status = 'ready';
 
-    /** The last projection that succeeded, whose sessions keep the observations it read, so the next occurrence reads what they sampled meanwhile. @type {import('./QueryEvaluation.mjs').QueryEvaluation | null} */
+    /** The last projection that succeeded, whose sessions keep the observations it read, so the next event reads what they sampled meanwhile. @type {import('./QueryEvaluation.mjs').QueryEvaluation | null} */
     #lastProjection = null;
 
-    /** The callbacks waiting until the caller has the event listener, in the order their occurrences arrived, or null once callbacks run as their occurrences do. @type {(() => void)[] | null} */
+    /** The callbacks waiting until the caller has the event listener, in the order their events arrived, or null once callbacks run as their events do. @type {(() => void)[] | null} */
     #heldCallbacks = [];
 
     /**
-     * Starts listening, so an occurrence delivered once the constructor returns is heard; a source that cannot start fails it.
-     * A source may deliver while it starts: those occurrences are captured and projected at once, and their callbacks run once the caller has the event listener, before those of any later occurrence.
+     * Starts listening, so an event delivered once the constructor returns is heard; a source that cannot start fails it.
+     * A source may deliver while it starts: those events are captured and projected at once, and their callbacks run once the caller has the event listener, before those of any later event.
      * @param {object} dependencies What the event listener listens to, and what it works with.
      * @param {import('./QueryEvaluator.mjs').QueryEvaluator} dependencies.evaluator Evaluates the subscription.
      * @param {import('./Observations.mjs').Observations} dependencies.observations The observations of the window, which the projections hold sessions on.
@@ -42,7 +42,7 @@ export class EventListener {
         try {
             this.#subscription = this.#start(evaluator.resolveSource());
         } catch (error) {
-            // A failed start ends the event listener: it lets go of what the occurrences delivered while it started opened, drops their callbacks, and ignores what the source still delivers.
+            // A failed start ends the event listener: it lets go of what the events delivered while it started opened, drops their callbacks, and ignores what the source still delivers.
             this.#status = 'disposed';
             this.#heldCallbacks = null;
             this.#release(this.#lastProjection);
@@ -89,8 +89,8 @@ export class EventListener {
 
         const { name, start, capture, receiver, args, environment, location } = source;
 
-        // The source captures each occurrence as the fields its type declares, during its delivery, before anything else reads it.
-        const deliver = occurrence => {
+        // The source captures each event as the fields its type declares, during its delivery, before anything else reads it.
+        const deliver = event => {
             if (this.#status === 'disposed') {
                 return;
             }
@@ -98,14 +98,14 @@ export class EventListener {
             let captured;
 
             try {
-                captured = capture(occurrence);
+                captured = capture(event);
             } catch (error) {
                 this.#notify(() => this.#callbackDispatcher.handleError(error));
 
                 return;
             }
 
-            this.#onOccurrence(captured);
+            this.#receive(captured);
         };
 
         let subscription;
@@ -124,11 +124,11 @@ export class EventListener {
     }
 
     /**
-     * Projects the captured occurrence synchronously during source delivery, then dispatches its immutable result.
+     * Projects the captured event synchronously during source delivery, then dispatches its immutable result.
      * A successful projection replaces the sessions the event listener retains; one that fails dispatches its error instead, lets go of the sessions it opened and keeps those retained before it.
      */
-    #onOccurrence(occurrence) {
-        const projection = this.#evaluator.project(occurrence, { observations: this.#observations });
+    #receive(event) {
+        const projection = this.#evaluator.project(event, { observations: this.#observations });
 
         if (projection.error !== null) {
             this.#release(projection);
@@ -154,7 +154,7 @@ export class EventListener {
         }
     }
 
-    /** Runs the held callbacks in order, including any their own callbacks cause, and then lets callbacks run as their occurrences do. */
+    /** Runs the held callbacks in order, including any their own callbacks cause, and then lets callbacks run as their events do. */
     #runHeldCallbacks() {
         const held = this.#heldCallbacks;
 

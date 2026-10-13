@@ -74,18 +74,18 @@ describe('LanguageResolver', () => {
             expect(resolve('@panel.size').kind).toBe('query');
         });
 
-        it('resolves an occurrence source as a subscription', () => {
+        it('resolves an event source as a subscription', () => {
             const resolved = resolve('(@document eventsOf "keydown") { key: self.key }');
 
             expect(resolved.kind).toBe('subscription');
-            expect(resolved.type.toString()).toBe('occurrence<{ key: string }>');
+            expect(resolved.type.toString()).toBe('event<{ key: string }>');
         });
 
-        it('shapes the occurrences of a source by the fields of its payload', () => {
+        it('shapes the events of a source by the fields of its payload', () => {
             const resolved = resolve('(@panel eventsOf "click") { clientX: self.clientX, button: self.button }');
 
             expect(resolved.kind).toBe('subscription');
-            expect(resolved.type.toString()).toBe('occurrence<{ clientX: number, button: number }>');
+            expect(resolved.type.toString()).toBe('event<{ clientX: number, button: number }>');
         });
 
         it('refuses an answer that is no data', () => {
@@ -93,12 +93,12 @@ describe('LanguageResolver', () => {
             expect(failure('(@panel eventsOf "click") { target: self.target }').message).toContain('no data');
         });
 
-        it('refuses a member after an occurrence source', () => {
-            expect(failure('(@panel eventsOf "click").count').message).toContain('occurrence source');
+        it('refuses a member after an event source', () => {
+            expect(failure('(@panel eventsOf "click").count').message).toContain('event source');
         });
 
-        it('refuses an occurrence source as an argument', () => {
-            expect(failure('@panel matches (@panel eventsOf "click")').message).toContain('occurrence source');
+        it('refuses an event source as an argument', () => {
+            expect(failure('@panel matches (@panel eventsOf "click")').message).toContain('event source');
         });
     });
 
@@ -299,7 +299,7 @@ describe('LanguageResolver', () => {
         });
 
         it('resolves an event type and a feature', () => {
-            expect(resolve('(@document eventsOf "keydown") { key: self.key }').type.toString()).toBe('occurrence<{ key: string }>');
+            expect(resolve('(@document eventsOf "keydown") { key: self.key }').type.toString()).toBe('event<{ key: string }>');
             expect(resolve('@window supports "share"').type.toString()).toBe('boolean');
         });
 
@@ -327,7 +327,7 @@ describe('LanguageResolver', () => {
             const events = resolveWith('(@panel eventsOf "chart-selected") { value: self.value }');
             const predicate = resolveWith('@panel is "plotted"');
 
-            expect(events.type.toString()).toBe('occurrence<{ value: number }>');
+            expect(events.type.toString()).toBe('event<{ value: number }>');
             expect(predicate.type.toString()).toBe('boolean');
         });
     });
@@ -398,7 +398,7 @@ describe('LanguageResolver', () => {
         });
 
         it('refuse a subject that is no value, or null', () => {
-            expect(failure('(@panel eventsOf "click") { clientX: self.clientX } is "attached"').message).toContain('occurrence source');
+            expect(failure('(@panel eventsOf "click") { clientX: self.clientX } is "attached"').message).toContain('event source');
             expect(failure('null is "attached"').message).toContain('tests null');
         });
 
@@ -468,7 +468,7 @@ describe('LanguageResolver', () => {
         });
 
         it('refuse a local that is no value', () => {
-            expect(failure('@panel { let clicks: self eventsOf "click", a: 1 }').message).toContain("The local 'clicks' is an occurrence source, and a local is a value");
+            expect(failure('@panel { let clicks: self eventsOf "click", a: 1 }').message).toContain("The local 'clicks' is an event source, and a local is a value");
         });
     });
 

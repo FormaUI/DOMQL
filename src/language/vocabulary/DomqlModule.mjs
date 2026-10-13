@@ -20,7 +20,7 @@ const OBSERVATION_CATEGORIES = ['constant', 'observable', 'partly-observable', '
 /** How a member reads: the specification's modes, and `derived` for a contract that comes from the member or expression a member selects or evaluates. */
 const READING_MODES = ['fresh', 'maintained', 'captured', 'derived'];
 const NULL_POLICIES = ['propagate', 'accept'];
-const SELECTION_KINDS = ['member', 'occurrence', 'feature'];
+const SELECTION_KINDS = ['member', 'eventType', 'feature'];
 const PARAMETER_KINDS = ['value', 'expression'];
 const PREDICATE_VERBS = ['is', 'has'];
 
@@ -37,7 +37,7 @@ const OBSERVATION_TARGETS = ['receiver', 'window', 'document'];
 const DELEGATED_SELECTION_KINDS = ['member'];
 
 /** The names of the types DOMQL itself defines, which a module cannot declare again. */
-const RESERVED_TYPE_NAMES = new Set(['number', 'string', 'boolean', 'element', 'window', 'document', 'list', 'occurrence', 'null']);
+const RESERVED_TYPE_NAMES = new Set(['number', 'string', 'boolean', 'element', 'window', 'document', 'list', 'event', 'null']);
 
 /** The name that identifies the built-in module, whose members stand without a namespace. */
 const BUILTIN_MODULE_NAME = 'builtIn';
@@ -60,7 +60,7 @@ export class DomqlModule {
      * @param {object} contents What the module declares.
      * @param {object[]} [contents.members] The properties, operations, sources, actions and behaviors it adds.
      * @param {object[]} [contents.types] The structured types it declares, each with its fields.
-     * @param {object[]} [contents.eventTypes] The event types it declares, each with the type of its occurrences.
+     * @param {object[]} [contents.eventTypes] The event types it declares, each with the type of its event data.
      * @param {object[]} [contents.predicates] The predicates a predicate expression reads under `is` and `has`.
      * @param {string[]} [contents.features] The features `supports` names.
      * @param {object[]} [contents.observationTypes] The types of observation it declares, each with the function that starts one.
@@ -191,7 +191,7 @@ export class DomqlModule {
 
     static #validateEventType(eventType, fail) {
         if (typeof eventType?.name !== 'string' || !/^[A-Za-z][A-Za-z0-9:-]*$/.test(eventType.name) || !DomqlModule.#isTypeExpression(eventType.payload)) {
-            fail('An event type declares the name of the browser event and the type of its occurrences', eventType?.name);
+            fail('An event type declares the name of the browser event and the type of its event data', eventType?.name);
         }
 
         return structuredClone(eventType);

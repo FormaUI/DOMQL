@@ -9,10 +9,10 @@ Each item is what exists and what checks it.
 - **The language.** Parsing text and creating queries from their definition, with the position of every mistake. Checked by the tests of parsing and of the definition.
 - **The vocabulary.** The built-in vocabulary declared as module data, and modules that extend it. Checked by the tests of modules, the registry and the vocabulary.
 - **Resolution.** Resolving a definition against the vocabulary and typing its result, without a browser; the resolution is kept for its definition, so the queries parsed alike share it. Checked by the resolver tests and the tests of `Domql.resolve`.
-- **Reading.** `read` reads every built-in member except `intersects`, which is maintained, and fails it with an evaluation error that says so; a subscription, which ends in an occurrence source such as `eventsOf`, is subscribed to and never read. `readAsync` waits for the first sample of a maintained member, evaluates again as samples arrive and as what the query depends on changes, and lets go of its observations when it answers, fails or is canceled. Each evaluation records its dependencies. A read answers detached, immutable data. Checked by the evaluator tests, in a simulated DOM, and by the browser tests, in Chromium, for geometry, for state the browser decides and for the reads that wait.
+- **Reading.** `read` reads every built-in member except `intersects`, which is maintained, and fails it with an evaluation error that says so; a subscription, which ends in an event source such as `eventsOf`, is subscribed to and never read. `readAsync` waits for the first sample of a maintained member, evaluates again as samples arrive and as what the query depends on changes, and lets go of its observations when it answers, fails or is canceled. Each evaluation records its dependencies. A read answers detached, immutable data. Checked by the evaluator tests, in a simulated DOM, and by the browser tests, in Chromium, for geometry, for state the browser decides and for the reads that wait.
 - **Observations.** The built-in vocabulary names the observations that cover its members' changes, as types a module declares, and observations are started, shared and ended through sessions. There is no public API for them yet. Checked by the tests of declarations, of the sessions and of the browser observers, and in Chromium by a test of each type of observation reporting a change.
 - **Watching.** `Domql.watch` evaluates a query, reports its snapshot, and evaluates again when what the result depends on changes, at the next animation frame or in the task that reported the change, reporting a snapshot that differs and sharing the branches of the last that did not. A watch follows the document, keeps its dependencies through a failed evaluation, recovers, and is refreshed and disposed through its handle. Checked by the tests of watches and of comparing snapshots, in a simulated DOM, and in Chromium by a watch of a size and of a maintained member.
-- **Subscribing.** `Domql.subscribe` answers an event listener, which starts a subscription's occurrence source in the call and, at each occurrence, captures the fields its event type declares and evaluates the object expression that follows the source, inside the source's delivery, handing the immutable result to its callback. A maintained member answers its latest sample, or null while it is pending, and is never waited for; the event listener keeps the sessions its last successful projection read, keeps them through a projection that fails, and lets go of everything when disposed. Checked by the tests of projection and of event listeners, in a simulated DOM, and in Chromium by an event listener of clicks and of a maintained member across occurrences.
+- **Subscribing.** `Domql.subscribe` answers an event listener, which starts a subscription's event source in the call and, at each event, captures the fields its event type declares and evaluates the object expression that follows the source, inside the source's delivery, handing the immutable result to its callback. A maintained member answers its latest sample, or null while it is pending, and is never waited for; the event listener keeps the sessions its last successful projection read, keeps them through a projection that fails, and lets go of everything when disposed. Checked by the tests of projection and of event listeners, in a simulated DOM, and in Chromium by an event listener of clicks and of a maintained member across events.
 - **Actions and behaviors.** `Domql.runAsync` runs an action once, after evaluating its receiver and arguments, and answers a promise of its result, checked against the type the action declares and read through the object expression that follows it; a signal cancels it, and nothing an action changed is undone. `Domql.activate` puts a behavior into effect in the call and answers a `DomqlBehavior`, whose `update` replaces its bindings whole, validating them before anything changes, and whose `dispose` ends it once. Checked by the tests of resolving actions and behaviors, of `runAsync`, and of behaviors, in a simulated DOM, and by the README's examples.
 - **Live state.** A watch with `updateStrategy: 'liveState'` keeps its result as one object, updated in place by the change sets between its snapshots, so the root and every object and list beneath it keep their identity, and an item of a list projected from elements keeps its object as it moves. Its callback receives the object and the change set just applied; a failed evaluation leaves the object as it was. Checked by the tests of applying change sets in place, of live state, and of watches that keep it, in a simulated DOM, and by the README's example.
 - **Change sets.** A watch that delivers change sets sends a baseline and then JSON Patch change sets, each acknowledged before the next is computed against the state it established, and recovers with a baseline of a new generation that nothing earlier can affect. Lists projected from elements change by element, through identities kept beside the result. A current snapshot applies each update atomically and gives a stale one no effect. Checked by the tests of computing and of applying change sets, each against expected patches and results and together, of the dispatcher and the current snapshot, and of watches delivering to a receiver.
@@ -42,7 +42,7 @@ Each decision is open until its state says otherwise, and a step that needs it d
 
 - **Negation.** How a query negates a Boolean, which no construct does yet.
 - **A behavior that waits.** A behavior that needs to wait before it is in effect would be applied by an `applyAsync` of its own; it is a possibility for later, no part of D12's API, and decided when one is needed.
-- **The occurrence sources a behavior offers.** The specification subscribes to them as subscriptions of their own; how a behavior offers one is decided once a behavior that offers one exists.
+- **The event sources a behavior offers.** The specification subscribes to them as subscriptions of their own; how a behavior offers one is decided once a behavior that offers one exists.
 
 ### D12. The API
 
@@ -110,7 +110,7 @@ const query = domql.query(`
 | `query.evaluateAsync(options?)` | Evaluates it once, waiting for maintained values |
 | `query.watch(onChange, options?)` | Starts a watch, with `onChange` as its first attachment |
 | `query.watch(options?)` | Starts a snapshot watch, its consumers attached separately |
-| `query.subscribe(onEvent, options?)` | Listens to its occurrence source |
+| `query.subscribe(onEvent, options?)` | Listens to its event source |
 | `query.executeAsync(options?)` | Executes its action once |
 | `query.apply(options?)` | Applies its behavior |
 
@@ -121,7 +121,7 @@ Cannot execute '@panel.size': it produces a value.
 Use evaluate() or evaluateAsync().
 ```
 
-The object `domql.query` answers is a query object, whatever it holds, and what it describes is its request kind: a query, a subscription, an action or a behavior, as the specification names them. An error a caller reads says what the request does, a value it produces, occurrences it listens to, an effect it executes or a behavior it applies, rather than naming the kind.
+The object `domql.query` answers is a query object, whatever it holds, and what it describes is its request kind: a query, a subscription, an action or a behavior, as the specification names them. An error a caller reads says what the request does, a value it produces, events it listens to, an effect it executes or a behavior it applies, rather than naming the kind.
 
 #### Evaluating
 
@@ -265,7 +265,7 @@ behavior.update(nextBindings);
 behavior.dispose();
 ```
 
-- **An event listener** offers `status`, `"ready"` or `"disposed"`, and `dispose()`; `subscribe` takes `window`, `signal` and `onError`. Listening starts in the call, occurrences keep their capture and projection, never waiting for maintained samples, and each `subscribe` owns its own listener.
+- **An event listener** offers `status`, `"ready"` or `"disposed"`, and `dispose()`; `subscribe` takes `window`, `signal` and `onError`. Listening starts in the call, events keep their capture and projection, never waiting for maintained samples, and each `subscribe` owns its own listener.
 - **An action** is executed again each time `executeAsync` is called, with `window` and `signal`; cancellation undoes nothing, and its result is detached, immutable data checked against the type the action declares.
 - **A behavior's handle** offers `status`, `"ready"` or `"disposed"`, `update(bindings)` and `dispose()`; `apply` takes `window` and `signal`. Applying and updating stay synchronous, and `update` replaces every binding, validates before the behavior is called, and never switches to another behavior's declaration.
 
@@ -328,7 +328,7 @@ A step is done when its tests pass in the gate, its documents say what it built,
 - **2. Dependencies and maintained members.** Done.
 - **3. Watches.** Done.
 - **4. Change sets and recovery.** Done.
-- **5. Occurrence sources.** Done.
+- **5. Event sources.** Done.
 - **6. Actions and behaviors.** Done.
 - **7. Live state.** Done.
 - **8. The fluent builder.** Done; step 10 removed it, as D12 decides.
@@ -381,7 +381,7 @@ The query object of D12 for a .NET host: `Domql.Query(text, bindings)` and its o
 Describe the type a binding declares or reveals with `Type`, the representation resolution uses, so one model describes every type and resolution converts none.
 
 - **Needs:** nothing.
-- **Done when:** a binding's declared and inferred types are `Type` values, which resolution uses as they are; binding notation keeps exactly the types it admits, `number`, `string`, `boolean`, `element`, lists and object types, each nullable or not, so a binding still declares no type parameter, no occurrence type and no structured type a module declares, whatever reader the two notations share; and every error a binding reports reads as before.
+- **Done when:** a binding's declared and inferred types are `Type` values, which resolution uses as they are; binding notation keeps exactly the types it admits, `number`, `string`, `boolean`, `element`, lists and object types, each nullable or not, so a binding still declares no type parameter, no `event<T>` and no structured type a module declares, whatever reader the two notations share; and every error a binding reports reads as before.
 - **State:** not started.
 
 ## Departures from the design

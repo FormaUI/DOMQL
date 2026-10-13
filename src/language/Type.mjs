@@ -1,5 +1,5 @@
 /**
- * Type — a DOMQL type: a named type, a list, an occurrence source, an object type or a type parameter, each nullable or not
+ * Type — a DOMQL type: a named type, a list, an event source, an object type or a type parameter, each nullable or not
  */
 
 const NAME = /^@?[A-Za-z][A-Za-z0-9]*$/;
@@ -9,13 +9,13 @@ export class Type {
     /** @type {Map<string, Type | null>} */
     static #parsed = new Map();
 
-    /** The type's kind: named, list, occurrence, object, typeParameter or null. */
+    /** The type's kind: named, list, event, object, typeParameter or null. */
     kind;
 
     /** The type's name, for a named type or a type parameter. */
     name;
 
-    /** The type of a list's or an occurrence's items. */
+    /** The type of a list's items, or of an event source's event data. */
     itemType;
 
     /** An object type's field types by name. */
@@ -52,9 +52,9 @@ export class Type {
         return new Type('list', { itemType, isNullable });
     }
 
-    /** An occurrence source whose occurrences are of the item type. */
-    static createOccurrenceType(itemType, isNullable = false) {
-        return new Type('occurrence', { itemType, isNullable });
+    /** An event source whose events carry data of the item type. */
+    static createEventType(itemType, isNullable = false) {
+        return new Type('event', { itemType, isNullable });
     }
 
     /** The object type of the field types, by name. */
@@ -107,7 +107,7 @@ export class Type {
 
         switch (this.kind) {
             case 'list':
-            case 'occurrence':
+            case 'event':
                 text = `${this.kind}<${this.itemType}>`;
                 break;
             case 'object':
@@ -220,7 +220,7 @@ export class Type {
         return isNullable ? firstType.toNullable() : firstType;
     }
 
-    /** Whether a value of this type may stand where the other type is declared, a list or an occurrence by its items. */
+    /** Whether a value of this type may stand where the other type is declared, a list by its items, and an event source by its event data. */
     isAssignableTo(otherType) {
         if (this.kind === 'null') {
             return otherType.isNullable;
@@ -266,7 +266,7 @@ class TypeReader {
         let type;
 
         if (this.#text[this.#offset] === '<') {
-            if (match[0] !== 'list' && match[0] !== 'occurrence') {
+            if (match[0] !== 'list' && match[0] !== 'event') {
                 return null;
             }
 
@@ -278,12 +278,12 @@ class TypeReader {
             }
 
             this.#offset++;
-            type = match[0] === 'list' ? Type.createListType(itemType) : Type.createOccurrenceType(itemType);
+            type = match[0] === 'list' ? Type.createListType(itemType) : Type.createEventType(itemType);
         } else if (match[0] === 'null') {
             type = Type.null;
         } else if (TYPE_PARAMETER.test(match[0])) {
             type = Type.createTypeParameter(match[0]);
-        } else if (match[0] === 'list' || match[0] === 'occurrence') {
+        } else if (match[0] === 'list' || match[0] === 'event') {
             return null;
         } else {
             type = Type.createNamedType(match[0]);

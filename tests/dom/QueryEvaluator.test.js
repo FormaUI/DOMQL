@@ -947,11 +947,11 @@ describe('QueryEvaluator projection', () => {
         document.body.innerHTML = '';
     });
 
-    /** A module whose source `ticks` delivers occurrences of the type it declares, and records each start. */
+    /** A module whose source `ticks` delivers events of the type it declares, and records each start. */
     const ticks = payload => new DomqlModule('ticks', {
         types: [{ name: 'tick', fields: { at: 'number', label: 'string?' } }],
         eventTypes: [{ name: 'tick', payload }],
-        members: [{ name: 'ticks', function: 'ticks', kind: 'source', on: 'element', input: 'direct', parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, fixed: true, selects: 'occurrence', nulls: 'propagate' }], result: 'occurrence<@selected>', changes: 'constant', reads: 'captured' }],
+        members: [{ name: 'ticks', function: 'ticks', kind: 'source', on: 'element', input: 'direct', parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, fixed: true, selects: 'eventType', nulls: 'propagate' }], result: 'event<@selected>', changes: 'constant', reads: 'captured' }],
     }, {
         ticks: () => {
             started.push(true);
@@ -980,8 +980,8 @@ describe('QueryEvaluator projection', () => {
         throw new Error('The call threw nothing');
     };
 
-    /** Captures the occurrence as the subscription's source does, and projects it. */
-    const projectionOf = (evaluator, occurrence) => evaluator.project(evaluator.resolveSource().capture(occurrence), { observations });
+    /** Captures the event as the subscription's source does, and projects it. */
+    const projectionOf = (evaluator, event) => evaluator.project(evaluator.resolveSource().capture(event), { observations });
 
     describe('the source', () => {
         it('resolves into what starts it: the function, and the receiver and arguments evaluated now', () => {
@@ -1000,7 +1000,7 @@ describe('QueryEvaluator projection', () => {
             expect(failureOf(() => evaluatorOf('@panel.children.count', { panel }).resolveSource())).toMatchObject({ kind: 'evaluation', message: expect.stringContaining('A query request is not subscribed to') });
         });
 
-        it('captures an occurrence as the fields its type declares, a nullable one it does not carry as null', () => {
+        it('captures an event as the fields its type declares, a nullable one it does not carry as null', () => {
             const { capture } = evaluatorOf('@panel.ticks("tick") { at: self.at, label: self.label }', { panel }, [ticks('tick')]).resolveSource();
 
             expect(capture({ at: 1, label: 'first', extra: true })).toEqual({ at: 1, label: 'first' });
@@ -1008,18 +1008,18 @@ describe('QueryEvaluator projection', () => {
             expect(capture({ at: 1, label: 7 })).toEqual({ at: 1, label: null });
         });
 
-        it('fails a capture where the occurrence carries no value a field that is not nullable admits', () => {
+        it('fails a capture where the event carries no value a field that is not nullable admits', () => {
             const { capture } = evaluatorOf('@panel.ticks("tick") { at: self.at }', { panel }, [ticks('tick')]).resolveSource();
 
-            expect(failureOf(() => capture({ at: 'soon' }))).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The source 'ticks' delivered an occurrence whose 'at' is \"soon\", and its type declares number") });
+            expect(failureOf(() => capture({ at: 'soon' }))).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The source 'ticks' delivered an event whose 'at' is \"soon\", and its type declares number") });
             expect(failureOf(() => capture(null))).toMatchObject({ kind: 'evaluation' });
         });
 
-        it('takes an occurrence whole where its type declares no fields, and fails one that is not of its type', () => {
+        it('takes an event whole where its type declares no fields, and fails one that is not of its type', () => {
             const { capture } = evaluatorOf('@panel.ticks("tick")', { panel }, [ticks('number')]).resolveSource();
 
             expect(capture(5)).toBe(5);
-            expect(failureOf(() => capture('five'))).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The source 'ticks' delivered \"five\", and its occurrences are number") });
+            expect(failureOf(() => capture('five'))).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The source 'ticks' delivered \"five\", and its event data is number") });
         });
 
         it('captures a native event with its target, and null for a target that is no element', () => {
@@ -1031,7 +1031,7 @@ describe('QueryEvaluator projection', () => {
         });
     });
 
-    describe('an occurrence', () => {
+    describe('an event', () => {
         it('is projected through the object expression that follows its source, as detached, immutable data', () => {
             const evaluator = evaluatorOf('@panel.ticks("tick") { at: self.at, label: self.label, count: @panel.children.count }', { panel }, [ticks('tick')]);
             const projection = projectionOf(evaluator, { at: 3, label: 'third' });

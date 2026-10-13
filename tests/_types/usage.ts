@@ -91,9 +91,9 @@ Domql.subscribe(query, {});
 // @ts-expect-error The callback of an event listener is onEvent.
 Domql.subscribe(query, { onChange: () => {} });
 
-// A source takes the function it delivers each occurrence to, and answers what stops it.
+// A source takes the function it delivers each event to, and answers what stops it.
 const sourceFunctions: DomqlModuleFunctions = {
-    beats: (element: Element, _args: Record<string, unknown>, _environment: { window: Window }, deliver: (occurrence: unknown) => void) => {
+    beats: (element: Element, _args: Record<string, unknown>, _environment: { window: Window }, deliver: (event: unknown) => void) => {
         const timer = setInterval(() => deliver({ n: element.childElementCount }), 1000);
 
         return { stop: () => clearInterval(timer) };

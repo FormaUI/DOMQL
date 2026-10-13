@@ -17,10 +17,10 @@ describe('Type', () => {
             expect(type).toMatchObject({ kind, name, isNullable });
         });
 
-        it('reads lists and occurrences by their item types', () => {
+        it('reads lists and events by their item types', () => {
             expect(Type.parse('list<number>').itemType.name).toBe('number');
             expect(Type.parse('list<T>?')).toMatchObject({ kind: 'list', isNullable: true });
-            expect(Type.parse('occurrence<@selected>').itemType.kind).toBe('typeParameter');
+            expect(Type.parse('event<@selected>').itemType.kind).toBe('typeParameter');
             expect(Type.parse('list<list<element?>>').itemType.itemType.isNullable).toBe(true);
         });
 
@@ -37,14 +37,14 @@ describe('Type', () => {
         it('makes each kind of type, nullable where asked', () => {
             expect(Type.createNamedType('number').equals(Type.parse('number'))).toBe(true);
             expect(Type.createListType(Type.parse('element'), true).equals(Type.parse('list<element>?'))).toBe(true);
-            expect(Type.createOccurrenceType(Type.parse('number')).equals(Type.parse('occurrence<number>'))).toBe(true);
+            expect(Type.createEventType(Type.parse('number')).equals(Type.parse('event<number>'))).toBe(true);
             expect(Type.createTypeParameter('T', true).equals(Type.parse('T?'))).toBe(true);
             expect(Type.createObjectType(new Map([['width', Type.parse('number')]]), true).toString()).toBe('{ width: number }?');
         });
     });
 
     describe('toString', () => {
-        it.each(['number', 'element?', 'list<T>', 'list<element>?', 'occurrence<@selected>', 'null'])('writes %s back as it was read', text => {
+        it.each(['number', 'element?', 'list<T>', 'list<element>?', 'event<@selected>', 'null'])('writes %s back as it was read', text => {
             expect(Type.parse(text).toString()).toBe(text);
         });
 
@@ -78,7 +78,7 @@ describe('Type', () => {
 
         it.each([
             ['list<T>', 'number'],
-            ['list<T>', 'occurrence<number>'],
+            ['list<T>', 'event<number>'],
             ['element', 'window'],
             ['rectangle', 'size'],
         ])('refuses %s against %s', (declaredType, actualType) => {

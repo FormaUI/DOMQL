@@ -174,7 +174,7 @@ export class Vocabulary {
                 operation('sum', 'list<T>', 'number', { changes: 'derived', reads: 'derived', parameters: [expression('number?')] }),
                 operation('where', 'list<T>', 'list<T>', { changes: 'derived', reads: 'derived', parameters: [expression('boolean?')] }),
 
-                { ...operation('eventsOf', ['element', 'document', 'window'], 'occurrence<@selected>', { form: 'named', changes: 'constant', reads: 'captured', parameters: [value('type', 'string', { fixed: true, selects: 'occurrence' })] }), kind: 'source' },
+                { ...operation('eventsOf', ['element', 'document', 'window'], 'event<@selected>', { form: 'named', changes: 'constant', reads: 'captured', parameters: [value('type', 'string', { fixed: true, selects: 'eventType' })] }), kind: 'source' },
             ],
         }, functions);
     }
