@@ -6,7 +6,7 @@
 const PATTERN = /^[A-Za-z][A-Za-z0-9]*$/;
 
 /** The keywords: the literal tokens, `self` and the operators, which no name can be. */
-const RESERVED = new Set(['true', 'false', 'null', 'self', 'is', 'has', 'and', 'or']);
+const RESERVED = new Set(['true', 'false', 'null', 'self', 'is', 'has', 'and', 'or', 'if', 'then', 'elseif', 'else']);
 
 export class Names {
     /** Whether the text is a name: a letter followed by letters and digits, and no keyword. */

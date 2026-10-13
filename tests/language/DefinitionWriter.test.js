@@ -27,6 +27,13 @@ describe('DefinitionWriter', () => {
         '@sentinel intersects',
         '@panel attributeOf (@panel attributeOf "for")',
         '@panel.rectRelativeTo(@panel.parent).top',
+        'if @panel is "attached" then "here" elseif @panel is null then "gone" else "away"',
+        '(if @a then @panel else @other).size',
+        '(if @a then true else false) and @b',
+        'if (if @a then @b else @c) then 1 else 2',
+        'if @a then (if @b then 1 else 2) else 3',
+        '@panel { state: if self is "disabled" then "locked" else "open" }',
+        '@panel.parent is null',
     ])('writes text that parses back to the same definition: %s', text => {
         const { definition } = Domql.parse(text, { panel });
 
@@ -42,6 +49,9 @@ describe('DefinitionWriter', () => {
         expect(write('@panel.size')).toBe('@panel.size');
         expect(write('((@panel attributeOf "role")).length')).toBe('(@panel attributeOf "role").length');
         expect(write('(@panel attributeOf "role") is "set"')).toBe('@panel attributeOf "role" is "set"');
+        expect(write('if @a then 1 else if @b then 2 else 3')).toBe('if @a then 1 elseif @b then 2 else 3');
+        expect(write('if @a then 1 else (if @b then 2 else 3)')).toBe('if @a then 1 elseif @b then 2 else 3');
+        expect(write('(if @a then @b else @c) is "attached"')).toBe('(if @a then @b else @c) is "attached"');
     });
 
     it('writes the argument of a named operation as an initial expression, grouping any other', () => {

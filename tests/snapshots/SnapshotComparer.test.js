@@ -11,14 +11,16 @@ const property = (name, result, tolerance = {}) => new DomqlModule(name, {
     members: [{ name, function: name, kind: 'property', on: 'element', parameters: [], result, changes: 'constant', reads: 'fresh', ...tolerance }],
 }, null);
 
-/** The comparer of the snapshots of a query, which compares them as a watch does. */
-const snapshotComparerOf = (text, bindings = {}, tolerance = {}) => {
+/** A query resolved against the vocabulary and the two test modules. */
+const resolvedOf = (text, bindings, tolerance) => {
     const registry = new ModuleRegistry([Vocabulary.module, property('wobble', 'size', tolerance), property('steady', 'number')]);
     const query = Domql.parse(text, bindings);
-    const resolved = new LanguageResolver(registry, query.bindings, null, {}).resolveDefinition(query.definition);
 
-    return new SnapshotComparer(resolved);
+    return new LanguageResolver(registry, query.bindings, null, {}).resolveDefinition(query.definition);
 };
+
+/** The comparer of the snapshots of a query, which compares them as a watch does. */
+const snapshotComparerOf = (text, bindings = {}, tolerance = {}) => new SnapshotComparer(resolvedOf(text, bindings, tolerance));
 
 const freeze = value => (Array.isArray(value) ? Object.freeze(value.map(freeze)) : (value !== null && typeof value === 'object' ? Object.freeze(Object.fromEntries(Object.entries(value).map(([name, field]) => [name, freeze(field)]))) : value));
 
@@ -91,6 +93,48 @@ describe('SnapshotComparer', () => {
             expect(snapshotComparer.reconcile(previous, null, freeze({ width: 102.5 }), null).width).toBe(102.5);
         });
 
+        describe('under a conditional', () => {
+            /** The identities of a value the conditional gave from the branch. */
+            const selecting = (conditional, branch, identities = {}) => ({ ...identities, branches: new Map([[conditional, branch]]) });
+
+            it('compares a number within the tolerance of the member the branch both values came from declares', () => {
+                const resolved = resolvedOf('if @wide then @element.wobble.width else @element.steady', { element, wide: true }, { tolerance: 2 });
+                const snapshotComparer = new SnapshotComparer(resolved);
+                const { query } = resolved.definition;
+
+                expect(snapshotComparer.reconcile(100, selecting(query, query.consequent), 101.5, selecting(query, query.consequent))).toBe(100);
+                expect(snapshotComparer.reconcile(100, selecting(query, query.alternative), 101.5, selecting(query, query.alternative))).toBe(101.5);
+            });
+
+            it('compares a number exactly where the two values came from different branches', () => {
+                const resolved = resolvedOf('if @wide then @element.wobble.width else @other.wobble.width', { element, other: element, wide: true }, { tolerance: 2 });
+                const snapshotComparer = new SnapshotComparer(resolved);
+                const { query } = resolved.definition;
+
+                expect(snapshotComparer.reconcile(100, selecting(query, query.consequent), 101.5, selecting(query, query.alternative))).toBe(101.5);
+                expect(snapshotComparer.reconcile(100, null, 101.5, null)).toBe(101.5);
+            });
+
+            it('compares the fields of a branch that is an object expression by their own members', () => {
+                const resolved = resolvedOf('@element { s: if @wide then @element { w: self.wobble.width, n: self.steady } else null }', { element, wide: true }, { tolerance: 2 });
+                const snapshotComparer = new SnapshotComparer(resolved);
+                const conditional = resolved.definition.query.fields[0].value;
+                const identities = { fields: { s: selecting(conditional, conditional.consequent) } };
+                const previous = freeze({ s: { w: 100, n: 5 } });
+
+                expect(snapshotComparer.reconcile(previous, identities, freeze({ s: { w: 101.5, n: 5 } }), identities)).toBe(previous);
+                expect(snapshotComparer.reconcile(previous, identities, freeze({ s: { w: 100, n: 5.5 } }), identities).s.n).toBe(5.5);
+            });
+
+            it('follows a branch through the field of its value a chain reads', () => {
+                const resolved = resolvedOf('(if @wide then @element.wobble else @element.wobble).width', { element, wide: true }, { tolerance: 2 });
+                const snapshotComparer = new SnapshotComparer(resolved);
+                const conditional = resolved.definition.query.target;
+
+                expect(snapshotComparer.reconcile(100, selecting(conditional, conditional.consequent), 101.5, selecting(conditional, conditional.consequent))).toBe(100);
+            });
+        });
+
         it('keeps a number that moved within the tolerance at the one last reported, so the drift cannot add up', () => {
             const snapshotComparer = snapshotComparerOf('@element.wobble.width', { element }, { tolerance: 1 });
             let reported = 100;
@@ -113,6 +157,17 @@ describe('SnapshotComparer', () => {
             expect(next[2]).toBe(previous[1]);
             expect(next[1]).toEqual({ key: 'a', n: '9' });
             expect(next[1]).not.toBe(previous[0]);
+        });
+
+        it('matches by element a list a conditional chose, following the identities of the value it gave', () => {
+            const snapshotComparer = snapshotComparerOf('if @wide then @element.children { key: self attributeOf "key" } else null', { element, wide: true });
+            const [a, b] = [{ nodeType: 1 }, { nodeType: 1 }];
+            const identities = list => ({ elements: list, items: list.map(() => null) });
+            const previous = freeze([{ key: 'a' }, { key: 'b' }]);
+            const next = snapshotComparer.reconcile(previous, identities([a, b]), freeze([{ key: 'b' }, { key: 'a' }]), identities([b, a]));
+
+            expect(next[0]).toBe(previous[1]);
+            expect(next[1]).toBe(previous[0]);
         });
 
         it('compares the items of an object expression over a list', () => {

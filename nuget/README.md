@@ -209,7 +209,17 @@ Domql.read('@panel is "attached"', { panel });
 @panel has "children" and @enabled
 ```
 
-`and` binds tighter than `or`, parentheses group any expression, and evaluation stops at the first operand that decides the result. An operand that is null decides neither: `and` answers false where an operand is false, otherwise null where one is null, and true where none is; `or` answers true where an operand is true, otherwise null where one is null, and false where none is. Inside an object expression or an expression argument, `self` tests the current value, as `where(self is "disabled")` does. The strings that name members and predicates are case-sensitive too. Selectors, attribute names and other strings passed to browser APIs follow the browser's own rules.
+`is null` answers whether a value is null, never null itself. `and` binds tighter than `or`, parentheses group any expression, and evaluation stops at the first operand that decides the result. An operand that is null decides neither: `and` answers false where an operand is false, otherwise null where one is null, and true where none is; `or` answers true where an operand is true, otherwise null where one is null, and false where none is. Inside an object expression or an expression argument, `self` tests the current value, as `where(self is "disabled")` does. The strings that name members and predicates are case-sensitive too. Selectors, attribute names and other strings passed to browser APIs follow the browser's own rules.
+
+A conditional chooses between two values, testing its conditions in order; false or null moves to the next clause, and only the branch it selects is evaluated:
+
+```text
+if @wide then @panel else @sidebar
+@input { state: if self is "disabled" then "locked" elseif self is "readOnly" then "read" else "open" }
+(if @wide then @panel else @sidebar).rect.width
+```
+
+Its branches are of one type, nullable where either is, and a conditional that is an operand or starts a chain is grouped.
 
 A call or a named operation takes one argument. A named operation's argument is a literal, a parameter, `self`, an object or a group, and an operation with several parameters takes them as the fields of one object:
 

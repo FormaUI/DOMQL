@@ -157,6 +157,56 @@ export class Type {
         return type;
     }
 
+    /**
+     * The least type holding a value of either type: their one structure, nullable wherever either is, null being of every nullable type; null where their structures differ.
+     * @param {Type} first
+     * @param {Type} second
+     */
+    static join(first, second) {
+        if (first.kind === 'null') {
+            return second.toNullable();
+        }
+
+        if (second.kind === 'null') {
+            return first.toNullable();
+        }
+
+        if (first.kind !== second.kind || first.name !== second.name) {
+            return null;
+        }
+
+        const isNullable = first.isNullable || second.isNullable;
+
+        if (first.item !== null) {
+            const item = Type.join(first.item, second.item);
+
+            return item === null ? null : new Type(first.kind, { item, isNullable });
+        }
+
+        if (first.fields !== null) {
+            if (first.fields.size !== second.fields.size) {
+                return null;
+            }
+
+            const fields = new Map();
+
+            for (const [name, field] of first.fields) {
+                const other = second.fields.get(name);
+                const joined = other === undefined ? null : Type.join(field, other);
+
+                if (joined === null) {
+                    return null;
+                }
+
+                fields.set(name, joined);
+            }
+
+            return new Type('object', { fields, isNullable });
+        }
+
+        return isNullable ? first.toNullable() : first;
+    }
+
     /** Whether a value of the actual type may stand where the expected type is declared, a list or an occurrence by its items. */
     static isAssignable(actual, expected) {
         if (actual.kind === 'null') {

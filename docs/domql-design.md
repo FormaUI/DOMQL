@@ -8,7 +8,7 @@ This design describes the whole runtime. Reading a query once, watching it as sn
 
 | Decision | Contract |
 | --- | --- |
-| A small language | Chains, object expressions, lists, predicate expressions and logical expressions, with literals and parameters. Arithmetic, ordering and anything else a query needs computed belongs to a member or to the caller. |
+| A small language | Chains, object expressions, lists, predicate expressions, logical expressions and conditionals, with literals and parameters. Arithmetic, ordering and anything else a query needs computed belongs to a member or to the caller. |
 | An open vocabulary | Everything a query can ask about is a member a vocabulary contributes; the built-in vocabulary and every extension follow one contract, and adding a member leaves the grammar unchanged. |
 | Queries read, requests act | Reading, watching or subscribing to a query reads the document and changes nothing, whatever vocabulary it uses; an action or a behavior request is a request of its own kind, carried out only when its caller runs or activates it. |
 | One meaning | A query evaluates the same way for every caller, however it was written. |
@@ -133,6 +133,8 @@ A watch keeps its result as live state when its caller chooses it as its update 
 ### Comparing snapshots
 
 A watch reports a snapshot that differs from the last one it reported, compared field by field and item by item. Strings, Booleans and null compare exactly; a number compares within the tolerance its member declares, and exactly where it declares none.
+
+A number a conditional gave compares within the tolerance of the member its branch read where the number last reported came from the same branch, and exactly where it came from another, which is a different reading whose difference no tolerance absorbs. A conditional can select a different branch at each place in the result, as for each item of a list, so evaluation keeps the branch each conditional selected for each place beside the elements its lists came from, and the comparer reads it there.
 
 ## Occurrence delivery
 

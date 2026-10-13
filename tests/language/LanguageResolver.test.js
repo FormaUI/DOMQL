@@ -445,7 +445,45 @@ describe('LanguageResolver', () => {
         });
 
         it('let a group start a chain', () => {
-            expect(resolve('@panel.children.count').type.toString()).toBe('number');
+            expect(resolve('(@panel).children.count').type.toString()).toBe('number');
+        });
+    });
+
+    describe('conditionals', () => {
+        it('type a conditional by its branches, nullable where either is', () => {
+            expect(resolve('if @wide then 1 else 2', { panel, wide: true }).type.toString()).toBe('number');
+            expect(resolve('if @wide then @panel.size.width else 0', { panel, wide: true }).type.toString()).toBe('number?');
+            expect(resolve('if @wide then "on" else null', { panel, wide: true }).type.toString()).toBe('string?');
+            expect(resolve('if @wide then { width: 1 } else { width: @panel.size.width }', { panel, wide: true }).type.toString()).toBe('{ width: number? }');
+        });
+
+        it('type an elseif as the conditional it is nested in the alternative', () => {
+            expect(resolve('if @a then 1 elseif @b then null else 3', { a: true, b: false }).type.toString()).toBe('number?');
+        });
+
+        it('refuse branches of different types, naming both', () => {
+            const error = failure('if @wide then 1 else "one"', { panel, wide: true });
+
+            expect(error.message).toContain("The branches of 'if' are of one type, and these are number and string");
+            expect(error.location.pointer).toBe('/query/alternative');
+            expect(failure('if @wide then { a: 1 } else { b: 1 }', { panel, wide: true }).message).toContain('{ a: number } and { b: number }');
+        });
+
+        it('refuse a condition that is no Boolean, and accept a nullable one', () => {
+            const error = failure('if @panel.size then 1 else 2');
+
+            expect(error.message).toContain("The condition of 'if' is a Boolean expression, and this one is size?");
+            expect(error.location.pointer).toBe('/query/condition');
+            expect(resolve('if @panel.parent is "attached" then 1 else 2').type.toString()).toBe('number');
+        });
+
+        it('validate a branch that evaluation might never reach', () => {
+            expect(failure('if @wide then 1 else @panel.nonsense', { panel, wide: true }).location.pointer).toBe('/query/alternative');
+        });
+
+        it('type is null as a Boolean that is never null, whatever its subject', () => {
+            expect(resolve('@panel.parent is null').type.toString()).toBe('boolean');
+            expect(resolve('null is null').type.toString()).toBe('boolean');
         });
     });
 

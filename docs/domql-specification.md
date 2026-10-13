@@ -8,14 +8,18 @@ This specification describes the whole language. An implementation may cover par
 
 ## Terms
 
-A **query** is a value expression whose evaluation produces a **result**. A **chain** starts from an **initial expression**, `self`, a parameter, a literal, an object expression or a group, and follows **members** of the value before them, its **receiver**: a **member access** reads a property, `self.rect`, a **call** invokes an operation with parentheses, `self.closest(".row")`, and a **named operation** follows its receiver after a space, `self attributeOf "data-key"`. A member belongs to a **type**, such as an element, a list or a rectangle, and a call or a named operation can take an **argument**. `self` is the **current value**, the value an object expression or an argument is evaluated against. An **object expression** names the **fields** of the **object** it produces, each with a value, and the object's **object type** describes those fields and their types. A **predicate expression** asks whether a value satisfies a **predicate**, a name the vocabulary registers, with `is` or `has`. A **logical expression** combines Boolean expressions with `and` and `or`, and a **group** is an expression in parentheses. A **parameter** is a name a query reads a value through, such as `@panel`, and a **binding** is the value the caller supplies for it, such as an element. A **vocabulary** is a set of types and their members; the **built-in vocabulary** comes with DOMQL, and an **extension** is a vocabulary registered under a name of its own. An **occurrence source** is a member whose value is a stream of occurrences, things that happened, rather than state. An **action** is an operation the browser carries out once, and a **behavior** one that runs on until it is updated or disposed; a **request** is a query, a subscription, an action or a behavior request. A query's **definition** is the JSON document recording its meaning, and every request has one.
+A **query** is a value expression whose evaluation produces a **result**. A **chain** starts from an **initial expression**, `self`, a parameter, a literal, an object expression or a group, and follows **members** of the value before them, its **receiver**: a **member access** reads a property, `self.rect`, a **call** invokes an operation with parentheses, `self.closest(".row")`, and a **named operation** follows its receiver after a space, `self attributeOf "data-key"`. A member belongs to a **type**, such as an element, a list or a rectangle, and a call or a named operation can take an **argument**. `self` is the **current value**, the value an object expression or an argument is evaluated against. An **object expression** names the **fields** of the **object** it produces, each with a value, and the object's **object type** describes those fields and their types. A **predicate expression** asks whether a value satisfies a **predicate**, a name the vocabulary registers, with `is` or `has`. A **logical expression** combines Boolean expressions with `and` and `or`, a **conditional** chooses between two values by a Boolean condition, and a **group** is an expression in parentheses. A **parameter** is a name a query reads a value through, such as `@panel`, and a **binding** is the value the caller supplies for it, such as an element. A **vocabulary** is a set of types and their members; the **built-in vocabulary** comes with DOMQL, and an **extension** is a vocabulary registered under a name of its own. An **occurrence source** is a member whose value is a stream of occurrences, things that happened, rather than state. An **action** is an operation the browser carries out once, and a **behavior** one that runs on until it is updated or disposed; a **request** is a query, a subscription, an action or a behavior request. A query's **definition** is the JSON document recording its meaning, and every request has one.
 
 ## Syntax
 
 ```
 query            = expression end-of-input
 
-expression       = disjunction
+expression       = conditional | disjunction
+conditional      = "if" expression "then" expression
+                   { "elseif" expression "then" expression }
+                   "else" expression
+
 disjunction      = conjunction { "or" conjunction }
 conjunction      = operand { "and" operand }
 operand          = chain [ predicate ]
@@ -31,7 +35,8 @@ named-operation  = identifier [ separator initial ]
 object           = "{" field { "," field } [ "," ] "}"
 field            = identifier ":" expression
 
-predicate        = ( "is" | "has" ) ( string | parameter )
+predicate        = "is" ( string | parameter | "null" )
+                 | "has" ( string | parameter )
 
 parameter        = "@" identifier
 literal          = string | number | "true" | "false" | "null"
@@ -40,6 +45,7 @@ identifier       = name - keyword
 name             = letter { letter | digit }
 keyword          = "true" | "false" | "null" | "self"
                  | "is" | "has" | "and" | "or"
+                 | "if" | "then" | "elseif" | "else"
 
 letter           = ? ASCII A–Z or a–z ?
 digit            = "0" | nonzero-digit
@@ -139,13 +145,15 @@ Because the kind is part of the signature, the evaluator validates every kind be
 @panel.parent is "attached"
 @input has "selection"
 @panel is @state
+@panel.parent is null
 ```
 
 - **The subject** is the value of the chain before the verb, always written. A dot binds tighter than a verb, so `@panel.parent is "attached"` tests the panel's parent, and a named operation's result can be tested too, `@panel attributeOf "role" is "set"`. The current value is tested as `self`, inside an object expression or an expression argument: `@panel { attached: self is "attached" }` and `@panel.all("input").where(self is "disabled")`.
 - **One predicate.** A predicate expression reads one predicate name, and combining predicate expressions is a logical expression's work: `@panel is "attached" and @panel is "visible"` tests the panel twice, while `@panel is "attached" and "visible"` is an `and` whose second operand is the string `"visible"`, which fails validation.
 - **Evaluation.** The subject is evaluated, and the predicate is applied to it.
 - **Names.** A predicate is named by a string, read exactly, or by a bound parameter, which is fixed: it is settled when the query is prepared and must supply a non-null string. `@panel is @state` takes its name from the bindings.
-- **Results.** A predicate expression answers a `boolean`. Its subject propagates null as a member's receiver does: a predicate expression of null answers null, and its type is `boolean?` when its subject's is nullable. A predicate the verb does not register, or one that does not apply to the subject's type, is a validation error naming it.
+- **Results.** A predicate expression answers a `boolean`. Its subject propagates null as a member's receiver does: a predicate expression of null answers null, and its type is `boolean?` when its subject's is nullable.
+- **`is null`** is the language's own test of absence: true for a subject that is null and false for any other, never null itself, so its type is `boolean` whatever its subject's. It is distinct from `is "null"`, which names a registered predicate, and `has` takes no `null`. A predicate the verb does not register, or one that does not apply to the subject's type, is a validation error naming it.
 - **The predicate expression ends its operand.** Nothing follows one but `and`, `or` or the end of its expression, neither a member nor an object expression; a predicate expression can be a field's value, an argument, an operand or a whole query.
 
 ### Logical expressions and groups
@@ -177,6 +185,23 @@ Because the kind is part of the signature, the evaluator validates every kind be
 - **Evaluation.** Operands are evaluated from left to right, and evaluation stops at the first that decides the result, false for `and` and true for `or`; a null decides neither, so the next operand is evaluated, since it may. Every operand is resolved and validated before anything is evaluated all the same, and a watch follows the operands evaluation reached.
 - **Type.** A logical expression is a `boolean`, and a `boolean?` where an operand can be null.
 - **Groups.** A group holds an expression and adds nothing of its own, so `((@panel))` is `@panel`, and as an initial expression it can start a chain: `(@panel).children.count`.
+
+### Conditionals
+
+A conditional chooses between two values: `if` a Boolean condition `then` its consequent `else` its alternative. Further conditions, each with `elseif`, are tested in order before the alternative.
+
+```
+if @wide then @panel else @sidebar
+if @panel.parent is "attached" then "ready" elseif @panel.parent is null then "unknown" else "waiting"
+@panel { state: if self is "disabled" then "locked" else "open" }
+(if @wide then @panel else @sidebar).rect.width
+```
+
+- **Conditions.** A condition is a `boolean` or a `boolean?`, and one of another type is a validation error naming it. True selects the clause's value; false or null moves to the next clause, and where no condition is true, the alternative is the value.
+- **Branches.** Every branch is mandatory, and they are of one type, compared structurally for object types, which may differ in nullability: a conditional is nullable wherever a branch is, so `number` and `number?`, or `number` and `null`, give `number?`, while `number` and `string` are a validation error naming both.
+- **Evaluation.** Only the selected branch is evaluated, and its value is kept as it is, false and null included. Every branch is resolved and validated before anything is evaluated all the same, and a watch follows what was evaluated.
+- **Grouping.** Each position of a conditional takes a whole expression, so `if @a then @b else @c and @d` holds the `and` in its alternative. A conditional that is an operand of `and` or `or`, the subject of a predicate expression, or the start of a chain is grouped: `(if @wide then @panel else @sidebar).rect.width`. A conditional has no `?:` form and no closing `end`.
+- **Every clause writes its subject,** as every predicate expression does, so an `elseif` inherits nothing from the clause before it.
 
 ### Case-sensitive names
 
@@ -342,6 +367,7 @@ A member of null is null, and so is a predicate expression of null, so a chain t
 | A member written in a form its declaration does not take, or an argument that does not supply its input | A validation error giving the form or the input it takes |
 | A predicate its verb does not register, or one that does not apply to its subject | A validation error naming it |
 | An operand of `and` or `or` that is no Boolean | A validation error naming its type |
+| A condition that is no Boolean, or branches of different types | A validation error naming the types |
 | A receiver, an argument, an expression or a binding of the wrong type, an argument of the wrong kind, or a missing required one | A validation error naming where, the expected type and the type found |
 | A module returning a value of a type other than the one it declared | An evaluation error |
 | A result that would contain an element or an occurrence source | A validation error |
@@ -498,7 +524,8 @@ A document holds the definition's `version` and the `query` node. Each node is a
 | `call` | `name`; `argument`, its one argument, where it is given one; and `target`, the receiver | A call |
 | `namedOperation` | `name`; `argument`, its one argument, where it is given one; and `target`, the receiver | A named operation |
 | `object` | `fields`, and `target`, the node the object expression follows | An object expression; without a target, one keeping the current value around it, which at the top level is absent |
-| `predicate` | `verb`, `is` or `has`; `name`, a `literal` holding a string or a `parameter`, the predicate it reads; and `target`, the node whose value it tests | A predicate expression |
+| `predicate` | `verb`, `is` or `has`; `name`, a `literal` holding a string or a `parameter`, the predicate it reads, or under `is` a `literal` holding null, for `is null`; and `target`, the node whose value it tests | A predicate expression |
+| `conditional` | `condition`, `consequent` and `alternative`, three expressions | A conditional; an `elseif` is a conditional nested in the alternative before it |
 | `and`, `or` | `operands`, two or more expressions | A logical expression |
 
 A group adds no node, the expression it holds standing in its place, so `@panel is "attached" and (@panel is "disabled")` is an `and` of two predicate expressions:
@@ -547,8 +574,8 @@ A definition names its parameters and never holds their values. An element is bo
 
 A query is validated in two stages, both before any evaluation.
 
-- **Structure,** when the query is created: the definition follows the node structures and structural validation rules this specification defines, which need no vocabulary: every field with its name, unique within its object expression; no object expression without a field; every member access, call, named operation and predicate expression with its receiver; no `self` at the top level, nor in a field of an object expression there, since there is no current value for it to stand for; every predicate expression's verb `is` or `has`, and its name a string literal or a parameter; every `and` and `or` of two or more expressions; and no binding supplied under the name `document` or `window`. Text that does not follow the syntax fails here as a syntax error.
-- **Vocabulary,** when the query is prepared: every member and extension exists and is written in the form its declaration takes, every argument supplies its member's input, directly or as an options object whose fields name its parameters, every receiver, argument, expression and binding has the type its signature declares and every argument its kind, every fixed argument is a literal or a bound parameter, every chain of members a `get` names resolves to a readable member, every predicate a predicate expression names is registered for its verb and applies to its subject, every operand of `and` and `or` is a Boolean, every expression is valid in the context its member declares, the request is used as its kind, the result holds only data, and a watch's members can be watched.
+- **Structure,** when the query is created: the definition follows the node structures and structural validation rules this specification defines, which need no vocabulary: every field with its name, unique within its object expression; no object expression without a field; every member access, call, named operation and predicate expression with its receiver; no `self` at the top level, nor in a field of an object expression there, since there is no current value for it to stand for; every predicate expression's verb `is` or `has`, and its name a string literal or a parameter, or under `is` the null literal of `is null`; every `and` and `or` of two or more expressions; and no binding supplied under the name `document` or `window`. Text that does not follow the syntax fails here as a syntax error.
+- **Vocabulary,** when the query is prepared: every member and extension exists and is written in the form its declaration takes, every argument supplies its member's input, directly or as an options object whose fields name its parameters, every receiver, argument, expression and binding has the type its signature declares and every argument its kind, every fixed argument is a literal or a bound parameter, every chain of members a `get` names resolves to a readable member, every predicate a predicate expression names is registered for its verb and applies to its subject, every operand of `and` and `or` and every condition is a Boolean, the branches of every conditional are of one type, every expression is valid in the context its member declares, the request is used as its kind, the result holds only data, and a watch's members can be watched.
 
 A failure in either stage names where it is: its position in the text, or its node's location in the definition, as a JSON Pointer.
 
@@ -650,3 +677,5 @@ With no item selected, `current` is null. With an empty panel, `items` is an emp
 | The ids of the text-editable elements in a panel | `@panel.all("*").where(self is "textEditable") { id: self attributeOf "id" }` |
 | An element's states and what it holds | `@target { attached: self is "attached", disabled: self is "disabled", hasChildren: self has "children", hasSelection: self has "selection" }` |
 | Whether a control cannot take text | `@input is "disabled" or @input is "readOnly"` |
+| A control's state, one word | `@input { state: if self is "disabled" then "locked" elseif self is "readOnly" then "read" else "open" }` |
+| Whether an element has a parent | `@panel.parent is null` |

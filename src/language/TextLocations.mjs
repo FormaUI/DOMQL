@@ -55,6 +55,12 @@ export class TextLocations {
             this.#collect(part.argument, `${pointer}/argument`, spans);
         }
 
+        if (part.kind === 'conditional') {
+            for (const branch of ['condition', 'consequent', 'alternative']) {
+                this.#collect(part[branch], `${pointer}/${branch}`, spans);
+            }
+        }
+
         part.operands?.forEach((operand, index) => this.#collect(operand, `${pointer}/operands/${index}`, spans));
 
         part.fields?.forEach((field, index) => {

@@ -24,8 +24,16 @@ export class SnapshotComparer {
     }
 
     #reconcileNode(node, previous, previousIdentities, next, nextIdentities) {
+        if (node.kind === 'conditional') {
+            const branch = SnapshotComparer.#branchOf(node, previousIdentities, nextIdentities);
+
+            return branch === null
+                ? SnapshotComparer.#merge(previous, previousIdentities, next, nextIdentities, null)
+                : this.#reconcileNode(branch, previous, previousIdentities, next, nextIdentities);
+        }
+
         if (node.kind !== 'object' || next === null || typeof next !== 'object') {
-            return SnapshotComparer.#merge(previous, next, this.#toleranceOf(node));
+            return SnapshotComparer.#merge(previous, previousIdentities, next, nextIdentities, this.#toleranceOf(node, previousIdentities, nextIdentities));
         }
 
         if (!Array.isArray(next)) {
@@ -73,8 +81,14 @@ export class SnapshotComparer {
         return nextElements.map(element => index.get(element) ?? -1);
     }
 
-    /** The tolerance of the member that produced the value, which a field of its value shares; null for a value that is no member's. */
-    #toleranceOf(node) {
+    /** The tolerance of the member that produced the value, which a field of its value shares, through the branch a conditional selected for both values; null for a value that is no member's. */
+    #toleranceOf(node, previousIdentities, nextIdentities) {
+        if (node.kind === 'conditional') {
+            const branch = SnapshotComparer.#branchOf(node, previousIdentities, nextIdentities);
+
+            return branch === null ? null : this.#toleranceOf(branch, previousIdentities, nextIdentities);
+        }
+
         if (node.kind !== 'member' && node.kind !== 'call' && node.kind !== 'namedOperation') {
             return null;
         }
@@ -82,14 +96,21 @@ export class SnapshotComparer {
         const resolution = this.#resolvedDefinition.resolutionOf(node);
 
         if (resolution?.kind === 'field') {
-            return this.#toleranceOf(node.target);
+            return this.#toleranceOf(node.target, previousIdentities, nextIdentities);
         }
 
         return resolution?.declaration?.tolerance ?? null;
     }
 
-    /** The previous value where the next equals it, and the next otherwise, with the branches that are equal shared. */
-    static #merge(previous, next, tolerance) {
+    /** The branch the conditional selected for both values, or null where they came from different branches, or either from none recorded, which compare exactly. */
+    static #branchOf(node, previousIdentities, nextIdentities) {
+        const branch = nextIdentities?.branches?.get(node) ?? null;
+
+        return branch !== null && branch === (previousIdentities?.branches?.get(node) ?? null) ? branch : null;
+    }
+
+    /** The previous value where the next equals it, and the next otherwise, with the branches that are equal shared and the items of a list projected from elements matched by element. */
+    static #merge(previous, previousIdentities, next, nextIdentities, tolerance) {
         if (previous === next) {
             return previous;
         }
@@ -99,13 +120,18 @@ export class SnapshotComparer {
         }
 
         if (Array.isArray(previous) && Array.isArray(next)) {
-            const items = next.map((item, index) => (index < previous.length ? SnapshotComparer.#merge(previous[index], item, tolerance) : item));
+            const matched = SnapshotComparer.#matchByElement(previousIdentities, previous.length, nextIdentities, next.length);
+            const items = next.map((item, index) => {
+                const at = matched === null ? (index < previous.length ? index : -1) : matched[index];
+
+                return at === -1 ? item : SnapshotComparer.#merge(previous[at], previousIdentities?.items?.[at] ?? null, item, nextIdentities?.items?.[index] ?? null, tolerance);
+            });
 
             return SnapshotComparer.#sameItems(previous, items) ? previous : Object.freeze(items);
         }
 
         if (SnapshotComparer.#isRecord(previous) && SnapshotComparer.#isRecord(next)) {
-            const fields = Object.fromEntries(Object.entries(next).map(([name, field]) => [name, name in previous ? SnapshotComparer.#merge(previous[name], field, tolerance) : field]));
+            const fields = Object.fromEntries(Object.entries(next).map(([name, field]) => [name, name in previous ? SnapshotComparer.#merge(previous[name], previousIdentities?.fields?.[name] ?? null, field, nextIdentities?.fields?.[name] ?? null, tolerance) : field]));
 
             return SnapshotComparer.#sameFields(previous, fields) ? previous : Object.freeze(fields);
         }

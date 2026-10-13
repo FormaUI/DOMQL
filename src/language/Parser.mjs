@@ -43,9 +43,45 @@ export class Parser {
         return { definition: { version: Specification.definitionVersion, query }, spans: this.#spans };
     }
 
-    /** Reads an expression: operands joined by `and` and `or`, `and` binding tighter. */
+    /** Reads an expression: a conditional, or operands joined by `and` and `or`, `and` binding tighter. */
     #parseExpression() {
+        if (this.#isOperator('if')) {
+            const start = this.#token.start;
+
+            this.#advance();
+
+            return this.#parseClause(start);
+        }
+
         return this.#parseLogical('or', () => this.#parseLogical('and', () => this.#parseOperand()));
+    }
+
+    /** Reads a conditional after its `if` or an `elseif`: its condition, its consequent, and its alternative, an `elseif` being a conditional nested there. */
+    #parseClause(start) {
+        const condition = this.#parseExpression();
+
+        if (!this.#isOperator('then')) {
+            throw this.#unexpected("'then' after the condition");
+        }
+
+        this.#advance();
+
+        const consequent = this.#parseExpression();
+        let alternative;
+
+        if (this.#isOperator('elseif')) {
+            const clause = this.#token.start;
+
+            this.#advance();
+            alternative = this.#parseClause(clause);
+        } else if (this.#isOperator('else')) {
+            this.#advance();
+            alternative = this.#parseExpression();
+        } else {
+            throw this.#unexpected("'elseif' or 'else', which every conditional ends with");
+        }
+
+        return this.#span({ kind: 'conditional', condition, consequent, alternative }, start);
     }
 
     /** Reads an operand: a chain, and a predicate expression of its value where a verb follows it. */
@@ -54,6 +90,10 @@ export class Parser {
 
         if (this.#isVerb()) {
             throw DomqlError.syntax(`'${this.#token.value}' tests the value written before it: write 'self ${this.#token.value} …' to test the current value`, this.#text, start);
+        }
+
+        if (this.#isOperator('if')) {
+            throw DomqlError.syntax('A conditional that is an operand is grouped: write (if … then … else …)', this.#text, start);
         }
 
         const chain = this.#parseChain();
@@ -229,11 +269,19 @@ export class Parser {
         return this.#span({ kind: operator, operands }, start);
     }
 
-    /** Reads the one predicate name a predicate expression reads: a string or a parameter. */
+    /** Reads the one predicate name a predicate expression reads: a string or a parameter, or the null `is null` tests for. */
     #parsePredicateName(verb) {
         const token = this.#token;
 
         if ((token.type === 'literal' && typeof token.value === 'string') || token.type === 'parameter') {
+            return this.#parseInitial();
+        }
+
+        if (token.type === 'literal' && token.value === null) {
+            if (verb !== 'is') {
+                throw DomqlError.syntax(`'${verb}' takes no null; 'is null' tests whether a value is null`, this.#text, token.start);
+            }
+
             return this.#parseInitial();
         }
 

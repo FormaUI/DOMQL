@@ -262,6 +262,50 @@ describe('Domql', () => {
         });
     });
 
+    describe('conditionals', () => {
+        const conditional = (condition, consequent, alternative) => ({ kind: 'conditional', condition, consequent, alternative });
+        const predicate = (verb, name, target = self) => ({ kind: 'predicate', verb, target, name });
+
+        it('read a condition, a consequent and an alternative, each a whole expression', () => {
+            expect(Domql.parse('if @wide then @panel else @sidebar').definition.query).toEqual(conditional(parameter('wide'), parameter('panel'), parameter('sidebar')));
+            expect(Domql.parse('if @wide then @first else @second and @third').definition.query.alternative).toEqual({ kind: 'and', operands: [parameter('second'), parameter('third')] });
+        });
+
+        it('record an elseif as a conditional nested in the alternative before it', () => {
+            const nested = conditional(parameter('a'), literal(1), conditional(parameter('b'), literal(2), literal(3)));
+
+            expect(Domql.parse('if @a then 1 elseif @b then 2 else 3').definition.query).toEqual(nested);
+            expect(Domql.parse('if @a then 1 else if @b then 2 else 3').definition.query).toEqual(nested);
+        });
+
+        it('stand where an expression stands, grouped where it is an operand or starts a chain', () => {
+            expect(Domql.parse('(if @wide then @panel else @sidebar).rect.width').definition.query).toEqual(member('width', member('rect', conditional(parameter('wide'), parameter('panel'), parameter('sidebar')))));
+            expect(Domql.parse('(if @a then true else false) and @b').definition.query.kind).toBe('and');
+            expect(Domql.parse('@panel { state: if self is "disabled" then "locked" else "open" }').definition.query.fields[0].value.kind).toBe('conditional');
+        });
+
+        it('test for null with is null, which only is takes', () => {
+            expect(Domql.parse('@panel.parent is null').definition.query).toEqual(predicate('is', literal(null), member('parent', parameter('panel'))));
+        });
+
+        it('are created from a definition as they are parsed from text', () => {
+            const parsed = Domql.parse('if @panel is null then "gone" elseif @panel is "attached" then "here" else "away"', { panel: document.body });
+
+            expect(Domql.create(parsed.definition, { panel: document.body }).definition).toEqual(parsed.definition);
+        });
+
+        it.each([
+            ['a conditional without its alternative', { kind: 'conditional', condition: parameter('a'), consequent: literal(1) }, '/query'],
+            ['a conditional whose branch is no node', conditional(parameter('a'), literal(1), 'else'), '/query/alternative'],
+            ['has null', predicate('has', literal(null), parameter('panel')), '/query/name/value'],
+        ])('refuse a definition with %s', (_, query, pointer) => {
+            const error = getError(() => Domql.create({ version: 3, query }, { panel: document.body }));
+
+            expect(error.kind).toBe('structure');
+            expect(error.location.pointer).toBe(pointer);
+        });
+    });
+
     describe('syntax', () => {
         it.each([
             ['two fields with no comma between them', '@panel {\n    size: self.size\n    clientSize: self.clientSize\n}', 3, 5],
@@ -307,6 +351,12 @@ describe('Domql', () => {
             ['a single slash', '@panel.size / 2', 1, 13],
             ['a # comment, which DOMQL has none of', '# A panel.\n@panel { size: self.size }', 1, 1],
             ['a reserved literal naming a parameter', '@false { size: self.size }', 1, 2],
+            ['a conditional without then', 'if @wide "a" else "b"', 1, 10],
+            ['a conditional without else', 'if @wide then "a"', 1, 18],
+            ['a conditional that is an operand without parentheses', '@a and if @b then true else false', 1, 8],
+            ['a keyword of the conditional naming a field', '@panel { then: self.size }', 1, 10],
+            ['a keyword of the conditional naming a member', '@panel.else', 1, 8],
+            ['has null', '@panel has null', 1, 12],
         ])('rejects %s, naming where', (_, text, line, column) => {
             const error = getError(() => Domql.parse(text));
 

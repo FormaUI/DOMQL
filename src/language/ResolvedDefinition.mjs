@@ -102,6 +102,11 @@ export class ResolvedDefinition {
             case 'predicate':
                 this.#index(node.name, `${pointer}/name`);
                 break;
+            case 'conditional':
+                for (const branch of ['condition', 'consequent', 'alternative']) {
+                    this.#index(node[branch], `${pointer}/${branch}`);
+                }
+                break;
             case 'and':
             case 'or':
                 node.operands.forEach((operand, index) => this.#index(operand, `${pointer}/operands/${index}`));

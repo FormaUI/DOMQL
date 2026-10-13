@@ -73,6 +73,8 @@ export class LanguageResolver {
                 return this.#member(node, pointer, scope);
             case 'predicate':
                 return this.#predicate(node, pointer, scope);
+            case 'conditional':
+                return this.#conditional(node, pointer, scope);
             case 'and':
             case 'or':
                 return this.#logical(node, pointer, scope);
@@ -88,6 +90,11 @@ export class LanguageResolver {
 
         if (subject.kind !== 'query') {
             this.#fail(`'${verb}' tests ${LanguageResolver.#nameOf(subject.kind)}, which is no value`, pointer);
+        }
+
+        // Is null answers whether the subject is null, so it is never null itself.
+        if (node.name.kind === 'literal' && node.name.value === null) {
+            return { type: Type.named('boolean'), kind: 'query', isFixed: false };
         }
 
         if (subject.type.kind === 'null') {
@@ -118,6 +125,32 @@ export class LanguageResolver {
 
         this.#resolutions.set(pointer, { kind: 'predicate', predicate });
         this.#used.push({ declaration: { name: `${verb} ${name}`, changes: predicate.changes, reads: predicate.reads, misses: predicate.misses }, pointer });
+    }
+
+    /** Resolves a conditional: a Boolean condition, and two branches of one type, nullable where either is; the whole is resolved before any of it is evaluated. */
+    #conditional(node, pointer, scope) {
+        const condition = this.#node(node.condition, `${pointer}/condition`, scope);
+
+        if (condition.kind !== 'query' || !(condition.type.kind === 'null' || (condition.type.kind === 'named' && condition.type.name === 'boolean'))) {
+            this.#fail(`The condition of 'if' is a Boolean expression, and this one is ${condition.kind === 'query' ? condition.type : LanguageResolver.#nameOf(condition.kind)}`, `${pointer}/condition`);
+        }
+
+        const branches = ['consequent', 'alternative'].map(branch => {
+            const result = this.#node(node[branch], `${pointer}/${branch}`, scope);
+
+            if (result.kind !== 'query') {
+                this.#fail(`A branch of 'if' is a value, and this one is ${LanguageResolver.#nameOf(result.kind)}`, `${pointer}/${branch}`);
+            }
+
+            return result.type;
+        });
+        const type = Type.join(...branches);
+
+        if (type === null) {
+            this.#fail(`The branches of 'if' are of one type, and these are ${branches[0]} and ${branches[1]}`, `${pointer}/alternative`);
+        }
+
+        return { type, kind: 'query', isFixed: false };
     }
 
     /** Resolves an and or an or: every expression it combines, each a Boolean, so the whole is validated before any of it is evaluated, and answers a Boolean that is nullable where an operand is. */

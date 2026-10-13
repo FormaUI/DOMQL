@@ -315,6 +315,62 @@ describe('QueryEvaluator', () => {
         it('take the name of a predicate expression from its bindings', () => {
             expect(read('@panel is @state or @panel is @other', { panel, state: 'focused', other: 'attached' })).toBe(true);
         });
+
+        it('answer whether a subject is null with is null, never null itself', () => {
+            expect(read('@panel.first(".none") is null', { panel })).toBe(true);
+            expect(read('@panel.parent is null', { panel })).toBe(false);
+            expect(read('null is null')).toBe(true);
+        });
+    });
+
+    describe('conditionals', () => {
+        const probes = () => {
+            const record = { yes: 0, no: 0 };
+            const module = new DomqlModule('probe', {
+                predicates: [
+                    { verb: 'is', name: 'yes', function: 'isYes', on: 'element', changes: 'constant', reads: 'fresh' },
+                    { verb: 'is', name: 'no', function: 'isNo', on: 'element', changes: 'constant', reads: 'fresh' },
+                ],
+            }, {
+                isYes: () => { record.yes++; return true; },
+                isNo: () => { record.no++; return false; },
+            });
+
+            return { module, record };
+        };
+
+        it.each([
+            [true, 'consequent'],
+            [false, 'alternative'],
+            [null, 'alternative'],
+        ])('select by a condition of %s the %s', (condition, branch) => {
+            expect(read('if @condition then "consequent" else "alternative"', { condition: Domql.bind(condition, 'boolean?') })).toBe(branch);
+        });
+
+        it('move to the next clause where a condition is false or null, and to the alternative where none is true', () => {
+            const bindings = (a, b) => ({ a: Domql.bind(a, 'boolean?'), b: Domql.bind(b, 'boolean?') });
+
+            expect(read('if @a then 1 elseif @b then 2 else 3', bindings(false, true))).toBe(2);
+            expect(read('if @a then 1 elseif @b then 2 else 3', bindings(null, true))).toBe(2);
+            expect(read('if @a then 1 elseif @b then 2 else 3', bindings(false, null))).toBe(3);
+            expect(read('if @a then 1 elseif @b then 2 else 3', bindings(true, true))).toBe(1);
+        });
+
+        it('evaluate only the branch the condition selects', () => {
+            const { module, record } = probes();
+
+            expect(readWith(module, 'if @panel is "yes" then @panel is "yes" else @panel is "no"', { panel })).toBe(true);
+            expect(record).toEqual({ yes: 2, no: 0 });
+        });
+
+        it('keep the value of the selected branch, false and null included', () => {
+            expect(read('if @on then false else true', { on: true })).toBe(false);
+            expect(read('if @on then null else 1', { on: true })).toBeNull();
+        });
+
+        it('start a chain from a group, reading from the element the condition selects', () => {
+            expect(read('(if @first then @panel else @other) attributeOf "id"', { first: false, panel, other: items[0] })).toBe(items[0].getAttribute('id'));
+        });
     });
 
     describe('geometry', () => {
@@ -494,6 +550,32 @@ describe('QueryEvaluator evaluation', () => {
 
     const membersOf = evaluation => evaluation.dependencies.map(dependency => dependency.member);
 
+    describe('branches', () => {
+        /** Whether the conditional each recorded branch belongs to selected its consequent, in the order they were selected. */
+        const consequents = identities => [...identities.branches].map(([conditional, branch]) => branch === conditional.consequent);
+
+        it('are recorded beside the identities of the place in the result each conditional gave', () => {
+            expect(consequents(evaluate('if @on then 1 else 2', { on: true }).identities)).toEqual([true]);
+            expect(consequents(evaluate('@panel { width: if @on then @panel.size.width else 0 }', { panel, on: false }).identities.fields.width)).toEqual([false]);
+        });
+
+        it('record an elseif as the conditional nested in the alternative it is', () => {
+            expect(consequents(evaluate('if @a then 1 elseif @b then 2 else 3', { a: false, b: true }).identities)).toEqual([false, true]);
+        });
+
+        it('are recorded for each item, which can select a different branch', () => {
+            rows[1].setAttribute('data-on', '');
+
+            const { items } = evaluate('@panel.children { pick: if self matches "[data-on]" then 1 else 2 }', { panel }).identities;
+
+            expect(items.map(item => consequents(item.fields.pick))).toEqual([[false], [true], [false]]);
+        });
+
+        it('leave the identities of a result no conditional gave as they were', () => {
+            expect(evaluate('@panel { width: @panel.size.width }', { panel }).identities).toBeNull();
+        });
+    });
+
     describe('dependencies', () => {
         it('are each member applied to its receiver and arguments, with the observations that cover it', () => {
             const evaluation = evaluate('@panel attributeOf "id"', { panel });
@@ -553,6 +635,11 @@ describe('QueryEvaluator evaluation', () => {
             const evaluation = evaluate('@element attributeOf "id"', { element: panel });
 
             expect(evaluation.dependencies.flatMap(dependency => dependency.observations).some(observation => observation.type === 'attachment')).toBe(false);
+        });
+
+        it('include only those of the branch a conditional evaluated', () => {
+            expect(membersOf(evaluate('if @on then @panel.size else @panel.clientSize', { panel, on: true }))).toEqual(['size']);
+            expect(membersOf(evaluate('if @on then @panel.size else @panel.clientSize', { panel, on: false }))).toEqual(['clientSize']);
         });
 
         it('include the predicates an or reached, and none it did not need', () => {

@@ -31,6 +31,12 @@ export class QueryEvaluator {
     /** The element each item of a list an object expression projected came from, by the list it produced, for the evaluation in progress. @type {WeakMap<unknown[], (Element | null)[]>} */
     #elementsOf = new WeakMap();
 
+    /** The branch each conditional selected for each field of an object an object expression gave, by the object, for the evaluation in progress. @type {WeakMap<object, Map<string, Map<object, object>>>} */
+    #branchesOf = new WeakMap();
+
+    /** The branch each conditional selected for the value being evaluated at its place in the result, by the conditional, or null where none has. @type {Map<object, object> | null} */
+    #branches = null;
+
     /** What the evaluation in progress records, or null where none does. @type {{ observations: import('./Observations.mjs').Observations, onChange: () => void, holdsAll: boolean, replaces: QueryEvaluation[] | null, dependencies: object[], sessions: object[], held: Map<object, Map<unknown, object[]>> | null, unheld: object[], isPending: boolean } | null} */
     #recording = null;
 
@@ -126,9 +132,7 @@ export class QueryEvaluator {
         this.#occurrence = { node, value: result };
 
         try {
-            this.#elementsOf = new WeakMap();
-
-            return this.#detachResult(this.#evaluate(this.#resolvedDefinition.definition.query, null)).value;
+            return this.#evaluateResult().value;
         } finally {
             this.#occurrence = null;
         }
@@ -169,9 +173,7 @@ export class QueryEvaluator {
             this.#occurrence = { node, value: occurrence };
 
             try {
-                this.#elementsOf = new WeakMap();
-
-                return this.#detachResult(this.#evaluate(this.#resolvedDefinition.definition.query, null));
+                return this.#evaluateResult();
             } finally {
                 this.#occurrence = null;
             }
@@ -216,9 +218,7 @@ export class QueryEvaluator {
             this.#fail(`A ${this.#resolvedDefinition.kind} request is not read`, '/query');
         }
 
-        this.#elementsOf = new WeakMap();
-
-        return this.#detachResult(this.#evaluate(this.#resolvedDefinition.definition.query, null));
+        return this.#evaluateResult();
     }
 
     #evaluate(node, current) {
@@ -235,6 +235,8 @@ export class QueryEvaluator {
                 return this.#member(node, current);
             case 'predicate':
                 return this.#predicate(node, current);
+            case 'conditional':
+                return this.#conditional(node, current);
             case 'and':
                 return this.#and(node, current);
             case 'or':
@@ -244,9 +246,22 @@ export class QueryEvaluator {
         }
     }
 
+    /** The value of the branch the condition selects, true selecting the consequent and false or null the alternative; the other branch is never evaluated, and the one selected is recorded for the value's place in the result. */
+    #conditional(node, current) {
+        const branch = this.#evaluate(node.condition, current) === true ? node.consequent : node.alternative;
+
+        (this.#branches ??= new Map()).set(node, branch);
+
+        return this.#evaluate(branch, current);
+    }
+
     /** Tests the subject, evaluated once, against the predicate the predicate expression names; a predicate expression of null is null. */
     #predicate(node, current) {
         const subject = this.#evaluate(node.target, current);
+
+        if (node.name.kind === 'literal' && node.name.value === null) {
+            return subject === null;
+        }
 
         return subject === null ? null : this.#invoke(this.#resolvedDefinition.resolutionOf(node.name).predicate, subject, {}, BOOLEAN, node.name);
     }
@@ -601,12 +616,29 @@ export class QueryEvaluator {
         return items;
     }
 
-    /** The object an object expression gives the item: each of its fields, in order, under its name, evaluated against the item. */
+    /** The object an object expression gives the item: each of its fields, in order, under its name, evaluated against the item, with the branches each field's conditionals selected. */
     #fieldsOf(node, item) {
         const names = this.#resolvedDefinition.fieldNamesOf(node);
         const object = {};
+        const enclosing = this.#branches;
+        let branches = null;
 
-        node.fields.forEach((field, index) => QueryEvaluator.#define(object, names[index], this.#evaluate(field.value, item)));
+        try {
+            node.fields.forEach((field, index) => {
+                this.#branches = null;
+                QueryEvaluator.#define(object, names[index], this.#evaluate(field.value, item));
+
+                if (this.#branches !== null) {
+                    (branches ??= new Map()).set(names[index], this.#branches);
+                }
+            });
+        } finally {
+            this.#branches = enclosing;
+        }
+
+        if (branches !== null) {
+            this.#branchesOf.set(object, branches);
+        }
 
         return object;
     }
@@ -718,17 +750,24 @@ export class QueryEvaluator {
         }
     }
 
-    /** The detached result and its identities, which the evaluator lets go of once it hands them over, so it holds no element between evaluations. */
-    #detachResult(value) {
+    /** The query evaluated and detached, with its identities, which the evaluator lets go of once it hands them over, so it holds no element between evaluations. */
+    #evaluateResult() {
+        this.#elementsOf = new WeakMap();
+        this.#branchesOf = new WeakMap();
+        this.#branches = null;
+
         try {
-            return { value: this.#detach(value), identities: this.#detachedIdentities };
+            const value = this.#detach(this.#evaluate(this.#resolvedDefinition.definition.query, null));
+
+            return { value, identities: QueryEvaluator.#withBranches(this.#detachedIdentities, this.#branches) };
         } finally {
             this.#detachedIdentities = null;
+            this.#branches = null;
         }
     }
 
     /**
-     * A frozen copy of the data sharing no structure with the original; the identities that follow its structure are left in `#detachedIdentities`: for a list projected from elements, the element each item came from, and null where nothing beneath holds one.
+     * A frozen copy of the data sharing no structure with the original; the identities that follow its structure are left in `#detachedIdentities`: for a list projected from elements, the element each item came from, for a field, the branch each conditional selected for its value, and null where nothing beneath holds either.
      */
     #detach(value) {
         if (Array.isArray(value)) {
@@ -751,14 +790,17 @@ export class QueryEvaluator {
 
         if (QueryEvaluator.#isRecord(value)) {
             const detached = {};
+            const branches = this.#branchesOf.get(value);
             let fields = null;
 
             for (const name of Object.keys(value)) {
                 QueryEvaluator.#define(detached, name, this.#detach(value[name]));
 
-                if (this.#detachedIdentities !== null) {
+                const identities = QueryEvaluator.#withBranches(this.#detachedIdentities, branches?.get(name) ?? null);
+
+                if (identities !== null) {
                     fields ??= {};
-                    QueryEvaluator.#define(fields, name, this.#detachedIdentities);
+                    QueryEvaluator.#define(fields, name, identities);
                 }
             }
 
@@ -770,6 +812,11 @@ export class QueryEvaluator {
         this.#detachedIdentities = null;
 
         return value;
+    }
+
+    /** The identities of a value with the branches its conditionals selected beside them, or the identities alone where none did. */
+    static #withBranches(identities, branches) {
+        return branches === null ? identities : { ...identities, branches };
     }
 
     /** Gives the object a field of its own holding the value, a field named `__proto__` included, as a data object's fields are. */

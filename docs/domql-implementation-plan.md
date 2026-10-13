@@ -18,7 +18,7 @@ Each item is what exists and what checks it.
 - **Change sets.** A watch that delivers change sets sends a baseline and then JSON Patch change sets, each acknowledged before the next is computed against the state it established, and recovers with a baseline of a new generation that nothing earlier can affect. Lists projected from elements change by element, through identities kept beside the result. A current snapshot applies each update atomically and gives a stale one no effect. Checked by the tests of computing and of applying change sets, each against expected patches and results and together, of the dispatcher and the current snapshot, and of watches delivering to a receiver.
 - **The package.** The bundle, with its TypeScript declarations checked against `Domql` and against a TypeScript caller; the READMEs' examples run as tests.
 
-What is not built: conditional expressions, local values, the query object, editor tooling and the C# half.
+What is not built: local values, the query object, editor tooling and the C# half.
 
 ## Decisions
 
@@ -338,7 +338,7 @@ else
 
 The language composes queries through member access, calls, named operations, object expressions, predicate expressions, logical expressions and conditional expressions. Arithmetic, ordering and other computations are provided by vocabulary members or performed by the caller.
 
-State: **decided.** Step 10 has built explicit receivers, calls and named operations, and step 11 logical expressions and groups; step 11 then builds conditionals.
+State: **decided.** Step 10 has built explicit receivers, calls and named operations, and step 11 logical expressions, groups and conditionals.
 
 ### D11. Local values
 
@@ -691,8 +691,8 @@ Write every receiver, and tell member access, calls and named operations apart, 
 Choose between two values, group expressions and combine Boolean expressions, as D10 decides.
 
 - **Needs:** D10, step 10.
-- **Done when:** text and a definition each write a conditional, an `elseif`, a group and a logical expression, parsed, validated, written and resolved as D10 sets out, a definition written back as text with the parentheses its grouping needs; `is` and `has` read one predicate name, held under `name`, and `and` and `or` combine complete Boolean expressions alone, answering as the three-valued table gives; an `elseif` is recorded as a conditional nested in the alternative before it and written back as `elseif`, parsing, writing and parsing again giving the same definition; `is null` answers whether its subject is null; true, false and null conditions select their branches; branches of one type with different nullability answer the nullable type, and branches of different types fail with a validation error naming both; only the selected branch and the operands evaluation reaches are evaluated, and a watch follows what was; a group starts a chain, as `(if @wide then @panel else @sidebar).rect.width` does; and the specification, the design and the READMEs describe them, the earlier shorthand of predicate names replaced.
-- **State:** in progress. Groups and logical expressions are built: `is` and `has` read one predicate name under `name`, `and` and `or` combine Boolean expressions by the three-valued table, a definition is written back with the parentheses its grouping needs, and the builder combines with `.and` and `.or`. Conditionals, `elseif` and `is null` remain, after step 10.
+- **Done when:** text and a definition each write a conditional, an `elseif`, a group and a logical expression, parsed, validated, written and resolved as D10 sets out, a definition written back as text with the parentheses its grouping needs; `is` and `has` read one predicate name, held under `name`, and `and` and `or` combine complete Boolean expressions alone, answering as the three-valued table gives; an `elseif` is recorded as a conditional nested in the alternative before it and written back as `elseif`, parsing, writing and parsing again giving the same definition; `is null` answers whether its subject is null; true, false and null conditions select their branches; branches of one type with different nullability answer the nullable type, and branches of different types fail with a validation error naming both; only the selected branch and the operands evaluation reaches are evaluated, and a watch follows what was, matching a list a conditional gave by element and comparing a number it gave within the tolerance of the member its branch read, exactly where the branch changed; a group starts a chain, as `(if @wide then @panel else @sidebar).rect.width` does; and the specification, the design and the READMEs describe them, the earlier shorthand of predicate names replaced.
+- **State:** done. Groups and logical expressions came first: `is` and `has` read one predicate name under `name`, and `and` and `or` combine Boolean expressions by the three-valued table. Conditionals followed explicit receivers: a condition of false or null moves to the next clause, only the selected branch is evaluated, and the branches join into one type, nullable where either is; an `elseif` is a conditional nested in the alternative before it, written back as `elseif`; and `is null` answers whether its subject is null. Evaluation keeps the branch each conditional selected for each place in the result beside the elements its lists came from, so a watch compares what a conditional gave by the member its branch read, and every list projected from elements is matched by element wherever it stands.
 
 ### 12. Local values
 

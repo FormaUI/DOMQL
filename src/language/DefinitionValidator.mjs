@@ -18,6 +18,7 @@ const NODES = {
     namedOperation: { properties: ['kind', 'target', 'name', 'argument'], required: ['target', 'name'] },
     object: { properties: ['kind', 'target', 'fields'], required: ['fields'] },
     predicate: { properties: ['kind', 'verb', 'target', 'name'], required: ['verb', 'target', 'name'] },
+    conditional: { properties: ['kind', 'condition', 'consequent', 'alternative'], required: ['condition', 'consequent', 'alternative'] },
     and: { properties: ['kind', 'operands'], required: ['operands'] },
     or: { properties: ['kind', 'operands'], required: ['operands'] },
 };
@@ -52,7 +53,7 @@ export class DefinitionValidator {
 
     #validateNode(node, pointer, scope) {
         if (!DefinitionValidator.#isObject(node) || !Object.hasOwn(NODES, node.kind)) {
-            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, member, call, namedOperation, object, predicate, and or or');
+            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, member, call, namedOperation, object, predicate, conditional, and or or');
         }
 
         this.#requireProperties(node, pointer, NODES[node.kind]);
@@ -76,6 +77,13 @@ export class DefinitionValidator {
                 return this.#validateMember(node, pointer, scope);
             case 'predicate':
                 return this.#validatePredicate(node, pointer, scope);
+            case 'conditional':
+                return Object.freeze({
+                    kind: 'conditional',
+                    condition: this.#validateNode(node.condition, `${pointer}/condition`, scope),
+                    consequent: this.#validateNode(node.consequent, `${pointer}/consequent`, scope),
+                    alternative: this.#validateNode(node.alternative, `${pointer}/alternative`, scope),
+                });
             case 'and':
             case 'or':
                 return this.#validateLogical(node, pointer, scope);
@@ -90,21 +98,21 @@ export class DefinitionValidator {
         }
 
         const target = this.#validateNode(node.target, `${pointer}/target`, scope);
-        const name = this.#validateName(node.name, `${pointer}/name`);
+        const name = this.#validateName(node.name, `${pointer}/name`, node.verb);
 
         return Object.freeze({ kind: 'predicate', verb: node.verb, target, name });
     }
 
-    /** Validates the one name a predicate expression reads: a string or a parameter. */
-    #validateName(node, pointer) {
+    /** Validates the one name a predicate expression reads: a string or a parameter, or under `is` the null it tests for. */
+    #validateName(node, pointer, verb) {
         if (!DefinitionValidator.#isObject(node) || (node.kind !== 'literal' && node.kind !== 'parameter')) {
             this.#fail(pointer, 'A predicate expression names its predicate by a string or a parameter');
         }
 
         const name = this.#validateNode(node, pointer, Scope.unknown);
 
-        if (name.kind === 'literal' && typeof name.value !== 'string') {
-            this.#fail(`${pointer}/value`, 'A predicate is named by a string');
+        if (name.kind === 'literal' && typeof name.value !== 'string' && !(name.value === null && verb === 'is')) {
+            this.#fail(`${pointer}/value`, verb === 'is' ? 'A predicate is named by a string, and is null tests for null' : `A predicate is named by a string, and '${verb}' takes no null`);
         }
 
         return name;

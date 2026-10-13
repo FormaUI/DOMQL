@@ -90,6 +90,30 @@ describe('Type', () => {
         });
     });
 
+    describe('join', () => {
+        const join = (first, second) => Type.join(Type.parse(first), Type.parse(second))?.toString() ?? null;
+
+        it('answers the one type of both, nullable where either is', () => {
+            expect(join('number', 'number')).toBe('number');
+            expect(join('number', 'number?')).toBe('number?');
+            expect(join('null', 'string')).toBe('string?');
+            expect(join('list<element>', 'list<element?>')).toBe('list<element?>');
+        });
+
+        it('joins object types field by field, whatever their order', () => {
+            const first = Type.object(new Map([['a', Type.parse('number')], ['b', Type.parse('string')]]));
+            const second = Type.object(new Map([['b', Type.parse('string?')], ['a', Type.parse('number')]]));
+
+            expect(Type.join(first, second).toString()).toBe('{ a: number, b: string? }');
+        });
+
+        it('answers null for types of different structures', () => {
+            expect(join('number', 'string')).toBeNull();
+            expect(join('list<number>', 'list<string>')).toBeNull();
+            expect(Type.join(Type.object(new Map([['a', Type.parse('number')]])), Type.object(new Map([['b', Type.parse('number')]])))).toBeNull();
+        });
+    });
+
     describe('isAssignable', () => {
         it.each([
             ['number', 'number', true],

@@ -3,7 +3,7 @@
  */
 
 /** How tightly each kind of expression binds, the loosest lowest: one written where a tighter one stands is parenthesized. */
-const BINDING = { or: 1, and: 2, predicate: 3, namedOperation: 4 };
+const BINDING = { conditional: 0, or: 1, and: 2, predicate: 3, namedOperation: 4 };
 
 /** How tightly a chain binds that no named operation ends: a member access, a call, an object expression, `self`, a literal or a parameter. */
 const CHAIN = 5;
@@ -35,6 +35,8 @@ export class DefinitionWriter {
             }
             case 'predicate':
                 return `${DefinitionWriter.#within(node.target, BINDING.namedOperation)} ${node.verb} ${DefinitionWriter.write(node.name)}`;
+            case 'conditional':
+                return `if ${DefinitionWriter.#clauses(node)}`;
             case 'and':
             case 'or':
                 return node.operands.map(operand => DefinitionWriter.#within(operand, BINDING[node.kind] + 1)).join(` ${node.kind} `);
@@ -44,6 +46,15 @@ export class DefinitionWriter {
                 return node.target === undefined ? fields : `${DefinitionWriter.#within(node.target, CHAIN)} ${fields}`;
             }
         }
+    }
+
+    /** A conditional's clauses after its `if`: a conditional nested in its alternative is written as an `elseif`, and one in its condition or consequent in parentheses. */
+    static #clauses(node) {
+        const clause = `${DefinitionWriter.#within(node.condition, BINDING.or)} then ${DefinitionWriter.#within(node.consequent, BINDING.or)}`;
+
+        return node.alternative.kind === 'conditional'
+            ? `${clause} elseif ${DefinitionWriter.#clauses(node.alternative)}`
+            : `${clause} else ${DefinitionWriter.write(node.alternative)}`;
     }
 
     /** The text of a named operation's argument: an initial expression as it is, and anything else in parentheses. */

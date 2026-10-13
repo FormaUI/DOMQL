@@ -171,11 +171,12 @@ export type DomqlDefinitionNode =
     | { readonly kind: 'call' | 'namedOperation'; readonly target: DomqlDefinitionNode; readonly name: string; readonly argument?: DomqlDefinitionNode }
     | { readonly kind: 'object'; readonly target?: DomqlDefinitionNode; readonly fields: readonly DomqlDefinitionField[] }
     | { readonly kind: 'predicate'; readonly verb: 'is' | 'has'; readonly target: DomqlDefinitionNode; readonly name: DomqlPredicateName }
+    | { readonly kind: 'conditional'; readonly condition: DomqlDefinitionNode; readonly consequent: DomqlDefinitionNode; readonly alternative: DomqlDefinitionNode }
     | { readonly kind: 'and' | 'or'; readonly operands: readonly DomqlDefinitionNode[] };
 
-/** The one predicate a predicate expression reads: named by a string, or by a parameter bound to one. */
+/** The one predicate a predicate expression reads: named by a string, or by a parameter bound to one; or the null that `is null` tests for. */
 export type DomqlPredicateName =
-    | { readonly kind: 'literal'; readonly value: string }
+    | { readonly kind: 'literal'; readonly value: string | null }
     | { readonly kind: 'parameter'; readonly name: string };
 
 /** A field of an object expression: its name, always written, and its value. */
