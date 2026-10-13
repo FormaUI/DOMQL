@@ -45,7 +45,7 @@ export class Tokenizer {
     #read() {
         const before = this.#offset;
 
-        this.#skipSpaceAndComments();
+        this.#skipTrivia();
 
         const spaced = this.#offset > before;
 
@@ -106,7 +106,7 @@ export class Tokenizer {
         throw DomqlError.syntax(`Unexpected '${character}'`, this.#text, start);
     }
 
-    #skipSpaceAndComments() {
+    #skipTrivia() {
         while (this.#offset < this.#text.length) {
             const character = this.#text[this.#offset];
 

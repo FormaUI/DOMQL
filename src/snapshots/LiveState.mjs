@@ -30,7 +30,7 @@ export class LiveState {
             this.#state = Array.isArray(snapshot) ? [] : {};
             SnapshotPatcher.applyInPlace(this.#state, [{ op: 'replace', path: '', value: snapshot }]);
         } else {
-            changes = SnapshotPatcher.between(this.#snapshot, this.#identities, snapshot, identities);
+            changes = SnapshotPatcher.changeSetBetween(this.#snapshot, this.#identities, snapshot, identities);
             SnapshotPatcher.applyInPlace(this.#state, changes);
         }
 

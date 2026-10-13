@@ -23,7 +23,7 @@ export class SnapshotPatcher {
      * @param {import('./SnapshotPatcher.mjs').Identities} nextIdentities The elements the next result's lists were projected from.
      * @returns {ChangeOperation[]}
      */
-    static between(previous, previousIdentities, next, nextIdentities) {
+    static changeSetBetween(previous, previousIdentities, next, nextIdentities) {
         const operations = [];
 
         SnapshotPatcher.#compare(previous, previousIdentities, next, nextIdentities, '', operations);
@@ -34,15 +34,15 @@ export class SnapshotPatcher {
     /**
      * The result the operations give when applied in order to the state, which is left as it was: a new result is built along the paths that change and shares the rest, frozen.
      * Throws where an operation does not apply, so a change set applies whole or not at all.
-     * @param {unknown} state The result the change set was computed against.
+     * @param {unknown} snapshot The result the change set was computed against.
      * @param {ChangeOperation[]} operations The change set.
      */
-    static apply(state, operations) {
+    static apply(snapshot, operations) {
         if (!Array.isArray(operations)) {
             throw new TypeError('A change set is a list of operations');
         }
 
-        return operations.reduce((current, operation) => SnapshotPatcher.#applyOne(current, operation), state);
+        return operations.reduce((current, operation) => SnapshotPatcher.#applyOne(current, operation), snapshot);
     }
 
     /**
@@ -53,7 +53,7 @@ export class SnapshotPatcher {
      */
     static applyInPlace(target, operations) {
         for (const operation of operations) {
-            const path = SnapshotPatcher.#parse(operation.path);
+            const path = SnapshotPatcher.#parsePointer(operation.path);
 
             switch (operation.op) {
                 case 'replace':
@@ -65,7 +65,7 @@ export class SnapshotPatcher {
                     break;
                 case 'move':
                     // The item itself moves, so it keeps its identity.
-                    SnapshotPatcher.#put(target, path, 'add', SnapshotPatcher.#take(target, SnapshotPatcher.#parse(operation.from)));
+                    SnapshotPatcher.#put(target, path, 'add', SnapshotPatcher.#take(target, SnapshotPatcher.#parsePointer(operation.from)));
                     break;
                 default:
                     throw new TypeError(`'${operation.op}' is no change set operation: replace, add, remove or move`);
@@ -74,24 +74,24 @@ export class SnapshotPatcher {
     }
 
     /** Puts the value at the end of the path, inside the containers the path reaches, which stay as they are. */
-    static #put(target, path, kind, value) {
+    static #put(target, path, op, value) {
         if (path.length === 0) {
             SnapshotPatcher.#replaceContents(target, value);
 
             return;
         }
 
-        const parent = SnapshotPatcher.#read(target, path.slice(0, -1));
+        const parent = SnapshotPatcher.#valueAt(target, path.slice(0, -1));
         const token = path.at(-1);
 
         if (Array.isArray(parent)) {
-            const index = token === '-' && kind === 'add' ? parent.length : SnapshotPatcher.#index(token);
+            const index = token === '-' && op === 'add' ? parent.length : SnapshotPatcher.#parseIndex(token);
 
-            if (index > (kind === 'add' ? parent.length : parent.length - 1)) {
+            if (index > (op === 'add' ? parent.length : parent.length - 1)) {
                 throw new TypeError(`The path reaches past the end of a list, at '${token}'`);
             }
 
-            if (kind === 'add') {
+            if (op === 'add') {
                 parent.splice(index, 0, value);
             } else {
                 parent[index] = value;
@@ -100,7 +100,7 @@ export class SnapshotPatcher {
             return;
         }
 
-        if (!SnapshotPatcher.#isRecord(parent) || (kind === 'replace' && !Object.hasOwn(parent, token))) {
+        if (!SnapshotPatcher.#isRecord(parent) || (op === 'replace' && !Object.hasOwn(parent, token))) {
             throw new TypeError(`The path names '${token}', which the result does not hold`);
         }
 
@@ -113,11 +113,11 @@ export class SnapshotPatcher {
             throw new TypeError('A change set cannot remove the whole result');
         }
 
-        const parent = SnapshotPatcher.#read(target, path.slice(0, -1));
+        const parent = SnapshotPatcher.#valueAt(target, path.slice(0, -1));
         const token = path.at(-1);
 
         if (Array.isArray(parent)) {
-            const index = SnapshotPatcher.#index(token);
+            const index = SnapshotPatcher.#parseIndex(token);
 
             if (index >= parent.length) {
                 throw new TypeError(`The path reaches past the end of a list, at '${token}'`);
@@ -196,62 +196,62 @@ export class SnapshotPatcher {
     static #compareLists(previous, previousIdentities, next, nextIdentities, path, operations) {
         const previousElements = SnapshotPatcher.#elementsOf(previousIdentities, previous.length);
         const nextElements = SnapshotPatcher.#elementsOf(nextIdentities, next.length);
-        const itemOf = (identities, index) => identities?.items?.[index] ?? null;
+        const itemIdentitiesOf = (identities, index) => identities?.items?.[index] ?? null;
 
         if (previousElements === null || nextElements === null) {
-            const common = Math.min(previous.length, next.length);
+            const commonLength = Math.min(previous.length, next.length);
 
-            for (let index = 0; index < common; index++) {
-                SnapshotPatcher.#compare(previous[index], itemOf(previousIdentities, index), next[index], itemOf(nextIdentities, index), `${path}/${index}`, operations);
+            for (let index = 0; index < commonLength; index++) {
+                SnapshotPatcher.#compare(previous[index], itemIdentitiesOf(previousIdentities, index), next[index], itemIdentitiesOf(nextIdentities, index), `${path}/${index}`, operations);
             }
 
-            for (let index = common; index < next.length; index++) {
+            for (let index = commonLength; index < next.length; index++) {
                 operations.push({ op: 'add', path: `${path}/${index}`, value: next[index] });
             }
 
-            for (let index = previous.length - 1; index >= common; index--) {
+            for (let index = previous.length - 1; index >= commonLength; index--) {
                 operations.push({ op: 'remove', path: `${path}/${index}` });
             }
 
             return;
         }
 
-        const previousIndex = new Map(previousElements.map((element, index) => [element, index]));
-        const nextIndex = new Map(nextElements.map((element, index) => [element, index]));
+        const previousIndexByElement = new Map(previousElements.map((element, index) => [element, index]));
+        const nextIndexByElement = new Map(nextElements.map((element, index) => [element, index]));
 
         // The current snapshot's list as the operations so far leave it, by element.
-        const current = [...previousElements];
+        const currentElements = [...previousElements];
 
         for (let index = previous.length - 1; index >= 0; index--) {
-            if (!nextIndex.has(previousElements[index])) {
+            if (!nextIndexByElement.has(previousElements[index])) {
                 operations.push({ op: 'remove', path: `${path}/${index}` });
-                current.splice(index, 1);
+                currentElements.splice(index, 1);
             }
         }
 
         nextElements.forEach((element, index) => {
-            if (current[index] === element) {
+            if (currentElements[index] === element) {
                 return;
             }
 
-            const from = current.indexOf(element, index);
+            const from = currentElements.indexOf(element, index);
 
             if (from === -1) {
                 operations.push({ op: 'add', path: `${path}/${index}`, value: next[index] });
             } else {
                 operations.push({ op: 'move', from: `${path}/${from}`, path: `${path}/${index}` });
-                current.splice(from, 1);
+                currentElements.splice(from, 1);
             }
 
-            current.splice(index, 0, element);
+            currentElements.splice(index, 0, element);
         });
 
         // An item that stayed, wherever it now stands, changes inside it.
         nextElements.forEach((element, index) => {
-            const before = previousIndex.get(element);
+            const previousIndex = previousIndexByElement.get(element);
 
-            if (before !== undefined) {
-                SnapshotPatcher.#compare(previous[before], itemOf(previousIdentities, before), next[index], itemOf(nextIdentities, index), `${path}/${index}`, operations);
+            if (previousIndex !== undefined) {
+                SnapshotPatcher.#compare(previous[previousIndex], itemIdentitiesOf(previousIdentities, previousIndex), next[index], itemIdentitiesOf(nextIdentities, index), `${path}/${index}`, operations);
             }
         });
     }
@@ -267,23 +267,23 @@ export class SnapshotPatcher {
         return elements;
     }
 
-    static #applyOne(state, operation) {
+    static #applyOne(snapshot, operation) {
         if (!SnapshotPatcher.#isRecord(operation) || typeof operation.path !== 'string') {
             throw new TypeError('A change set operation names its kind and its path');
         }
 
         switch (operation.op) {
             case 'replace':
-                return SnapshotPatcher.#change(state, SnapshotPatcher.#parse(operation.path), 'replace', operation.value);
+                return SnapshotPatcher.#change(snapshot, SnapshotPatcher.#parsePointer(operation.path), 'replace', operation.value);
             case 'add':
-                return SnapshotPatcher.#change(state, SnapshotPatcher.#parse(operation.path), 'add', operation.value);
+                return SnapshotPatcher.#change(snapshot, SnapshotPatcher.#parsePointer(operation.path), 'add', operation.value);
             case 'remove':
-                return SnapshotPatcher.#change(state, SnapshotPatcher.#parse(operation.path), 'remove');
+                return SnapshotPatcher.#change(snapshot, SnapshotPatcher.#parsePointer(operation.path), 'remove');
             case 'move': {
-                const from = SnapshotPatcher.#parse(operation.from);
-                const value = SnapshotPatcher.#read(state, from);
+                const from = SnapshotPatcher.#parsePointer(operation.from);
+                const value = SnapshotPatcher.#valueAt(snapshot, from);
 
-                return SnapshotPatcher.#change(SnapshotPatcher.#change(state, from, 'remove'), SnapshotPatcher.#parse(operation.path), 'add', value);
+                return SnapshotPatcher.#change(SnapshotPatcher.#change(snapshot, from, 'remove'), SnapshotPatcher.#parsePointer(operation.path), 'add', value);
             }
             default:
                 throw new TypeError(`'${operation.op}' is no change set operation: replace, add, remove or move`);
@@ -291,9 +291,9 @@ export class SnapshotPatcher {
     }
 
     /** A copy of the node with the change made at the end of the path, sharing what the change does not reach. */
-    static #change(node, path, kind, value) {
+    static #change(node, path, op, value) {
         if (path.length === 0) {
-            if (kind === 'remove') {
+            if (op === 'remove') {
                 throw new TypeError('A change set cannot remove the whole result');
             }
 
@@ -304,8 +304,8 @@ export class SnapshotPatcher {
 
         if (Array.isArray(node)) {
             const isLast = rest.length === 0;
-            const index = token === '-' && isLast && kind === 'add' ? node.length : SnapshotPatcher.#index(token);
-            const limit = isLast && kind === 'add' ? node.length : node.length - 1;
+            const index = token === '-' && isLast && op === 'add' ? node.length : SnapshotPatcher.#parseIndex(token);
+            const limit = isLast && op === 'add' ? node.length : node.length - 1;
 
             if (index > limit) {
                 throw new TypeError(`The path reaches past the end of a list, at '${token}'`);
@@ -314,10 +314,10 @@ export class SnapshotPatcher {
             const items = [...node];
 
             if (!isLast) {
-                items[index] = SnapshotPatcher.#change(node[index], rest, kind, value);
-            } else if (kind === 'add') {
+                items[index] = SnapshotPatcher.#change(node[index], rest, op, value);
+            } else if (op === 'add') {
                 items.splice(index, 0, SnapshotPatcher.#freeze(value));
-            } else if (kind === 'remove') {
+            } else if (op === 'remove') {
                 items.splice(index, 1);
             } else {
                 items[index] = SnapshotPatcher.#freeze(value);
@@ -329,15 +329,15 @@ export class SnapshotPatcher {
         if (SnapshotPatcher.#isRecord(node)) {
             const isLast = rest.length === 0;
 
-            if (!Object.hasOwn(node, token) && !(isLast && kind === 'add')) {
+            if (!Object.hasOwn(node, token) && !(isLast && op === 'add')) {
                 throw new TypeError(`The path names '${token}', which the result does not hold`);
             }
 
             const fields = { ...node };
 
             if (!isLast) {
-                fields[token] = SnapshotPatcher.#change(node[token], rest, kind, value);
-            } else if (kind === 'remove') {
+                fields[token] = SnapshotPatcher.#change(node[token], rest, op, value);
+            } else if (op === 'remove') {
                 delete fields[token];
             } else {
                 fields[token] = SnapshotPatcher.#freeze(value);
@@ -349,10 +349,10 @@ export class SnapshotPatcher {
         throw new TypeError(`The path reaches into ${node === null ? 'null' : `a ${typeof node}`}, which holds nothing, at '${token}'`);
     }
 
-    static #read(node, path) {
+    static #valueAt(node, path) {
         return path.reduce((current, token) => {
             if (Array.isArray(current)) {
-                const index = SnapshotPatcher.#index(token);
+                const index = SnapshotPatcher.#parseIndex(token);
 
                 if (index >= current.length) {
                     throw new TypeError(`The path reaches past the end of a list, at '${token}'`);
@@ -370,7 +370,7 @@ export class SnapshotPatcher {
     }
 
     /** The tokens of a JSON Pointer, unescaped. */
-    static #parse(pointer) {
+    static #parsePointer(pointer) {
         if (typeof pointer !== 'string' || (pointer !== '' && !pointer.startsWith('/'))) {
             throw new TypeError(`'${pointer}' is no JSON Pointer`);
         }
@@ -378,7 +378,7 @@ export class SnapshotPatcher {
         return pointer === '' ? [] : pointer.slice(1).split('/').map(token => token.replaceAll('~1', '/').replaceAll('~0', '~'));
     }
 
-    static #index(token) {
+    static #parseIndex(token) {
         if (!/^(?:0|[1-9][0-9]*)$/.test(token)) {
             throw new TypeError(`'${token}' is no index of a list`);
         }

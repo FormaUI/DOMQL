@@ -749,7 +749,7 @@ describe('QueryEvaluator evaluation', () => {
 
             expect(evaluation.isPending).toBe(false);
             expect(evaluation.dependencies.length).toBe(1);
-            expect(observations.running).toBe(0);
+            expect(observations.runningCount).toBe(0);
         });
 
         it('are all held for a pending answer, which waits on any of them changing', () => {
@@ -757,23 +757,23 @@ describe('QueryEvaluator evaluation', () => {
 
             expect(evaluation.isPending).toBe(true);
             expect(evaluation.value).toEqual({ id: 'panel', level: null });
-            expect(observations.running).toBe(2);
+            expect(observations.runningCount).toBe(2);
         });
 
         it('are all held where the caller keeps the answer current', () => {
             evaluate('@panel attributeOf "id"', { panel }, [], true);
 
-            expect(observations.running).toBe(1);
+            expect(observations.runningCount).toBe(1);
         });
 
         it('are held while the evaluation is, and let go when it is disposed', () => {
             const evaluation = evaluate('@panel attributeOf "id"', { panel }, [], true);
 
-            expect(observations.running).toBe(1);
+            expect(observations.runningCount).toBe(1);
 
             evaluation.dispose();
 
-            expect(observations.running).toBe(0);
+            expect(observations.runningCount).toBe(0);
             expect(evaluation.isDisposed).toBe(true);
         });
 
@@ -852,7 +852,7 @@ describe('QueryEvaluator evaluation', () => {
             second.dispose();
 
             expect([started, stopped]).toEqual([3, 3]);
-            expect(observations.running).toBe(0);
+            expect(observations.runningCount).toBe(0);
         });
 
         it('are acquired again where an argument changed, a bound list changed in place included, and the old one is let go', () => {
@@ -916,7 +916,7 @@ describe('QueryEvaluator evaluation', () => {
             first.dispose();
 
             expect([started, stopped]).toEqual([2, 1]);
-            expect(observations.running).toBe(1);
+            expect(observations.runningCount).toBe(1);
         });
 
         it('are neither taken over nor kept for one where the evaluation replaces none', () => {

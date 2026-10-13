@@ -72,7 +72,7 @@ export class Observations {
 
         for (const [name, value] of Object.entries(observation)) {
             if (!OBSERVATION_PROPERTIES.has(name)) {
-                resolved[name] = Observations.#valueOf(value, args);
+                resolved[name] = Observations.#resolveValue(value, args);
             }
         }
 
@@ -267,8 +267,8 @@ export class Observations {
             const created = { observation: null, holders: new Set(), observed, key };
 
             created.observation = this.#start(type, request, () => {
-                for (const held of [...created.holders]) {
-                    held.notify();
+                for (const holder of [...created.holders]) {
+                    holder.notify();
                 }
             });
             entry = created;
@@ -299,12 +299,12 @@ export class Observations {
     }
 
     /** How many observations are running, which ends with the last session of each. */
-    get running() {
+    get runningCount() {
         return this.#running.size;
     }
 
-    #targetOf(of, receiver, args) {
-        switch (of) {
+    #targetOf(scope, receiver, args) {
+        switch (scope) {
             case 'receiver':
                 return receiver;
             case 'root':
@@ -314,13 +314,13 @@ export class Observations {
             case 'document':
                 return this.#environment.document;
             default:
-                return args[of.argument];
+                return args[scope.argument];
         }
     }
 
-    static #valueOf(value, args) {
+    static #resolveValue(value, args) {
         if (Array.isArray(value)) {
-            return value.map(item => Observations.#valueOf(item, args));
+            return value.map(item => Observations.#resolveValue(item, args));
         }
 
         if (value !== null && typeof value === 'object') {
@@ -408,16 +408,16 @@ export class Observations {
 
     /** The request's identity: its type and the arguments that belong to the type's identity, with objects told apart by number. */
     #identityOf(type, request) {
-        return [type.name, ...type.identity.map(name => this.#describe(request.arguments[name]))].join('|');
+        return [type.name, ...type.identity.map(name => this.#identityKeyOf(request.arguments[name]))].join('|');
     }
 
-    #describe(value) {
+    #identityKeyOf(value) {
         if (value === null || value === undefined) {
             return 'null';
         }
 
         if (Array.isArray(value)) {
-            return `[${value.map(item => this.#describe(item)).join(',')}]`;
+            return `[${value.map(item => this.#identityKeyOf(item)).join(',')}]`;
         }
 
         if (typeof value === 'object' || typeof value === 'function') {

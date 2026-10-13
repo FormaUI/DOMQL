@@ -15,7 +15,7 @@ const FORMS = ['call', 'named'];
 const INPUTS = ['direct', 'options'];
 
 /** How a member changes: the specification's categories, and `derived` for a contract that comes from the member or expression a member selects or evaluates. */
-const OBSERVATION_CATEGORIES = ['constant', 'observable', 'partly-observable', 'unobserved', 'derived'];
+const CHANGE_CATEGORIES = ['constant', 'observable', 'partly-observable', 'unobserved', 'derived'];
 
 /** How a member reads: the specification's modes, and `derived` for a contract that comes from the member or expression a member selects or evaluates. */
 const READING_MODES = ['fresh', 'maintained', 'captured', 'derived'];
@@ -28,7 +28,7 @@ const PREDICATE_VERBS = ['is', 'has'];
 const OBSERVATION_CONTRACTS = ['invalidation', 'maintained'];
 
 /** The categories whose changes observations cover. */
-const OBSERVED_CATEGORIES = ['observable', 'partly-observable'];
+const OBSERVED_CHANGE_CATEGORIES = ['observable', 'partly-observable'];
 
 /** What an observation observes, besides a target an argument names. */
 const OBSERVATION_TARGETS = ['receiver', 'root', 'roots', 'window', 'document'];
@@ -165,8 +165,8 @@ export class DomqlModule {
         return typeof text === 'string' && /^[A-Za-z][A-Za-z0-9]*$/.test(text);
     }
 
-    static #isTypeExpression(typeExpression) {
-        return Type.parse(typeExpression) !== null;
+    static #isTypeNotation(notation) {
+        return Type.parse(notation) !== null;
     }
 
     static #validateTypeDeclaration(type, fail) {
@@ -180,8 +180,8 @@ export class DomqlModule {
             fail('A structured type declares at least one field', type.name);
         }
 
-        for (const [name, typeExpression] of fields) {
-            if (!Names.isName(name) || !DomqlModule.#isTypeExpression(typeExpression)) {
+        for (const [name, notation] of fields) {
+            if (!Names.isName(name) || !DomqlModule.#isTypeNotation(notation)) {
                 fail(`The field '${name}' is not a name with a type`, type.name);
             }
         }
@@ -190,7 +190,7 @@ export class DomqlModule {
     }
 
     static #validateEventType(eventType, fail) {
-        if (typeof eventType?.name !== 'string' || !/^[A-Za-z][A-Za-z0-9:-]*$/.test(eventType.name) || !DomqlModule.#isTypeExpression(eventType.payload)) {
+        if (typeof eventType?.name !== 'string' || !/^[A-Za-z][A-Za-z0-9:-]*$/.test(eventType.name) || !DomqlModule.#isTypeNotation(eventType.payload)) {
             fail('An event type declares the name of the browser event and the type of its event data', eventType?.name);
         }
 
@@ -209,7 +209,7 @@ export class DomqlModule {
         }
 
         DomqlModule.#validateReceiverTypes(predicate, name, fail);
-        DomqlModule.#validateObservation(predicate, name, fail);
+        DomqlModule.#validateChangeContract(predicate, name, fail);
         DomqlModule.#validateObservations(predicate, new Set(), name, fail);
 
         return structuredClone({ observations: [], ...predicate });
@@ -226,15 +226,15 @@ export class DomqlModule {
     static #validateReceiverTypes(declaration, name, fail) {
         const receiverTypes = Array.isArray(declaration.on) ? declaration.on : [declaration.on];
 
-        if (receiverTypes.length === 0 || receiverTypes.some(typeExpression => typeExpression !== 'any' && !DomqlModule.#isTypeExpression(typeExpression))) {
+        if (receiverTypes.length === 0 || receiverTypes.some(notation => notation !== 'any' && !DomqlModule.#isTypeNotation(notation))) {
             fail('It declares the types it applies to', name);
         }
     }
 
     /** Validates both how a declaration changes and how it reads. */
-    static #validateObservation(declaration, name, fail) {
-        if (!OBSERVATION_CATEGORIES.includes(declaration.changes) || !READING_MODES.includes(declaration.reads)) {
-            fail(`It declares how it changes, one of ${OBSERVATION_CATEGORIES.join(', ')}, and how it reads, one of ${READING_MODES.join(', ')}`, name);
+    static #validateChangeContract(declaration, name, fail) {
+        if (!CHANGE_CATEGORIES.includes(declaration.changes) || !READING_MODES.includes(declaration.reads)) {
+            fail(`It declares how it changes, one of ${CHANGE_CATEGORIES.join(', ')}, and how it reads, one of ${READING_MODES.join(', ')}`, name);
         }
 
         if (declaration.changes === 'partly-observable' && (typeof declaration.misses !== 'string' || declaration.misses === '')) {
@@ -254,11 +254,11 @@ export class DomqlModule {
             fail('Its observations are a list', name);
         }
 
-        if (OBSERVED_CATEGORIES.includes(declaration.changes) && observations.length === 0) {
+        if (OBSERVED_CHANGE_CATEGORIES.includes(declaration.changes) && observations.length === 0) {
             fail(`It changes as ${declaration.changes}, so it names the observations that cover its changes`, name);
         }
 
-        if (!OBSERVED_CATEGORIES.includes(declaration.changes) && observations.length > 0) {
+        if (!OBSERVED_CHANGE_CATEGORIES.includes(declaration.changes) && observations.length > 0) {
             fail(`It changes as ${declaration.changes}, so it names no observations`, name);
         }
 
@@ -325,9 +325,9 @@ export class DomqlModule {
         }
 
         DomqlModule.#validateReceiverTypes(member, name, fail);
-        DomqlModule.#validateObservation(member, name, fail);
+        DomqlModule.#validateChangeContract(member, name, fail);
 
-        if (!DomqlModule.#isTypeExpression(member.result)) {
+        if (!DomqlModule.#isTypeNotation(member.result)) {
             fail('It declares the type of its result', name);
         }
 
@@ -382,25 +382,25 @@ export class DomqlModule {
         }
     }
 
-    static #validateParameter(parameter, declaration, fail) {
+    static #validateParameter(parameter, memberName, fail) {
         if (!Names.isName(parameter?.name) || !PARAMETER_KINDS.includes(parameter.kind) || !NULL_POLICIES.includes(parameter.nulls) || typeof parameter.required !== 'boolean') {
-            fail('A parameter declares its name, its kind, whether it is required and how it handles null', declaration);
+            fail('A parameter declares its name, its kind, whether it is required and how it handles null', memberName);
         }
 
-        if (!DomqlModule.#isTypeExpression(parameter.type)) {
-            fail(`The parameter '${parameter.name}' declares a type`, declaration);
+        if (!DomqlModule.#isTypeNotation(parameter.type)) {
+            fail(`The parameter '${parameter.name}' declares a type`, memberName);
         }
 
         if (parameter.required && 'default' in parameter) {
-            fail(`The required parameter '${parameter.name}' declares no default`, declaration);
+            fail(`The required parameter '${parameter.name}' declares no default`, memberName);
         }
 
         if (parameter.kind === 'expression' && parameter.context !== 'item') {
-            fail(`The expression parameter '${parameter.name}' declares its evaluation context, item`, declaration);
+            fail(`The expression parameter '${parameter.name}' declares its evaluation context, item`, memberName);
         }
 
         if (parameter.fixed === true && !SELECTION_KINDS.includes(parameter.selects)) {
-            fail(`The fixed parameter '${parameter.name}' declares what it selects, one of ${SELECTION_KINDS.join(', ')}`, declaration);
+            fail(`The fixed parameter '${parameter.name}' declares what it selects, one of ${SELECTION_KINDS.join(', ')}`, memberName);
         }
     }
 }

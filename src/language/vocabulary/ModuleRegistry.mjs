@@ -16,7 +16,7 @@ export class ModuleRegistry {
     #types = new Map();
 
     /** @type {Map<string, object>} */
-    #events = new Map();
+    #eventTypes = new Map();
 
     /** @type {Map<string, object>} */
     #predicates = new Map();
@@ -40,8 +40,8 @@ export class ModuleRegistry {
         return this.#modules.size;
     }
 
-    /** The modules registered, by name. */
-    get modules() {
+    /** The names of the modules registered. */
+    get moduleNames() {
         return [...this.#modules.keys()];
     }
 
@@ -62,7 +62,7 @@ export class ModuleRegistry {
         }
 
         for (const event of module.eventTypes) {
-            if (this.#events.has(event.name)) {
+            if (this.#eventTypes.has(event.name)) {
                 fail(`The event '${event.name}' is declared already`, event.name);
             }
         }
@@ -79,10 +79,10 @@ export class ModuleRegistry {
             }
         }
 
-        const types = new Map([...this.#observationTypes, ...module.observationTypes.map(type => [type.name, type])]);
+        const observationTypes = new Map([...this.#observationTypes, ...module.observationTypes.map(type => [type.name, type])]);
 
         for (const declaration of [...module.members, ...module.predicates]) {
-            ModuleRegistry.#validateObservations(declaration, types, fail);
+            ModuleRegistry.#validateObservations(declaration, observationTypes, fail);
         }
 
         module.members.forEach((declaration, index) => {
@@ -97,7 +97,7 @@ export class ModuleRegistry {
         }
 
         for (const event of module.eventTypes) {
-            this.#events.set(event.name, event);
+            this.#eventTypes.set(event.name, event);
         }
 
         for (const predicate of module.predicates) {
@@ -131,8 +131,8 @@ export class ModuleRegistry {
     }
 
     /** The event type declared so, or undefined. */
-    getEvent(name) {
-        return this.#events.get(name);
+    getEventType(name) {
+        return this.#eventTypes.get(name);
     }
 
     /** The predicate the verb reads under the name, or undefined. */
@@ -176,7 +176,7 @@ export class ModuleRegistry {
         }
 
         const on = Array.isArray(declaration.on) ? declaration.on : [declaration.on];
-        const isOwn = on.every(text => ownTypes.has(ModuleRegistry.#rootName(text)));
+        const isOwn = on.every(text => ownTypes.has(ModuleRegistry.#outerTypeNameOf(text)));
 
         if (!isOwn && declaration.name !== module.name) {
             fail(`A member outside its module's own types is named for the module, '${module.name}'`, declaration.name);
@@ -184,11 +184,11 @@ export class ModuleRegistry {
     }
 
     /** Refuses an observation of a type no module declares, a maintained observation of a receiver's roots, and a member that reads maintained values without a maintained observation, or any other that has one. */
-    static #validateObservations(declaration, types, fail) {
+    static #validateObservations(declaration, observationTypes, fail) {
         let hasMaintained = false;
 
         for (const observation of declaration.observations) {
-            const type = types.get(observation.type);
+            const type = observationTypes.get(observation.type);
 
             if (type === undefined) {
                 fail(`The observation type '${observation.type}' is declared by no module`, declaration.name);
@@ -220,7 +220,7 @@ export class ModuleRegistry {
         }
     }
 
-    static #rootName(text) {
+    static #outerTypeNameOf(text) {
         return Type.parse(text)?.name ?? text;
     }
 

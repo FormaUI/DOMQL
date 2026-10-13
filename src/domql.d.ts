@@ -242,7 +242,7 @@ export interface DomqlResolvedDefinition {
     /** The type of the request's result. */
     readonly type: DomqlType;
     /** The declarations the request uses, with where each is used. */
-    readonly usedMembers: readonly { readonly declaration: object; readonly pointer: string }[];
+    readonly usedDeclarations: readonly { readonly declaration: object; readonly pointer: string }[];
     /** What the member node at the JSON Pointer resolved to. */
     getResolution(pointer: string): object | undefined;
 }

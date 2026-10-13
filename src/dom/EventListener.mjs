@@ -12,7 +12,7 @@ export class EventListener {
     #callbackDispatcher;
 
     /** What stops the source, once it has started. @type {{ stop: () => void } | null} */
-    #subscription = null;
+    #sourceHandle = null;
 
     /** `ready` while the event listener listens, and `disposed` once it is ended. @type {'ready' | 'disposed'} */
     #status = 'ready';
@@ -40,7 +40,7 @@ export class EventListener {
         this.#callbackDispatcher = new CallbackDispatcher({ onUpdate: onEvent, onError, reportError, isDisposed: () => this.#status === 'disposed' });
 
         try {
-            this.#subscription = this.#start(evaluator.resolveSource());
+            this.#sourceHandle = this.#start(evaluator.resolveSource());
         } catch (error) {
             // A failed start ends the event listener: it lets go of what the events delivered while it started opened, drops their callbacks, and ignores what the source still delivers.
             this.#status = 'disposed';
@@ -72,7 +72,7 @@ export class EventListener {
         this.#status = 'disposed';
 
         try {
-            this.#subscription?.stop();
+            this.#sourceHandle?.stop();
         } catch (error) {
             this.#callbackDispatcher.reportError(error);
         }
@@ -100,7 +100,7 @@ export class EventListener {
             try {
                 captured = capture(event);
             } catch (error) {
-                this.#notify(() => this.#callbackDispatcher.handleError(error));
+                this.#runOrHold(() => this.#callbackDispatcher.handleError(error));
 
                 return;
             }
@@ -108,19 +108,19 @@ export class EventListener {
             this.#receive(captured);
         };
 
-        let subscription;
+        let sourceHandle;
 
         try {
-            subscription = start(receiver, args, environment, deliver);
+            sourceHandle = start(receiver, args, environment, deliver);
         } catch (error) {
             throw DomqlError.evaluation(`The source '${name}' failed to start listening`, location, { cause: error });
         }
 
-        if (typeof subscription?.stop !== 'function') {
+        if (typeof sourceHandle?.stop !== 'function') {
             throw DomqlError.evaluation(`The source '${name}' started listening and answered nothing that stops it`, location);
         }
 
-        return subscription;
+        return sourceHandle;
     }
 
     /**
@@ -132,7 +132,7 @@ export class EventListener {
 
         if (projection.error !== null) {
             this.#release(projection);
-            this.#notify(() => this.#callbackDispatcher.handleError(projection.error));
+            this.#runOrHold(() => this.#callbackDispatcher.handleError(projection.error));
 
             return;
         }
@@ -142,11 +142,11 @@ export class EventListener {
 
         this.#lastProjection = projection;
         this.#release(last);
-        this.#notify(() => this.#callbackDispatcher.dispatch(projection.value));
+        this.#runOrHold(() => this.#callbackDispatcher.dispatch(projection.value));
     }
 
     /** Runs the callback now, or after those held before it while the caller does not have the event listener yet. */
-    #notify(callback) {
+    #runOrHold(callback) {
         if (this.#heldCallbacks === null) {
             callback();
         } else {

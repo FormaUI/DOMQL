@@ -33,12 +33,12 @@ export class SnapshotComparer {
             const branch = SnapshotComparer.#branchOf(node, previousIdentities, nextIdentities);
 
             return branch === null
-                ? SnapshotComparer.#merge(previous, previousIdentities, next, nextIdentities, null)
+                ? SnapshotComparer.#reconcileValue(previous, previousIdentities, next, nextIdentities, null)
                 : this.#reconcileNode(branch, previous, previousIdentities, next, nextIdentities);
         }
 
         if (node.kind !== 'object' || next === null || typeof next !== 'object') {
-            return SnapshotComparer.#merge(previous, previousIdentities, next, nextIdentities, this.#toleranceOf(node, previousIdentities, nextIdentities));
+            return SnapshotComparer.#reconcileValue(previous, previousIdentities, next, nextIdentities, this.#toleranceOf(node, previousIdentities, nextIdentities));
         }
 
         if (!Array.isArray(next)) {
@@ -46,44 +46,44 @@ export class SnapshotComparer {
         }
 
         // An object expression that follows a list projects each of its items, which are matched by element where the list was projected from elements and by position otherwise.
-        const before = Array.isArray(previous) ? previous : [];
-        const matched = SnapshotComparer.#matchByElement(previousIdentities, before.length, nextIdentities, next.length);
+        const previousItems = Array.isArray(previous) ? previous : [];
+        const previousIndexes = SnapshotComparer.#matchByElement(previousIdentities, previousItems.length, nextIdentities, next.length);
         const items = next.map((item, index) => {
-            const at = matched === null ? index : matched[index];
+            const previousIndex = previousIndexes === null ? index : previousIndexes[index];
 
-            return item === null ? null : this.#reconcileFields(node, at === -1 ? undefined : before[at], previousIdentities?.items?.[at] ?? null, item, nextIdentities?.items?.[index] ?? null);
+            return item === null ? null : this.#reconcileFields(node, previousIndex === -1 ? undefined : previousItems[previousIndex], previousIdentities?.items?.[previousIndex] ?? null, item, nextIdentities?.items?.[index] ?? null);
         });
 
         return SnapshotComparer.#sameItems(previous, items) ? previous : Object.freeze(items);
     }
 
     #reconcileFields(node, previous, previousIdentities, next, nextIdentities) {
-        const before = SnapshotComparer.#isRecord(previous) ? previous : undefined;
+        const previousRecord = SnapshotComparer.#isRecord(previous) ? previous : undefined;
         const fields = {};
         const names = this.#resolvedDefinition.fieldNamesOf(node);
 
         node.fields.forEach((field, index) => {
             const name = names[index];
 
-            fields[name] = this.#reconcileNode(field.value, before?.[name], previousIdentities?.fields?.[name] ?? null, next[name], nextIdentities?.fields?.[name] ?? null);
+            fields[name] = this.#reconcileNode(field.value, previousRecord?.[name], previousIdentities?.fields?.[name] ?? null, next[name], nextIdentities?.fields?.[name] ?? null);
         });
 
-        return SnapshotComparer.#sameFields(before, fields) ? before : Object.freeze(fields);
+        return SnapshotComparer.#sameFields(previousRecord, fields) ? previousRecord : Object.freeze(fields);
     }
 
     /** For each next item, the index of the previous item projected from its element, or -1 for an element that entered; null where either list is matched by position. */
     static #matchByElement(previousIdentities, previousLength, nextIdentities, nextLength) {
         const previousElements = previousIdentities?.elements ?? null;
         const nextElements = nextIdentities?.elements ?? null;
-        const isKeyed = (elements, length) => elements !== null && elements.length === length && !elements.includes(null) && new Set(elements).size === length;
+        const canMatchByElement = (elements, length) => elements !== null && elements.length === length && !elements.includes(null) && new Set(elements).size === length;
 
-        if (!isKeyed(previousElements, previousLength) || !isKeyed(nextElements, nextLength)) {
+        if (!canMatchByElement(previousElements, previousLength) || !canMatchByElement(nextElements, nextLength)) {
             return null;
         }
 
-        const index = new Map(previousElements.map((element, at) => [element, at]));
+        const previousIndexByElement = new Map(previousElements.map((element, previousIndex) => [element, previousIndex]));
 
-        return nextElements.map(element => index.get(element) ?? -1);
+        return nextElements.map(element => previousIndexByElement.get(element) ?? -1);
     }
 
     /** The tolerance of the member that produced the value, which a field of its value shares, through the expression a local names and the branch a conditional selected for both values; null for a value that is no member's. */
@@ -119,7 +119,7 @@ export class SnapshotComparer {
     }
 
     /** The previous value where the next equals it, and the next otherwise, with the branches that are equal shared and the items of a list projected from elements matched by element. */
-    static #merge(previous, previousIdentities, next, nextIdentities, tolerance) {
+    static #reconcileValue(previous, previousIdentities, next, nextIdentities, tolerance) {
         if (previous === next) {
             return previous;
         }
@@ -129,18 +129,18 @@ export class SnapshotComparer {
         }
 
         if (Array.isArray(previous) && Array.isArray(next)) {
-            const matched = SnapshotComparer.#matchByElement(previousIdentities, previous.length, nextIdentities, next.length);
+            const previousIndexes = SnapshotComparer.#matchByElement(previousIdentities, previous.length, nextIdentities, next.length);
             const items = next.map((item, index) => {
-                const at = matched === null ? (index < previous.length ? index : -1) : matched[index];
+                const previousIndex = previousIndexes === null ? (index < previous.length ? index : -1) : previousIndexes[index];
 
-                return at === -1 ? item : SnapshotComparer.#merge(previous[at], previousIdentities?.items?.[at] ?? null, item, nextIdentities?.items?.[index] ?? null, tolerance);
+                return previousIndex === -1 ? item : SnapshotComparer.#reconcileValue(previous[previousIndex], previousIdentities?.items?.[previousIndex] ?? null, item, nextIdentities?.items?.[index] ?? null, tolerance);
             });
 
             return SnapshotComparer.#sameItems(previous, items) ? previous : Object.freeze(items);
         }
 
         if (SnapshotComparer.#isRecord(previous) && SnapshotComparer.#isRecord(next)) {
-            const fields = Object.fromEntries(Object.entries(next).map(([name, field]) => [name, name in previous ? SnapshotComparer.#merge(previous[name], previousIdentities?.fields?.[name] ?? null, field, nextIdentities?.fields?.[name] ?? null, tolerance) : field]));
+            const fields = Object.fromEntries(Object.entries(next).map(([name, field]) => [name, name in previous ? SnapshotComparer.#reconcileValue(previous[name], previousIdentities?.fields?.[name] ?? null, field, nextIdentities?.fields?.[name] ?? null, tolerance) : field]));
 
             return SnapshotComparer.#sameFields(previous, fields) ? previous : Object.freeze(fields);
         }

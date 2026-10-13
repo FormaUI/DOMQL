@@ -47,7 +47,7 @@ describe(`the change set of ${ITEMS} items matched by element`, () => {
         const [next, nextIdentities] = listOf(order);
 
         bench(name, () => {
-            SnapshotPatcher.between(previous, previousIdentities, next, nextIdentities);
+            SnapshotPatcher.changeSetBetween(previous, previousIdentities, next, nextIdentities);
         });
     }
 });

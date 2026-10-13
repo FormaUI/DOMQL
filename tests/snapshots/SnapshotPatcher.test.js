@@ -13,35 +13,35 @@ const elements = (...names) => names.map(name => ({ nodeType: 1, name }));
 const rowsOf = rowElements => ({ fields: { rows: { elements: rowElements, items: rowElements.map(() => null) } } });
 
 describe('SnapshotPatcher', () => {
-    describe('between', () => {
+    describe('changeSetBetween', () => {
         it('answers no operation for a result that did not change, shared or equal', () => {
             const result = freeze({ count: 3, rows: [{ key: 'a' }] });
 
-            expect(SnapshotPatcher.between(result, null, result, null)).toEqual([]);
-            expect(SnapshotPatcher.between(result, null, freeze({ count: 3, rows: [{ key: 'a' }] }), null)).toEqual([]);
+            expect(SnapshotPatcher.changeSetBetween(result, null, result, null)).toEqual([]);
+            expect(SnapshotPatcher.changeSetBetween(result, null, freeze({ count: 3, rows: [{ key: 'a' }] }), null)).toEqual([]);
         });
 
         it('replaces a field that changed, at its path', () => {
-            const operations = SnapshotPatcher.between(freeze({ panel: { size: { width: 10, height: 5 } }, kind: 'list' }), null, freeze({ panel: { size: { width: 12, height: 5 } }, kind: 'list' }), null);
+            const operations = SnapshotPatcher.changeSetBetween(freeze({ panel: { size: { width: 10, height: 5 } }, kind: 'list' }), null, freeze({ panel: { size: { width: 12, height: 5 } }, kind: 'list' }), null);
 
             expect(operations).toEqual([{ op: 'replace', path: '/panel/size/width', value: 12 }]);
         });
 
         it('replaces a value that became null or stopped being null, whole', () => {
-            expect(SnapshotPatcher.between(freeze({ panel: { width: 1 } }), null, freeze({ panel: null }), null)).toEqual([{ op: 'replace', path: '/panel', value: null }]);
-            expect(SnapshotPatcher.between(freeze({ panel: null }), null, freeze({ panel: { width: 1 } }), null)).toEqual([{ op: 'replace', path: '/panel', value: { width: 1 } }]);
+            expect(SnapshotPatcher.changeSetBetween(freeze({ panel: { width: 1 } }), null, freeze({ panel: null }), null)).toEqual([{ op: 'replace', path: '/panel', value: null }]);
+            expect(SnapshotPatcher.changeSetBetween(freeze({ panel: null }), null, freeze({ panel: { width: 1 } }), null)).toEqual([{ op: 'replace', path: '/panel', value: { width: 1 } }]);
         });
 
         it('replaces the whole result where it is no object', () => {
-            expect(SnapshotPatcher.between(3, null, 4, null)).toEqual([{ op: 'replace', path: '', value: 4 }]);
+            expect(SnapshotPatcher.changeSetBetween(3, null, 4, null)).toEqual([{ op: 'replace', path: '', value: 4 }]);
         });
 
         it('changes a list that is no projection of elements by position', () => {
-            expect(SnapshotPatcher.between(freeze({ ids: [1, 2, 3] }), null, freeze({ ids: [1, 5, 3, 4] }), null)).toEqual([
+            expect(SnapshotPatcher.changeSetBetween(freeze({ ids: [1, 2, 3] }), null, freeze({ ids: [1, 5, 3, 4] }), null)).toEqual([
                 { op: 'replace', path: '/ids/1', value: 5 },
                 { op: 'add', path: '/ids/3', value: 4 },
             ]);
-            expect(SnapshotPatcher.between(freeze({ ids: [1, 2, 3] }), null, freeze({ ids: [1] }), null)).toEqual([
+            expect(SnapshotPatcher.changeSetBetween(freeze({ ids: [1, 2, 3] }), null, freeze({ ids: [1] }), null)).toEqual([
                 { op: 'remove', path: '/ids/2' },
                 { op: 'remove', path: '/ids/1' },
             ]);
@@ -49,7 +49,7 @@ describe('SnapshotPatcher', () => {
 
         it('adds and removes the items of elements entering and leaving a projected list', () => {
             const [a, b, c] = elements('a', 'b', 'c');
-            const operations = SnapshotPatcher.between(
+            const operations = SnapshotPatcher.changeSetBetween(
                 freeze({ rows: [{ key: 'a' }, { key: 'b' }] }), rowsOf([a, b]),
                 freeze({ rows: [{ key: 'a' }, { key: 'c' }] }), rowsOf([a, c]),
             );
@@ -62,7 +62,7 @@ describe('SnapshotPatcher', () => {
 
         it('moves the item of an element that changed position, rather than rewriting the list', () => {
             const [a, b, c] = elements('a', 'b', 'c');
-            const operations = SnapshotPatcher.between(
+            const operations = SnapshotPatcher.changeSetBetween(
                 freeze({ rows: [{ key: 'a' }, { key: 'b' }, { key: 'c' }] }), rowsOf([a, b, c]),
                 freeze({ rows: [{ key: 'c' }, { key: 'a' }, { key: 'b' }] }), rowsOf([c, a, b]),
             );
@@ -72,7 +72,7 @@ describe('SnapshotPatcher', () => {
 
         it('moves and updates items in one change, each update at the item\'s new position', () => {
             const [a, b, c] = elements('a', 'b', 'c');
-            const operations = SnapshotPatcher.between(
+            const operations = SnapshotPatcher.changeSetBetween(
                 freeze({ rows: [{ key: 'a', height: 1 }, { key: 'b', height: 2 }, { key: 'c', height: 3 }] }), rowsOf([a, b, c]),
                 freeze({ rows: [{ key: 'b', height: 2 }, { key: 'c', height: 30 }, { key: 'a', height: 10 }] }), rowsOf([b, c, a]),
             );
@@ -89,7 +89,7 @@ describe('SnapshotPatcher', () => {
             const [a, b] = elements('a', 'b');
 
             // The two items swap places and the one now first changes: the change belongs to b, wherever its data stood before.
-            const operations = SnapshotPatcher.between(
+            const operations = SnapshotPatcher.changeSetBetween(
                 freeze({ rows: [{ selected: false }, { selected: false }] }), rowsOf([a, b]),
                 freeze({ rows: [{ selected: true }, { selected: false }] }), rowsOf([b, a]),
             );
@@ -103,17 +103,17 @@ describe('SnapshotPatcher', () => {
         it('matches by position a projected list in which an element stands twice or an item is null', () => {
             const [a, b] = elements('a', 'b');
 
-            expect(SnapshotPatcher.between(freeze({ rows: [{ k: 1 }, { k: 1 }] }), rowsOf([a, a]), freeze({ rows: [{ k: 1 }, { k: 2 }] }), rowsOf([a, b]))).toEqual([
+            expect(SnapshotPatcher.changeSetBetween(freeze({ rows: [{ k: 1 }, { k: 1 }] }), rowsOf([a, a]), freeze({ rows: [{ k: 1 }, { k: 2 }] }), rowsOf([a, b]))).toEqual([
                 { op: 'replace', path: '/rows/1/k', value: 2 },
             ]);
-            expect(SnapshotPatcher.between(freeze({ rows: [null, { k: 1 }] }), rowsOf([null, a]), freeze({ rows: [{ k: 1 }, null] }), rowsOf([a, null]))).toEqual([
+            expect(SnapshotPatcher.changeSetBetween(freeze({ rows: [null, { k: 1 }] }), rowsOf([null, a]), freeze({ rows: [{ k: 1 }, null] }), rowsOf([a, null]))).toEqual([
                 { op: 'replace', path: '/rows/0', value: { k: 1 } },
                 { op: 'replace', path: '/rows/1', value: null },
             ]);
         });
 
         it('escapes a name the way a JSON Pointer does', () => {
-            expect(SnapshotPatcher.between(freeze({ 'a/b': 1, '~c': 1 }), null, freeze({ 'a/b': 2, '~c': 2 }), null)).toEqual([
+            expect(SnapshotPatcher.changeSetBetween(freeze({ 'a/b': 1, '~c': 1 }), null, freeze({ 'a/b': 2, '~c': 2 }), null)).toEqual([
                 { op: 'replace', path: '/a~1b', value: 2 },
                 { op: 'replace', path: '/~0c', value: 2 },
             ]);
@@ -184,15 +184,15 @@ describe('SnapshotPatcher', () => {
         })()],
     ];
 
-    describe('between, then apply', () => {
+    describe('changeSetBetween, then apply', () => {
         it.each(roundTrips)('give the next result when the change set is applied to the previous one: %s', (_, previous, previousIdentities, next, nextIdentities) => {
-            expect(SnapshotPatcher.apply(previous, SnapshotPatcher.between(previous, previousIdentities, next, nextIdentities))).toEqual(next);
+            expect(SnapshotPatcher.apply(previous, SnapshotPatcher.changeSetBetween(previous, previousIdentities, next, nextIdentities))).toEqual(next);
         });
 
         it.each(roundTrips)('give the next result when the change set is applied in place to the previous one: %s', (_, previous, previousIdentities, next, nextIdentities) => {
             const state = thaw(previous);
 
-            SnapshotPatcher.applyInPlace(state, SnapshotPatcher.between(previous, previousIdentities, next, nextIdentities));
+            SnapshotPatcher.applyInPlace(state, SnapshotPatcher.changeSetBetween(previous, previousIdentities, next, nextIdentities));
 
             expect(state).toEqual(next);
         });

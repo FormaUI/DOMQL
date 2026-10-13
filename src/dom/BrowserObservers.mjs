@@ -90,23 +90,23 @@ export class BrowserObservers {
         };
 
         let isAttached = target.isConnected;
-        let observed = rootsOf();
+        let observedRoots = rootsOf();
         const observer = new window.MutationObserver(() => {
             const roots = rootsOf();
 
-            if (target.isConnected !== isAttached || roots.length !== observed.length || roots.some((root, index) => root !== observed[index])) {
+            if (target.isConnected !== isAttached || roots.length !== observedRoots.length || roots.some((root, index) => root !== observedRoots[index])) {
                 isAttached = target.isConnected;
-                watch(roots);
+                observeRoots(roots);
                 notify();
             }
         });
-        const watch = roots => {
+        const observeRoots = roots => {
             observer.disconnect();
-            observed = roots;
+            observedRoots = roots;
             roots.forEach(root => observer.observe(root, { childList: true, subtree: true }));
         };
 
-        watch(observed);
+        observeRoots(observedRoots);
 
         return { stop: () => observer.disconnect() };
     }
@@ -134,10 +134,10 @@ export class BrowserObservers {
     /** The device pixel ratio, which a media query on one ratio reports leaving. */
     static #observePixelRatio(_request, notify, { window }) {
         let stop;
-        const watch = () => {
+        const listenAtCurrentRatio = () => {
             const list = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
             const changed = () => {
-                watch();
+                listenAtCurrentRatio();
                 notify();
             };
 
@@ -145,7 +145,7 @@ export class BrowserObservers {
             stop = () => list.removeEventListener('change', changed);
         };
 
-        watch();
+        listenAtCurrentRatio();
 
         return { stop: () => stop() };
     }

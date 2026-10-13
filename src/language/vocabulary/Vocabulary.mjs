@@ -5,7 +5,7 @@
 import { DomqlModule } from './DomqlModule.mjs';
 
 /** A value parameter, required unless it is given a default. */
-function value(name, type, options = {}) {
+function valueParameter(name, type, options = {}) {
     const parameter = { name, kind: 'value', type, required: !('default' in options), fixed: false, nulls: 'propagate', ...options };
 
     if (parameter.fixed === false) {
@@ -16,7 +16,7 @@ function value(name, type, options = {}) {
 }
 
 /** An expression parameter, evaluated against each item of the list it follows and producing the type. */
-function expression(type) {
+function expressionParameter(type) {
     return { name: 'expression', kind: 'expression', type, context: 'item', required: true, fixed: false, nulls: 'accept' };
 }
 
@@ -78,7 +78,7 @@ const TEXT_SELECTION = [
     { type: 'event', of: 'document', types: ['selectionchange'] },
 ];
 
-const SELECTOR = [value('selector', 'string')];
+const SELECTOR_PARAMETERS = [valueParameter('selector', 'string')];
 const MATCHING = { changes: 'partly-observable', misses: 'pointer state such as :hover and control state such as :checked' };
 const GEOMETRY = { changes: 'partly-observable', misses: 'transforms and animations' };
 const STYLE = { changes: 'partly-observable', misses: 'rules matching from elsewhere' };
@@ -156,25 +156,25 @@ export class Vocabulary {
                 property('first', 'list<T>', 'T?', { changes: 'derived', reads: 'derived' }),
                 property('last', 'list<T>', 'T?', { changes: 'derived', reads: 'derived' }),
 
-                operation('matchesMedia', 'window', 'boolean', { form: 'named', parameters: [value('query', 'string')], observations: [{ type: 'media', of: 'window', query: { argument: 'query' } }] }),
-                operation('supports', 'window', 'boolean', { form: 'named', changes: 'constant', parameters: [value('feature', 'string', { fixed: true, selects: 'feature' })] }),
-                operation('attributeOf', 'element', 'string?', { form: 'named', parameters: [value('name', 'string')], observations: [{ type: 'mutation', of: 'receiver', attributes: [{ argument: 'name' }] }] }),
-                operation('computedStyleOf', 'element', 'string?', { ...STYLE, form: 'named', parameters: [value('property', 'string')], observations: [RESIZE, ATTRIBUTES] }),
-                operation('intersects', 'element', 'boolean?', { reads: 'maintained', form: 'named', input: 'options', parameters: [value('root', 'element?', { default: null, nulls: 'accept', omitted: 'the window' }), value('margin', 'number', { default: 0 })], observations: [{ type: 'intersection', of: 'receiver', root: { argument: 'root' }, margin: { argument: 'margin' } }] }),
-                operation('overlaps', 'element', 'boolean?', { ...GEOMETRY, form: 'named', input: 'options', parameters: [value('other', 'element'), value('margin', 'number', { default: 0 })], observations: [RESIZE, { type: 'resize', of: { argument: 'other' } }, SCROLLING, WINDOW_RESIZE] }),
-                operation('matches', 'element', 'boolean?', { ...MATCHING, form: 'named', parameters: SELECTOR, observations: [STRUCTURE, FOCUS] }),
-                operation('rectRelativeTo', 'element', 'rectangle?', { ...GEOMETRY, function: 'rect', parameters: [value('relativeTo', 'element')], observations: [RESIZE, { type: 'resize', of: { argument: 'relativeTo' } }, SCROLLING, WINDOW_RESIZE] }),
-                operation('closest', 'element', 'element?', { ...MATCHING, parameters: SELECTOR, observations: [STRUCTURE, FOCUS] }),
-                operation('first', 'element', 'element?', { ...MATCHING, function: 'firstMatching', parameters: SELECTOR, observations: [STRUCTURE, FOCUS] }),
-                operation('all', 'element', 'list<element>', { ...MATCHING, parameters: SELECTOR, observations: [STRUCTURE, FOCUS] }),
-                operation('get', 'any', '@selected', { function: null, changes: 'derived', reads: 'derived', parameters: [value('name', 'string', { fixed: true, selects: 'member' })] }),
-                operation('at', 'list<T>', 'T?', { changes: 'derived', reads: 'derived', parameters: [value('index', 'number')] }),
-                operation('max', 'list<T>', 'number?', { changes: 'derived', reads: 'derived', parameters: [expression('number?')] }),
-                operation('min', 'list<T>', 'number?', { changes: 'derived', reads: 'derived', parameters: [expression('number?')] }),
-                operation('sum', 'list<T>', 'number', { changes: 'derived', reads: 'derived', parameters: [expression('number?')] }),
-                operation('where', 'list<T>', 'list<T>', { changes: 'derived', reads: 'derived', parameters: [expression('boolean?')] }),
+                operation('matchesMedia', 'window', 'boolean', { form: 'named', parameters: [valueParameter('query', 'string')], observations: [{ type: 'media', of: 'window', query: { argument: 'query' } }] }),
+                operation('supports', 'window', 'boolean', { form: 'named', changes: 'constant', parameters: [valueParameter('feature', 'string', { fixed: true, selects: 'feature' })] }),
+                operation('attributeOf', 'element', 'string?', { form: 'named', parameters: [valueParameter('name', 'string')], observations: [{ type: 'mutation', of: 'receiver', attributes: [{ argument: 'name' }] }] }),
+                operation('computedStyleOf', 'element', 'string?', { ...STYLE, form: 'named', parameters: [valueParameter('property', 'string')], observations: [RESIZE, ATTRIBUTES] }),
+                operation('intersects', 'element', 'boolean?', { reads: 'maintained', form: 'named', input: 'options', parameters: [valueParameter('root', 'element?', { default: null, nulls: 'accept', omitted: 'the window' }), valueParameter('margin', 'number', { default: 0 })], observations: [{ type: 'intersection', of: 'receiver', root: { argument: 'root' }, margin: { argument: 'margin' } }] }),
+                operation('overlaps', 'element', 'boolean?', { ...GEOMETRY, form: 'named', input: 'options', parameters: [valueParameter('other', 'element'), valueParameter('margin', 'number', { default: 0 })], observations: [RESIZE, { type: 'resize', of: { argument: 'other' } }, SCROLLING, WINDOW_RESIZE] }),
+                operation('matches', 'element', 'boolean?', { ...MATCHING, form: 'named', parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS] }),
+                operation('rectRelativeTo', 'element', 'rectangle?', { ...GEOMETRY, function: 'rect', parameters: [valueParameter('relativeTo', 'element')], observations: [RESIZE, { type: 'resize', of: { argument: 'relativeTo' } }, SCROLLING, WINDOW_RESIZE] }),
+                operation('closest', 'element', 'element?', { ...MATCHING, parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS] }),
+                operation('first', 'element', 'element?', { ...MATCHING, function: 'firstMatching', parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS] }),
+                operation('all', 'element', 'list<element>', { ...MATCHING, parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS] }),
+                operation('get', 'any', '@selected', { function: null, changes: 'derived', reads: 'derived', parameters: [valueParameter('name', 'string', { fixed: true, selects: 'member' })] }),
+                operation('at', 'list<T>', 'T?', { changes: 'derived', reads: 'derived', parameters: [valueParameter('index', 'number')] }),
+                operation('max', 'list<T>', 'number?', { changes: 'derived', reads: 'derived', parameters: [expressionParameter('number?')] }),
+                operation('min', 'list<T>', 'number?', { changes: 'derived', reads: 'derived', parameters: [expressionParameter('number?')] }),
+                operation('sum', 'list<T>', 'number', { changes: 'derived', reads: 'derived', parameters: [expressionParameter('number?')] }),
+                operation('where', 'list<T>', 'list<T>', { changes: 'derived', reads: 'derived', parameters: [expressionParameter('boolean?')] }),
 
-                { ...operation('eventsOf', ['element', 'document', 'window'], 'event<@selected>', { form: 'named', changes: 'constant', reads: 'captured', parameters: [value('type', 'string', { fixed: true, selects: 'eventType' })] }), kind: 'source' },
+                { ...operation('eventsOf', ['element', 'document', 'window'], 'event<@selected>', { form: 'named', changes: 'constant', reads: 'captured', parameters: [valueParameter('type', 'string', { fixed: true, selects: 'eventType' })] }), kind: 'source' },
             ],
         }, functions);
     }

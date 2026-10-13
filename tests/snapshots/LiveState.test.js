@@ -40,7 +40,7 @@ describe('LiveState', () => {
         expect(live.state).toBe(state);
         expect(state.panel).toBe(panel);
         expect(state).toEqual(second);
-        expect(changes).toEqual(SnapshotPatcher.between(first, null, second, null));
+        expect(changes).toEqual(SnapshotPatcher.changeSetBetween(first, null, second, null));
         expect(Object.isFrozen(changes)).toBe(true);
         expect(Object.isFrozen(changes[0])).toBe(true);
     });

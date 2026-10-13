@@ -544,10 +544,10 @@ describe('Domql', () => {
         it('types a binding by what its value reveals', () => {
             const { bindings } = Domql.parse('@target { size: self.size }', { target: document.createElement('div'), count: 3, ids: [1, 2], row: { id: 'a', parent: document.createElement('div') } });
 
-            expect(bindings.typeOf('target').kind).toBe('element');
-            expect(bindings.typeOf('count').kind).toBe('number');
-            expect(bindings.typeOf('ids')).toMatchObject({ kind: 'list', item: { kind: 'number' } });
-            expect(bindings.typeOf('row')).toMatchObject({ kind: 'object' });
+            expect(bindings.getType('target').kind).toBe('element');
+            expect(bindings.getType('count').kind).toBe('number');
+            expect(bindings.getType('ids')).toMatchObject({ kind: 'list', item: { kind: 'number' } });
+            expect(bindings.getType('row')).toMatchObject({ kind: 'object' });
         });
 
         it('reads a bound object field by field, a field named __proto__ as an ordinary field of its own', () => {
@@ -599,7 +599,7 @@ describe('Domql', () => {
             const { bindings } = Domql.parse('@target { size: self.size }', { target: Domql.bind(value, type) });
 
             expect(bindings.get('target')).toBe(value);
-            expect(bindings.typeOf('target')).toBeDefined();
+            expect(bindings.getType('target')).toBeDefined();
         });
 
         it.each([
@@ -618,7 +618,7 @@ describe('Domql', () => {
             const parsed = Domql.parse('@target { size: self.size }', { target: Domql.bind(null, 'element?') });
             const created = Domql.create(parsed.definition, { target: Domql.bind(document.createElement('div'), 'element?') });
 
-            expect(created.bindings.typeOf('target')).toMatchObject({ kind: 'element', isNullable: true });
+            expect(created.bindings.getType('target')).toMatchObject({ kind: 'element', isNullable: true });
         });
 
         it('treats a root or a reserved literal in another case as an ordinary name', () => {

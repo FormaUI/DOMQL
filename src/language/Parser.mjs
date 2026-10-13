@@ -9,7 +9,7 @@ import { Tokenizer } from './Tokenizer.mjs';
 /** @typedef {import('./Tokenizer.mjs').Token} Token */
 /** @typedef {{ start: number, end: number }} Span */
 
-const TOKEN_NAMES = {
+const TOKEN_DESCRIPTIONS = {
     name: 'a name',
     literal: 'a literal',
     end: 'the end of the query',
@@ -19,7 +19,7 @@ const TOKEN_NAMES = {
 const VERBS = new Set(['is', 'has']);
 
 /** The tokens an initial expression starts with, and so the argument of a named operation. */
-const INITIAL_STARTS = new Set(['self', 'parameter', 'literal', 'name', '{', '(']);
+const INITIAL_EXPRESSION_STARTS = new Set(['self', 'parameter', 'literal', 'name', '{', '(']);
 
 /** The tokens that, after a space, make the name before them a member written without its receiver, which no local is: an argument. */
 const ARGUMENT_STARTS = new Set(['self', 'parameter', 'literal']);
@@ -53,7 +53,7 @@ export class Parser {
 
             this.#advance();
 
-            return this.#parseClause(start);
+            return this.#parseConditional(start);
         }
 
         return this.#parseCondition();
@@ -65,7 +65,7 @@ export class Parser {
     }
 
     /** Reads a conditional after its `if` or an `elseif`: its condition, a logical term or an operand, its consequent, and its alternative, an `elseif` being a conditional nested there. */
-    #parseClause(start) {
+    #parseConditional(start) {
         if (this.#isKeyword('if')) {
             throw DomqlError.syntax('A conditional that is a condition is enclosed in parentheses: write if (if … then … else …) then …', this.#text, this.#token.start);
         }
@@ -82,10 +82,10 @@ export class Parser {
         let alternative;
 
         if (this.#isKeyword('elseif')) {
-            const clause = this.#token.start;
+            const elseifStart = this.#token.start;
 
             this.#advance();
-            alternative = this.#parseClause(clause);
+            alternative = this.#parseConditional(elseifStart);
         } else if (this.#isKeyword('else')) {
             this.#advance();
             alternative = this.#parseExpression();
@@ -93,7 +93,7 @@ export class Parser {
             throw this.#unexpected("'elseif' or 'else', which every conditional ends with");
         }
 
-        return this.#span({ kind: 'conditional', condition, consequent, alternative }, start);
+        return this.#recordSpan({ kind: 'conditional', condition, consequent, alternative }, start);
     }
 
     /** Reads an operand: a value, and a predicate expression of it where a verb follows it. */
@@ -122,11 +122,11 @@ export class Parser {
             const next = this.#tokens[this.#index + 1];
 
             if (next.type === '(' || (next.spaced && ARGUMENT_STARTS.has(next.type))) {
-                throw DomqlError.syntax(`'${this.#token.value}' follows no receiver: write ${this.#receiverForm(this.#token.value)} for a member of the current value`, this.#text, start);
+                throw DomqlError.syntax(`'${this.#token.value}' follows no receiver: write ${this.#memberForm(this.#token.value)} for a member of the current value`, this.#text, start);
             }
         }
 
-        let node = this.#parseInitial();
+        let node = this.#parseInitialExpression();
 
         for (;;) {
             if (this.#token.type === '.') {
@@ -156,26 +156,26 @@ export class Parser {
         }
     }
 
-    #parseInitial() {
+    #parseInitialExpression() {
         const token = this.#token;
 
         switch (token.type) {
             case 'self':
                 this.#advance();
 
-                return this.#span({ kind: 'self' }, token.start);
+                return this.#recordSpan({ kind: 'self' }, token.start);
             case 'parameter':
                 this.#advance();
 
-                return this.#span({ kind: 'parameter', name: token.value }, token.start);
+                return this.#recordSpan({ kind: 'parameter', name: token.value }, token.start);
             case 'literal':
                 this.#advance();
 
-                return this.#span({ kind: 'literal', value: token.value }, token.start);
+                return this.#recordSpan({ kind: 'literal', value: token.value }, token.start);
             case 'name':
                 this.#advance();
 
-                return this.#span({ kind: 'local', name: token.value }, token.start);
+                return this.#recordSpan({ kind: 'local', name: token.value }, token.start);
             case '{':
                 return this.#parseObject(null, token.start);
             case '(': {
@@ -200,7 +200,7 @@ export class Parser {
                 throw DomqlError.syntax(`An argument after a dot is enclosed in parentheses, as a call's is, '.${name}(…)'; a named operation follows its receiver after a space, without a dot`, this.#text, this.#token.start);
             }
 
-            return this.#span({ kind: 'member', target, name }, start);
+            return this.#recordSpan({ kind: 'member', target, name }, start);
         }
 
         this.#advance();
@@ -208,7 +208,7 @@ export class Parser {
         if (this.#token.type === ')') {
             this.#advance();
 
-            return this.#span({ kind: 'call', target, name }, start);
+            return this.#recordSpan({ kind: 'call', target, name }, start);
         }
 
         if (this.#token.type === 'name' && this.#tokens[this.#index + 1].type === ':') {
@@ -223,7 +223,7 @@ export class Parser {
 
         this.#expect(')');
 
-        return this.#span({ kind: 'call', target, name, argument }, start);
+        return this.#recordSpan({ kind: 'call', target, name, argument }, start);
     }
 
     /** Reads a named operation: its name and, after a separator, the initial expression that is its argument; it ends its chain. */
@@ -239,15 +239,15 @@ export class Parser {
             throw this.#unexpected("',' before the next field");
         }
 
-        if (INITIAL_STARTS.has(this.#token.type)) {
+        if (INITIAL_EXPRESSION_STARTS.has(this.#token.type)) {
             if (!this.#token.spaced) {
                 throw DomqlError.syntax(`The argument of '${name}' follows it after a space or a comment`, this.#text, this.#token.start);
             }
 
-            node = { kind: 'namedOperation', target, name, argument: this.#parseInitial() };
+            node = { kind: 'namedOperation', target, name, argument: this.#parseInitialExpression() };
         }
 
-        this.#span(node, start);
+        this.#recordSpan(node, start);
 
         if (this.#token.type === '.' || this.#token.type === '{' || this.#token.type === 'name') {
             throw DomqlError.syntax(`A named operation ends its chain; group it to continue from its result, as in '(… ${name} …).value'`, this.#text, this.#token.start);
@@ -257,7 +257,7 @@ export class Parser {
     }
 
     /** How a member of the current value is written, for a name an argument follows with no receiver before it: a call, or a named operation. */
-    #receiverForm(name) {
+    #memberForm(name) {
         return this.#tokens[this.#index + 1].type === '(' ? `'self.${name}(…)'` : `'self ${name} …'`;
     }
 
@@ -267,7 +267,7 @@ export class Parser {
 
         this.#advance();
 
-        return this.#span({ kind: 'predicate', verb, target: subject, name: this.#parsePredicateName(verb) }, start);
+        return this.#recordSpan({ kind: 'predicate', verb, target: subject, name: this.#parsePredicateName(verb) }, start);
     }
 
     /** Reads operands joined by the operator, answering the operand alone where there is one. */
@@ -286,7 +286,7 @@ export class Parser {
             operands.push(parseOperand());
         }
 
-        return this.#span({ kind: operator, operands }, start);
+        return this.#recordSpan({ kind: operator, operands }, start);
     }
 
     /** Reads the one predicate name a predicate expression reads: a string or a parameter, or the null `is null` tests for. */
@@ -294,7 +294,7 @@ export class Parser {
         const token = this.#token;
 
         if ((token.type === 'literal' && typeof token.value === 'string') || token.type === 'parameter') {
-            return this.#parseInitial();
+            return this.#parseInitialExpression();
         }
 
         if (token.type === 'literal' && token.value === null) {
@@ -302,7 +302,7 @@ export class Parser {
                 throw DomqlError.syntax(`'${verb}' takes no null; 'is null' tests whether a value is null`, this.#text, token.start);
             }
 
-            return this.#parseInitial();
+            return this.#parseInitialExpression();
         }
 
         if (token.type === '(') {
@@ -353,7 +353,7 @@ export class Parser {
 
         this.#advance();
 
-        return this.#span(node, start);
+        return this.#recordSpan(node, start);
     }
 
     /** Reads a local: `let`, its name, a colon and its value. */
@@ -406,7 +406,7 @@ export class Parser {
         const name = this.#token.value;
         this.#index += 2;
 
-        return this.#span({ name, value: this.#parseExpression() }, start);
+        return this.#recordSpan({ name, value: this.#parseExpression() }, start);
     }
 
     get #token() {
@@ -434,7 +434,7 @@ export class Parser {
         const token = this.#token;
 
         if (token.type !== type) {
-            throw this.#unexpected(TOKEN_NAMES[type] ?? `'${type}'`);
+            throw this.#unexpected(TOKEN_DESCRIPTIONS[type] ?? `'${type}'`);
         }
 
         this.#advance();
@@ -442,7 +442,7 @@ export class Parser {
         return token;
     }
 
-    #span(part, start) {
+    #recordSpan(part, start) {
         this.#spans.set(part, { start, end: this.#tokens[this.#index - 1].end });
 
         return part;
@@ -450,7 +450,7 @@ export class Parser {
 
     #unexpected(expected) {
         const token = this.#token;
-        const found = token.type === 'end' ? TOKEN_NAMES.end : `'${this.#text.slice(token.start, token.end)}'`;
+        const found = token.type === 'end' ? TOKEN_DESCRIPTIONS.end : `'${this.#text.slice(token.start, token.end)}'`;
 
         return DomqlError.syntax(`Expected ${expected}, found ${found}`, this.#text, token.start);
     }

@@ -13,10 +13,10 @@ import { QueryEvaluation } from './QueryEvaluation.mjs';
 const BOOLEAN = Type.createNamedType('boolean');
 
 /** The observation of whether an element is attached, which a member that answered null for a detached element depends on. */
-const ATTACHMENT = Object.freeze({ type: 'attachment', of: 'receiver' });
+const ATTACHMENT_OBSERVATION = Object.freeze({ type: 'attachment', of: 'receiver' });
 
 /** What follows a receiver's flat-tree ancestry at each of its roots: the structure of the root's tree, and the slots its elements are assigned to. */
-const ANCESTRY = Object.freeze([
+const ANCESTRY_OBSERVATIONS = Object.freeze([
     Object.freeze({ type: 'mutation', of: 'roots', childList: true, subtree: true }),
     Object.freeze({ type: 'event', of: 'roots', types: Object.freeze(['slotchange']) }),
 ]);
@@ -43,10 +43,10 @@ export class QueryEvaluator {
     /** The branch each conditional selected for the value being evaluated at its place in the result, by the conditional, or null where none has. @type {Map<object, object> | null} */
     #branches = null;
 
-    /** The locals of the innermost application of an object expression that has any, with the value of each evaluated so far, inside those of the applications enclosing it; null outside every one. @type {{ node: object, item: unknown, values: Map<string, { value: unknown, branches: Map<object, object> | null }>, enclosing: object | null } | null} */
-    #locals = null;
+    /** The frame of locals of the innermost application of an object expression that has any, with the value of each evaluated so far, inside those of the applications enclosing it; null outside every one. @type {{ node: object, item: unknown, values: Map<string, { value: unknown, branches: Map<object, object> | null }>, enclosing: object | null } | null} */
+    #localsFrame = null;
 
-    /** What the evaluation in progress records, or null where none does. @type {{ observations: import('./Observations.mjs').Observations, onChange: () => void, holdsAll: boolean, replaces: QueryEvaluation[] | null, dependencies: object[], sessions: object[], held: Map<object, Map<unknown, object[]>> | null, unheld: object[], isPending: boolean } | null} */
+    /** What the evaluation in progress records, or null where none does. @type {{ observations: import('./Observations.mjs').Observations, onChange: () => void, holdsAll: boolean, replaces: QueryEvaluation[] | null, dependencies: object[], sessions: object[], heldSessions: Map<object, Map<unknown, object[]>> | null, unheld: object[], rootOf: WeakMap<object, object>, rootsOf: WeakMap<object, object[]>, followedRoots: WeakSet<object>, followedAttachments: WeakSet<object>, isPending: boolean } | null} */
     #recording = null;
 
     /** The identities of the value `#detach` detached last. @type {import('../snapshots/SnapshotPatcher.mjs').Identities} */
@@ -76,7 +76,7 @@ export class QueryEvaluator {
 
     /** The result the query reads once: immutable data holding no reference to the document. A member maintained by an observation fails it, since its first sample cannot arrive during a synchronous read. */
     read() {
-        return this.#result().value;
+        return this.#queryResult().value;
     }
 
     /**
@@ -91,7 +91,7 @@ export class QueryEvaluator {
      * @param {QueryEvaluation[] | null} [recording.replaces] The evaluations this one replaces, as a watch's next evaluation replaces its last: it takes over a session of theirs wherever its call would acquire that same observation again, a shared one, and a later evaluation may take over its own. Null where none is replaced.
      */
     evaluate({ observations, onChange, holdsAll = false, replaces = null }) {
-        return this.#record({ observations, onChange, holdsAll, replaces, waits: true }, () => this.#result());
+        return this.#record({ observations, onChange, holdsAll, replaces, waits: true }, () => this.#queryResult());
     }
 
     /**
@@ -135,7 +135,7 @@ export class QueryEvaluator {
      * @param {{ wasRun?: boolean }} [run] Whether the action was run, so its result is checked against the type it declares.
      */
     projectResult(result, { wasRun = true } = {}) {
-        const { node, pointer } = this.#endNode();
+        const { node, pointer } = this.#terminalMemberNode();
         const { declaration, type } = this.#resolvedDefinition.resolutionOf(node);
 
         if (wasRun && !this.#conforms(result, type)) {
@@ -152,12 +152,12 @@ export class QueryEvaluator {
     }
 
     /** The member the request ends in, evaluated up to its call: its declaration, the function that carries it out, and its receiver and arguments, which are null where the receiver or an argument is. */
-    #resolveCall(kind, use) {
+    #resolveCall(kind, operationDescription) {
         if (this.#resolvedDefinition.kind !== kind) {
-            this.#fail(`A ${this.#resolvedDefinition.kind} request is not ${use}`, '/query');
+            this.#fail(`A ${this.#resolvedDefinition.kind} request is not ${operationDescription}`, '/query');
         }
 
-        const { node, pointer } = this.#endNode();
+        const { node, pointer } = this.#terminalMemberNode();
         const resolution = this.#resolvedDefinition.resolutionOf(node);
         const { declaration } = resolution;
         const receiver = this.#evaluate(node.target, null);
@@ -181,7 +181,7 @@ export class QueryEvaluator {
      */
     project(event, { observations }) {
         return this.#record({ observations, onChange: () => {}, holdsAll: false, replaces: null, waits: false }, () => {
-            const { node } = this.#endNode();
+            const { node } = this.#terminalMemberNode();
 
             this.#projectionContext = { node, value: event };
 
@@ -195,7 +195,7 @@ export class QueryEvaluator {
 
     /** Runs an evaluation that records what it depends on, answering the evaluation; one that waits holds what a pending result waits on, and lets a failure seen through a pending member pass. */
     #record({ observations, onChange, holdsAll, replaces, waits }, produce) {
-        const recording = { observations, onChange, holdsAll, replaces, dependencies: [], sessions: [], held: replaces === null ? null : new Map(), unheld: [], rootOf: new WeakMap(), rootsOf: new WeakMap(), followed: new WeakSet(), attached: new WeakSet(), isPending: false };
+        const recording = { observations, onChange, holdsAll, replaces, dependencies: [], sessions: [], heldSessions: replaces === null ? null : new Map(), unheld: [], rootOf: new WeakMap(), rootsOf: new WeakMap(), followedRoots: new WeakSet(), followedAttachments: new WeakSet(), isPending: false };
         let value;
         let identities = null;
         let error = null;
@@ -222,11 +222,11 @@ export class QueryEvaluator {
             }
         }
 
-        return new QueryEvaluation({ value, identities, isPending: recording.isPending, dependencies: recording.dependencies, sessions: recording.sessions, held: recording.held, error });
+        return new QueryEvaluation({ value, identities, isPending: recording.isPending, dependencies: recording.dependencies, sessions: recording.sessions, heldSessions: recording.heldSessions, error });
     }
 
     /** The detached result, and the identities of the elements its lists were projected from, which the result itself never holds. */
-    #result() {
+    #queryResult() {
         if (this.#resolvedDefinition.kind !== 'query') {
             this.#fail(`A ${this.#resolvedDefinition.kind} request is not read`, '/query');
         }
@@ -275,7 +275,7 @@ export class QueryEvaluator {
      * The branches its conditionals selected are recorded at every place in the result it is used.
      */
     #local(node) {
-        let frame = this.#locals;
+        let frame = this.#localsFrame;
 
         while (!frame.node.locals.some(local => local.name === node.name)) {
             frame = frame.enclosing;
@@ -284,17 +284,17 @@ export class QueryEvaluator {
         let entry = frame.values.get(node.name);
 
         if (entry === undefined) {
-            const locals = this.#locals;
-            const branches = this.#branches;
+            const enclosingLocals = this.#localsFrame;
+            const enclosingBranches = this.#branches;
 
-            this.#locals = frame;
+            this.#localsFrame = frame;
             this.#branches = null;
 
             try {
                 entry = { value: this.#evaluate(frame.node.locals.find(local => local.name === node.name).value, frame.item), branches: this.#branches };
             } finally {
-                this.#locals = locals;
-                this.#branches = branches;
+                this.#localsFrame = enclosingLocals;
+                this.#branches = enclosingBranches;
             }
 
             frame.values.set(node.name, entry);
@@ -388,7 +388,7 @@ export class QueryEvaluator {
         }
 
         if (resolution.steps !== undefined) {
-            return this.#follow(resolution.steps, receiver, node);
+            return this.#readSteps(resolution.steps, receiver, node);
         }
 
         const args = this.#arguments(resolution, current);
@@ -421,8 +421,8 @@ export class QueryEvaluator {
         return args;
     }
 
-    /** Follows the chain of names a get reads, each step from the value before it, answering null from the first null. */
-    #follow(steps, receiver, node) {
+    /** Reads the chain of names a `get` names, each step from the value before it, answering null from the first null. */
+    #readSteps(steps, receiver, node) {
         let value = receiver;
 
         for (const step of steps) {
@@ -468,7 +468,7 @@ export class QueryEvaluator {
             this.#fail(`The member '${declaration.name}' answered ${QueryEvaluator.#describe(value)}, and it declares ${type}`, this.#pointerOf(node));
         }
 
-        this.#observeDetached(declaration, receiver, value, node);
+        this.#followDetachedReceiver(declaration, receiver, value, node);
 
         return value;
     }
@@ -491,7 +491,7 @@ export class QueryEvaluator {
         const samples = [];
         let isPending = false;
         let roots = null;
-        const observe = (request, session) => {
+        const collectObservation = (request, session) => {
             requests.push(request);
 
             if (session?.contract === 'maintained') {
@@ -510,7 +510,7 @@ export class QueryEvaluator {
                     const held = this.#holdAt(node, index === 0 ? place : `${place}:${index}`, receiver, observation, args, root);
 
                     if (held !== null) {
-                        observe(held.request, held.session);
+                        collectObservation(held.request, held.session);
                     }
                 });
 
@@ -522,7 +522,7 @@ export class QueryEvaluator {
                 const held = this.#holdAt(node, place, receiver, observation, args, root);
 
                 if (held !== null) {
-                    observe(held.request, held.session);
+                    collectObservation(held.request, held.session);
                 }
 
                 // An observation of its root's structure sees the receiver leave it, so only a detached tree, which moves without a change inside it, needs more.
@@ -539,7 +539,7 @@ export class QueryEvaluator {
             const request = takenOver?.request ?? observations.resolve(observation, { receiver, args });
 
             if (request !== null) {
-                observe(request, takenOver?.session ?? this.#hold(request, node, place, receiver));
+                collectObservation(request, takenOver?.session ?? this.#hold(request, node, place, receiver));
             }
         });
 
@@ -559,16 +559,16 @@ export class QueryEvaluator {
     }
 
     /** A member that answered null because its element is detached depends on whether the element is attached, so it is read again when the element returns. */
-    #observeDetached(declaration, receiver, value, node) {
-        if (this.#recording === null || value !== null || receiver?.nodeType !== 1 || receiver.isConnected || this.#moduleRegistry.getObservationType('attachment') === undefined || this.#recording.attached.has(receiver)) {
+    #followDetachedReceiver(declaration, receiver, value, node) {
+        if (this.#recording === null || value !== null || receiver?.nodeType !== 1 || receiver.isConnected || this.#moduleRegistry.getObservationType('attachment') === undefined || this.#recording.followedAttachments.has(receiver)) {
             return;
         }
 
-        this.#recording.attached.add(receiver);
+        this.#recording.followedAttachments.add(receiver);
 
         const { observations } = this.#recording;
-        const takenOver = this.#takeOver(node, 'attachment', receiver, values => observations.resolvesTo(ATTACHMENT, { receiver, args: NO_ARGUMENTS }, values));
-        const request = takenOver?.request ?? observations.resolve(ATTACHMENT, { receiver, args: NO_ARGUMENTS });
+        const takenOver = this.#takeOver(node, 'attachment', receiver, values => observations.resolvesTo(ATTACHMENT_OBSERVATION, { receiver, args: NO_ARGUMENTS }, values));
+        const request = takenOver?.request ?? observations.resolve(ATTACHMENT_OBSERVATION, { receiver, args: NO_ARGUMENTS });
 
         if (takenOver === null) {
             this.#hold(request, node, 'attachment', receiver);
@@ -585,16 +585,16 @@ export class QueryEvaluator {
      * @param {object[]} requests The requests the call records, which these join.
      */
     #followAncestry(receiver, node, roots, requests) {
-        const { followed, attached } = this.#recording;
+        const { followedRoots } = this.#recording;
 
         // Every receiver leaving a root changes the root's own structure, so each root is followed once an evaluation, whichever receiver is in it.
         roots.forEach(root => {
-            if (followed.has(root)) {
+            if (followedRoots.has(root)) {
                 return;
             }
 
-            followed.add(root);
-            ANCESTRY.forEach((observation, index) => {
+            followedRoots.add(root);
+            ANCESTRY_OBSERVATIONS.forEach((observation, index) => {
                 if (this.#moduleRegistry.getObservationType(observation.type) !== undefined) {
                     requests.push(this.#holdAt(node, `ancestry:${index}`, receiver, observation, NO_ARGUMENTS, root).request);
                 }
@@ -606,14 +606,14 @@ export class QueryEvaluator {
 
     /** Follows whether the receiver is attached, once an evaluation, where the outermost root of its ancestry is the top of a detached tree, which moves without a change inside any root. */
     #followAttachment(receiver, node, outermost, requests) {
-        const { attached } = this.#recording;
+        const { followedAttachments } = this.#recording;
 
-        if (outermost === null || outermost.nodeType === 9 || (outermost.nodeType === 11 && outermost.host !== undefined) || attached.has(receiver) || this.#moduleRegistry.getObservationType(ATTACHMENT.type) === undefined) {
+        if (outermost === null || outermost.nodeType === 9 || (outermost.nodeType === 11 && outermost.host !== undefined) || followedAttachments.has(receiver) || this.#moduleRegistry.getObservationType(ATTACHMENT_OBSERVATION.type) === undefined) {
             return;
         }
 
-        attached.add(receiver);
-        requests.push(this.#holdAt(node, 'ancestry:attachment', receiver, ATTACHMENT, NO_ARGUMENTS, receiver).request);
+        followedAttachments.add(receiver);
+        requests.push(this.#holdAt(node, 'ancestry:attachment', receiver, ATTACHMENT_OBSERVATION, NO_ARGUMENTS, receiver).request);
     }
 
     /** Whether the observation of a receiver's root sees the receiver leave it: a mutation of the root's children through its subtree. */
@@ -647,10 +647,10 @@ export class QueryEvaluator {
      * A session of a shared observation is kept where the node's call acquired it, at the observation's place among those the call observes and for its receiver, for a later evaluation to take over.
      */
     #hold(request, node, place, receiver) {
-        const { observations, onChange, holdsAll, sessions, held, unheld } = this.#recording;
-        const type = this.#moduleRegistry.getObservationType(request.type);
+        const { observations, onChange, holdsAll, sessions, heldSessions, unheld } = this.#recording;
+        const observationType = this.#moduleRegistry.getObservationType(request.type);
 
-        if (type !== undefined && type.contract === 'invalidation' && !holdsAll) {
+        if (observationType !== undefined && observationType.contract === 'invalidation' && !holdsAll) {
             unheld.push(request);
 
             return null;
@@ -660,7 +660,7 @@ export class QueryEvaluator {
 
         sessions.push(session);
 
-        if (held !== null && type.shared !== false) {
+        if (heldSessions !== null && observationType.shared !== false) {
             this.#keep(node, receiver, { place, request, session, values: Observations.valuesOf(request) });
         }
 
@@ -691,7 +691,7 @@ export class QueryEvaluator {
 
     /** Keeps the session where the node's call acquired it, for its receiver, for a later evaluation to take over. */
     #keep(node, receiver, held) {
-        const byNode = this.#recording.held;
+        const byNode = this.#recording.heldSessions;
         let byReceiver = byNode.get(node);
 
         if (byReceiver === undefined) {
@@ -709,7 +709,7 @@ export class QueryEvaluator {
     }
 
     /** The member a subscription, an action or a behavior request ends in, and where it stands: the object expressions of a request each follow the one before, and the first follows that member. */
-    #endNode() {
+    #terminalMemberNode() {
         let node = this.#resolvedDefinition.definition.query;
         let pointer = '/query';
 
@@ -758,7 +758,7 @@ export class QueryEvaluator {
         const target = hasTarget ? this.#evaluate(node.target, current) : current;
         const apply = item => item === null && hasTarget
             ? null
-            : this.#fieldsOf(node, item);
+            : this.#applyObjectExpression(node, item);
 
         if (!(hasTarget && Array.isArray(target))) {
             return apply(target);
@@ -775,15 +775,15 @@ export class QueryEvaluator {
     }
 
     /** The object an object expression gives the item: each of its fields, in order, under its name, evaluated against the item with the expression's locals in scope, with the branches each field's conditionals selected. */
-    #fieldsOf(node, item) {
+    #applyObjectExpression(node, item) {
         const names = this.#resolvedDefinition.fieldNamesOf(node);
         const object = {};
-        const enclosing = this.#branches;
-        const enclosingLocals = this.#locals;
+        const enclosingBranches = this.#branches;
+        const enclosingLocals = this.#localsFrame;
         let branches = null;
 
         if (node.locals !== undefined) {
-            this.#locals = { node, item, values: new Map(), enclosing: enclosingLocals };
+            this.#localsFrame = { node, item, values: new Map(), enclosing: enclosingLocals };
         }
 
         try {
@@ -796,8 +796,8 @@ export class QueryEvaluator {
                 }
             });
         } finally {
-            this.#branches = enclosing;
-            this.#locals = enclosingLocals;
+            this.#branches = enclosingBranches;
+            this.#localsFrame = enclosingLocals;
         }
 
         if (branches !== null) {
@@ -936,18 +936,18 @@ export class QueryEvaluator {
     #detach(value) {
         if (Array.isArray(value)) {
             const detached = [];
-            const items = [];
+            const itemIdentities = [];
             let hasIdentities = false;
 
             for (const item of value) {
                 detached.push(this.#detach(item));
-                items.push(this.#detachedIdentities);
+                itemIdentities.push(this.#detachedIdentities);
                 hasIdentities ||= this.#detachedIdentities !== null;
             }
 
             const elements = this.#elementsOf.get(value) ?? null;
 
-            this.#detachedIdentities = elements === null && !hasIdentities ? null : { elements, items };
+            this.#detachedIdentities = elements === null && !hasIdentities ? null : { elements, items: itemIdentities };
 
             return Object.freeze(detached);
         }
@@ -955,7 +955,7 @@ export class QueryEvaluator {
         if (QueryEvaluator.#isRecord(value)) {
             const detached = {};
             const branches = this.#branchesOf.get(value);
-            let fields = null;
+            let fieldIdentities = null;
 
             for (const name of Object.keys(value)) {
                 QueryEvaluator.#define(detached, name, this.#detach(value[name]));
@@ -963,12 +963,12 @@ export class QueryEvaluator {
                 const identities = QueryEvaluator.#withBranches(this.#detachedIdentities, branches?.get(name) ?? null);
 
                 if (identities !== null) {
-                    fields ??= {};
-                    QueryEvaluator.#define(fields, name, identities);
+                    fieldIdentities ??= {};
+                    QueryEvaluator.#define(fieldIdentities, name, identities);
                 }
             }
 
-            this.#detachedIdentities = fields === null ? null : { fields };
+            this.#detachedIdentities = fieldIdentities === null ? null : { fields: fieldIdentities };
 
             return Object.freeze(detached);
         }

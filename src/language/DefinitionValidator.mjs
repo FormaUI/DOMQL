@@ -9,7 +9,7 @@ import { Specification } from './Specification.mjs';
 /** @typedef {import('./TextLocations.mjs').TextLocations} TextLocations */
 
 /** The properties each kind of node holds, and those it requires. */
-const NODES = {
+const NODE_PROPERTIES = {
     literal: { properties: ['kind', 'value'], required: ['value'] },
     parameter: { properties: ['kind', 'name'], required: ['name'] },
     self: { properties: ['kind'], required: [] },
@@ -28,10 +28,10 @@ const NODES = {
 const VERBS = ['is', 'has'];
 
 /** What a local and a field of an object expression each hold: a name, always written, and a value. */
-const ENTRY = { properties: ['name', 'value'], required: ['name', 'value'] };
+const ENTRY_PROPERTIES = { properties: ['name', 'value'], required: ['name', 'value'] };
 
 /** Where a node's current value stands: absent at the top level, present in an object expression following a value, unknown in an argument. */
-const Scope = Object.freeze({ absent: 'absent', present: 'present', unknown: 'unknown' });
+const CurrentValueAvailability = Object.freeze({ absent: 'absent', present: 'present', unknown: 'unknown' });
 
 export class DefinitionValidator {
     #locations;
@@ -52,15 +52,15 @@ export class DefinitionValidator {
             this.#fail('/version', `A definition is of version ${Specification.definitionVersion}`);
         }
 
-        return Object.freeze({ version: Specification.definitionVersion, query: this.#validateNode(definition.query, '/query', Scope.absent) });
+        return Object.freeze({ version: Specification.definitionVersion, query: this.#validateNode(definition.query, '/query', CurrentValueAvailability.absent) });
     }
 
-    #validateNode(node, pointer, scope) {
-        if (!DefinitionValidator.#isObject(node) || !Object.hasOwn(NODES, node.kind)) {
+    #validateNode(node, pointer, currentValueAvailability) {
+        if (!DefinitionValidator.#isObject(node) || !Object.hasOwn(NODE_PROPERTIES, node.kind)) {
             this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, namedOperation, object, predicate, conditional, and or or');
         }
 
-        this.#requireProperties(node, pointer, NODES[node.kind]);
+        this.#requireProperties(node, pointer, NODE_PROPERTIES[node.kind]);
 
         switch (node.kind) {
             case 'literal':
@@ -70,7 +70,7 @@ export class DefinitionValidator {
 
                 return Object.freeze({ kind: 'parameter', name: node.name });
             case 'self':
-                if (scope === Scope.absent) {
+                if (currentValueAvailability === CurrentValueAvailability.absent) {
                     this.#fail(pointer, "'self' is the current value, and the top level has none; a chain there starts with a parameter, a literal or an object expression");
                 }
 
@@ -82,30 +82,30 @@ export class DefinitionValidator {
             case 'member':
             case 'call':
             case 'namedOperation':
-                return this.#validateMember(node, pointer, scope);
+                return this.#validateMember(node, pointer, currentValueAvailability);
             case 'predicate':
-                return this.#validatePredicate(node, pointer, scope);
+                return this.#validatePredicate(node, pointer, currentValueAvailability);
             case 'conditional':
                 return Object.freeze({
                     kind: 'conditional',
-                    condition: this.#validateNode(node.condition, `${pointer}/condition`, scope),
-                    consequent: this.#validateNode(node.consequent, `${pointer}/consequent`, scope),
-                    alternative: this.#validateNode(node.alternative, `${pointer}/alternative`, scope),
+                    condition: this.#validateNode(node.condition, `${pointer}/condition`, currentValueAvailability),
+                    consequent: this.#validateNode(node.consequent, `${pointer}/consequent`, currentValueAvailability),
+                    alternative: this.#validateNode(node.alternative, `${pointer}/alternative`, currentValueAvailability),
                 });
             case 'and':
             case 'or':
-                return this.#validateLogical(node, pointer, scope);
+                return this.#validateLogical(node, pointer, currentValueAvailability);
             default:
-                return this.#validateObject(node, pointer, scope);
+                return this.#validateObject(node, pointer, currentValueAvailability);
         }
     }
 
-    #validatePredicate(node, pointer, scope) {
+    #validatePredicate(node, pointer, currentValueAvailability) {
         if (!VERBS.includes(node.verb)) {
             this.#fail(`${pointer}/verb`, 'A predicate expression reads its predicate under is or has');
         }
 
-        const target = this.#validateNode(node.target, `${pointer}/target`, scope);
+        const target = this.#validateNode(node.target, `${pointer}/target`, currentValueAvailability);
         const name = this.#validateName(node.name, `${pointer}/name`, node.verb);
 
         return Object.freeze({ kind: 'predicate', verb: node.verb, target, name });
@@ -117,7 +117,7 @@ export class DefinitionValidator {
             this.#fail(pointer, 'A predicate expression names its predicate by a string or a parameter');
         }
 
-        const name = this.#validateNode(node, pointer, Scope.unknown);
+        const name = this.#validateNode(node, pointer, CurrentValueAvailability.unknown);
 
         if (name.kind === 'literal' && typeof name.value !== 'string' && !(name.value === null && verb === 'is')) {
             this.#fail(`${pointer}/value`, verb === 'is' ? 'A predicate is named by a string, and is null tests for null' : `A predicate is named by a string, and '${verb}' takes no null`);
@@ -127,14 +127,14 @@ export class DefinitionValidator {
     }
 
     /** Validates an and or an or: two or more expressions it combines, each with the current value the and or the or has. */
-    #validateLogical(node, pointer, scope) {
+    #validateLogical(node, pointer, currentValueAvailability) {
         this.#requireArray(node.operands, `${pointer}/operands`);
 
         if (node.operands.length < 2) {
             this.#fail(`${pointer}/operands`, `An ${node.kind} combines two or more expressions`);
         }
 
-        return Object.freeze({ kind: node.kind, operands: Object.freeze(node.operands.map((operand, index) => this.#validateNode(operand, `${pointer}/operands/${index}`, scope))) });
+        return Object.freeze({ kind: node.kind, operands: Object.freeze(node.operands.map((operand, index) => this.#validateNode(operand, `${pointer}/operands/${index}`, currentValueAvailability))) });
     }
 
     #validateLiteral(node, pointer) {
@@ -148,22 +148,22 @@ export class DefinitionValidator {
     }
 
     /** Validates a member access, a call or a named operation: its name, its receiver and the one argument a call or a named operation may take, whose current value its declaration decides. */
-    #validateMember(node, pointer, scope) {
+    #validateMember(node, pointer, currentValueAvailability) {
         this.#requireName(node.name, `${pointer}/name`);
 
-        const target = this.#validateNode(node.target, `${pointer}/target`, scope);
+        const target = this.#validateNode(node.target, `${pointer}/target`, currentValueAvailability);
 
         if (node.kind === 'member' || node.argument === undefined) {
             return Object.freeze({ kind: node.kind, target, name: node.name });
         }
 
-        const argument = this.#validateNode(node.argument, `${pointer}/argument`, Scope.unknown);
+        const argument = this.#validateNode(node.argument, `${pointer}/argument`, CurrentValueAvailability.unknown);
 
         return Object.freeze({ kind: node.kind, target, name: node.name, argument });
     }
 
-    #validateObject(node, pointer, scope) {
-        const target = node.target === undefined ? undefined : this.#validateNode(node.target, `${pointer}/target`, scope);
+    #validateObject(node, pointer, currentValueAvailability) {
+        const target = node.target === undefined ? undefined : this.#validateNode(node.target, `${pointer}/target`, currentValueAvailability);
 
         this.#requireArray(node.fields, `${pointer}/fields`);
 
@@ -171,21 +171,21 @@ export class DefinitionValidator {
             this.#fail(pointer, 'An object expression names at least one field');
         }
 
-        const fieldScope = target === undefined ? scope : Scope.present;
-        const enclosing = this.#localNames;
+        const fieldCurrentValueAvailability = target === undefined ? currentValueAvailability : CurrentValueAvailability.present;
+        const enclosingLocalNames = this.#localNames;
 
         try {
-            const locals = node.locals === undefined ? [] : this.#validateLocals(node.locals, `${pointer}/locals`, fieldScope);
+            const locals = node.locals === undefined ? [] : this.#validateLocals(node.locals, `${pointer}/locals`, fieldCurrentValueAvailability);
 
             /** @type {Set<string>} */
             const names = new Set();
 
             const fields = node.fields.map((field, index) => {
                 const fieldPointer = `${pointer}/fields/${index}`;
-                this.#requireProperties(field, fieldPointer, ENTRY);
+                this.#requireProperties(field, fieldPointer, ENTRY_PROPERTIES);
                 this.#requireName(field.name, `${fieldPointer}/name`);
 
-                const value = this.#validateNode(field.value, `${fieldPointer}/value`, fieldScope);
+                const value = this.#validateNode(field.value, `${fieldPointer}/value`, fieldCurrentValueAvailability);
                 const { name } = field;
 
                 if (names.has(name)) {
@@ -204,20 +204,20 @@ export class DefinitionValidator {
                 fields: Object.freeze(fields),
             });
         } finally {
-            this.#localNames = enclosing;
+            this.#localNames = enclosingLocalNames;
         }
     }
 
     /** Validates an object expression's locals in order, each seeing those before it, and leaves every one in scope for its fields; no local reuses a name in scope. */
-    #validateLocals(locals, pointer, scope) {
+    #validateLocals(locals, pointer, currentValueAvailability) {
         this.#requireArray(locals, pointer);
 
         return locals.map((local, index) => {
             const localPointer = `${pointer}/${index}`;
-            this.#requireProperties(local, localPointer, ENTRY);
+            this.#requireProperties(local, localPointer, ENTRY_PROPERTIES);
             this.#requireName(local.name, `${localPointer}/name`);
 
-            const value = this.#validateNode(local.value, `${localPointer}/value`, scope);
+            const value = this.#validateNode(local.value, `${localPointer}/value`, currentValueAvailability);
             const { name } = local;
 
             if (this.#localNames.has(name)) {

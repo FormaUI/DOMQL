@@ -233,7 +233,7 @@ describe('Observations in a browser', () => {
 
             expect(await reports(watching, () => {})).toBe(false);
             watching.session.dispose();
-            expect(observations.running).toBe(0);
+            expect(observations.runningCount).toBe(0);
         });
     });
 
@@ -317,7 +317,7 @@ describe('Observations in a browser', () => {
             await settled();
             sessions.forEach(session => session.dispose());
 
-            expect(observations.running).toBe(0);
+            expect(observations.runningCount).toBe(0);
         });
     });
 });

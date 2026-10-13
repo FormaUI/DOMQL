@@ -3,10 +3,10 @@
  */
 
 /** The input types `readonly` applies to. */
-const READ_ONLY_TYPES = new Set(['text', 'search', 'url', 'tel', 'email', 'password', 'date', 'month', 'week', 'time', 'datetime-local', 'number']);
+const READ_ONLY_INPUT_TYPES = new Set(['text', 'search', 'url', 'tel', 'email', 'password', 'date', 'month', 'week', 'time', 'datetime-local', 'number']);
 
 /** The input types that take text. */
-const TEXT_TYPES = new Set(['text', 'search', 'url', 'tel', 'email', 'password', 'number']);
+const TEXT_INPUT_TYPES = new Set(['text', 'search', 'url', 'tel', 'email', 'password', 'number']);
 
 /** The values of `contenteditable` that make content editable. */
 const EDITABLE_VALUES = new Set(['', 'true', 'plaintext-only']);
@@ -19,9 +19,9 @@ export class VocabularyFunctions {
     static get functions() {
         return {
             windowSize: window => {
-                const root = window.document.documentElement;
+                const documentElement = window.document.documentElement;
 
-                return { width: root.clientWidth, height: root.clientHeight };
+                return { width: documentElement.clientWidth, height: documentElement.clientHeight };
             },
             devicePixelRatio: window => window.devicePixelRatio,
             // The property reads the rectangle against the layout viewport, and rectRelativeTo against the element it is given.
@@ -179,7 +179,7 @@ export class VocabularyFunctions {
             return element.readOnly;
         }
 
-        return element.localName === 'input' && READ_ONLY_TYPES.has(element.type) && element.readOnly;
+        return element.localName === 'input' && READ_ONLY_INPUT_TYPES.has(element.type) && element.readOnly;
     }
 
     static #isTextEditable(element) {
@@ -188,7 +188,7 @@ export class VocabularyFunctions {
         }
 
         if (VocabularyFunctions.#isTextControl(element)) {
-            const isText = element.localName === 'textarea' || TEXT_TYPES.has(element.type);
+            const isText = element.localName === 'textarea' || TEXT_INPUT_TYPES.has(element.type);
 
             return isText && !element.matches(':disabled') && !element.readOnly;
         }

@@ -39,7 +39,7 @@ export class ParameterBindings {
                 throw DomqlError.structure('A binding is an element, or data: a number, a string, a Boolean, null, a list holding a value at every index, or an object', { binding: name });
             }
 
-            this.#types.set(name, ParameterBindings.#getType(name, value, isTyped ? binding.type : null));
+            this.#types.set(name, ParameterBindings.#typeOf(name, value, isTyped ? binding.type : null));
             this.#values.set(name, value);
         }
     }
@@ -55,7 +55,7 @@ export class ParameterBindings {
     }
 
     /** The type of the value bound to the name, which the value reveals or its binding declared. */
-    typeOf(name) {
+    getType(name) {
         return this.#types.get(name);
     }
 
@@ -68,26 +68,26 @@ export class ParameterBindings {
             const value = this.#values.get(name);
             const isPrimitive = value === null || ['string', 'number', 'boolean'].includes(typeof value);
 
-            return `${name}:${ParameterBindings.#describe(this.#types.get(name))}${isPrimitive ? `=${JSON.stringify(value)}` : ''}`;
+            return `${name}:${ParameterBindings.#notationOf(this.#types.get(name))}${isPrimitive ? `=${JSON.stringify(value)}` : ''}`;
         }).join(';');
     }
 
-    static #describe(type) {
+    static #notationOf(type) {
         const nullable = type.isNullable ? '?' : '';
 
         switch (type.kind) {
             case 'list':
-                return `list<${ParameterBindings.#describe(type.item)}>${nullable}`;
+                return `list<${ParameterBindings.#notationOf(type.item)}>${nullable}`;
             case 'object':
-                return `{${[...type.fields].map(([name, field]) => `${name}:${ParameterBindings.#describe(field)}`).join(',')}}${nullable}`;
+                return `{${[...type.fields].map(([name, field]) => `${name}:${ParameterBindings.#notationOf(field)}`).join(',')}}${nullable}`;
             default:
                 return `${type.kind}${nullable}`;
         }
     }
 
     /** The value's type: the declared one where it fits every part of the value, else the one the value reveals. */
-    static #getType(name, value, declared) {
-        if (declared === null) {
+    static #typeOf(name, value, declaredType) {
+        if (declaredType === null) {
             const revealed = TypeNotation.infer(value);
 
             if (revealed === null) {
@@ -97,14 +97,14 @@ export class ParameterBindings {
             return revealed;
         }
 
-        const type = TypeNotation.parse(declared);
+        const type = TypeNotation.parse(declaredType);
 
         if (type === null) {
-            throw DomqlError.structure(`'${declared}' is not a type a binding can declare: number, string, boolean, element, list<T> or { field: type }, each with an optional ?`, { binding: name });
+            throw DomqlError.structure(`'${declaredType}' is not a type a binding can declare: number, string, boolean, element, list<T> or { field: type }, each with an optional ?`, { binding: name });
         }
 
         if (!TypeNotation.fits(value, type)) {
-            throw DomqlError.structure(`The value does not fit the declared type '${declared}' in every part`, { binding: name });
+            throw DomqlError.structure(`The value does not fit the declared type '${declaredType}' in every part`, { binding: name });
         }
 
         return type;

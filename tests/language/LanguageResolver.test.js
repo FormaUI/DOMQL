@@ -349,7 +349,7 @@ describe('LanguageResolver', () => {
         });
 
         it('lists the declarations a request uses', () => {
-            const names = resolve('@panel.children.count').usedMembers.map(use => use.declaration.name);
+            const names = resolve('@panel.children.count').usedDeclarations.map(use => use.declaration.name);
 
             expect(names).toEqual(['children', 'count']);
         });

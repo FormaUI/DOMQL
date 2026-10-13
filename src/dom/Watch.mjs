@@ -31,7 +31,7 @@ export class Watch {
     #failedEvaluation = null;
 
     /** What every session the watch holds calls when something the result depends on may have changed, the one function its evaluations share. */
-    #onChange = () => this.#invalidate();
+    #onDependencyChange = () => this.#invalidate();
 
     /** The animation frame the next evaluation waits for. */
     #frame = null;
@@ -142,9 +142,9 @@ export class Watch {
         this.#requireChangeSets('recovered').recover();
     }
 
-    #requireChangeSets(verb) {
+    #requireChangeSets(operationDescription) {
         if (this.#snapshotDispatcher === null) {
-            throw DomqlError.structure(`A watch that delivers snapshots is not ${verb}; a watch that delivers change sets is`, {});
+            throw DomqlError.structure(`A watch that delivers snapshots is not ${operationDescription}; a watch that delivers change sets is`, {});
         }
 
         return this.#snapshotDispatcher;
@@ -217,7 +217,7 @@ export class Watch {
             // The next evaluation takes over the sessions of the ones it replaces wherever it observes the same again.
             const replaces = [this.#successfulEvaluation, this.#failedEvaluation].filter(evaluation => evaluation !== null);
 
-            this.#settle(this.#evaluator.evaluate({ observations: this.#observations, onChange: this.#onChange, holdsAll: true, replaces }), waiting);
+            this.#settle(this.#evaluator.evaluate({ observations: this.#observations, onChange: this.#onDependencyChange, holdsAll: true, replaces }), waiting);
         } finally {
             this.#isRunning = false;
         }

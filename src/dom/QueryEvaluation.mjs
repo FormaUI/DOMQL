@@ -17,7 +17,7 @@ export class QueryEvaluation {
     #isDisposed = false;
 
     /** The sessions a later evaluation may take over, by the node whose call acquired each and then its receiver, or null for an evaluation none replaces. @type {Map<object, Map<unknown, HeldSession[]>> | null} */
-    #held;
+    #heldSessions;
 
     /** The sessions a later evaluation took over, which are its own from then on. @type {Set<import('./ObservationSession.mjs').ObservationSession>} */
     #takenOver = new Set();
@@ -29,17 +29,17 @@ export class QueryEvaluation {
      * @param {boolean} outcome.isPending Whether a maintained member the result reads is still waiting for its first sample.
      * @param {Dependency[]} outcome.dependencies What the evaluation read, including what it read before it failed.
      * @param {import('./ObservationSession.mjs').ObservationSession[]} outcome.sessions The sessions that hold the dependencies' observations.
-     * @param {Map<object, Map<unknown, HeldSession[]>> | null} [outcome.held] The sessions a later evaluation may take over, by node and receiver.
+     * @param {Map<object, Map<unknown, HeldSession[]>> | null} [outcome.heldSessions] The sessions a later evaluation may take over, by node and receiver.
      * @param {Error | null} outcome.error The failure that ended the evaluation, or null.
      */
-    constructor({ value, identities = null, isPending, dependencies, sessions, held = null, error }) {
+    constructor({ value, identities = null, isPending, dependencies, sessions, heldSessions = null, error }) {
         this.value = value;
         this.identities = identities;
         this.isPending = isPending;
         this.dependencies = Object.freeze(dependencies);
         this.error = error;
         this.#sessions = sessions;
-        this.#held = held;
+        this.#heldSessions = heldSessions;
     }
 
     /** Whether the evaluation has let go of its observations. */
@@ -56,7 +56,7 @@ export class QueryEvaluation {
      * @returns {HeldSession | null}
      */
     takeOver(node, place, receiver, accepts) {
-        const candidates = this.#isDisposed ? undefined : this.#held?.get(node)?.get(receiver);
+        const candidates = this.#isDisposed ? undefined : this.#heldSessions?.get(node)?.get(receiver);
 
         if (candidates !== undefined) {
             for (const held of candidates) {

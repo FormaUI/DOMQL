@@ -23,7 +23,7 @@ export class SnapshotDispatcher {
     #inFlight = null;
 
     /** The latest result to deliver, with the identities of its lists. */
-    #desired = null;
+    #latest = null;
 
     /** Whether the next update is due even where the result did not change, as after a failed evaluation. */
     #isDue = false;
@@ -40,9 +40,9 @@ export class SnapshotDispatcher {
      * @param {boolean} isDue Whether it is delivered even where it equals the state the current snapshot has.
      */
     dispatch(snapshot, identities, isDue) {
-        this.#desired = { snapshot, identities };
+        this.#latest = { snapshot, identities };
         this.#isDue ||= isDue;
-        this.#flush();
+        this.#deliverNext();
     }
 
     /**
@@ -51,30 +51,30 @@ export class SnapshotDispatcher {
      * @param {SnapshotUpdate} update The update the current snapshot applied.
      */
     acknowledge(update) {
-        const waiting = this.#inFlight;
+        const inFlight = this.#inFlight;
 
-        if (waiting === null || update?.generation !== waiting.update.generation || update.to !== waiting.update.to) {
+        if (inFlight === null || update?.generation !== inFlight.update.generation || update.to !== inFlight.update.to) {
             return;
         }
 
-        this.#accepted = { snapshot: waiting.snapshot, identities: waiting.identities };
+        this.#accepted = { snapshot: inFlight.snapshot, identities: inFlight.identities };
         this.#inFlight = null;
-        this.#flush();
+        this.#deliverNext();
     }
 
     /** Abandons the generation, the update waiting in it included, and sends the latest result as the baseline of a new one, which nothing from before can change. */
     recover() {
         this.#accepted = null;
         this.#inFlight = null;
-        this.#flush();
+        this.#deliverNext();
     }
 
-    #flush() {
-        if (this.#inFlight !== null || this.#desired === null) {
+    #deliverNext() {
+        if (this.#inFlight !== null || this.#latest === null) {
             return;
         }
 
-        const { snapshot, identities } = this.#desired;
+        const { snapshot, identities } = this.#latest;
         let update;
 
         if (this.#accepted === null) {
@@ -82,7 +82,7 @@ export class SnapshotDispatcher {
             this.#revision = 0;
             update = Object.freeze({ kind: 'baseline', generation: this.#generation, from: null, to: 0, snapshot });
         } else {
-            const patch = SnapshotPatcher.between(this.#accepted.snapshot, this.#accepted.identities, snapshot, identities);
+            const patch = SnapshotPatcher.changeSetBetween(this.#accepted.snapshot, this.#accepted.identities, snapshot, identities);
 
             // Changes that cancel out send nothing, unless an update is due.
             if (patch.length === 0 && !this.#isDue) {

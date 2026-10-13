@@ -75,12 +75,12 @@ import { TypedBinding } from './language/TypedBinding.mjs';
 
 /** Each method that takes a query or its text: its name, the kind of request it carries out, what it does with one, and what follows the bindings. */
 const RESOLVE = { name: 'resolve', trailing: 'options' };
-const READ = { name: 'read', kind: 'query', use: 'read', trailing: 'options' };
-const READ_ASYNC = { name: 'readAsync', kind: 'query', use: 'read', trailing: 'options' };
-const WATCH = { name: 'watch', kind: 'query', use: 'watched', trailing: 'configuration' };
-const SUBSCRIBE = { name: 'subscribe', kind: 'subscription', use: 'subscribed to', trailing: 'configuration' };
-const RUN_ASYNC = { name: 'runAsync', kind: 'action', use: 'run', trailing: 'options' };
-const ACTIVATE = { name: 'activate', kind: 'behavior', use: 'activated', trailing: 'options' };
+const READ = { name: 'read', kind: 'query', operationDescription: 'read', trailing: 'options' };
+const READ_ASYNC = { name: 'readAsync', kind: 'query', operationDescription: 'read', trailing: 'options' };
+const WATCH = { name: 'watch', kind: 'query', operationDescription: 'watched', trailing: 'configuration' };
+const SUBSCRIBE = { name: 'subscribe', kind: 'subscription', operationDescription: 'subscribed to', trailing: 'configuration' };
+const RUN_ASYNC = { name: 'runAsync', kind: 'action', operationDescription: 'run', trailing: 'options' };
+const ACTIVATE = { name: 'activate', kind: 'behavior', operationDescription: 'activated', trailing: 'options' };
 
 /** When a watch evaluates after a change, and what it delivers. */
 const WATCH_SCHEDULES = ['frame', 'immediate'];
@@ -94,7 +94,7 @@ export class Domql {
      * Queries that share a definition, as the texts parsed alike do, and whose bindings have one resolution key, share its resolution.
      * @type {WeakMap<object, { revision: number, byKey: Map<string, import('./language/ResolvedDefinition.mjs').ResolvedDefinition> }>}
      */
-    static #resolutionCache = new WeakMap();
+    static #resolutionsByDefinition = new WeakMap();
 
     /**
      * The observations of each window, so queries read in one window share the observations they have in common.
@@ -294,13 +294,13 @@ export class Domql {
             throw DomqlError.structure(`The update strategy of a watch is ${WATCH_UPDATE_STRATEGIES.join(' or ')}`, {});
         }
 
-        const resolved = Domql.#resolveFor(WATCH, query, { watch: true, acceptPartialObservation: acceptPartialObservation === true });
+        const resolvedDefinition = Domql.#resolveFor(WATCH, query, { watch: true, acceptPartialObservation: acceptPartialObservation === true });
 
         // Live state is one object that keeps its identity, which null and a single value have none of.
-        if (updateStrategy === 'liveState' && (resolved.type.isNullable || (resolved.type.kind !== 'object' && resolved.type.kind !== 'list'))) {
-            throw DomqlError.validation(`Live state keeps one object current, so its result is an object or a list that is never null, and this one is ${resolved.type}; put it in a top-level object expression`, ParsedTexts.locationsOf(query.definition)?.locate('/query') ?? { pointer: '/query' });
+        if (updateStrategy === 'liveState' && (resolvedDefinition.type.isNullable || (resolvedDefinition.type.kind !== 'object' && resolvedDefinition.type.kind !== 'list'))) {
+            throw DomqlError.validation(`Live state keeps one object current, so its result is an object or a list that is never null, and this one is ${resolvedDefinition.type}; put it in a top-level object expression`, ParsedTexts.locationsOf(query.definition)?.locate('/query') ?? { pointer: '/query' });
         }
-        const evaluator = Domql.#createEvaluator(query, resolved, window);
+        const evaluator = Domql.#createEvaluator(query, resolvedDefinition, window);
 
         if (schedule === 'frame' && typeof window.requestAnimationFrame !== 'function') {
             throw DomqlError.structure("A watch scheduled by animation frame needs a window that has them; schedule it as 'immediate' otherwise", {});
@@ -309,7 +309,7 @@ export class Domql {
         return new Watch({
             evaluator,
             observations: Domql.#getObservations(window),
-            comparer: new SnapshotComparer(resolved),
+            comparer: new SnapshotComparer(resolvedDefinition),
             window,
             reportError: Domql.#createErrorReporter(window),
             configuration: { schedule, updateStrategy, onChange, onError },
@@ -381,7 +381,7 @@ export class Domql {
         }
 
         const reportError = Domql.#createErrorReporter(window);
-        const fail = error => DomqlError.evaluation(`The action '${action.name}' failed: ${error?.message ?? String(error)}`, action.location, { cause: error });
+        const createActionError = error => DomqlError.evaluation(`The action '${action.name}' failed: ${error?.message ?? String(error)}`, action.location, { cause: error });
 
         return new Promise((resolve, reject) => {
             let isSettled = false;
@@ -392,19 +392,19 @@ export class Domql {
                 outcome();
             };
             const cancel = () => settle(() => reject(signal.reason));
-            let pending;
+            let returnValue;
 
             signal?.addEventListener('abort', cancel, { once: true });
 
             try {
-                pending = action.run(action.receiver, action.args, action.environment, { signal: signal ?? new AbortController().signal });
+                returnValue = action.run(action.receiver, action.args, action.environment, { signal: signal ?? new AbortController().signal });
             } catch (error) {
-                settle(() => reject(fail(error)));
+                settle(() => reject(createActionError(error)));
 
                 return;
             }
 
-            Promise.resolve(pending).then(result => {
+            Promise.resolve(returnValue).then(result => {
                 // A result that arrives after the run was canceled is discarded.
                 if (isSettled) {
                     return;
@@ -424,9 +424,9 @@ export class Domql {
             }, error => {
                 // No caller waits for a failure that arrives after the run was canceled, so it goes to the error reporting.
                 if (isSettled) {
-                    reportError(fail(error));
+                    reportError(createActionError(error));
                 } else {
-                    settle(() => reject(fail(error)));
+                    settle(() => reject(createActionError(error)));
                 }
             });
         });
@@ -509,47 +509,47 @@ export class Domql {
 
     static #resolve(query, options) {
         const revision = Domql.#moduleRegistry.revision;
-        let kept = Domql.#resolutionCache.get(query.definition);
+        let resolutions = Domql.#resolutionsByDefinition.get(query.definition);
 
-        if (kept === undefined || kept.revision !== revision) {
-            kept = { revision, byKey: new Map() };
-            Domql.#resolutionCache.set(query.definition, kept);
+        if (resolutions === undefined || resolutions.revision !== revision) {
+            resolutions = { revision, byKey: new Map() };
+            Domql.#resolutionsByDefinition.set(query.definition, resolutions);
         }
 
         const key = `${options.watch === true}|${options.acceptPartialObservation === true}|${query.bindings.resolutionKey}`;
 
-        if (!kept.byKey.has(key)) {
-            kept.byKey.set(key, new LanguageResolver(Domql.#moduleRegistry, query.bindings, ParsedTexts.locationsOf(query.definition), options).resolveDefinition(query.definition));
+        if (!resolutions.byKey.has(key)) {
+            resolutions.byKey.set(key, new LanguageResolver(Domql.#moduleRegistry, query.bindings, ParsedTexts.locationsOf(query.definition), options).resolveDefinition(query.definition));
         }
 
-        return kept.byKey.get(key);
+        return resolutions.byKey.get(key);
     }
 
     /**
      * Resolves a request for the method that carries it out, refusing it with a validation error where it is not of the kind the method carries out, before anything is evaluated or started.
-     * @param {{ kind: string, use: string }} method The kind of request the method carries out, and what it does with one, for the refusal to say.
+     * @param {{ kind: string, operationDescription: string }} method The kind of request the method carries out, and what it does with one, for the refusal to say.
      * @param {DomqlQuery} query The request.
      * @param {DomqlResolveOptions} [options] How the request is resolved.
      */
-    static #resolveFor({ kind, use }, query, options = {}) {
-        const resolved = Domql.#resolve(query, options);
+    static #resolveFor({ kind, operationDescription }, query, options = {}) {
+        const resolvedDefinition = Domql.#resolve(query, options);
 
-        if (resolved.kind !== kind) {
-            const article = resolved.kind === 'action' ? 'An' : 'A';
+        if (resolvedDefinition.kind !== kind) {
+            const article = resolvedDefinition.kind === 'action' ? 'An' : 'A';
 
-            throw DomqlError.validation(`${article} ${resolved.kind} request is not ${use}`, ParsedTexts.locationsOf(query.definition)?.locate('/query') ?? { pointer: '/query' });
+            throw DomqlError.validation(`${article} ${resolvedDefinition.kind} request is not ${operationDescription}`, ParsedTexts.locationsOf(query.definition)?.locate('/query') ?? { pointer: '/query' });
         }
 
-        return resolved;
+        return resolvedDefinition;
     }
 
     /** Creates the evaluator of a resolved request in its window, which an evaluation needs. */
-    static #createEvaluator(query, resolved, window) {
+    static #createEvaluator(query, resolvedDefinition, window) {
         if (!window?.document) {
             throw DomqlError.evaluation('DOMQL cannot read without a browser window. Pass a window explicitly when running outside a browser.', {});
         }
 
-        return new QueryEvaluator(Domql.#moduleRegistry, resolved, query.bindings, { window, document: window.document }, ParsedTexts.locationsOf(query.definition));
+        return new QueryEvaluator(Domql.#moduleRegistry, resolvedDefinition, query.bindings, { window, document: window.document }, ParsedTexts.locationsOf(query.definition));
     }
 
     /** Returns the observations shared by everything carried out in the window, creating them on first use. */

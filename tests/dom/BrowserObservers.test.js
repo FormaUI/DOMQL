@@ -71,7 +71,7 @@ describe('BrowserObservers', () => {
             session.dispose();
 
             expect(fake.lists[0].listeners).toBe(0);
-            expect(observations.running).toBe(0);
+            expect(observations.runningCount).toBe(0);
         });
 
         it('stops listening for the new ratio too, after it changed', () => {

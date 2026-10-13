@@ -61,7 +61,7 @@ describe('Observations', () => {
             const second = observations.acquire(request('ticks', { step: 1 }), () => {});
 
             expect(record.started).toHaveLength(1);
-            expect(observations.running).toBe(1);
+            expect(observations.runningCount).toBe(1);
 
             first.dispose();
 
@@ -70,7 +70,7 @@ describe('Observations', () => {
             second.dispose();
 
             expect(record.stopped).toEqual([0]);
-            expect(observations.running).toBe(0);
+            expect(observations.runningCount).toBe(0);
         });
 
         it('start another observation after the last one ended', () => {
@@ -135,7 +135,7 @@ describe('Observations', () => {
             broken.acquire(request('stuck'), () => {}).dispose();
 
             expect(reported.map(error => error.message)).toEqual(['stuck']);
-            expect(broken.running).toBe(0);
+            expect(broken.runningCount).toBe(0);
         });
     });
 
@@ -180,7 +180,7 @@ describe('Observations', () => {
             }, { startStuck: () => ({ stop: () => { throw new Error('stuck'); } }) })]), { window, document }, { reportError: () => { throw new Error('nowhere to report'); } });
 
             expect(() => stuck.acquire(request('stuck'), () => {}).dispose()).not.toThrow();
-            expect(stuck.running).toBe(0);
+            expect(stuck.runningCount).toBe(0);
         });
 
         it('reach a session that is disposed while they are delivered no more', () => {
@@ -251,13 +251,13 @@ describe('Observations', () => {
 
             expect(error.message).toContain('no clock');
             expect(error.cause).toBeInstanceOf(Error);
-            expect(observations.running).toBe(0);
+            expect(observations.runningCount).toBe(0);
             expect(() => observations.acquire(request('ticks'), () => {})).not.toThrow();
         });
 
         it('refuse an observation type that starts one it cannot stop', () => {
             expect(failure(() => observations.acquire(request('mute'), () => {})).message).toContain('no stop');
-            expect(observations.running).toBe(0);
+            expect(observations.runningCount).toBe(0);
         });
 
         it('refuse a kind no module declares', () => {
@@ -316,7 +316,7 @@ describe('Observations', () => {
             observations.dispose();
 
             expect(sessions.every(session => session.isDisposed)).toBe(true);
-            expect(observations.running).toBe(0);
+            expect(observations.runningCount).toBe(0);
             expect(record.stopped.sort()).toEqual([0, 1, 2]);
         });
     });

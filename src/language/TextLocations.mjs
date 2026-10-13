@@ -36,36 +36,36 @@ export class TextLocations {
         }
     }
 
-    #collect(part, pointer, spans) {
-        const span = spans.get(part);
+    #collect(node, pointer, spans) {
+        const span = spans.get(node);
 
         if (span) {
             this.#spans.set(pointer, span);
         }
 
-        if (part.target) {
-            this.#collect(part.target, `${pointer}/target`, spans);
+        if (node.target) {
+            this.#collect(node.target, `${pointer}/target`, spans);
         }
 
-        if (part.kind === 'predicate') {
-            this.#collect(part.name, `${pointer}/name`, spans);
+        if (node.kind === 'predicate') {
+            this.#collect(node.name, `${pointer}/name`, spans);
         }
 
-        if (part.argument) {
-            this.#collect(part.argument, `${pointer}/argument`, spans);
+        if (node.argument) {
+            this.#collect(node.argument, `${pointer}/argument`, spans);
         }
 
-        if (part.kind === 'conditional') {
+        if (node.kind === 'conditional') {
             for (const branch of ['condition', 'consequent', 'alternative']) {
-                this.#collect(part[branch], `${pointer}/${branch}`, spans);
+                this.#collect(node[branch], `${pointer}/${branch}`, spans);
             }
         }
 
-        part.operands?.forEach((operand, index) => this.#collect(operand, `${pointer}/operands/${index}`, spans));
+        node.operands?.forEach((operand, index) => this.#collect(operand, `${pointer}/operands/${index}`, spans));
 
-        for (const entries of ['locals', 'fields']) {
-            part[entries]?.forEach((entry, index) => {
-                const entryPointer = `${pointer}/${entries}/${index}`;
+        for (const entriesProperty of ['locals', 'fields']) {
+            node[entriesProperty]?.forEach((entry, index) => {
+                const entryPointer = `${pointer}/${entriesProperty}/${index}`;
                 const entrySpan = spans.get(entry);
 
                 if (entrySpan) {

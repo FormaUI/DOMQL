@@ -45,7 +45,7 @@ export class CallbackDispatcher {
         }
 
         try {
-            CallbackDispatcher.#observe(this.#onUpdate(update), error => this.handleError(error));
+            CallbackDispatcher.#reportRejection(this.#onUpdate(update), error => this.handleError(error));
         } catch (error) {
             this.handleError(error);
         }
@@ -60,7 +60,7 @@ export class CallbackDispatcher {
         }
 
         try {
-            CallbackDispatcher.#observe(this.#onError(error), failure => this.#reportError(failure));
+            CallbackDispatcher.#reportRejection(this.#onError(error), failure => this.#reportError(failure));
         } catch (failure) {
             this.#reportError(failure);
         }
@@ -72,7 +72,7 @@ export class CallbackDispatcher {
     }
 
     /** Hands the rejection of a promise a callback returned to `report`, without waiting for it. */
-    static #observe(result, report) {
+    static #reportRejection(result, report) {
         if (typeof result?.then === 'function') {
             result.then(undefined, report);
         }
