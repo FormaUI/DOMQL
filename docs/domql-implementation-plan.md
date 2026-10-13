@@ -60,9 +60,13 @@ const panelQuery = domql.query(`
 
 const snapshot = await panelQuery.evaluateAsync();
 
-const watcher = panelQuery
-    .select("size")
-    .watch(renderSize);
+const watcher = panelQuery.watch();
+
+watcher.select("size").subscribe("change", (sender, args) => {
+    if (args.status === "ready") {
+        renderSize(args.value);
+    }
+});
 
 watcher.dispose();
 ```
@@ -110,9 +114,8 @@ const query = domql.query(`
 | `query.select(...path)` | A part of its result |
 | `query.evaluate(options?)` | Evaluates it synchronously |
 | `query.evaluateAsync(options?)` | Evaluates it once, waiting for maintained values |
-| `query.watch(onChange, options?)` | Starts a watch, with `onChange` as its first attachment |
-| `query.watch(options?)` | Starts a snapshot watch, its consumers attached separately |
-| `query.subscribe(onEvent, options?)` | Listens to its event source |
+| `query.watch(options?)` | Starts a watch, whose events its handle's listeners receive |
+| `query.subscribe(handler, options?)` | Listens to its event source, calling the handler with each event's result |
 | `query.executeAsync(options?)` | Executes its action once |
 | `query.apply(options?)` | Applies its behavior |
 
@@ -146,48 +149,53 @@ const size = panelQuery.select("size");
 const width = panelQuery.select("size", "width"); // As panelQuery.select("size").select("width").
 
 const currentWidth = await width.evaluateAsync();
-const widthWatcher = width.watch(renderWidth);
+const widthWatcher = width.watch();
 
 rowsQuery.select(0, "height");
 ```
 
-A selection offers `select(...path)`, `evaluate(options?)`, `evaluateAsync(options?)`, `watch(onChange, options?)` and `watch(options?)`. A path holds the names of written fields and list indices that are not negative.
+A selection offers `select(...path)`, `evaluate(options?)`, `evaluateAsync(options?)` and `watch(options?)`. A path holds the names of written fields and list indices that are not negative; a local is no field, so it is never part of a path.
 
 - **A path's shape is checked at once.** `query.select(...)` refuses, without resolving anything, a path item that is neither a written field's name nor an index that is a whole number and not negative, as `-1` and `1.5` are not.
 - **A path's fit is checked at resolution.** Whether a field exists, and whether an index applies to a list, is checked when an operation resolves the query, before anything is evaluated or observed; a selection of a query whose vocabulary is not yet registered is therefore made without failing.
 - A nullable ancestor and a list index out of range give null.
 - A list index follows a position, never a particular element.
 - A selection reads the whole query's result, so the whole query decides its dependencies, its failures and its readiness.
-- A selection's watch delivers its first value, each change to that value, and what recovery delivers. It watches snapshots alone; a caller that wants live state or change sets of a smaller result writes that result in DOMQL.
+- A selection's watch delivers its first value, each change to that value, and what recovery delivers. It watches snapshots alone; a caller that wants live state of a smaller result writes that result in DOMQL.
 
 #### Watching
 
 ```js
-const watcher = panelQuery.watch(renderPanel);
+const watcher = panelQuery.watch();
 
-const configured = panelQuery.watch(renderPanel, {
+watcher.subscribe("change", (sender, args) => {
+    if (args.status === "ready") {
+        renderPanel(args.value);
+    } else {
+        showError(args.error);
+    }
+});
+
+const configured = panelQuery.watch({
     schedule: "frame",
     acceptPartialObservation: false,
-    onError: reportError,
     signal: controller.signal,
     window
 });
 ```
 
-The update strategy stays an option, and the handle's type follows it:
+The update strategy stays an option, and the handle's members follow it:
 
 ```js
-panelQuery.watch(renderPanel, { updateStrategy: "snapshot" });
-panelQuery.watch((state, changes) => renderLivePanel(state, changes), { updateStrategy: "liveState" });
-panelQuery.watch(sendUpdate, { updateStrategy: "changeSet" });
+panelQuery.watch();                                 // Immutable snapshots.
+panelQuery.watch({ updateStrategy: "liveState" });  // One object kept current in place.
 ```
 
 | Option | Default and meaning |
 |---|---|
 | `schedule` | `"frame"`, or `"immediate"` |
-| `updateStrategy` | `"snapshot"`, or `"liveState"` or `"changeSet"` |
+| `updateStrategy` | `"snapshot"`, or `"liveState"` |
 | `acceptPartialObservation` | `false` |
-| `onError` | The window's error reporting, where it is left out |
 | `signal` | Disposes the watch when it aborts |
 | `window` | The window the watch reads, by default the environment's |
 
@@ -200,54 +208,66 @@ Every watch handle has:
 | `error` | The latest evaluation failure, cleared by the next success |
 | `readyAsync(options?)` | Waits for a successful ready state and answers its immutable snapshot |
 | `refreshAsync()` | Evaluates now |
-| `dispose()` | Stops the watch and releases its sessions |
+| `subscribe(eventName, handler, options?)` | Listens to its events, answering a `DomqlEventListener` |
+| `dispose()` | Stops the watch, releases its sessions and stops its listeners |
 
 A failed watch keeps its last snapshot and goes on observing, so it recovers. `readyAsync({ signal })` cancels that wait alone; it rejects where an evaluation fails while it waits or the watch is disposed, and the watch goes on after a failed evaluation.
 
-#### Sharing a snapshot watch
+#### Events of a handle
 
-Each `watch` starts a watch of its own. To share one evaluation, a caller keeps its handle and attaches consumers to it:
+Every running watch and behavior raises events, which the listeners subscribed to it receive; a query object holds none, so queries shared between callers never share their listeners.
 
 ```js
-const watcher = panelQuery.watch({ onError: reportError });
+const listener = watcher.subscribe("change", (sender, args) => { /* … */ }, { signal });
 
-const panelAttachment = watcher.attach(renderPanel);
-const sizeAttachment = watcher.select("size").attach(renderSize);
-const focusAttachment = watcher.select("hasFocus").attach(renderFocus);
-
-sizeAttachment.dispose(); // Detaches one consumer.
-watcher.dispose();        // Stops the watch and detaches every consumer.
+listener.dispose(); // Stops this listener.
 ```
 
-- **A snapshot watch** offers `attach(onChange)` and `select(...path)`, whether it was started with a callback or without; a callback given to `watch` is its first attachment. Its query is resolved when the watch starts, so `watcher.select(...)` checks the whole path at once, its shape and its fit to the result's type alike, even before the first snapshot arrives.
-- **A selected view** offers `snapshot`, `status`, `error`, `select(...path)`, `attach(onChange)` and `readyAsync(options?)`. It starts no evaluation of its own and needs no disposal.
-- **An attachment** offers `status`, `"ready"` or `"disposed"`, and `dispose()`, which detaches its consumer.
-- **A late attachment** receives the current snapshot before the updates after it. A failing consumer is isolated from the others, and its failure goes to the owning watch's `onError`.
-- **The watch runs until its owner disposes it,** whether or not consumers remain attached.
+- **A handler** is called with `(sender, args)`: the handle that raised the event, and an object of its own for each event, holding what that event carries. A snapshot it carries is immutable; the live state it carries is the object DOMQL keeps current, mutable by DOMQL alone and read-only to the handler.
+- **`subscribe(eventName, handler, options?)`** answers a `DomqlEventListener`, as `query.subscribe` does for an event source's events, with `status`, `"ready"` or `"disposed"`, and `dispose()`, which stops it; its `signal` option stops it when it aborts. Disposing a handle stops every listener subscribed to it.
+- **The events:**
 
-#### Live state and change sets
+  | Event | Raised by | `args` |
+  |---|---|---|
+  | `"change"` | A watch, to its own listeners and to those of its selected views | `status: "ready"` with `value`, or for live state `liveState`, the object kept current in place, `snapshot`, the immutable snapshot for this event, and `changes`, the immutable change set just applied; or `status: "failed"` with `error`, the evaluation's failure, after which the watch goes on observing and recovers |
+  | `"error"` | A watch or a behavior | `error`, a failure that belongs to no result: a handler that throws or rejects, or a behavior failing while it runs; it changes no status |
 
-A live-state watch adds `watcher.liveState`, the stable object DOMQL keeps current, `undefined` before the first snapshot; the caller reads it and never writes it, and the result is still a non-nullable object or list. A change-set watch adds `watcher.acknowledge(update)` and `watcher.recover()`, which only its handle has. Both deliver through the callback they were started with: `attach` and `select` belong to snapshot watches. The receiving side stays `domql.createSnapshot()`:
+- **`args.status` and `sender.status`.** `args.status` is the status the event reports; `sender.status` is the handle's status now, which may have moved on by the time an asynchronous handler resumes.
+- **A late listener misses nothing.** A listener subscribed to a watch or a selected view that already has a result receives that result first, before the events after it. The first result always follows the call that started the watch, so a listener subscribed right after `watch()` receives it.
+- **Each listener's first ready event establishes its baseline:** the current whole value, with an empty change set for live state, and the changes after it are relative to that value. Later events may have empty changes too, so a listener that applies changes tracks whether it has its baseline.
+- **Order and failures.** Handlers run in the order their listeners were subscribed. A promise a handler returns is not awaited; a handler that throws or rejects keeps no other handler from the event, undoes no result, and is reported to the `"error"` handlers of the watch or behavior that raised the event. A failure of an `"error"` handler or of the handler `query.subscribe` calls, and an `"error"` event no listener receives, go to the environment's error reporting; no handler is called with its own failure, and nothing is called again. Disposal prevents any new handler call; one already running may finish.
+
+#### Sharing a watch
+
+Each `watch` starts a watch of its own. To share one evaluation, a caller keeps its handle and subscribes to it and to views of it:
 
 ```js
-const current = domql.createSnapshot();
+const watcher = panelQuery.watch();
 
-const watcher = panelQuery.watch(update => {
-    const outcome = current.apply(update); // "accepted", "stale" or "failed".
-
-    if (outcome === "accepted") {
-        watcher.acknowledge(update);
-        renderPanel(current.value);
-    } else if (outcome === "failed") {
-        watcher.recover();
+watcher.subscribe("change", (sender, args) => {
+    if (args.status === "ready") {
+        renderPanel(args.value);
     }
-}, {
-    updateStrategy: "changeSet",
-    onError: reportError
+});
+
+watcher.select("size").subscribe("change", (sender, args) => {
+    if (args.status === "ready") {
+        renderSize(args.value);
+    } else {
+        showError(args.error);
+    }
 });
 ```
 
-Baselines, revisions, acknowledgment, coalescing, atomic application and recovery keep their contracts, and the first callback still follows the call, once the caller holds the handle.
+- **A selected view of a snapshot watch** offers `snapshot`, `status`, `error`, `select(...path)`, `subscribe(eventName, handler, options?)` and `readyAsync(options?)`. It starts no evaluation of its own and needs no disposal; its handlers' sender is the owning watch, and their `value` is the selected part. A snapshot watch's handle offers `select(...path)` too: its query is resolved when the watch starts, so `watcher.select(...)` checks the whole path at once, its shape and its fit to the result's type alike, even before the first snapshot arrives.
+- **The watch runs until its owner disposes it,** whether or not listeners remain on it.
+
+#### Live state
+
+A live-state watch adds `watcher.liveState`, the stable object DOMQL keeps current, `undefined` before the first result; its `"change"` event carries the same object as `args.liveState`, with the immutable snapshot it was brought to as `args.snapshot` and the immutable change set just applied to it as `args.changes`. The caller reads it and never writes it, and the result is still a non-nullable object or list. Selected views belong to snapshot watches.
+
+- **`args.snapshot` and `sender.snapshot`.** `args.snapshot` is the snapshot that event delivered; `sender.snapshot` is the watch's snapshot now, which may have moved on before queued work reads it.
+- **Live state's changes are DOMQL's change sets.** A snapshot and every change set are immutable, so a caller that forwards them, as the C# half does, keeps them as they are without copying them. The C# half keeps its own result in step through them, as step 15 sets out.
 
 #### Events, actions and behaviors
 
@@ -258,18 +278,19 @@ const clicks = domql.query(`
     }
 `, { button, panel });
 
-const listener = clicks.subscribe(handleClick, { onError: reportError, signal: controller.signal });
+const listener = clicks.subscribe((sender, args) => handleClick(args.value), { signal: controller.signal });
 
 const result = await domql.query(actionText, bindings).executeAsync({ signal: controller.signal });
 
 const behavior = domql.query(behaviorText, bindings).apply({ signal: controller.signal });
+behavior.subscribe("error", (sender, args) => reportError(args.error));
 behavior.update(nextBindings);
 behavior.dispose();
 ```
 
-- **An event listener** offers `status`, `"ready"` or `"disposed"`, and `dispose()`; `subscribe` takes `window`, `signal` and `onError`. Listening starts in the call, events keep their capture and projection, never waiting for maintained samples, and each `subscribe` owns its own listener.
+- **An event listener** offers `status`, `"ready"` or `"disposed"`, and `dispose()`, whichever `subscribe` answered it. `query.subscribe` takes `window` and `signal`, and calls its handler with `(sender, args)`, the listener and, for each event, `status: "ready"` with the projected result as `value`, or `status: "failed"` with `error` alone where capturing or projecting the event fails. Listening starts in the call, events keep their capture and projection, never waiting for maintained samples, and each `query.subscribe` owns its own listener. A failed event leaves the listener listening, and the next event is captured and projected again; a failure of the handler itself goes to the environment's error reporting.
 - **An action** is executed again each time `executeAsync` is called, with `window` and `signal`; cancellation undoes nothing, and its result is detached, immutable data checked against the type the action declares.
-- **A behavior's handle** offers `status`, `"ready"` or `"disposed"`, `update(bindings)` and `dispose()`; `apply` takes `window` and `signal`. Applying and updating stay synchronous, and `update` replaces every binding, validates before the behavior is called, and never switches to another behavior's declaration.
+- **A behavior's handle** offers `status`, `"ready"` or `"disposed"`, `update(bindings)`, `subscribe(eventName, handler, options?)` and `dispose()`; `apply` takes `window` and `signal`, and a failure of the behavior while it runs reaches its `"error"` handlers. Applying and updating stay synchronous, and `update` replaces every binding, validates before the behavior is called, and never switches to another behavior's declaration.
 
 #### Lifetimes and callbacks
 
@@ -278,13 +299,13 @@ A `signal` is one lifetime for watches, event listeners and behaviors alike:
 ```js
 const lifetime = new AbortController();
 
-panelQuery.watch(renderPanel, { signal: lifetime.signal });
-clicks.subscribe(handleClick, { signal: lifetime.signal });
+panelQuery.watch({ signal: lifetime.signal });
+clicks.subscribe((sender, args) => handleClick(args.value), { signal: lifetime.signal });
 
 lifetime.abort();
 ```
 
-An operation that answers a handle, given a signal already aborted, answers a disposed handle and starts nothing; an operation that answers a promise rejects with the signal's reason. A signal is an option an operation accepts; no handle exposes one, since a `handle.signal` would need a contract of its own. The callback rules stand: deliveries keep their order, a promise a callback returns is not awaited, a failing callback undoes no accepted result, and disposal prevents any new callback while one already running may finish.
+An operation that answers a handle, given a signal already aborted, answers a disposed handle and starts nothing; an operation that answers a promise rejects with the signal's reason. A signal is an option an operation accepts; no handle exposes one, since a `handle.signal` would need a contract of its own. Every handler follows the rules of a handle's events.
 
 #### Tooling and extensions
 
@@ -294,7 +315,6 @@ An operation that answers a handle, given a signal already aborted, answers a di
 | `query.resolve(options?)` | Resolution without evaluation, with its `watch` and `acceptPartialObservation` options |
 | `domql.createModule(name, contents, functions)` | A module |
 | `domql.registerModule(module)` | Registers a module's vocabulary |
-| `domql.createSnapshot()` | A change-set receiver |
 
 There is no `parse`: `domql.query(text).definition` gives a text's immutable definition, without evaluating anything.
 
@@ -317,6 +337,8 @@ domql.format(query)
 - **Exports.** The package exports `domql` and `DomqlError` by name, `import { domql, DomqlError } from "…/domql.js"`; the error class keeps its name, and `domql.specificationVersion` is the version of the specification the implementation follows.
 - **Renamed:** `Domql` becomes `domql`, and `Domql.bind` becomes `domql.typed`. Reading a query becomes evaluating it, running an action executing it, and activating a behavior applying it, in the API and in the documents alike: `evaluate`, `evaluateAsync`, `executeAsync` and `apply`; a query's rebinding is `with`, and `resolve` keeps its name, since it resolves the query. Amended after D12 was decided: a resolved definition's `usedMembers` becomes `usedDeclarations`, since it lists the predicates a request uses as well as its members.
 - **Moved onto the query:** evaluating, watching, subscribing, executing and applying, so `Domql.read(text, bindings)` and the other one-call forms give way to `domql.query(text, bindings).evaluate()` and its siblings.
+- **Events of a handle:** watches and behaviors raise events to the listeners `subscribe` answers, each handler called with `(sender, args)`, so `onChange`, `onError` and attachments give way to `"change"` and `"error"` handlers; the handler `query.subscribe` calls takes the same two arguments and receives a failed capture or projection as a failed event, and every event listener has `status` and `dispose()` alone.
+- **Change sets belong to live state alone.** The update strategies are `"snapshot"`, for immutable results, and `"liveState"`, for a mutable one. The change-set strategy is removed, with its acknowledgment, recovery, generations and revisions and the current snapshot that received it, and live state keeps its changes, the comparer, the patcher and identity matching.
 - **Removed:** `parse`, which `query(...).definition` covers.
 - **C#** mirrors the query object, with `Domql.Query(text, bindings)` and its operations, and `CancellationToken` for cancellation. `Domql.TryQuery` attempts exactly what `Domql.Query` does, creating a query and checking its syntax and structure without resolving its vocabulary or evaluating anything, so a successful return means the query was created, not that it is ready to be carried out: a syntax or structure failure returns false with a diagnostic, and any other failure is thrown, never swallowed.
 
@@ -361,7 +383,7 @@ Make reads and watches cheaper where a measurement shows the work, leaving every
 Carry every operation out through a query object, as D12 decides.
 
 - **Needs:** D12, step 12.
-- **Done when:** `domql.query` takes text or a definition with its bindings and answers a query object that evaluates nothing until an operation is carried out, a text's definition reused for identical text; `with` answers a new query and `domql.typed` binds a value's type; evaluating, selecting, watching, attaching, subscribing, executing and applying behave as D12 sets out, an operation the request's kind does not take refused with an error naming the one it does, every handle with the members its table gives, a signal ending each lifetime, and an aborted one starting nothing; a path's shape is checked when it is selected and its fit when the query is resolved, and a watch's selections at once; `domql.format` gives one canonical text for a text, a definition or a query object, stable when formatted again; `parse` is gone, `Domql` is `domql`, and the package exports `domql` and `DomqlError`; the TypeScript declarations are complete without the builder's, and compile checks cover the exports, the query object's operations, selections, handles, attachments and every overload of `watch`; the benchmarks and the browser tests use the query object and run, each by its own command; and the specification, the design, the READMEs, the repository's own instructions and every example and test use the query object, and the documents evaluate queries, execute actions and apply behaviors in D12's words.
+- **Done when:** `domql.query` takes text or a definition with its bindings and answers a query object that evaluates nothing until an operation is carried out, a text's definition reused for identical text; `with` answers a new query and `domql.typed` binds a value's type; evaluating, selecting, watching, subscribing, executing and applying behave as D12 sets out, an operation the request's kind does not take refused with an error naming the one it does, every handle with the members its table gives, a signal ending each lifetime, and an aborted one starting nothing; watches and behaviors raise events to the listeners their `subscribe` answers, each handler called with `(sender, args)`, a watch and its selected views with `"change"` and both with `"error"`, every event listener with `status` and `dispose()` alone, and the handler `query.subscribe` calls receiving a failed capture or projection as a failed event while its listener listens on, a late listener receiving the current result first, handlers isolated from one another as D12 sets out, and each listener's first ready event its baseline; the update strategies are `"snapshot"` and `"liveState"`, a live-state event carrying its snapshot and its changes, and the change-set strategy is gone, with acknowledgment, recovery, generations and revisions, the current snapshot and the code nothing else uses, while live state keeps its changes, the comparer, the patcher and identity matching; a path's shape is checked when it is selected and its fit when the query is resolved, and a watch's selections at once; `domql.format` gives one canonical text for a text, a definition or a query object, stable when formatted again; `parse` is gone, `Domql` is `domql`, and the package exports `domql` and `DomqlError`; the TypeScript declarations are complete without the builder's, and compile checks cover the exports, the query object's operations, selections, and handles, their events and their arguments; the benchmarks and the browser tests use the query object and run, each by its own command; and the specification, the design, the READMEs, the repository's own instructions and every example and test use the query object, and the documents evaluate queries, execute actions and apply behaviors in D12's words.
 - **State:** not started.
 
 ### 14. Editor tooling
@@ -377,6 +399,14 @@ Diagnostics and completion over the grammar and the declaration metadata, withou
 The query object of D12 for a .NET host: `Domql.Query(text, bindings)` and its operations, `Domql.TryQuery`, typed mapping and snapshots, with `CancellationToken` for cancellation.
 
 - **Needs:** the JavaScript API settled (step 13), D4, D12.
+- **Keeping a watch's result in C#:** the adapter that carries a watch to the host owns its synchronization, and an application starts a watch and receives its results.
+  - It watches live state by default.
+  - It takes the initial baseline from the first ready event's `args.snapshot`.
+  - It queues the changes after it, which are immutable, and delivers one update at a time, in order. This is a scope decision; batching would not in itself need revisions, since consecutive change sets apply in order.
+  - It applies each update to the C# state before notifying application handlers.
+  - It rejects a delivery from an obsolete watch on the receiving side, before applying it, through a token of its own for the watch it is following.
+  - After a failure to deliver an update or to apply its changes, it disposes the watch and starts a fresh one, with a new baseline.
+  - It reports an exception from an application handler without restarting synchronization, since the state was already accepted.
 - **State:** not started.
 
 ### 16. One type representation
