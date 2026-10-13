@@ -15,6 +15,12 @@ const BOOLEAN = Type.createNamedType('boolean');
 /** The observation of whether an element is attached, which a member that answered null for a detached element depends on. */
 const ATTACHMENT = Object.freeze({ type: 'attachment', of: 'receiver' });
 
+/** What follows a receiver's flat-tree ancestry at each of its roots: the structure of the root's tree, and the slots its elements are assigned to. */
+const ANCESTRY = Object.freeze([
+    Object.freeze({ type: 'mutation', of: 'roots', childList: true, subtree: true }),
+    Object.freeze({ type: 'event', of: 'roots', types: Object.freeze(['slotchange']) }),
+]);
+
 /** The arguments of a call that takes none. */
 const NO_ARGUMENTS = Object.freeze({});
 
@@ -189,7 +195,7 @@ export class QueryEvaluator {
 
     /** Runs an evaluation that records what it depends on, answering the evaluation; one that waits holds what a pending result waits on, and lets a failure seen through a pending member pass. */
     #record({ observations, onChange, holdsAll, replaces, waits }, produce) {
-        const recording = { observations, onChange, holdsAll, replaces, dependencies: [], sessions: [], held: replaces === null ? null : new Map(), unheld: [], isPending: false };
+        const recording = { observations, onChange, holdsAll, replaces, dependencies: [], sessions: [], held: replaces === null ? null : new Map(), unheld: [], rootOf: new WeakMap(), rootsOf: new WeakMap(), followed: new WeakSet(), attached: new WeakSet(), isPending: false };
         let value;
         let identities = null;
         let error = null;
@@ -484,18 +490,9 @@ export class QueryEvaluator {
         const requests = [];
         const samples = [];
         let isPending = false;
-
-        (declaration.observations ?? []).forEach((observation, place) => {
-            const takenOver = this.#takeOver(node, place, receiver, observation, args);
-            const request = takenOver?.request ?? observations.resolve(observation, { receiver, args });
-
-            if (request === null) {
-                return;
-            }
-
+        let roots = null;
+        const observe = (request, session) => {
             requests.push(request);
-
-            const session = takenOver?.session ?? this.#hold(request, node, place, receiver);
 
             if (session?.contract === 'maintained') {
                 const sample = session.sample();
@@ -503,7 +500,52 @@ export class QueryEvaluator {
                 isPending ||= sample.pending;
                 samples.push(sample.value);
             }
+        };
+
+        (declaration.observations ?? []).forEach((observation, place) => {
+            // An observation of the receiver's roots is one request at each of them.
+            if (observation.of === 'roots') {
+                roots ??= this.#rootsOf(receiver);
+                roots.forEach((root, index) => {
+                    const held = this.#holdAt(node, index === 0 ? place : `${place}:${index}`, receiver, observation, args, root);
+
+                    if (held !== null) {
+                        observe(held.request, held.session);
+                    }
+                });
+
+                return;
+            }
+
+            if (observation.of === 'root') {
+                const root = Observations.rootOf(receiver, this.#recording.rootOf);
+                const held = this.#holdAt(node, place, receiver, observation, args, root);
+
+                if (held !== null) {
+                    observe(held.request, held.session);
+                }
+
+                // An observation of its root's structure sees the receiver leave it, so only a detached tree, which moves without a change inside it, needs more.
+                if (QueryEvaluator.#followsItsRoot(observation)) {
+                    this.#followAttachment(receiver, node, root, requests);
+                } else {
+                    roots ??= this.#rootsOf(receiver);
+                }
+
+                return;
+            }
+
+            const takenOver = this.#takeOver(node, place, receiver, values => observations.resolvesTo(observation, { receiver, args }, values));
+            const request = takenOver?.request ?? observations.resolve(observation, { receiver, args });
+
+            if (request !== null) {
+                observe(request, takenOver?.session ?? this.#hold(request, node, place, receiver));
+            }
         });
+
+        if (roots !== null) {
+            this.#followAncestry(receiver, node, roots, requests);
+        }
 
         dependencies.push({ member: declaration.name, pointer: this.#pointerOf(node), observations: requests });
 
@@ -518,18 +560,86 @@ export class QueryEvaluator {
 
     /** A member that answered null because its element is detached depends on whether the element is attached, so it is read again when the element returns. */
     #observeDetached(declaration, receiver, value, node) {
-        if (this.#recording === null || value !== null || receiver?.nodeType !== 1 || receiver.isConnected || this.#moduleRegistry.getObservationType('attachment') === undefined) {
+        if (this.#recording === null || value !== null || receiver?.nodeType !== 1 || receiver.isConnected || this.#moduleRegistry.getObservationType('attachment') === undefined || this.#recording.attached.has(receiver)) {
             return;
         }
 
-        const takenOver = this.#takeOver(node, 'attachment', receiver, ATTACHMENT, NO_ARGUMENTS);
-        const request = takenOver?.request ?? this.#recording.observations.resolve(ATTACHMENT, { receiver, args: NO_ARGUMENTS });
+        this.#recording.attached.add(receiver);
+
+        const { observations } = this.#recording;
+        const takenOver = this.#takeOver(node, 'attachment', receiver, values => observations.resolvesTo(ATTACHMENT, { receiver, args: NO_ARGUMENTS }, values));
+        const request = takenOver?.request ?? observations.resolve(ATTACHMENT, { receiver, args: NO_ARGUMENTS });
 
         if (takenOver === null) {
             this.#hold(request, node, 'attachment', receiver);
         }
 
         this.#recording.dependencies.push({ member: declaration.name, pointer: this.#pointerOf(node), observations: [request] });
+    }
+
+    /**
+     * Follows the flat-tree ancestry of a receiver whose roots a call observes, once an evaluation: the structure of each root and the slots assigned in it, so moving the receiver or an ancestor to another tree or slot evaluates again and rebinds what observes its roots; and, for a receiver in a detached tree, whether it is attached, since moving a detached tree changes nothing inside it.
+     * @param {unknown} receiver The call's receiver.
+     * @param {object} node The node whose call observes the receiver's roots.
+     * @param {object[]} roots The roots of the receiver's ancestry.
+     * @param {object[]} requests The requests the call records, which these join.
+     */
+    #followAncestry(receiver, node, roots, requests) {
+        const { followed, attached } = this.#recording;
+
+        // Every receiver leaving a root changes the root's own structure, so each root is followed once an evaluation, whichever receiver is in it.
+        roots.forEach(root => {
+            if (followed.has(root)) {
+                return;
+            }
+
+            followed.add(root);
+            ANCESTRY.forEach((observation, index) => {
+                if (this.#moduleRegistry.getObservationType(observation.type) !== undefined) {
+                    requests.push(this.#holdAt(node, `ancestry:${index}`, receiver, observation, NO_ARGUMENTS, root).request);
+                }
+            });
+        });
+
+        this.#followAttachment(receiver, node, roots.at(-1) ?? null, requests);
+    }
+
+    /** Follows whether the receiver is attached, once an evaluation, where the outermost root of its ancestry is the top of a detached tree, which moves without a change inside any root. */
+    #followAttachment(receiver, node, outermost, requests) {
+        const { attached } = this.#recording;
+
+        if (outermost === null || outermost.nodeType === 9 || (outermost.nodeType === 11 && outermost.host !== undefined) || attached.has(receiver) || this.#moduleRegistry.getObservationType(ATTACHMENT.type) === undefined) {
+            return;
+        }
+
+        attached.add(receiver);
+        requests.push(this.#holdAt(node, 'ancestry:attachment', receiver, ATTACHMENT, NO_ARGUMENTS, receiver).request);
+    }
+
+    /** Whether the observation of a receiver's root sees the receiver leave it: a mutation of the root's children through its subtree. */
+    static #followsItsRoot(observation) {
+        return observation.type === 'mutation' && observation.childList === true && observation.subtree === true;
+    }
+
+    /** The roots of the receiver's flat-tree ancestry, each node's found once an evaluation, so receivers that share an ancestry walk it once. */
+    #rootsOf(receiver) {
+        return Observations.rootsOf(receiver, this.#recording.rootsOf);
+    }
+
+    /**
+     * The request the observation resolves to at the target, and its session: the one an evaluation this one replaces holds for it at the place, or a new one; null where the target is null.
+     * @returns {{ request: object, session: import('./ObservationSession.mjs').ObservationSession | null } | null}
+     */
+    #holdAt(node, place, receiver, observation, args, target) {
+        const takenOver = this.#takeOver(node, place, receiver, values => Observations.resolvesAt(observation, { args }, target, values));
+
+        if (takenOver !== null) {
+            return takenOver;
+        }
+
+        const request = this.#recording.observations.resolveAt(observation, { args }, target);
+
+        return request === null ? null : { request, session: this.#hold(request, node, place, receiver) };
     }
 
     /**
@@ -557,16 +667,16 @@ export class QueryEvaluator {
         return session;
     }
 
-    /** The session an evaluation this one replaces holds for the observation, where resolving it against the call would give that session's request again, which becomes this evaluation's own; null where none does. */
-    #takeOver(node, place, receiver, observation, args) {
-        const { observations, replaces, sessions } = this.#recording;
+    /** The session an evaluation this one replaces holds at the place, where `accepts` finds its request still the call's, which becomes this evaluation's own; null where none does. */
+    #takeOver(node, place, receiver, accepts) {
+        const { replaces, sessions } = this.#recording;
 
         if (replaces === null) {
             return null;
         }
 
         for (const evaluation of replaces) {
-            const held = evaluation.takeOver(node, place, receiver, values => observations.resolvesTo(observation, { receiver, args }, values));
+            const held = evaluation.takeOver(node, place, receiver, accepts);
 
             if (held !== null) {
                 sessions.push(held.session);

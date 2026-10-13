@@ -68,11 +68,11 @@ function predicate(verb, name, on, { changes = 'observable', reads = 'fresh', mi
 /** The observations the members share. */
 const RESIZE = { type: 'resize', of: 'receiver' };
 const WINDOW_RESIZE = { type: 'resize', of: 'window' };
-const SCROLLING = { type: 'event', of: 'document', types: ['scroll'], capture: true };
+const SCROLLING = { type: 'event', of: 'roots', types: ['scroll'], capture: true };
 const FOCUS = { type: 'event', of: 'document', types: ['focusin', 'focusout'] };
 const ATTRIBUTES = { type: 'mutation', of: 'receiver', attributes: true };
 const CHILDREN = { type: 'mutation', of: 'receiver', childList: true };
-const STRUCTURE = { type: 'mutation', of: 'document', attributes: true, childList: true, subtree: true };
+const STRUCTURE = { type: 'mutation', of: 'root', attributes: true, childList: true, subtree: true };
 const TEXT_SELECTION = [
     { type: 'event', of: 'receiver', types: ['select', 'input'] },
     { type: 'event', of: 'document', types: ['selectionchange'] },
@@ -132,9 +132,9 @@ export class Vocabulary {
 
             predicates: [
                 predicate('is', 'attached', 'element', { observations: [{ type: 'attachment', of: 'receiver' }] }),
-                predicate('is', 'disabled', 'element', { observations: [{ type: 'mutation', of: 'document', attributes: ['disabled'], childList: true, subtree: true }] }),
+                predicate('is', 'disabled', 'element', { observations: [{ type: 'mutation', of: 'root', attributes: ['disabled'], childList: true, subtree: true }] }),
                 predicate('is', 'readOnly', 'element', { observations: [{ type: 'mutation', of: 'receiver', attributes: ['readonly', 'type'] }] }),
-                predicate('is', 'textEditable', 'element', { changes: 'partly-observable', misses: 'the document\'s design mode', observations: [{ type: 'mutation', of: 'document', attributes: ['disabled', 'readonly', 'type', 'contenteditable', 'inert'], childList: true, subtree: true }] }),
+                predicate('is', 'textEditable', 'element', { changes: 'partly-observable', misses: 'the document\'s design mode', observations: [{ type: 'mutation', of: 'roots', attributes: ['disabled', 'readonly', 'type', 'contenteditable', 'inert'], childList: true, subtree: true }] }),
                 predicate('is', 'focused', 'element', { observations: [FOCUS] }),
                 predicate('is', 'visible', 'document', { observations: [{ type: 'visibility', of: 'receiver' }] }),
                 predicate('has', 'children', 'element', { observations: [CHILDREN] }),
@@ -151,7 +151,7 @@ export class Vocabulary {
                 property('grid', 'element', 'grid?', { ...STYLE, observations: [RESIZE, ATTRIBUTES] }),
                 property('selection', 'element', 'selection?', { changes: 'partly-observable', misses: 'selections assigned by script', observations: TEXT_SELECTION }),
                 property('children', 'element', 'list<element>', { observations: [CHILDREN] }),
-                property('parent', 'element', 'element?', { observations: [{ type: 'mutation', of: 'document', childList: true, subtree: true }] }),
+                property('parent', 'element', 'element?', { observations: [{ type: 'mutation', of: 'root', childList: true, subtree: true }] }),
                 property('count', 'list<T>', 'number', { changes: 'derived', reads: 'derived' }),
                 property('first', 'list<T>', 'T?', { changes: 'derived', reads: 'derived' }),
                 property('last', 'list<T>', 'T?', { changes: 'derived', reads: 'derived' }),

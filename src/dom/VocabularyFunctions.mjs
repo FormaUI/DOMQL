@@ -183,7 +183,7 @@ export class VocabularyFunctions {
     }
 
     static #isTextEditable(element) {
-        if (element.closest('[inert]') !== null) {
+        if (VocabularyFunctions.#isUnderInert(element)) {
             return false;
         }
 
@@ -194,6 +194,25 @@ export class VocabularyFunctions {
         }
 
         return VocabularyFunctions.#isContentEditable(element);
+    }
+
+    /**
+     * Whether the element or an ancestor of it in the flat tree has the `inert` attribute: through the slot each is assigned to and the host above each shadow root.
+     * A slot in a closed shadow root hides its assignment, so an inert ancestor past it is found only from an element inside that root.
+     */
+    static #isUnderInert(element) {
+        for (let current = element; current !== null;) {
+            if (current.nodeType === 1 && current.hasAttribute('inert')) {
+                return true;
+            }
+
+            const parent = current.assignedSlot ?? current.parentNode;
+
+            // A shadow root is a document fragment with a host, where the flat tree continues.
+            current = parent?.nodeType === 11 && parent.host !== undefined ? parent.host : (parent?.nodeType === 1 ? parent : null);
+        }
+
+        return false;
     }
 
     /** Whether the element's own or nearest ancestor's `contenteditable` makes its content editable, or the document's design mode does. */

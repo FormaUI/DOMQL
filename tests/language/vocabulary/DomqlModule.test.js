@@ -115,13 +115,13 @@ describe('observations', () => {
             expect(fails({ members: [declaration({ name: 'charts', changes: 'derived', observations: [attributes] })] })).toContain('names no observations');
         });
 
-        it('observe the receiver, the window, the document or an argument of the member', () => {
+        it('observe the receiver, its root, its roots, the window, the document or an argument of the member', () => {
             const parameters = [parameter({ name: 'other', type: 'element' })];
 
             expect(() => new DomqlModule('charts', { members: [observed({ kind: 'operation', input: 'direct', parameters, observations: [{ type: 'resize', of: { argument: 'other' } }] })] })).not.toThrow();
             expect(() => new DomqlModule('charts', { members: [observed({ observations: [{ type: 'event', of: 'window', types: ['focus'] }, { type: 'visibility', of: 'document' }] })] })).not.toThrow();
-            expect(fails({ members: [observed({ observations: [{ type: 'resize', of: 'parent' }] })] })).toContain('observes the receiver, the window, the document or an argument');
-            expect(fails({ members: [observed({ observations: [{ type: 'resize', of: { argument: 'missing' } }] })] })).toContain('observes the receiver, the window, the document or an argument');
+            expect(fails({ members: [observed({ observations: [{ type: 'resize', of: 'parent' }] })] })).toContain('observes the receiver, its root, its roots, the window, the document or an argument');
+            expect(fails({ members: [observed({ observations: [{ type: 'resize', of: { argument: 'missing' } }] })] })).toContain('observes the receiver, its root, its roots, the window, the document or an argument');
             expect(fails({ members: [observed({ observations: [{ type: 'resize' }] })] })).toContain('observes the receiver');
         });
 

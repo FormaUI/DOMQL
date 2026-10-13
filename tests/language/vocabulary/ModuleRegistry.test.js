@@ -69,6 +69,11 @@ describe('observation types', () => {
             expect(messageOf(() => new ModuleRegistry([watching({ observations: [{ type: 'sampled', of: 'receiver' }] })]))).toContain('reads maintained values');
         });
 
+        it('give a maintained observation one target, never the roots of a receiver, which are as many as its ancestry has', () => {
+            expect(() => new ModuleRegistry([watching({ reads: 'maintained', observations: [{ type: 'sampled', of: 'root' }] })])).not.toThrow();
+            expect(messageOf(() => new ModuleRegistry([watching({ reads: 'maintained', observations: [{ type: 'sampled', of: 'roots' }] })]))).toContain("The maintained observation 'sampled' gives one sample, so it observes one target, never a receiver's roots");
+        });
+
         it('start with the function their module supplies', () => {
             const registry = new ModuleRegistry([watching({})]);
 

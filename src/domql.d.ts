@@ -284,8 +284,8 @@ export type DomqlObservationValue = string | number | boolean | null | DomqlArgu
 export interface DomqlObservationDeclaration {
     /** The name of the type of observation, which a module declares. */
     type: string;
-    /** What it observes: the receiver, the window, the document, or the argument of the member that names it. */
-    of: 'receiver' | 'window' | 'document' | DomqlArgumentReference;
+    /** What it observes: the receiver; its root, the root of the tree it is in; its roots, every root of its flat-tree ancestry through slots and shadow hosts, each observed alike; the window; the document; or the argument of the member that names it. A watch follows the receiver to another root or slot, and rebinds what observes its root or roots. */
+    of: 'receiver' | 'root' | 'roots' | 'window' | 'document' | DomqlArgumentReference;
     [argument: string]: DomqlObservationValue | undefined;
 }
 

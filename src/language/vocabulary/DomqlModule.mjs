@@ -31,7 +31,7 @@ const OBSERVATION_CONTRACTS = ['invalidation', 'maintained'];
 const OBSERVED_CATEGORIES = ['observable', 'partly-observable'];
 
 /** What an observation observes, besides a target an argument names. */
-const OBSERVATION_TARGETS = ['receiver', 'window', 'document'];
+const OBSERVATION_TARGETS = ['receiver', 'root', 'roots', 'window', 'document'];
 
 /** What a fixed parameter can select that carries out the member itself: the member its name resolves to. */
 const DELEGATED_SELECTION_KINDS = ['member'];
@@ -270,7 +270,7 @@ export class DomqlModule {
             const isTarget = OBSERVATION_TARGETS.includes(observation.of) || DomqlModule.#isArgumentReference(observation.of, parameterNames);
 
             if (!isTarget) {
-                fail(`The observation '${observation.type}' observes the receiver, the window, the document or an argument of the member, and not '${JSON.stringify(observation.of)}'`, name);
+                fail(`The observation '${observation.type}' observes the receiver, its root, its roots, the window, the document or an argument of the member, and not '${JSON.stringify(observation.of)}'`, name);
             }
 
             for (const [key, value] of Object.entries(observation)) {

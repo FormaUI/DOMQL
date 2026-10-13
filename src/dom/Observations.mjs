@@ -53,8 +53,17 @@ export class Observations {
      * @param {{ receiver: unknown, args: Record<string, unknown> }} call The call's receiver and its arguments by parameter name.
      */
     resolve(observation, { receiver, args }) {
-        const target = this.#targetOf(observation.of, receiver, args);
+        return this.resolveAt(observation, { args }, this.#targetOf(observation.of, receiver, args));
+    }
 
+    /**
+     * Resolves an observation against a call at the target given, as `resolve` does at the target the observation names; null where the target is null.
+     * A scope of several targets, `roots`, resolves to one request at each of them.
+     * @param {object} observation The observation a declaration names.
+     * @param {{ args: Record<string, unknown> }} call The call's arguments by parameter name.
+     * @param {object | null | undefined} target What the request observes.
+     */
+    resolveAt(observation, { args }, target) {
         if (target === null || target === undefined) {
             return null;
         }
@@ -85,13 +94,137 @@ export class Observations {
     }
 
     /**
+     * The root of the tree the node is in, as `getRootNode` answers it: its document, the shadow root it is in, or the top of a detached tree; null for anything that is no node.
+     * @param {unknown} node The receiver.
+     * @param {WeakMap<object, object>} [known] The roots already found of other nodes, which this adds to, so nodes of one tree walk it once; it lasts while the tree stays as it is.
+     */
+    static rootOf(node, known = new WeakMap()) {
+        if (typeof node?.getRootNode !== 'function') {
+            return null;
+        }
+
+        // A node whose parent's root is known, and is in the parent's tree, has that root.
+        const parent = node.parentNode;
+        const fromParent = parent === null || (parent.nodeType === 11 && parent.host !== undefined) ? undefined : known.get(parent);
+
+        if (fromParent !== undefined) {
+            return fromParent;
+        }
+
+        const steps = [];
+        let root;
+
+        for (let current = node; ;) {
+            root = known.get(current);
+
+            if (root !== undefined) {
+                break;
+            }
+
+            const parent = current.parentNode;
+
+            if (parent === null) {
+                root = current;
+                break;
+            }
+
+            steps.push(current);
+
+            if (parent.nodeType === 11 && parent.host !== undefined) {
+                root = parent;
+                break;
+            }
+
+            current = parent;
+        }
+
+        steps.forEach(stepped => known.set(stepped, root));
+
+        return root;
+    }
+
+    /**
+     * The roots of the node's flat-tree ancestry, nearest first, each once, as the design defines them: stepping to the slot a node is assigned to, or from a shadow root to its host, or otherwise to its parent, the shadow root each step to a host leaves, the open shadow root of each host whose child a step leaves, and the node the steps end at.
+     * A slot in a closed shadow root hides its assignment, so the roots past it are reached only from a node inside that root. Anything that is no node has none.
+     * @param {unknown} node The receiver.
+     * @param {WeakMap<object, object[]>} [known] The roots already found of other nodes, which this adds to, so nodes that share an ancestry walk it once; it lasts while the tree stays as it is.
+     * @returns {object[]}
+     */
+    static rootsOf(node, known = new WeakMap()) {
+        if (typeof node?.getRootNode !== 'function') {
+            return [];
+        }
+
+        // A node whose parent's roots are known, and whose parent is no shadow root and hosts none, has those roots.
+        const parent = node.parentNode;
+        const fromParent = parent === null || parent.nodeType === 11 || (parent.shadowRoot ?? null) !== null ? undefined : known.get(parent);
+
+        if (fromParent !== undefined) {
+            return fromParent;
+        }
+
+        // Each step up adds the root it enters, if any, and goes on to where the flat tree continues, until a node whose roots are known or the top of a tree.
+        const steps = [];
+        let roots;
+
+        for (let current = node; roots === undefined;) {
+            roots = known.get(current);
+
+            if (roots !== undefined) {
+                break;
+            }
+
+            const parent = current.parentNode;
+
+            if (parent === null) {
+                roots = [current];
+                known.set(current, roots);
+            } else if (parent.nodeType === 11 && parent.host !== undefined) {
+                // A shadow root is a document fragment with a host, where its tree's ancestry continues.
+                steps.push({ node: current, entered: parent });
+                current = parent.host;
+            } else {
+                // Only a host's child can be assigned to a slot, and a closed host's slots hide it.
+                const shadowRoot = parent.shadowRoot ?? null;
+                const slot = shadowRoot === null ? null : current.assignedSlot ?? null;
+
+                steps.push({ node: current, entered: shadowRoot });
+                current = slot ?? parent;
+            }
+        }
+
+        for (let index = steps.length - 1; index >= 0; index--) {
+            const { node: stepped, entered } = steps[index];
+
+            if (entered !== null && !roots.includes(entered)) {
+                roots = [entered, ...roots];
+            }
+
+            known.set(stepped, roots);
+        }
+
+        return roots;
+    }
+
+    /**
      * Whether resolving the observation against the call would give the request the values were recorded from: the same type, the same target, and arguments the same by the rules an identity follows, a list item by item and an object by reference, with null and a missing value alike.
      * @param {object} observation The observation a declaration names.
      * @param {{ receiver: unknown, args: Record<string, unknown> }} call The call's receiver and its arguments by parameter name.
      * @param {{ type: string, target: object, arguments: Record<string, any> }} values The values, as `valuesOf` answers them.
      */
     resolvesTo(observation, { receiver, args }, values) {
-        if (observation.type !== values.type || this.#targetOf(observation.of, receiver, args) !== values.target) {
+        return Observations.resolvesAt(observation, { args }, this.#targetOf(observation.of, receiver, args), values);
+    }
+
+    /**
+     * Whether resolving the observation against the call at the target would give the request the values were recorded from, as `resolvesTo` answers at the target the observation names.
+     * @param {object} observation The observation a declaration names.
+     * @param {{ args: Record<string, unknown> }} call The call's arguments by parameter name.
+     * @param {object} target What the request would observe.
+     * @param {{ type: string, target: object, arguments: Record<string, any> }} values The values, as `valuesOf` answers them.
+     */
+    static resolvesAt(observation, { args }, target, values) {
+        if (observation.type !== values.type || target !== values.target) {
             return false;
         }
 
@@ -174,6 +307,8 @@ export class Observations {
         switch (of) {
             case 'receiver':
                 return receiver;
+            case 'root':
+                return typeof receiver?.getRootNode === 'function' ? receiver.getRootNode() : null;
             case 'window':
                 return this.#environment.window;
             case 'document':

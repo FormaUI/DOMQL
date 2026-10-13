@@ -337,6 +337,7 @@ A step is done when its tests pass in the gate, its documents say what it built,
 - **10. Explicit receivers, calls and named operations.** Done: every receiver is written, and member access, calls and named operations are distinct, each written in the form its declaration takes.
 - **11. Conditional and logical expressions.** Done: conditionals with `elseif`, `is null`, groups, and `and` and `or` by the three-valued table, a watch comparing what a conditional gave by the branch it selected.
 - **12. Local values.** Done: `let` names a value once in an object expression, and the specification holds the complete grammar.
+- **17. Shadow trees in watches.** Done: an observation follows its receiver's root or every root of its flat-tree ancestry, a watch follows a receiver to another tree or slot, and `is "textEditable"` counts an inert ancestor in the flat tree. Following them adds 0.5 to 1 ms to refreshing a watch of 1,000 rows in the simulated DOM, most of it the scrolling each row's `rect` follows at its roots.
 
 ### 9. Measured performance
 
@@ -353,15 +354,7 @@ Make reads and watches cheaper where a measurement shows the work, leaving every
 - **Decided separately, before they are built:**
   - Keeping an observation's session across a watch's evaluations when the same request repeats. Decided and built for watches, as the design's sessions set out, refreshing a watch 37 to 39 percent faster again; reading once and subscribing take sessions over only where a measurement shows the gain.
   - A list's change set by its longest increasing subsequence, which sends one operation to move the first item to the end, where the current diff sends one for every other item. The current diff takes at most half a millisecond for 1,000 items in any order, so this is a question of a change set's size and of what applying and sending it costs downstream, which the workloads do not yet measure; its `indexOf` and `splice` can grow quadratically with a large reorder. It is decided by the total cost of generating, delivering and applying a change set, never by generating it alone; it changes which operations are sent, and their order, ties and repeated elements are settled with it. Open.
-- **State:** in progress. Changes 1 and 2, and the session take-over, are built; change 3 is built in part, and so is change 4, whose key of a call's bindings remains with the change set by longest increasing subsequence. Each percentage is the one measured when its change landed, evidence of that change rather than a measure of the runtime now. Compared after step 12 with the commit before step 10, three rounds each, steps 10 to 12 changed no workload beyond its noise, and the workload of locals and conditionals is a baseline of its own.
-
-### 17. Shadow trees in watches
-
-Keep a watch current for an element inside a shadow tree, built before step 13, so the query object carries the corrected contract forward.
-
-- **Needs:** nothing.
-- **Done when:** an observation follows the tree its dependency is in: a structural one the receiver's own tree, so a watch bound to an element inside a shadow root follows the mutations beneath that element, which an observation of the document never sees, and a scroll inside a shadow tree is observed; attachment and inherited state still follow the trees around the receiver; a receiver moved between roots is observed in its new root and released from its old one; `is "textEditable"` counts an `inert` attribute on an ancestor in the flat tree, through shadow hosts and the slots an element is assigned to, which the specification states as attribute inertness, a change of result for an element under an inert host; and the browser tests cover adding and removing children inside a shadow root, moving a receiver between roots, nested roots, scrolling inside a shadow tree, toggling `inert` on a host, reassigning a slot, and an element inside a closed root that the caller already holds.
-- **State:** not started.
+- **State:** in progress. Changes 1 and 2, and the session take-over, are built; change 3 is built in part, and so is change 4, whose key of a call's bindings remains with the change set by longest increasing subsequence. Each percentage is the one measured when its change landed, evidence of that change rather than a measure of the runtime now. Compared after step 12 with the commit before step 10, three rounds each, steps 10 to 12 changed no workload beyond its noise, and the workload of locals and conditionals is a baseline of its own. The next comparison also measures the root tracking step 17 added, 0.5 to 1 ms a refresh of 1,000 rows when it landed.
 
 ### 13. The API
 

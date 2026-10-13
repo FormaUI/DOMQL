@@ -183,7 +183,7 @@ export class ModuleRegistry {
         }
     }
 
-    /** Refuses an observation of a type no module declares, and a member that reads maintained values without a maintained observation, or any other that has one. */
+    /** Refuses an observation of a type no module declares, a maintained observation of a receiver's roots, and a member that reads maintained values without a maintained observation, or any other that has one. */
     static #validateObservations(declaration, types, fail) {
         let hasMaintained = false;
 
@@ -192,6 +192,11 @@ export class ModuleRegistry {
 
             if (type === undefined) {
                 fail(`The observation type '${observation.type}' is declared by no module`, declaration.name);
+            }
+
+            // A maintained observation gives the member one sample, and a receiver's roots are as many as its ancestry has.
+            if (type.contract === 'maintained' && observation.of === 'roots') {
+                fail(`The maintained observation '${observation.type}' gives one sample, so it observes one target, never a receiver's roots`, declaration.name);
             }
 
             hasMaintained ||= type.contract === 'maintained';
