@@ -507,8 +507,71 @@ describe('Watch', () => {
             watch('@panel attributeOf "data-n"', { panel }, { onChange: () => { throw new Error('first'); } });
             watch('@panel attributeOf "data-n"', { panel }, { onChange: snapshot => others.push(snapshot) });
             await settle();
+            await change(panel, 2);
 
-            expect(others).toEqual(['1']);
+            expect(others).toEqual(['1', '2']);
+        });
+
+        it('leaves the watch reporting where its failure callback and the window\'s error reporting fail too', async () => {
+            let reportings = 0;
+
+            window.reportError = () => {
+                reportings++;
+                throw new Error('reporting');
+            };
+
+            const watched = watch('@panel attributeOf "data-n"', { panel }, {
+                onChange: snapshot => {
+                    snapshots.push(snapshot);
+                    throw new Error('consumer');
+                },
+                onError: () => { throw new Error('failure callback'); },
+            });
+
+            await settle();
+            await change(panel, 2);
+
+            expect(snapshots).toEqual(['1', '2']);
+            expect(reportings).toBe(2);
+            expect(watched.status).toBe('ready');
+        });
+    });
+
+    describe('other watches of the same observations', () => {
+        it('go on when one is disposed', async () => {
+            const first = [];
+            const second = [];
+            const disposed = watch('@panel attributeOf "data-n"', { panel }, { onChange: snapshot => first.push(snapshot) });
+
+            watch('@panel attributeOf "data-n"', { panel }, { onChange: snapshot => second.push(snapshot) });
+            await settle();
+            disposed.dispose();
+            await change(panel, 2);
+
+            expect(first).toEqual(['1']);
+            expect(second).toEqual(['1', '2']);
+        });
+
+        it('go on when one fails to evaluate, which recovers on its own', async () => {
+            const failing = [];
+            const other = [];
+            const failed = watch('@panel.flaky', { panel }, { onChange: snapshot => failing.push(snapshot) });
+
+            watch('@panel attributeOf "data-n"', { panel }, { onChange: snapshot => other.push(snapshot) });
+            await settle();
+
+            broken = true;
+            await change(panel, 2);
+
+            expect(failed.status).toBe('failed');
+            expect(other).toEqual(['1', '2']);
+
+            broken = false;
+            await change(panel, 3);
+
+            expect(failed.status).toBe('ready');
+            expect(failing).toEqual([1, 3]);
+            expect(other).toEqual(['1', '2', '3']);
         });
     });
 

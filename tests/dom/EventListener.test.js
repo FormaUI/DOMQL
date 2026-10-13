@@ -397,4 +397,34 @@ describe('EventListener', () => {
             expect(reported.map(failure => failure.message)).toEqual(['stuck']);
         });
     });
+
+    describe('other event listeners of the same events', () => {
+        it('go on when one is disposed, keeping the observations they share', () => {
+            const [first] = panel.children;
+            const disposed = subscribe('(@panel eventsOf "input") { level: self.target.level }', { panel }, { onEvent: () => {} });
+
+            subscribe('(@panel eventsOf "input") { level: self.target.level }', { panel });
+            input(first);
+            disposed.dispose();
+            input(first);
+
+            expect(results).toEqual([{ level: null }, { level: null }]);
+            expect(gauges.get(first)).toMatchObject({ started: 1, stopped: 0 });
+        });
+
+        it('go on when the projection or the callback of one fails', () => {
+            const [first] = panel.children;
+
+            subscribe('(@panel eventsOf "input") { n: self.target.flaky }', { panel }, { onEvent: () => {} });
+            subscribe('(@panel eventsOf "input") { id: self.target attributeOf "id" }', { panel }, { onEvent: () => { throw new Error('consumer'); } });
+            subscribe('(@panel eventsOf "input") { id: self.target attributeOf "id" }', { panel });
+
+            broken = true;
+            input(first);
+            input(first);
+
+            expect(results).toEqual([{ id: 'a' }, { id: 'a' }]);
+            expect(failures.map(failure => failure.message)).toEqual([expect.stringContaining('broken'), 'consumer', expect.stringContaining('broken'), 'consumer']);
+        });
+    });
 });
