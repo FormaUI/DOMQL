@@ -34,6 +34,9 @@ describe('DefinitionWriter', () => {
         'if @a then (if @b then 1 else 2) else 3',
         '@panel { state: if self is "disabled" then "locked" else "open" }',
         '@panel.parent is null',
+        '@panel { let items: self.children, count: items.count, rows: items { key: self attributeOf "data-key" } }',
+        '@panel { let key: "data-key", let first: self.children.at(0), value: first attributeOf key }',
+        '@panel { let a: 1, inner: self { let b: a, value: b } }',
     ])('writes text that parses back to the same definition: %s', text => {
         const { definition } = Domql.parse(text, { panel });
 

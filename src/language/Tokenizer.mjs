@@ -17,8 +17,8 @@ import { Names } from './Names.mjs';
 const PUNCTUATION = new Set(['.', ',', ':', '(', ')', '{', '}']);
 const KEYWORDS = new Map([['true', true], ['false', false], ['null', null]]);
 
-/** The words that test a value, combine Boolean expressions, and choose between values. */
-const OPERATORS = new Set(['is', 'has', 'and', 'or', 'if', 'then', 'elseif', 'else']);
+/** The words that test a value, combine Boolean expressions, choose between values, and name a local. */
+const OPERATORS = new Set(['is', 'has', 'and', 'or', 'if', 'then', 'elseif', 'else', 'let']);
 const NAME = /[A-Za-z][A-Za-z0-9]*/y;
 const NUMBER = /-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?/y;
 const SPACE = /\s/;

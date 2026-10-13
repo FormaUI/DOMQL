@@ -37,6 +37,9 @@ export class QueryEvaluator {
     /** The branch each conditional selected for the value being evaluated at its place in the result, by the conditional, or null where none has. @type {Map<object, object> | null} */
     #branches = null;
 
+    /** The locals of the innermost application of an object expression that has any, with the value of each evaluated so far, inside those of the applications enclosing it; null outside every one. @type {{ node: object, item: unknown, values: Map<string, { value: unknown, branches: Map<object, object> | null }>, enclosing: object | null } | null} */
+    #locals = null;
+
     /** What the evaluation in progress records, or null where none does. @type {{ observations: import('./Observations.mjs').Observations, onChange: () => void, holdsAll: boolean, replaces: QueryEvaluation[] | null, dependencies: object[], sessions: object[], held: Map<object, Map<unknown, object[]>> | null, unheld: object[], isPending: boolean } | null} */
     #recording = null;
 
@@ -229,6 +232,8 @@ export class QueryEvaluator {
                 return this.#parameter(node);
             case 'self':
                 return current;
+            case 'local':
+                return this.#local(node);
             case 'member':
             case 'call':
             case 'namedOperation':
@@ -253,6 +258,45 @@ export class QueryEvaluator {
         (this.#branches ??= new Map()).set(node, branch);
 
         return this.#evaluate(branch, current);
+    }
+
+    /**
+     * The value of the local the node names: evaluated at its first use in the application of the object expression that holds it, against that application's current value and the locals in scope where it is written, and the same value at every later use there.
+     * The branches its conditionals selected are recorded at every place in the result it is used.
+     */
+    #local(node) {
+        let frame = this.#locals;
+
+        while (!frame.node.locals.some(local => local.name === node.name)) {
+            frame = frame.enclosing;
+        }
+
+        let entry = frame.values.get(node.name);
+
+        if (entry === undefined) {
+            const locals = this.#locals;
+            const branches = this.#branches;
+
+            this.#locals = frame;
+            this.#branches = null;
+
+            try {
+                entry = { value: this.#evaluate(frame.node.locals.find(local => local.name === node.name).value, frame.item), branches: this.#branches };
+            } finally {
+                this.#locals = locals;
+                this.#branches = branches;
+            }
+
+            frame.values.set(node.name, entry);
+        }
+
+        if (entry.branches !== null) {
+            const branches = (this.#branches ??= new Map());
+
+            entry.branches.forEach((branch, conditional) => branches.set(conditional, branch));
+        }
+
+        return entry.value;
     }
 
     /** Tests the subject, evaluated once, against the predicate the predicate expression names; a predicate expression of null is null. */
@@ -616,12 +660,17 @@ export class QueryEvaluator {
         return items;
     }
 
-    /** The object an object expression gives the item: each of its fields, in order, under its name, evaluated against the item, with the branches each field's conditionals selected. */
+    /** The object an object expression gives the item: each of its fields, in order, under its name, evaluated against the item with the expression's locals in scope, with the branches each field's conditionals selected. */
     #fieldsOf(node, item) {
         const names = this.#resolvedDefinition.fieldNamesOf(node);
         const object = {};
         const enclosing = this.#branches;
+        const enclosingLocals = this.#locals;
         let branches = null;
+
+        if (node.locals !== undefined) {
+            this.#locals = { node, item, values: new Map(), enclosing: enclosingLocals };
+        }
 
         try {
             node.fields.forEach((field, index) => {
@@ -634,6 +683,7 @@ export class QueryEvaluator {
             });
         } finally {
             this.#branches = enclosing;
+            this.#locals = enclosingLocals;
         }
 
         if (branches !== null) {

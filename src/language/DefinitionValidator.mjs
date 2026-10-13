@@ -13,10 +13,11 @@ const NODES = {
     literal: { properties: ['kind', 'value'], required: ['value'] },
     parameter: { properties: ['kind', 'name'], required: ['name'] },
     self: { properties: ['kind'], required: [] },
+    local: { properties: ['kind', 'name'], required: ['name'] },
     member: { properties: ['kind', 'target', 'name'], required: ['target', 'name'] },
     call: { properties: ['kind', 'target', 'name', 'argument'], required: ['target', 'name'] },
     namedOperation: { properties: ['kind', 'target', 'name', 'argument'], required: ['target', 'name'] },
-    object: { properties: ['kind', 'target', 'fields'], required: ['fields'] },
+    object: { properties: ['kind', 'target', 'locals', 'fields'], required: ['fields'] },
     predicate: { properties: ['kind', 'verb', 'target', 'name'], required: ['verb', 'target', 'name'] },
     conditional: { properties: ['kind', 'condition', 'consequent', 'alternative'], required: ['condition', 'consequent', 'alternative'] },
     and: { properties: ['kind', 'operands'], required: ['operands'] },
@@ -26,14 +27,17 @@ const NODES = {
 /** The verbs a predicate expression reads its predicate under. */
 const VERBS = ['is', 'has'];
 
-/** What a field of an object expression holds: its name, always written, and its value. */
-const FIELD = { properties: ['name', 'value'], required: ['name', 'value'] };
+/** What a local and a field of an object expression each hold: a name, always written, and a value. */
+const ENTRY = { properties: ['name', 'value'], required: ['name', 'value'] };
 
 /** Where a node's current value stands: absent at the top level, present in an object expression following a value, unknown in an argument. */
 const Scope = Object.freeze({ absent: 'absent', present: 'present', unknown: 'unknown' });
 
 export class DefinitionValidator {
     #locations;
+
+    /** The names of the locals in scope where the node being validated stands. @type {Set<string>} */
+    #localNames = new Set();
 
     /** @param {TextLocations | null} locations Where in a text each part of the definition came from, for one parsed from text. */
     constructor(locations = null) {
@@ -53,7 +57,7 @@ export class DefinitionValidator {
 
     #validateNode(node, pointer, scope) {
         if (!DefinitionValidator.#isObject(node) || !Object.hasOwn(NODES, node.kind)) {
-            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, member, call, namedOperation, object, predicate, conditional, and or or');
+            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, namedOperation, object, predicate, conditional, and or or');
         }
 
         this.#requireProperties(node, pointer, NODES[node.kind]);
@@ -71,6 +75,10 @@ export class DefinitionValidator {
                 }
 
                 return Object.freeze({ kind: 'self' });
+            case 'local':
+                this.#requireName(node.name, `${pointer}/name`);
+
+                return Object.freeze({ kind: 'local', name: node.name });
             case 'member':
             case 'call':
             case 'namedOperation':
@@ -164,30 +172,62 @@ export class DefinitionValidator {
         }
 
         const fieldScope = target === undefined ? scope : Scope.present;
+        const enclosing = this.#localNames;
 
-        /** @type {Set<string>} */
-        const names = new Set();
+        try {
+            const locals = node.locals === undefined ? [] : this.#validateLocals(node.locals, `${pointer}/locals`, fieldScope);
 
-        const fields = node.fields.map((field, index) => {
-            const fieldPointer = `${pointer}/fields/${index}`;
-            this.#requireProperties(field, fieldPointer, FIELD);
-            this.#requireName(field.name, `${fieldPointer}/name`);
+            /** @type {Set<string>} */
+            const names = new Set();
 
-            const value = this.#validateNode(field.value, `${fieldPointer}/value`, fieldScope);
-            const { name } = field;
+            const fields = node.fields.map((field, index) => {
+                const fieldPointer = `${pointer}/fields/${index}`;
+                this.#requireProperties(field, fieldPointer, ENTRY);
+                this.#requireName(field.name, `${fieldPointer}/name`);
 
-            if (names.has(name)) {
-                this.#fail(fieldPointer, `Two fields of one object expression are named '${name}'`);
+                const value = this.#validateNode(field.value, `${fieldPointer}/value`, fieldScope);
+                const { name } = field;
+
+                if (names.has(name)) {
+                    this.#fail(fieldPointer, `Two fields of one object expression are named '${name}'`);
+                }
+
+                names.add(name);
+
+                return Object.freeze({ name, value });
+            });
+
+            return Object.freeze({
+                kind: 'object',
+                ...(target === undefined ? {} : { target }),
+                ...(locals.length === 0 ? {} : { locals: Object.freeze(locals) }),
+                fields: Object.freeze(fields),
+            });
+        } finally {
+            this.#localNames = enclosing;
+        }
+    }
+
+    /** Validates an object expression's locals in order, each seeing those before it, and leaves every one in scope for its fields; no local reuses a name in scope. */
+    #validateLocals(locals, pointer, scope) {
+        this.#requireArray(locals, pointer);
+
+        return locals.map((local, index) => {
+            const localPointer = `${pointer}/${index}`;
+            this.#requireProperties(local, localPointer, ENTRY);
+            this.#requireName(local.name, `${localPointer}/name`);
+
+            const value = this.#validateNode(local.value, `${localPointer}/value`, scope);
+            const { name } = local;
+
+            if (this.#localNames.has(name)) {
+                this.#fail(localPointer, `A local named '${name}' is already in scope, and a name means one thing wherever it is visible`);
             }
 
-            names.add(name);
+            this.#localNames = new Set(this.#localNames).add(name);
 
             return Object.freeze({ name, value });
         });
-
-        return Object.freeze(target === undefined
-            ? { kind: 'object', fields: Object.freeze(fields) }
-            : { kind: 'object', target, fields: Object.freeze(fields) });
     }
 
     #requireProperties(part, pointer, { properties, required }) {
@@ -216,7 +256,7 @@ export class DefinitionValidator {
 
     #requireName(value, pointer) {
         if (!Names.isName(value)) {
-            this.#fail(pointer, 'A name is a letter followed by letters and digits, and never true, false, null, is, has, and or or');
+            this.#fail(pointer, 'A name is a letter followed by letters and digits, and no keyword: true, false, null, self, is, has, and, or, if, then, elseif, else or let');
         }
     }
 

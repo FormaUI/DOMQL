@@ -40,17 +40,18 @@ const examples = [
         answers: [['[', "  { key: 'a1', selected: false },", "  { key: 'a2', selected: true },", "  { key: 'a3', selected: false }", ']']],
     },
     { file: '11-lists.js', observed: 'reads', answers: [['1'], ['64']] },
-    { file: '12-null.js', observed: 'reads', answers: [['null']] },
-    { file: '13-bindings.js', observed: 'reads', answers: [['{ panel: null, ids: [] }']] },
-    { file: '14-resolve.js', observed: 'inspected', inspect: '[resolved.kind, resolved.type.toString()]', answers: [["'query'"], ["'number?'"]] },
+    { file: '12-locals.js', observed: 'reads', answers: [['{ count: 3, tallest: 64 }']] },
+    { file: '13-null.js', observed: 'reads', answers: [['null']] },
+    { file: '14-bindings.js', observed: 'reads', answers: [['{ panel: null, ids: [] }']] },
+    { file: '15-resolve.js', observed: 'inspected', inspect: '[resolved.kind, resolved.type.toString()]', answers: [["'query'"], ["'number?'"]] },
     {
-        file: '15-errors.js',
+        file: '16-errors.js',
         observed: 'logged',
         answers: [['validation'], ["The argument 'name' of 'attributeOf' expects string and finds number", '(line 1, column 20, at /query/argument)']],
     },
-    { file: '16-module.js', observed: 'reads', answers: [['{ childCount: 3 }']] },
-    { file: '17-run-action.js', observed: 'reads', answers: [['true']] },
-    { file: '18-activate-behavior.js', observed: 'printed', answers: [["'gold'"], ["'teal'"], ['undefined']] },
+    { file: '17-module.js', observed: 'reads', answers: [['{ childCount: 3 }']] },
+    { file: '18-run-action.js', observed: 'reads', answers: [['true']] },
+    { file: '19-activate-behavior.js', observed: 'printed', answers: [["'gold'"], ["'teal'"], ['undefined']] },
 ];
 
 /** Gives each element with an inline height a layout box of that height, since the test environment lays nothing out. */

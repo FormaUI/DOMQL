@@ -219,9 +219,9 @@ if @wide then @panel else @sidebar
 (if @wide then @panel else @sidebar).rect.width
 ```
 
-Its branches are of one type, nullable where either is, and a conditional that is an operand or starts a chain is grouped.
+Its branches are of one type, nullable where either is, and a conditional that is a condition, an operand or the start of a chain is grouped.
 
-A call or a named operation takes one argument. A named operation's argument is a literal, a parameter, `self`, an object or a group, and an operation with several parameters takes them as the fields of one object:
+A call or a named operation takes one argument. A named operation's argument is a literal, a parameter, `self`, a local, an object or a group, and an operation with several parameters takes them as the fields of one object:
 
 ```text
 self.closest(".row").rect.height
@@ -235,7 +235,7 @@ A named operation ends its chain, and a group continues from its result. Writing
 
 ### Objects and lists
 
-An object expression chooses output fields, each written with the name it answers under, `width: rect.width`; DOMQL infers no name, so a field without one is a syntax error.
+An object expression chooses output fields, each written with the name it answers under, `width: self.rect.width`; DOMQL infers no name, so a field without one is a syntax error.
 
 ```js
 Domql.read(`
@@ -281,6 +281,21 @@ Domql.read('@panel.all("[data-key]").max(self.rect.height)', { panel });
 ```
 
 `where` keeps items whose expression is true. `rect.height` is the height in CSS pixels of an element's border box, so the tallest item above is the 64px one. Aggregates skip null expression results. With no numeric results, `max` and `min` return null, while `sum` returns zero.
+
+An object expression can name a value once with `let`, as a local, and use it by its name in the entries after it. Its locals come before its fields, and the result never holds them:
+
+```js
+Domql.read(`
+    @panel {
+        let items: self.all("[data-key]"),
+        count: items.count,
+        tallest: items.max(self.rect.height)
+    }
+`, { panel });
+// { count: 3, tallest: 64 }
+```
+
+A local's `self` is the value where it is written, wherever it is used. It is evaluated at most once for each value its object expression applies to, at its first use, and not at all where nothing uses it. A bare name is always a local, so a member of the current value is written with `self`, as `self.rect`.
 
 ### Null and unavailable values
 

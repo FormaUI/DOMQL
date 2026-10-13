@@ -373,6 +373,66 @@ describe('QueryEvaluator', () => {
         });
     });
 
+    describe('locals', () => {
+        /** A module whose `counted` property counts the times it is read, answering the count. */
+        const counting = () => {
+            const record = { reads: 0 };
+
+            return { module: propertyModule('counted', () => ++record.reads), record };
+        };
+
+        it('evaluate a local once for each application of its object expression, giving every use there its value', () => {
+            const { module, record } = counting();
+            const result = readWith(module, '@rows { let n: self.counted, a: n, b: n }', { rows: items });
+
+            expect(record.reads).toBe(3);
+            expect(result).toEqual([{ a: 1, b: 1 }, { a: 2, b: 2 }, { a: 3, b: 3 }]);
+        });
+
+        it('evaluate a local no evaluated expression uses never', () => {
+            const { module, record } = counting();
+
+            expect(readWith(module, '@panel { let n: self.counted, a: 1 }', { panel })).toEqual({ a: 1 });
+            expect(readWith(module, '@panel { let n: self.counted, a: if @on then n else 0 }', { panel, on: false })).toEqual({ a: 0 });
+            expect(record.reads).toBe(0);
+        });
+
+        it('evaluate a local at its first use, wherever that is', () => {
+            const { module, record } = counting();
+
+            expect(readWith(module, '@panel { let n: self.counted, a: if @on then n else 0, b: n }', { panel, on: false })).toEqual({ a: 0, b: 1 });
+            expect(record.reads).toBe(1);
+        });
+
+        it('give a later evaluation fresh locals', () => {
+            const { module } = counting();
+
+            expect(readWith(module, '@panel { let n: self.counted, a: n }', { panel })).toEqual({ a: 1 });
+            expect(readWith(module, '@panel { let n: self.counted, a: n }', { panel })).toEqual({ a: 2 });
+        });
+
+        it('keep the self of where a local is written, used inside a nested projection', () => {
+            const result = read('@panel { let owner: self attributeOf "id", rows: self.children { owner: owner, key: self attributeOf "data-key" } }', { panel });
+
+            expect(result.rows).toEqual([{ owner: 'panel', key: 'a1' }, { owner: 'panel', key: 'a2' }, { owner: 'panel', key: 'a3' }]);
+        });
+
+        it('give a local to the expression an argument evaluates for each item', () => {
+            expect(read('@panel { let selector: "[aria-selected=true]", selected: self.children.where(self matches selector) { key: self attributeOf "data-key" } }', { panel }))
+                .toEqual({ selected: [{ key: 'a2' }] });
+        });
+
+        it('use the locals before it, and those of an enclosing object expression', () => {
+            expect(read('@panel { let rows: self.children, let first: rows.at(0), key: first attributeOf "data-key", inner: self { last: rows.at(2) attributeOf "data-key" } }', { panel }))
+                .toEqual({ key: 'a1', inner: { last: 'a3' } });
+        });
+
+        it('stand where a fixed argument is, with the value it was resolved to', () => {
+            expect(read('@panel { let path: "size.width", width: self.get(path) }', { panel })).toEqual({ width: 640 });
+            expect(read('@panel { let path: @path, let selected: path, width: self.get(selected) }', { panel, path: 'size.width' })).toEqual({ width: 640 });
+        });
+    });
+
     describe('geometry', () => {
         it('reads a rectangle from the layout viewport and relative to another element', () => {
             expect(read('@item.rect', { item: items[1] })).toEqual({ left: 0, top: 50, right: 640, bottom: 114, width: 640, height: 64 });
@@ -574,6 +634,13 @@ describe('QueryEvaluator evaluation', () => {
         it('leave the identities of a result no conditional gave as they were', () => {
             expect(evaluate('@panel { width: @panel.size.width }', { panel }).identities).toBeNull();
         });
+
+        it('are recorded at every place a local is used, which its conditionals gave', () => {
+            const { fields } = evaluate('@panel { let w: if @on then 1 else 2, a: w, b: w }', { panel, on: true }).identities;
+
+            expect(consequents(fields.a)).toEqual([true]);
+            expect(consequents(fields.b)).toEqual([true]);
+        });
     });
 
     describe('dependencies', () => {
@@ -635,6 +702,10 @@ describe('QueryEvaluator evaluation', () => {
             const evaluation = evaluate('@element attributeOf "id"', { element: panel });
 
             expect(evaluation.dependencies.flatMap(dependency => dependency.observations).some(observation => observation.type === 'attachment')).toBe(false);
+        });
+
+        it('include only those of the locals evaluation used', () => {
+            expect(membersOf(evaluate('@panel { let s: self.size, let c: self.clientSize, a: s, b: s }', { panel }))).toEqual(['size']);
         });
 
         it('include only those of the branch a conditional evaluated', () => {

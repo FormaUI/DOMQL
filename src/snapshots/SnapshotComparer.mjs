@@ -24,6 +24,11 @@ export class SnapshotComparer {
     }
 
     #reconcileNode(node, previous, previousIdentities, next, nextIdentities) {
+        // A local gives the value of the expression it names, compared as that expression is.
+        if (node.kind === 'local') {
+            return this.#reconcileNode(this.#resolvedDefinition.resolutionOf(node).value, previous, previousIdentities, next, nextIdentities);
+        }
+
         if (node.kind === 'conditional') {
             const branch = SnapshotComparer.#branchOf(node, previousIdentities, nextIdentities);
 
@@ -81,8 +86,12 @@ export class SnapshotComparer {
         return nextElements.map(element => index.get(element) ?? -1);
     }
 
-    /** The tolerance of the member that produced the value, which a field of its value shares, through the branch a conditional selected for both values; null for a value that is no member's. */
+    /** The tolerance of the member that produced the value, which a field of its value shares, through the expression a local names and the branch a conditional selected for both values; null for a value that is no member's. */
     #toleranceOf(node, previousIdentities, nextIdentities) {
+        if (node.kind === 'local') {
+            return this.#toleranceOf(this.#resolvedDefinition.resolutionOf(node).value, previousIdentities, nextIdentities);
+        }
+
         if (node.kind === 'conditional') {
             const branch = SnapshotComparer.#branchOf(node, previousIdentities, nextIdentities);
 

@@ -8,7 +8,7 @@ This design describes the whole runtime. Reading a query once, watching it as sn
 
 | Decision | Contract |
 | --- | --- |
-| A small language | Chains, object expressions, lists, predicate expressions, logical expressions and conditionals, with literals and parameters. Arithmetic, ordering and anything else a query needs computed belongs to a member or to the caller. |
+| A small language | Chains, object expressions and their locals, lists, predicate expressions, logical expressions and conditionals, with literals and parameters. Arithmetic, ordering and anything else a query needs computed belongs to a member or to the caller. |
 | An open vocabulary | Everything a query can ask about is a member a vocabulary contributes; the built-in vocabulary and every extension follow one contract, and adding a member leaves the grammar unchanged. |
 | Queries read, requests act | Reading, watching or subscribing to a query reads the document and changes nothing, whatever vocabulary it uses; an action or a behavior request is a request of its own kind, carried out only when its caller runs or activates it. |
 | One meaning | A query evaluates the same way for every caller, however it was written. |
@@ -287,8 +287,8 @@ public sealed record PanelState(double? Width, bool? HasFocus);
 DomqlQuery<PanelState> typed = Domql.Parse<PanelState>(
     """
     @panel {
-        width: size.width,
-        hasFocus: matches(":focus-within")
+        width: self.size.width,
+        hasFocus: self matches ":focus-within"
     }
     """,
     ("panel", panel));

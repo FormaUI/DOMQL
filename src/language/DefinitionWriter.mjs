@@ -5,11 +5,11 @@
 /** How tightly each kind of expression binds, the loosest lowest: one written where a tighter one stands is parenthesized. */
 const BINDING = { conditional: 0, or: 1, and: 2, predicate: 3, namedOperation: 4 };
 
-/** How tightly a chain binds that no named operation ends: a member access, a call, an object expression, `self`, a literal or a parameter. */
+/** How tightly a chain binds that no named operation ends: a member access, a call, an object expression, `self`, a local, a literal or a parameter. */
 const CHAIN = 5;
 
 /** The nodes that stand as an initial expression, and so as a named operation's argument without parentheses. */
-const INITIAL = new Set(['self', 'parameter', 'literal']);
+const INITIAL = new Set(['self', 'local', 'parameter', 'literal']);
 
 export class DefinitionWriter {
     /**
@@ -24,6 +24,8 @@ export class DefinitionWriter {
                 return `@${node.name}`;
             case 'self':
                 return 'self';
+            case 'local':
+                return node.name;
             case 'member':
                 return `${DefinitionWriter.#within(node.target, CHAIN)}.${node.name}`;
             case 'call':
@@ -41,7 +43,8 @@ export class DefinitionWriter {
             case 'or':
                 return node.operands.map(operand => DefinitionWriter.#within(operand, BINDING[node.kind] + 1)).join(` ${node.kind} `);
             default: {
-                const fields = `{ ${node.fields.map(field => `${field.name}: ${DefinitionWriter.write(field.value)}`).join(', ')} }`;
+                const locals = (node.locals ?? []).map(local => `let ${local.name}: ${DefinitionWriter.write(local.value)}`);
+                const fields = `{ ${[...locals, ...node.fields.map(field => `${field.name}: ${DefinitionWriter.write(field.value)}`)].join(', ')} }`;
 
                 return node.target === undefined ? fields : `${DefinitionWriter.#within(node.target, CHAIN)} ${fields}`;
             }

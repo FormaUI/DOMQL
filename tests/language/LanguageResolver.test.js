@@ -449,6 +449,29 @@ describe('LanguageResolver', () => {
         });
     });
 
+    describe('locals', () => {
+        it('type a use of a local as the value it names', () => {
+            expect(resolve('@panel { let size: self.size, width: size.width }').type.toString()).toBe('{ width: number? }');
+            expect(resolve('@panel { let rows: self.children, rows: rows { key: self attributeOf "data-key" } }').type.toString()).toBe('{ rows: list<{ key: string? }> }');
+        });
+
+        it('resolve a local where it is written, whatever current value its use has', () => {
+            expect(resolve('@panel { let size: self.size, rows: self.children { size: size } }').type.toString()).toBe('{ rows: list<{ size: size? }> }');
+        });
+
+        it('let a local hold what is no data, which no field can', () => {
+            expect(resolve('@panel { let first: self.children.at(0), key: first attributeOf "data-key" }').type.toString()).toBe('{ key: string? }');
+        });
+
+        it('validate a local no field uses', () => {
+            expect(failure('@panel { let wrong: self.nonsense, a: 1 }').location.pointer).toBe('/query/locals/0/value');
+        });
+
+        it('refuse a local that is no value', () => {
+            expect(failure('@panel { let clicks: self eventsOf "click", a: 1 }').message).toContain("The local 'clicks' is an occurrence source, and a local is a value");
+        });
+    });
+
     describe('conditionals', () => {
         it('type a conditional by its branches, nullable where either is', () => {
             expect(resolve('if @wide then 1 else 2', { panel, wide: true }).type.toString()).toBe('number');

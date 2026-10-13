@@ -63,15 +63,17 @@ export class TextLocations {
 
         part.operands?.forEach((operand, index) => this.#collect(operand, `${pointer}/operands/${index}`, spans));
 
-        part.fields?.forEach((field, index) => {
-            const fieldPointer = `${pointer}/fields/${index}`;
-            const fieldSpan = spans.get(field);
+        for (const entries of ['locals', 'fields']) {
+            part[entries]?.forEach((entry, index) => {
+                const entryPointer = `${pointer}/${entries}/${index}`;
+                const entrySpan = spans.get(entry);
 
-            if (fieldSpan) {
-                this.#spans.set(fieldPointer, fieldSpan);
-            }
+                if (entrySpan) {
+                    this.#spans.set(entryPointer, entrySpan);
+                }
 
-            this.#collect(field.value, `${fieldPointer}/value`, spans);
-        });
+                this.#collect(entry.value, `${entryPointer}/value`, spans);
+            });
+        }
     }
 }

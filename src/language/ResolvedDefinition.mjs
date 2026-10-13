@@ -96,6 +96,7 @@ export class ResolvedDefinition {
                 }
                 break;
             case 'object':
+                node.locals?.forEach((local, index) => this.#index(local.value, `${pointer}/locals/${index}/value`));
                 node.fields.forEach((field, index) => this.#index(field.value, `${pointer}/fields/${index}/value`));
                 this.#fieldNames.set(node, node.fields.map(field => field.name));
                 break;

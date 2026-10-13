@@ -135,6 +135,13 @@ describe('SnapshotComparer', () => {
             });
         });
 
+        it('compares what a local gives as the expression it names, within the tolerance of its member', () => {
+            const snapshotComparer = snapshotComparerOf('@element { let width: self.wobble.width, a: width, b: width }', { element }, { tolerance: 2 });
+            const previous = freeze({ a: 100, b: 100 });
+
+            expect(snapshotComparer.reconcile(previous, null, freeze({ a: 101.5, b: 101.5 }), null)).toBe(previous);
+        });
+
         it('keeps a number that moved within the tolerance at the one last reported, so the drift cannot add up', () => {
             const snapshotComparer = snapshotComparerOf('@element.wobble.width', { element }, { tolerance: 1 });
             let reported = 100;

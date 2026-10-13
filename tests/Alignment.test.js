@@ -38,4 +38,11 @@ describe('Alignment', () => {
 
         expect(Number(version)).toBe(Domql.parse('@panel { size: self.size }').definition.version);
     });
+
+    it('has a specification whose complete query resolves to the fields of the result it shows', () => {
+        const [, text, result] = specification.match(/## A complete query[\s\S]*?The query reads it:\s*```\n([\s\S]*?)```[\s\S]*?```json\n([\s\S]*?)```/);
+        const resolved = Domql.resolve(Domql.parse(text, { panel: document.createElement('div'), sentinel: document.createElement('div') }));
+
+        expect([...resolved.type.fields.keys()]).toEqual(Object.keys(JSON.parse(result)));
+    });
 });

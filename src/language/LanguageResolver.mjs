@@ -40,7 +40,7 @@ export class LanguageResolver {
 
     /** Resolves and types the definition, answering what it resolved to or throwing where it cannot. */
     resolveDefinition(definition) {
-        const result = this.#node(definition.query, '/query', { current: null });
+        const result = this.#node(definition.query, '/query', { current: null, locals: new Map() });
 
         const resultType = result.kind === 'subscription' && result.type.kind === 'occurrence' ? result.type.item : result.type;
 
@@ -67,6 +67,8 @@ export class LanguageResolver {
                 }
 
                 return { type: scope.current, kind: 'query', isFixed: false };
+            case 'local':
+                return this.#local(node, pointer, scope);
             case 'member':
             case 'call':
             case 'namedOperation':
@@ -110,7 +112,7 @@ export class LanguageResolver {
 
     /** Resolves the predicate name a predicate expression reads, under its verb and against the subject's type. */
     #resolveName(node, pointer, verb, subjectType) {
-        const named = this.#node(node, pointer, { current: null });
+        const named = this.#node(node, pointer, { current: null, locals: new Map() });
 
         if (!named.isFixed || typeof named.value !== 'string') {
             this.#fail(`A predicate '${verb}' reads is named by a string, or a parameter bound to a string, never null`, pointer);
@@ -175,6 +177,40 @@ export class LanguageResolver {
         const type = Type.named('boolean');
 
         return { type: isNullable ? type.toNullable() : type, kind: 'query', isFixed: false };
+    }
+
+    /** Resolves a local: what the one in scope with its name resolved to where it was written. A name no local in scope has is refused, with the form of the current value's member of that name where it has one. */
+    #local(node, pointer, scope) {
+        const local = scope.locals.get(node.name);
+
+        if (local === undefined) {
+            const form = scope.current === null ? null : this.#memberForm(scope.current, node.name);
+
+            this.#fail(`No local named '${node.name}' is in scope${form === null ? '' : `; write '${form}' for the member of the current value`}`, pointer);
+        }
+
+        this.#resolutions.set(pointer, { kind: 'local', name: node.name, value: local.value });
+
+        return local.result;
+    }
+
+    /** How the member of the type with the name is written with `self` as its receiver, or null where the type has none. */
+    #memberForm(type, name) {
+        if (this.#getField(type, name) !== null) {
+            return `self.${name}`;
+        }
+
+        const declaration = this.#registry.getMembers(name).find(candidate => LanguageResolver.#matchesReceiver(candidate, type, new Map()));
+
+        if (declaration === undefined) {
+            return null;
+        }
+
+        if (declaration.kind === 'property') {
+            return `self.${name}`;
+        }
+
+        return declaration.form === 'named' ? `self ${name} …` : `self.${name}(…)`;
     }
 
     #literal(node) {
@@ -293,6 +329,10 @@ export class LanguageResolver {
             this.#fail(`'${declaration.name}' takes its arguments as the fields of an object, as { ${parameters[0].name}: … }`, argumentPointer);
         }
 
+        if (node.argument.locals !== undefined) {
+            this.#fail(`'${declaration.name}' takes its arguments as the fields of an object, whose fields are its parameters, so it holds no locals`, `${argumentPointer}/locals/0`);
+        }
+
         node.argument.fields.forEach((field, index) => {
             const parameter = parameters.find(candidate => candidate.name === field.name);
 
@@ -336,7 +376,7 @@ export class LanguageResolver {
                     this.#fail(`'${declaration.name}' evaluates its expression against the items of a list, and ${receiverType.toNonNullable()} has none`, valuePointer);
                 }
 
-                result = this.#node(given.node, valuePointer, { current: receiverType.item.toNonNullable() });
+                result = this.#node(given.node, valuePointer, { current: receiverType.item.toNonNullable(), locals: scope.locals });
                 this.#requireQuery(result, parameter, declaration, valuePointer);
 
                 if (!Type.isAssignable(result.type, expected)) {
@@ -486,12 +526,26 @@ export class LanguageResolver {
             current = target.type.kind === 'list' || target.type.kind === 'occurrence' ? target.type.item.toNonNullable() : target.type.toNonNullable();
         }
 
+        // Each local is resolved where it is written, against the current value and the locals before it, and every field sees them all.
+        let locals = scope.locals;
+
+        node.locals?.forEach((local, index) => {
+            const valuePointer = `${pointer}/locals/${index}/value`;
+            const result = this.#node(local.value, valuePointer, { current, locals });
+
+            if (result.kind !== 'query') {
+                this.#fail(`The local '${local.name}' is ${LanguageResolver.#nameOf(result.kind)}, and a local is a value`, valuePointer);
+            }
+
+            locals = new Map(locals).set(local.name, { result, value: local.value });
+        });
+
         const fields = new Map();
 
         node.fields.forEach((field, index) => {
             const fieldPointer = `${pointer}/fields/${index}`;
             const { name } = field;
-            const result = this.#node(field.value, `${fieldPointer}/value`, { current });
+            const result = this.#node(field.value, `${fieldPointer}/value`, { current, locals });
 
             if (result.kind !== 'query') {
                 this.#fail(`The field '${name}' is ${LanguageResolver.#nameOf(result.kind)}, and a field is a value`, `${fieldPointer}/value`);

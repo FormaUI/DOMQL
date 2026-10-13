@@ -167,9 +167,10 @@ export type DomqlDefinitionNode =
     | { readonly kind: 'literal'; readonly value: string | number | boolean | null }
     | { readonly kind: 'parameter'; readonly name: string }
     | { readonly kind: 'self' }
+    | { readonly kind: 'local'; readonly name: string }
     | { readonly kind: 'member'; readonly target: DomqlDefinitionNode; readonly name: string }
     | { readonly kind: 'call' | 'namedOperation'; readonly target: DomqlDefinitionNode; readonly name: string; readonly argument?: DomqlDefinitionNode }
-    | { readonly kind: 'object'; readonly target?: DomqlDefinitionNode; readonly fields: readonly DomqlDefinitionField[] }
+    | { readonly kind: 'object'; readonly target?: DomqlDefinitionNode; readonly locals?: readonly DomqlDefinitionLocal[]; readonly fields: readonly DomqlDefinitionField[] }
     | { readonly kind: 'predicate'; readonly verb: 'is' | 'has'; readonly target: DomqlDefinitionNode; readonly name: DomqlPredicateName }
     | { readonly kind: 'conditional'; readonly condition: DomqlDefinitionNode; readonly consequent: DomqlDefinitionNode; readonly alternative: DomqlDefinitionNode }
     | { readonly kind: 'and' | 'or'; readonly operands: readonly DomqlDefinitionNode[] };
@@ -178,6 +179,12 @@ export type DomqlDefinitionNode =
 export type DomqlPredicateName =
     | { readonly kind: 'literal'; readonly value: string | null }
     | { readonly kind: 'parameter'; readonly name: string };
+
+/** A local of an object expression: its name, which a `local` node uses, and the value it names, never output. */
+export interface DomqlDefinitionLocal {
+    readonly name: string;
+    readonly value: DomqlDefinitionNode;
+}
 
 /** A field of an object expression: its name, always written, and its value. */
 export interface DomqlDefinitionField {

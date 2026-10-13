@@ -79,20 +79,22 @@ const panel = document.getElementById('panel');
 
 const query = Domql.parse(`
     @panel {
+        let items: self.all("[data-key]"),
+
         count: self.children.count,
 
-        items: self.all("[data-key]") {
+        items: items {
             key: self attributeOf "data-key",
             height: self.rect.height,
             selected: self matches "[aria-selected=true]"
         },
 
-        selected: self.all("[data-key]")
+        selected: items
             .where(self matches "[aria-selected=true]") {
                 key: self attributeOf "data-key"
             },
 
-        tallest: self.all("[data-key]").max(self.rect.height)
+        tallest: items.max(self.rect.height)
     }
 `, { panel });
 
@@ -119,7 +121,8 @@ With the markup above rendered without additional styling, the result is:
 The query describes the answer directly:
 
 - `@panel` refers to the element supplied in the bindings.
-- Chains such as `rect.height` read members.
+- Chains such as `self.rect.height` read members.
+- `let` names a value once, here the items, for the fields after it.
 - Object expressions choose fields and their output names.
 - An object expression after a list projects each item.
 - `where` filters items, and `max` evaluates an expression across them.

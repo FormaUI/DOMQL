@@ -268,6 +268,38 @@ describe('Watch', () => {
         });
     });
 
+    describe('a local', () => {
+        it('holds what it reads only while an evaluation uses it: from when a branch first reaches it until none does', async () => {
+            watch('@panel { let level: self.level, value: if self attributeOf "data-on" is null then 0 else level }', { panel });
+            await settle();
+
+            expect(snapshots).toEqual([{ value: 0 }]);
+            expect(gauges.has(panel)).toBe(false);
+
+            panel.setAttribute('data-on', '');
+            await settle();
+            gauges.get(panel).sample = { pending: false, value: 5 };
+            gauges.get(panel).notify();
+            await settle();
+
+            expect(snapshots.at(-1)).toEqual({ value: 5 });
+
+            panel.removeAttribute('data-on');
+            await settle();
+
+            expect(snapshots.at(-1)).toEqual({ value: 0 });
+            expect(gauges.get(panel).stopped).toBe(1);
+
+            const reports = snapshots.length;
+
+            gauges.get(panel).sample = { pending: false, value: 6 };
+            gauges.get(panel).notify();
+            await settle();
+
+            expect(snapshots.length).toBe(reports);
+        });
+    });
+
     describe('an evaluation that fails', () => {
         it('is reported, keeps the watch running and its last snapshot, and its recovery reports the snapshot whether or not it differs', async () => {
             const watched = watch('{ n: @panel.flaky }', { panel });

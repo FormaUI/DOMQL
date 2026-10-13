@@ -19,7 +19,10 @@ const TOKEN_NAMES = {
 const VERBS = new Set(['is', 'has']);
 
 /** The tokens an initial expression starts with, and so the argument of a named operation. */
-const INITIAL_STARTS = new Set(['self', 'parameter', 'literal', '{', '(']);
+const INITIAL_STARTS = new Set(['self', 'parameter', 'literal', 'name', '{', '(']);
+
+/** The tokens that, after a space, make the name before them a member written without its receiver, which no local is: an argument. */
+const ARGUMENT_STARTS = new Set(['self', 'parameter', 'literal']);
 
 export class Parser {
     #text;
@@ -56,9 +59,13 @@ export class Parser {
         return this.#parseLogical('or', () => this.#parseLogical('and', () => this.#parseOperand()));
     }
 
-    /** Reads a conditional after its `if` or an `elseif`: its condition, its consequent, and its alternative, an `elseif` being a conditional nested there. */
+    /** Reads a conditional after its `if` or an `elseif`: its condition, a logical term or an operand, its consequent, and its alternative, an `elseif` being a conditional nested there. */
     #parseClause(start) {
-        const condition = this.#parseExpression();
+        if (this.#isOperator('if')) {
+            throw DomqlError.syntax('A conditional that is a condition is enclosed in parentheses: write if (if … then … else …) then …', this.#text, this.#token.start);
+        }
+
+        const condition = this.#parseLogical('or', () => this.#parseLogical('and', () => this.#parseOperand()));
 
         if (!this.#isOperator('then')) {
             throw this.#unexpected("'then' after the condition");
@@ -93,7 +100,7 @@ export class Parser {
         }
 
         if (this.#isOperator('if')) {
-            throw DomqlError.syntax('A conditional that is an operand is grouped: write (if … then … else …)', this.#text, start);
+            throw DomqlError.syntax('A conditional that is an operand is enclosed in parentheses: write (if … then … else …)', this.#text, start);
         }
 
         const chain = this.#parseChain();
@@ -105,8 +112,13 @@ export class Parser {
     #parseChain() {
         const start = this.#token.start;
 
+        // A name that starts a chain is a local, which takes no argument, so one an argument follows is a member written without its receiver.
         if (this.#token.type === 'name') {
-            throw DomqlError.syntax(`'${this.#token.value}' follows no receiver: write ${this.#receiverForm(this.#token.value)} for a member of the current value`, this.#text, start);
+            const next = this.#tokens[this.#index + 1];
+
+            if (next.type === '(' || (next.spaced && ARGUMENT_STARTS.has(next.type))) {
+                throw DomqlError.syntax(`'${this.#token.value}' follows no receiver: write ${this.#receiverForm(this.#token.value)} for a member of the current value`, this.#text, start);
+            }
         }
 
         let node = this.#parseInitial();
@@ -155,6 +167,10 @@ export class Parser {
                 this.#advance();
 
                 return this.#span({ kind: 'literal', value: token.value }, token.start);
+            case 'name':
+                this.#advance();
+
+                return this.#span({ kind: 'local', name: token.value }, token.start);
             case '{':
                 return this.#parseObject(null, token.start);
             case '(': {
@@ -213,6 +229,11 @@ export class Parser {
 
         let node = { kind: 'namedOperation', target, name };
 
+        // A name a colon follows names the next field, which a comma comes before.
+        if (this.#token.type === 'name' && this.#tokens[this.#index + 1].type === ':') {
+            throw this.#unexpected("',' before the next field");
+        }
+
         if (INITIAL_STARTS.has(this.#token.type)) {
             if (!this.#token.spaced) {
                 throw DomqlError.syntax(`The argument of '${name}' follows it after a space or a comment`, this.#text, this.#token.start);
@@ -230,15 +251,9 @@ export class Parser {
         return node;
     }
 
-    /** How a member of the current value is written, for a name written with no receiver. */
+    /** How a member of the current value is written, for a name an argument follows with no receiver before it: a call, or a named operation. */
     #receiverForm(name) {
-        const next = this.#tokens[this.#index + 1];
-
-        if (next.type === '(') {
-            return `'self.${name}(…)'`;
-        }
-
-        return next.spaced && INITIAL_STARTS.has(next.type) ? `'self ${name} …'` : `'self.${name}'`;
+        return this.#tokens[this.#index + 1].type === '(' ? `'self.${name}(…)'` : `'self ${name} …'`;
     }
 
     /** Reads a predicate expression: its verb and the one predicate name it reads, of the subject written before it. */
@@ -292,13 +307,33 @@ export class Parser {
         throw this.#unexpected('a predicate named by a string or a parameter');
     }
 
+    /** Reads an object expression: its locals, each followed by a comma, and then its fields, at least one. */
     #parseObject(target, start) {
         this.#expect('{');
 
-        const node = target ? { kind: 'object', target, fields: [] } : { kind: 'object', fields: [] };
+        const node = target ? { kind: 'object', target } : { kind: 'object' };
+        const locals = [];
+
+        while (this.#isLocal()) {
+            locals.push(this.#parseLocal());
+
+            if (this.#token.type !== ',') {
+                throw this.#unexpected("',' after the local, which the fields follow");
+            }
+
+            this.#advance();
+        }
+
+        if (locals.length > 0) {
+            node.locals = locals;
+        }
+
+        node.fields = [];
 
         if (this.#token.type === '}') {
-            throw DomqlError.syntax('An object expression holds at least one field, as { size: self.size }', this.#text, this.#token.start);
+            const example = locals.length > 0 ? '{ let r: self.rect, width: r.width }' : '{ size: self.size }';
+
+            throw DomqlError.syntax(`An object expression holds at least one field${locals.length > 0 ? ' after its locals' : ''}, as ${example}`, this.#text, this.#token.start);
         }
 
         while (this.#token.type !== '}') {
@@ -316,23 +351,53 @@ export class Parser {
         return this.#span(node, start);
     }
 
+    /** Reads a local: `let`, its name, a colon and its value. */
+    #parseLocal() {
+        const start = this.#token.start;
+
+        this.#advance();
+
+        if (!(this.#token.type === 'name' && this.#tokens[this.#index + 1]?.type === ':')) {
+            this.#refuseName('A local is written with let, its name and a colon before its value, as let r: self.rect');
+        }
+
+        return this.#parseEntry(start);
+    }
+
     /** Reads a field: its name, a colon and its value. */
     #parseField() {
         const start = this.#token.start;
-        const isNamed = this.#tokens[this.#index + 1]?.type === ':';
 
-        if (isNamed && this.#token.type === 'literal') {
-            throw DomqlError.syntax(`'${this.#text.slice(this.#token.start, this.#token.end)}' is a literal, and names nothing`, this.#text, start);
+        if (this.#isLocal()) {
+            throw DomqlError.syntax('A local is written before the fields of its object expression', this.#text, start);
         }
 
-        if (isNamed && (this.#token.type === 'operator' || this.#token.type === 'self')) {
-            throw DomqlError.syntax(`'${this.#text.slice(this.#token.start, this.#token.end)}' is a keyword, and names nothing`, this.#text, start);
+        if (!(this.#token.type === 'name' && this.#tokens[this.#index + 1]?.type === ':')) {
+            this.#refuseName('A field is written with its name and a colon before its value, as size: self.size');
         }
 
-        if (!(isNamed && this.#token.type === 'name')) {
-            throw DomqlError.syntax('A field is written with its name and a colon before its value, as size: self.size', this.#text, start);
+        return this.#parseEntry(start);
+    }
+
+    /** Refuses what stands where a local or a field is named: a literal or a keyword a colon follows names nothing, and anything else is written as the message gives. */
+    #refuseName(message) {
+        const token = this.#token;
+
+        if (this.#tokens[this.#index + 1]?.type === ':') {
+            if (token.type === 'literal') {
+                throw DomqlError.syntax(`'${this.#text.slice(token.start, token.end)}' is a literal, and names nothing`, this.#text, token.start);
+            }
+
+            if (token.type === 'operator' || token.type === 'self') {
+                throw DomqlError.syntax(`'${this.#text.slice(token.start, token.end)}' is a keyword, and names nothing`, this.#text, token.start);
+            }
         }
 
+        throw DomqlError.syntax(message, this.#text, token.start);
+    }
+
+    /** Reads what a local and a field both are after their start: a name, a colon and a value. */
+    #parseEntry(start) {
         const name = this.#token.value;
         this.#index += 2;
 
@@ -345,6 +410,11 @@ export class Parser {
 
     #isVerb() {
         return this.#token.type === 'operator' && VERBS.has(this.#token.value);
+    }
+
+    /** Whether a local starts here: `let`, which a colon after it would make a field's name instead, a keyword that names nothing. */
+    #isLocal() {
+        return this.#isOperator('let') && this.#tokens[this.#index + 1]?.type !== ':';
     }
 
     #isOperator(operator) {

@@ -306,10 +306,89 @@ describe('Domql', () => {
         });
     });
 
+    describe('locals', () => {
+        const local = name => ({ kind: 'local', name });
+
+        it('read into the object expression that holds them, before its fields, and a bare name as a use of one', () => {
+            expect(Domql.parse('@panel { let items: self.all("[data-key]"), count: items.count }').definition.query).toEqual({
+                kind: 'object',
+                target: parameter('panel'),
+                locals: [{ name: 'items', value: call('all', literal('[data-key]')) }],
+                fields: [{ name: 'count', value: member('count', local('items')) }],
+            });
+        });
+
+        it('stand where an initial expression stands, an object expression following one and a named operation taking one', () => {
+            const { query } = Domql.parse('@panel { let key: "data-key", let items: self.children, rows: items { key: self attributeOf key } }').definition;
+
+            expect(query.fields[0].value).toEqual({ kind: 'object', target: local('items'), fields: [{ name: 'key', value: named('attributeOf', local('key')) }] });
+        });
+
+        it('are created from a definition as they are parsed from text', () => {
+            const parsed = Domql.parse('@panel { let items: self.children, count: items.count, inner: self { let first: items.at(0), key: first attributeOf "data-key" } }', { panel: document.body });
+
+            expect(Domql.create(parsed.definition, { panel: document.body }).definition).toEqual(parsed.definition);
+        });
+
+        it('leave out of a definition the locals an object expression has none of', () => {
+            const definition = { version: 3, query: { kind: 'object', target: parameter('panel'), locals: [], fields: [{ name: 'size', value: member('size') }] } };
+
+            expect(Domql.parse('@panel { size: self.size }').definition.query).not.toHaveProperty('locals');
+            expect(Domql.create(definition, { panel: document.body }).definition.query).not.toHaveProperty('locals');
+        });
+
+        it.each([
+            ['two locals of one object expression with one name', '@panel { let a: 1, let a: 2, b: a }', 1, 20],
+            ['a local reusing the name of one an enclosing object expression has in scope', '@panel { let a: 1, b: self { let a: 2, c: a } }', 1, 30],
+        ])('refuse %s, naming where', (_, text, line, column) => {
+            const error = getError(() => Domql.parse(text));
+
+            expect(error.kind).toBe('structure');
+            expect(error.location).toMatchObject({ line, column });
+        });
+
+        it('let object expressions beside one another each name a local alike', () => {
+            expect(Domql.read(Domql.parse('@panel { a: self { let n: 1, v: n }, b: self { let n: 2, v: n } }', { panel: document.body }))).toEqual({ a: { v: 1 }, b: { v: 2 } });
+        });
+
+        it.each([
+            ['a local named by no name', { kind: 'object', target: parameter('panel'), locals: [{ name: 'let', value: literal(1) }], fields: [{ name: 'a', value: literal(1) }] }, '/query/locals/0/name'],
+            ['a local without its value', { kind: 'object', target: parameter('panel'), locals: [{ name: 'n' }], fields: [{ name: 'a', value: literal(1) }] }, '/query/locals/0'],
+            ['a use of a local named by no name', { kind: 'local', name: 'if' }, '/query/name'],
+        ])('refuse a definition with %s', (_, query, pointer) => {
+            const error = getError(() => Domql.create({ version: 3, query }, { panel: document.body }));
+
+            expect(error.kind).toBe('structure');
+            expect(error.location.pointer).toBe(pointer);
+        });
+
+        it.each([
+            ['a member written without its receiver', '@panel { width: rect.width }', "No local named 'rect' is in scope; write 'self.rect' for the member of the current value", 17],
+            ['a named operation written without its receiver or argument', '@panel { key: attributeOf }', "No local named 'attributeOf' is in scope; write 'self attributeOf …'", 15],
+            ['a call written without its receiver or argument', '@panel { row: closest }', "No local named 'closest' is in scope; write 'self.closest(…)'", 15],
+            ['a name that is no member of the current value', '@panel { a: nothing }', "No local named 'nothing' is in scope", 13],
+            ['a local used before it is written', '@panel { let a: b, let b: 1, c: a }', "No local named 'b' is in scope", 17],
+            ['a local that uses itself', '@panel { let n: n, a: 1 }', "No local named 'n' is in scope", 17],
+            ['a local read from the document where a fixed argument stands', '@panel { let path: self attributeOf "data-path", width: self.get(path) }', "The argument 'name' of 'get' selects from the vocabulary, so it is a string literal or a parameter bound to a string", 66],
+            ['a local of an object expression used beside it', '@panel { a: self { let n: 1, v: n }, b: n }', "No local named 'n' is in scope", 41],
+            ['a name at the top level', 'items.count', "No local named 'items' is in scope", 1],
+            ['an options object holding a local', '@sentinel intersects { let m: 200, root: @panel, margin: m }', "'intersects' takes its arguments as the fields of an object, whose fields are its parameters, so it holds no locals", 24],
+        ])('refuse %s in resolution, naming where', (_, text, message, column) => {
+            const error = getError(() => Domql.read(Domql.parse(text, { panel: document.body, sentinel: document.body })));
+
+            expect(error.kind).toBe('validation');
+            expect(error.message).toContain(message);
+            expect(error.location).toMatchObject({ line: 1, column });
+        });
+
+        it('suggest no member a name has where there is no current value', () => {
+            expect(getError(() => Domql.read(Domql.parse('rect.width'))).message).not.toContain('write');
+        });
+    });
+
     describe('syntax', () => {
         it.each([
             ['two fields with no comma between them', '@panel {\n    size: self.size\n    clientSize: self.clientSize\n}', 3, 5],
-            ['a member with no receiver', '@panel { width: rect.width }', 1, 17],
             ['a call with no receiver', '@panel { row: first(".row") }', 1, 15],
             ['a named operation with no receiver', '@panel { id: attributeOf "id" }', 1, 14],
             ['a predicate expression with no subject', '@panel { open: is "attached" }', 1, 16],
@@ -357,6 +436,13 @@ describe('Domql', () => {
             ['a keyword of the conditional naming a field', '@panel { then: self.size }', 1, 10],
             ['a keyword of the conditional naming a member', '@panel.else', 1, 8],
             ['has null', '@panel has null', 1, 12],
+            ['a conditional that is a condition without parentheses', 'if if @a then @b else @c then 1 else 2', 1, 4],
+            ['let naming a field', '@panel { let: self.size }', 1, 10],
+            ['a keyword naming a local', '@panel { let if: self.size, a: 1 }', 1, 14],
+            ['a local after a field', '@panel { a: self.size, let r: self.rect }', 1, 24],
+            ['a local without its comma', '@panel { let r: self.rect width: r.width }', 1, 27],
+            ['an object expression of locals alone', '@panel { let r: self.rect, }', 1, 28],
+            ['a local given an argument', '@panel { let r: self.rect, a: r "x" }', 1, 31],
         ])('rejects %s, naming where', (_, text, line, column) => {
             const error = getError(() => Domql.parse(text));
 
