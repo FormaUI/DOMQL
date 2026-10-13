@@ -73,25 +73,34 @@ self attributeOf "data-key"                  // Named operation.
 
 #### Complete grammar
 
-In this notation, `[...]` means optional, `{...}` means repetition, `|` separates alternatives, `-` means exclusion, and `? ... ?` describes a special sequence.
+In this notation, `[...]` means optional, `{...}` means repetition, `|` separates alternatives, `-` means exclusion, and `? ... ?` describes a special sequence. A name ending in `-term` names the forms a level of `and` and `or` accepts, as `conjunction-term` names what `or` joins; every other name describes a form written or the category a position holds.
 
 ```ebnf
 query            = expression end-of-input
 
-expression       = conditional | disjunction
-conditional      = "if" expression "then" expression
-                   { "elseif" expression "then" expression }
+expression       = conditional | logical-term | operand
+
+conditional      = "if" condition "then" expression
+                   { "elseif" condition "then" expression }
                    "else" expression
 
-disjunction      = conjunction { "or" conjunction }
-conjunction      = operand { "and" operand }
-operand          = chain [ predicate ]
+condition        = logical-term | operand
 
-chain            = initial { "." ( identifier | call ) | object }
-                   [ separator named-operation ]
+logical-term     = disjunction | conjunction
+disjunction      = conjunction-term "or" conjunction-term
+                   { "or" conjunction-term }
+conjunction-term = conjunction | operand
+conjunction      = operand "and" operand { "and" operand }
+
+operand          = value [ predicate ]
+
+value            = initial | chain | operation
 initial          = "self" | parameter | literal | object | group | identifier
-group            = "(" expression ")"
+chain            = initial continuation { continuation }
+continuation     = "." ( identifier | call ) | object
+operation        = ( initial | chain ) separator named-operation
 
+group            = "(" expression ")"
 call             = identifier "(" [ expression ] ")"
 named-operation  = identifier [ separator initial ]
 
@@ -155,6 +164,9 @@ Strings support only `\"` and `\\` as escapes, and may hold a literal line break
 
 What follows from the grammar, stated for whoever implements it:
 
+- A conjunction is written only with `and`, a disjunction only with `or`, and an expression with neither is an operand; a chain has at least one continuation, so `42` and `@panel` are initial expressions. A `value` names the syntax that supplies a value, whose type resolution decides.
+- A condition accepts a logical term or an operand. Conditions and operands of `and` and `or` must be Boolean, as checked during resolution. Boolean parameters and operations can therefore be used directly: `if @wide then …` or `self matches ":focus" and @enabled`.
+- A conditional used as a condition or an operand must be enclosed in parentheses: `if (if @a then @b else @c) then 1 else 2`. Each `then`, `elseif … then`, and `else` branch accepts a complete expression, including an ungrouped conditional.
 - A call takes one expression: `self.method(a, b)` is refused, and an options declaration takes `self.method({ a: a, b: b })`.
 - An object expression holds at least one field, after its locals, each local followed by a comma, and may end with a comma: `{}` and `{ let x: 1 }` are syntax errors.
 - A named operation ends its chain, and a group continues from its result.
@@ -365,7 +377,7 @@ D10's complete grammar holds its productions: `local`, the locals an object's `o
 - **Order.** A local is visible to the locals after it, to every field of its object expression and to everything nested in them, and never before it, so a query reads from the top down, a local can use the ones above it, and none can depend on itself. Since the locals come first, the order a definition records is the order the text writes.
 - **Scope.** A local's expression is resolved where it is written, so its `self` is the current value of the object expression that holds it, wherever the local is used: inside `rows` above, `self` is each row, and `items` is still the panel's list.
 - **Names.** Two locals of one object expression never share a name, and a local never reuses the name of a local an enclosing object expression has in scope, so a name means one thing wherever it is visible. Locals and fields are separate, so `let items: …, items: items` holds a field named after its local.
-- **Evaluation.** A local is evaluated once in an evaluation, at its first use, and every use sees that value; one that no evaluated expression uses reads nothing, and a watch follows what was read. Like every expression, it is resolved and validated before anything is evaluated.
+- **Evaluation.** During each evaluation, each application of an object expression has its own locals. Each local is evaluated at most once, at its first use within that application, and every use there sees that value: in `@panel.children { let r: self.rect, … }`, each child gets its own `r`, which repeated uses for that child reuse, and a later evaluation gets fresh locals. An unused local evaluates nothing and contributes no observation dependencies, and a watch follows what was read. Like every expression, it is resolved and validated before anything is evaluated.
 - **It is never output.** A local is no field, and the result never holds it.
 - **Where.** In an object expression alone; an options object, whose fields map to parameters, holds none.
 - **Definition.** An object node holds its locals under `locals`, each a name and a value, in order, and a use of one is a `local` node naming it; a definition is checked by the same order, a local seeing only those before it. The writer writes them back as `let` entries before the fields, so parsing, writing and parsing again gives the same definition.
@@ -699,7 +711,7 @@ Choose between two values, group expressions and combine Boolean expressions, as
 Name a value once in an object expression and use it after, as D11 decides.
 
 - **Needs:** D11, step 10.
-- **Done when:** text and a definition each write locals, parsed, validated, written and resolved as D11 sets out; a bare name starting a chain is a local, and one no local in scope has is refused with an error giving the form with `self` where a member has that name; locals come before the fields, a local is visible only after it, and it refuses a name taken in its object expression or by an enclosing one, and is refused in an options object; its `self` is where it is written; it is evaluated once, at its first use, and never output, and a watch follows what it read; the specification, the design and the READMEs describe it; and the specification's grammar is D10's complete grammar, with its lexical rules, which the parser follows as its contract and which D10's retirement leaves to the specification alone.
+- **Done when:** text and a definition each write locals, parsed, validated, written and resolved as D11 sets out; a bare name starting a chain is a local, and one no local in scope has is refused with an error giving the form with `self` where a member has that name; locals come before the fields, a local is visible only after it, and it refuses a name taken in its object expression or by an enclosing one, and is refused in an options object; its `self` is where it is written, which using it inside a nested projection leaves unchanged; each application of its object expression in each evaluation evaluates it at most once, at its first use there, so each item of a list gets its own and a later evaluation a fresh one; an unused local evaluates nothing and adds no dependency; it is never output, and a watch follows what it read, each of these with a test of its own; the specification, the design and the READMEs describe it; and the specification's grammar is D10's complete grammar, with its rule names and lexical rules, a condition and an operand of `and` or `or` any operand the grammar allows and Boolean by type, and a conditional that is a condition refused unless grouped, which the parser follows as its contract and which D10's retirement leaves to the specification alone.
 - **State:** not started.
 
 ### 13. The API
