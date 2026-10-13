@@ -18,7 +18,6 @@ import { ModuleRegistry } from './language/vocabulary/ModuleRegistry.mjs';
 import { ParameterBindings } from './language/ParameterBindings.mjs';
 import { ParsedTexts } from './language/ParsedTexts.mjs';
 import { Specification } from './language/Specification.mjs';
-import { TypedBinding } from './language/TypedBinding.mjs';
 
 /**
  * How a query is resolved.
@@ -109,7 +108,7 @@ export class Domql {
     /**
      * Parses text into a query, binding its parameters.
      * @param {string} text The query text.
-     * @param {Record<string, unknown>} [bindings] Values or typed bindings supplied by parameter name.
+     * @param {Record<string, unknown>} [bindings] The values supplied by parameter name.
      * @returns {DomqlQuery}
      */
     static parse(text, bindings = {}) {
@@ -123,7 +122,7 @@ export class Domql {
     /**
      * Creates a query from its definition, binding its parameters.
      * @param {object} definition The query's definition.
-     * @param {Record<string, unknown>} [bindings] Values or typed bindings supplied by parameter name.
+     * @param {Record<string, unknown>} [bindings] The values supplied by parameter name.
      * @returns {DomqlQuery}
      */
     static create(definition, bindings = {}) {
@@ -131,20 +130,11 @@ export class Domql {
     }
 
     /**
-     * Binds a value with the type it has, for a value that reveals none, such as null or an empty list.
-     * @param {unknown} value The value bound.
-     * @param {string} type The type, as `element?`, `list<number>` or `{ id: string }`.
-     */
-    static bind(value, type) {
-        return new TypedBinding(value, type);
-    }
-
-    /**
      * Resolves a query against the registered vocabulary and types it, without evaluating anything. A query resolved again under the same options and vocabulary returns the resolution it already has.
      *
      * @overload
      * @param {string} text The query text, parsed as `parse` parses it, through the same cache.
-     * @param {Record<string, unknown>} [bindings] Values or typed bindings supplied by parameter name.
+     * @param {Record<string, unknown>} [bindings] The values supplied by parameter name.
      * @param {DomqlResolveOptions} [options] How the query will be carried out.
      * @returns {import('./language/ResolvedDefinition.mjs').ResolvedDefinition}
      *
@@ -165,7 +155,7 @@ export class Domql {
      *
      * @overload
      * @param {string} text The query text, parsed as `parse` parses it, through the same cache.
-     * @param {Record<string, unknown>} [bindings] Values or typed bindings supplied by parameter name.
+     * @param {Record<string, unknown>} [bindings] The values supplied by parameter name.
      * @param {DomqlReadOptions} [options] How the read is carried out.
      * @returns {unknown}
      *
@@ -187,7 +177,7 @@ export class Domql {
      *
      * @overload
      * @param {string} text The query text, parsed as `parse` parses it, through the same cache.
-     * @param {Record<string, unknown>} [bindings] Values or typed bindings supplied by parameter name.
+     * @param {Record<string, unknown>} [bindings] The values supplied by parameter name.
      * @param {DomqlReadAsyncOptions} [options] How the read is carried out.
      * @returns {Promise<unknown>}
      *
@@ -264,7 +254,7 @@ export class Domql {
      *
      * @overload
      * @param {string} text The query text, parsed as `parse` parses it, through the same cache.
-     * @param {Record<string, unknown>} bindings Values or typed bindings supplied by parameter name; `{}` for a text that has none.
+     * @param {Record<string, unknown>} bindings The values supplied by parameter name; `{}` for a text that has none.
      * @param {DomqlWatchConfiguration} configuration How the query is watched.
      * @returns {Watch}
      *
@@ -321,7 +311,7 @@ export class Domql {
      *
      * @overload
      * @param {string} text The subscription text, parsed as `parse` parses it, through the same cache.
-     * @param {Record<string, unknown>} bindings Values or typed bindings supplied by parameter name; `{}` for a text that has none.
+     * @param {Record<string, unknown>} bindings The values supplied by parameter name; `{}` for a text that has none.
      * @param {DomqlSubscribeConfiguration} configuration How the event listener listens.
      * @returns {EventListener}
      *
@@ -357,7 +347,7 @@ export class Domql {
      *
      * @overload
      * @param {string} text The action request's text, parsed as `parse` parses it, through the same cache.
-     * @param {Record<string, unknown>} [bindings] Values or typed bindings supplied by parameter name.
+     * @param {Record<string, unknown>} [bindings] The values supplied by parameter name.
      * @param {DomqlRunAsyncOptions} [options] How the action is run.
      * @returns {Promise<unknown>}
      *
@@ -437,7 +427,7 @@ export class Domql {
      *
      * @overload
      * @param {string} text The behavior request's text, parsed as `parse` parses it, through the same cache.
-     * @param {Record<string, unknown>} [bindings] Values or typed bindings supplied by parameter name.
+     * @param {Record<string, unknown>} [bindings] The values supplied by parameter name.
      * @param {DomqlActivateOptions} [options] How the behavior is activated.
      * @returns {Behavior}
      *

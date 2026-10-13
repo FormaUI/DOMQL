@@ -151,7 +151,10 @@ export class QueryEvaluator {
         }
     }
 
-    /** The member the request ends in, evaluated up to its call: its declaration, the function that carries it out, and its receiver and arguments, which are null where the receiver or an argument is. */
+    /**
+     * The member the request ends in, evaluated up to its call: its declaration, the function that carries it out, and its receiver and arguments, which are null where the receiver or an argument is.
+     * A member that follows a receiver of unknown type has no declaration and no function, and its receiver is null.
+     */
     #resolveCall(kind, operationDescription) {
         if (this.#resolvedDefinition.kind !== kind) {
             this.#fail(`A ${this.#resolvedDefinition.kind} request is not ${operationDescription}`, '/query');
@@ -161,6 +164,11 @@ export class QueryEvaluator {
         const resolution = this.#resolvedDefinition.resolutionOf(node);
         const { declaration } = resolution;
         const receiver = this.#evaluate(node.target, null);
+
+        if (declaration === null) {
+            return { declaration, name: node.name, implementation: null, receiver, args: null, environment: this.#environment, location: this.#locate(pointer), node };
+        }
+
         const args = receiver === null ? null : this.#arguments(resolution, null);
 
         const implementation = this.#moduleRegistry.getFunction(declaration);

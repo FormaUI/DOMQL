@@ -541,13 +541,21 @@ describe('Domql', () => {
             expect(query.bindings.has('PANEL')).toBe(false);
         });
 
-        it('types a binding by what its value reveals', () => {
-            const { bindings } = Domql.parse('@target { size: self.size }', { target: document.createElement('div'), count: 3, ids: [1, 2], row: { id: 'a', parent: document.createElement('div') } });
+        it.each([
+            ['an element', () => document.createElement('div'), 'element'],
+            ['a number', () => 3, 'number'],
+            ['a list of numbers', () => [1, 2], 'list<number>'],
+            ['an object', () => ({ id: 'a', parent: document.createElement('div') }), '{ id: string, parent: element }'],
+            ['null', () => null, 'null'],
+            ['the empty list', () => [], 'list<never>'],
+            ['a list of nulls alone', () => [null, null], 'list<null>'],
+            ['a list holding a null', () => [document.createElement('div'), null], 'list<element?>'],
+            ['an object holding a null', () => ({ id: 'a', parent: null }), '{ id: string, parent: null }'],
+            ['a list of lists, one of them empty', () => [[1], []], 'list<list<number>>'],
+        ])('types %s from the value alone', (_, value, type) => {
+            const { bindings } = Domql.parse('@target', { target: value() });
 
-            expect(bindings.getType('target').kind).toBe('element');
-            expect(bindings.getType('count').kind).toBe('number');
-            expect(bindings.getType('ids')).toMatchObject({ kind: 'list', item: { kind: 'number' } });
-            expect(bindings.getType('row')).toMatchObject({ kind: 'object' });
+            expect(bindings.getType('target').toString()).toBe(type);
         });
 
         it('reads a bound object field by field, a field named __proto__ as an ordinary field of its own', () => {
@@ -563,16 +571,15 @@ describe('Domql', () => {
         });
 
         it.each([
-            ['null', null],
-            ['an empty list', []],
             ['a list of items of different types', [1, 'two']],
-            ['a list holding a null', [1, null]],
-            ['an object holding a null', { id: 'a', parent: null }],
-        ])('requires a declared type for %s', (_, value) => {
-            const error = getError(() => Domql.parse('@target { size: self.size }', { target: value }));
+            ['a list of lists of different item types', [[1], ['two']]],
+            ['a list of objects of different fields', [{ id: 'a' }, { key: 'a' }]],
+        ])('refuses %s, which no type holds', (_, value) => {
+            const error = getError(() => Domql.parse('@target', { target: value }));
 
             expect(error.kind).toBe('structure');
             expect(error.location).toEqual({ binding: 'target' });
+            expect(error.message).toContain('no union types');
         });
 
         it.each([
@@ -580,7 +587,6 @@ describe('Domql', () => {
             ['in the middle', [1, , 2]],
             ['last', [1, 2, ,]],
             ['in a list an object holds', { ids: [1, , 2] }],
-            ['in a list of a typed binding', Domql.bind([1, , 2], 'list<number>')],
         ])('refuses a list with a hole %s, which holds no value there', (_, value) => {
             const error = getError(() => Domql.parse('@target', { target: value }));
 
@@ -589,36 +595,12 @@ describe('Domql', () => {
             expect(error.location).toEqual({ binding: 'target' });
         });
 
-        it.each([
-            ['an unavailable element', null, 'element?'],
-            ['an empty list', [], 'list<number>'],
-            ['a list holding a null', [1, null], 'list<number?>'],
-            ['an object holding a null', { id: 'a', parent: null }, '{ id: string, parent: element? }'],
-            ['a nested list', [[1], []], 'list<list<number>>'],
-        ])('accepts %s declared as its type', (_, value, type) => {
-            const { bindings } = Domql.parse('@target { size: self.size }', { target: Domql.bind(value, type) });
+        it('types a binding again from its value through create', () => {
+            const parsed = Domql.parse('@target { size: self.size }', { target: null });
+            const created = Domql.create(parsed.definition, { target: document.createElement('div') });
 
-            expect(bindings.get('target')).toBe(value);
-            expect(bindings.getType('target')).toBeDefined();
-        });
-
-        it.each([
-            ['mixed items under a list of one type', [1, 'two'], 'list<number>'],
-            ['a null under a type that is not nullable', null, 'element'],
-            ['an element where a number is declared', document.createElement('div'), 'number'],
-            ['an object field of another type', { id: 1 }, '{ id: self.string }'],
-            ['an object with a field the type lacks', { id: 'a', extra: 1 }, '{ id: self.string }'],
-            ['a type that is no type', 1, 'integer'],
-            ['a type with an unclosed list', [1], 'list<number'],
-        ])('rejects %s', (_, value, type) => {
-            expect(getError(() => Domql.parse('@target { size: self.size }', { target: Domql.bind(value, type) })).kind).toBe('structure');
-        });
-
-        it('supplies the type again through create', () => {
-            const parsed = Domql.parse('@target { size: self.size }', { target: Domql.bind(null, 'element?') });
-            const created = Domql.create(parsed.definition, { target: Domql.bind(document.createElement('div'), 'element?') });
-
-            expect(created.bindings.getType('target')).toMatchObject({ kind: 'element', isNullable: true });
+            expect(parsed.bindings.getType('target').toString()).toBe('null');
+            expect(created.bindings.getType('target').toString()).toBe('element');
         });
 
         it('treats a root or a reserved literal in another case as an ordinary name', () => {
@@ -796,7 +778,7 @@ describe('Domql reads', () => {
             const before = Domql.resolve(query);
 
             expect(Domql.resolve(query, { watch: true })).not.toBe(before);
-            expect(Domql.resolve(Domql.parse('@panel.size', { panel: Domql.bind(null, 'element?') }))).not.toBe(before);
+            expect(Domql.resolve(Domql.parse('@panel.size', { panel: null }))).not.toBe(before);
             expect(Domql.resolve('(@panel eventsOf @type) { button: self.button }', { panel, type: 'click' })).not.toBe(Domql.resolve('(@panel eventsOf @type) { button: self.button }', { panel, type: 'pointerdown' }));
         });
 
@@ -916,13 +898,6 @@ describe('Domql instances', () => {
         expect(Domql.read(Domql.create(count.definition, { panel }))).toBe(2);
         expect(other.read(zoom)).toBe(7);
         expect(getError(() => Domql.resolve(Domql.create(zoom.definition, { panel }))).kind).toBe('validation');
-    });
-
-    it('take a typed binding made by this instance, and refuse one another instance made', () => {
-        const { definition } = other.parse('@title', { title: other.bind(null, 'string?') });
-
-        expect(Domql.read(Domql.create(definition, { title: Domql.bind(null, 'string?') }))).toBeNull();
-        expect(getError(() => Domql.create(definition, { title: other.bind(null, 'string?') })).kind).toBe('structure');
     });
 });
 
@@ -1214,7 +1189,7 @@ describe('Domql runAsync', () => {
     });
 
     it('runs nothing where the receiver is null, and answers null', async () => {
-        expect(await isolated.runAsync('@item.mark("seen")', { item: isolated.bind(null, 'element?') })).toBeNull();
+        expect(await isolated.runAsync('@item.mark("seen")', { item: null })).toBeNull();
         expect(runs).toEqual([]);
     });
 
@@ -1292,5 +1267,153 @@ describe('Domql runAsync', () => {
     it('rejects where its receiver or arguments cannot be evaluated, and runs nothing', async () => {
         await expect(isolated.runAsync('@panel.first("[").mark("seen")', { panel })).rejects.toThrow(expect.objectContaining({ kind: 'evaluation', message: expect.stringContaining("The member 'first' failed") }));
         expect(runs).toEqual([]);
+    });
+});
+
+describe('Domql receivers of unknown type', () => {
+    // Each test loads its own copy of Domql, with a registry of its own.
+    let isolated;
+    let panel;
+
+    beforeEach(async () => {
+        vi.resetModules();
+        ({ Domql: isolated } = await import('#domql/domql.js'));
+        document.body.innerHTML = '<div id="panel"><b></b></div>';
+        panel = document.getElementById('panel');
+    });
+
+    it('answer null for a member of a null binding, of the result its declarations share made nullable', () => {
+        expect(isolated.read('@panel.size', { panel: null })).toBeNull();
+        expect(isolated.resolve('@panel.size', { panel: null }).type.toString()).toBe('size?');
+        expect(isolated.resolve('@panel.children.count', { panel: null }).type.toString()).toBe('number?');
+    });
+
+    it('answer null for an object expression following a null binding, its fields resolved against no value', () => {
+        expect(isolated.read('{ panel: @panel { size: self.size, key: self attributeOf "data-key" }, ids: @ids }', { panel: null, ids: [] })).toEqual({ panel: null, ids: [] });
+        expect(isolated.resolve('@panel { size: self.size }', { panel: null }).type.toString()).toBe('{ size: size? }?');
+    });
+
+    it.each([
+        ['a call no declaration has', '@panel.sise()', 'no member of the vocabulary'],
+        ['a name in a form none of its declarations takes', '@panel.size()', 'is a property'],
+        ['an argument none of its declarations takes', '@panel attributeOf 5', "expects string and finds number"],
+        ['a misspelled call in the object expression that follows', '@panel { size: self.sise() }', 'no member of the vocabulary'],
+        ['a predicate name no predicate has', '@panel is "nonsense"', 'no predicate'],
+    ])('refuse %s', (_, text, message) => {
+        const error = getError(() => isolated.resolve(text, { panel: null }));
+
+        expect(error.kind).toBe('validation');
+        expect(error.message).toContain(message);
+    });
+
+    it('test a null binding by the predicate it names, and read a get of one as null', () => {
+        expect(isolated.read('@panel is "attached"', { panel: null })).toBeNull();
+        expect(isolated.read('@panel.get("size.width")', { panel: null })).toBeNull();
+        expect(isolated.read('@row.get("id")', { row: null })).toBeNull();
+    });
+
+    it('accept any property of data that has not arrived, the empty rows projected to the empty list', () => {
+        const rows = isolated.parse('@rows { id: self.id }', { rows: [] });
+
+        expect(isolated.read(rows)).toEqual([]);
+        expect(isolated.read(isolated.create(rows.definition, { rows: [{ id: 'a' }] }))).toEqual([{ id: 'a' }]);
+        expect(isolated.read('@row.id', { row: null })).toBeNull();
+        expect(isolated.read('@row { id: self.id }', { row: null })).toBeNull();
+    });
+
+    it('check a property once the type of its receiver is known, a nullable one included', () => {
+        const row = isolated.parse('@row.id', { row: null });
+        const panel = isolated.parse('@panel.sise', { panel: null });
+
+        expect(isolated.read(row)).toBeNull();
+        expect(getError(() => isolated.resolve(isolated.create(row.definition, { row: { key: 'a' } }))).kind).toBe('validation');
+        expect(isolated.read(panel)).toBeNull();
+        expect(getError(() => isolated.resolve(isolated.create(panel.definition, { panel: document.getElementById('panel') }))).message).toContain('sise');
+        expect(getError(() => isolated.resolve('@panel.parent.sise', { panel: document.getElementById('panel') })).message).toContain('sise');
+    });
+
+    it('keep the request kind of the name, so a subscription of a null binding listens to nothing and is refused a read', () => {
+        const text = '(@panel eventsOf "click") { button: self.button }';
+        const results = [];
+        const listener = isolated.subscribe(text, { panel: null }, { onEvent: result => results.push(result) });
+
+        panel.dispatchEvent(new MouseEvent('click'));
+
+        expect(isolated.resolve(text, { panel: null }).kind).toBe('subscription');
+        expect(results).toEqual([]);
+        expect(getError(() => isolated.read(text, { panel: null })).kind).toBe('validation');
+
+        listener.dispose();
+    });
+
+    it('apply a behavior of a null binding with nothing in effect, until an update supplies its receiver', () => {
+        const calls = [];
+
+        isolated.registerModule(isolated.createModule('mark', {
+            members: [{ name: 'mark', function: 'mark', kind: 'behavior', on: 'element', parameters: [], result: 'boolean', changes: 'unobserved', reads: 'fresh' }],
+        }, { mark: element => (calls.push(element), { update: () => {}, dispose: () => calls.push('dispose') }) }));
+
+        const behavior = isolated.activate('@item.mark()', { item: null });
+
+        expect(calls).toEqual([]);
+
+        behavior.update({ item: panel });
+        behavior.update({ item: null });
+
+        expect(calls).toEqual([panel, 'dispose']);
+    });
+
+    it('commit a behavior of a null binding to the declaration its first receiver selects', () => {
+        const behavior = { kind: 'behavior', parameters: [], result: 'boolean', changes: 'unobserved', reads: 'fresh' };
+        const start = () => ({ update: () => {}, dispose: () => {} });
+
+        isolated.registerModule(isolated.createModule('mark', {
+            members: [{ ...behavior, name: 'mark', function: 'markElement', on: 'element' }, { ...behavior, name: 'mark', function: 'markText', on: 'string' }],
+        }, { markElement: start, markText: start }));
+
+        const applied = isolated.activate('@item.mark()', { item: null });
+
+        applied.update({ item: panel });
+        applied.update({ item: null });
+
+        const error = getError(() => applied.update({ item: 'text' }));
+
+        expect(error.kind).toBe('validation');
+        expect(error.message).toContain('another behavior');
+    });
+
+    it('refuse a name whose declarations make requests of different kinds', () => {
+        isolated.registerModule(isolated.createModule('ping', {
+            members: [{ name: 'ping', function: 'ping', kind: 'action', on: 'element', parameters: [], result: 'boolean', changes: 'unobserved', reads: 'fresh' }],
+        }, { ping: () => true }));
+        isolated.registerModule(isolated.createModule('radar', {
+            types: [{ name: 'radar', fields: { level: 'number' } }],
+            members: [{ name: 'ping', function: 'ping', kind: 'operation', on: 'radar', parameters: [], result: 'number', changes: 'constant', reads: 'fresh' }],
+        }, { ping: () => 1 }));
+
+        const error = getError(() => isolated.resolve('@thing.ping()', { thing: null }));
+
+        expect(error.kind).toBe('validation');
+        expect(error.message).toContain('ambiguous');
+        expect(isolated.resolve('@thing.ping()', { thing: panel }).kind).toBe('action');
+    });
+
+    it('run an operation on the empty list, refusing one that more than one declaration takes', () => {
+        isolated.registerModule(isolated.createModule('total', {
+            members: [
+                { name: 'total', function: 'sum', kind: 'property', on: 'list<number>', parameters: [], result: 'number', changes: 'constant', reads: 'fresh' },
+                { name: 'total', function: 'join', kind: 'property', on: 'list<string>', parameters: [], result: 'string', changes: 'constant', reads: 'fresh' },
+            ],
+        }, { sum: items => items.reduce((sum, item) => sum + item, 0), join: items => items.join('') }));
+
+        expect(isolated.read('@ids.count', { ids: [] })).toBe(0);
+        expect(isolated.read('@ids.first', { ids: [] })).toBeNull();
+        expect(isolated.read('@ids.total', { ids: [1, 2] })).toBe(3);
+        expect(isolated.read('@ids.total', { ids: ['a', 'b'] })).toBe('ab');
+
+        const error = getError(() => isolated.resolve('@ids.total', { ids: [] }));
+
+        expect(error.kind).toBe('validation');
+        expect(error.message).toContain('ambiguous');
     });
 });

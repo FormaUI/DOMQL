@@ -37,7 +37,7 @@ const OBSERVATION_TARGETS = ['receiver', 'root', 'roots', 'window', 'document'];
 const DELEGATED_SELECTION_KINDS = ['member'];
 
 /** The names of the types DOMQL itself defines, which a module cannot declare again. */
-const RESERVED_TYPE_NAMES = new Set(['number', 'string', 'boolean', 'element', 'window', 'document', 'list', 'event', 'null']);
+const RESERVED_TYPE_NAMES = new Set(['number', 'string', 'boolean', 'element', 'window', 'document', 'list', 'event', 'null', 'never']);
 
 /** The name that identifies the built-in module, whose members stand without a namespace. */
 const BUILTIN_MODULE_NAME = 'builtIn';

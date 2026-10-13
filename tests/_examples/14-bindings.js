@@ -3,10 +3,7 @@ const optional = Domql.parse(`
         panel: @panel { size: self.size },
         ids: @ids
     }
-`, {
-    panel: Domql.bind(null, 'element?'),
-    ids: Domql.bind([], 'list<number>')
-});
+`, { panel: null, ids: [] });
 
 Domql.read(optional);
 // { panel: null, ids: [] }

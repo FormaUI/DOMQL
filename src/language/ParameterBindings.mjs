@@ -4,8 +4,7 @@
 
 import { DomqlError } from './DomqlError.mjs';
 import { Names } from './Names.mjs';
-import { TypeNotation } from './TypeNotation.mjs';
-import { TypedBinding } from './TypedBinding.mjs';
+import { Type } from './Type.mjs';
 
 /** The roots, predefined parameters no binding takes. */
 const ROOTS = new Set(['document', 'window']);
@@ -14,19 +13,16 @@ export class ParameterBindings {
     /** @type {Map<string, unknown>} */
     #values = new Map();
 
-    /** @type {Map<string, import('./TypeNotation.mjs').Type>} */
+    /** @type {Map<string, Type>} */
     #types = new Map();
 
-    /** @param {Record<string, unknown>} parameters Each parameter's name and the value it is bound to, or a typed binding of one. */
+    /** @param {Record<string, unknown>} parameters Each parameter's name and the value it is bound to. */
     constructor(parameters = {}) {
         if (!ParameterBindings.#isPlainObject(parameters)) {
             throw DomqlError.structure('Bindings are a plain object of names and the values bound to them', {});
         }
 
-        for (const [name, binding] of Object.entries(parameters)) {
-            const isTyped = binding instanceof TypedBinding;
-            const value = isTyped ? binding.value : binding;
-
+        for (const [name, value] of Object.entries(parameters)) {
             if (!Names.isName(name)) {
                 throw DomqlError.structure(`A binding is named as a parameter is, a letter followed by letters and digits, and no reserved word: ${Names.reservedWords.join(', ')}`, { binding: name });
             }
@@ -39,7 +35,13 @@ export class ParameterBindings {
                 throw DomqlError.structure('A binding is an element, or data: a number, a string, a Boolean, null, a list holding a value at every index, or an object', { binding: name });
             }
 
-            this.#types.set(name, ParameterBindings.#typeOf(name, value, isTyped ? binding.type : null));
+            const type = ParameterBindings.#typeOf(value);
+
+            if (type === null) {
+                throw DomqlError.structure('A list whose items have different types has no type, since DOMQL has no union types and a list holds items of one type', { binding: name });
+            }
+
+            this.#types.set(name, type);
             this.#values.set(name, value);
         }
     }
@@ -54,7 +56,7 @@ export class ParameterBindings {
         return this.#values.get(name);
     }
 
-    /** The type of the value bound to the name, which the value reveals or its binding declared. */
+    /** The type of the value bound to the name, which the value reveals. */
     getType(name) {
         return this.#types.get(name);
     }
@@ -68,46 +70,56 @@ export class ParameterBindings {
             const value = this.#values.get(name);
             const isPrimitive = value === null || ['string', 'number', 'boolean'].includes(typeof value);
 
-            return `${name}:${ParameterBindings.#notationOf(this.#types.get(name))}${isPrimitive ? `=${JSON.stringify(value)}` : ''}`;
+            return `${name}:${this.#types.get(name)}${isPrimitive ? `=${JSON.stringify(value)}` : ''}`;
         }).join(';');
     }
 
-    static #notationOf(type) {
-        const nullable = type.isNullable ? '?' : '';
-
-        switch (type.kind) {
-            case 'list':
-                return `list<${ParameterBindings.#notationOf(type.item)}>${nullable}`;
-            case 'object':
-                return `{${[...type.fields].map(([name, field]) => `${name}:${ParameterBindings.#notationOf(field)}`).join(',')}}${nullable}`;
-            default:
-                return `${type.kind}${nullable}`;
+    /**
+     * The type a bindable value reveals: null is a null, a list's items share one type, nullable where one of them is null, the empty list's being never, and an object is of its fields' types.
+     * Null where a list's items, at any depth, have different types, which no type holds.
+     */
+    static #typeOf(value) {
+        if (value === null) {
+            return Type.null;
         }
-    }
 
-    /** The value's type: the declared one where it fits every part of the value, else the one the value reveals. */
-    static #typeOf(name, value, declaredType) {
-        if (declaredType === null) {
-            const revealed = TypeNotation.infer(value);
+        if (typeof Element !== 'undefined' && value instanceof Element) {
+            return Type.createNamedType('element');
+        }
 
-            if (revealed === null) {
-                throw DomqlError.structure('This value reveals no type, being null, an empty list or holding one; bind it with the type it has. A list of items of different types has none to declare, since DOMQL has no union types', { binding: name });
+        if (typeof value !== 'object') {
+            return Type.createNamedType(typeof value);
+        }
+
+        if (Array.isArray(value)) {
+            let itemType = Type.never;
+
+            for (const item of value) {
+                const type = ParameterBindings.#typeOf(item);
+
+                itemType = type === null ? null : Type.merge(itemType, type);
+
+                if (itemType === null) {
+                    return null;
+                }
             }
 
-            return revealed;
+            return Type.createListType(itemType);
         }
 
-        const type = TypeNotation.parse(declaredType);
+        const fieldTypes = new Map();
 
-        if (type === null) {
-            throw DomqlError.structure(`'${declaredType}' is not a type a binding can declare: number, string, boolean, element, list<T> or { field: type }, each with an optional ?`, { binding: name });
+        for (const [name, field] of Object.entries(value)) {
+            const type = ParameterBindings.#typeOf(field);
+
+            if (type === null) {
+                return null;
+            }
+
+            fieldTypes.set(name, type);
         }
 
-        if (!TypeNotation.fits(value, type)) {
-            throw DomqlError.structure(`The value does not fit the declared type '${declaredType}' in every part`, { binding: name });
-        }
-
-        return type;
+        return Type.createObjectType(fieldTypes);
     }
 
     static #isPlainObject(value) {

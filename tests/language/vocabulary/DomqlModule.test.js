@@ -81,6 +81,10 @@ describe('DomqlModule', () => {
         expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ result: 'list<' })] }))).toContain('type of its result');
     });
 
+    it.each(['element', 'null', 'never'])('refuses a structured type named %s, a built-in name', name => {
+        expect(messageOf(() => new DomqlModule('charts', { types: [{ name, fields: { level: 'number' } }] }))).toContain('built-in names');
+    });
+
     it('requires a predicate to name the function that answers it', () => {
         const predicate = { verb: 'is', name: 'plotted', on: 'element', changes: 'constant', reads: 'fresh' };
 

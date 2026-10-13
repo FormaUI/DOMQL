@@ -124,7 +124,7 @@ describe('QueryEvaluator', () => {
         });
 
         it('answers null for a null argument of a propagating parameter without calling the member', () => {
-            expect(read('@panel attributeOf @name', { panel, name: Domql.bind(null, 'string?') })).toBeNull();
+            expect(read('@panel attributeOf @name', { panel, name: null })).toBeNull();
         });
     });
 
@@ -286,7 +286,7 @@ describe('QueryEvaluator', () => {
             [null, false, false, null],
             [null, null, null, null],
         ])('answer %s and %s as %s, and %s or %s as %s, by three-valued logic', (left, right, and, or) => {
-            const bindings = { left: Domql.bind(left, 'boolean?'), right: Domql.bind(right, 'boolean?') };
+            const bindings = { left: left, right: right };
 
             expect(read('@left and @right', bindings)).toBe(and);
             expect(read('@left or @right', bindings)).toBe(or);
@@ -299,7 +299,7 @@ describe('QueryEvaluator', () => {
             expect(record).toEqual({ yes: 0, no: 1 });
             expect(readWith(module, '@panel is "yes" or @panel is "no"', { panel })).toBe(true);
             expect(record).toEqual({ yes: 1, no: 1 });
-            expect(readWith(module, '@nothing or @panel is "yes"', { panel, nothing: Domql.bind(null, 'boolean?') })).toBe(true);
+            expect(readWith(module, '@nothing or @panel is "yes"', { panel, nothing: null })).toBe(true);
             expect(record).toEqual({ yes: 2, no: 1 });
         });
 
@@ -344,11 +344,11 @@ describe('QueryEvaluator', () => {
             [false, 'alternative'],
             [null, 'alternative'],
         ])('select by a condition of %s the %s', (condition, branch) => {
-            expect(read('if @condition then "consequent" else "alternative"', { condition: Domql.bind(condition, 'boolean?') })).toBe(branch);
+            expect(read('if @condition then "consequent" else "alternative"', { condition: condition })).toBe(branch);
         });
 
         it('move to the next clause where a condition is false or null, and to the alternative where none is true', () => {
-            const bindings = (a, b) => ({ a: Domql.bind(a, 'boolean?'), b: Domql.bind(b, 'boolean?') });
+            const bindings = (a, b) => ({ a: a, b: b });
 
             expect(read('if @a then 1 elseif @b then 2 else 3', bindings(false, true))).toBe(2);
             expect(read('if @a then 1 elseif @b then 2 else 3', bindings(null, true))).toBe(2);
@@ -445,7 +445,7 @@ describe('QueryEvaluator', () => {
 
             expect(read('@detached.rect', { detached })).toBeNull();
             expect(read('@item.rectRelativeTo(@detached)', { item: items[0], detached })).toBeNull();
-            expect(read('@item.rectRelativeTo(@none)', { item: items[0], none: Domql.bind(null, 'element?') })).toBeNull();
+            expect(read('@item.rectRelativeTo(@none)', { item: items[0], none: null })).toBeNull();
         });
 
         it('answers null for an attached element without a layout box and the actual zero of one with a box of no size', () => {

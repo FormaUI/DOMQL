@@ -284,7 +284,7 @@ CSS selectors and `where` are the two ways a query filters: a selector chooses e
 
 A value has a type, and every member declares the types it works with. Type checking is part of preparation: a request that cannot be typed is a validation error naming where it fails, the type it expected and the type it found, before anything is evaluated.
 
-The types are `number`, `string`, `boolean`, `element`, `window` and `document`; `list<T>` of items of type `T`; the structured values, each with named fields of declared types, such as `rectangle`, `size` and `selection`, the object types of the objects a query's object expressions produce, and any a module declares; and `event<T>`, an event source whose events carry event data of type `T`. A module can declare types of its own. `null` is a value of every type that is written with a `?`: `T?` is a `T` or null.
+The types are `number`, `string`, `boolean`, `element`, `window` and `document`; `list<T>` of items of type `T`; the structured values, each with named fields of declared types, such as `rectangle`, `size` and `selection`, the object types of the objects a query's object expressions produce, and any a module declares; and `event<T>`, an event source whose events carry event data of type `T`. A module can declare types of its own. `null` is a value of every type that is written with a `?`: `T?` is a `T` or null. Null alone is of the type `null`, which fits every nullable type, and `never` is the type no value has, which fits every type, so `list<never>`, the type of the empty list, fits every list type. Both are names of the type notation, and neither is a word of the expression language.
 
 ### What a member declares
 
@@ -315,14 +315,28 @@ Nullability is part of a type, and null follows the signature.
 
 ### Bindings
 
-A binding acquires a type from its value when the value reveals it, and from the type the caller declares with it when it does not.
+A binding takes its type from its value, and a caller declares none.
 
 - An element is an `element`, and a number, a string and a Boolean are `number`, `string` and `boolean`.
-- An object is of the object type of its fields' types, and a list is a `list<T>` when its items share a type `T`.
-- `null`, an empty list and a list or an object holding a null do not reveal a type, so a binding of one declares it, `element?` or `list<number>` for instance, and creating the query fails without it.
-- A declared type must fit every part of the value: `[1, null]` fits `list<number?>`, and `[1, "two"]` fits no declared type, because DOMQL has no union types and a list holds items of one type. The same check applies to each field of an object, recursively.
-- A declared type is written with the type names of this section, `?` for nullable, `list<T>` and `{ field: type, … }` for an object: `element?`, `list<number?>`, `{ id: string, parent: element? }`.
-- A tool that checks a query without running it takes the same declared types for the bindings, since vocabulary declarations alone cannot establish the type of `@panel`.
+- Null is a `null`.
+- A list is a `list<T>`, `T` the type its items share, made nullable where one of them is null: `[element, null]` is a `list<element?>`. A list of nulls alone, `[null]` or `[null, null]`, is a `list<null>`, whose items can only be null, and the empty list is a `list<never>`, which holds no item.
+- An object is of the object type of its fields' types, each typed as a binding is.
+- A list whose items have different types has no type, because DOMQL has no union types and a list holds items of one type, so binding `[1, "two"]` is a structure error.
+
+A tool that checks a query without running it takes the same values, or values of the same types, for the bindings, since vocabulary declarations alone cannot establish the type of `@panel`.
+
+### Receivers of unknown type
+
+A receiver of the type `null`, a null binding or the literal `null`, says nothing of what it would be, and neither does a `never`, the item of an empty list. The concession is to missing type information alone: a receiver whose type is known is checked as always, a nullable one included, so `@panel.parent.sise` is refused for an element `panel` whatever its parent is. A name applied to a receiver of unknown type resolves without choosing one declaration:
+
+- **Any property.** A name written as a property is accepted whatever it is, since the fields of a bound object are named by its data, as `@row.id` for a null `row` and `@rows { id: self.id }` for empty `rows` are; it is checked once its receiver's type is known.
+- **Known calls alone.** A name written as a call or a named operation is a member's, written in the form, and given the arguments, that at least one of its declarations takes; a name no member has, one written as a call where every declaration is a property, and one given an argument none takes are validation errors, since data names no operation.
+- **The request keeps its kind.** The declarations that take the name as it is written agree on the request kind they make, and the request is of that kind, so it takes the operations of its kind and is refused the others. Declarations that disagree on their kind are refused as ambiguous.
+- **What it answers.** A query answers null, a subscription listens to nothing, an action is not run and answers null, and a behavior is activated with nothing in effect, as with any null receiver. Its type is the result type those declarations share, made nullable, and `null` where they share none or the name is no member's.
+- **What is checked later.** Whether the name applies to its receiver is checked once the receiver's type is specific enough, when the binding is bound to an element, a list or another value that reveals its type.
+- **An object expression** following such a receiver, or applied to the items of a `list<never>`, resolves its fields against a `never`, so a call in it is still checked; its type is the object type of its fields, made nullable after a null, and a list of it after an empty list, which answers the empty list.
+
+An operation on a `list<never>` runs, as on any list, so it resolves to one declaration as any receiver does: the vocabulary declares a name once for any receiver, and where more than one of its declarations takes a `list<never>`, as only a type holding `never` allows, the request is refused as ambiguous.
 
 ## Requests
 

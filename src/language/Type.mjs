@@ -1,5 +1,5 @@
 /**
- * Type — a DOMQL type: a named type, a list, an event source, an object type or a type parameter, each nullable or not
+ * Type — a DOMQL type: a named type, a list, an event source, an object type or a type parameter, each nullable or not, the type of null, and the type no value has
  */
 
 const NAME = /^@?[A-Za-z][A-Za-z0-9]*$/;
@@ -9,7 +9,7 @@ export class Type {
     /** @type {Map<string, Type | null>} */
     static #parsed = new Map();
 
-    /** The type's kind: named, list, event, object, typeParameter or null. */
+    /** The type's kind: named, list, event, object, typeParameter, null or never. */
     kind;
 
     /** The type's name, for a named type or a type parameter. */
@@ -67,15 +67,26 @@ export class Type {
         return new Type('typeParameter', { name, isNullable });
     }
 
-    /** The type of a written null. */
+    /** The type of null alone, which fits every nullable type. */
     static get null() {
         return Type.#null;
     }
 
     static #null = new Type('null', { isNullable: true });
 
-    /** The same type, admitting null. */
+    /** The type no value has, which fits every type: the item type of the empty list. */
+    static get never() {
+        return Type.#never;
+    }
+
+    static #never = new Type('never');
+
+    /** The same type, admitting null; never admitting null is null's type. */
     toNullable() {
+        if (this.kind === 'never') {
+            return Type.null;
+        }
+
         return this.isNullable ? this : new Type(this.kind, { name: this.name, itemType: this.itemType, fieldTypes: this.fieldTypes, isNullable: true });
     }
 
@@ -115,6 +126,8 @@ export class Type {
                 break;
             case 'null':
                 return 'null';
+            case 'never':
+                return 'never';
             default:
                 text = this.name;
         }
@@ -139,6 +152,11 @@ export class Type {
             }
 
             return typeArgument.toNonNullable().equals(actualType.toNonNullable());
+        }
+
+        // No value is a never, so a never matches whatever is declared.
+        if (actualType.kind === 'never') {
+            return true;
         }
 
         if (declaredType.kind !== actualType.kind || declaredType.name !== actualType.name) {
@@ -176,6 +194,14 @@ export class Type {
      * @param {Type} secondType
      */
     static merge(firstType, secondType) {
+        if (firstType.kind === 'never') {
+            return secondType;
+        }
+
+        if (secondType.kind === 'never') {
+            return firstType;
+        }
+
         if (firstType.kind === 'null') {
             return secondType.toNullable();
         }
@@ -222,6 +248,10 @@ export class Type {
 
     /** Whether a value of this type may stand where the other type is declared, a list by its items, and an event source by its event data. */
     isAssignableTo(otherType) {
+        if (this.kind === 'never') {
+            return true;
+        }
+
         if (this.kind === 'null') {
             return otherType.isNullable;
         }
@@ -281,6 +311,8 @@ class TypeReader {
             type = match[0] === 'list' ? Type.createListType(itemType) : Type.createEventType(itemType);
         } else if (match[0] === 'null') {
             type = Type.null;
+        } else if (match[0] === 'never') {
+            type = Type.never;
         } else if (TYPE_PARAMETER.test(match[0])) {
             type = Type.createTypeParameter(match[0]);
         } else if (match[0] === 'list' || match[0] === 'event') {

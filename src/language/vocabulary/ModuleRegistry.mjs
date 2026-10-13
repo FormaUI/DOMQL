@@ -130,6 +130,11 @@ export class ModuleRegistry {
         return this.#types.get(name);
     }
 
+    /** The type of each field named so, as its structured type declares it, across every structured type. */
+    getFieldTypes(name) {
+        return [...this.#types.values()].flatMap(type => (Object.hasOwn(type.fields, name) ? [type.fields[name]] : []));
+    }
+
     /** The event type declared so, or undefined. */
     getEventType(name) {
         return this.#eventTypes.get(name);

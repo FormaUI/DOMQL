@@ -44,7 +44,7 @@ Each decision is open until its state says otherwise, and a step that needs it d
 - **A behavior that waits.** A behavior that needs to wait before it is in effect would be applied by an `applyAsync` of its own; it is a possibility for later, no part of D12's API, and decided when one is needed.
 - **The event sources a behavior offers.** The specification subscribes to them as subscriptions of their own; how a behavior offers one is decided once a behavior that offers one exists.
 - **Members across shadow boundaries.** `host`, `shadowRoot` for an open root, and `assignedElements` for a slot are the candidates. Deciding them settles whether `host` applies to any element inside a shadow tree or only to a root, how a shadow root is typed, and whether `assignedElements` gives flattened assignments. A flat-tree parent waits until its uses and its meaning are clear.
-- **Saying which declaration a value means.** Where a null receiver or an empty list fits declarations that step 16 refuses as ambiguous, a caller has no way to say which it means. A way is designed for the first case that needs one, from that case.
+- **Saying which declaration a value means.** Where a null receiver or an empty list fits declarations that the specification refuses as ambiguous, a caller has no way to say which it means. A way is designed for the first case that needs one, from that case.
 - **Incremental evaluation.** Explore incremental evaluation for attribute projections over child elements, including dependency invalidation, retained evaluation state, and fallback to full evaluation. The open question is whether the evaluations that remain valid after a change can be determined reliably: locals, branches and short-circuiting make dependencies conditional, and selectors change membership and order.
 
 ### D12. The API
@@ -94,7 +94,7 @@ const template = domql.query(text);
 const boundQuery = template.with({ panel });
 ```
 
-`with` answers a new query whose bindings replace the old ones whole; the query it was called on, and every operation running from it, are unaffected. A required binding that is missing fails before anything is carried out. A binding declares no type: a null, an empty list and a list holding nulls are typed from the value, as step 16 sets out.
+`with` answers a new query whose bindings replace the old ones whole; the query it was called on, and every operation running from it, are unaffected. A required binding that is missing fails before anything is carried out. A binding declares no type: a null, an empty list and a list holding nulls are typed from the value, as the specification sets out.
 
 ```js
 const query = domql.query(`
@@ -337,7 +337,7 @@ domql.format(query)
 - **Moved onto the query:** evaluating, watching, subscribing, executing and applying, so `Domql.read(text, bindings)` and the other one-call forms give way to `domql.query(text, bindings).evaluate()` and its siblings.
 - **Events of a handle:** watches and behaviors raise events to the listeners `subscribe` answers, each handler called with `(sender, args)`, so `onChange`, `onError` and attachments give way to `"change"` and `"error"` handlers; the handler `query.subscribe` calls takes the same two arguments and receives a failed capture or projection as a failed event, and every event listener has `status` and `dispose()` alone.
 - **Change sets belong to live state alone.** The update strategies are `"snapshot"`, for immutable results, and `"liveState"`, for a mutable one. The change-set strategy is removed, with its acknowledgment, recovery, generations and revisions and the current snapshot that received it, and live state keeps its changes, the comparer, the patcher and identity matching.
-- **Removed:** `parse`, which `query(...).definition` covers. Amended after D12 was decided: `Domql.bind` too, with no `domql.typed` in its place, since step 16 types every binding from its value.
+- **Removed:** `parse`, which `query(...).definition` covers. Amended after D12 was decided: `Domql.bind` too, with no `domql.typed` in its place, since every binding is typed from its value.
 - **C#** mirrors the query object, with `Domql.Query(text, bindings)` and its operations, and `CancellationToken` for cancellation. `Domql.TryQuery` attempts exactly what `Domql.Query` does, creating a query and checking its syntax and structure without resolving its vocabulary or evaluating anything, so a successful return means the query was created, not that it is ready to be carried out: a syntax or structure failure returns false with a diagnostic, and any other failure is thrown, never swallowed.
 
 State: **decided.** Built by step 13, after step 12.
@@ -357,6 +357,7 @@ A step is done when its tests pass in the gate, its documents say what it built,
 - **10. Explicit receivers, calls and named operations.** Done: every receiver is written, and member access, calls and named operations are distinct, each written in the form its declaration takes.
 - **11. Conditional and logical expressions.** Done: conditionals with `elseif`, `is null`, groups, and `and` and `or` by the three-valued table, a watch comparing what a conditional gave by the branch it selected.
 - **12. Local values.** Done: `let` names a value once in an object expression, and the specification holds the complete grammar.
+- **16. Binding types.** Done: every binding takes its type from its value, null as a `null` and the empty list as a `list<never>`, and on a receiver of unknown type a property is accepted until the receiver's type is known, a call is checked by its name, its form and its arguments, and the request keeps its kind, an empty list refusing a tie between declarations as ambiguous.
 - **17. Shadow trees in watches.** Done: an observation follows its receiver's root or every root of its flat-tree ancestry, a watch follows a receiver to another tree or slot, and `is "textEditable"` counts an inert ancestor in the flat tree. Following them adds 0.5 to 1 ms to refreshing a watch of 1,000 rows in the simulated DOM, most of it the scrolling each row's `rect` follows at its roots.
 
 ### 9. Measured performance
@@ -382,7 +383,7 @@ Carry every operation out through a query object, as D12 decides.
 
 - **Needs:** D12, steps 12 and 16.
 - **Done when:** `domql.query` takes text or a definition with its bindings and answers a query object that evaluates nothing until an operation is carried out, a text's definition reused for identical text; `with` answers a new query, and a binding declares no type; evaluating, selecting, watching, subscribing, executing and applying behave as D12 sets out, an operation the request's kind does not take refused with an error naming the one it does, every handle with the members its table gives, a signal ending each lifetime, and an aborted one starting nothing; watches and behaviors raise events to the listeners their `subscribe` answers, each handler called with `(sender, args)`, a watch and its selected views with `"change"` and both with `"error"`, every event listener with `status` and `dispose()` alone, and the handler `query.subscribe` calls receiving a failed capture or projection as a failed event while its listener listens on, a late listener receiving the current result first, handlers isolated from one another as D12 sets out, and each listener's first ready event its baseline; the update strategies are `"snapshot"` and `"liveState"`, a live-state event carrying its snapshot and its changes, and the change-set strategy is gone, with its acknowledgment, recovery, generations and revisions, the current snapshot and the code nothing else uses, while live state keeps its changes, the comparer, the patcher and identity matching; a path's shape is checked when it is selected and its fit when the query is resolved, and a watch's selections at once; `domql.format` gives one canonical text for a text, a definition or a query object, stable when formatted again; `parse` is gone, `Domql` is `domql`, and the package exports `domql` and `DomqlError`; the TypeScript declarations are complete without the builder's, and compile checks cover the exports, the query object's operations, selections, and handles, their events and their arguments; the benchmarks and the browser tests use the query object and run, each by its own command; and the specification, the design, the READMEs, the repository's own instructions and every example and test use the query object, and the documents evaluate queries, execute actions and apply behaviors in D12's words.
-- **State:** in progress. The design sets out the API D12 decides, ahead of the code, and bindings that declare no type, ahead of the specification and the resolver, which step 16 brings into line. The change-set strategy is removed, with its acknowledgment, recovery, generations and revisions, the current snapshot and the code nothing else used, and live state keeps its changes, the comparer, the patcher and identity matching.
+- **State:** in progress. The design sets out the API D12 decides, ahead of the code. The change-set strategy is removed, with its acknowledgment, recovery, generations and revisions, the current snapshot and the code nothing else used, and live state keeps its changes, the comparer, the patcher and identity matching.
 
 ### 14. Editor tooling
 
@@ -408,20 +409,6 @@ The query object of D12 for a .NET host: `Domql.Query(text, bindings)` and its o
   - Where the connection is lost with the components that hold its results, the components that replace them start watches of their own; where a connection resumes with the existing components, an update unanswered across the interruption is uncertain, and the adapter recovers as from a timeout.
   - It reports an exception from an application handler without restarting synchronization, since the state was already accepted.
   - Its application of change sets passes a conformance corpus the JavaScript patcher passes too: each case a previous result, a change set and the result they give, the expected results reviewed independently of either applier, moves and escaped paths among them.
-- **State:** not started.
-
-### 16. Binding types
-
-Type every binding from its value alone, with `Type`, the representation resolution uses, so a caller declares no type and one model describes every type.
-
-- **Needs:** nothing. It lands before step 13's implementation, since D12's API has no typed binding.
-- **Done when:**
-  - **One representation.** A binding's type is a `Type` value its value reveals, which resolution uses as it is; binding notation and `Domql.bind` are gone.
-  - **Values that reveal little.** Null has the null type, assignable to every nullable type. The empty list is `list<never>`: `never` is the type of no possible value, a name of the type notation that reserves no word in the expression language, and `list<never>` fits every list type, since it holds no item that could disagree. A list of nulls alone, `[null]` or `[null, null]`, is `list<null>`, a list whose items can only be null. A list of one type and nulls, `[element, null]`, is a list of that type made nullable, and an object's fields are typed alike. A list of items of different types stays a structure error, there being no union types.
-  - **A null receiver keeps its request's kind.** A name applied to a receiver of the null type resolves among the declarations of that name that take its call form and arguments, which must agree on their kind; the request keeps that kind, so the operation refusals apply as for any receiver. A query then answers null, a subscription listens to nothing, an action is not executed and answers null, and a behavior's handle is ready with no instance, as each does for a null receiver today. Declarations that disagree on their kind are refused as ambiguous.
-  - **An empty list chooses one declaration.** An operation on a `list<never>` receiver runs, so resolution must identify one declaration by the usual rules of selecting a declaration, and a tie those rules leave unresolved is refused as ambiguous.
-  - **The check that remains.** An unknown name is refused at resolution whatever its receiver; a name's fit to its receiver is checked once the receiver's type is specific enough; and on a null receiver, a known name must still take the call form and arguments it is given.
-  - **Documents.** The specification states these rules before the resolver follows them, and the design's scope states the check that remains; every other error reads as before.
 - **State:** not started.
 
 ## Departures from the design

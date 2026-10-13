@@ -49,7 +49,7 @@ describe('LanguageResolver', () => {
 
         it('types a bound value by the type it has', () => {
             expect(resolve('@count', { count: 3 }).type.toString()).toBe('number');
-            expect(resolve('@nothing', { nothing: Domql.bind(null, 'string?') }).type.toString()).toBe('string?');
+            expect(resolve('@nothing', { nothing: null }).type.toString()).toBe('null');
         });
 
         it.each([
@@ -171,8 +171,11 @@ describe('LanguageResolver', () => {
             expect(failure('@panel.children.size').message).toContain('not available on list<element>');
         });
 
-        it('refuses a member after null', () => {
-            expect(failure('null.size').message).toContain('follows null');
+        it('resolves a property after null whatever its name, and a call by its name and form, of the result its declarations share made nullable', () => {
+            expect(resolve('null.size').type.toString()).toBe('size?');
+            expect(resolve('null.sise').type.toString()).toBe('null');
+            expect(failure('null.sise()').message).toContain('no member of the vocabulary');
+            expect(failure('null.size()').message).toContain('is a property');
         });
 
         it('refuses an expression on a receiver that has no items', () => {
@@ -236,7 +239,7 @@ describe('LanguageResolver', () => {
 
     describe('null', () => {
         it('makes a call answer null for a null argument of a propagating parameter', () => {
-            const resolved = resolve('@panel matches @selector', { panel, selector: Domql.bind(null, 'string?') });
+            const resolved = resolve('@panel matches @selector', { panel, selector: null });
 
             expect(resolved.type.toString()).toBe('boolean?');
         });
@@ -283,7 +286,7 @@ describe('LanguageResolver', () => {
         });
 
         it('refuses a name that is null, unbound text or no string', () => {
-            expect(failure('@panel is @name', { panel, name: Domql.bind(null, 'string?') }).message).toContain('never null');
+            expect(failure('@panel is @name', { panel, name: null }).message).toContain('never null');
             expect(failure('@panel is @name', { panel, name: 3 }).message).toContain('never null');
             expect(failure('@panel is @document').message).toContain('never null');
         });
@@ -397,9 +400,10 @@ describe('LanguageResolver', () => {
             expect(resolve('@panel has "children"').type.toString()).toBe('boolean');
         });
 
-        it('refuse a subject that is no value, or null', () => {
+        it('refuse a subject that is no value, and test a subject of unknown type by the predicate\'s name alone', () => {
             expect(failure('(@panel eventsOf "click") { clientX: self.clientX } is "attached"').message).toContain('event source');
-            expect(failure('null is "attached"').message).toContain('tests null');
+            expect(resolve('null is "attached"').type.toString()).toBe('boolean?');
+            expect(failure('null is "nonsense"').message).toContain('no predicate');
         });
 
     });
@@ -409,7 +413,7 @@ describe('LanguageResolver', () => {
             expect(resolve('@panel is "attached" and @panel is "focused"').type.toString()).toBe('boolean');
             expect(resolve('@panel is "attached" or @panel.parent is "attached"').type.toString()).toBe('boolean?');
             expect(resolve('@panel is "attached" and null').type.toString()).toBe('boolean?');
-            expect(resolve('@on or @off', { on: true, off: Domql.bind(null, 'boolean?') }).type.toString()).toBe('boolean?');
+            expect(resolve('@on or @off', { on: true, off: null }).type.toString()).toBe('boolean?');
         });
 
         it('resolve every operand with its own location, the current value of each the one around the expression', () => {

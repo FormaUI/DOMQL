@@ -5,7 +5,7 @@ import type { DomqlBehavior, DomqlChangeOperation, DomqlDefinitionNode, DomqlRea
 const panel = document.createElement('div');
 
 const query = Domql.parse('@panel { count: self.children.count }', { panel });
-const optional = Domql.parse('@panel { size: self.size }', { panel: Domql.bind(null, 'element?'), ids: Domql.bind([], 'list<number>') });
+const optional = Domql.parse('@panel { size: self.size }', { panel: null, ids: [] });
 const created = Domql.create(query.definition, { panel });
 
 const answer = Domql.read<{ count: number }>(query);

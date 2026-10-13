@@ -147,16 +147,9 @@ export interface DomqlDefinitionField {
     readonly value: DomqlDefinitionNode;
 }
 
-/** A value bound with the type its caller declares for it, as `Domql.bind` returns. */
-export interface DomqlTypedBinding {
-    readonly value: unknown;
-    /** The declared type, in DOMQL's type notation. */
-    readonly type: string;
-}
-
-/** Values or typed bindings supplied by parameter name. */
+/** The values supplied by parameter name, each typed from the value itself. */
 export interface DomqlBindings {
-    [name: string]: unknown | DomqlTypedBinding;
+    [name: string]: unknown;
 }
 
 /** The values a query's parameters are bound to, by name. */
@@ -353,9 +346,6 @@ export declare class Domql {
 
     /** Creates a query from its definition, binding its parameters. */
     static create(definition: DomqlDefinition, bindings?: DomqlBindings): DomqlQuery;
-
-    /** Binds a value with the type it has, for a value that reveals none, such as null or an empty list. */
-    static bind(value: unknown, type: string): DomqlTypedBinding;
 
     /** Resolves a query given as its text against the registered vocabulary and types it, without evaluating anything. The text is parsed as `parse` parses it, through the same cache. */
     static resolve(text: string, bindings?: DomqlBindings, options?: DomqlResolveOptions): DomqlResolvedDefinition;

@@ -111,7 +111,7 @@ Domql.read(rebound);
 
 The definition contains the query structure without bound values. `create` reuses it with new bindings and leaves the original query unchanged.
 
-A query belongs to the DOMQL instance that created it. A page holds more than one instance when independently bundled libraries each include DOMQL, and an instance refuses another's query with an error saying how to reuse it: pass its definition and a plain object of bindings to `create`, as in `Domql.create(otherQuery.definition, { panel })`. The receiving instance validates the definition and resolves it against its own vocabulary, so a member another instance registered is unknown to it. Bind raw values, or typed bindings this instance makes with `Domql.bind`.
+A query belongs to the DOMQL instance that created it. A page holds more than one instance when independently bundled libraries each include DOMQL, and an instance refuses another's query with an error saying how to reuse it: pass its definition and a plain object of bindings to `create`, as in `Domql.create(otherQuery.definition, { panel })`. The receiving instance validates the definition and resolves it against its own vocabulary, so a member another instance registered is unknown to it.
 
 ## Wait for values the browser keeps
 
@@ -313,9 +313,9 @@ Domql.read(
 
 Geometry such as `rect` and `size` is null when the element is detached or has no layout box, including when it or an ancestor has `display: none`. A measurable box with zero dimensions still returns those zero dimensions. Attachment and measurement availability are separate questions.
 
-### Bind values explicitly
+### Bind values that are not there yet
 
-Bindings may contain elements or supported data. Use `Domql.bind(value, type)` when the value does not reveal its type, such as null, an empty list or a structure containing either. Declared types are checked against the supplied values; they do not convert them.
+Bindings may contain elements or supported data, and each takes its type from its value, so an element that is not there yet is bound as null and an empty list as it is. A property of a null binding, or of the items of an empty list, answers null and is checked once the value's type is known; a call is still checked against the vocabulary.
 
 ```js
 const optional = Domql.parse(`
@@ -323,10 +323,7 @@ const optional = Domql.parse(`
         panel: @panel { size: self.size },
         ids: @ids
     }
-`, {
-    panel: Domql.bind(null, 'element?'),
-    ids: Domql.bind([], 'list<number>')
-});
+`, { panel: null, ids: [] });
 
 Domql.read(optional);
 // { panel: null, ids: [] }
@@ -341,7 +338,6 @@ Keep independent results in a top-level object expression when one target may be
 | `Domql.parse(text, bindings)` | Construct a query from text. |
 | `Domql.create(definition, bindings)` | Construct a query from a reusable definition. |
 | `query.definition` | Access the immutable definition without its bound values. |
-| `Domql.bind(value, type)` | Declare a binding's type explicitly. |
 | `Domql.resolve(text, bindings, options)`, `Domql.resolve(query, options)` | Check names and types without evaluating the query. |
 | `Domql.read(text, bindings, options)`, `Domql.read(query, options)` | Read once, optionally using an explicitly supplied `window`. A member kept by an observation, such as `intersects`, fails it. |
 | `Domql.readAsync(text, bindings, options)`, `Domql.readAsync(query, options)` | Read once, waiting for the first sample of every member kept by an observation. Returns a promise; `signal` cancels it, and the `window` is optional. |
@@ -355,9 +351,7 @@ Keep independent results in a top-level object expression when one target may be
 `resolve` checks a query without a browser and without reading anything:
 
 ```js
-const resolved = Domql.resolve('@panel.children.count', {
-    panel: Domql.bind(null, 'element?')
-});
+const resolved = Domql.resolve('@panel.children.count', { panel: null });
 
 resolved.kind;            // 'query'
 resolved.type.toString(); // 'number?'

@@ -98,7 +98,7 @@ describe('Behavior', () => {
         });
 
         it('activates nothing where its receiver is null, until an update supplies one', () => {
-            const highlight = isolated.activate('@item.highlight("gold")', { item: isolated.bind(null, 'element?') });
+            const highlight = isolated.activate('@item.highlight("gold")', { item: null });
 
             expect(calls).toEqual([]);
 
@@ -107,7 +107,7 @@ describe('Behavior', () => {
             expect(panel.dataset.highlight).toBe('gold');
             expect(calls.map(call => call.call)).toEqual(['activate']);
 
-            highlight.update({ item: isolated.bind(null, 'element?') });
+            highlight.update({ item: null });
 
             expect(panel.dataset.highlight).toBeUndefined();
             expect(calls.map(call => call.call)).toEqual(['activate', 'dispose']);

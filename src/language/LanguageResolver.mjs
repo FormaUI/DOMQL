@@ -99,18 +99,14 @@ export class LanguageResolver {
             return { type: Type.createNamedType('boolean'), kind: 'query', isFixed: false };
         }
 
-        if (subject.type.kind === 'null') {
-            this.#fail(`'${verb}' tests null, which no predicate applies to`, pointer);
-        }
-
         this.#resolvePredicateName(node.name, `${pointer}/name`, verb, subject.type);
 
         const type = Type.createNamedType('boolean');
 
-        return { type: subject.type.isNullable ? type.toNullable() : type, kind: 'query', isFixed: false };
+        return { type: subject.type.isNullable || LanguageResolver.#isOfUnknownType(subject.type) ? type.toNullable() : type, kind: 'query', isFixed: false };
     }
 
-    /** Resolves the predicate name a predicate expression reads, under its verb and against the subject's type. */
+    /** Resolves the predicate name a predicate expression reads, under its verb and against the subject's type; a subject of unknown type is checked for the name alone. */
     #resolvePredicateName(node, pointer, verb, subjectType) {
         const predicateName = this.#resolveNode(node, pointer, { current: null, locals: new Map() });
 
@@ -121,7 +117,7 @@ export class LanguageResolver {
         const name = predicateName.value;
         const predicate = this.#moduleRegistry.getPredicate(verb, name);
 
-        if (predicate === undefined || !LanguageResolver.#matchesAny(predicate.on, subjectType)) {
+        if (predicate === undefined || (!LanguageResolver.#isOfUnknownType(subjectType) && !LanguageResolver.#matchesAny(predicate.on, subjectType))) {
             this.#fail(`'${verb} "${name}"' is no predicate of ${subjectType.toNonNullable()}; '${verb}' reads ${this.#moduleRegistry.getPredicateNames(verb).join(', ')}`, pointer);
         }
 
@@ -133,7 +129,7 @@ export class LanguageResolver {
     #resolveConditional(node, pointer, scope) {
         const condition = this.#resolveNode(node.condition, `${pointer}/condition`, scope);
 
-        if (condition.kind !== 'query' || !(condition.type.kind === 'null' || (condition.type.kind === 'named' && condition.type.name === 'boolean'))) {
+        if (condition.kind !== 'query' || !(LanguageResolver.#isOfUnknownType(condition.type) || (condition.type.kind === 'named' && condition.type.name === 'boolean'))) {
             this.#fail(`The condition of 'if' is a Boolean expression, and this one is ${condition.kind === 'query' ? condition.type : LanguageResolver.#descriptionOf(condition.kind)}`, `${pointer}/condition`);
         }
 
@@ -167,7 +163,7 @@ export class LanguageResolver {
                 this.#fail(`'${node.kind}' combines Boolean expressions, and this one is ${LanguageResolver.#descriptionOf(result.kind)}`, operandPointer);
             }
 
-            if (result.type.kind !== 'null' && !(result.type.kind === 'named' && result.type.name === 'boolean')) {
+            if (!LanguageResolver.#isOfUnknownType(result.type) && !(result.type.kind === 'named' && result.type.name === 'boolean')) {
                 this.#fail(`'${node.kind}' combines Boolean expressions, and this one is ${result.type}`, operandPointer);
             }
 
@@ -229,7 +225,7 @@ export class LanguageResolver {
             this.#fail(`The parameter '@${node.name}' is not bound`, pointer);
         }
 
-        return { type: LanguageResolver.#toType(this.#bindings.getType(node.name)), kind: 'query', isFixed: true, value: this.#bindings.get(node.name) };
+        return { type: this.#bindings.getType(node.name), kind: 'query', isFixed: true, value: this.#bindings.get(node.name) };
     }
 
     #resolveMember(node, pointer, scope) {
@@ -240,8 +236,8 @@ export class LanguageResolver {
             this.#fail(`'${node.name}' follows ${LanguageResolver.#descriptionOf(receiver.kind)}, which takes no members`, pointer);
         }
 
-        if (receiverType.kind === 'null') {
-            this.#fail(`'${node.name}' follows null, which has no members`, pointer);
+        if (LanguageResolver.#isOfUnknownType(receiverType)) {
+            return this.#resolveOnUnknownType(node, pointer, scope, receiverType);
         }
 
         const field = this.#fieldTypeOf(receiverType, node.name);
@@ -262,11 +258,18 @@ export class LanguageResolver {
             this.#fail(`'${node.name}' is no member of the vocabulary`, pointer);
         }
 
-        const declaration = candidates.find(candidate => LanguageResolver.#matchesReceiver(candidate, receiverType, new Map()));
+        const matching = candidates.filter(candidate => LanguageResolver.#matchesReceiver(candidate, receiverType, new Map()));
 
-        if (declaration === undefined) {
+        if (matching.length === 0) {
             this.#fail(`'${node.name}' is not available on ${receiverType.toNonNullable()}; it is available on ${candidates.flatMap(candidate => [candidate.on].flat()).join(', ')}`, pointer);
         }
+
+        // The vocabulary declares a name once for any receiver, so only a type holding never fits more than one declaration.
+        if (matching.length > 1) {
+            this.#fail(`'${node.name}' is declared for ${matching.flatMap(candidate => [candidate.on].flat()).join(' and ')}, and ${receiverType.toNonNullable()} fits more than one, so which applies is ambiguous`, pointer);
+        }
+
+        const [declaration] = matching;
 
         this.#checkForm(declaration, node, pointer);
 
@@ -289,6 +292,79 @@ export class LanguageResolver {
         const type = receiverType.isNullable || resolved.isNullable ? declared.toNullable() : declared;
 
         return { type, kind: LanguageResolver.#requestKindOf(declaration), isFixed: false };
+    }
+
+    /**
+     * Resolves a name applied to a receiver of unknown type, which chooses no declaration. A property is accepted whatever its name, since a bound object's fields are named by its data; a call or a named operation must be a member's, written in the form and given the arguments one of its declarations takes. The declarations that take it agree on the kind of request they make.
+     * Its type is the result type they share, made nullable, and null where they share none or the name is no member's. Nothing applied to such a receiver is evaluated, so its arguments leave no resolution behind.
+     */
+    #resolveOnUnknownType(node, pointer, scope, receiverType) {
+        const isAccess = node.kind === 'member';
+        const candidates = this.#moduleRegistry.getMembers(node.name);
+        const fields = isAccess ? this.#moduleRegistry.getFieldTypes(node.name) : [];
+        const written = candidates.filter(candidate => FORM_NODE_KINDS[candidate.kind === 'property' ? 'access' : candidate.form] === node.kind);
+
+        if (!isAccess && candidates.length === 0) {
+            this.#fail(this.#moduleRegistry.getFieldTypes(node.name).length > 0 ? `'${node.name}' is a field and takes no argument: write '${DefinitionWriter.write({ kind: 'member', target: node.target, name: node.name })}'` : `'${node.name}' is no member of the vocabulary`, pointer);
+        }
+
+        if (!isAccess && written.length === 0) {
+            this.#checkForm(candidates[0], node, pointer);
+        }
+
+        const fitting = [];
+        let failure = null;
+
+        for (const declaration of written) {
+            const attempt = this.#tryResolveArguments(declaration, node, pointer, scope, receiverType);
+
+            if (attempt.error === undefined) {
+                fitting.push({ declaration, resolved: attempt.resolved });
+            } else {
+                failure ??= attempt.error;
+            }
+        }
+
+        if (!isAccess && fitting.length === 0) {
+            throw failure;
+        }
+
+        // An access may name a field of data, which is a value.
+        const kinds = new Set([...fitting.map(({ declaration }) => LanguageResolver.#requestKindOf(declaration)), ...(isAccess ? ['query'] : [])]);
+
+        if (kinds.size > 1) {
+            this.#fail(`'${node.name}' follows a value whose type is unknown, and its declarations make ${[...kinds].map(kind => LanguageResolver.#descriptionOf(kind)).join(' or ')}, so what it requests is ambiguous`, pointer);
+        }
+
+        const resultTypes = [
+            ...fitting.map(({ declaration, resolved }) => Type.parse(declaration.result).resolveTypeParameters(new Map(resolved.selected === undefined ? [] : [['@selected', resolved.selected.type]]))),
+            ...fields.map(text => Type.parse(text)),
+        ];
+        const shared = resultTypes.reduce((merged, type) => (merged === null ? null : Type.merge(merged, type)), Type.never);
+        const type = shared === null || shared.kind === 'never' || LanguageResolver.#holdsTypeParameter(shared) ? Type.null : shared.toNullable();
+
+        this.#resolutions.set(pointer, { kind: 'member', declaration: null, receiverType, type, arguments: [] });
+
+        return { type, kind: [...kinds][0], isFixed: false };
+    }
+
+    /** Resolves the arguments the declaration would take, leaving no resolution and no use behind, and answers them or the failure that refuses them. */
+    #tryResolveArguments(declaration, node, pointer, scope, receiverType) {
+        const resolutions = new Map(this.#resolutions);
+        const usedCount = this.#usedDeclarations.length;
+
+        try {
+            return { resolved: this.#resolveArguments(declaration, node, pointer, scope, receiverType, new Map()) };
+        } catch (error) {
+            if (!(error instanceof DomqlError)) {
+                throw error;
+            }
+
+            return { error };
+        } finally {
+            this.#resolutions = resolutions;
+            this.#usedDeclarations.length = usedCount;
+        }
     }
 
     /** Refuses a member written in a form its declaration does not take, with the form it does: a property is accessed, and an operation called or named as its declaration says. */
@@ -372,11 +448,13 @@ export class LanguageResolver {
             let result;
 
             if (parameter.kind === 'expression') {
-                if (receiverType.kind !== 'list') {
+                const isOfUnknownType = LanguageResolver.#isOfUnknownType(receiverType);
+
+                if (receiverType.kind !== 'list' && !isOfUnknownType) {
                     this.#fail(`'${declaration.name}' evaluates its expression against the items of a list, and ${receiverType.toNonNullable()} has none`, valuePointer);
                 }
 
-                result = this.#resolveNode(given.node, valuePointer, { current: receiverType.itemType.toNonNullable(), locals: scope.locals });
+                result = this.#resolveNode(given.node, valuePointer, { current: isOfUnknownType ? Type.never : receiverType.itemType.toNonNullable(), locals: scope.locals });
                 this.#requireQuery(result, parameter, declaration, valuePointer);
 
                 if (!result.type.isAssignableTo(expected)) {
@@ -480,6 +558,12 @@ export class LanguageResolver {
         for (const segment of path.split('.')) {
             isNullable ||= current.isNullable;
 
+            // A receiver of unknown type is never read, and each name of the path may be a field of data, so the path is checked once its receiver's type is known.
+            if (LanguageResolver.#isOfUnknownType(current)) {
+                current = Type.null;
+                continue;
+            }
+
             const field = this.#fieldTypeOf(current, segment);
 
             if (field !== null) {
@@ -513,17 +597,18 @@ export class LanguageResolver {
             this.#fail('A behavior request ends its chain and takes no object expression', pointer);
         }
 
-        // An object expression that follows an action shapes its result, and the request stays an action.
-        const kind = target?.kind === 'action' ? 'action' : 'query';
+        // An object expression that follows an action shapes its result, and the request stays an action; one that follows an event source keeps it a subscription.
+        const kind = target?.kind === 'action' || target?.kind === 'subscription' ? target.kind : 'query';
 
         let current = scope.current;
 
         if (target !== null) {
+            // An object expression following null is never applied, so its fields are resolved against no value.
             if (target.type.kind === 'null') {
-                this.#fail('An object expression follows null, which has no value to read fields of', pointer);
+                current = Type.never;
+            } else {
+                current = target.type.kind === 'list' || target.type.kind === 'event' ? target.type.itemType.toNonNullable() : target.type.toNonNullable();
             }
-
-            current = target.type.kind === 'list' || target.type.kind === 'event' ? target.type.itemType.toNonNullable() : target.type.toNonNullable();
         }
 
         // Each local is resolved where it is written, against the current value and the locals before it, and every field sees them all.
@@ -603,6 +688,7 @@ export class LanguageResolver {
     #isData(type) {
         switch (type.kind) {
             case 'null':
+            case 'never':
                 return true;
             case 'list':
                 return this.#isData(type.itemType);
@@ -650,6 +736,24 @@ export class LanguageResolver {
         }
     }
 
+    /** Whether the type says nothing of what its value would be: null's, a null binding's, and never's, which no value has. */
+    static #isOfUnknownType(type) {
+        return type.kind === 'null' || type.kind === 'never';
+    }
+
+    /** Whether the type writes a type parameter anywhere in it. */
+    static #holdsTypeParameter(type) {
+        if (type.kind === 'typeParameter') {
+            return true;
+        }
+
+        if (type.itemType !== null) {
+            return LanguageResolver.#holdsTypeParameter(type.itemType);
+        }
+
+        return type.fieldTypes !== null && [...type.fieldTypes.values()].some(fieldType => LanguageResolver.#holdsTypeParameter(fieldType));
+    }
+
     /** Whether the declaration applies to the receiver, recording the arguments of the type parameters its types write. */
     static #matchesReceiver(declaration, receiverType, typeArguments) {
         return LanguageResolver.#matchesAny(declaration.on, receiverType, typeArguments);
@@ -665,22 +769,5 @@ export class LanguageResolver {
 
             return Type.tryMatchType(Type.parse(text), base, typeArguments);
         });
-    }
-
-    static #toType(binding) {
-        let type;
-
-        switch (binding.kind) {
-            case 'list':
-                type = Type.createListType(LanguageResolver.#toType(binding.item));
-                break;
-            case 'object':
-                type = Type.createObjectType(new Map([...binding.fields].map(([name, field]) => [name, LanguageResolver.#toType(field)])));
-                break;
-            default:
-                type = Type.createNamedType(binding.kind);
-        }
-
-        return binding.isNullable ? type.toNullable() : type;
     }
 }

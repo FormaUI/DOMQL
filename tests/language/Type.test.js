@@ -11,6 +11,7 @@ describe('Type', () => {
             ['T?', 'typeParameter', 'T', true],
             ['@selected', 'typeParameter', '@selected', false],
             ['null', 'null', null, true],
+            ['never', 'never', null, false],
         ])('reads %s', (text, kind, name, isNullable) => {
             const type = Type.parse(text);
 
@@ -44,7 +45,7 @@ describe('Type', () => {
     });
 
     describe('toString', () => {
-        it.each(['number', 'element?', 'list<T>', 'list<element>?', 'event<@selected>', 'null'])('writes %s back as it was read', text => {
+        it.each(['number', 'element?', 'list<T>', 'list<element>?', 'event<@selected>', 'null', 'never', 'list<never>', 'list<null>'])('writes %s back as it was read', text => {
             expect(Type.parse(text).toString()).toBe(text);
         });
 
@@ -85,6 +86,15 @@ describe('Type', () => {
             expect(Type.tryMatchType(Type.parse(declaredType), Type.parse(actualType), new Map())).toBe(false);
         });
 
+        it('matches never, which no value is, against whatever is declared, recording it for a type parameter', () => {
+            const typeArguments = new Map();
+
+            expect(Type.tryMatchType(Type.parse('list<T>'), Type.parse('list<never>'), typeArguments)).toBe(true);
+            expect(typeArguments.get('T')).toBe(Type.never);
+            expect(Type.tryMatchType(Type.parse('list<number>'), Type.parse('list<never>'), new Map())).toBe(true);
+            expect(Type.tryMatchType(Type.parse('element'), Type.never, new Map())).toBe(true);
+        });
+
         it('requires a type parameter met twice to match one type', () => {
             const typeArguments = new Map([['T', Type.parse('number')]]);
 
@@ -119,6 +129,13 @@ describe('Type', () => {
             expect(merge('list<element>', 'list<element?>')).toBe('list<element?>');
         });
 
+        it('answers the other type for never, which adds no value', () => {
+            expect(merge('never', 'number')).toBe('number');
+            expect(merge('element?', 'never')).toBe('element?');
+            expect(merge('never', 'null')).toBe('null');
+            expect(merge('list<never>', 'list<number>')).toBe('list<number>');
+        });
+
         it('merges object types field by field, whatever their order', () => {
             const firstType = Type.createObjectType(new Map([['a', Type.parse('number')], ['b', Type.parse('string')]]));
             const secondType = Type.createObjectType(new Map([['b', Type.parse('string?')], ['a', Type.parse('number')]]));
@@ -148,6 +165,11 @@ describe('Type', () => {
             ['list<number>', 'list<string>', false],
             ['number', 'list<number>', false],
             ['element', 'window', false],
+            ['never', 'number', true],
+            ['never', 'element?', true],
+            ['list<never>', 'list<string>', true],
+            ['list<null>', 'list<number?>', true],
+            ['list<null>', 'list<number>', false],
         ])('answers %s to %s as %s', (actualType, otherType, answer) => {
             expect(Type.parse(actualType).isAssignableTo(Type.parse(otherType))).toBe(answer);
         });
@@ -157,5 +179,6 @@ describe('Type', () => {
         expect(Type.parse('number').toNullable().toString()).toBe('number?');
         expect(Type.parse('number?').toNonNullable().toString()).toBe('number');
         expect(Type.null.toNonNullable()).toBe(Type.null);
+        expect(Type.never.toNullable()).toBe(Type.null);
     });
 });

@@ -9,6 +9,7 @@ import { DomqlError } from '../language/DomqlError.mjs';
 export class Behavior {
     #prepare;
     #reportError;
+    /** The declaration of the behavior, or null while a receiver of unknown type has selected none. */
     #declaration;
 
     /** The instance the behavior's module created, or null while a null receiver or argument leaves nothing to activate. @type {{ update: Function, dispose: Function } | null} */
@@ -39,7 +40,7 @@ export class Behavior {
     /**
      * Replaces the bindings the behavior runs with, whole. The bindings are checked, the request resolved again and its receiver and arguments evaluated before anything changes; a failure there throws, and leaves the behavior running as it was.
      * Only then does the behavior's own update receive the new receiver and arguments; a failure there throws an evaluation error, and the behavior keeps what it last accepted.
-     * @param {Record<string, unknown>} bindings Values or typed bindings supplied by parameter name.
+     * @param {Record<string, unknown>} bindings The values supplied by parameter name.
      */
     update(bindings) {
         if (this.#status === 'disposed') {
@@ -48,9 +49,12 @@ export class Behavior {
 
         const call = this.#prepare(bindings);
 
-        if (call.declaration !== this.#declaration) {
+        // A receiver of unknown type selects no declaration, so a behavior that has none yet takes the one its bindings select, and keeps it.
+        if (call.declaration !== null && this.#declaration !== null && call.declaration !== this.#declaration) {
             throw DomqlError.validation(`These bindings select the behavior '${call.name}', which is another behavior; activate it as one of its own`, call.location);
         }
+
+        this.#declaration = call.declaration ?? this.#declaration;
 
         if (call.args === null) {
             // A null receiver or argument leaves nothing to activate, so the instance ends.
