@@ -101,3 +101,98 @@ describe(`a watch of ${ROWS} rows, refreshed`, () => {
         await liveState.watch.refreshAsync();
     });
 });
+
+/** How many items a windowed list draws in its range, beside the one it keeps drawn outside it. */
+const DRAWN = 60;
+
+/** Each drawn item of a windowed list, its spacers left out: its key, where it stands and how tall it is. */
+const WINDOWED_TEXT = '@list.children.where(self attributeOf "data-spacer" is null) { key: self attributeOf "data-key", top: self.rect.top, height: self.rect.height }';
+
+/** An item of a windowed list, with a height that can change and the box its list's layout gives it, since the test environment lays nothing out. */
+const createItem = (key, height = 40) => {
+    const item = document.createElement('div');
+
+    item.setAttribute('data-key', key);
+    item.layout = { height, box: null };
+    item.getBoundingClientRect = () => item.layout.box;
+    item.getClientRects = () => [item.layout.box];
+
+    return item;
+};
+
+/** Lays the list's items out as a browser would, one under another from the scroll offset, so a resize moves the items below it and a scroll moves every one. */
+const layOut = (list, scrolledBy = 0) => {
+    let top = -scrolledBy;
+
+    for (const element of list.children) {
+        if (element.layout !== undefined) {
+            element.layout.box = { left: 0, top, width: 300, height: element.layout.height, right: 300, bottom: top + element.layout.height };
+            top += element.layout.height;
+        }
+    }
+};
+
+/** A spacer, standing for a run of items the list does not draw. */
+const createSpacer = () => {
+    const spacer = document.createElement('div');
+
+    spacer.setAttribute('data-spacer', '');
+
+    return spacer;
+};
+
+/** A windowed list as a virtualizer draws one: a spacer, the drawn range, a spacer, one item kept drawn far below the range, and a last spacer. */
+const createWindowedList = () => {
+    const list = document.createElement('div');
+    const closing = createSpacer();
+
+    list.append(createSpacer());
+
+    for (let index = 0; index < DRAWN; index++) {
+        list.append(createItem(`i${index}`));
+    }
+
+    list.append(closing, createItem('kept'), createSpacer());
+    document.body.append(list);
+    layOut(list);
+
+    return { list, closing };
+};
+
+describe(`a windowed list of ${DRAWN} drawn items, watched as live state and refreshed`, () => {
+    /** A watch of a windowed list of its own. */
+    const createWatch = () => {
+        const { list, closing } = createWindowedList();
+        const watch = domql.query(WINDOWED_TEXT, { list }).watch({ updateStrategy: 'liveState', acceptPartialObservation: true });
+
+        watch.subscribe('change', () => {});
+
+        return { list, closing, watch };
+    };
+
+    const unchanged = createWatch();
+    const resized = createWatch();
+    const scrolled = createWatch();
+    let next = DRAWN;
+    let scrolledBy = 0;
+
+    bench('unchanged', async () => {
+        await unchanged.watch.refreshAsync();
+    });
+
+    bench('one item resized', async () => {
+        const item = resized.list.children[DRAWN / 2];
+
+        item.layout.height = item.layout.height === 40 ? 64 : 40;
+        layOut(resized.list);
+        await resized.watch.refreshAsync();
+    });
+
+    bench('scrolled by one item: the first drawn leaves, the next is drawn', async () => {
+        scrolled.list.children[1].remove();
+        scrolled.closing.before(createItem(`i${next++}`));
+        scrolledBy += 40;
+        layOut(scrolled.list, scrolledBy);
+        await scrolled.watch.refreshAsync();
+    });
+});
