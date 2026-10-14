@@ -137,7 +137,7 @@ describe('Watches in shadow trees', () => {
         const inner = host(outer.root.querySelector('.host'), '<div class="scroller" style="height: 50px; overflow: auto"><div style="height: 20px"></div><div class="item" style="height: 10px"></div><div style="height: 500px"></div></div>');
         const item = inner.root.querySelector('.item');
 
-        watch('@item.rect.top', { item });
+        watch('@item.rect?.top', { item });
         await settle();
 
         expect(await reports(() => { inner.root.querySelector('.scroller').scrollTop = 10; })).toBe(1);

@@ -24,9 +24,13 @@ export class SnapshotComparer {
     }
 
     #reconcileNode(node, previous, previousIdentities, next, nextIdentities) {
-        // A local gives the value of the expression it names, compared as that expression is.
+        // A local gives the value of the expression it names, compared as that expression is, and an optional chain the value of the chain it holds.
         if (node.kind === 'local') {
             return this.#reconcileNode(this.#resolvedDefinition.resolutionOf(node).value, previous, previousIdentities, next, nextIdentities);
+        }
+
+        if (node.kind === 'optionalChain') {
+            return this.#reconcileNode(node.target, previous, previousIdentities, next, nextIdentities);
         }
 
         if (node.kind === 'conditional') {
@@ -90,6 +94,10 @@ export class SnapshotComparer {
     #toleranceOf(node, previousIdentities, nextIdentities) {
         if (node.kind === 'local') {
             return this.#toleranceOf(this.#resolvedDefinition.resolutionOf(node).value, previousIdentities, nextIdentities);
+        }
+
+        if (node.kind === 'optionalChain') {
+            return this.#toleranceOf(node.target, previousIdentities, nextIdentities);
         }
 
         if (node.kind === 'conditional') {

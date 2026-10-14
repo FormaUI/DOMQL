@@ -30,7 +30,7 @@ const items = $(panel).find('[data-key]').map((_, item) => ({
 const items = domql.query(`
     @panel.all("[data-key]") {
         key: self attributeOf "data-key",
-        height: self.rect.height,
+        height: self.rect?.height,
         selected: self matches "[aria-selected=true]"
     }
 `, { panel }).evaluate();
@@ -87,7 +87,7 @@ const query = domql.query(`
 
         items: items {
             key: self attributeOf "data-key",
-            height: self.rect.height,
+            height: self.rect?.height,
             selected: self matches "[aria-selected=true]"
         },
 
@@ -96,7 +96,7 @@ const query = domql.query(`
                 key: self attributeOf "data-key"
             },
 
-        tallest: items.max(self.rect.height)
+        tallest: items.max(self.rect?.height)
     }
 `, { panel });
 
@@ -123,7 +123,7 @@ With the markup above rendered without additional styling, the result is:
 The query describes the answer directly:
 
 - `@panel` refers to the element supplied in the bindings.
-- Chains such as `self.rect.height` read members.
+- Chains such as `self.rect?.height` read members, `?.` reading one of a value that can be null.
 - `let` names a value once, here the items, for the fields after it.
 - Object expressions choose fields and their output names.
 - An object expression after a list projects each item.

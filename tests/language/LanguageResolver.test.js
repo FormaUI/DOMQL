@@ -29,18 +29,18 @@ describe('LanguageResolver', () => {
         });
 
         it('types a field of a structured type, nullable after a nullable receiver', () => {
-            expect(resolve('@panel.size.width').type.toString()).toBe('number?');
+            expect(resolve('@panel.size?.width').type.toString()).toBe('number?');
         });
 
         it('types a list property and an aggregate over its items', () => {
             expect(resolve('@panel.children.count').type.toString()).toBe('number');
-            expect(resolve('@panel.children.sum(self.size.width)').type.toString()).toBe('number');
-            expect(resolve('@panel.children.max(self.size.width)').type.toString()).toBe('number?');
+            expect(resolve('@panel.children.sum(self.size?.width)').type.toString()).toBe('number');
+            expect(resolve('@panel.children.max(self.size?.width)').type.toString()).toBe('number?');
         });
 
         it('keeps the item type through where, first and at', () => {
-            expect(resolve('@panel.children.where(self is "attached").first.size').type.toString()).toBe('size?');
-            expect(resolve('@panel.children.at(0).size').type.toString()).toBe('size?');
+            expect(resolve('@panel.children.where(self is "attached").first?.size').type.toString()).toBe('size?');
+            expect(resolve('@panel.children.at(0)?.size').type.toString()).toBe('size?');
         });
 
         it('types an object expression by its written field names', () => {
@@ -172,14 +172,14 @@ describe('LanguageResolver', () => {
         });
 
         it('resolves a property after null whatever its name, and a call by its name and form, of the result its declarations share made nullable', () => {
-            expect(resolve('null.size').type.toString()).toBe('size?');
-            expect(resolve('null.sise').type.toString()).toBe('null');
-            expect(failure('null.sise()').message).toContain('no member of the vocabulary');
-            expect(failure('null.size()').message).toContain('is a property');
+            expect(resolve('null?.size').type.toString()).toBe('size?');
+            expect(resolve('null?.sise').type.toString()).toBe('null');
+            expect(failure('null?.sise()').message).toContain('no member of the vocabulary');
+            expect(failure('null?.size()').message).toContain('is a property');
         });
 
         it('refuses an expression on a receiver that has no items', () => {
-            expect(failure('@panel.sum(self.size.width)').message).toContain('not available');
+            expect(failure('@panel.sum(self.size?.width)').message).toContain('not available');
         });
     });
 
@@ -216,11 +216,29 @@ describe('LanguageResolver', () => {
             expect(failure('@panel overlaps { margin: 1 }').message).toContain("requires the argument 'other'");
         });
 
+        it('refuses an access or a call of a receiver that can be null, giving the optional form', () => {
+            expect(failure('@panel.parent.size').message).toContain("'size' follows element?, which can be null: write '@panel.parent?.size'");
+            expect(failure('null.size').message).toContain("'size' follows null: write 'null?.size'");
+            expect(failure('@panel.first(".a").closest(".b")').message).toContain(`write '@panel.first(".a")?.closest(".b")'`);
+            expect(failure('(@panel.parent?.children).count').message).toContain("write '(@panel.parent?.children)?.count'");
+        });
+
+        it('types an optional chain nullable where an optional access of it can meet null, and as its chain otherwise', () => {
+            expect(resolve('@panel.parent?.children.count').type.toString()).toBe('number?');
+            expect(resolve('@panel?.children.count').type.toString()).toBe('number');
+            expect(resolve('@panel.parent?.rect?.width').type.toString()).toBe('number?');
+        });
+
+        it('lets a named operation and a predicate expression propagate a null receiver', () => {
+            expect(resolve('@panel.parent attributeOf "id"').type.toString()).toBe('string?');
+            expect(resolve('@panel.parent is "attached"').type.toString()).toBe('boolean?');
+        });
+
         it('refuses a member written in a form its declaration does not take, giving the form it does', () => {
             expect(failure('@panel.attributeOf("id")').message).toContain(`'attributeOf' is a named operation: write '@panel attributeOf "id"'`);
             expect(failure('@panel closest ".row"').message).toContain(`'closest' is a call: write '@panel.closest(".row")'`);
             expect(failure('@panel.parent()').message).toContain("'parent' is a property: write '@panel.parent'");
-            expect(failure('@panel.size.width()').message).toContain("write '@panel.size.width'");
+            expect(failure('@panel.size?.width()').message).toContain("write '@panel.size?.width'");
         });
 
         it('resolves an omitted argument to its default', () => {
@@ -250,12 +268,12 @@ describe('LanguageResolver', () => {
         });
 
         it('makes a call on a nullable receiver nullable', () => {
-            expect(resolve('@panel.parent.size').type.toString()).toBe('size?');
-            expect(resolve('@panel.parent.children.count').type.toString()).toBe('number?');
+            expect(resolve('@panel.parent?.size').type.toString()).toBe('size?');
+            expect(resolve('@panel.parent?.children.count').type.toString()).toBe('number?');
         });
 
         it('lets an aggregate expression produce null per item', () => {
-            expect(resolve('@panel.children.sum(self.size.width)').type.toString()).toBe('number');
+            expect(resolve('@panel.children.sum(self.size?.width)').type.toString()).toBe('number');
         });
 
         it('refuses an aggregate expression of another type', () => {
@@ -369,7 +387,7 @@ describe('LanguageResolver', () => {
 
         it('points into a definition that has no text', () => {
             const definition = {
-                version: 3,
+                version: 4,
                 query: { kind: 'member', target: { kind: 'parameter', name: 'panel' }, name: 'nonsense', arguments: [] },
             };
 
@@ -455,7 +473,7 @@ describe('LanguageResolver', () => {
 
     describe('locals', () => {
         it('type a use of a local as the value it names', () => {
-            expect(resolve('@panel { let size: self.size, width: size.width }').type.toString()).toBe('{ width: number? }');
+            expect(resolve('@panel { let size: self.size, width: size?.width }').type.toString()).toBe('{ width: number? }');
             expect(resolve('@panel { let rows: self.children, rows: rows { key: self attributeOf "data-key" } }').type.toString()).toBe('{ rows: list<{ key: string? }> }');
         });
 
@@ -479,9 +497,9 @@ describe('LanguageResolver', () => {
     describe('conditionals', () => {
         it('type a conditional by its branches, nullable where either is', () => {
             expect(resolve('if @wide then 1 else 2', { panel, wide: true }).type.toString()).toBe('number');
-            expect(resolve('if @wide then @panel.size.width else 0', { panel, wide: true }).type.toString()).toBe('number?');
+            expect(resolve('if @wide then @panel.size?.width else 0', { panel, wide: true }).type.toString()).toBe('number?');
             expect(resolve('if @wide then "on" else null', { panel, wide: true }).type.toString()).toBe('string?');
-            expect(resolve('if @wide then { width: 1 } else { width: @panel.size.width }', { panel, wide: true }).type.toString()).toBe('{ width: number? }');
+            expect(resolve('if @wide then { width: 1 } else { width: @panel.size?.width }', { panel, wide: true }).type.toString()).toBe('{ width: number? }');
         });
 
         it('type an elseif as the conditional it is nested in the alternative', () => {
@@ -524,14 +542,16 @@ describe('LanguageResolver', () => {
         });
 
         it('finds each node, by the node itself, with its pointer and its resolution', () => {
-            const resolved = resolve('@panel.all("i") { h: self.size.height, on: self is "attached" or self is "focused" }');
+            const resolved = resolve('@panel.all("i") { h: self.size?.height, on: self is "attached" or self is "focused" }');
             const { query } = resolved.definition;
-            const [height, on] = query.fields.map(field => field.value);
+            const [chain, on] = query.fields.map(field => field.value);
+            const height = chain.target;
 
             expect(resolved.pointerOf(query.target)).toBe('/query/target');
             expect(resolved.resolutionOf(query.target).declaration.name).toBe('all');
-            expect(resolved.pointerOf(height.target)).toBe('/query/fields/0/value/target');
+            expect(resolved.pointerOf(height.target)).toBe('/query/fields/0/value/target/target');
             expect(resolved.resolutionOf(height).kind).toBe('field');
+            expect(resolved.resolutionOf(chain)).toBeUndefined();
             expect(resolved.pointerOf(on.operands[1].name)).toBe('/query/fields/1/value/operands/1/name');
             expect(resolved.resolutionOf(on.operands[1].name).predicate.name).toBe('focused');
             expect(resolved.resolutionOf(query)).toBeUndefined();

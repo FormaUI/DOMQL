@@ -135,6 +135,14 @@ describe('SnapshotComparer', () => {
             });
         });
 
+        it('compares what an optional chain gives as the chain it holds, within the tolerance of its member', () => {
+            const snapshotComparer = snapshotComparerOf('@element { width: self.parent?.wobble.width, box: self.parent?.wobble { w: self.width } }', { element }, { tolerance: 2 });
+            const previous = freeze({ width: 10, box: { w: 10 } });
+
+            expect(snapshotComparer.reconcile(previous, null, freeze({ width: 11, box: { w: 10 } }), null)).toBe(previous);
+            expect(snapshotComparer.reconcile(previous, null, freeze({ width: 13, box: { w: 10 } }), null).box).toBe(previous.box);
+        });
+
         it('compares what a local gives as the expression it names, within the tolerance of its member', () => {
             const snapshotComparer = snapshotComparerOf('@element { let width: self.wobble.width, a: width, b: width }', { element }, { tolerance: 2 });
             const previous = freeze({ a: 100, b: 100 });

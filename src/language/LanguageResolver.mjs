@@ -25,6 +25,9 @@ export class LanguageResolver {
     /** @type {object[]} */
     #usedDeclarations = [];
 
+    /** The optional chains being resolved, the innermost last, each with whether an optional access of it can meet a null receiver. @type {{ shortCircuits: boolean }[]} */
+    #chains = [];
+
     /**
      * @param {import('./vocabulary/ModuleRegistry.mjs').ModuleRegistry} moduleRegistry The vocabulary to resolve against.
      * @param {import('./ParameterBindings.mjs').ParameterBindings} bindings What the request's parameters are bound to.
@@ -77,11 +80,28 @@ export class LanguageResolver {
                 return this.#resolvePredicate(node, pointer, scope);
             case 'conditional':
                 return this.#resolveConditional(node, pointer, scope);
+            case 'optionalChain':
+                return this.#resolveOptionalChain(node, pointer, scope);
             case 'and':
             case 'or':
                 return this.#resolveLogical(node, pointer, scope);
             default:
                 return this.#resolveObject(node, pointer, scope);
+        }
+    }
+
+    /** Resolves an optional chain: the chain it holds, nullable where an optional access of it can meet a null receiver, which ends the chain with null. */
+    #resolveOptionalChain(node, pointer, scope) {
+        const chain = { shortCircuits: false };
+
+        this.#chains.push(chain);
+
+        try {
+            const result = this.#resolveNode(node.target, `${pointer}/target`, scope);
+
+            return chain.shortCircuits ? { type: result.type.toNullable(), kind: result.kind, isFixed: false } : result;
+        } finally {
+            this.#chains.pop();
         }
     }
 
@@ -230,11 +250,23 @@ export class LanguageResolver {
 
     #resolveMember(node, pointer, scope) {
         const receiver = this.#resolveNode(node.target, `${pointer}/target`, scope);
-        const receiverType = receiver.type;
 
         if (receiver.kind !== 'query') {
             this.#fail(`'${node.name}' follows ${LanguageResolver.#descriptionOf(receiver.kind)}, which takes no members`, pointer);
         }
+
+        // An access and a call require a receiver that cannot be null, and an optional one reads it where it is not null, ending its chain with null where it is; a named operation applies its receiver's null policy.
+        if (receiver.type.isNullable && node.kind !== 'namedOperation') {
+            if (node.optional !== true) {
+                const follows = receiver.type.kind === 'null' ? 'null' : `${receiver.type}, which can be null`;
+
+                this.#fail(`'${node.name}' follows ${follows}: write '${DefinitionWriter.write({ ...node, optional: true })}' to read it where it is not`, pointer);
+            }
+
+            this.#chains.at(-1).shortCircuits = true;
+        }
+
+        const receiverType = node.optional === true ? receiver.type.toNonNullable() : receiver.type;
 
         if (LanguageResolver.#isOfUnknownType(receiverType)) {
             return this.#resolveOnUnknownType(node, pointer, scope, receiverType);
@@ -244,7 +276,7 @@ export class LanguageResolver {
 
         if (field !== null) {
             if (node.kind !== 'member') {
-                this.#fail(`'${node.name}' is a field of ${receiverType.toNonNullable()} and takes no argument: write '${DefinitionWriter.write({ kind: 'member', target: node.target, name: node.name })}'`, pointer);
+                this.#fail(`'${node.name}' is a field of ${receiverType.toNonNullable()} and takes no argument: write '${DefinitionWriter.write(LanguageResolver.#accessOf(node))}'`, pointer);
             }
 
             this.#resolutions.set(pointer, { kind: 'field', name: node.name, receiverType });
@@ -296,7 +328,7 @@ export class LanguageResolver {
 
     /**
      * Resolves a name applied to a receiver of unknown type, which chooses no declaration. A property is accepted whatever its name, since a bound object's fields are named by its data; a call or a named operation must be a member's, written in the form and given the arguments one of its declarations takes. The declarations that take it agree on the kind of request they make.
-     * Its type is the result type they share, made nullable, and null where they share none or the name is no member's. Nothing applied to such a receiver is evaluated, so its arguments leave no resolution behind.
+     * Its type is the result type they share, made nullable, or left to the optional chain an optional access of null ends, and null where they share none or the name is no member's. Nothing applied to such a receiver is evaluated, so its arguments leave no resolution behind.
      */
     #resolveOnUnknownType(node, pointer, scope, receiverType) {
         const isAccess = node.kind === 'member';
@@ -305,7 +337,7 @@ export class LanguageResolver {
         const written = candidates.filter(candidate => FORM_NODE_KINDS[candidate.kind === 'property' ? 'access' : candidate.form] === node.kind);
 
         if (!isAccess && candidates.length === 0) {
-            this.#fail(this.#moduleRegistry.getFieldTypes(node.name).length > 0 ? `'${node.name}' is a field and takes no argument: write '${DefinitionWriter.write({ kind: 'member', target: node.target, name: node.name })}'` : `'${node.name}' is no member of the vocabulary`, pointer);
+            this.#fail(this.#moduleRegistry.getFieldTypes(node.name).length > 0 ? `'${node.name}' is a field and takes no argument: write '${DefinitionWriter.write(LanguageResolver.#accessOf(node))}'` : `'${node.name}' is no member of the vocabulary`, pointer);
         }
 
         if (!isAccess && written.length === 0) {
@@ -341,7 +373,9 @@ export class LanguageResolver {
             ...fields.map(text => Type.parse(text)),
         ];
         const shared = resultTypes.reduce((merged, type) => (merged === null ? null : Type.merge(merged, type)), Type.never);
-        const type = shared === null || shared.kind === 'never' || LanguageResolver.#holdsTypeParameter(shared) ? Type.null : shared.toNullable();
+        // An optional access of null ends its chain, which is nullable for it, so its own type is the one its declarations share.
+        const isShortCircuited = node.optional === true && receiverType.kind === 'null';
+        const type = shared === null || shared.kind === 'never' || LanguageResolver.#holdsTypeParameter(shared) ? Type.null : isShortCircuited ? shared : shared.toNullable();
 
         this.#resolutions.set(pointer, { kind: 'member', declaration: null, receiverType, type, arguments: [] });
 
@@ -375,7 +409,7 @@ export class LanguageResolver {
             return;
         }
 
-        const written = form === 'access' ? { kind: 'member', target: node.target, name: node.name } : { ...node, kind: FORM_NODE_KINDS[form] };
+        const written = form === 'access' ? LanguageResolver.#accessOf(node) : { ...node, kind: FORM_NODE_KINDS[form] };
         const described = { access: 'a property', call: 'a call', named: 'a named operation' }[form];
 
         this.#fail(`'${node.name}' is ${described}: write '${DefinitionWriter.write(written)}'`, pointer);
@@ -722,6 +756,11 @@ export class LanguageResolver {
             default:
                 return `a ${kind}`;
         }
+    }
+
+    /** The member access that writes the node's name after its receiver, optional where the node is. */
+    static #accessOf(node) {
+        return { kind: 'member', target: node.target, name: node.name, ...(node.optional === true ? { optional: true } : {}) };
     }
 
     static #requestKindOf(declaration) {

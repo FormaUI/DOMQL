@@ -268,7 +268,7 @@ describe('EventListener', () => {
         it('answer null for a maintained member still pending, and the sample that arrived for a later event', () => {
             const [first] = panel.children;
 
-            subscribe('(@panel eventsOf "input") { level: self.target.level }', { panel });
+            subscribe('(@panel eventsOf "input") { level: self.target?.level }', { panel });
 
             input(first);
             gauges.get(first).sample = { pending: false, value: 4 };
@@ -281,7 +281,7 @@ describe('EventListener', () => {
         it('keep what the last projection read and let go of the rest', () => {
             const [first, second] = panel.children;
 
-            subscribe('(@panel eventsOf "input") { level: self.target.level }', { panel });
+            subscribe('(@panel eventsOf "input") { level: self.target?.level }', { panel });
 
             input(first);
             input(second);
@@ -292,7 +292,7 @@ describe('EventListener', () => {
 
         it('are kept as they were through a projection that fails, which lets go of those it opened and delivers nothing', () => {
             const [first, second] = panel.children;
-            const listener = subscribe('(@panel eventsOf "input") { level: self.target.level, n: self.target.flaky }', { panel });
+            const listener = subscribe('(@panel eventsOf "input") { level: self.target?.level, n: self.target?.flaky }', { panel });
 
             input(first);
             broken = true;
@@ -359,7 +359,7 @@ describe('EventListener', () => {
         it('sends a failure of the handler given a failed event to the window\'s error reporting, and never back to the handler', () => {
             const received = [];
 
-            subscribe('(@panel eventsOf "input") { n: self.target.flaky }', { panel }, (_sender, args) => {
+            subscribe('(@panel eventsOf "input") { n: self.target?.flaky }', { panel }, (_sender, args) => {
                 received.push(args);
 
                 throw new Error('unheard');
@@ -390,7 +390,7 @@ describe('EventListener', () => {
 
         it('stops listening, lets go of every session and calls nothing again', () => {
             const [first] = panel.children;
-            const listener = subscribe('(@panel eventsOf "input") { level: self.target.level }', { panel });
+            const listener = subscribe('(@panel eventsOf "input") { level: self.target?.level }', { panel });
 
             input(first);
             listener.dispose();
@@ -417,9 +417,9 @@ describe('EventListener', () => {
     describe('other event listeners of the same events', () => {
         it('go on when one is disposed, keeping the observations they share', () => {
             const [first] = panel.children;
-            const disposed = subscribe('(@panel eventsOf "input") { level: self.target.level }', { panel }, () => {});
+            const disposed = subscribe('(@panel eventsOf "input") { level: self.target?.level }', { panel }, () => {});
 
-            subscribe('(@panel eventsOf "input") { level: self.target.level }', { panel });
+            subscribe('(@panel eventsOf "input") { level: self.target?.level }', { panel });
             input(first);
             disposed.dispose();
             input(first);
@@ -431,7 +431,7 @@ describe('EventListener', () => {
         it('go on when the projection or the handler of one fails', () => {
             const [first] = panel.children;
 
-            subscribe('(@panel eventsOf "input") { n: self.target.flaky }', { panel });
+            subscribe('(@panel eventsOf "input") { n: self.target?.flaky }', { panel });
             subscribe('(@panel eventsOf "input") { id: self.target attributeOf "id" }', { panel }, () => { throw new Error('consumer'); });
             subscribe('(@panel eventsOf "input") { id: self.target attributeOf "id" }', { panel });
 

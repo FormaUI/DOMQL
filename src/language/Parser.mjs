@@ -113,8 +113,30 @@ export class Parser {
         return this.#isVerb() ? this.#parsePredicate(value, start) : value;
     }
 
-    /** Reads a value: an initial expression, the member accesses, calls and object expressions that continue it, and the named operation that may end it. */
+    /** Reads a value: an initial expression, the member accesses, calls and object expressions that continue it, held by an optional chain where one of its accesses is optional, and the named operation that may end it. */
     #parseValue() {
+        const start = this.#token.start;
+        const { node, isOptional } = this.#parseChain();
+        const value = isOptional ? this.#recordSpan({ kind: 'optionalChain', target: node }, start) : node;
+
+        if (this.#token.type !== 'name') {
+            return value;
+        }
+
+        // A name a colon follows names the next field, which a comma comes before.
+        if (this.#tokens[this.#index + 1].type === ':') {
+            throw this.#unexpected("',' before the next field");
+        }
+
+        if (!this.#token.spaced) {
+            throw DomqlError.syntax(`'${this.#token.value}' follows its receiver after a space or a comment, as a named operation does`, this.#text, this.#token.start);
+        }
+
+        return this.#parseNamedOperation(value, start);
+    }
+
+    /** Reads a chain: an initial expression and the member accesses, calls and object expressions that continue it, and whether an access of it is optional, which a group within it leaves to its own chain. */
+    #parseChain() {
         const start = this.#token.start;
 
         // A name that starts a chain is a local, which takes no argument, so one an argument follows is a member written without its receiver.
@@ -127,31 +149,24 @@ export class Parser {
         }
 
         let node = this.#parseInitialExpression();
+        let isOptional = false;
 
         for (;;) {
-            if (this.#token.type === '.') {
+            if (this.#token.type === '.' || this.#token.type === '?.') {
+                const optional = this.#token.type === '?.';
+
                 this.#advance();
 
                 if (this.#isVerb()) {
                     throw DomqlError.syntax(`'${this.#token.value}' tests a value and is no member: write '${this.#token.value}' after the value, without a dot`, this.#text, this.#token.start);
                 }
 
-                node = this.#parseAccess(node, start);
+                node = this.#parseAccess(node, start, optional);
+                isOptional ||= optional;
             } else if (this.#token.type === '{') {
                 node = this.#parseObject(node, start);
-            } else if (this.#token.type === 'name') {
-                // A name a colon follows names the next field, which a comma comes before.
-                if (this.#tokens[this.#index + 1].type === ':') {
-                    throw this.#unexpected("',' before the next field");
-                }
-
-                if (!this.#token.spaced) {
-                    throw DomqlError.syntax(`'${this.#token.value}' follows its receiver after a space or a comment, as a named operation does`, this.#text, this.#token.start);
-                }
-
-                return this.#parseNamedOperation(node, start);
             } else {
-                return node;
+                return { node, isOptional };
             }
         }
     }
@@ -191,16 +206,17 @@ export class Parser {
         }
     }
 
-    /** Reads what follows a dot: a member access, or a call where parentheses follow the name. */
-    #parseAccess(target, start) {
+    /** Reads what follows a dot, or the `?.` of an optional access: a member access, or a call where parentheses follow the name. */
+    #parseAccess(target, start, optional) {
         const name = this.#expect('name').value;
+        const access = optional ? { target, name, optional } : { target, name };
 
         if (this.#token.type !== '(') {
             if (this.#token.type === 'literal' || this.#token.type === 'parameter') {
                 throw DomqlError.syntax(`An argument after a dot is enclosed in parentheses, as a call's is, '.${name}(…)'; a named operation follows its receiver after a space, without a dot`, this.#text, this.#token.start);
             }
 
-            return this.#recordSpan({ kind: 'member', target, name }, start);
+            return this.#recordSpan({ kind: 'member', ...access }, start);
         }
 
         this.#advance();
@@ -208,7 +224,7 @@ export class Parser {
         if (this.#token.type === ')') {
             this.#advance();
 
-            return this.#recordSpan({ kind: 'call', target, name }, start);
+            return this.#recordSpan({ kind: 'call', ...access }, start);
         }
 
         if (this.#token.type === 'name' && this.#tokens[this.#index + 1].type === ':') {
@@ -223,7 +239,7 @@ export class Parser {
 
         this.#expect(')');
 
-        return this.#recordSpan({ kind: 'call', target, name, argument }, start);
+        return this.#recordSpan({ kind: 'call', ...access, argument }, start);
     }
 
     /** Reads a named operation: its name and, after a separator, the initial expression that is its argument; it ends its chain. */
@@ -249,7 +265,7 @@ export class Parser {
 
         this.#recordSpan(node, start);
 
-        if (this.#token.type === '.' || this.#token.type === '{' || this.#token.type === 'name') {
+        if (this.#token.type === '.' || this.#token.type === '?.' || this.#token.type === '{' || this.#token.type === 'name') {
             throw DomqlError.syntax(`A named operation ends its chain; group it to continue from its result, as in '(… ${name} …).value'`, this.#text, this.#token.start);
         }
 

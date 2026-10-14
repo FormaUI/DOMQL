@@ -36,8 +36,8 @@ describe('DefinitionWriter', () => {
         '@panel.size',
         '@panel attributeOf "data-key"',
         '@panel intersects { root: @panel, margin: 10 }',
-        '@panel { size: self.size, box: { width: self.size.width }, kind: "panel", rank: 3, none: null }',
-        '@panel.children.where(self is "attached").max(self.size.width)',
+        '@panel { size: self.size, box: { width: self.size?.width }, kind: "panel", rank: 3, none: null }',
+        '@panel.children.where(self is "attached").max(self.size?.width)',
         '(@panel is "attached" or @panel is "focused") and @panel is "disabled"',
         '@panel is "attached" or @panel is "focused" and @panel is "disabled"',
         '@first and (@second and @third)',
@@ -53,7 +53,7 @@ describe('DefinitionWriter', () => {
         '@panel attributeOf "role" is "set"',
         '@sentinel intersects',
         '@panel attributeOf (@panel attributeOf "for")',
-        '@panel.rectRelativeTo(@panel.parent).top',
+        '@panel.rectRelativeTo(@panel.parent)?.top',
         'if @panel is "attached" then "here" elseif @panel is null then "gone" else "away"',
         '(if @a then @panel else @other).size',
         '(if @a then true else false) and @b',
@@ -66,6 +66,13 @@ describe('DefinitionWriter', () => {
         '@panel { let a: 1, inner: self { let b: a, value: b } }',
         '@panel attributeOf "a \\"quoted\\" name, a \\\\ backslash"',
         '@panel attributeOf "two\nlines"',
+        '@panel.parent?.children.count',
+        '(@panel.parent?.children).count',
+        '@panel.parent?.rect { top: self.top }',
+        '(@panel.parent?.rect) { top: self.top }',
+        '@panel.parent?.closest(".row") attributeOf "id"',
+        '@panel attributeOf (@row?.key)',
+        '@panel.closest(@row?.key)?.parent',
     ])('writes text that parses back to the same definition: %s', text => {
         const { definition } = domql.query(text, { panel });
 
@@ -107,7 +114,7 @@ describe('DefinitionWriter', () => {
         it.each([
             ['an object expression of one field', '@panel {size:self.size}', '@panel { size: self.size }'],
             ['an object expression of more fields, a line for each', '@panel { size: self.size, key: self attributeOf "data-key" }', '@panel {\n    size: self.size,\n    key: self attributeOf "data-key"\n}'],
-            ['an object expression of one field whose value takes lines', '@panel { box: { width: self.size.width, height: self.size.height } }', '@panel {\n    box: {\n        width: self.size.width,\n        height: self.size.height\n    }\n}'],
+            ['an object expression of one field whose value takes lines', '@panel { box: { width: self.size?.width, height: self.size?.height } }', '@panel {\n    box: {\n        width: self.size?.width,\n        height: self.size?.height\n    }\n}'],
             ['an object expression of one field and a local', '@panel { let s: self.size, width: s.width }', '@panel {\n    let s: self.size,\n    width: s.width\n}'],
             ['a conditional with no elseif, on one line', 'if @a then 1 else 2', 'if @a then 1 else 2'],
             ['a conditional with an elseif, a line for each clause', '@panel { state: if self is "disabled" then "locked" elseif self is "readOnly" then "read" else "open" }', '@panel {\n    state: if self is "disabled" then "locked"\n    elseif self is "readOnly" then "read"\n    else "open"\n}'],
@@ -115,6 +122,7 @@ describe('DefinitionWriter', () => {
             ['one space around a named operation and a predicate', '@panel   attributeOf    "role"   is   "set"', '@panel attributeOf "role" is "set"'],
             ['no trailing comma', '@panel { size: self.size, key: 1, }', '@panel {\n    size: self.size,\n    key: 1\n}'],
             ['no comment and no original layout', '@panel // the panel\n    /* its size */ .size', '@panel.size'],
+            ['an optional access as one token, with the group that ends its chain', '(@panel.parent  ?.children) . count', '(@panel.parent?.children).count'],
             ['the grouping a meaning needs, and none other', '((@first and @second)) or (@third)', '@first and @second or @third'],
             ['a string escaping only a double quote and a backslash', '@panel attributeOf "say \\"hi\\" \\\\ there"', '@panel attributeOf "say \\"hi\\" \\\\ there"'],
         ])('lays out %s', (_, text, formatted) => {
@@ -125,8 +133,8 @@ describe('DefinitionWriter', () => {
             '@panel { size: self.size, rows: self.children { key: self attributeOf "data-key", open: self matches ".open" } }',
             'if @a then { x: 1, y: 2 } elseif @b then (if @c then 3 else 4) else @d { z: self.size }',
             '@panel { let items: self.children, count: items.count, first: items.at(0) { key: self attributeOf "data-key" } }',
-            '(@panel eventsOf "click") { x: self.clientX, inside: self.target.closest(".row") is null }',
-            '@panel.children.where(self is "attached" and (self has "children" or self matches ".x")).max(self.size.width)',
+            '(@panel eventsOf "click") { x: self.clientX, inside: self.target?.closest(".row") is null }',
+            '@panel.children.where(self is "attached" and (self has "children" or self matches ".x")).max(self.size?.width)',
             '@panel attributeOf "line\nbreak and \\"quote\\""',
         ])('gives text that formats to itself, and parses back to the same definition: %s', text => {
             const formatted = format(text);
@@ -163,7 +171,7 @@ describe('DefinitionWriter', () => {
             const { domql: other } = await import('#domql/domql.js');
 
             expect(() => format('@panel {')).toThrow(expect.objectContaining({ kind: 'syntax' }));
-            expect(() => domql.format({ version: 3, query: { kind: 'nonsense' } })).toThrow(expect.objectContaining({ kind: 'structure' }));
+            expect(() => domql.format({ version: 4, query: { kind: 'nonsense' } })).toThrow(expect.objectContaining({ kind: 'structure' }));
             expect(() => domql.format(other.query('@panel'))).toThrow(expect.objectContaining({ kind: 'structure', message: expect.stringContaining('query.definition') }));
         });
 

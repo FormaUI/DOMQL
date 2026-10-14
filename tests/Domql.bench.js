@@ -106,7 +106,7 @@ describe(`a watch of ${ROWS} rows, refreshed`, () => {
 const DRAWN = 60;
 
 /** Each drawn item of a windowed list, its spacers left out: its key, where it stands and how tall it is. */
-const WINDOWED_TEXT = '@list.children.where(self attributeOf "data-spacer" is null) { key: self attributeOf "data-key", top: self.rect.top, height: self.rect.height }';
+const WINDOWED_TEXT = '@list.children.where(self attributeOf "data-spacer" is null) { key: self attributeOf "data-key", top: self.rect?.top, height: self.rect?.height }';
 
 /** An item of a windowed list, with a height that can change and the box its list's layout gives it, since the test environment lays nothing out. */
 const createItem = (key, height = 40) => {

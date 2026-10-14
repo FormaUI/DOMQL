@@ -69,8 +69,8 @@ describe('Geometry in a browser', () => {
 
             [48, 64, 48].forEach(height => add(`height: ${height}px`, list));
 
-            expect(read('@list.children.max(self.rect.height)', { list })).toBe(64);
-            expect(read('@list.children.sum(self.rect.height)', { list })).toBe(160);
+            expect(read('@list.children.max(self.rect?.height)', { list })).toBe(64);
+            expect(read('@list.children.sum(self.rect?.height)', { list })).toBe(160);
         });
     });
 
@@ -141,9 +141,9 @@ describe('Geometry in a browser', () => {
             const grid = add('display: grid; grid-template-columns: 100px 200px 50px');
             const block = add('');
 
-            expect(read('@grid.grid.columns', { grid })).toEqual([100, 200, 50]);
-            expect(read('@grid.grid.columns.count', { grid })).toBe(3);
-            expect(read('@block.grid.columns', { block })).toEqual([]);
+            expect(read('@grid.grid?.columns', { grid })).toEqual([100, 200, 50]);
+            expect(read('@grid.grid?.columns.count', { grid })).toBe(3);
+            expect(read('@block.grid?.columns', { block })).toEqual([]);
         });
     });
 

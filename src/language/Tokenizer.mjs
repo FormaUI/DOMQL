@@ -7,7 +7,7 @@ import { Names } from './Names.mjs';
 
 /**
  * @typedef {object} Token
- * @property {'name' | 'parameter' | 'literal' | 'keyword' | 'self' | 'end' | '.' | ',' | ':' | '(' | ')' | '{' | '}'} type
+ * @property {'name' | 'parameter' | 'literal' | 'keyword' | 'self' | 'end' | '.' | '?.' | ',' | ':' | '(' | ')' | '{' | '}'} type
  * @property {unknown} [value] A name's, a parameter's or a keyword's text, or a literal's value.
  * @property {number} start
  * @property {number} end
@@ -65,6 +65,12 @@ export class Tokenizer {
             this.#offset++;
 
             return { type: character, start, end: this.#offset };
+        }
+
+        if (this.#text.startsWith('?.', start)) {
+            this.#offset += 2;
+
+            return { type: '?.', start, end: this.#offset };
         }
 
         if (character === '@') {

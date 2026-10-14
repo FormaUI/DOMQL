@@ -167,9 +167,11 @@ export type DomqlDefinitionNode =
     | { readonly kind: 'parameter'; readonly name: string }
     | { readonly kind: 'self' }
     | { readonly kind: 'local'; readonly name: string }
-    | { readonly kind: 'member'; readonly target: DomqlDefinitionNode; readonly name: string }
-    | { readonly kind: 'call' | 'namedOperation'; readonly target: DomqlDefinitionNode; readonly name: string; readonly argument?: DomqlDefinitionNode }
+    | { readonly kind: 'member'; readonly target: DomqlDefinitionNode; readonly name: string; readonly optional?: true }
+    | { readonly kind: 'call'; readonly target: DomqlDefinitionNode; readonly name: string; readonly optional?: true; readonly argument?: DomqlDefinitionNode }
+    | { readonly kind: 'namedOperation'; readonly target: DomqlDefinitionNode; readonly name: string; readonly argument?: DomqlDefinitionNode }
     | { readonly kind: 'object'; readonly target?: DomqlDefinitionNode; readonly locals?: readonly DomqlDefinitionLocal[]; readonly fields: readonly DomqlDefinitionField[] }
+    | { readonly kind: 'optionalChain'; readonly target: DomqlDefinitionNode }
     | { readonly kind: 'predicate'; readonly verb: 'is' | 'has'; readonly target: DomqlDefinitionNode; readonly name: DomqlPredicateName }
     | { readonly kind: 'conditional'; readonly condition: DomqlDefinitionNode; readonly consequent: DomqlDefinitionNode; readonly alternative: DomqlDefinitionNode }
     | { readonly kind: 'and' | 'or'; readonly operands: readonly DomqlDefinitionNode[] };

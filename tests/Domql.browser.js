@@ -34,7 +34,7 @@ describe('domql evaluateAsync in a browser', () => {
     });
 
     it('evaluates it among the other members of an object expression', async () => {
-        const snapshot = await domql.query('@item { near: self intersects, height: self.size.height, id: self attributeOf "id" }', { item: inside }).evaluateAsync();
+        const snapshot = await domql.query('@item { near: self intersects, height: self.size?.height, id: self attributeOf "id" }', { item: inside }).evaluateAsync();
 
         expect(snapshot).toEqual({ near: true, height: 40, id: 'inside' });
     });
@@ -122,7 +122,7 @@ describe('domql evaluateAsync in a browser', () => {
             it('delivers the projection of a click, with what the event carried', () => {
                 const results = [];
 
-                listeners.push(domql.query('(@panel eventsOf "click") { id: self.target attributeOf "id", button: self.button, height: self.target.size.height }', { panel }).subscribe((sender, args) => results.push(args.value)));
+                listeners.push(domql.query('(@panel eventsOf "click") { id: self.target attributeOf "id", button: self.button, height: self.target?.size?.height }', { panel }).subscribe((sender, args) => results.push(args.value)));
                 inside.click();
 
                 expect(results).toEqual([{ id: 'inside', button: 0, height: 40 }]);

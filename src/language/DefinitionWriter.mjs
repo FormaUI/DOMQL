@@ -2,11 +2,11 @@
  * DefinitionWriter — a definition's node as the DOMQL text that writes it, parenthesized where its grouping needs it: on one line, as a diagnostic quotes it, or laid out on lines, as formatting gives its canonical text
  */
 
-/** How tightly each kind of expression binds, the loosest lowest: one written where a tighter one stands is parenthesized. */
-const PRECEDENCE = { conditional: 0, or: 1, and: 2, predicate: 3, namedOperation: 4 };
+/** How tightly each kind of expression binds, the loosest lowest: one written where a tighter one stands is parenthesized. An optional chain is a named operation's receiver as it is, and is grouped where a chain continues from it, since its short-circuit ends where it does. */
+const PRECEDENCE = { conditional: 0, or: 1, and: 2, predicate: 3, namedOperation: 4, optionalChain: 5 };
 
-/** How tightly a chain binds that no named operation ends: a member access, a call, an object expression, `self`, a local, a literal or a parameter. */
-const CHAIN_PRECEDENCE = 5;
+/** How tightly a chain binds that no named operation ends and no optional chain holds: a member access, a call, an object expression, `self`, a local, a literal or a parameter. */
+const CHAIN_PRECEDENCE = 6;
 
 /** The nodes that stand as an initial expression, and so as a named operation's argument without parentheses. */
 const INITIAL_EXPRESSION_KINDS = new Set(['self', 'local', 'parameter', 'literal']);
@@ -47,11 +47,13 @@ export class DefinitionWriter {
             case 'local':
                 return node.name;
             case 'member':
-                return `${DefinitionWriter.#within(node.target, CHAIN_PRECEDENCE, level)}.${node.name}`;
+                return `${DefinitionWriter.#within(node.target, CHAIN_PRECEDENCE, level)}${DefinitionWriter.#dot(node)}${node.name}`;
             case 'call':
-                return `${DefinitionWriter.#within(node.target, CHAIN_PRECEDENCE, level)}.${node.name}(${node.argument === undefined ? '' : DefinitionWriter.#write(node.argument, level)})`;
+                return `${DefinitionWriter.#within(node.target, CHAIN_PRECEDENCE, level)}${DefinitionWriter.#dot(node)}${node.name}(${node.argument === undefined ? '' : DefinitionWriter.#write(node.argument, level)})`;
+            case 'optionalChain':
+                return DefinitionWriter.#write(node.target, level);
             case 'namedOperation': {
-                const head = `${DefinitionWriter.#within(node.target, CHAIN_PRECEDENCE, level)} ${node.name}`;
+                const head = `${DefinitionWriter.#within(node.target, PRECEDENCE.optionalChain, level)} ${node.name}`;
 
                 return node.argument === undefined ? head : `${head} ${DefinitionWriter.#argument(node.argument, level)}`;
             }
@@ -68,6 +70,11 @@ export class DefinitionWriter {
                 return node.target === undefined ? objectText : `${DefinitionWriter.#within(node.target, CHAIN_PRECEDENCE, level)} ${objectText}`;
             }
         }
+    }
+
+    /** The dot before an access or a call: `?.` for an optional one, and `.` for one that requires its receiver. */
+    static #dot(node) {
+        return node.optional === true ? '?.' : '.';
     }
 
     /** A literal as DOMQL writes it: a string in double quotes, escaping only a double quote and a backslash, as a string is read; negative zero as `-0`, which JSON writes as zero; anything else as JSON writes it. */

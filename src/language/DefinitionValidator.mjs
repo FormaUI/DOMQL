@@ -14,15 +14,19 @@ const NODE_PROPERTIES = {
     parameter: { properties: ['kind', 'name'], required: ['name'] },
     self: { properties: ['kind'], required: [] },
     local: { properties: ['kind', 'name'], required: ['name'] },
-    member: { properties: ['kind', 'target', 'name'], required: ['target', 'name'] },
-    call: { properties: ['kind', 'target', 'name', 'argument'], required: ['target', 'name'] },
+    member: { properties: ['kind', 'target', 'name', 'optional'], required: ['target', 'name'] },
+    call: { properties: ['kind', 'target', 'name', 'optional', 'argument'], required: ['target', 'name'] },
     namedOperation: { properties: ['kind', 'target', 'name', 'argument'], required: ['target', 'name'] },
     object: { properties: ['kind', 'target', 'locals', 'fields'], required: ['fields'] },
+    optionalChain: { properties: ['kind', 'target'], required: ['target'] },
     predicate: { properties: ['kind', 'verb', 'target', 'name'], required: ['verb', 'target', 'name'] },
     conditional: { properties: ['kind', 'condition', 'consequent', 'alternative'], required: ['condition', 'consequent', 'alternative'] },
     and: { properties: ['kind', 'operands'], required: ['operands'] },
     or: { properties: ['kind', 'operands'], required: ['operands'] },
 };
+
+/** The kinds of node that continue a chain through their target, and so carry its optional chain to the access their target is. */
+const CHAIN_KINDS = new Set(['member', 'call', 'object']);
 
 /** The verbs a predicate expression reads its predicate under. */
 const VERBS = ['is', 'has'];
@@ -38,6 +42,9 @@ export class DefinitionValidator {
 
     /** The names of the locals in scope where the node being validated stands. @type {Set<string>} */
     #localNames = new Set();
+
+    /** The optional chain the node being validated continues, with whether an access of it is optional so far; null where it continues none. @type {{ hasOptional: boolean } | null} */
+    #chain = null;
 
     /** @param {TextLocations | null} locations Where in a text each part of the definition came from, for one parsed from text. */
     constructor(locations = null) {
@@ -57,11 +64,26 @@ export class DefinitionValidator {
 
     #validateNode(node, pointer, currentValueAvailability) {
         if (!DefinitionValidator.#isObject(node) || !Object.hasOwn(NODE_PROPERTIES, node.kind)) {
-            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, namedOperation, object, predicate, conditional, and or or');
+            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, namedOperation, object, optionalChain, predicate, conditional, and or or');
         }
 
         this.#requireProperties(node, pointer, NODE_PROPERTIES[node.kind]);
 
+        const enclosingChain = this.#chain;
+
+        // A chain continues through a member access's, a call's and an object expression's target alone, so any other node ends it.
+        if (!CHAIN_KINDS.has(node.kind)) {
+            this.#chain = null;
+        }
+
+        try {
+            return this.#validateKind(node, pointer, currentValueAvailability);
+        } finally {
+            this.#chain = enclosingChain;
+        }
+    }
+
+    #validateKind(node, pointer, currentValueAvailability) {
         switch (node.kind) {
             case 'literal':
                 return this.#validateLiteral(node, pointer);
@@ -95,9 +117,26 @@ export class DefinitionValidator {
             case 'and':
             case 'or':
                 return this.#validateLogical(node, pointer, currentValueAvailability);
+            case 'optionalChain':
+                return this.#validateOptionalChain(node, pointer, currentValueAvailability);
             default:
                 return this.#validateObject(node, pointer, currentValueAvailability);
         }
+    }
+
+    /** Validates an optional chain: the chain whose optional accesses end at it, at least one of them, since a chain with none is the chain alone. */
+    #validateOptionalChain(node, pointer, currentValueAvailability) {
+        const chain = { hasOptional: false };
+
+        this.#chain = chain;
+
+        const target = this.#validateNode(node.target, `${pointer}/target`, currentValueAvailability);
+
+        if (!chain.hasOptional) {
+            this.#fail(pointer, 'An optional chain holds a chain with an optional access, written ?.');
+        }
+
+        return Object.freeze({ kind: 'optionalChain', target });
     }
 
     #validatePredicate(node, pointer, currentValueAvailability) {
@@ -147,19 +186,34 @@ export class DefinitionValidator {
         return Object.freeze({ kind: 'literal', value });
     }
 
-    /** Validates a member access, a call or a named operation: its name, its receiver and the one argument a call or a named operation may take, whose current value its declaration decides. */
+    /** Validates a member access, a call or a named operation: its name, its receiver, whether an access or a call is optional, which it is within an optional chain alone, and the one argument a call or a named operation may take, whose current value its declaration decides. */
     #validateMember(node, pointer, currentValueAvailability) {
         this.#requireName(node.name, `${pointer}/name`);
 
+        if (node.optional !== undefined) {
+            if (node.optional !== true) {
+                this.#fail(`${pointer}/optional`, 'An optional access holds optional: true, and a required one leaves it out');
+            }
+
+            if (this.#chain === null) {
+                this.#fail(pointer, 'An optional access stands within an optional chain, which ends where a null receiver ends it');
+            }
+
+            this.#chain.hasOptional = true;
+        }
+
         const target = this.#validateNode(node.target, `${pointer}/target`, currentValueAvailability);
+        const access = Object.freeze({ kind: node.kind, target, name: node.name, ...(node.optional === true ? { optional: true } : {}) });
 
         if (node.kind === 'member' || node.argument === undefined) {
-            return Object.freeze({ kind: node.kind, target, name: node.name });
+            return access;
         }
+
+        this.#chain = null;
 
         const argument = this.#validateNode(node.argument, `${pointer}/argument`, CurrentValueAvailability.unknown);
 
-        return Object.freeze({ kind: node.kind, target, name: node.name, argument });
+        return Object.freeze({ ...access, argument });
     }
 
     #validateObject(node, pointer, currentValueAvailability) {
@@ -173,6 +227,9 @@ export class DefinitionValidator {
 
         const fieldCurrentValueAvailability = target === undefined ? currentValueAvailability : CurrentValueAvailability.present;
         const enclosingLocalNames = this.#localNames;
+
+        // An object expression's entries continue no chain of the one it follows.
+        this.#chain = null;
 
         try {
             const locals = node.locals === undefined ? [] : this.#validateLocals(node.locals, `${pointer}/locals`, fieldCurrentValueAvailability);

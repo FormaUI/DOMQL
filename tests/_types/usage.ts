@@ -253,7 +253,10 @@ if (tested.kind === 'or') {
 // @ts-expect-error A predicate expression reads its predicate under is or has.
 const misread: DomqlDefinitionNode = { kind: 'predicate', verb: 'was', name: { kind: 'literal', value: 'attached' } };
 
-const named: DomqlDefinitionNode = { kind: 'object', target: { kind: 'parameter', name: 'panel' }, locals: [{ name: 'size', value: { kind: 'member', target: { kind: 'self' }, name: 'size' } }], fields: [{ name: 'width', value: { kind: 'member', target: { kind: 'local', name: 'size' }, name: 'width' } }] };
+const named: DomqlDefinitionNode = { kind: 'object', target: { kind: 'parameter', name: 'panel' }, locals: [{ name: 'size', value: { kind: 'member', target: { kind: 'self' }, name: 'size' } }], fields: [{ name: 'width', value: { kind: 'optionalChain', target: { kind: 'member', target: { kind: 'local', name: 'size' }, name: 'width', optional: true } } }] };
+
+// @ts-expect-error A named operation applies its receiver's null policy, and is never optional.
+const optionalOperation: DomqlDefinitionNode = { kind: 'namedOperation', target: { kind: 'self' }, name: 'attributeOf', optional: true };
 
 // @ts-expect-error A local is named, as a field is.
 const unnamed: DomqlDefinitionNode = { kind: 'object', locals: [{ value: { kind: 'self' } }], fields: [] };

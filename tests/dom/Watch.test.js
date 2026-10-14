@@ -312,6 +312,32 @@ describe('Watch', () => {
         });
     });
 
+    describe('an optional chain', () => {
+        it('holds what it reads past a receiver only while that receiver is present', async () => {
+            const item = document.createElement('i');
+
+            watch('{ level: @item.parent?.level }', { item });
+            await settle();
+
+            expect(snapshots).toEqual([{ level: null }]);
+            expect(gauges.size).toBe(0);
+
+            panel.append(item);
+            await settle();
+            gauges.get(panel).sample = { pending: false, value: 5 };
+            gauges.get(panel).notify();
+            await settle();
+
+            expect(snapshots.at(-1)).toEqual({ level: 5 });
+
+            item.remove();
+            await settle();
+
+            expect(snapshots.at(-1)).toEqual({ level: null });
+            expect(gauges.get(panel).stopped).toBe(1);
+        });
+    });
+
     describe('an evaluation that fails', () => {
         it('is reported, keeps the watch running and its last snapshot, and its recovery reports the snapshot whether or not it differs', async () => {
             const watched = watch('{ n: @panel.flaky }', { panel });

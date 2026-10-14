@@ -171,7 +171,7 @@ The object belongs to the watch, so read it and never write it, and copy it or w
 ```js
 const clicks = domql.query(`
     (@panel eventsOf "click") {
-        key: self.target.closest("[data-key]") attributeOf "data-key"
+        key: self.target?.closest("[data-key]") attributeOf "data-key"
     }
 `, { panel }).subscribe((sender, args) => console.log(args.value.key));
 
@@ -215,7 +215,7 @@ A conditional chooses between two values, testing its conditions in order; false
 ```text
 if @wide then @panel else @sidebar
 @input { state: if self is "disabled" then "locked" elseif self is "readOnly" then "read" else "open" }
-(if @wide then @panel else @sidebar).rect.width
+(if @wide then @panel else @sidebar).rect?.width
 ```
 
 Its branches are of one type, nullable where either is, and a conditional that is a condition, an operand or the start of a chain is grouped.
@@ -223,7 +223,7 @@ Its branches are of one type, nullable where either is, and a conditional that i
 A call or a named operation takes one argument. A named operation's argument is a literal, a parameter, `self`, a local, an object or a group, and an operation with several parameters takes them as the fields of one object:
 
 ```text
-self.closest(".row").rect.height
+self.closest(".row")?.rect?.height
 self attributeOf "data-key"
 self attributeOf @attributeName
 @sentinel intersects { root: @panel, margin: 200 }
@@ -234,7 +234,7 @@ A named operation ends its chain, and a group continues from its result. Writing
 
 ### Objects and lists
 
-An object expression chooses output fields, each written with the name it answers under, `width: self.rect.width`; DOMQL infers no name, so a field without one is a syntax error.
+An object expression chooses output fields, each written with the name it answers under, `width: self.rect?.width`; DOMQL infers no name, so a field without one is a syntax error.
 
 ```js
 domql.query(`
@@ -275,11 +275,11 @@ domql.query(`
 `, { panel }).evaluate();
 // 1
 
-domql.query('@panel.all("[data-key]").max(self.rect.height)', { panel }).evaluate();
+domql.query('@panel.all("[data-key]").max(self.rect?.height)', { panel }).evaluate();
 // 64
 ```
 
-`where` keeps items whose expression is true. `rect.height` is the height in CSS pixels of an element's border box, so the tallest item above is the 64px one. Aggregates skip null expression results. With no numeric results, `max` and `min` return null, while `sum` returns zero.
+`where` keeps items whose expression is true. `rect?.height` is the height in CSS pixels of an element's border box, so the tallest item above is the 64px one. Aggregates skip null expression results. With no numeric results, `max` and `min` return null, while `sum` returns zero.
 
 An object expression can name a value once with `let`, as a local, and use it by its name in the entries after it. Its locals come before its fields, and the result never holds them:
 
@@ -288,7 +288,7 @@ domql.query(`
     @panel {
         let items: self.all("[data-key]"),
         count: items.count,
-        tallest: items.max(self.rect.height)
+        tallest: items.max(self.rect?.height)
     }
 `, { panel }).evaluate();
 // { count: 3, tallest: 64 }
@@ -298,7 +298,7 @@ A local's `self` is the value where it is written, wherever it is used. It is ev
 
 ### Null and unavailable values
 
-Null represents a missing or unavailable value; it does not hide an invalid query. A chain or targeted object expression whose receiver is null returns null.
+Null represents a missing or unavailable value; it does not hide an invalid query. A member of a value that can be null is read with `?.`, which answers null where the value is null and skips the rest of its chain, and `.` on such a value is an error before anything is evaluated. A named operation or a targeted object expression whose receiver is null returns null.
 
 ```js
 domql.query(
@@ -353,7 +353,7 @@ An operation the request does not take is refused before anything runs, with an 
 `resolve` checks a query without a browser and without reading anything:
 
 ```js
-const resolved = domql.query('@panel.children.count', { panel: null }).resolve();
+const resolved = domql.query('@panel?.children.count', { panel: null }).resolve();
 
 resolved.kind;            // 'query'
 resolved.type.toString(); // 'number?'

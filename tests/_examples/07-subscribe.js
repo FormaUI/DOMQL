@@ -1,6 +1,6 @@
 const clicks = domql.query(`
     (@panel eventsOf "click") {
-        key: self.target.closest("[data-key]") attributeOf "data-key"
+        key: self.target?.closest("[data-key]") attributeOf "data-key"
     }
 `, { panel }).subscribe((sender, args) => console.log(args.value.key));
 

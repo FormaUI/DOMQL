@@ -108,7 +108,7 @@ describe('Behavior', () => {
         });
 
         it('applies nothing where its receiver is null, until an update supplies one', () => {
-            const highlight = apply('@item.highlight("gold")', { item: null });
+            const highlight = apply('@item?.highlight("gold")', { item: null });
 
             expect(calls).toEqual([]);
 

@@ -260,6 +260,9 @@ export class QueryEvaluator {
                 return this.#predicate(node, current);
             case 'conditional':
                 return this.#conditional(node, current);
+            case 'optionalChain':
+                // An access that meets null answers null, and so does everything after it in its chain, which is evaluated no further.
+                return this.#evaluate(node.target, current);
             case 'and':
                 return this.#and(node, current);
             case 'or':
@@ -716,12 +719,12 @@ export class QueryEvaluator {
         }
     }
 
-    /** The member a subscription, an action or a behavior request ends in, and where it stands: the object expressions of a request each follow the one before, and the first follows that member. */
+    /** The member a subscription, an action or a behavior request ends in, and where it stands: the object expressions of a request each follow the one before, and the first follows that member, which an optional chain may hold. */
     #terminalMemberNode() {
         let node = this.#resolvedDefinition.definition.query;
         let pointer = '/query';
 
-        while (node.kind === 'object') {
+        while (node.kind === 'object' || node.kind === 'optionalChain') {
             node = node.target;
             pointer = `${pointer}/target`;
         }

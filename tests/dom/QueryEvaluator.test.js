@@ -114,9 +114,25 @@ describe('QueryEvaluator', () => {
         it('answers null from the first null on', () => {
             const detached = document.createElement('div');
 
-            expect(read('@detached.parent.size', { detached })).toBeNull();
-            expect(read('@detached.parent.children.count', { detached })).toBeNull();
-            expect(read('@detached { parent: self.parent.size, tag: self attributeOf "id" }', { detached })).toEqual({ parent: null, tag: null });
+            expect(read('@detached.parent?.size', { detached })).toBeNull();
+            expect(read('@detached.parent?.children.count', { detached })).toBeNull();
+            expect(read('@detached { parent: self.parent?.size, tag: self attributeOf "id" }', { detached })).toEqual({ parent: null, tag: null });
+        });
+
+        it('skips the rest of an optional chain where a receiver is null, reading it where the receiver is present', () => {
+            const reads = [];
+            const registry = new ModuleRegistry([BrowserModule.create(), propertyModule('probe', element => (reads.push(element), 1))]);
+            const readProbe = item => {
+                const query = domql.query('@item.parent?.probe', { item });
+                const resolved = new LanguageResolver(registry, query.bindings, null, {}).resolveDefinition(query.definition);
+
+                return new QueryEvaluator(registry, resolved, query.bindings, { window, document }, null).evaluateOnce();
+            };
+
+            expect(readProbe(document.createElement('div'))).toBeNull();
+            expect(reads).toEqual([]);
+            expect(readProbe(items[0])).toBe(1);
+            expect(reads).toEqual([panel]);
         });
 
         it('answers null for an attribute the element does not have', () => {
@@ -151,23 +167,23 @@ describe('QueryEvaluator', () => {
 
     describe('lists', () => {
         it('aggregates the numbers an expression produces', () => {
-            expect(read('@panel.children.max(self.rect.height)', { panel })).toBe(64);
-            expect(read('@panel.children.min(self.rect.height)', { panel })).toBe(48);
-            expect(read('@panel.children.sum(self.rect.height)', { panel })).toBe(160);
+            expect(read('@panel.children.max(self.rect?.height)', { panel })).toBe(64);
+            expect(read('@panel.children.min(self.rect?.height)', { panel })).toBe(48);
+            expect(read('@panel.children.sum(self.rect?.height)', { panel })).toBe(160);
         });
 
         it('answers the aggregates of an empty list', () => {
-            expect(read('@panel.all(".none").max(self.rect.height)', { panel })).toBeNull();
-            expect(read('@panel.all(".none").min(self.rect.height)', { panel })).toBeNull();
-            expect(read('@panel.all(".none").sum(self.rect.height)', { panel })).toBe(0);
+            expect(read('@panel.all(".none").max(self.rect?.height)', { panel })).toBeNull();
+            expect(read('@panel.all(".none").min(self.rect?.height)', { panel })).toBeNull();
+            expect(read('@panel.all(".none").sum(self.rect?.height)', { panel })).toBe(0);
         });
 
         it('skips the items an expression produces null for', () => {
             const detached = [document.createElement('div'), document.createElement('div')];
 
-            expect(read('@els.max(self.rect.height)', { els: detached })).toBeNull();
-            expect(read('@els.sum(self.rect.height)', { els: detached })).toBe(0);
-            expect(read('@els.max(self.rect.height)', { els: [items[0], ...detached] })).toBe(48);
+            expect(read('@els.max(self.rect?.height)', { els: detached })).toBeNull();
+            expect(read('@els.sum(self.rect?.height)', { els: detached })).toBe(0);
+            expect(read('@els.max(self.rect?.height)', { els: [items[0], ...detached] })).toBe(48);
         });
 
         it('keeps the items a Boolean expression holds for', () => {
@@ -437,7 +453,7 @@ describe('QueryEvaluator', () => {
         it('reads a rectangle from the layout viewport and relative to another element', () => {
             expect(read('@item.rect', { item: items[1] })).toEqual({ left: 0, top: 50, right: 640, bottom: 114, width: 640, height: 64 });
             expect(read('@item.rectRelativeTo(@panel)', { item: items[1], panel })).toEqual({ left: 0, top: 50, right: 640, bottom: 114, width: 640, height: 64 });
-            expect(read('@item.rect.height', { item: items[1] })).toBe(64);
+            expect(read('@item.rect?.height', { item: items[1] })).toBe(64);
         });
 
         it('answers null for an element without layout', () => {
@@ -454,14 +470,14 @@ describe('QueryEvaluator', () => {
             lay(hidden, {});
 
             expect(read('@hidden.size', { hidden })).toEqual({ width: 0, height: 0 });
-            expect(read('@hidden.rect.width', { hidden })).toBe(0);
+            expect(read('@hidden.rect?.width', { hidden })).toBe(0);
 
             unlay(hidden);
 
             expect(read('@hidden.size', { hidden })).toBeNull();
             expect(read('@hidden.rect', { hidden })).toBeNull();
             expect(read('@hidden.clientSize', { hidden })).toBeNull();
-            expect(read('@hidden.grid.columns', { hidden })).toBeNull();
+            expect(read('@hidden.grid?.columns', { hidden })).toBeNull();
             expect(read('@hidden is "attached"', { hidden })).toBe(true);
             expect(read('@item.rectRelativeTo(@hidden)', { item: items[0], hidden })).toBeNull();
             expect(read('@hidden overlaps { other: @item }', { hidden, item: items[0] })).toBeNull();
@@ -616,7 +632,7 @@ describe('QueryEvaluator evaluation', () => {
 
         it('are recorded beside the identities of the place in the result each conditional gave', () => {
             expect(consequents(evaluate('if @on then 1 else 2', { on: true }).identities)).toEqual([true]);
-            expect(consequents(evaluate('@panel { width: if @on then @panel.size.width else 0 }', { panel, on: false }).identities.fields.width)).toEqual([false]);
+            expect(consequents(evaluate('@panel { width: if @on then @panel.size?.width else 0 }', { panel, on: false }).identities.fields.width)).toEqual([false]);
         });
 
         it('record an elseif as the conditional nested in the alternative it is', () => {
@@ -632,7 +648,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('leave the identities of a result no conditional gave as they were', () => {
-            expect(evaluate('@panel { width: @panel.size.width }', { panel }).identities).toBeNull();
+            expect(evaluate('@panel { width: @panel.size?.width }', { panel }).identities).toBeNull();
         });
 
         it('are recorded at every place a local is used, which its conditionals gave', () => {
@@ -656,7 +672,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('follow the document: the members read for each item the selector matched', () => {
-            const evaluation = evaluate('@panel.all("i").max(self.rect.height)', { panel });
+            const evaluation = evaluate('@panel.all("i").max(self.rect?.height)', { panel });
             const measured = evaluation.dependencies.filter(dependency => dependency.member === 'rect');
 
             expect(membersOf(evaluation).slice(0, 2)).toEqual(['all', 'max']);
@@ -665,12 +681,17 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('stand where each member is written, inside the items of a list and the operands of an or', () => {
-            const evaluation = evaluate('@panel.all("i") { h: self.rect.height, on: self is "attached" or self is "focused" }', { panel });
+            const evaluation = evaluate('@panel.all("i") { h: self.rect?.height, on: self is "attached" or self is "focused" }', { panel });
 
             expect(evaluation.dependencies.map(dependency => [dependency.member, dependency.pointer])).toEqual([
                 ['all', '/query/target'],
-                ...rows.flatMap(() => [['rect', '/query/fields/0/value/target'], ['attached', '/query/fields/1/value/operands/0/name']]),
+                ...rows.flatMap(() => [['rect', '/query/fields/0/value/target/target'], ['attached', '/query/fields/1/value/operands/0/name']]),
             ]);
+        });
+
+        it('stop where an optional chain meets null, and reach as far as its receivers are present', () => {
+            expect(membersOf(evaluate('@item.parent?.size', { item: document.createElement('i') }))).toEqual(['parent']);
+            expect(membersOf(evaluate('@item.parent?.size', { item: rows[0] }))).toEqual(['parent', 'size']);
         });
 
         it('include those of an argument that is a value of its own', () => {
@@ -993,7 +1014,7 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('is null where its receiver is, since there is nothing to listen to', () => {
-            expect(evaluatorOf('@panel.first(".none").ticks("tick") { at: self.at }', { panel }, [ticks('tick')]).resolveSource()).toBeNull();
+            expect(evaluatorOf('@panel.first(".none")?.ticks("tick") { at: self.at }', { panel }, [ticks('tick')]).resolveSource()).toBeNull();
         });
 
         it('is refused for a request that is not a subscription', () => {
