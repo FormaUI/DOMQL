@@ -9,7 +9,7 @@ import { Type } from '../Type.mjs';
 const MEMBER_KINDS = ['property', 'operation', 'source', 'action', 'behavior'];
 
 /** How a member that is no property is written: called, `self.closest(".row")`, or named, `self attributeOf "data-key"`. */
-const FORMS = ['call', 'named'];
+const FORMS = ['call', 'infix'];
 
 /** What a member's argument supplies: its one parameter, directly, or every parameter, as the fields of an options object. */
 const INPUTS = ['direct', 'options'];
@@ -351,7 +351,7 @@ export class DomqlModule {
         return structuredClone({ parameters: [], observations: [], ...(member.kind === 'property' ? {} : { form: 'call' }), ...member });
     }
 
-    /** Checks how the member is written and what its argument supplies: a property is accessed and takes none, and any other member is a call by default or a named operation, whose input is direct for exactly one parameter or an options object. */
+    /** Checks how the member is written and what its argument supplies: a property is accessed and takes none, and any other member is a call by default or an infix call, whose input is direct for exactly one parameter or an options object. */
     static #validateForm(member, parameters, name, fail) {
         if (member.kind === 'property') {
             if (member.form !== undefined || member.input !== undefined || parameters.length > 0) {

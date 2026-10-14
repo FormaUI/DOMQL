@@ -2,13 +2,13 @@
  * DefinitionWriter — a definition's node as the DOMQL text that writes it, parenthesized where its grouping needs it: on one line, as a diagnostic quotes it, or laid out on lines, as formatting gives its canonical text
  */
 
-/** How tightly each kind of expression binds, the loosest lowest: one written where a tighter one stands is parenthesized. An optional chain is a named operation's receiver as it is, and is grouped where a chain continues from it, since its short-circuit ends where it does. */
-const PRECEDENCE = { conditional: 0, or: 1, and: 2, predicate: 3, namedOperation: 4, optionalChain: 5 };
+/** How tightly each kind of expression binds, the loosest lowest: one written where a tighter one stands is parenthesized. An optional chain is an infix call's receiver as it is, and is grouped where a chain continues from it, since its short-circuit ends where it does. */
+const PRECEDENCE = { conditional: 0, or: 1, and: 2, predicate: 3, infixCall: 4, optionalChain: 5 };
 
-/** How tightly a chain binds that no named operation ends and no optional chain holds: a member access, a call, an object expression, `self`, a local, a literal or a parameter. */
+/** How tightly a chain binds that no infix call ends and no optional chain holds: a member access, a call, an object expression, `self`, a local, a literal or a parameter. */
 const CHAIN_PRECEDENCE = 6;
 
-/** The nodes that stand as an initial expression, and so as a named operation's argument without parentheses. */
+/** The nodes that stand as an initial expression, and so as an infix call's argument without parentheses. */
 const INITIAL_EXPRESSION_KINDS = new Set(['self', 'local', 'parameter', 'literal']);
 
 /** The indentation of one level of an object expression laid out on lines. */
@@ -52,13 +52,13 @@ export class DefinitionWriter {
                 return `${DefinitionWriter.#within(node.target, CHAIN_PRECEDENCE, level)}${DefinitionWriter.#dot(node)}${node.name}(${node.argument === undefined ? '' : DefinitionWriter.#write(node.argument, level)})`;
             case 'optionalChain':
                 return DefinitionWriter.#write(node.target, level);
-            case 'namedOperation': {
+            case 'infixCall': {
                 const head = `${DefinitionWriter.#within(node.target, PRECEDENCE.optionalChain, level)} ${node.name}`;
 
                 return node.argument === undefined ? head : `${head} ${DefinitionWriter.#argument(node.argument, level)}`;
             }
             case 'predicate':
-                return `${DefinitionWriter.#within(node.target, PRECEDENCE.namedOperation, level)} ${node.verb} ${DefinitionWriter.#write(node.name, level)}`;
+                return `${DefinitionWriter.#within(node.target, PRECEDENCE.infixCall, level)} ${node.verb} ${DefinitionWriter.#write(node.name, level)}`;
             case 'conditional':
                 return DefinitionWriter.#conditional(node, level);
             case 'and':
@@ -122,7 +122,7 @@ export class DefinitionWriter {
         return clauses.join(level === null || clauses.length === 2 ? ' ' : `\n${INDENTATION.repeat(level)}`);
     }
 
-    /** The text of a named operation's argument: an initial expression as it is, and anything else in parentheses. */
+    /** The text of an infix call's argument: an initial expression as it is, and anything else in parentheses. */
     static #argument(node, level) {
         const text = DefinitionWriter.#write(node, level);
 

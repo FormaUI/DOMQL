@@ -11,7 +11,7 @@ const DATA_TYPE_NAMES = new Set(['number', 'string', 'boolean']);
 const READABLE_MEMBER_KINDS = new Set(['property', 'operation']);
 
 /** How each form of a declaration is written, and the node that writes it. */
-const FORM_NODE_KINDS = { access: 'member', call: 'call', named: 'namedOperation' };
+const FORM_NODE_KINDS = { access: 'member', call: 'call', infix: 'infixCall' };
 
 export class LanguageResolver {
     #moduleRegistry;
@@ -74,7 +74,7 @@ export class LanguageResolver {
                 return this.#resolveLocal(node, pointer, scope);
             case 'member':
             case 'call':
-            case 'namedOperation':
+            case 'infixCall':
                 return this.#resolveMember(node, pointer, scope);
             case 'predicate':
                 return this.#resolvePredicate(node, pointer, scope);
@@ -226,7 +226,7 @@ export class LanguageResolver {
             return `self.${name}`;
         }
 
-        return declaration.form === 'named' ? `self ${name} …` : `self.${name}(…)`;
+        return declaration.form === 'infix' ? `self ${name} …` : `self.${name}(…)`;
     }
 
     #resolveLiteral(node) {
@@ -255,8 +255,8 @@ export class LanguageResolver {
             this.#fail(`'${node.name}' follows ${LanguageResolver.#descriptionOf(receiver.kind)}, which takes no members`, pointer);
         }
 
-        // An access and a call require a receiver that cannot be null, and an optional one reads it where it is not null, ending its chain with null where it is; a named operation applies its receiver's null policy.
-        if (receiver.type.isNullable && node.kind !== 'namedOperation') {
+        // An access and a call require a receiver that cannot be null, and an optional one reads it where it is not null, ending its chain with null where it is; an infix call applies its receiver's null policy.
+        if (receiver.type.isNullable && node.kind !== 'infixCall') {
             if (node.optional !== true) {
                 const follows = receiver.type.kind === 'null' ? 'null' : `${receiver.type}, which can be null`;
 
@@ -327,7 +327,7 @@ export class LanguageResolver {
     }
 
     /**
-     * Resolves a name applied to a receiver of unknown type, which chooses no declaration. A property is accepted whatever its name, since a bound object's fields are named by its data; a call or a named operation must be a member's, written in the form and given the arguments one of its declarations takes. The declarations that take it agree on the kind of request they make.
+     * Resolves a name applied to a receiver of unknown type, which chooses no declaration. A property is accepted whatever its name, since a bound object's fields are named by its data; a call or an infix call must be a member's, written in the form and given the arguments one of its declarations takes. The declarations that take it agree on the kind of request they make.
      * Its type is the result type they share, made nullable, or left to the optional chain an optional access of null ends, and null where they share none or the name is no member's. Nothing applied to such a receiver is evaluated, so its arguments leave no resolution behind.
      */
     #resolveOnUnknownType(node, pointer, scope, receiverType) {
@@ -410,12 +410,12 @@ export class LanguageResolver {
         }
 
         const written = form === 'access' ? LanguageResolver.#accessOf(node) : { ...node, kind: FORM_NODE_KINDS[form] };
-        const described = { access: 'a property', call: 'a call', named: 'a named operation' }[form];
+        const described = { access: 'is a property', call: 'uses call syntax', infix: 'uses infix-call syntax' }[form];
 
-        this.#fail(`'${node.name}' is ${described}: write '${DefinitionWriter.write(written)}'`, pointer);
+        this.#fail(`'${node.name}' ${described}: write '${DefinitionWriter.write(written)}'`, pointer);
     }
 
-    /** The argument a call or a named operation is given, as the value of each parameter it supplies: the one parameter of a direct declaration, or the fields of an options object, each by its name. */
+    /** The argument a call or an infix call is given, as the value of each parameter it supplies: the one parameter of a direct declaration, or the fields of an options object, each by its name. */
     #suppliedArguments(declaration, node, pointer) {
         const { parameters } = declaration;
         const supplied = new Map();

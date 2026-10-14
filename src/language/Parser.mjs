@@ -18,7 +18,7 @@ const TOKEN_DESCRIPTIONS = {
 /** The verbs that test a value against predicates. */
 const VERBS = new Set(['is', 'has']);
 
-/** The tokens an initial expression starts with, and so the argument of a named operation. */
+/** The tokens an initial expression starts with, and so the argument of an infix call. */
 const INITIAL_EXPRESSION_STARTS = new Set(['self', 'parameter', 'literal', 'name', '{', '(']);
 
 /** The tokens that, after a space, make the name before them a member written without its receiver, which no local is: an argument. */
@@ -113,7 +113,7 @@ export class Parser {
         return this.#isVerb() ? this.#parsePredicate(value, start) : value;
     }
 
-    /** Reads a value: an initial expression, the member accesses, calls and object expressions that continue it, held by an optional chain where one of its accesses is optional, and the named operation that may end it. */
+    /** Reads a value: an initial expression, the member accesses, calls and object expressions that continue it, held by an optional chain where one of its accesses is optional, and the infix call that may end it. */
     #parseValue() {
         const start = this.#token.start;
         const { node, isOptional } = this.#parseChain();
@@ -129,10 +129,10 @@ export class Parser {
         }
 
         if (!this.#token.spaced) {
-            throw DomqlError.syntax(`'${this.#token.value}' follows its receiver after a space or a comment, as a named operation does`, this.#text, this.#token.start);
+            throw DomqlError.syntax(`'${this.#token.value}' follows its receiver after a space or a comment, as an infix call does`, this.#text, this.#token.start);
         }
 
-        return this.#parseNamedOperation(value, start);
+        return this.#parseInfixCall(value, start);
     }
 
     /** Reads a chain: an initial expression and the member accesses, calls and object expressions that continue it, and whether an access of it is optional, which a group within it leaves to its own chain. */
@@ -213,7 +213,7 @@ export class Parser {
 
         if (this.#token.type !== '(') {
             if (this.#token.type === 'literal' || this.#token.type === 'parameter') {
-                throw DomqlError.syntax(`An argument after a dot is enclosed in parentheses, as a call's is, '.${name}(…)'; a named operation follows its receiver after a space, without a dot`, this.#text, this.#token.start);
+                throw DomqlError.syntax(`An argument after a dot is enclosed in parentheses, as a call's is, '.${name}(…)'; an infix call follows its receiver after a space, without a dot`, this.#text, this.#token.start);
             }
 
             return this.#recordSpan({ kind: 'member', ...access }, start);
@@ -242,13 +242,13 @@ export class Parser {
         return this.#recordSpan({ kind: 'call', ...access, argument }, start);
     }
 
-    /** Reads a named operation: its name and, after a separator, the initial expression that is its argument; it ends its chain. */
-    #parseNamedOperation(target, start) {
+    /** Reads an infix call: its name and, after a separator, the initial expression that is its argument; it ends its chain. */
+    #parseInfixCall(target, start) {
         const name = this.#token.value;
 
         this.#advance();
 
-        let node = { kind: 'namedOperation', target, name };
+        let node = { kind: 'infixCall', target, name };
 
         // A name a colon follows names the next field, which a comma comes before.
         if (this.#token.type === 'name' && this.#tokens[this.#index + 1].type === ':') {
@@ -260,19 +260,19 @@ export class Parser {
                 throw DomqlError.syntax(`The argument of '${name}' follows it after a space or a comment`, this.#text, this.#token.start);
             }
 
-            node = { kind: 'namedOperation', target, name, argument: this.#parseInitialExpression() };
+            node = { kind: 'infixCall', target, name, argument: this.#parseInitialExpression() };
         }
 
         this.#recordSpan(node, start);
 
         if (this.#token.type === '.' || this.#token.type === '?.' || this.#token.type === '{' || this.#token.type === 'name') {
-            throw DomqlError.syntax(`A named operation ends its chain; group it to continue from its result, as in '(… ${name} …).value'`, this.#text, this.#token.start);
+            throw DomqlError.syntax(`An infix call ends its chain; group it to continue from its result, as in '(… ${name} …).value'`, this.#text, this.#token.start);
         }
 
         return node;
     }
 
-    /** How a member of the current value is written, for a name an argument follows with no receiver before it: a call, or a named operation. */
+    /** How a member of the current value is written, for a name an argument follows with no receiver before it: a call, or an infix call. */
     #memberForm(name) {
         return this.#tokens[this.#index + 1].type === '(' ? `'self.${name}(…)'` : `'self ${name} …'`;
     }

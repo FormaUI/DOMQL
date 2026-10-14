@@ -90,7 +90,7 @@ export class ResolvedDefinition {
 
         switch (node.kind) {
             case 'call':
-            case 'namedOperation':
+            case 'infixCall':
                 if (node.argument !== undefined) {
                     this.#index(node.argument, `${pointer}/argument`);
                 }

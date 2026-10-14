@@ -156,13 +156,13 @@ export class Vocabulary {
                 property('first', 'list<T>', 'T?', { changes: 'derived', reads: 'derived' }),
                 property('last', 'list<T>', 'T?', { changes: 'derived', reads: 'derived' }),
 
-                operation('matchesMedia', 'window', 'boolean', { form: 'named', parameters: [valueParameter('query', 'string')], observations: [{ type: 'media', of: 'window', query: { argument: 'query' } }] }),
-                operation('supports', 'window', 'boolean', { form: 'named', changes: 'constant', parameters: [valueParameter('feature', 'string', { fixed: true, selects: 'feature' })] }),
-                operation('attributeOf', 'element', 'string?', { form: 'named', parameters: [valueParameter('name', 'string')], observations: [{ type: 'mutation', of: 'receiver', attributes: [{ argument: 'name' }] }] }),
-                operation('computedStyleOf', 'element', 'string?', { ...STYLE, form: 'named', parameters: [valueParameter('property', 'string')], observations: [RESIZE, ATTRIBUTES] }),
-                operation('intersects', 'element', 'boolean?', { reads: 'maintained', form: 'named', input: 'options', parameters: [valueParameter('root', 'element?', { default: null, nulls: 'accept', omitted: 'the window' }), valueParameter('margin', 'number', { default: 0 })], observations: [{ type: 'intersection', of: 'receiver', root: { argument: 'root' }, margin: { argument: 'margin' } }] }),
-                operation('overlaps', 'element', 'boolean?', { ...GEOMETRY, form: 'named', input: 'options', parameters: [valueParameter('other', 'element'), valueParameter('margin', 'number', { default: 0 })], observations: [RESIZE, { type: 'resize', of: { argument: 'other' } }, SCROLLING, WINDOW_RESIZE] }),
-                operation('matches', 'element', 'boolean?', { ...MATCHING, form: 'named', parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS] }),
+                operation('matchesMedia', 'window', 'boolean', { form: 'infix', parameters: [valueParameter('query', 'string')], observations: [{ type: 'media', of: 'window', query: { argument: 'query' } }] }),
+                operation('supports', 'window', 'boolean', { form: 'infix', changes: 'constant', parameters: [valueParameter('feature', 'string', { fixed: true, selects: 'feature' })] }),
+                operation('attributeOf', 'element', 'string?', { form: 'infix', parameters: [valueParameter('name', 'string')], observations: [{ type: 'mutation', of: 'receiver', attributes: [{ argument: 'name' }] }] }),
+                operation('computedStyleOf', 'element', 'string?', { ...STYLE, form: 'infix', parameters: [valueParameter('property', 'string')], observations: [RESIZE, ATTRIBUTES] }),
+                operation('intersects', 'element', 'boolean?', { reads: 'maintained', form: 'infix', input: 'options', parameters: [valueParameter('root', 'element?', { default: null, nulls: 'accept', omitted: 'the window' }), valueParameter('margin', 'number', { default: 0 })], observations: [{ type: 'intersection', of: 'receiver', root: { argument: 'root' }, margin: { argument: 'margin' } }] }),
+                operation('overlaps', 'element', 'boolean?', { ...GEOMETRY, form: 'infix', input: 'options', parameters: [valueParameter('other', 'element'), valueParameter('margin', 'number', { default: 0 })], observations: [RESIZE, { type: 'resize', of: { argument: 'other' } }, SCROLLING, WINDOW_RESIZE] }),
+                operation('matches', 'element', 'boolean?', { ...MATCHING, form: 'infix', parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS] }),
                 operation('rectRelativeTo', 'element', 'rectangle?', { ...GEOMETRY, function: 'rect', parameters: [valueParameter('relativeTo', 'element')], observations: [RESIZE, { type: 'resize', of: { argument: 'relativeTo' } }, SCROLLING, WINDOW_RESIZE] }),
                 operation('closest', 'element', 'element?', { ...MATCHING, parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS] }),
                 operation('first', 'element', 'element?', { ...MATCHING, function: 'firstMatching', parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS] }),
@@ -174,7 +174,7 @@ export class Vocabulary {
                 operation('sum', 'list<T>', 'number', { changes: 'derived', reads: 'derived', parameters: [expressionParameter('number?')] }),
                 operation('where', 'list<T>', 'list<T>', { changes: 'derived', reads: 'derived', parameters: [expressionParameter('boolean?')] }),
 
-                { ...operation('eventsOf', ['element', 'document', 'window'], 'event<@selected>', { form: 'named', changes: 'constant', reads: 'captured', parameters: [valueParameter('type', 'string', { fixed: true, selects: 'eventType' })] }), kind: 'source' },
+                { ...operation('eventsOf', ['element', 'document', 'window'], 'event<@selected>', { form: 'infix', changes: 'constant', reads: 'captured', parameters: [valueParameter('type', 'string', { fixed: true, selects: 'eventType' })] }), kind: 'source' },
             ],
         }, functions);
     }

@@ -51,7 +51,7 @@ Each decision is open until its state says otherwise, and a step that needs it d
 
 ### D13. Navigation, absence and tests
 
-Accepted; built by steps 18 to 21, each changing the specification, the design, their examples, the READMEs' and the TypeScript declarations with its code. Access is strict by default and optional where it is written so, a test is an ordinary Boolean member, `is` compares values, and the tree is navigated through nodes as the DOM has them. It supersedes the three-valued `and` and `or`, predicate expressions and `get`, and it decides negation and the members across shadow boundaries, a flat-tree parent apart. Compatibility with the language as built is no constraint.
+Accepted; built by steps 18 to 21, each changing the specification, the design, their examples, the READMEs' and the TypeScript declarations with its code, and each writing the rules of D13's grammar it builds into the specification, the parser's methods and their comments named after them, so the code never follows a grammar the specification does not hold. Access is strict by default and optional where it is written so, a test is an ordinary Boolean member, `is` compares values, and the tree is navigated through nodes as the DOM has them. It supersedes the three-valued `and` and `or`, predicate expressions and `get`, and it decides negation and the members across shadow boundaries, a flat-tree parent apart. Compatibility with the language as built is no constraint.
 
 ```
 @panel {
@@ -82,14 +82,14 @@ Accepted; built by steps 18 to 21, each changing the specification, the design, 
 
 #### Casts
 
-`value as "element"` answers the value, typed as the target, where it is of that type, and null where it is of another or is null; its type is the target made nullable. The target is a quoted type name, fixed when the query is prepared, and for now one of `node` and its kinds; an unknown or unsupported target is a validation error. A cast from `node` narrows, a cast to the value's own type or from null is allowed, since a binding typed from its value may already be the target or null, and a cast from a non-null type that can never be the target, such as `5 as "element"`, is a validation error. A cast converts nothing and narrows nothing outside itself.
+`target as "element"` answers its target, typed as the type it names, where the target is of that type, and null where it is of another or is null; its result is that type made nullable. The type is a quoted type name, fixed when the query is prepared, and for now one of `node` and its kinds; an unknown or unsupported type is a validation error. A cast from `node` narrows, a cast to the target's own type or of null is allowed, since a binding typed from its value may already be of that type or null, and a cast of a non-null target that can never be of the type, such as `5 as "element"`, is a validation error. A cast converts nothing and narrows nothing outside itself. What a cast's target may be is the grammar's, as its notes on cast targets set out.
 
 #### Required and optional access
 
 - **Required.** `.` requires a receiver that cannot be null: `self.rect.width` is a validation error where `rect` is a `rectangle?`, while `self.rect` alone is valid, since a nullable result is no error. A receiver of unknown type, a binding of null, is nullable, and takes `?.` with any property, as step 16 accepts one.
 - **Optional.** `?.` reads a member, or calls an operation, of a receiver that is not null, and answers null for one that is, skipping the rest of its chain: in `a?.b.c`, a null `a` gives null, and otherwise `.c` requires a `b` that is not null, written `a?.b?.c` where `b` can be. `?.` on a receiver that cannot be null is allowed, for the same reason a cast to its own type is.
 - **Boundaries.** A group ends a chain, so `(a?.b).c` is a required access on a nullable value, a validation error, and the definition records where every optional chain ends. A local holding an optional chain's value holds a nullable value and no policy.
-- **Optional-access groups.** `(?…)` makes every access of the access chain it holds optional, including those after a group within it, such as a cast's, and its closing parenthesis ends that permission: `(?x.y.z)?.a.b` is `(x?.y?.z)?.a.b`. Its access chain is a chain receiver, which may be a grouped cast, followed by at least one access or call; anything else inside it is a syntax error. Its arguments and the bodies of its object expressions keep their own rules. It is notation: parsing rewrites it to `?.`, the definition has no node for it, and the canonical text spells it with `?.`, so `(?self.parent.rect.width)` formats as `self?.parent?.rect?.width`.
+- **Optional-access groups.** `(?…)` makes every access of the `access-chain` it holds optional, including those after a group within it, such as a cast's, and its closing parenthesis ends that permission: `(?x.y.z)?.a.b` is `(x?.y?.z)?.a.b`. Its `access-chain` is a `receiver`, which may be a grouped cast, followed by at least one access or call; anything else inside it is a syntax error. Its arguments and the bodies of its object expressions keep their own rules. It is notation: parsing rewrites it to `?.`, the definition has no node for it, and the canonical text spells it with `?.`, so `(?self.parent.rect.width)` formats as `self?.parent?.rect?.width`.
 - **Nothing else is suppressed.** An unknown member, an invalid argument, an unsupported cast, a module breaking its declared contract and an evaluation failure stay errors, inside `?.` and `(?…)` alike; a member declared non-null that answers null breaks its contract.
 
 #### Access by name
@@ -122,7 +122,7 @@ It replaces `get`, which also read dotted chains and operations without argument
 
 #### Absence
 
-A coalescing, `value ?? fallback`, answers the value where it is not null, and otherwise evaluates and answers the fallback; false, zero and the empty string are values. Its type is the value's made non-null where the fallback's is, and its operands are of one type as a conditional's branches are. It catches no failure. `??` associates to the right, its value and its fallback each a value, a cast or an operation, and mixing it with `is`, `is not`, `not`, `and` or `or` without a group is a syntax error, so `(@count ?? 0) is 0` and `@count ?? (0 is 0)` each say what they mean, and `@ready and not @busy ?? false` is refused. `??` on a value that cannot be null is allowed.
+A coalescing, `value ?? fallback`, answers the value where it is not null, and otherwise evaluates and answers the fallback; false, zero and the empty string are values. Its type is the value's made non-null where the fallback's is, and its operands are of one type as a conditional's branches are. It catches no failure. `??` associates to the right, its value and its fallback each an `equality-operand`, and mixing it with `is`, `is not`, `not`, `and` or `or` without a group is a syntax error, so `(@count ?? 0) is 0` and `@count ?? (0 is 0)` each say what they mean, and `@ready and not @busy ?? false` is refused. `??` on a value that cannot be null is allowed.
 
 #### Boolean expressions
 
@@ -162,112 +162,125 @@ A test is an ordinary expression that answers a Boolean, `@input.disabled`, `@in
 - **Modules** declare a Boolean member where they declared a predicate; predicate registration, the predicate forms of `is` and `has`, and `has` as a keyword are retired.
 - **By name.** `@input[@stateName]` reads one by a bound name, its receiver the input, so a former `has` predicate is named `"hasSelection"` where it was `"selection"`.
 
-#### Named operations and object expressions
+#### Infix calls and object expressions
 
-A named operation declares its receiver's null policy as a parameter declares one: it propagates null, accepts it with a meaning of its own, or refuses a nullable receiver when the query is prepared. An optional chain ends before a named operation, which receives its value and applies its policy. An object expression following null is null, and its body sees a current value that is not null; an item of a list that is null answers null at its position. Neither an argument nor an object expression's body inherits the permission of an optional-access group around it.
+An infix call declares its receiver's null policy as a parameter declares one: it propagates null, accepts it with a meaning of its own, or refuses a nullable receiver when the query is prepared. An optional chain ends before an infix call, which receives its value and applies its policy. An object expression following null is null, and its body sees a current value that is not null; an item of a list that is null answers null at its position. Neither an argument nor an object expression's body inherits the permission of an optional-access group around it.
 
 #### Precedence and grammar
 
-From the tightest: access, calls and access by name, with `.` and `?.`; `as`, which does not chain and continues a chain only from a group, `(self.parent as "element")?.rect`; a named operation, one to an operation, which ends its chain as D10 decided: its argument is optional and may be a bare name, so in `receiver opA opB` nothing could tell `opB` as `opA`'s argument from an operation on its result, and a second applies to the first's result only from a group, `(receiver opA x) opB y`, while `a attributeOf "x" attributeOf "y"` is a syntax error; `is` and `is not`, which do not chain, so `a is b is c` is a syntax error and `@left attributeOf "name" is @right attributeOf "name"` compares two attributes; `not`; `and`; `or`; and conditionals, around them as now. `??` stands apart, grouped against `is`, `not`, `and` and `or` by the grammar itself.
+From the tightest: access, calls and access by name, with `.` and `?.`; `as`, which does not chain and continues a chain only from a group, `(self.parent as "element")?.rect`; an infix call, one to an `infix-call-expression`, which ends its chain as D10 decided: its argument is optional and may be a bare name, so in `receiver opA opB` nothing could tell `opB` as `opA`'s argument from an infix call on its result, and a second applies to the first's result only from a group, `(receiver opA x) opB y`, while `a attributeOf "x" attributeOf "y"` is a syntax error; `is` and `is not`, which do not chain, so `a is b is c` is a syntax error and `@left attributeOf "name" is @right attributeOf "name"` compares two attributes; `not`; `and`; `or`; and conditionals, around them as now. `??` stands apart, grouped against `is`, `not`, `and` and `or` by the grammar itself.
 
-This is the complete grammar D13 gives the language, in the specification's notation, where a name ending in `-term` names the forms a level accepts and every other name describes a form written; it replaces the specification's as steps 18 to 21 build it, and is the specification's whole once step 21 is done:
+This is the complete grammar D13 gives the language, in the specification's notation; it replaces the specification's as steps 18 to 21 build it, and is the specification's whole once step 21 is done:
 
 ```ebnf
-query                 = expression end-of-input
+query                     = expression end-of-input
 
-expression            = conditional | condition
+expression                = conditional | condition
+expression-group          = "(" expression ")"
 
-conditional           = "if" condition "then" expression
-                        { "elseif" condition "then" expression }
-                        "else" expression
+conditional               = "if" condition "then" expression
+                            { "elseif" condition "then" expression }
+                            "else" expression
 
-condition             = coalescing | disjunction | conjunction | negation
-                      | equality | operand
+condition                 = coalescing | disjunction | or-operand
 
-coalescing            = operand "??" ( operand | coalescing )
+coalescing                = equality-operand "??"
+                            ( equality-operand | coalescing )
 
-disjunction           = disjunction-term "or" disjunction-term
-                        { "or" disjunction-term }
-disjunction-term      = conjunction | conjunction-term
-conjunction           = conjunction-term "and" conjunction-term
-                        { "and" conjunction-term }
-conjunction-term      = negation | equality | operand
-negation              = "not" ( negation | equality | operand )
-equality              = operand "is" [ "not" ] operand
+disjunction               = or-operand "or" or-operand
+                            { "or" or-operand }
+or-operand                = conjunction | and-operand
 
-operand               = value | cast | operation
-operation             = ( value | cast ) separator named-operation
-named-operation       = identifier [ separator initial ]
-cast                  = value "as" string
+conjunction               = and-operand "and" and-operand
+                            { "and" and-operand }
+and-operand               = negation | equality | equality-operand
 
-value                 = initial | chain
-chain                 = initial continuation { continuation }
-initial               = "self" | parameter | literal | object | identifier
-                      | group | optional-access-group
-continuation          = access | object
-access                = ( "." | "?." ) ( identifier | call )
-                      | [ "?." ] "[" expression "]"
-call                  = identifier "(" [ expression ] ")"
+negation                  = "not"
+                            ( negation | equality | equality-operand )
 
-group                 = "(" expression ")"
+equality                  = equality-operand
+                            "is" [ "not" ]
+                            equality-operand
 
-optional-access-group = "(?" access-chain ")"
-access-chain          = chain-receiver access { access }
-chain-receiver        = "self" | parameter | literal | object | identifier
-                      | "(" chain-receiver { access } "as" string ")"
+equality-operand          = chain | cast | infix-call-expression
+infix-call-expression     = ( chain | cast ) separator infix-call
+infix-call                = identifier [ separator chain-input ]
 
-object                = "{" object-content "}"
-object-content        = { local "," } field { "," field } [ "," ]
-local                 = "let" identifier ":" expression
-field                 = identifier ":" expression
+cast                      = cast-target "as" string
+cast-target               = receiver { access-expression } | cast-target-group
+cast-target-group         = "(" coalescing ")" | optional-access-group
 
-parameter             = "@" identifier
-literal               = string | number | "true" | "false" | "null"
+chain                     = chain-input { access-expression | object }
+chain-input               = input | group
 
-identifier            = name - reserved-word
-name                  = letter { letter | digit }
-reserved-word         = "true" | "false" | "null" | keyword
-keyword               = "self" | "is" | "not" | "as" | "and" | "or"
-                      | "if" | "then" | "elseif" | "else" | "let"
+access-chain              = receiver access-expression { access-expression }
+optional-access-group     = "(?" access-chain ")"
+receiver                  = input | "(" cast ")"
 
-number                = [ "-" ] integer [ fraction ] [ exponent ]
-integer               = "0" | nonzero-digit { digit }
-fraction              = "." digit { digit }
-exponent              = ( "e" | "E" ) [ "+" | "-" ] digit { digit }
+input                     = value | object | identifier
+value                     = "self" | parameter | literal
 
-string                = '"' { string-character | string-escape } '"'
-string-character      = ? any character except double quote or backslash ?
-string-escape         = '\' ( '"' | '\' )
+group                     = expression-group | optional-access-group
 
-letter                = ? ASCII A–Z or a–z ?
-digit                 = "0" | nonzero-digit
-nonzero-digit         = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+access-expression         = ( "." | "?." ) ( identifier | call-expression )
+                          | [ "?." ] "[" expression "]"
+call-expression           = identifier "(" [ expression ] ")"
 
-separator             = trivia { trivia }
-trivia                = whitespace | line-comment | block-comment
-whitespace            = ? a character matched by ECMAScript \s ?
+object                    = "{" object-content "}"
+object-content            = { local "," } field { "," field } [ "," ]
+local                     = "let" identifier ":" expression
+field                     = identifier ":" expression
 
-line-comment          = "//" { line-character } [ line-feed ]
-line-character        = ? any character except LF ?
-line-feed             = ? LF ?
+parameter                 = "@" identifier
+literal                   = string | number | "true" | "false" | "null"
 
-block-comment         = "/*" block-content "*/"
-block-content         = ? characters up to, but excluding, the first closing */ ?
+identifier                = name - reserved-word
+name                      = letter { letter | digit }
+reserved-word             = "true" | "false" | "null" | keyword
+keyword                   = "self" | "is" | "not" | "as" | "and" | "or"
+                          | "if" | "then" | "elseif" | "else" | "let"
 
-end-of-input          = ? end of input ?
+number                    = [ "-" ] integer [ fraction ] [ exponent ]
+integer                   = "0" | nonzero-digit { digit }
+fraction                  = "." digit { digit }
+exponent                  = ( "e" | "E" ) [ "+" | "-" ] digit { digit }
+
+string                    = '"' { string-character | string-escape } '"'
+string-character          = ? any character except double quote or backslash ?
+string-escape             = '\' ( '"' | '\' )
+
+letter                    = ? ASCII A–Z or a–z ?
+digit                     = "0" | nonzero-digit
+nonzero-digit             = "1" | "2" | "3" | "4" | "5"
+                          | "6" | "7" | "8" | "9"
+
+separator                 = trivia { trivia }
+trivia                    = whitespace | line-comment | block-comment
+whitespace                = ? a character matched by ECMAScript \s ?
+
+line-comment              = "//" { line-character } [ line-feed ]
+line-character            = ? any character except LF ?
+line-feed                 = ? LF ?
+
+block-comment             = "/*" block-content "*/"
+block-content             = ? characters up to, but excluding, the first closing */ ?
+
+end-of-input              = ? end of input ?
 ```
 
-- **What changes from the grammar built.** The predicate and its verbs are gone, `has` among the keywords; `not`, `??`, `as`, `?.`, brackets and optional-access groups, `(?…)`, are new; `is` survives as equality alone, and `and` and `or` take negations and equalities beside operands. The lexical rules are the specification's, unchanged.
-- **Tokens and trivia.** The tokens are names, numbers, strings and the punctuation the rules quote; `?.`, `??` and `(?` are each one token, read by the longest match as every token is, and `[` and `]` are punctuation. Trivia may stand between any two tokens and never inside one, and `separator` requires at least one item of it, so `@input [ @name ]`, `self . rect` and `@input/* note */.disabled` are what they read as, `(?`, `?.` and `??` hold none, and `( ?x.y)` is a syntax error. A name is read whole before it is checked against the reserved words, so `notable`, `isReady` and `asset` are identifiers and a keyword needs no separator to be told from a name, while a named operation keeps its separators, since two identifiers side by side would read as one.
-- **Each rule names what is written.** A coalescing exists only where `??` is written, a disjunction only where `or` is, a conjunction only where `and` is, a negation only where `not` is and an equality only where `is` is, so an expression with none of them is an operand; a cast exists only where `as` is, an operation only where a named operation is and a chain only where a continuation is, so `42` and `@panel` are initial expressions, and values.
-- **Levels.** An operand is a value, a cast or an operation, so `a ?? b ?? c` is `a ?? (b ?? c)`, no operand of `is`, `not`, `and` or `or` is an ungrouped coalescing, and no operand of `??` is an ungrouped equality or Boolean expression. A cast takes a value, and an equality takes operands, neither of which holds another of its kind, so neither chains.
-- **Optional-access groups.** An optional-access group holds an access chain: a chain receiver followed by at least one access or call. A chain receiver is what an access chain starts from: `self`, a parameter, a literal, an object expression, a local, or a grouped cast. A grouped chain receiver has the cast form, a chain receiver and its accesses cast, so `(?(self.parent as "element").rect.width)` parses and every access in it, `self.parent`'s included, becomes `?.`; a cast's chain receiver may hold no access, `(?(@x as "element").rect)`, since the access chain's own access follows the grouped cast. A call's argument keeps the ordinary expression grammar, groups included, and does not inherit the optional-access group's permission.
-- **Deliberate limits.** A call takes no argument or one, and several values travel in an object; a bracket takes any expression the grammar allows, and preparation refuses one whose possible names it cannot determine; an object expression holds at least one field, so `{}` and an object of locals alone are syntax errors; an optional-access group holds at least one access; a string takes `\"` and `\\` as its only escapes and may hold a line break.
+- **What changes from the grammar built.** The predicate and its verbs are gone, `has` among the keywords; `not`, `??`, `as`, `?.`, brackets and optional-access groups, `(?…)`, are new; `is` survives as equality alone, and `and` and `or` take a `negation` and an `equality` beside an `equality-operand`. The lexical rules are the specification's, unchanged.
+- **Tokens and trivia.** The tokens are names, numbers, strings and the punctuation the rules quote; `?.`, `??` and `(?` are each one token, read by the longest match as every token is, and `[` and `]` are punctuation. Trivia may stand between any two tokens and never inside one, and `separator` requires at least one item of it, so `@input [ @name ]`, `self . rect` and `@input/* note */.disabled` are what they read as, `(?`, `?.` and `??` hold none, and `( ?x.y)` is a syntax error. A name is read whole before it is checked against the reserved words, so `notable`, `isReady` and `asset` are identifiers and a keyword needs no separator to be told from a name, while an infix call keeps its separators, since two identifiers side by side would read as one.
+- **The rules.** An `equality-operand` is a `chain`, a `cast` or an `infix-call-expression`: what `??` and `is` take, what `not` and `and` take beside a `negation` and an `equality`, and what `or` takes beside those and a `conjunction`. A `chain` is a `chain-input` and the `access-expression`s and object expressions that continue it, so a `chain-input` alone is a `chain`. A `chain-input` is an `input` or a `group`, and is an infix call's argument. An `input` is a `value`, an object expression or a local, and a `value` is `self`, a parameter or a literal, the forms that stand for a value by themselves. A `receiver` is an `input`, or a grouped `cast`, that an `access-chain` or a `cast-target` starts from, the receiver of its first access. A `group` is an `expression-group`, `( … )`, or an `optional-access-group`, `(? … )`. An `infix-call-expression` is a receiver and the `infix-call` after it, the member's name and its optional argument, which may be omitted where the member's declaration permits it; an `access-expression` is a member access or a call, written as a `call-expression`, after `.` or `?.`, or an access by name, `[…]` or `?.[…]`. Where these notes and D13's prose use the words without code font, they mean what the specification means by them.
+- **The specification's words.** The specification already uses some of these names: a value for any value a query has, a member's input for whether its argument is direct or options, a receiver for the value any member follows, and an initial expression for what is here a `chain-input`. Step 18 reconciles its prose with the grammar's names as it writes the grammar into it.
+- **Levels.** `??` takes an `equality-operand` on either side, so `a ?? b ?? c` is `a ?? (b ?? c)`, no operand of `is`, `not`, `and` or `or` is an ungrouped coalescing, and no operand of `??` is an ungrouped equality or Boolean expression. An `equality` takes an `equality-operand` on either side, and a `cast-target` holds a cast only inside parentheses, so neither chains.
+- **Cast targets.** A `cast-target` is a `receiver` and the `access-expression`s that follow it, or a `cast-target-group`: a `coalescing` in parentheses, or an `optional-access-group`, so `(@preferred ?? @fallback) as "element"` and `(?@node.parent) as "element"` are casts. Any other grouped expression is deliberately no `cast-target`, `(if @wide then @a else @b) as "element"` being a syntax error, and neither is a `chain` an object expression continues.
+- **Optional-access groups.** An optional-access group, `(?…)`, holds an `access-chain`, a `receiver` followed by at least one access or call, and makes every access of it optional. A `receiver` that is a grouped cast holds its own `cast-target`, so `(?(self.parent as "element").rect.width)` parses and every access in it, `self.parent`'s included, becomes `?.`; its `cast-target` may hold no access, `(?(@x as "element").rect)`, since the `access-chain`'s own access follows the grouped cast. A call's argument keeps the ordinary expression grammar, groups included, and does not inherit the optional-access group's permission.
+- **Deliberate limits.** A call takes no argument or one, and several values travel in an object; a bracket takes any expression the grammar allows, and preparation refuses one whose possible names it cannot determine; an object expression holds at least one field, so `{}` and an object of locals alone are syntax errors; an optional-access group holds at least one access; a cast's target is as the cast targets note sets out; a string takes `\"` and `\\` as its only escapes and may hold a line break.
 - **Parsing and typing.** The grammar decides what parses and preparation what is valid: `@count ?? (0 is 0)` parses and fails preparation for a number `@count`, since `??`'s operands are of one type, while `if @enabled ?? false then "yes" else "no"` parses and is valid for a nullable Boolean `@enabled`.
 
 #### The definition
 
-A `member` or `call` holds `optional: true` for `?.`, and a `member`'s `name` is the name written, or the node of a bracket's expression where it is no string literal, so `@input["disabled"]` and `@input.disabled` are one definition; an `optionalChain` node holds the chain whose optional accesses end at it under `target`, as every node holds what it follows, so a traversal that follows targets reaches it unchanged, while code that treats a kind of node by its kind recognizes an optional chain as the chain it holds; a `cast` holds its `type` and its `target`; `not` its `operand`; `equality` its `left` and `right`; `coalescing` its `value` and `fallback`. The `predicate` node is retired. An ordinary group and an optional-access group add no node, and every step that changes the definition's shape raises its version.
+A `member` or `call` holds `optional: true` for `?.`, and a `member`'s `name` is the name written, or the node of a bracket's expression where it is no string literal, so `@input["disabled"]` and `@input.disabled` are one definition; an `optionalChain` node holds the chain whose optional accesses end at it under `target`, as every node holds what it follows, so a traversal that follows targets reaches it unchanged, while code that treats a kind of node by its kind recognizes an optional chain as the chain it holds; a `cast` holds its `type` and its `target`; `not` its `operand`; `equality` its `left` and `right`; `coalescing` its `value` and `fallback`. The `predicate` node is retired. An `expression-group` and an `optional-access-group` add no node, and every step that changes the definition's shape raises its version.
 
 #### Observation
 
@@ -285,7 +298,7 @@ A step is done when its tests pass in the gate, its documents say what it built,
 - **6. Actions and behaviors.** Done.
 - **7. Live state.** Done.
 - **8. The fluent builder.** Done; step 10 removed it, as D12 decided.
-- **10. Explicit receivers, calls and named operations.** Done: every receiver is written, and member access, calls and named operations are distinct, each written in the form its declaration takes.
+- **10. Explicit receivers, calls and infix calls.** Done: every receiver is written, and member access, calls and infix calls are distinct, each written in the form its declaration takes.
 - **11. Conditional and logical expressions.** Done: conditionals with `elseif`, `is null`, groups, and `and` and `or` by the three-valued table, a watch comparing what a conditional gave by the branch it selected.
 - **12. Local values.** Done: `let` names a value once in an object expression, and the specification holds the complete grammar.
 - **13. The API.** Done: every operation is carried out through a query object, which watches and behaviors answer with handles that raise events, selections and selected views take a part of a result, a signal ends every lifetime, `domql.format` gives a request's canonical text, and `domql.info` tells the build's version from the specification's.
@@ -356,7 +369,7 @@ Give `not`, `and`, `or` and conditions Boolean operands that cannot be null, as 
 Navigate the tree through nodes, reach shadow trees through an element's `shadow`, and narrow with `as`, as D13 decides.
 
 - **Needs:** step 18, for the nullable `parent` and `shadow.root`.
-- **Done when:** `node` and its kinds are types, with `parent`, `root`, `host`, `children`, `first` and `all` declared on `node` and the element members on elements, a redeclaration on a kind refused; `shadow.root` and `shadow.elements` answer as D13 sets out; `as` casts to `node` and its kinds, refusing an unknown target and one a non-null value can never be; Chromium tests show what `parent`, `root` and `shadow.elements` observe through reparenting, an ancestor moving, an element detached from the start, forwarded slots and a changing fallback, and the specification states it, with `shadow.root` partly observable; examples that read `parent` as an element cast it.
+- **Done when:** `node` and its kinds are types, with `parent`, `root`, `host`, `children`, `first` and `all` declared on `node` and the element members on elements, a redeclaration on a kind refused; `shadow.root` and `shadow.elements` answer as D13 sets out; `as` casts to `node` and its kinds, refusing an unknown type and one a non-null target can never be; Chromium tests show what `parent`, `root` and `shadow.elements` observe through reparenting, an ancestor moving, an element detached from the start, forwarded slots and a changing fallback, and the specification states it, with `shadow.root` partly observable; examples that read `parent` as an element cast it.
 - **State:** not started.
 
 ### 21. Equality and Boolean members

@@ -93,9 +93,9 @@ describe('DefinitionWriter', () => {
         expect(write('(if @a then @b else @c) is "attached"')).toBe('(if @a then @b else @c) is "attached"');
     });
 
-    it('writes the argument of a named operation as an initial expression, grouping any other', () => {
+    it('writes the argument of an infix call as an initial expression, grouping any other', () => {
         const target = { kind: 'parameter', name: 'panel' };
-        const named = argument => ({ kind: 'namedOperation', target, name: 'attributeOf', argument });
+        const named = argument => ({ kind: 'infixCall', target, name: 'attributeOf', argument });
 
         expect(DefinitionWriter.write(named({ kind: 'member', target, name: 'size' }))).toBe('@panel attributeOf (@panel.size)');
         expect(DefinitionWriter.write(named({ kind: 'object', fields: [{ name: 'a', value: { kind: 'literal', value: 1 } }] }))).toBe('@panel attributeOf { a: 1 }');
@@ -119,7 +119,7 @@ describe('DefinitionWriter', () => {
             ['a conditional with no elseif, on one line', 'if @a then 1 else 2', 'if @a then 1 else 2'],
             ['a conditional with an elseif, a line for each clause', '@panel { state: if self is "disabled" then "locked" elseif self is "readOnly" then "read" else "open" }', '@panel {\n    state: if self is "disabled" then "locked"\n    elseif self is "readOnly" then "read"\n    else "open"\n}'],
             ['one space around and and or', '@a   and(@b or   @c)', '@a and (@b or @c)'],
-            ['one space around a named operation and a predicate', '@panel   attributeOf    "role"   is   "set"', '@panel attributeOf "role" is "set"'],
+            ['one space around an infix call and a predicate', '@panel   attributeOf    "role"   is   "set"', '@panel attributeOf "role" is "set"'],
             ['no trailing comma', '@panel { size: self.size, key: 1, }', '@panel {\n    size: self.size,\n    key: 1\n}'],
             ['no comment and no original layout', '@panel // the panel\n    /* its size */ .size', '@panel.size'],
             ['an optional access as one token, with the group that ends its chain', '(@panel.parent  ?.children) . count', '(@panel.parent?.children).count'],
@@ -171,7 +171,7 @@ describe('DefinitionWriter', () => {
             const { domql: other } = await import('#domql/domql.js');
 
             expect(() => format('@panel {')).toThrow(expect.objectContaining({ kind: 'syntax' }));
-            expect(() => domql.format({ version: 4, query: { kind: 'nonsense' } })).toThrow(expect.objectContaining({ kind: 'structure' }));
+            expect(() => domql.format({ version: 5, query: { kind: 'nonsense' } })).toThrow(expect.objectContaining({ kind: 'structure' }));
             expect(() => domql.format(other.query('@panel'))).toThrow(expect.objectContaining({ kind: 'structure', message: expect.stringContaining('query.definition') }));
         });
 

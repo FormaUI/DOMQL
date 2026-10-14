@@ -187,7 +187,7 @@ The object expression reads what the event carried, such as its `target`, `butto
 
 ### Chains, operations and names
 
-Every member has its receiver written before it, and `self` is the current value, the one an object expression or an argument works on. A property is read with a dot, `@panel.children`; an operation is a call, with parentheses, `@panel.closest(".row")`, or a named operation, after a space, `@panel attributeOf "data-key"`, as the vocabulary declares each. Members are named in camelCase, such as `clientSize`, `attributeOf`, `computedStyleOf` and `matchesMedia`, and all DOMQL names are case-sensitive.
+Every member has its receiver written before it, and `self` is the current value, the one an object expression or an argument works on. A property is read with a dot, `@panel.children`; an operation is a call, with parentheses, `@panel.closest(".row")`, or an infix call, after a space, `@panel attributeOf "data-key"`, as the vocabulary declares each. Members are named in camelCase, such as `clientSize`, `attributeOf`, `computedStyleOf` and `matchesMedia`, and all DOMQL names are case-sensitive.
 
 ```js
 domql.query('@panel.children.count', { panel }).evaluate();
@@ -220,7 +220,7 @@ if @wide then @panel else @sidebar
 
 Its branches are of one type, nullable where either is, and a conditional that is a condition, an operand or the start of a chain is grouped.
 
-A call or a named operation takes one argument. A named operation's argument is a literal, a parameter, `self`, a local, an object or a group, and an operation with several parameters takes them as the fields of one object:
+A call or an infix call takes one argument. An infix call's argument is a literal, a parameter, `self`, a local, an object or a group, and an operation with several parameters takes them as the fields of one object:
 
 ```text
 self.closest(".row")?.rect?.height
@@ -230,7 +230,7 @@ self attributeOf @attributeName
 (self.closest("[data-group]") attributeOf "data-group") is "set"
 ```
 
-A named operation ends its chain, and a group continues from its result. Writing a member in a form it does not take is an error that gives the one it does, as `'attributeOf' is a named operation: write 'self attributeOf "data-key"'`. Commas separate the fields of an object expression.
+An infix call ends its chain, and a group continues from its result. Writing a member in a form it does not take is an error that gives the one it does, as `'attributeOf' uses infix-call syntax: write 'self attributeOf "data-key"'`. Commas separate the fields of an object expression.
 
 ### Objects and lists
 
@@ -298,7 +298,7 @@ A local's `self` is the value where it is written, wherever it is used. It is ev
 
 ### Null and unavailable values
 
-Null represents a missing or unavailable value; it does not hide an invalid query. A member of a value that can be null is read with `?.`, which answers null where the value is null and skips the rest of its chain, and `.` on such a value is an error before anything is evaluated. A named operation or a targeted object expression whose receiver is null returns null.
+Null represents a missing or unavailable value; it does not hide an invalid query. A member of a value that can be null is read with `?.`, which answers null where the value is null and skips the rest of its chain, and `.` on such a value is an error before anything is evaluated. An infix call or a targeted object expression whose receiver is null returns null.
 
 ```js
 domql.query(

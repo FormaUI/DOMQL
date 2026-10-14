@@ -169,7 +169,7 @@ export type DomqlDefinitionNode =
     | { readonly kind: 'local'; readonly name: string }
     | { readonly kind: 'member'; readonly target: DomqlDefinitionNode; readonly name: string; readonly optional?: true }
     | { readonly kind: 'call'; readonly target: DomqlDefinitionNode; readonly name: string; readonly optional?: true; readonly argument?: DomqlDefinitionNode }
-    | { readonly kind: 'namedOperation'; readonly target: DomqlDefinitionNode; readonly name: string; readonly argument?: DomqlDefinitionNode }
+    | { readonly kind: 'infixCall'; readonly target: DomqlDefinitionNode; readonly name: string; readonly argument?: DomqlDefinitionNode }
     | { readonly kind: 'object'; readonly target?: DomqlDefinitionNode; readonly locals?: readonly DomqlDefinitionLocal[]; readonly fields: readonly DomqlDefinitionField[] }
     | { readonly kind: 'optionalChain'; readonly target: DomqlDefinitionNode }
     | { readonly kind: 'predicate'; readonly verb: 'is' | 'has'; readonly target: DomqlDefinitionNode; readonly name: DomqlPredicateName }
@@ -355,7 +355,7 @@ export interface DomqlMemberDeclaration {
     function?: string;
     kind: 'property' | 'operation' | 'source' | 'action' | 'behavior';
     /** How a member that is no property is written: called, `self.closest(".row")`, the default, or named, `self attributeOf "data-key"`. A property declares none. */
-    form?: 'call' | 'named';
+    form?: 'call' | 'infix';
     /** What its argument supplies, where it has parameters: its one parameter, directly, or every parameter, as the fields of an options object. */
     input?: 'direct' | 'options';
     /** The types it applies to, in DOMQL's notation. */

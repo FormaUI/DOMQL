@@ -106,7 +106,7 @@ export class SnapshotComparer {
             return branch === null ? null : this.#toleranceOf(branch, previousIdentities, nextIdentities);
         }
 
-        if (node.kind !== 'member' && node.kind !== 'call' && node.kind !== 'namedOperation') {
+        if (node.kind !== 'member' && node.kind !== 'call' && node.kind !== 'infixCall') {
             return null;
         }
 

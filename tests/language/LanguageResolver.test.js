@@ -230,14 +230,14 @@ describe('LanguageResolver', () => {
             expect(resolve('@panel.parent?.rect?.width').type.toString()).toBe('number?');
         });
 
-        it('lets a named operation and a predicate expression propagate a null receiver', () => {
+        it('lets an infix call and a predicate expression propagate a null receiver', () => {
             expect(resolve('@panel.parent attributeOf "id"').type.toString()).toBe('string?');
             expect(resolve('@panel.parent is "attached"').type.toString()).toBe('boolean?');
         });
 
         it('refuses a member written in a form its declaration does not take, giving the form it does', () => {
-            expect(failure('@panel.attributeOf("id")').message).toContain(`'attributeOf' is a named operation: write '@panel attributeOf "id"'`);
-            expect(failure('@panel closest ".row"').message).toContain(`'closest' is a call: write '@panel.closest(".row")'`);
+            expect(failure('@panel.attributeOf("id")').message).toContain(`'attributeOf' uses infix-call syntax: write '@panel attributeOf "id"'`);
+            expect(failure('@panel closest ".row"').message).toContain(`'closest' uses call syntax: write '@panel.closest(".row")'`);
             expect(failure('@panel.parent()').message).toContain("'parent' is a property: write '@panel.parent'");
             expect(failure('@panel.size?.width()').message).toContain("write '@panel.size?.width'");
         });
@@ -383,7 +383,7 @@ describe('LanguageResolver', () => {
 
         it('points into a definition that has no text', () => {
             const definition = {
-                version: 4,
+                version: 5,
                 query: { kind: 'member', target: { kind: 'parameter', name: 'panel' }, name: 'nonsense', arguments: [] },
             };
 

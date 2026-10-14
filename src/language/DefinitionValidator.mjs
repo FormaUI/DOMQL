@@ -16,7 +16,7 @@ const NODE_PROPERTIES = {
     local: { properties: ['kind', 'name'], required: ['name'] },
     member: { properties: ['kind', 'target', 'name', 'optional'], required: ['target', 'name'] },
     call: { properties: ['kind', 'target', 'name', 'optional', 'argument'], required: ['target', 'name'] },
-    namedOperation: { properties: ['kind', 'target', 'name', 'argument'], required: ['target', 'name'] },
+    infixCall: { properties: ['kind', 'target', 'name', 'argument'], required: ['target', 'name'] },
     object: { properties: ['kind', 'target', 'locals', 'fields'], required: ['fields'] },
     optionalChain: { properties: ['kind', 'target'], required: ['target'] },
     predicate: { properties: ['kind', 'verb', 'target', 'name'], required: ['verb', 'target', 'name'] },
@@ -64,7 +64,7 @@ export class DefinitionValidator {
 
     #validateNode(node, pointer, currentValueAvailability) {
         if (!DefinitionValidator.#isObject(node) || !Object.hasOwn(NODE_PROPERTIES, node.kind)) {
-            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, namedOperation, object, optionalChain, predicate, conditional, and or or');
+            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, infixCall, object, optionalChain, predicate, conditional, and or or');
         }
 
         this.#requireProperties(node, pointer, NODE_PROPERTIES[node.kind]);
@@ -103,7 +103,7 @@ export class DefinitionValidator {
                 return Object.freeze({ kind: 'local', name: node.name });
             case 'member':
             case 'call':
-            case 'namedOperation':
+            case 'infixCall':
                 return this.#validateMember(node, pointer, currentValueAvailability);
             case 'predicate':
                 return this.#validatePredicate(node, pointer, currentValueAvailability);
@@ -186,7 +186,7 @@ export class DefinitionValidator {
         return Object.freeze({ kind: 'literal', value });
     }
 
-    /** Validates a member access, a call or a named operation: its name, its receiver, whether an access or a call is optional, which it is within an optional chain alone, and the one argument a call or a named operation may take, whose current value its declaration decides. */
+    /** Validates a member access, a call or an infix call: its name, its receiver, whether an access or a call is optional, which it is within an optional chain alone, and the one argument a call or an infix call may take, whose current value its declaration decides. */
     #validateMember(node, pointer, currentValueAvailability) {
         this.#requireName(node.name, `${pointer}/name`);
 

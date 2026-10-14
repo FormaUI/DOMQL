@@ -254,7 +254,7 @@ export class QueryEvaluator {
                 return this.#local(node);
             case 'member':
             case 'call':
-            case 'namedOperation':
+            case 'infixCall':
                 return this.#member(node, current);
             case 'predicate':
                 return this.#predicate(node, current);

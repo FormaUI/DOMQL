@@ -50,13 +50,13 @@ describe('DomqlModule', () => {
         expect(() => new DomqlModule('charts', { members: [declaration({ name: 'charts', changes: 'unobserved' })] })).not.toThrow();
     });
 
-    it('writes a property by access alone, and an operation as a call unless it is named', () => {
-        const zoom = new DomqlModule('charts', { members: [declaration({ kind: 'operation', input: 'direct', parameters: [parameter()] }), declaration({ name: 'pan', function: 'pan', kind: 'operation', form: 'named' })] });
+    it('writes a property by access alone, and an operation as a call unless it is written infix', () => {
+        const zoom = new DomqlModule('charts', { members: [declaration({ kind: 'operation', input: 'direct', parameters: [parameter()] }), declaration({ name: 'pan', function: 'pan', kind: 'operation', form: 'infix' })] });
 
-        expect(zoom.members.map(member => member.form)).toEqual(['call', 'named']);
+        expect(zoom.members.map(member => member.form)).toEqual(['call', 'infix']);
         expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ parameters: [parameter()] })] }))).toContain('A property is accessed');
         expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ form: 'call' })] }))).toContain('A property is accessed');
-        expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ kind: 'operation', form: 'phrase' })] }))).toContain('written as call or named');
+        expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ kind: 'operation', form: 'phrase' })] }))).toContain('written as call or infix');
     });
 
     it('requires an operation with parameters to declare its input, direct for exactly one parameter', () => {
