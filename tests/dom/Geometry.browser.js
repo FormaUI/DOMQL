@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, it, expect } from 'vitest';
-import { Domql } from '#domql/domql.js';
+import { domql } from '#domql/domql.js';
 
-const read = (text, bindings = {}) => Domql.read(Domql.parse(text, bindings));
+const read = (text, bindings = {}) => domql.query(text, bindings).evaluate();
 
 /** Adds an element with the style to the document, which a real browser lays out. */
 const add = (style, parent = document.body) => {

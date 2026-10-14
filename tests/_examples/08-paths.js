@@ -1,8 +1,8 @@
-Domql.read('@panel.children.count', { panel });
+domql.query('@panel.children.count', { panel }).evaluate();
 // 3
 
-Domql.read('@panel.get("children.count")', { panel });
+domql.query('@panel.get("children.count")', { panel }).evaluate();
 // 3
 
-Domql.read('@panel is "attached"', { panel });
+domql.query('@panel is "attached"', { panel }).evaluate();
 // true

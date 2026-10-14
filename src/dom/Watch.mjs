@@ -1,10 +1,14 @@
 /**
- * Watch — keeps a query's result current, evaluating again when something it depends on changes and reporting a snapshot that differs
+ * Watch — keeps a query's result current, evaluating again when something it depends on changes, and raises each result that differs to the listeners subscribed to it and to its selected views
  */
 
 import { LiveState } from '../snapshots/LiveState.mjs';
 import { DomqlError } from '../language/DomqlError.mjs';
-import { CallbackDispatcher } from './CallbackDispatcher.mjs';
+import { ResultPath } from '../language/ResultPath.mjs';
+import { EventDispatcher } from './EventDispatcher.mjs';
+
+/** The change set of a listener's first ready event, which is its baseline. */
+const NO_CHANGES = Object.freeze([]);
 
 export class Watch {
     #evaluator;
@@ -12,13 +16,20 @@ export class Watch {
     #comparer;
     #window;
     #schedule;
-    #callbackDispatcher;
+    #checkPath;
+    #eventDispatcher;
+
+    /** The path into the result the watch reports, empty for the whole result, as a selection's watch reports its part. @type {(string | number)[]} */
+    #path;
 
     /** `pending` until the first snapshot is available, `ready` while the watch has a current one, `failed` after an evaluation fails, and `disposed` once it is ended. @type {'pending' | 'ready' | 'failed' | 'disposed'} */
     #status = 'pending';
     #lastSnapshot = null;
     #lastIdentities = null;
     #hasSnapshot = false;
+
+    /** The latest evaluation failure, cleared by the next success. */
+    #error = null;
 
     /** Whether the next successful evaluation reports its snapshot whether or not it differs, as after a failure. */
     #needsDelivery = false;
@@ -45,41 +56,55 @@ export class Watch {
     /** The refreshes waiting for the next evaluation to complete. @type {{ resolve: () => void, reject: (error: unknown) => void }[]} */
     #pendingRefreshes = [];
 
+    /** The callers waiting for a successful ready state. @type {{ resolve: (snapshot: unknown) => void, reject: (error: unknown) => void }[]} */
+    #readyWaiters = [];
+
     /** The object a watch that delivers live state keeps current in place, or null for a watch of another strategy. @type {LiveState | null} */
     #liveState = null;
 
+    /** The signal that disposes it when it aborts, which it lets go of once disposed otherwise, so a signal that outlives it keeps nothing of it. @type {AbortSignal | null} */
+    #signal = null;
+    #disposeOnAbort = () => this.dispose();
+
     /**
+     * Starts the watch, whose first evaluation follows the call that created it; a signal already aborted answers a watch that is disposed and starts nothing.
      * @param {object} dependencies What the watch keeps current, and what it works with.
      * @param {import('./QueryEvaluator.mjs').QueryEvaluator} dependencies.evaluator Evaluates the query.
      * @param {import('./Observations.mjs').Observations} dependencies.observations The observations of the window, which the watch holds sessions on.
      * @param {import('../snapshots/SnapshotComparer.mjs').SnapshotComparer} dependencies.comparer Compares the snapshots.
      * @param {Window} dependencies.window The window the watch belongs to.
-     * @param {(error: unknown) => void} dependencies.reportError The diagnostic reporting boundary, which a failure of `onError` reaches and an error reaches where there is no `onError`.
-     * @param {object} dependencies.configuration The watch configuration the caller chose.
-     * @param {'frame' | 'immediate'} dependencies.configuration.schedule When an evaluation follows a change: at the next animation frame, once however many observations fired, or in the task that reported it.
-     * @param {'snapshot' | 'liveState'} dependencies.configuration.updateStrategy How the watch updates its caller, and so what `onChange` receives: each snapshot whole, or one object it keeps current in place.
-     * @param {(update: unknown, changes?: readonly object[]) => unknown} dependencies.configuration.onChange Receives each snapshot; where the watch delivers live state, the live object and the change set just applied to it. What it returns is not awaited.
-     * @param {((error: unknown) => unknown) | undefined} dependencies.configuration.onError Receives a failure of an evaluation and of `onChange`; by default they go to the diagnostic reporting boundary.
+     * @param {(error: unknown) => void} dependencies.reportError The environment's error reporting, which a failure no listener receives reaches.
+     * @param {(path: (string | number)[]) => void} dependencies.checkPath Refuses a path that does not fit the result's type.
+     * @param {object} dependencies.options The watch's options.
+     * @param {'frame' | 'immediate'} dependencies.options.schedule When an evaluation follows a change: at the next animation frame, once however many observations fired, or in the task that reported it.
+     * @param {'snapshot' | 'liveState'} dependencies.options.updateStrategy What the watch's events carry: each snapshot whole, or one object it keeps current in place.
+     * @param {(string | number)[]} [dependencies.options.path] The part of the result the watch reports.
+     * @param {AbortSignal} [dependencies.options.signal] Disposes the watch when it aborts.
      */
-    constructor({ evaluator, observations, comparer, window, reportError, configuration: { schedule, updateStrategy = 'snapshot', onChange, onError } }) {
+    constructor({ evaluator, observations, comparer, window, reportError, checkPath, options: { schedule, updateStrategy = 'snapshot', path = [], signal } }) {
         this.#evaluator = evaluator;
         this.#observations = observations;
         this.#comparer = comparer;
         this.#window = window;
         this.#schedule = schedule;
-        this.#callbackDispatcher = new CallbackDispatcher({
-            // Live state reaches the callback as the object and the change set just applied to it.
-            onUpdate: updateStrategy === 'liveState' ? ({ state, changes }) => onChange(state, changes) : onChange,
-            onError,
-            reportError,
-            isDisposed: () => this.#status === 'disposed',
-        });
+        this.#checkPath = checkPath;
+        this.#path = path;
+        this.#eventDispatcher = new EventDispatcher({ sender: this, description: 'A watch', eventNames: ['change', 'error'], reportError });
 
         if (updateStrategy === 'liveState') {
             this.#liveState = new LiveState();
         }
 
-        // The first evaluation follows the caller receiving the handle, so no callback runs before it has one.
+        if (signal?.aborted === true) {
+            this.dispose();
+
+            return;
+        }
+
+        this.#signal = signal ?? null;
+        signal?.addEventListener('abort', this.#disposeOnAbort, { once: true });
+
+        // The first evaluation follows the caller receiving the handle, so a listener subscribed after the call hears it.
         queueMicrotask(() => {
             if (!this.#hasRun) {
                 this.#run();
@@ -92,18 +117,90 @@ export class Watch {
         return this.#status;
     }
 
-    /** The snapshot last reported, null before the first, and null where the snapshot itself is null. */
-    get lastSnapshot() {
-        return this.#lastSnapshot;
+    /** The last successful immutable snapshot, or undefined before the first, so a result that is null is told apart from none yet. */
+    get snapshot() {
+        return this.#hasSnapshot ? ResultPath.valueAt(this.#lastSnapshot, this.#path) : undefined;
     }
 
-    /** The object a watch that delivers live state keeps current, the same from the first snapshot on; null before it, and for a watch of another strategy. */
+    /** The latest evaluation failure, cleared by the next success; null where there is none. */
+    get error() {
+        return this.#error;
+    }
+
+    /** The object a watch that delivers live state keeps current, the same from the first snapshot on; undefined before it, and for a watch of another strategy. */
     get liveState() {
-        return this.#liveState?.state ?? null;
+        return this.#liveState !== null && this.#hasSnapshot ? this.#liveState.state : undefined;
     }
 
     /**
-     * Evaluates now instead of at the schedule, and settles once the evaluation has completed and the snapshot it produced, if it differs, has been handed to the callback.
+     * Adds a listener of the watch's `change` or `error` events and answers it. A listener of `change` that subscribes once the watch has a result receives that result first, as its baseline.
+     * @param {'change' | 'error'} eventName
+     * @param {(sender: Watch, args: object) => unknown} handler
+     * @param {{ signal?: AbortSignal }} [options]
+     */
+    subscribe(eventName, handler, options) {
+        return this.#subscribeAt([], eventName, handler, options);
+    }
+
+    /** A selected view of a snapshot watch: a part of its result, whose path is checked against the result's type at once. */
+    select(...path) {
+        if (this.#liveState !== null) {
+            throw DomqlError.structure('Selected views belong to snapshot watches, and this watch keeps live state; write the smaller result in DOMQL to keep it live', {});
+        }
+
+        ResultPath.checkShape(path);
+        this.#checkPath([...this.#path, ...path]);
+
+        return new SelectedView(this, path, (eventName, handler, options) => {
+            if (eventName !== 'change') {
+                throw DomqlError.structure(`A selected view raises 'change', and no '${eventName}'; its watch raises 'error'`, {});
+            }
+
+            return this.#subscribeAt(path, eventName, handler, options);
+        });
+    }
+
+    /**
+     * Waits for a successful ready state and answers its snapshot: at once where the watch is ready, and otherwise at the next successful evaluation.
+     * It rejects where an evaluation fails while it waits or the watch is disposed, and its `signal` cancels the wait alone.
+     * @param {{ signal?: AbortSignal }} [options]
+     */
+    readyAsync({ signal } = {}) {
+        if (this.#status === 'disposed') {
+            return Promise.reject(DomqlError.evaluation('A disposed watch is never ready', {}));
+        }
+
+        if (signal?.aborted === true) {
+            return Promise.reject(signal.reason);
+        }
+
+        if (this.#status === 'ready') {
+            return Promise.resolve(this.snapshot);
+        }
+
+        return new Promise((resolve, reject) => {
+            const waiter = {
+                resolve: snapshot => {
+                    signal?.removeEventListener('abort', cancel);
+                    resolve(snapshot);
+                },
+                reject: error => {
+                    signal?.removeEventListener('abort', cancel);
+                    reject(error);
+                },
+            };
+            const cancel = () => {
+                this.#readyWaiters.splice(this.#readyWaiters.indexOf(waiter), 1);
+                reject(signal.reason);
+            };
+
+            this.#readyWaiters.push(waiter);
+            signal?.addEventListener('abort', cancel, { once: true });
+        });
+    }
+
+    /**
+     * Evaluates now instead of at the schedule, and settles once the evaluation has completed and the event it produced, if any, has been raised.
      * It rejects with the failure of its evaluation, resolves without delivering where disposal cancels it, and rejects where called after disposal.
      */
     refreshAsync() {
@@ -122,14 +219,16 @@ export class Watch {
         });
     }
 
-    /** Ends the watch: cancels the evaluation it scheduled, disposes every session and prevents any new callback invocation; a callback already running may finish. Disposing again does nothing. */
+    /** Ends the watch: cancels the evaluation it scheduled, disposes every session, stops every listener, its views' included, and prevents any new handler call; a handler already running may finish. Disposing again does nothing. */
     dispose() {
         if (this.#status === 'disposed') {
             return;
         }
 
         this.#status = 'disposed';
+        this.#signal?.removeEventListener('abort', this.#disposeOnAbort);
         this.#cancelFrame();
+        this.#eventDispatcher.dispose();
 
         this.#release(this.#successfulEvaluation);
         this.#release(this.#failedEvaluation);
@@ -139,6 +238,69 @@ export class Watch {
         for (const { resolve } of this.#pendingRefreshes.splice(0)) {
             resolve();
         }
+
+        for (const { reject } of this.#readyWaiters.splice(0)) {
+            reject(DomqlError.evaluation('The watch was disposed before it was ready', {}));
+        }
+    }
+
+    /** Adds a listener of the part at the path, relative to the part the watch reports, and has a listener of `change` that subscribes once the watch has a result receive it first. */
+    #subscribeAt(path, eventName, handler, options) {
+        // What the watch keeps for a listener of change: the part it listens to, the value it last received, and whether its next ready event is due whatever its value.
+        const state = { path: [...this.#path, ...path], hasReceived: false, hasValue: false, value: undefined, isDue: false };
+        const listener = this.#eventDispatcher.subscribe(eventName, handler, options, state);
+
+        if (eventName === 'change' && (this.#status === 'ready' || this.#status === 'failed')) {
+            queueMicrotask(() => {
+                if (!state.hasReceived && listener.status === 'ready') {
+                    this.#eventDispatcher.raise('change', target => (target === state ? this.#currentArgsFor(state) : undefined));
+                }
+            });
+        }
+
+        return listener;
+    }
+
+    /** The arguments of the result the watch has now, for a listener that has received none yet. */
+    #currentArgsFor(state) {
+        if (this.#status === 'failed') {
+            return this.#failedArgsFor(state);
+        }
+
+        return this.#readyArgsFor(state, NO_CHANGES);
+    }
+
+    /** The arguments of a failed evaluation, after which the listener's next ready event is due whatever its value. */
+    #failedArgsFor(state) {
+        state.hasReceived = true;
+        state.isDue = true;
+
+        return { status: 'failed', error: this.#error };
+    }
+
+    /** The arguments of the snapshot for the listener, or none where the part it listens to is as it last received it; a listener's first ready event of live state is its baseline, with no changes. */
+    #readyArgsFor(state, changes) {
+        if (this.#liveState !== null) {
+            const args = { status: 'ready', liveState: this.#liveState.state, snapshot: this.#lastSnapshot, changes: state.hasValue ? changes : NO_CHANGES };
+
+            state.hasReceived = true;
+            state.hasValue = true;
+
+            return args;
+        }
+
+        const value = ResultPath.valueAt(this.#lastSnapshot, state.path);
+
+        if (state.hasValue && !state.isDue && Object.is(state.value, value)) {
+            return undefined;
+        }
+
+        state.hasReceived = true;
+        state.hasValue = true;
+        state.isDue = false;
+        state.value = value;
+
+        return { status: 'ready', value };
     }
 
     /** Asks for an evaluation at the schedule, which a change to something the result depends on does. */
@@ -221,8 +383,13 @@ export class Watch {
             this.#release(this.#failedEvaluation);
             this.#failedEvaluation = queryEvaluation;
             this.#status = 'failed';
+            this.#error = queryEvaluation.error;
             this.#needsDelivery = true;
-            this.#callbackDispatcher.handleError(queryEvaluation.error);
+            this.#eventDispatcher.raise('change', state => this.#failedArgsFor(state));
+
+            for (const { reject } of this.#readyWaiters.splice(0)) {
+                reject(queryEvaluation.error);
+            }
 
             for (const { reject } of waiting) {
                 reject(queryEvaluation.error);
@@ -248,15 +415,20 @@ export class Watch {
         this.#lastIdentities = queryEvaluation.identities;
         this.#hasSnapshot = true;
         this.#needsDelivery = false;
+        this.#error = null;
         this.#status = 'ready';
 
-        if (isReported && this.#liveState !== null) {
-            // The change set is applied whole before the callback begins.
-            const changes = this.#liveState.update(next, queryEvaluation.identities);
+        if (isReported) {
+            // The change set is applied whole before any handler begins.
+            const changes = this.#liveState === null ? NO_CHANGES : this.#liveState.update(next, queryEvaluation.identities);
 
-            this.#callbackDispatcher.dispatch({ state: this.#liveState.state, changes });
-        } else if (isReported) {
-            this.#callbackDispatcher.dispatch(next);
+            this.#eventDispatcher.raise('change', state => this.#readyArgsFor(state, changes));
+        }
+
+        const snapshot = this.snapshot;
+
+        for (const { resolve } of this.#readyWaiters.splice(0)) {
+            resolve(snapshot);
         }
 
         for (const { resolve } of waiting) {
@@ -276,12 +448,67 @@ export class Watch {
         }
     }
 
-    /** Disposes an evaluation's sessions, reporting a failure to, so every other cleanup and everything after it still happens. */
+    /** Disposes an evaluation's sessions, reporting a failure to the environment, so every other cleanup and everything after it still happens. */
     #release(queryEvaluation) {
         try {
             queryEvaluation?.dispose();
         } catch (error) {
-            this.#callbackDispatcher.reportError(error);
+            this.#eventDispatcher.reportError(error);
         }
+    }
+}
+
+/** A part of a snapshot watch's result: it starts no evaluation of its own and needs no disposal, and its listeners stop with the watch. */
+class SelectedView {
+    #watch;
+    #path;
+    #subscribe;
+
+    /**
+     * @param {Watch} watch The watch it was selected from, which its listeners' handlers are called with.
+     * @param {(string | number)[]} path The part, relative to what the watch reports.
+     * @param {Function} subscribe Adds a listener of the part's changes.
+     */
+    constructor(watch, path, subscribe) {
+        this.#watch = watch;
+        this.#path = path;
+        this.#subscribe = subscribe;
+    }
+
+    /** The watch's status. */
+    get status() {
+        return this.#watch.status;
+    }
+
+    /** The part of the watch's last successful snapshot, or undefined before the first. */
+    get snapshot() {
+        const snapshot = this.#watch.snapshot;
+
+        return snapshot === undefined ? undefined : ResultPath.valueAt(snapshot, this.#path);
+    }
+
+    /** The watch's latest evaluation failure, cleared by the next success. */
+    get error() {
+        return this.#watch.error;
+    }
+
+    /** A smaller part, checked against the result's type at once. */
+    select(...path) {
+        return this.#watch.select(...this.#path, ...path);
+    }
+
+    /**
+     * Adds a listener of the part's `change` events, raised where the part changed and after a failed evaluation, and answers it; their sender is the watch.
+     * @param {'change'} eventName
+     * @param {(sender: Watch, args: object) => unknown} handler
+     * @param {{ signal?: AbortSignal }} [options]
+     */
+    subscribe(eventName, handler, options) {
+        return this.#subscribe(eventName, handler, options);
+    }
+
+    /** Waits for the watch's successful ready state and answers the part of its snapshot. */
+    readyAsync(options) {
+        return this.#watch.readyAsync(options).then(snapshot => ResultPath.valueAt(snapshot, this.#path));
     }
 }

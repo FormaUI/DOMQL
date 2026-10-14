@@ -1,9 +1,9 @@
-Domql.read(`
+domql.query(`
     @panel.all("[data-key]") {
         key: self attributeOf "data-key",
         selected: self matches "[aria-selected=true]"
     }
-`, { panel });
+`, { panel }).evaluate();
 // [
 //   { key: 'a1', selected: false },
 //   { key: 'a2', selected: true },

@@ -1,5 +1,5 @@
 import { bench, describe } from 'vitest';
-import { Domql } from '#domql/domql.js';
+import { domql } from '#domql/domql.js';
 
 /** How many rows a table holds. */
 const ROWS = 1000;
@@ -36,31 +36,31 @@ const createTable = () => {
 window.requestAnimationFrame = () => 1;
 window.cancelAnimationFrame = () => {};
 
-describe('read', () => {
+describe('evaluate', () => {
     const table = createTable();
     const panel = document.createElement('div');
 
     panel.setAttribute('data-key', 'panel');
     document.body.append(panel);
 
-    const rows = Domql.parse(ROWS_TEXT, { table });
-    const locals = Domql.parse(LOCALS_TEXT, { table });
-    const small = Domql.parse('@panel { key: self attributeOf "data-key", open: self matches ".open", count: self.children.count }', { panel });
+    const rows = domql.query(ROWS_TEXT, { table });
+    const locals = domql.query(LOCALS_TEXT, { table });
+    const small = domql.query('@panel { key: self attributeOf "data-key", open: self matches ".open", count: self.children.count }', { panel });
 
     bench(`a list of ${ROWS} rows, each shaped`, () => {
-        Domql.read(rows);
+        rows.evaluate();
     });
 
     bench(`a list of ${ROWS} rows, each shaped through locals and conditionals`, () => {
-        Domql.read(locals);
+        locals.evaluate();
     });
 
     bench('a small object, as a query', () => {
-        Domql.read(small);
+        small.evaluate();
     });
 
     bench('a small object, from its text and bindings', () => {
-        Domql.read('@panel { key: self attributeOf "data-key", open: self matches ".open", count: self.children.count }', { panel });
+        domql.query('@panel { key: self attributeOf "data-key", open: self matches ".open", count: self.children.count }', { panel }).evaluate();
     });
 });
 
@@ -68,11 +68,12 @@ describe(`a watch of ${ROWS} rows, refreshed`, () => {
     /** A watch of a table of its own, and the table's row that changes. */
     const createWatch = (updateStrategy, text = ROWS_TEXT) => {
         const table = createTable();
-        const watch = Domql.watch(Domql.parse(text, { table }), {
+        const watch = domql.query(text, { table }).watch({
             updateStrategy,
             acceptPartialObservation: true,
-            onChange: () => {},
         });
+
+        watch.subscribe('change', () => {});
 
         return { watch, row: table.querySelectorAll('tr')[CHANGED] };
     };

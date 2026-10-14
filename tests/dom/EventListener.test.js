@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 const settle = () => new Promise(resolve => setTimeout(resolve, 0));
 
 describe('EventListener', () => {
-    // Each test loads its own copy of Domql, with a registry of its own.
+    // Each test loads its own copy of DOMQL, with a registry of its own.
     let isolated;
     let panel;
     let results;
@@ -17,7 +17,7 @@ describe('EventListener', () => {
 
     beforeEach(async () => {
         vi.resetModules();
-        ({ Domql: isolated } = await import('#domql/domql.js'));
+        ({ domql: isolated } = await import('#domql/domql.js'));
         document.body.innerHTML = '<div id="panel" data-n="1"><i id="a" data-n="1"></i><i id="b" data-n="2"></i></div>';
         panel = document.getElementById('panel');
         results = [];
@@ -74,12 +74,17 @@ describe('EventListener', () => {
         document.body.innerHTML = '';
     });
 
-    const subscribe = (text, bindings = {}, options = {}) => {
-        const created = isolated.subscribe(isolated.parse(text, bindings), {
-            onEvent: result => results.push(result),
-            onError: error => failures.push(error),
-            ...options,
-        });
+    /** Records each event's result, or the failure of a failed event. */
+    const record = (_sender, args) => {
+        if (args.status === 'ready') {
+            results.push(args.value);
+        } else {
+            failures.push(args.error);
+        }
+    };
+
+    const subscribe = (text, bindings = {}, handler = record) => {
+        const created = isolated.query(text, bindings).subscribe(handler);
 
         listeners.push(created);
 
@@ -126,12 +131,19 @@ describe('EventListener', () => {
             expect(results).toEqual([{ button: 2, x: 12, kind: 'pen' }]);
         });
 
-        it('takes a subscription given as its text', () => {
-            listeners.push(isolated.subscribe('(@panel eventsOf "input") { id: self.target attributeOf "id" }', { panel }, { onEvent: result => results.push(result) }));
+        it('takes a subscription made from its definition, and calls the handler with the event listener', () => {
+            const { definition } = isolated.query('(@panel eventsOf "input") { id: self.target attributeOf "id" }');
+            const senders = [];
+            const listener = isolated.query(definition, { panel }).subscribe((sender, args) => {
+                senders.push(sender);
+                record(sender, args);
+            });
 
+            listeners.push(listener);
             input(panel);
 
             expect(results).toEqual([{ id: 'panel' }]);
+            expect(senders).toEqual([listener]);
         });
 
         it('starts the source with its receiver and arguments, and stops it when disposed', () => {
@@ -243,12 +255,12 @@ describe('EventListener', () => {
             expect(results).toEqual([]);
         });
 
-        it('refuses a request that is not a subscription, and options it cannot use', () => {
-            const subscription = isolated.parse('(@panel eventsOf "input") { id: self.target attributeOf "id" }', { panel });
+        it('refuses a request that is not a subscription, and a handler that is not a function', () => {
+            const subscription = isolated.query('(@panel eventsOf "input") { id: self.target attributeOf "id" }', { panel });
 
-            expect(() => isolated.subscribe(isolated.parse('@panel.children.count', { panel }), { onEvent: () => {} })).toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringContaining('A query request is not subscribed to') }));
-            expect(() => isolated.subscribe(subscription, {})).toThrow(expect.objectContaining({ kind: 'structure' }));
-            expect(() => isolated.subscribe(subscription, { onEvent: () => {}, onError: 'loudly' })).toThrow(expect.objectContaining({ kind: 'structure' }));
+            expect(() => isolated.query('@panel.children.count', { panel }).subscribe(() => {})).toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringContaining("Cannot subscribe to '@panel.children.count': it produces a value.\nUse evaluate(), evaluateAsync() or watch().") }));
+            expect(() => subscription.subscribe()).toThrow(expect.objectContaining({ kind: 'structure' }));
+            expect(() => subscription.subscribe('loudly')).toThrow(expect.objectContaining({ kind: 'structure' }));
         });
     });
 
@@ -301,7 +313,7 @@ describe('EventListener', () => {
     });
 
     describe('capture', () => {
-        it('reports an event the source cannot capture to the error callback, and keeps listening', () => {
+        it('hands the handler an event the source cannot capture as a failed event, and keeps listening', () => {
             let deliver;
 
             registerBeats((_receiver, _args, _environment, delivers) => {
@@ -322,20 +334,18 @@ describe('EventListener', () => {
         });
     });
 
-    describe('callbacks', () => {
-        it('report a callback that throws or rejects to the error callback, and keep listening', async () => {
+    describe('the handler', () => {
+        it('reports a handler that throws or rejects to the window\'s error reporting, and keeps listening', async () => {
             let calls = 0;
 
-            subscribe('(@panel eventsOf "input") { id: self.target attributeOf "id" }', { panel }, {
-                onEvent: () => {
-                    calls++;
+            subscribe('(@panel eventsOf "input") { id: self.target attributeOf "id" }', { panel }, () => {
+                calls++;
 
-                    if (calls === 1) {
-                        throw new Error('thrown');
-                    }
+                if (calls === 1) {
+                    throw new Error('thrown');
+                }
 
-                    return Promise.reject(new Error('rejected'));
-                },
+                return Promise.reject(new Error('rejected'));
             });
 
             input(panel);
@@ -343,17 +353,23 @@ describe('EventListener', () => {
             await settle();
 
             expect(calls).toBe(2);
-            expect(failures.map(failure => failure.message)).toEqual(['thrown', 'rejected']);
+            expect(reported.map(failure => failure.message)).toEqual(['thrown', 'rejected']);
         });
 
-        it('send a failure of the error callback, and a failure where there is none, to the window\'s error reporting', () => {
-            subscribe('(@panel eventsOf "input") { n: self.target.flaky }', { panel }, { onError: () => { throw new Error('unheard'); } });
-            listeners.push(isolated.subscribe('(@panel eventsOf "input") { n: self.target.flaky }', { panel }, { onEvent: () => {} }));
+        it('sends a failure of the handler given a failed event to the window\'s error reporting, and never back to the handler', () => {
+            const received = [];
+
+            subscribe('(@panel eventsOf "input") { n: self.target.flaky }', { panel }, (_sender, args) => {
+                received.push(args);
+
+                throw new Error('unheard');
+            });
 
             broken = true;
             input(panel);
 
-            expect(reported.map(failure => failure.message)).toEqual(['unheard', expect.stringContaining("The member 'flaky' failed")]);
+            expect(received).toEqual([{ status: 'failed', error: expect.objectContaining({ message: expect.stringContaining("The member 'flaky' failed") }) }]);
+            expect(reported.map(failure => failure.message)).toEqual(['unheard']);
         });
     });
 
@@ -401,7 +417,7 @@ describe('EventListener', () => {
     describe('other event listeners of the same events', () => {
         it('go on when one is disposed, keeping the observations they share', () => {
             const [first] = panel.children;
-            const disposed = subscribe('(@panel eventsOf "input") { level: self.target.level }', { panel }, { onEvent: () => {} });
+            const disposed = subscribe('(@panel eventsOf "input") { level: self.target.level }', { panel }, () => {});
 
             subscribe('(@panel eventsOf "input") { level: self.target.level }', { panel });
             input(first);
@@ -412,11 +428,11 @@ describe('EventListener', () => {
             expect(gauges.get(first)).toMatchObject({ started: 1, stopped: 0 });
         });
 
-        it('go on when the projection or the callback of one fails', () => {
+        it('go on when the projection or the handler of one fails', () => {
             const [first] = panel.children;
 
-            subscribe('(@panel eventsOf "input") { n: self.target.flaky }', { panel }, { onEvent: () => {} });
-            subscribe('(@panel eventsOf "input") { id: self.target attributeOf "id" }', { panel }, { onEvent: () => { throw new Error('consumer'); } });
+            subscribe('(@panel eventsOf "input") { n: self.target.flaky }', { panel });
+            subscribe('(@panel eventsOf "input") { id: self.target attributeOf "id" }', { panel }, () => { throw new Error('consumer'); });
             subscribe('(@panel eventsOf "input") { id: self.target attributeOf "id" }', { panel });
 
             broken = true;
@@ -424,7 +440,8 @@ describe('EventListener', () => {
             input(first);
 
             expect(results).toEqual([{ id: 'a' }, { id: 'a' }]);
-            expect(failures.map(failure => failure.message)).toEqual([expect.stringContaining('broken'), 'consumer', expect.stringContaining('broken'), 'consumer']);
+            expect(failures.map(failure => failure.message)).toEqual([expect.stringContaining('broken'), expect.stringContaining('broken')]);
+            expect(reported.map(failure => failure.message)).toEqual(['consumer', 'consumer']);
         });
     });
 });

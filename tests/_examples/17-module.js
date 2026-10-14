@@ -1,4 +1,4 @@
-const metricsModule = Domql.createModule('metrics', {
+const metricsModule = domql.createModule('metrics', {
     types: [{
         name: 'childMetrics',
         fields: { childCount: 'number' }
@@ -17,7 +17,7 @@ const metricsModule = Domql.createModule('metrics', {
     readMetrics: element => ({ childCount: element.children.length })
 });
 
-Domql.registerModule(metricsModule);
+domql.registerModule(metricsModule);
 
-Domql.read('@panel.metrics { childCount: self.childCount }', { panel });
+domql.query('@panel.metrics { childCount: self.childCount }', { panel }).evaluate();
 // { childCount: 3 }

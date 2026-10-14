@@ -74,8 +74,8 @@ export class QueryEvaluator {
         this.#locations = locations;
     }
 
-    /** The result the query reads once: immutable data holding no reference to the document. A member maintained by an observation fails it, since its first sample cannot arrive during a synchronous read. */
-    read() {
+    /** The result of evaluating the query once: immutable data holding no reference to the document. A member maintained by an observation fails it, since its first sample cannot arrive during a synchronous evaluation. */
+    evaluateOnce() {
         return this.#queryResult().value;
     }
 
@@ -107,38 +107,38 @@ export class QueryEvaluator {
     }
 
     /**
-     * Resolves the action the request ends in into what runs it: the action's name, the function that carries it out, the receiver and arguments it is called with and the environment, and where it stands, for a failure to name.
-     * The receiver and arguments are evaluated once, now, as a read evaluates them; where one of them is null the action is not run, and the answer is null.
-     * @returns {{ name: string, run: Function, receiver: unknown, args: Record<string, unknown>, environment: Environment, location: object } | null}
+     * Resolves the action the request ends in into what executes it: the action's name, the function that carries it out, the receiver and arguments it is called with and the environment, and where it stands, for a failure to name.
+     * The receiver and arguments are evaluated once, now, as `evaluateOnce` evaluates them; where one of them is null the action is not executed, and the answer is null.
+     * @returns {{ name: string, execute: Function, receiver: unknown, args: Record<string, unknown>, environment: Environment, location: object } | null}
      */
     resolveAction() {
-        const call = this.#resolveCall('action', 'run');
+        const call = this.#resolveCall('action', 'executed');
 
-        return call.args === null ? null : { name: call.name, run: call.implementation, receiver: call.receiver, args: call.args, environment: call.environment, location: call.location };
+        return call.args === null ? null : { name: call.name, execute: call.implementation, receiver: call.receiver, args: call.args, environment: call.environment, location: call.location };
     }
 
     /**
-     * Resolves the behavior the request ends in into what activates it: the behavior's declaration and name, the function that carries it out, the receiver and arguments it is called with and the environment, and where it stands, for a failure to name.
-     * The receiver and arguments are evaluated now, as a read evaluates them; where one of them is null there is nothing to activate, and the arguments are null.
-     * @returns {{ declaration: object, name: string, activate: Function, receiver: unknown, args: Record<string, unknown> | null, environment: Environment, location: object }}
+     * Resolves the behavior the request ends in into what starts it: the behavior's declaration and name, the function that carries it out, the receiver and arguments it is called with and the environment, and where it stands, for a failure to name.
+     * The receiver and arguments are evaluated now, as `evaluateOnce` evaluates them; where one of them is null there is nothing to start, and the arguments are null.
+     * @returns {{ declaration: object, name: string, start: Function, receiver: unknown, args: Record<string, unknown> | null, environment: Environment, location: object }}
      */
     resolveBehavior() {
-        const call = this.#resolveCall('behavior', 'activated');
+        const call = this.#resolveCall('behavior', 'applied');
 
-        return { declaration: call.declaration, name: call.name, activate: call.implementation, receiver: call.receiver, args: call.args, environment: call.environment, location: call.location };
+        return { declaration: call.declaration, name: call.name, start: call.implementation, receiver: call.receiver, args: call.args, environment: call.environment, location: call.location };
     }
 
     /**
      * The result of an action, checked against the type the action declares and read through the object expression that follows it, if one does: an immutable snapshot containing no live DOM references.
-     * The object expression is evaluated as a read evaluates a query, so a member maintained by an observation fails it. A result of another type, or an object expression that fails, throws an evaluation error.
-     * @param {unknown} result What the action's function answered, or null for an action that was not run, since its receiver or an argument was null.
-     * @param {{ wasRun?: boolean }} [run] Whether the action was run, so its result is checked against the type it declares.
+     * The object expression is evaluated as `evaluateOnce` evaluates a query, so a member maintained by an observation fails it. A result of another type, or an object expression that fails, throws an evaluation error.
+     * @param {unknown} result What the action's function answered, or null for an action that was not executed, since its receiver or an argument was null.
+     * @param {{ wasExecuted?: boolean }} [execution] Whether the action was executed, so its result is checked against the type it declares.
      */
-    projectResult(result, { wasRun = true } = {}) {
+    projectResult(result, { wasExecuted = true } = {}) {
         const { node, pointer } = this.#terminalMemberNode();
         const { declaration, type } = this.#resolvedDefinition.resolutionOf(node);
 
-        if (wasRun && !this.#conforms(result, type)) {
+        if (wasExecuted && !this.#conforms(result, type)) {
             this.#fail(`The action '${declaration.name}' answered ${QueryEvaluator.#describe(result)}, and it declares ${type}`, pointer);
         }
 
@@ -236,7 +236,7 @@ export class QueryEvaluator {
     /** The detached result, and the identities of the elements its lists were projected from, which the result itself never holds. */
     #queryResult() {
         if (this.#resolvedDefinition.kind !== 'query') {
-            this.#fail(`A ${this.#resolvedDefinition.kind} request is not read`, '/query');
+            this.#fail(`A ${this.#resolvedDefinition.kind} request is not evaluated`, '/query');
         }
 
         return this.#evaluateResult();

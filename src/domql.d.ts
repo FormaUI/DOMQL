@@ -2,7 +2,7 @@
  * The types of DOMQL's public API, shipped beside domql.js.
  */
 
-/** How a query will be carried out, which resolution checks it against. */
+/** How a request will be carried out, which resolution checks it against. */
 export interface DomqlResolveOptions {
     /** Whether the query will be watched. */
     watch?: boolean;
@@ -10,86 +10,89 @@ export interface DomqlResolveOptions {
     acceptPartialObservation?: boolean;
 }
 
-/** What a read uses. */
-export interface DomqlReadOptions {
+/** How a query is evaluated once. */
+export interface DomqlEvaluateOptions {
     /** The window `@window` stands for, and whose document `@document` stands for; by default the environment's. */
     window?: Window;
 }
 
-/** What a read that waits uses. */
-export interface DomqlReadAsyncOptions extends DomqlReadOptions {
-    /** Cancels the read, which then fails with the signal's reason. */
+/** How a query is evaluated once, waiting for its maintained members. */
+export interface DomqlEvaluateAsyncOptions extends DomqlEvaluateOptions {
+    /** Cancels the evaluation, which then rejects with the signal's reason. */
     signal?: AbortSignal;
 }
 
-/** How an action is run. */
-export interface DomqlRunAsyncOptions {
+/** How a query is watched, its events carrying each snapshot whole. */
+export interface DomqlWatchOptions {
+    /** When an evaluation follows a change: at the next animation frame, once however many observations fired (the default), or in the task that reported it. */
+    schedule?: 'frame' | 'immediate';
+    /** What the watch's events carry: each snapshot whole, the default. */
+    updateStrategy?: 'snapshot';
+    /** Whether the watch accepts a member whose observations only partly cover its changes; a watch over one without it is a validation error. */
+    acceptPartialObservation?: boolean;
+    /** Disposes the watch when it aborts; one already aborted answers a watch that is disposed and starts nothing. */
+    signal?: AbortSignal;
     /** The window `@window` stands for, and whose document `@document` stands for; by default the environment's. */
     window?: Window;
-    /** Cancels the run: the promise rejects with the signal's reason at once, and the action learns of it through the signal it is given. */
+}
+
+/** How a query is watched when its result is kept as live state: one object the watch keeps current in place, which keeps its identity. */
+export interface DomqlLiveStateWatchOptions extends Omit<DomqlWatchOptions, 'updateStrategy'> {
+    /** Keeps one object current in place; the result must be an object or a list that is never null. */
+    updateStrategy: 'liveState';
+}
+
+/** How a subscription is listened to, an action executed, or a behavior applied. */
+export interface DomqlOperationOptions {
+    /** The window `@window` stands for, and whose document `@document` stands for; by default the environment's. */
+    window?: Window;
+    /** Ends what the operation started when it aborts; one already aborted starts nothing. */
     signal?: AbortSignal;
 }
 
-/** How a behavior is activated. */
-export interface DomqlActivateOptions {
-    /** The window `@window` stands for, and whose document `@document` stands for; by default the environment's. */
-    window?: Window;
+/** How a listener of a handle's events listens. */
+export interface DomqlListenOptions {
+    /** Stops the listener when it aborts; one already aborted answers a listener that is stopped. */
+    signal?: AbortSignal;
 }
 
-/** A behavior the caller activated: it is in effect from the call that activated it until it is disposed. */
+/** A listener: it listens from the call that answered it until it is disposed. */
+export interface DomqlEventListener {
+    /** `ready` while it listens, and `disposed` once it is ended. */
+    readonly status: 'ready' | 'disposed';
+    /** Stops listening and prevents any new handler call; a handler already running may finish. Disposing again does nothing. */
+    dispose(): void;
+}
+
+/** What an event of a result carries: the result, or the failure that produced none. */
+export type DomqlResultArgs<T> =
+    | { readonly status: 'ready'; readonly value: T }
+    | { readonly status: 'failed'; readonly error: unknown };
+
+/** What a live-state watch's change event carries: the object kept current, the immutable snapshot it was brought to and the change set just applied, empty in a listener's first event; or the failure that produced none. */
+export type DomqlLiveStateArgs<T> =
+    | { readonly status: 'ready'; readonly liveState: DomqlReadOnly<T>; readonly snapshot: T; readonly changes: readonly DomqlChangeOperation[] }
+    | { readonly status: 'failed'; readonly error: unknown };
+
+/** What an error event carries: a failure that belongs to no result. */
+export interface DomqlErrorArgs {
+    readonly error: unknown;
+}
+
+/** A behavior the caller applied: it is in effect from the call that applied it until it is disposed. */
 export interface DomqlBehavior {
     /** `ready` while it is in effect, and `disposed` once it is ended. */
     readonly status: 'ready' | 'disposed';
     /** Replaces the bindings the behavior runs with, whole. A failure throws and leaves the behavior running as it was; bindings that select another behavior are refused. */
     update(bindings: DomqlBindings): void;
-    /** Ends the behavior and leaves its module registered. Disposing again does nothing. */
+    /** Listens to the failures the behavior reports while it runs. */
+    subscribe(eventName: 'error', handler: (sender: DomqlBehavior, args: DomqlErrorArgs) => unknown, options?: DomqlListenOptions): DomqlEventListener;
+    /** Ends the behavior, stops its listeners and leaves its module registered. Disposing again does nothing. */
     dispose(): void;
-}
-
-/** How a query is watched. */
-export interface DomqlWatchConfiguration<T = unknown> {
-    /** Receives each snapshot: an immutable result that shares what did not change with the snapshot before it. What it returns is not awaited. */
-    onChange: (snapshot: T) => unknown;
-    /** Receives a failure of an evaluation and of `onChange`; by default they go to the window's error reporting. A failure of this callback goes there too. */
-    onError?: (error: unknown) => unknown;
-    /** When an evaluation follows a change: at the next animation frame, once however many observations fired (the default), or in the task that reported it. */
-    schedule?: 'frame' | 'immediate';
-    /** How the watch updates its caller: with each snapshot whole, the default. */
-    updateStrategy?: 'snapshot';
-    /** Whether the watch accepts a member whose observations only partly cover its changes; a watch over one without it is a validation error. */
-    acceptPartialObservation?: boolean;
-    /** The window `@window` stands for, and whose document `@document` stands for; by default the environment's. */
-    window?: Window;
 }
 
 /** A value seen through read-only types all the way down, as the live state a watch keeps is to the caller that holds it. */
 export type DomqlReadOnly<T> = T extends readonly (infer I)[] ? readonly DomqlReadOnly<I>[] : T extends object ? { readonly [K in keyof T]: DomqlReadOnly<T[K]> } : T;
-
-/** How a query is watched when its result is kept as live state: one object the watch keeps current in place, which keeps its identity. */
-export interface DomqlWatchLiveStateConfiguration<T = unknown> extends Omit<DomqlWatchConfiguration<T>, 'onChange' | 'updateStrategy'> {
-    /** Keeps one object current in place; the result must be an object or a list that is never null. */
-    updateStrategy: 'liveState';
-    /** Receives the live object, the same at every call, and the change set just applied to it, which is empty at the first call. The object is the watch's: the caller reads it and never writes it. */
-    onChange: (state: DomqlReadOnly<T>, changes: readonly DomqlChangeOperation[]) => unknown;
-}
-
-/** How an event listener listens to a subscription. */
-export interface DomqlSubscribeConfiguration<T = unknown> {
-    /** Receives the result of each event's projection, immutable data, in the task the event is delivered in. What it returns is not awaited. */
-    onEvent: (result: T) => unknown;
-    /** Receives a failure of a capture, of a projection and of `onEvent`; by default they go to the window's error reporting. A failure of this callback goes there too. */
-    onError?: (error: unknown) => unknown;
-    /** The window `@window` stands for, and whose document `@document` stands for; by default the environment's. */
-    window?: Window;
-}
-
-/** An event listener: it listens from the call that creates it until it is disposed. Its result type is the one its events are projected to. */
-export interface DomqlEventListener<T = unknown> {
-    /** `ready` while it listens, and `disposed` once it is ended. */
-    readonly status: 'ready' | 'disposed';
-    /** Stops listening, disposes every session and prevents any new callback invocation; a callback already running may finish. Disposing again does nothing. */
-    dispose(): void;
-}
 
 /** One operation of a change set: a JSON Patch operation limited to replace, add, remove and move, whose paths are JSON Pointers into the result. */
 export type DomqlChangeOperation =
@@ -97,18 +100,59 @@ export type DomqlChangeOperation =
     | { readonly op: 'remove'; readonly path: string }
     | { readonly op: 'move'; readonly from: string; readonly path: string };
 
-/** A watch: the handle of a query kept current. */
-export interface DomqlWatch<T = unknown> {
+/** A path item: the name of a field, or a list index that is a whole number and not negative. */
+export type DomqlPathItem = string | number;
+
+/** What every watch has: the handle of a query kept current. */
+interface DomqlWatchBase<T> {
     /** `pending` until the first snapshot is available, `ready` while the watch has a current one, `failed` after an evaluation fails, and `disposed` once it is ended. */
     readonly status: 'pending' | 'ready' | 'failed' | 'disposed';
-    /** The snapshot last reported, null before the first and where the snapshot itself is null; read beside the status. */
-    readonly lastSnapshot: T | null;
-    /** The object a watch that delivers live state keeps current, the same from the first snapshot on; null before it, and for a watch of another strategy. */
-    readonly liveState: DomqlReadOnly<T> | null;
-    /** Evaluates now, and settles once the evaluation has completed and the snapshot it produced, if it differs, has been handed to the callback. Rejects with the failure of its evaluation, resolves without delivering where disposal cancels it, and rejects after disposal. */
+    /** The last successful immutable snapshot, undefined before the first, so a result that is null is told apart from none yet. */
+    readonly snapshot: T | undefined;
+    /** The latest evaluation failure, cleared by the next success; null where there is none. */
+    readonly error: unknown;
+    /** Waits for a successful ready state and answers its snapshot; it rejects where an evaluation fails while it waits or the watch is disposed, and its signal cancels the wait alone. */
+    readyAsync(options?: DomqlListenOptions): Promise<T>;
+    /** Evaluates now, and settles once the evaluation has completed and the event it produced, if any, has been raised. */
     refreshAsync(): Promise<void>;
-    /** Ends the watch: cancels what it scheduled, disposes every observation session and prevents any new callback invocation. A callback already running may finish. */
+    /** Ends the watch: cancels what it scheduled, disposes every observation session and stops every listener, its views' included. */
     dispose(): void;
+}
+
+/** A watch whose events carry each snapshot whole. */
+export interface DomqlWatch<T = unknown> extends DomqlWatchBase<T> {
+    /** Listens to each result: a snapshot that differs, or a failed evaluation; a listener that subscribes once the watch has a result receives it first. */
+    subscribe(eventName: 'change', handler: (sender: DomqlWatch<T>, args: DomqlResultArgs<T>) => unknown, options?: DomqlListenOptions): DomqlEventListener;
+    /** Listens to the failures that belong to no result, such as a handler that throws. */
+    subscribe(eventName: 'error', handler: (sender: DomqlWatch<T>, args: DomqlErrorArgs) => unknown, options?: DomqlListenOptions): DomqlEventListener;
+    /** A selected view: a part of the watch's result, which shares its evaluation, and whose path is checked against the result's type at once. */
+    select<U = unknown>(...path: DomqlPathItem[]): DomqlSelectedView<U>;
+}
+
+/** A watch that keeps its result as live state. */
+export interface DomqlLiveStateWatch<T = unknown> extends DomqlWatchBase<T> {
+    /** The object the watch keeps current, the same from the first result on; undefined before it. The caller reads it and never writes it. */
+    readonly liveState: DomqlReadOnly<T> | undefined;
+    /** Listens to each result: the object brought up to date, or a failed evaluation; a listener that subscribes once the watch has a result receives it first, with no changes. */
+    subscribe(eventName: 'change', handler: (sender: DomqlLiveStateWatch<T>, args: DomqlLiveStateArgs<T>) => unknown, options?: DomqlListenOptions): DomqlEventListener;
+    /** Listens to the failures that belong to no result, such as a handler that throws. */
+    subscribe(eventName: 'error', handler: (sender: DomqlLiveStateWatch<T>, args: DomqlErrorArgs) => unknown, options?: DomqlListenOptions): DomqlEventListener;
+}
+
+/** A part of a snapshot watch's result: it belongs to the running watch, starts no evaluation of its own and needs no disposal. */
+export interface DomqlSelectedView<T = unknown> {
+    /** The watch's status. */
+    readonly status: 'pending' | 'ready' | 'failed' | 'disposed';
+    /** The part of the watch's last successful snapshot, undefined before the first. */
+    readonly snapshot: T | undefined;
+    /** The watch's latest evaluation failure, cleared by the next success. */
+    readonly error: unknown;
+    /** A smaller part. */
+    select<U = unknown>(...path: DomqlPathItem[]): DomqlSelectedView<U>;
+    /** Listens to the part: raised where it changed, and after a failed evaluation; the sender is the owning watch. */
+    subscribe(eventName: 'change', handler: (sender: DomqlWatch, args: DomqlResultArgs<T>) => unknown, options?: DomqlListenOptions): DomqlEventListener;
+    /** Waits for the watch's successful ready state and answers the part. */
+    readyAsync(options?: DomqlListenOptions): Promise<T>;
 }
 
 /** A DOMQL definition: the JSON document that records a query's meaning, without the values its parameters are bound to. */
@@ -159,21 +203,53 @@ export interface DomqlParameterBindings {
 }
 
 /**
- * A DOMQL query: its definition and the values its parameters are bound to.
- * It belongs to the DOMQL instance that made it, and another instance refuses it; `Domql.create` makes it again there from its definition and a plain object of bindings.
+ * A query object: a request's definition and the values its parameters are bound to, through which every operation on it is carried out.
+ * It belongs to the DOMQL instance that made it; another instance makes it again from its definition and a plain object of bindings.
  */
 export interface DomqlQuery<T = unknown> {
-    /** The query's definition, without its bound values. */
+    /** The immutable definition, without its bindings. */
     readonly definition: DomqlDefinition;
     readonly bindings: DomqlParameterBindings;
-    /** The type of the result the query reads, for TypeScript alone: the caller's type argument asserts it, and no query holds it. */
+    /** The type of the result the query produces, for TypeScript alone: the caller's type argument asserts it, and no query holds it. */
     readonly [domqlResult]?: { result(value: T): void };
+    /** A new query object with the same definition, bound to these bindings, which replace the old ones whole. */
+    with(bindings: DomqlBindings): DomqlQuery<T>;
+    /** The request validated against the vocabulary and typed, without evaluating anything. */
+    resolve(options?: DomqlResolveOptions): DomqlResolvedDefinition;
+    /** A part of the query's result, whose path's shape is checked at once and its fit when an operation resolves the query. */
+    select<U = unknown>(...path: DomqlPathItem[]): DomqlSelection<U>;
+    /** Evaluates the query once, synchronously, answering detached, immutable data; a maintained member that needs a sample fails it. */
+    evaluate(options?: DomqlEvaluateOptions): T;
+    /** Evaluates the query once, waiting for its maintained members, and answers a promise of detached, immutable data. */
+    evaluateAsync(options?: DomqlEvaluateAsyncOptions): Promise<T>;
+    /** Starts a watch of the query, whose events carry each snapshot whole. */
+    watch(options?: DomqlWatchOptions): DomqlWatch<T>;
+    /** Starts a watch of the query that keeps its result as live state. */
+    watch(options: DomqlLiveStateWatchOptions): DomqlLiveStateWatch<T>;
+    /** Listens to the subscription's event source from the call on, and answers the event listener; the handler receives it and each event's result, or the failure that capturing or projecting the event raised. */
+    subscribe(handler: (sender: DomqlEventListener, args: DomqlResultArgs<T>) => unknown, options?: DomqlOperationOptions): DomqlEventListener;
+    /** Executes the action once, and answers a promise of its result. A signal that aborts rejects with its reason; DOMQL never undoes what the action changed. */
+    executeAsync(options?: DomqlOperationOptions): Promise<T>;
+    /** Applies the behavior, which is in effect once the call returns, and answers its handle. */
+    apply(options?: DomqlOperationOptions): DomqlBehavior;
+}
+
+/** A part of a query's result: it belongs to the query, and every operation on it starts work of its own on the whole query. */
+export interface DomqlSelection<T = unknown> {
+    /** A smaller part. */
+    select<U = unknown>(...path: DomqlPathItem[]): DomqlSelection<U>;
+    /** Evaluates the whole query once, synchronously, answering the part. */
+    evaluate(options?: DomqlEvaluateOptions): T;
+    /** Evaluates the whole query once, waiting for its maintained members, answering a promise of the part. */
+    evaluateAsync(options?: DomqlEvaluateAsyncOptions): Promise<T>;
+    /** Starts a watch of the whole query whose snapshots are the part, raised where the part changed. */
+    watch(options?: DomqlWatchOptions): DomqlWatch<T>;
 }
 
 declare const domqlResult: unique symbol;
-/** A DOMQL type: a named type, a list, an event source, an object type, a type parameter or a null, each nullable or not. */
+/** A DOMQL type: a named type, a list, an event source, an object type or a type parameter, each nullable or not, the type of null, or the type no value has. */
 export interface DomqlType {
-    readonly kind: 'named' | 'list' | 'event' | 'object' | 'typeParameter' | 'null';
+    readonly kind: 'named' | 'list' | 'event' | 'object' | 'typeParameter' | 'null' | 'never';
     readonly name: string | null;
     readonly itemType: DomqlType | null;
     readonly fieldTypes: ReadonlyMap<string, DomqlType> | null;
@@ -208,7 +284,8 @@ export interface DomqlErrorLocation {
 }
 
 /** A failure of DOMQL, in the stage it happened in, and where. Its `name` is `DomqlError`. */
-export interface DomqlError extends Error {
+export declare class DomqlError extends Error {
+    private constructor();
     readonly name: 'DomqlError';
     readonly kind: 'syntax' | 'structure' | 'validation' | 'module' | 'evaluation';
     readonly location: DomqlErrorLocation;
@@ -337,68 +414,18 @@ export interface DomqlModule {
     readonly functions: DomqlModuleFunctions | null;
 }
 
-export declare class Domql {
+/** DOMQL: makes query objects, and registers the modules that extend the vocabulary. */
+export interface Domql {
     /** The version of the specification this implementation follows, as major.minor.revision. */
-    static readonly specificationVersion: string;
-
-    /** Parses text into a query, binding its parameters. */
-    static parse(text: string, bindings?: DomqlBindings): DomqlQuery;
-
-    /** Creates a query from its definition, binding its parameters. */
-    static create(definition: DomqlDefinition, bindings?: DomqlBindings): DomqlQuery;
-
-    /** Resolves a query given as its text against the registered vocabulary and types it, without evaluating anything. The text is parsed as `parse` parses it, through the same cache. */
-    static resolve(text: string, bindings?: DomqlBindings, options?: DomqlResolveOptions): DomqlResolvedDefinition;
-
-    /** Resolves a query against the registered vocabulary and types it, without evaluating anything. */
-    static resolve(query: DomqlQuery, options?: DomqlResolveOptions): DomqlResolvedDefinition;
-
-    /** Reads a query given as its text once, returning an immutable snapshot containing no live DOM references. A member maintained by an observation fails it. */
-    static read<T = unknown>(text: string, bindings?: DomqlBindings, options?: DomqlReadOptions): T;
-
-    /** Reads a query once, returning an immutable snapshot containing no live DOM references. A member maintained by an observation fails it. */
-    static read<T = unknown>(query: DomqlQuery<T>, options?: DomqlReadOptions): T;
-
-    /** Reads a query given as its text once, waiting for the first sample of every maintained member it reads. Returns a promise of an immutable snapshot containing no live DOM references. */
-    static readAsync<T = unknown>(text: string, bindings?: DomqlBindings, options?: DomqlReadAsyncOptions): Promise<T>;
-
-    /** Reads a query once, waiting for the first sample of every maintained member it reads. Returns a promise of an immutable snapshot containing no live DOM references. */
-    static readAsync<T = unknown>(query: DomqlQuery<T>, options?: DomqlReadAsyncOptions): Promise<T>;
-
-    /** Watches a query given as its text: reports its snapshot, and a snapshot that differs each time something it depends on changes. Pass `{}` as the bindings of a text that has none. */
-    static watch<T = unknown>(text: string, bindings: DomqlBindings, configuration: DomqlWatchConfiguration<T>): DomqlWatch<T>;
-
-    /** Watches a query given as its text, keeping its result as live state: one object kept current in place. Pass `{}` as the bindings of a text that has none. */
-    static watch<T = unknown>(text: string, bindings: DomqlBindings, configuration: DomqlWatchLiveStateConfiguration<T>): DomqlWatch<T>;
-
-    /** Watches a query: reports its snapshot, and a snapshot that differs each time something it depends on changes. */
-    static watch<T = unknown>(query: DomqlQuery<T>, configuration: DomqlWatchConfiguration<T>): DomqlWatch<T>;
-
-    /** Watches a query, keeping its result as live state: one object kept current in place. */
-    static watch<T = unknown>(query: DomqlQuery<T>, configuration: DomqlWatchLiveStateConfiguration<T>): DomqlWatch<T>;
-
-    /** Subscribes to an event source given as its text and passes each projected result to `onEvent`. Listening starts in the call. Pass `{}` as the bindings of a text that has none. */
-    static subscribe<T = unknown>(text: string, bindings: DomqlBindings, configuration: DomqlSubscribeConfiguration<T>): DomqlEventListener<T>;
-
-    /** Subscribes to an event source and passes each projected result to `onEvent`. Listening starts in the call. */
-    static subscribe<T = unknown>(query: DomqlQuery<T>, configuration: DomqlSubscribeConfiguration<T>): DomqlEventListener<T>;
-
-    /** Runs an action given as its text once, and returns a promise of its result, read through the object expression that follows it where one does. A signal that aborts rejects with its reason; DOMQL never undoes what the action changed. */
-    static runAsync<T = unknown>(text: string, bindings?: DomqlBindings, options?: DomqlRunAsyncOptions): Promise<T>;
-
-    /** Runs an action once, and returns a promise of its result, read through the object expression that follows it where one does. A signal that aborts rejects with its reason; DOMQL never undoes what the action changed. */
-    static runAsync<T = unknown>(query: DomqlQuery<T>, options?: DomqlRunAsyncOptions): Promise<T>;
-
-    /** Activates a behavior given as its text, which is in effect once the call returns, and returns its handle. */
-    static activate(text: string, bindings?: DomqlBindings, options?: DomqlActivateOptions): DomqlBehavior;
-
-    /** Activates a behavior, which is in effect once the call returns, and returns its handle. */
-    static activate(query: DomqlQuery, options?: DomqlActivateOptions): DomqlBehavior;
-
+    readonly specificationVersion: string;
+    /** Makes a query object from a request's text, binding its parameters; it parses and checks the text, and evaluates nothing. */
+    query<T = unknown>(text: string, bindings?: DomqlBindings): DomqlQuery<T>;
+    /** Makes a query object from a request's definition, binding its parameters. */
+    query<T = unknown>(definition: DomqlDefinition, bindings?: DomqlBindings): DomqlQuery<T>;
     /** Creates a module from the vocabulary it declares and the functions that carry the declarations out. */
-    static createModule(name: string, contents: DomqlModuleContents, functions?: DomqlModuleFunctions | null): DomqlModule;
-
-    /** Registers a module's vocabulary, which every query resolved afterwards may use. */
-    static registerModule(module: DomqlModule): void;
+    createModule(name: string, contents: DomqlModuleContents, functions?: DomqlModuleFunctions | null): DomqlModule;
+    /** Registers a module's vocabulary, which every request resolved afterwards may use. */
+    registerModule(module: DomqlModule): void;
 }
 
+export declare const domql: Domql;

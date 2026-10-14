@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
-import { Domql } from '#domql/domql.js';
+import { domql } from '#domql/domql.js';
 
 // A path from the repository root, read as text.
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -16,19 +16,19 @@ describe('Alignment', () => {
     it('has a specification whose version is that of the implementation', () => {
         const [, version] = specification.match(/^# DOMQL Specification v(\S+)$/m);
 
-        expect(version).toBe(Domql.specificationVersion);
+        expect(version).toBe(domql.specificationVersion);
     });
 
     it('has a design titled with the version of the specification', () => {
         const [, version] = design.match(/^# DOMQL Design v(\S+)$/m);
 
-        expect(version).toBe(Domql.specificationVersion);
+        expect(version).toBe(domql.specificationVersion);
     });
 
     it('has a package that is the alpha of the specification, numbered by the commits it is built from', () => {
         const [, prefix] = project.match(/<VersionPrefix>(.+?)<\/VersionPrefix>/);
 
-        expect(`${prefix}-alpha`).toBe(Domql.specificationVersion);
+        expect(`${prefix}-alpha`).toBe(domql.specificationVersion);
         expect(project).toContain('<Version>$(VersionPrefix)-alpha.$(CommitCount)</Version>');
         expect(project).toContain('git rev-list --count HEAD');
     });
@@ -36,12 +36,12 @@ describe('Alignment', () => {
     it('has a specification whose example definition is of the version the implementation writes', () => {
         const [, version] = specification.match(/"version": (\d+),\s+"query"/);
 
-        expect(Number(version)).toBe(Domql.parse('@panel { size: self.size }').definition.version);
+        expect(Number(version)).toBe(domql.query('@panel { size: self.size }').definition.version);
     });
 
     it('has a specification whose complete query resolves to the fields of the result it shows', () => {
         const [, text, result] = specification.match(/## A complete query[\s\S]*?The query reads it:\s*```\n([\s\S]*?)```[\s\S]*?```json\n([\s\S]*?)```/);
-        const resolved = Domql.resolve(Domql.parse(text, { panel: document.createElement('div'), sentinel: document.createElement('div') }));
+        const resolved = domql.query(text, { panel: document.createElement('div'), sentinel: document.createElement('div') }).resolve();
 
         expect([...resolved.type.fieldTypes.keys()]).toEqual(Object.keys(JSON.parse(result)));
     });

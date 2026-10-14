@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, it, expect } from 'vitest';
-import { Domql } from '#domql/domql.js';
+import { domql } from '#domql/domql.js';
 
 /** How many times the member below has been read in the test running. */
 let evaluations = 0;
 
 // A member read afresh at each evaluation, observing any attribute in the tree its receiver is in, so each evaluation is a snapshot of its own.
-Domql.registerModule(Domql.createModule('evaluations', {
+domql.registerModule(domql.createModule('evaluations', {
     members: [{
         name: 'evaluations', function: 'evaluations', kind: 'property', on: 'element', parameters: [], result: 'number', changes: 'observable', reads: 'fresh',
         observations: [{ type: 'mutation', of: 'root', attributes: true, subtree: true }],
@@ -36,8 +36,9 @@ describe('Watches in shadow trees', () => {
     };
 
     const watch = (text, bindings) => {
-        const created = Domql.watch(Domql.parse(text, bindings), { onChange: snapshot => snapshots.push(snapshot), schedule: 'immediate', acceptPartialObservation: true });
+        const created = domql.query(text, bindings).watch({ schedule: 'immediate', acceptPartialObservation: true });
 
+        created.subscribe('change', (sender, args) => snapshots.push(args.value));
         watches.push(created);
 
         return created;

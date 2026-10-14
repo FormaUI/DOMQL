@@ -1,6 +1,6 @@
 const panel = document.getElementById('panel');
 
-const query = Domql.parse(`
+const query = domql.query(`
     @panel {
         count: self.children.count,
         items: self.all("[data-key]") {
@@ -10,7 +10,7 @@ const query = Domql.parse(`
     }
 `, { panel });
 
-const snapshot = Domql.read(query);
+const snapshot = query.evaluate();
 // {
 //   count: 3,
 //   items: [

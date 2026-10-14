@@ -12,7 +12,7 @@ const getError = call => {
 };
 
 describe('Behavior', () => {
-    // Each test loads its own copy of Domql, with a registry of its own.
+    // Each test loads its own copy of DOMQL, with a registry of its own.
     let isolated;
     let panel;
     let other;
@@ -21,17 +21,20 @@ describe('Behavior', () => {
     let breaks;
 
     /** A behavior module: its one member, named for it, on an element, taking a color. */
-    const behavior = (name, activate) => isolated.createModule(name, {
+    const behavior = (name, start) => isolated.createModule(name, {
         members: [{
             name, function: name, kind: 'behavior', on: 'element', result: 'null', changes: 'unobserved', reads: 'fresh',
             input: 'direct',
             parameters: [{ name: 'color', kind: 'value', type: 'string', required: true, nulls: 'propagate' }],
         }],
-    }, { [name]: activate });
+    }, { [name]: start });
+
+    /** Applies the behavior the text requests, bound to the bindings. */
+    const apply = (text, bindings = {}) => isolated.query(text, bindings).apply();
 
     beforeEach(async () => {
         vi.resetModules();
-        ({ Domql: isolated } = await import('#domql/domql.js'));
+        ({ domql: isolated } = await import('#domql/domql.js'));
         document.body.innerHTML = '<div id="panel"></div><div id="other"></div>';
         panel = document.getElementById('panel');
         other = document.getElementById('other');
@@ -42,7 +45,7 @@ describe('Behavior', () => {
 
         // Marks its element with the color while it is in effect.
         isolated.registerModule(behavior('highlight', (element, { color }, environment, context) => {
-            calls.push({ call: 'activate', element, color, environment, context });
+            calls.push({ call: 'start', element, color, environment, context });
             element.dataset.highlight = color;
 
             let current = element;
@@ -75,68 +78,75 @@ describe('Behavior', () => {
         document.body.innerHTML = '';
     });
 
-    describe('activating', () => {
+    describe('applying', () => {
         it('puts the behavior into effect in the call, with its receiver, arguments, environment and reporter', () => {
-            const highlight = isolated.activate('@panel.highlight(@color)', { panel, color: 'gold' });
+            const highlight = apply('@panel.highlight(@color)', { panel, color: 'gold' });
 
             expect(highlight.status).toBe('ready');
             expect(panel.dataset.highlight).toBe('gold');
-            expect(calls).toEqual([{ call: 'activate', element: panel, color: 'gold', environment: { window, document }, context: { reportError: expect.any(Function) } }]);
+            expect(calls).toEqual([{ call: 'start', element: panel, color: 'gold', environment: { window, document }, context: { reportError: expect.any(Function) } }]);
         });
 
-        it('takes a behavior request, as text or as a request', () => {
-            isolated.activate(isolated.parse('@panel.highlight("teal")', { panel }));
+        it('takes a behavior request made from its definition', () => {
+            const { definition } = isolated.query('@panel.highlight("teal")');
+
+            isolated.query(definition, { panel }).apply();
 
             expect(panel.dataset.highlight).toBe('teal');
         });
 
-        it('lets the behavior report a failure while it runs to the window\'s error reporting', () => {
-            isolated.activate('@panel.highlight("gold")', { panel });
+        it('raises a failure the behavior reports while it runs as an error event, which reaches the window\'s error reporting where no listener takes it', () => {
+            const highlight = apply('@panel.highlight("gold")', { panel });
+            const received = [];
+
+            calls[0].context.reportError(new Error('unheard'));
+            highlight.subscribe('error', (sender, args) => received.push({ sender, args }));
             calls[0].context.reportError(new Error('flicker'));
 
-            expect(reported.map(error => error.message)).toEqual(['flicker']);
+            expect(received).toEqual([{ sender: highlight, args: { error: expect.objectContaining({ message: 'flicker' }) } }]);
+            expect(reported.map(error => error.message)).toEqual(['unheard']);
         });
 
-        it('activates nothing where its receiver is null, until an update supplies one', () => {
-            const highlight = isolated.activate('@item.highlight("gold")', { item: null });
+        it('applies nothing where its receiver is null, until an update supplies one', () => {
+            const highlight = apply('@item.highlight("gold")', { item: null });
 
             expect(calls).toEqual([]);
 
             highlight.update({ item: panel });
 
             expect(panel.dataset.highlight).toBe('gold');
-            expect(calls.map(call => call.call)).toEqual(['activate']);
+            expect(calls.map(call => call.call)).toEqual(['start']);
 
             highlight.update({ item: null });
 
             expect(panel.dataset.highlight).toBeUndefined();
-            expect(calls.map(call => call.call)).toEqual(['activate', 'dispose']);
+            expect(calls.map(call => call.call)).toEqual(['start', 'dispose']);
         });
 
-        it('fails the call where the behavior cannot activate, or answers no way to update and dispose it, leaving nothing running', () => {
+        it('fails the call where the behavior cannot start, or answers no way to update and dispose it, leaving nothing running', () => {
             let disposed = 0;
 
             isolated.registerModule(behavior('broken', () => { throw new Error('closed'); }));
             isolated.registerModule(behavior('partial', () => ({ dispose: () => disposed++ })));
 
-            const thrown = getError(() => isolated.activate('@panel.broken("gold")', { panel }));
+            const thrown = getError(() => apply('@panel.broken("gold")', { panel }));
 
-            expect(thrown).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The behavior 'broken' failed to activate") });
+            expect(thrown).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The behavior 'broken' failed to start") });
             expect(thrown.cause.message).toBe('closed');
-            expect(getError(() => isolated.activate('@panel.partial("gold")', { panel }))).toMatchObject({ kind: 'evaluation', message: expect.stringContaining('answered no update and dispose') });
+            expect(getError(() => apply('@panel.partial("gold")', { panel }))).toMatchObject({ kind: 'evaluation', message: expect.stringContaining('answered no update and dispose') });
             expect(disposed).toBe(1);
         });
 
         it('is refused for a request of another kind, and a behavior request is refused by the other calls', () => {
-            expect(getError(() => isolated.activate('@panel.children.count', { panel }))).toMatchObject({ kind: 'validation', message: expect.stringContaining('A query request is not activated') });
-            expect(getError(() => isolated.read('@panel.highlight("gold")', { panel }))).toMatchObject({ kind: 'validation', message: expect.stringContaining('A behavior request is not read') });
+            expect(getError(() => apply('@panel.children.count', { panel }))).toMatchObject({ kind: 'validation', message: expect.stringContaining("Cannot apply '@panel.children.count': it produces a value.\nUse evaluate(), evaluateAsync() or watch().") });
+            expect(getError(() => isolated.query('@panel.highlight("gold")', { panel }).evaluate())).toMatchObject({ kind: 'validation', message: expect.stringContaining("Cannot evaluate '@panel.highlight(\"gold\")': it applies a behavior.\nUse apply().") });
             expect(calls).toEqual([]);
         });
     });
 
     describe('updating', () => {
         it('replaces the bindings whole, handing the behavior its new receiver and arguments', () => {
-            const highlight = isolated.activate('@target.highlight(@color)', { target: panel, color: 'gold' });
+            const highlight = apply('@target.highlight(@color)', { target: panel, color: 'gold' });
 
             highlight.update({ target: other, color: 'teal' });
 
@@ -146,17 +156,17 @@ describe('Behavior', () => {
         });
 
         it('validates the bindings before anything changes, leaving the behavior as it was', () => {
-            const highlight = isolated.activate('@target.highlight(@color)', { target: panel, color: 'gold' });
+            const highlight = apply('@target.highlight(@color)', { target: panel, color: 'gold' });
 
             expect(getError(() => highlight.update({ target: other }))).toMatchObject({ kind: 'validation', message: expect.stringContaining("The parameter '@color' is not bound") });
             expect(getError(() => highlight.update({ target: other, color: 7 }))).toMatchObject({ kind: 'validation' });
             expect(getError(() => highlight.update(null))).toMatchObject({ kind: 'structure' });
             expect(panel.dataset.highlight).toBe('gold');
-            expect(calls.map(call => call.call)).toEqual(['activate']);
+            expect(calls.map(call => call.call)).toEqual(['start']);
         });
 
         it('throws a failure of the behavior\'s own update, which keeps what it last accepted', () => {
-            const highlight = isolated.activate('@target.highlight(@color)', { target: panel, color: 'gold' });
+            const highlight = apply('@target.highlight(@color)', { target: panel, color: 'gold' });
 
             breaks.add('update');
 
@@ -169,7 +179,7 @@ describe('Behavior', () => {
         });
 
         it('updates the same behavior after another module was registered', () => {
-            const highlight = isolated.activate('@panel.highlight(@color)', { panel, color: 'gold' });
+            const highlight = apply('@panel.highlight(@color)', { panel, color: 'gold' });
 
             isolated.registerModule(behavior('glow', () => ({ update: () => {}, dispose: () => {} })));
             highlight.update({ panel, color: 'teal' });
@@ -178,7 +188,7 @@ describe('Behavior', () => {
         });
 
         it('throws once the behavior is disposed', () => {
-            const highlight = isolated.activate('@panel.highlight("gold")', { panel });
+            const highlight = apply('@panel.highlight("gold")', { panel });
 
             highlight.dispose();
 
@@ -188,18 +198,18 @@ describe('Behavior', () => {
 
     describe('disposing', () => {
         it('ends the behavior once, however often it is disposed', () => {
-            const highlight = isolated.activate('@panel.highlight("gold")', { panel });
+            const highlight = apply('@panel.highlight("gold")', { panel });
 
             highlight.dispose();
             highlight.dispose();
 
             expect(highlight.status).toBe('disposed');
             expect(panel.dataset.highlight).toBeUndefined();
-            expect(calls.map(call => call.call)).toEqual(['activate', 'dispose']);
+            expect(calls.map(call => call.call)).toEqual(['start', 'dispose']);
         });
 
         it('reports a failure of the behavior\'s own dispose, and ends the behavior all the same', () => {
-            const highlight = isolated.activate('@panel.highlight("gold")', { panel });
+            const highlight = apply('@panel.highlight("gold")', { panel });
 
             breaks.add('dispose');
             highlight.dispose();
@@ -208,9 +218,9 @@ describe('Behavior', () => {
             expect(reported.map(error => error.message)).toEqual(['held']);
         });
 
-        it('leaves the behavior\'s module registered, so it activates again', () => {
-            isolated.activate('@panel.highlight("gold")', { panel }).dispose();
-            isolated.activate('@panel.highlight("teal")', { panel });
+        it('leaves the behavior\'s module registered, so it applies again', () => {
+            apply('@panel.highlight("gold")', { panel }).dispose();
+            apply('@panel.highlight("teal")', { panel });
 
             expect(panel.dataset.highlight).toBe('teal');
         });

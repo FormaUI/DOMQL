@@ -4,8 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { beforeAll, describe, it, expect } from 'vitest';
 import { bundle } from '../scripts/bundle.mjs';
 
-/** The bundle's single export, which names Domql. */
-const EXPORT = /export\{([\w$]+) as Domql\};?\s*$/;
+/** The bundle's one export statement, which names domql and DomqlError, in either order. */
+const EXPORT = /export\{([\w$]+) as (domql|DomqlError),([\w$]+) as (domql|DomqlError)\};?\s*$/;
 
 describe('Bundle', () => {
     let text;
@@ -13,16 +13,17 @@ describe('Bundle', () => {
 
     beforeAll(async () => {
         text = await bundle();
-        bundled = new Function(text.replace(EXPORT, 'return { Domql: $1 };'))();
+        bundled = new Function(text.replace(EXPORT, 'return { $2: $1, $4: $3 };'))();
     });
 
     it('is one file that imports nothing', () => {
         expect(text).not.toMatch(/\bimport\s*[({"'*\w]/);
     });
 
-    it('exports Domql alone', () => {
+    it('exports domql and DomqlError alone', () => {
         expect(text).toMatch(EXPORT);
         expect(text.match(/\bexport\b/g)).toHaveLength(1);
+        expect(Object.keys(bundled).sort()).toEqual(['DomqlError', 'domql']);
     });
 
     it('is less than half the size of the sources it bundles', async () => {
@@ -33,15 +34,17 @@ describe('Bundle', () => {
         expect(text.length).toBeLessThan(size / 2);
     });
 
-    it('parses and creates queries as the sources do', () => {
-        const query = bundled.Domql.parse('@panel { size: self.size, hasFocus: self matches ":focus-within" }', { panel: 1 });
+    it('makes query objects from text and from a definition as the sources do', () => {
+        const query = bundled.domql.query('@panel { size: self.size, hasFocus: self matches ":focus-within" }', { panel: 1 });
 
         expect(query.definition.query.fields.map(field => field.name)).toEqual(['size', 'hasFocus']);
-        expect(bundled.Domql.create(query.definition, { panel: 2 }).bindings.get('panel')).toBe(2);
-        expect(bundled.Domql.specificationVersion).toMatch(/^\d+\.\d+\.\d+(?:-alpha)?$/);
+        expect(bundled.domql.query(query.definition, { panel: 2 }).bindings.get('panel')).toBe(2);
+        expect(query.with({ panel: 3 }).bindings.get('panel')).toBe(3);
+        expect(bundled.domql.specificationVersion).toMatch(/^\d+\.\d+\.\d+(?:-alpha)?$/);
     });
 
-    it('keeps the errors the sources raise', () => {
-        expect(() => bundled.Domql.parse('@panel {')).toThrow(/A field is written with its name/);
+    it('keeps the errors the sources raise, as DomqlError', () => {
+        expect(() => bundled.domql.query('@panel {')).toThrow(bundled.DomqlError);
+        expect(() => bundled.domql.query('@panel {')).toThrow(/A field is written with its name/);
     });
 });

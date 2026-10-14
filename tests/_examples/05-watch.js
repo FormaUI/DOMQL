@@ -1,6 +1,6 @@
-const watch = Domql.watch(rebound, {
-    onChange: count => console.log(count)
-});
+const watch = rebound.watch();
+
+watch.subscribe('change', (sender, args) => console.log(args.value));
 
 await watch.refreshAsync();
 // 0

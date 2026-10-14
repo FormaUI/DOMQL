@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { SnapshotComparer } from '#domql/snapshots/SnapshotComparer.mjs';
-import { Domql } from '#domql/domql.js';
+import { domql } from '#domql/domql.js';
 import { LanguageResolver } from '#domql/language/LanguageResolver.mjs';
 import { DomqlModule } from '#domql/language/vocabulary/DomqlModule.mjs';
 import { ModuleRegistry } from '#domql/language/vocabulary/ModuleRegistry.mjs';
@@ -14,7 +14,7 @@ const property = (name, result, tolerance = {}) => new DomqlModule(name, {
 /** A query resolved against the vocabulary and the two test modules. */
 const resolvedOf = (text, bindings, tolerance) => {
     const registry = new ModuleRegistry([Vocabulary.module, property('wobble', 'size', tolerance), property('steady', 'number')]);
-    const query = Domql.parse(text, bindings);
+    const query = domql.query(text, bindings);
 
     return new LanguageResolver(registry, query.bindings, null, {}).resolveDefinition(query.definition);
 };

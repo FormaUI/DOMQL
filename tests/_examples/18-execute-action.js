@@ -1,4 +1,4 @@
-Domql.registerModule(Domql.createModule('mark', {
+domql.registerModule(domql.createModule('mark', {
     members: [{
         name: 'mark',
         function: 'mark',
@@ -20,5 +20,5 @@ Domql.registerModule(Domql.createModule('mark', {
     }
 }));
 
-await Domql.runAsync('@panel.mark("reviewed")', { panel });
+await domql.query('@panel.mark("reviewed")', { panel }).executeAsync();
 // true

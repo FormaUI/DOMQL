@@ -12,14 +12,14 @@ The `formaui-net.DOMQL` NuGet package supplies the JavaScript library as a singl
 
 Available now:
 
-- Parse query text, or create queries from JSON definitions.
+- Make query objects from text or from JSON definitions, and carry every operation out through them.
 - Validate structure, bindings, vocabulary names and types.
 - Resolve queries without reading the DOM.
-- Perform synchronous one-shot reads and receive immutable data snapshots.
-- Wait for values the browser keeps, such as `intersects`, with `readAsync`.
+- Evaluate a query once, synchronously, and receive immutable data snapshots.
+- Wait for values the browser keeps, such as `intersects`, with `evaluateAsync`.
 - Watch a query and receive a snapshot each time its result changes, or one object kept current in place.
 - Subscribe to events and receive the projection of each one.
-- Run actions once and activate behaviors that stay in effect until disposed.
+- Execute actions once and apply behaviors that stay in effect until disposed.
 - Extend the vocabulary through modules.
 
 ## Install and load
@@ -35,22 +35,22 @@ Once it is published, `dotnet add package formaui-net.DOMQL --prerelease` adds i
 In a .NET web application hosted at the site root, import the static web asset from a JavaScript module:
 
 ```js
-import { Domql } from '/_content/domql/domql.js';
+import { domql } from '/_content/domql/domql.js';
 ```
 
 If the application is hosted under a subpath, include that base path in the URL. The bundle can also be served directly in a non-.NET application. For building a local package, see the [repository README](https://github.com/FormaUI/Forma.DOMQL#development).
 
 ## TypeScript
 
-The package serves `domql.d.ts` beside `domql.js`, so a TypeScript project that imports the bundle by its path has the types of the whole API: `Domql`, the queries it makes, the resolved definition, `DomqlError` and the module declarations.
+The package serves `domql.d.ts` beside `domql.js`, so a TypeScript project that imports the bundle by its path has the types of the whole API: `domql`, the query objects it makes and the handles they answer, the resolved definition, `DomqlError` and the module declarations.
 
 ```ts
-import { Domql } from '/_content/domql/domql.js';
+import { domql } from '/_content/domql/domql.js';
 
-const count = Domql.read<number>('@panel.children.count', { panel });
+const count = domql.query<number>('@panel.children.count', { panel }).evaluate();
 ```
 
-## Read a query
+## Evaluate a query
 
 Given this markup, which the examples below use throughout:
 
@@ -67,7 +67,7 @@ Run this after the elements exist:
 ```js
 const panel = document.getElementById('panel');
 
-const query = Domql.parse(`
+const query = domql.query(`
     @panel {
         count: self.children.count,
         items: self.all("[data-key]") {
@@ -77,7 +77,7 @@ const query = Domql.parse(`
     }
 `, { panel });
 
-const snapshot = Domql.read(query);
+const snapshot = query.evaluate();
 // {
 //   count: 3,
 //   items: [
@@ -88,50 +88,48 @@ const snapshot = Domql.read(query);
 // }
 ```
 
-`@panel` refers to the supplied binding; it is not an ID lookup. `parse` constructs the query without reading the DOM. `read` resolves it as needed and returns the current result synchronously. The snapshot is immutable and contains no live element references.
+`@panel` refers to the supplied binding; it is not an ID lookup. `domql.query` makes the query object without reading the DOM, parsing a text once and reusing its definition for identical text. `evaluate` resolves it as needed and returns the current result synchronously. The snapshot is immutable and contains no live element references.
 
-For a query used once, `resolve`, `read`, `readAsync`, `watch` and `subscribe` also take its text and bindings directly, with any options or configuration after them: `Domql.read('@panel.children.count', { panel })`. The text is parsed the same way, through the same cache; parse a query yourself to reuse it. The bindings always come second, so a text without any passes `{}` before a configuration: `Domql.watch('@window.size', {}, { onChange: size => render(size) })`.
+## Evaluate again or bind another target
 
-## Read again or bind another target
-
-Reuse a query for repeated reads. Resolution is cached when compatible; DOM values are read again, and earlier snapshots remain unchanged.
+Reuse a query for repeated evaluations. Resolution is cached when compatible; DOM values are read again, and earlier snapshots remain unchanged.
 
 ```js
-const countQuery = Domql.parse('@panel.children.count', { panel });
+const countQuery = domql.query('@panel.children.count', { panel });
 
-Domql.read(countQuery);
+countQuery.evaluate();
 // 3
 
 const emptyPanel = document.createElement('div');
-const rebound = Domql.create(countQuery.definition, { panel: emptyPanel });
+const rebound = countQuery.with({ panel: emptyPanel });
 
-Domql.read(rebound);
+rebound.evaluate();
 // 0
 ```
 
-The definition contains the query structure without bound values. `create` reuses it with new bindings and leaves the original query unchanged.
+`with` makes a new query of the same definition with new bindings, and leaves the original query, and every watch running from it, unchanged. `query.definition` is the query structure without bound values, and `domql.query(definition, bindings)` makes a query from it.
 
-A query belongs to the DOMQL instance that created it. A page holds more than one instance when independently bundled libraries each include DOMQL, and an instance refuses another's query with an error saying how to reuse it: pass its definition and a plain object of bindings to `create`, as in `Domql.create(otherQuery.definition, { panel })`. The receiving instance validates the definition and resolves it against its own vocabulary, so a member another instance registered is unknown to it.
+A query belongs to the DOMQL instance that created it. A page holds more than one instance when independently bundled libraries each include DOMQL, and an instance refuses another's query object with an error saying how to reuse it: pass its definition and a plain object of bindings to `domql.query`, as in `domql.query(otherQuery.definition, { panel })`. The receiving instance validates the definition and resolves it against its own vocabulary, so a member another instance registered is unknown to it.
 
 ## Wait for values the browser keeps
 
-Some values come from a browser observation, such as whether an element intersects the viewport. `read` refuses them, since their first sample cannot arrive during a synchronous read; `readAsync` waits for it:
+Some values come from a browser observation, such as whether an element intersects the viewport. `evaluate` refuses them, since their first sample cannot arrive during a synchronous evaluation; `evaluateAsync` waits for it:
 
 ```js
-const inView = await Domql.readAsync('@panel intersects', { panel });
+const inView = await domql.query('@panel intersects', { panel }).evaluateAsync();
 // true
 ```
 
-`readAsync` takes a `signal` to cancel the wait, reads a query with no such value as well, and lets go of every observation it started when it answers, fails or is canceled.
+`evaluateAsync` takes a `signal` to cancel the wait, evaluates a query with no such value as well, and lets go of every observation it started when it answers, fails or is canceled.
 
 ## Watch a query
 
-`watch` keeps a query's result current: `onChange` receives a snapshot, then a new one each time the result changes. Here it watches the empty panel bound above:
+`watch` keeps a query's result current and answers its handle. A listener of its `change` event receives a snapshot, then a new one each time the result changes; each handler is called with the handle and the event's arguments. Here it watches the empty panel bound above:
 
 ```js
-const watch = Domql.watch(rebound, {
-    onChange: count => console.log(count)
-});
+const watch = rebound.watch();
+
+watch.subscribe('change', (sender, args) => console.log(args.value));
 
 await watch.refreshAsync();
 // 0
@@ -143,15 +141,16 @@ await watch.refreshAsync();
 watch.dispose();
 ```
 
-A watch evaluates again on its own at the next animation frame after something it reads changes. `refreshAsync` evaluates now and settles once the snapshot has been handed to `onChange`, which is how the example waits between its steps. `dispose` ends the watch and lets go of its observations. Pass `onError` to hear of a failed evaluation or a failing callback; the watch keeps running.
+A watch evaluates again on its own at the next animation frame after something it reads changes. `refreshAsync` evaluates now and settles once the snapshot has been handed to the listeners, which is how the example waits between its steps. `dispose` ends the watch, stops its listeners and lets go of its observations. A failed evaluation arrives as a `change` event whose `status` is `failed`, and a failing handler as an `error` event; the watch keeps running. `watch.select('size')` answers a view of a part of the result, which shares the watch's evaluation.
 
-A watch can also keep its result as live state: one object it updates in place, which `onChange` receives every time with the change set just applied to it, and `watch.liveState` holds. Objects and lists inside it keep their identity, and an item of a list projected from elements keeps its object as it moves:
+A watch can also keep its result as live state: one object it updates in place, which its `change` event carries every time as `liveState`, with the change set just applied to it as `changes`, and `watch.liveState` holds. Objects and lists inside it keep their identity, and an item of a list projected from elements keeps its object as it moves:
 
 ```js
-const live = Domql.watch('{ count: @panel.children.count }', { panel: emptyPanel }, {
-    updateStrategy: 'liveState',
-    onChange: state => console.log(state.count)
+const live = domql.query('{ count: @panel.children.count }', { panel: emptyPanel }).watch({
+    updateStrategy: 'liveState'
 });
+
+live.subscribe('change', (sender, args) => console.log(args.liveState.count));
 
 await live.refreshAsync();
 // 1
@@ -167,16 +166,14 @@ The object belongs to the watch, so read it and never write it, and copy it or w
 
 ## Subscribe to events
 
-`subscribe` evaluates the object expression that follows an event source, such as `eventsOf`, for each event, and hands `onEvent` the result:
+`subscribe` evaluates the object expression that follows an event source, such as `eventsOf`, for each event, and hands its handler the event listener and the result:
 
 ```js
-const clicks = Domql.subscribe(`
+const clicks = domql.query(`
     (@panel eventsOf "click") {
         key: self.target.closest("[data-key]") attributeOf "data-key"
     }
-`, { panel }, {
-    onEvent: click => console.log(click.key)
-});
+`, { panel }).subscribe((sender, args) => console.log(args.value.key));
 
 panel.querySelector('[data-key="a2"]').click();
 // 'a2'
@@ -184,7 +181,7 @@ panel.querySelector('[data-key="a2"]').click();
 clicks.dispose();
 ```
 
-The object expression reads what the event carried, such as its `target`, `button` or `clientX`, and anything else a parameter reaches, at the moment the event is dispatched. The event listener it answers starts listening in the call, observes events as they reach the receiver and leaves their course to the page. A value the browser keeps, such as `intersects`, is null until the browser first reports it, and is never waited for. Pass `onError` to hear of a failed projection or a failing callback; the event listener keeps listening until `dispose` ends it.
+The object expression reads what the event carried, such as its `target`, `button` or `clientX`, and anything else a parameter reaches, at the moment the event is dispatched. The event listener it answers starts listening in the call, observes events as they reach the receiver and leaves their course to the page. A value the browser keeps, such as `intersects`, is null until the browser first reports it, and is never waited for. A failed projection reaches the handler with `status` `failed`, and a failing handler goes to the window's error reporting; the event listener keeps listening until `dispose` ends it.
 
 ## The language
 
@@ -193,13 +190,13 @@ The object expression reads what the event carried, such as its `target`, `butto
 Every member has its receiver written before it, and `self` is the current value, the one an object expression or an argument works on. A property is read with a dot, `@panel.children`; an operation is a call, with parentheses, `@panel.closest(".row")`, or a named operation, after a space, `@panel attributeOf "data-key"`, as the vocabulary declares each. Members are named in camelCase, such as `clientSize`, `attributeOf`, `computedStyleOf` and `matchesMedia`, and all DOMQL names are case-sensitive.
 
 ```js
-Domql.read('@panel.children.count', { panel });
+domql.query('@panel.children.count', { panel }).evaluate();
 // 3
 
-Domql.read('@panel.get("children.count")', { panel });
+domql.query('@panel.get("children.count")', { panel }).evaluate();
 // 3
 
-Domql.read('@panel is "attached"', { panel });
+domql.query('@panel is "attached"', { panel }).evaluate();
 // true
 ```
 
@@ -240,13 +237,13 @@ A named operation ends its chain, and a group continues from its result. Writing
 An object expression chooses output fields, each written with the name it answers under, `width: self.rect.width`; DOMQL infers no name, so a field without one is a syntax error.
 
 ```js
-Domql.read(`
+domql.query(`
     @panel {
         count: self.children.count,
         attached: self is "attached",
         children: self has "children",
     }
-`, { panel });
+`, { panel }).evaluate();
 // { count: 3, attached: true, children: true }
 ```
 
@@ -255,12 +252,12 @@ Trailing commas, `//` line comments and `/* */` block comments are supported.
 An object expression following a list projects each item:
 
 ```js
-Domql.read(`
+domql.query(`
     @panel.all("[data-key]") {
         key: self attributeOf "data-key",
         selected: self matches "[aria-selected=true]"
     }
-`, { panel });
+`, { panel }).evaluate();
 // [
 //   { key: 'a1', selected: false },
 //   { key: 'a2', selected: true },
@@ -271,14 +268,14 @@ Domql.read(`
 A member following a list operates on the list itself. Use `count`, `first`, `last` and `at(index)` to inspect it, or `where`, `max`, `min` and `sum` with expressions evaluated against each item:
 
 ```js
-Domql.read(`
+domql.query(`
     @panel.all("[data-key]")
         .where(self matches "[aria-selected=true]")
         .count
-`, { panel });
+`, { panel }).evaluate();
 // 1
 
-Domql.read('@panel.all("[data-key]").max(self.rect.height)', { panel });
+domql.query('@panel.all("[data-key]").max(self.rect.height)', { panel }).evaluate();
 // 64
 ```
 
@@ -287,13 +284,13 @@ Domql.read('@panel.all("[data-key]").max(self.rect.height)', { panel });
 An object expression can name a value once with `let`, as a local, and use it by its name in the entries after it. Its locals come before its fields, and the result never holds them:
 
 ```js
-Domql.read(`
+domql.query(`
     @panel {
         let items: self.all("[data-key]"),
         count: items.count,
         tallest: items.max(self.rect.height)
     }
-`, { panel });
+`, { panel }).evaluate();
 // { count: 3, tallest: 64 }
 ```
 
@@ -304,10 +301,10 @@ A local's `self` is the value where it is written, wherever it is used. It is ev
 Null represents a missing or unavailable value; it does not hide an invalid query. A chain or targeted object expression whose receiver is null returns null.
 
 ```js
-Domql.read(
+domql.query(
     '@panel.first(".missing") attributeOf "data-key"',
     { panel }
-);
+).evaluate();
 // null
 ```
 
@@ -318,14 +315,14 @@ Geometry such as `rect` and `size` is null when the element is detached or has n
 Bindings may contain elements or supported data, and each takes its type from its value, so an element that is not there yet is bound as null and an empty list as it is. A property of a null binding, or of the items of an empty list, answers null and is checked once the value's type is known; a call is still checked against the vocabulary.
 
 ```js
-const optional = Domql.parse(`
+const optional = domql.query(`
     {
         panel: @panel { size: self.size },
         ids: @ids
     }
 `, { panel: null, ids: [] });
 
-Domql.read(optional);
+optional.evaluate();
 // { panel: null, ids: [] }
 ```
 
@@ -335,23 +332,26 @@ Keep independent results in a top-level object expression when one target may be
 
 | API | Purpose |
 | --- | --- |
-| `Domql.parse(text, bindings)` | Construct a query from text. |
-| `Domql.create(definition, bindings)` | Construct a query from a reusable definition. |
+| `domql.query(text, bindings)`, `domql.query(definition, bindings)` | Make a query object from text or from a reusable definition. |
 | `query.definition` | Access the immutable definition without its bound values. |
-| `Domql.resolve(text, bindings, options)`, `Domql.resolve(query, options)` | Check names and types without evaluating the query. |
-| `Domql.read(text, bindings, options)`, `Domql.read(query, options)` | Read once, optionally using an explicitly supplied `window`. A member kept by an observation, such as `intersects`, fails it. |
-| `Domql.readAsync(text, bindings, options)`, `Domql.readAsync(query, options)` | Read once, waiting for the first sample of every member kept by an observation. Returns a promise; `signal` cancels it, and the `window` is optional. |
-| `Domql.createModule(name, contents, functions)` | Create an extension module. |
-| `Domql.watch(text, bindings, configuration)`, `Domql.watch(query, configuration)` | Keep a query's result current: `onChange` receives a snapshot, then each snapshot that differs; `updateStrategy` chooses live state instead. Returns a handle with `status`, `lastSnapshot`, `liveState`, `refreshAsync()` and `dispose()`. |
-| `Domql.subscribe(text, bindings, configuration)`, `Domql.subscribe(query, configuration)` | Subscribe to an event source: `onEvent` receives each projected result, evaluated as the event is dispatched. Returns an event listener with `status` and `dispose()`. |
-| `Domql.runAsync(text, bindings, options)`, `Domql.runAsync(query, options)` | Run an action once. Returns a promise of its result, read through the object expression that follows the action; `signal` cancels it, and what the action changed stays changed. |
-| `Domql.activate(text, bindings, options)`, `Domql.activate(query, options)` | Activate a behavior, in effect once the call returns. Returns a handle with `status`, `update(bindings)` and `dispose()`. |
-| `Domql.registerModule(module)` | Make a module available to query resolution. |
+| `query.with(bindings)` | Make a query of the same definition with other bindings. |
+| `query.resolve(options)` | Check names and types without evaluating the query. |
+| `query.select(...path)` | Select a part of the result, which `evaluate`, `evaluateAsync` and `watch` answer. |
+| `query.evaluate(options)` | Evaluate once, optionally using an explicitly supplied `window`. A member kept by an observation, such as `intersects`, fails it. |
+| `query.evaluateAsync(options)` | Evaluate once, waiting for the first sample of every member kept by an observation. Returns a promise; `signal` cancels it, and the `window` is optional. |
+| `query.watch(options)` | Keep a query's result current. Returns a handle with `status`, `snapshot`, `error`, `readyAsync()`, `refreshAsync()`, `subscribe(eventName, handler)`, `dispose()`, and `select(...path)` for snapshots or `liveState` for live state, which `updateStrategy` chooses. |
+| `query.subscribe(handler, options)` | Subscribe to an event source: the handler receives each projected result, evaluated as the event is dispatched. Returns an event listener with `status` and `dispose()`. |
+| `query.executeAsync(options)` | Execute an action once. Returns a promise of its result, read through the object expression that follows the action; `signal` cancels it, and what the action changed stays changed. |
+| `query.apply(options)` | Apply a behavior, in effect once the call returns. Returns a handle with `status`, `update(bindings)`, `subscribe('error', handler)` and `dispose()`. |
+| `domql.createModule(name, contents, functions)` | Create an extension module. |
+| `domql.registerModule(module)` | Make a module available to query resolution. |
+
+An operation the request does not take is refused before anything runs, with an error saying what the request does and which operations it takes. A `signal` given to `evaluateAsync`, `watch`, `subscribe`, `executeAsync` or `apply` ends what the operation started when it aborts, and one already aborted starts nothing.
 
 `resolve` checks a query without a browser and without reading anything:
 
 ```js
-const resolved = Domql.resolve('@panel.children.count', { panel: null });
+const resolved = domql.query('@panel.children.count', { panel: null }).resolve();
 
 resolved.kind;            // 'query'
 resolved.type.toString(); // 'number?'
@@ -365,11 +365,11 @@ Failures report a `DomqlError` with a `kind`, `message` and structured `location
 | `structure` | Invalid definition structure or binding |
 | `validation` | Unknown members, incompatible types, invalid arguments or unsupported request usage |
 | `module` | Invalid module declarations |
-| `evaluation` | A failure while reading the query |
+| `evaluation` | A failure while evaluating the query |
 
 ```js
 try {
-    Domql.read('@panel attributeOf 200', { panel });
+    domql.query('@panel attributeOf 200', { panel }).evaluate();
 } catch (error) {
     if (error?.name !== 'DomqlError') {
         throw error;
@@ -386,16 +386,16 @@ A misspelled operation is an error and a missing selector match is null. Raw ele
 
 ## Environments
 
-In a browser, DOMQL uses the default window and its document. To read against another supported DOM environment, pass its window to `Domql.read(query, { window: suppliedWindow })`. Both `@window` and `@document` then refer to that environment. Node.js can run parsing and resolution; document reads require a supplied DOM environment, and reading without one fails with an `evaluation` error. DOM emulators do not provide full browser layout behavior.
+In a browser, DOMQL uses the default window and its document. To evaluate against another supported DOM environment, pass its window to `query.evaluate({ window: suppliedWindow })`. Both `@window` and `@document` then refer to that environment. Node.js can make and resolve queries; evaluating requires a supplied DOM environment, and evaluating without one fails with an `evaluation` error. DOM emulators do not provide full browser layout behavior.
 
 ## Extend the vocabulary
 
-A module contributes declarations as data and the functions that implement them. A member's DOMQL name and the key of its function are independent. Functions for synchronous reads must be synchronous and read-only.
+A module contributes declarations as data and the functions that implement them. A member's DOMQL name and the key of its function are independent. Functions for synchronous evaluation must be synchronous and read-only.
 
 This example adds a `metrics` member to elements, exposing a child count:
 
 ```js
-const metricsModule = Domql.createModule('metrics', {
+const metricsModule = domql.createModule('metrics', {
     types: [{
         name: 'childMetrics',
         fields: { childCount: 'number' }
@@ -414,22 +414,22 @@ const metricsModule = Domql.createModule('metrics', {
     readMetrics: element => ({ childCount: element.children.length })
 });
 
-Domql.registerModule(metricsModule);
+domql.registerModule(metricsModule);
 
-Domql.read('@panel.metrics { childCount: self.childCount }', { panel });
+domql.query('@panel.metrics { childCount: self.childCount }', { panel }).evaluate();
 // { childCount: 3 }
 ```
 
-The result can change, so it is not declared `constant`. This module names no observation and therefore declares `unobserved`: it supports reads, without promising watch support. Register a module once during setup, rather than before each read.
+The result can change, so it is not declared `constant`. This module names no observation and therefore declares `unobserved`: it supports evaluation, without promising watch support. Register a module once during setup, rather than before each evaluation.
 
 Modules can also declare event types, predicates, supported feature names and event sources. A source's function takes the receiver, the arguments, the environment and the function it delivers each event to, and answers an object whose `stop` ends the listening; each event is captured as the fields its event type declares. An action or a behavior is a member a module declares, as the next section shows.
 
-## Run actions and activate behaviors
+## Execute actions and apply behaviors
 
-An action is an operation carried out once. `runAsync` evaluates its receiver and arguments, calls its function, which may return a promise, and returns a promise of the result:
+An action is an operation carried out once. `executeAsync` evaluates its receiver and arguments, calls its function, which may return a promise, and returns a promise of the result:
 
 ```js
-Domql.registerModule(Domql.createModule('mark', {
+domql.registerModule(domql.createModule('mark', {
     members: [{
         name: 'mark',
         function: 'mark',
@@ -451,16 +451,16 @@ Domql.registerModule(Domql.createModule('mark', {
     }
 }));
 
-await Domql.runAsync('@panel.mark("reviewed")', { panel });
+await domql.query('@panel.mark("reviewed")', { panel }).executeAsync();
 // true
 ```
 
-An object expression can follow an action to shape its result. Pass a `signal` to cancel the run: the promise rejects with the signal's reason, and the action is told through the signal it receives. DOMQL never undoes what an action changed, including when it fails.
+An object expression can follow an action to shape its result. Pass a `signal` to cancel the execution: the promise rejects with the signal's reason, and the action is told through the signal it receives. DOMQL never undoes what an action changed, including when it fails.
 
-A behavior stays in effect until it is disposed. `activate` puts it into effect before it returns, and the handle it returns updates it with new bindings or ends it:
+A behavior stays in effect until it is disposed. `apply` puts it into effect before it returns, and the handle it returns updates it with new bindings, raises the failures it reports while it runs as `error` events, or ends it:
 
 ```js
-Domql.registerModule(Domql.createModule('highlight', {
+domql.registerModule(domql.createModule('highlight', {
     members: [{
         name: 'highlight',
         function: 'highlight',
@@ -489,7 +489,7 @@ Domql.registerModule(Domql.createModule('highlight', {
     }
 }));
 
-const highlight = Domql.activate('@panel.highlight(@color)', { panel, color: 'gold' });
+const highlight = domql.query('@panel.highlight(@color)', { panel, color: 'gold' }).apply();
 console.log(panel.dataset.highlight);
 // 'gold'
 

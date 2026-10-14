@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Domql } from '#domql/domql.js';
+import { domql } from '#domql/domql.js';
 import { DomqlError } from '#domql/language/DomqlError.mjs';
 import { DomqlModule } from '#domql/language/vocabulary/DomqlModule.mjs';
 import { LanguageResolver } from '#domql/language/LanguageResolver.mjs';
@@ -8,7 +8,7 @@ import { Vocabulary } from '#domql/language/vocabulary/Vocabulary.mjs';
 
 const panel = document.createElement('div');
 
-const resolve = (text, bindings = { panel }, options = {}) => Domql.resolve(Domql.parse(text, bindings), options);
+const resolve = (text, bindings = { panel }, options = {}) => domql.query(text, bindings).resolve(options);
 const failure = (text, bindings, options) => {
     try {
         resolve(text, bindings, options);
@@ -63,7 +63,7 @@ describe('LanguageResolver', () => {
             const registry = new ModuleRegistry([Vocabulary.module, new DomqlModule('loose', {
                 members: [{ name: 'loose', function: 'loose', kind: 'property', on: 'element', parameters: [], result: 'T', changes: 'constant', reads: 'fresh' }],
             }, null)]);
-            const query = Domql.parse(text, { panel });
+            const query = domql.query(text, { panel });
 
             expect(() => new LanguageResolver(registry, query.bindings, null, {}).resolveDefinition(query.definition)).toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringMatching(/\bT\b/) }));
         });
@@ -109,7 +109,7 @@ describe('LanguageResolver', () => {
         });
         const registry = new ModuleRegistry([Vocabulary.module, member('step', 'action', 'boolean'), member('pick', 'action', 'element'), member('focusTrap', 'behavior', 'null')]);
         const resolveWith = text => {
-            const query = Domql.parse(text, { panel });
+            const query = domql.query(text, { panel });
 
             return new LanguageResolver(registry, query.bindings, null, {}).resolveDefinition(query.definition);
         };
@@ -199,7 +199,7 @@ describe('LanguageResolver', () => {
             const registry = new ModuleRegistry([Vocabulary.module, new DomqlModule('ping', {
                 members: [{ name: 'ping', function: 'ping', kind: 'operation', on: 'element', parameters: [], result: 'boolean', changes: 'constant', reads: 'fresh' }],
             }, null)]);
-            const query = Domql.parse('@panel.ping(1)', { panel });
+            const query = domql.query('@panel.ping(1)', { panel });
 
             expect(() => new LanguageResolver(registry, query.bindings, null, {}).resolveDefinition(query.definition)).toThrow(expect.objectContaining({ message: expect.stringContaining("'ping' takes no argument") }));
         });
@@ -323,7 +323,7 @@ describe('LanguageResolver', () => {
             const registry = new ModuleRegistry([Vocabulary.module, module]);
             const element = document.createElement('div');
             const resolveWith = text => {
-                const query = Domql.parse(text, { panel: element });
+                const query = domql.query(text, { panel: element });
 
                 return new LanguageResolver(registry, query.bindings, null, {}).resolveDefinition(query.definition);
             };
@@ -374,7 +374,7 @@ describe('LanguageResolver', () => {
             };
 
             try {
-                Domql.resolve(Domql.create(definition, { panel }));
+                domql.query(definition, { panel }).resolve();
             } catch (error) {
                 expect(error.location.pointer).toBe('/query');
 
@@ -385,7 +385,7 @@ describe('LanguageResolver', () => {
         });
 
         it('resolves without a browser-bound evaluation', () => {
-            expect(resolve('@panel.size').definition).toBe(Domql.parse('@panel.size', { panel }).definition);
+            expect(resolve('@panel.size').definition).toBe(domql.query('@panel.size', { panel }).definition);
         });
     });
 

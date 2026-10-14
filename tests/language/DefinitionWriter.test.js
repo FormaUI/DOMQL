@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Domql } from '#domql/domql.js';
+import { domql } from '#domql/domql.js';
 import { DefinitionWriter } from '#domql/language/DefinitionWriter.mjs';
 
 const panel = document.createElement('div');
@@ -38,13 +38,13 @@ describe('DefinitionWriter', () => {
         '@panel { let key: "data-key", let first: self.children.at(0), value: first attributeOf key }',
         '@panel { let a: 1, inner: self { let b: a, value: b } }',
     ])('writes text that parses back to the same definition: %s', text => {
-        const { definition } = Domql.parse(text, { panel });
+        const { definition } = domql.query(text, { panel });
 
-        expect(Domql.parse(DefinitionWriter.write(definition.query), { panel }).definition).toEqual(definition);
+        expect(domql.query(DefinitionWriter.write(definition.query), { panel }).definition).toEqual(definition);
     });
 
     it('writes the parentheses a grouping needs, and none it does not', () => {
-        const write = text => DefinitionWriter.write(Domql.parse(text, { panel }).definition.query);
+        const write = text => DefinitionWriter.write(domql.query(text, { panel }).definition.query);
 
         expect(write('(@first or @second) and @third')).toBe('(@first or @second) and @third');
         expect(write('(@first and @second) or @third')).toBe('@first and @second or @third');
@@ -67,7 +67,7 @@ describe('DefinitionWriter', () => {
     });
 
     it('writes an options object as the fields it is written with', () => {
-        const { definition } = Domql.parse('@panel intersects { root: @panel, margin: 5 }', { panel });
+        const { definition } = domql.query('@panel intersects { root: @panel, margin: 5 }', { panel });
 
         expect(DefinitionWriter.write(definition.query)).toBe('@panel intersects { root: @panel, margin: 5 }');
     });

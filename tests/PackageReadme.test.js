@@ -23,12 +23,12 @@ const valueOf = lines => new Function(`return (${lines.join('\n')});`)();
  */
 const examples = [
     {
-        file: '01-read-a-query.js',
+        file: '01-evaluate-a-query.js',
         observed: 'reads',
         answers: [['{', '  count: 3,', '  items: [', "    { key: 'a1', selected: false },", "    { key: 'a2', selected: true },", "    { key: 'a3', selected: false }", '  ]', '}']],
     },
-    { file: '02-read-again.js', observed: 'reads', answers: [['3'], ['0']] },
-    { file: '04-read-async.js', observed: 'reads', answers: [['true']] },
+    { file: '02-evaluate-again.js', observed: 'reads', answers: [['3'], ['0']] },
+    { file: '04-evaluate-async.js', observed: 'reads', answers: [['true']] },
     { file: '05-watch.js', observed: 'printed', answers: [['0'], ['1']] },
     { file: '06-live-state.js', observed: 'printed', answers: [['1'], ['2']] },
     { file: '07-subscribe.js', observed: 'printed', answers: [["'a2'"]] },
@@ -50,8 +50,8 @@ const examples = [
         answers: [['validation'], ["The argument 'name' of 'attributeOf' expects string and finds number", '(line 1, column 20, at /query/argument)']],
     },
     { file: '17-module.js', observed: 'reads', answers: [['{ childCount: 3 }']] },
-    { file: '18-run-action.js', observed: 'reads', answers: [['true']] },
-    { file: '19-activate-behavior.js', observed: 'printed', answers: [["'gold'"], ["'teal'"], ['undefined']] },
+    { file: '18-execute-action.js', observed: 'reads', answers: [['true']] },
+    { file: '19-apply-behavior.js', observed: 'printed', answers: [["'gold'"], ["'teal'"], ['undefined']] },
 ];
 
 /** Gives each element with an inline height a layout box of that height, since the test environment lays nothing out. */
@@ -71,29 +71,32 @@ describe('the package README', () => {
     beforeAll(async () => {
         vi.resetModules();
 
-        const { Domql: real } = await import('#domql/domql.js');
+        const { domql: real } = await import('#domql/domql.js');
         const reads = [];
         const logged = [];
         const printed = [];
         const watches = [];
 
-        // The examples call Domql as the README writes it: every read and action result it answers is kept, and every watch it makes is disposed when they end.
-        const Domql = new Proxy(real, {
+        // The examples call domql as the README writes it: every result an evaluation or an action answers is kept, and every watch a query makes is disposed when they end.
+        const kept = query => new Proxy(query, {
             get: (target, key) => {
                 switch (key) {
-                    case 'read':
-                        return (...args) => { const answer = target.read(...args); reads.push(answer); return answer; };
-                    case 'readAsync':
-                        return async (...args) => { const answer = await target.readAsync(...args); reads.push(answer); return answer; };
-                    case 'runAsync':
-                        return async (...args) => { const answer = await target.runAsync(...args); reads.push(answer); return answer; };
+                    case 'evaluate':
+                        return options => { const answer = target.evaluate(options); reads.push(answer); return answer; };
+                    case 'evaluateAsync':
+                        return async options => { const answer = await target.evaluateAsync(options); reads.push(answer); return answer; };
+                    case 'executeAsync':
+                        return async options => { const answer = await target.executeAsync(options); reads.push(answer); return answer; };
                     case 'watch':
-                        return (...args) => { const watch = target.watch(...args); watches.push(watch); return watch; };
+                        return options => { const watch = target.watch(options); watches.push(watch); return watch; };
+                    case 'with':
+                        return bindings => kept(target.with(bindings));
                     default:
-                        return target[key];
+                        return typeof target[key] === 'function' ? target[key].bind(target) : target[key];
                 }
             },
         });
+        const domql = { ...real, query: (source, bindings) => kept(real.query(source, bindings)) };
 
         document.body.innerHTML = fixture('document.html');
         layOut(document);
@@ -124,7 +127,7 @@ describe('the package README', () => {
         };
 
         try {
-            await new AsyncFunction('Domql', 'document', 'mark', script)(Domql, document, mark);
+            await new AsyncFunction('domql', 'document', 'mark', script)(domql, document, mark);
         } finally {
             watches.forEach(watch => watch.dispose());
             window.IntersectionObserver = IntersectionObserver;
@@ -188,12 +191,12 @@ describe('the repository README', () => {
     it('reads, in its comparison with jQuery, the items its first example shows', async () => {
         vi.resetModules();
 
-        const { Domql } = await import('#domql/domql.js');
+        const { domql } = await import('#domql/domql.js');
 
         document.body.innerHTML = fixture('document.html');
         layOut(document);
 
-        const items = new Function('Domql', 'panel', `${comparisonExample}\nreturn items;`)(Domql, document.getElementById('panel'));
+        const items = new Function('domql', 'panel', `${comparisonExample}\nreturn items;`)(domql, document.getElementById('panel'));
 
         expect(items).toEqual(JSON.parse(blocks(repositoryReadme, 'json')[0]).items);
     });
@@ -201,7 +204,7 @@ describe('the repository README', () => {
     it('gives the result it shows, and the results of reading again, from that document', async () => {
         vi.resetModules();
 
-        const { Domql } = await import('#domql/domql.js');
+        const { domql } = await import('#domql/domql.js');
         const logged = [];
 
         document.body.innerHTML = fixture('document.html');
@@ -209,7 +212,7 @@ describe('the repository README', () => {
 
         // The first two examples share one scope, as they are shown: the second reads the first one's query again.
         const code = `${firstExample.replace(/^import .*\n/, '')}\n${secondExample}\nreturn snapshot;`;
-        const snapshot = new Function('Domql', 'document', 'console', code)(Domql, document, { log: value => logged.push(value) });
+        const snapshot = new Function('domql', 'document', 'console', code)(domql, document, { log: value => logged.push(value) });
         // The values are the comments that follow a log; the comments above the code explain it.
         const lines = secondExample.split('\n');
         const comments = lines.filter((line, index) => line.startsWith('// ') && lines[index - 1]?.startsWith('console.log(')).map(line => valueOf([line.slice(3)]));
@@ -221,7 +224,7 @@ describe('the repository README', () => {
     it('delivers the snapshots its watch examples promise', async () => {
         vi.resetModules();
 
-        const { Domql } = await import('#domql/domql.js');
+        const { domql } = await import('#domql/domql.js');
         const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
         const rendered = [];
         const frames = [];
@@ -245,7 +248,7 @@ describe('the repository README', () => {
         let watch;
 
         try {
-            watch = await new AsyncFunction('Domql', 'document', 'render', 'settle', 'frames', code)(Domql, document, snapshot => rendered.push(snapshot), settle, frames);
+            watch = await new AsyncFunction('domql', 'document', 'render', 'settle', 'frames', code)(domql, document, snapshot => rendered.push(snapshot), settle, frames);
         } finally {
             vi.restoreAllMocks();
         }

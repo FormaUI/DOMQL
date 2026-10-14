@@ -27,20 +27,20 @@ const items = $(panel).find('[data-key]').map((_, item) => ({
 
 ```js
 // DOMQL: the query describes the values and each object's shape.
-const items = Domql.read(`
+const items = domql.query(`
     @panel.all("[data-key]") {
         key: self attributeOf "data-key",
         height: self.rect.height,
         selected: self matches "[aria-selected=true]"
     }
-`, { panel });
+`, { panel }).evaluate();
 ```
 
 `@panel` refers to the supplied element; it is not an ID selector. If an item has no layout box, DOMQL reports its height as `null`.
 
-A DOMQL request can be written as text or created from a JSON definition. Both forms use the same language and vocabulary rules. Constructing a request does not evaluate it against the DOM: the same query can be read repeatedly, watched for changes or recreated with different bindings.
+A DOMQL request can be written as text or created from a JSON definition. Both forms use the same language and vocabulary rules. Making a query object does not evaluate it against the DOM: the same query can be evaluated repeatedly, watched for changes or bound anew with `with`.
 
-The runtime also supports subscriptions that project events into data, actions that run once, and behaviors that remain active until disposed. Actions and behaviors are supplied by extension modules. Queries remain read-only.
+The runtime also supports subscriptions that project events into data, actions that are executed once, and behaviors that remain applied until disposed. Actions and behaviors are supplied by extension modules. Queries remain read-only.
 
 | | jQuery | DOMQL |
 | --- | --- | --- |
@@ -75,11 +75,11 @@ You want the panel’s item count, each item’s height and selection state, the
 Describe that answer in DOMQL:
 
 ```js
-import { Domql } from './src/domql.js';
+import { domql } from './src/domql.js';
 
 const panel = document.getElementById('panel');
 
-const query = Domql.parse(`
+const query = domql.query(`
     @panel {
         let items: self.all("[data-key]"),
 
@@ -100,7 +100,7 @@ const query = Domql.parse(`
     }
 `, { panel });
 
-const snapshot = Domql.read(query);
+const snapshot = query.evaluate();
 ```
 
 With the markup above rendered without additional styling, the result is:
@@ -131,16 +131,16 @@ The query describes the answer directly:
 
 The result contains data, not live DOM references. You can retain it, serialize it or pass it to another part of your application.
 
-## Write once, read again
+## Write once, evaluate again
 
-Parsing constructs the query without reading the document, so one query serves every read. Take the `query` and the `snapshot` from the example above. When the document changes, read the same `query` again to get a snapshot of its new state. Here the panel's first item becomes selected:
+Making the query reads nothing in the document, so one query serves every evaluation. Take the `query` and the `snapshot` from the example above. When the document changes, evaluate the same `query` again to get a snapshot of its new state. Here the panel's first item becomes selected:
 
 ```js
 // Access the panel's first item and select it.
 panel.children[0].setAttribute('aria-selected', 'true');
 
-// Read the query from the first example.
-const next = Domql.read(query);
+// Evaluate the query from the first example.
+const next = query.evaluate();
 
 console.log(next.selected);
 // [{ key: 'a1' }, { key: 'a2' }]
@@ -149,32 +149,33 @@ console.log(snapshot.selected);
 // [{ key: 'a2' }]
 ```
 
-The new snapshot, `next`, holds both selected items. `snapshot`, the first example's, was read before the change and still holds only `a2`: earlier snapshots remain unchanged. Compatible name and type resolutions are reused between reads; DOM values are read again.
+The new snapshot, `next`, holds both selected items. `snapshot`, the first example's, was taken before the change and still holds only `a2`: earlier snapshots remain unchanged. Compatible name and type resolutions are reused between evaluations; DOM values are read again.
 
 The same definition can also be bound to another target:
 
 ```js
-const anotherQuery = Domql.create(query.definition, {
+const anotherQuery = query.with({
     panel: anotherPanel
 });
 
-const anotherSnapshot = Domql.read(anotherQuery);
+const anotherSnapshot = anotherQuery.evaluate();
 ```
 
 ## Keep a query current
 
-Reading again by hand is not always what you want. Watch the query, and DOMQL evaluates it again whenever something it depends on changes. `render` stands for whatever your application does with a snapshot:
+Evaluating again by hand is not always what you want. Watch the query, and DOMQL evaluates it again whenever something it depends on changes. `render` stands for whatever your application does with a snapshot:
 
 ```js
-const watch = Domql.watch(query, {
-    acceptPartialObservation: true,
-    onChange: snapshot => render(snapshot)
+const watch = query.watch({
+    acceptPartialObservation: true
 });
+
+watch.subscribe('change', (sender, args) => render(args.value));
 ```
 
 Members such as `all`, `rect` and `matches` can miss some changes, such as pointer state or a transform, so a watch over them says it accepts that. Without it, DOMQL refuses the watch and names each member and what it misses.
 
-`onChange` receives the first snapshot right after `watch` returns, then a new one each time the result changes, evaluated at most once per animation frame. A snapshot that did not change is not delivered, and a new one shares every part that did not change with the one before it.
+A listener of the watch's `change` event receives the first snapshot right after `watch` returns, then a new one each time the result changes, evaluated at most once per animation frame. A snapshot that did not change is not delivered, and a new one shares every part that did not change with the one before it.
 
 A watch follows the document rather than a fixed set of elements: it observes what the query reads now, so an item added to the panel is watched from the next evaluation on. Change the document, and the watch delivers the new snapshot to `render`:
 
@@ -186,18 +187,18 @@ panel.children[0].setAttribute('aria-selected', 'true');
 // and calls render with a snapshot whose `selected` holds a1 and a2.
 ```
 
-Pass `onError` to hear of a failed evaluation or a failing callback; the watch keeps running. `watch.status` and `watch.lastSnapshot` say where it stands, `await watch.refreshAsync()` evaluates now, and `dispose()` ends it and releases its observations:
+A failed evaluation arrives as a `change` event whose `status` is `failed`, and a failing handler as an `error` event; the watch keeps running. `watch.status` and `watch.snapshot` say where it stands, `await watch.refreshAsync()` evaluates now, and `dispose()` ends it and releases its observations:
 
 ```js
 watch.dispose();
 ```
 
-## Read across targets
+## Combine targets
 
 A query can combine independent targets and browser state into one answer:
 
 ```js
-const surroundings = Domql.parse(`
+const surroundings = domql.query(`
     {
         panel: @panel {
             size: self.size,
@@ -213,31 +214,31 @@ const surroundings = Domql.parse(`
     }
 `, { panel });
 
-const state = Domql.read(surroundings);
+const state = surroundings.evaluate();
 ```
 
 Use this to assemble the state a component needs without maintaining a separate JavaScript function for every result shape.
 
-## Read now or wait for an observation
+## Evaluate now or wait for an observation
 
-`read` returns synchronously for queries that read fresh values.
+`evaluate` returns synchronously for queries that read fresh values.
 
-Some values, such as an observed intersection, require a browser observation to provide its first sample. Use `readAsync` for these queries:
+Some values, such as an observed intersection, require a browser observation to provide its first sample. Use `evaluateAsync` for these queries:
 
 ```js
 const sentinel = document.getElementById('sentinel');
 const controller = new AbortController();
 
-const sentinelQuery = Domql.parse(`
+const sentinelQuery = domql.query(`
     @sentinel intersects { root: @panel, margin: 200 }
 `, { sentinel, panel });
 
-const nearEnd = await Domql.readAsync(sentinelQuery, {
+const nearEnd = await sentinelQuery.evaluateAsync({
     signal: controller.signal
 });
 ```
 
-`readAsync` also supports queries containing only fresh values. It releases its observation sessions when the read completes, fails or is canceled.
+`evaluateAsync` also supports queries containing only fresh values. It releases its observation sessions when the evaluation completes, fails or is canceled.
 
 ## Extend the vocabulary
 
@@ -259,10 +260,10 @@ Available today:
 
 - Text queries and JSON definitions.
 - Binding, name and type validation.
-- Synchronous reads and asynchronous reads of maintained values.
+- Evaluating a query synchronously, and waiting for maintained values.
 - Watching a query, with a snapshot each time its result changes, or one object kept current in place.
 - Subscribing to events, with the projection of each one.
-- Running actions once, and activating behaviors that stay in effect until disposed.
+- Executing actions once, and applying behaviors that stay in effect until disposed.
 - Immutable snapshots.
 - Extensible vocabulary and observation types.
 - TypeScript declarations.

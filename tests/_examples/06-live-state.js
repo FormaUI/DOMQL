@@ -1,7 +1,8 @@
-const live = Domql.watch('{ count: @panel.children.count }', { panel: emptyPanel }, {
-    updateStrategy: 'liveState',
-    onChange: state => console.log(state.count)
+const live = domql.query('{ count: @panel.children.count }', { panel: emptyPanel }).watch({
+    updateStrategy: 'liveState'
 });
+
+live.subscribe('change', (sender, args) => console.log(args.liveState.count));
 
 await live.refreshAsync();
 // 1

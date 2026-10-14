@@ -339,7 +339,7 @@ Evaluating a query only reads state; executing an action or applying a behavior 
 
 ```text
 Cannot execute '@panel.size': it produces a value.
-Use evaluate() or evaluateAsync().
+Use evaluate(), evaluateAsync() or watch().
 ```
 
 The object `domql.query` answers is a query object, whatever it holds, and what it describes is its request kind: a query, a subscription, an action or a behavior, as the specification names them. An error a caller reads says what the request does, a value it produces, events it listens to, an effect it executes or a behavior it applies, rather than naming the kind.

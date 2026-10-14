@@ -1,9 +1,9 @@
-const optional = Domql.parse(`
+const optional = domql.query(`
     {
         panel: @panel { size: self.size },
         ids: @ids
     }
 `, { panel: null, ids: [] });
 
-Domql.read(optional);
+optional.evaluate();
 // { panel: null, ids: [] }

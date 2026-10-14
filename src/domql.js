@@ -1,104 +1,111 @@
 /**
- * Domql — constructs, resolves, reads and watches queries, subscribes to events, runs actions and activates behaviors
+ * domql — makes query objects from text or a definition, through which every request is evaluated, watched, subscribed to, executed or applied, and registers the modules that extend the vocabulary
  */
 
 import { SnapshotComparer } from './snapshots/SnapshotComparer.mjs';
 import { Behavior } from './dom/Behavior.mjs';
 import { BrowserModule } from './dom/BrowserModule.mjs';
+import { DomqlQuery } from './dom/DomqlQuery.mjs';
 import { Observations } from './dom/Observations.mjs';
 import { QueryEvaluator } from './dom/QueryEvaluator.mjs';
 import { EventListener } from './dom/EventListener.mjs';
 import { Watch } from './dom/Watch.mjs';
 import { DefinitionValidator } from './language/DefinitionValidator.mjs';
+import { DefinitionWriter } from './language/DefinitionWriter.mjs';
 import { DomqlError } from './language/DomqlError.mjs';
 import { DomqlModule } from './language/vocabulary/DomqlModule.mjs';
-import { DomqlQuery } from './language/DomqlQuery.mjs';
 import { LanguageResolver } from './language/LanguageResolver.mjs';
 import { ModuleRegistry } from './language/vocabulary/ModuleRegistry.mjs';
 import { ParameterBindings } from './language/ParameterBindings.mjs';
 import { ParsedTexts } from './language/ParsedTexts.mjs';
+import { ResultPath } from './language/ResultPath.mjs';
 import { Specification } from './language/Specification.mjs';
 
 /**
- * How a query is resolved.
+ * How a request is resolved.
  * @typedef {object} DomqlResolveOptions
  * @property {boolean} [watch] Whether the query will be watched.
  * @property {boolean} [acceptPartialObservation] Whether a watch accepts members whose changes its observations only partly cover.
  */
 
 /**
- * How a read is carried out.
- * @typedef {object} DomqlReadOptions
+ * How a query is evaluated once.
+ * @typedef {object} DomqlEvaluateOptions
  * @property {Window} [window] The window `@window` stands for, and whose document `@document` stands for; by default the environment's.
  */
 
 /**
- * How a read that waits is carried out.
- * @typedef {object} DomqlReadAsyncOptions
+ * How a query is evaluated once, waiting for its maintained members.
+ * @typedef {object} DomqlEvaluateAsyncOptions
  * @property {Window} [window] The window `@window` stands for, and whose document `@document` stands for; by default the environment's.
- * @property {AbortSignal} [signal] Cancels the read, which then fails with the signal's reason.
- */
-
-/**
- * How an action is run.
- * @typedef {object} DomqlRunAsyncOptions
- * @property {Window} [window] The window `@window` stands for, and whose document `@document` stands for; by default the environment's.
- * @property {AbortSignal} [signal] Cancels the run: the promise rejects with the signal's reason at once, and the action learns of it through the signal it is given.
- */
-
-/**
- * How a behavior is activated.
- * @typedef {object} DomqlActivateOptions
- * @property {Window} [window] The window `@window` stands for, and whose document `@document` stands for; by default the environment's.
+ * @property {AbortSignal} [signal] Cancels the evaluation, which then rejects with the signal's reason.
  */
 
 /**
  * How a query is watched.
- * @typedef {object} DomqlWatchConfiguration
- * @property {(update: unknown, changes?: readonly object[]) => unknown} onChange Receives each snapshot, which shares what did not change with the snapshot before it; where the watch delivers live state, the live object and the change set just applied to it. What it returns is not awaited.
- * @property {(error: unknown) => unknown} [onError] Receives a failure of an evaluation and of `onChange`; by default they go to the window's error reporting.
+ * @typedef {object} DomqlWatchOptions
  * @property {'frame' | 'immediate'} [schedule] When an evaluation follows a change: at the next animation frame, once however many observations fired, or in the task that reported it.
- * @property {'snapshot' | 'liveState'} [updateStrategy] What `onChange` receives: each snapshot whole, or one object the watch keeps current in place, which keeps its identity.
+ * @property {'snapshot' | 'liveState'} [updateStrategy] What the watch's events carry: each snapshot whole, or one object the watch keeps current in place, which keeps its identity.
  * @property {boolean} [acceptPartialObservation] Whether the watch accepts a member whose observations only partly cover its changes.
- * @property {Window} [window] The window `@window` stands for, and whose document `@document` stands for.
+ * @property {AbortSignal} [signal] Disposes the watch when it aborts.
+ * @property {Window} [window] The window `@window` stands for, and whose document `@document` stands for; by default the environment's.
  */
 
 /**
- * How an event listener listens to a subscription.
- * @typedef {object} DomqlSubscribeConfiguration
- * @property {(result: unknown) => unknown} onEvent Receives each projected result, an immutable snapshot containing no live DOM references, in the task the event is delivered in. What it returns is not awaited.
- * @property {(error: unknown) => unknown} [onError] Receives a failure of a capture, of a projection and of `onEvent`; by default they go to the window's error reporting.
- * @property {Window} [window] The window `@window` stands for, and whose document `@document` stands for.
+ * How a subscription is listened to, or an action executed, or a behavior applied.
+ * @typedef {object} DomqlOperationOptions
+ * @property {Window} [window] The window `@window` stands for, and whose document `@document` stands for; by default the environment's.
+ * @property {AbortSignal} [signal] Ends what the operation started when it aborts.
  */
 
-/** Each method that takes a query or its text: its name, the kind of request it carries out, what it does with one, and what follows the bindings. */
-const RESOLVE = { name: 'resolve', trailing: 'options' };
-const READ = { name: 'read', kind: 'query', operationDescription: 'read', trailing: 'options' };
-const READ_ASYNC = { name: 'readAsync', kind: 'query', operationDescription: 'read', trailing: 'options' };
-const WATCH = { name: 'watch', kind: 'query', operationDescription: 'watched', trailing: 'configuration' };
-const SUBSCRIBE = { name: 'subscribe', kind: 'subscription', operationDescription: 'subscribed to', trailing: 'configuration' };
-const RUN_ASYNC = { name: 'runAsync', kind: 'action', operationDescription: 'run', trailing: 'options' };
-const ACTIVATE = { name: 'activate', kind: 'behavior', operationDescription: 'activated', trailing: 'options' };
+/** Each operation that carries a request out: the kind of request it takes, and what a refusal says it was asked to do. */
+const OPERATIONS = {
+    evaluate: { kind: 'query', verb: 'evaluate' },
+    evaluateAsync: { kind: 'query', verb: 'evaluate' },
+    watch: { kind: 'query', verb: 'watch' },
+    subscribe: { kind: 'subscription', verb: 'subscribe to' },
+    executeAsync: { kind: 'action', verb: 'execute' },
+    apply: { kind: 'behavior', verb: 'apply' },
+};
 
-/** When a watch evaluates after a change, and what it delivers. */
+/** What a request of each kind does, and the operations it takes, for a refusal to say. */
+const REQUEST_KINDS = {
+    query: { does: 'it produces a value', takes: 'evaluate(), evaluateAsync() or watch()' },
+    subscription: { does: 'it listens to events', takes: 'subscribe()' },
+    action: { does: 'it executes an effect', takes: 'executeAsync()' },
+    behavior: { does: 'it applies a behavior', takes: 'apply()' },
+};
+
+/** When a watch evaluates after a change, and what its events carry. */
 const WATCH_SCHEDULES = ['frame', 'immediate'];
 const WATCH_UPDATE_STRATEGIES = ['snapshot', 'liveState'];
 
-export class Domql {
+class Domql {
     static #moduleRegistry = new ModuleRegistry([BrowserModule.create()]);
 
     /**
      * The resolutions of each definition, by the options they were made under and the resolution key of the bindings they were made against, valid for the registry revision they were made at and released with the definition.
-     * Queries that share a definition, as the texts parsed alike do, and whose bindings have one resolution key, share its resolution.
+     * Queries that share a definition, as those made from the same text do, and whose bindings have one resolution key, share its resolution.
      * @type {WeakMap<object, { revision: number, byKey: Map<string, import('./language/ResolvedDefinition.mjs').ResolvedDefinition> }>}
      */
     static #resolutionsByDefinition = new WeakMap();
 
     /**
-     * The observations of each window, so queries read in one window share the observations they have in common.
+     * The observations of each window, so requests carried out in one window share the observations they have in common.
      * @type {WeakMap<Window, Observations>}
      */
     static #observationsByWindow = new WeakMap();
+
+    /** What carries out the operations of the query objects this instance makes. @type {import('./dom/DomqlQuery.mjs').QueryOperations} */
+    static #operations = Object.freeze({
+        resolve: (query, options) => Domql.#resolve(query, options ?? {}),
+        evaluate: (query, path, options) => Domql.#evaluate(query, path, options ?? {}),
+        evaluateAsync: (query, path, options) => Domql.#evaluateAsync(query, path, options ?? {}),
+        watch: (query, path, options) => Domql.#watch(query, path, options ?? {}),
+        subscribe: (query, handler, options) => Domql.#subscribe(query, handler, options ?? {}),
+        executeAsync: (query, options) => Domql.#executeAsync(query, options ?? {}),
+        apply: (query, options) => Domql.#apply(query, options ?? {}),
+    });
 
     /** The version of the specification this implementation follows, as major.minor.revision. */
     static get specificationVersion() {
@@ -106,93 +113,64 @@ export class Domql {
     }
 
     /**
-     * Parses text into a query, binding its parameters.
-     * @param {string} text The query text.
+     * Makes a query object from a request's text or its definition, binding its parameters. It parses the text, a text being parsed once and its definition reused for identical text, and checks the structure; it evaluates nothing and has no effect.
+     * A query object of another DOMQL instance is refused, with how to make it here from its definition.
+     * @param {string | object} source The request's text, or its definition.
      * @param {Record<string, unknown>} [bindings] The values supplied by parameter name.
      * @returns {DomqlQuery}
      */
-    static parse(text, bindings = {}) {
-        if (typeof text !== 'string') {
-            throw new TypeError('Query text must be a string');
+    static query(source, bindings = {}) {
+        if (typeof source === 'string') {
+            return new DomqlQuery(ParsedTexts.parse(source), new ParameterBindings(bindings), Domql.#operations);
         }
 
-        return new DomqlQuery(ParsedTexts.parse(text), new ParameterBindings(bindings));
+        if (source instanceof DomqlQuery) {
+            throw DomqlError.structure('A query object is made from text or a definition; one is bound anew with query.with(bindings)', {});
+        }
+
+        if (typeof source?.with === 'function') {
+            throw DomqlError.structure('A query object is made from text or a definition; one another DOMQL instance made is made here from its definition, as domql.query(query.definition, bindings)', {});
+        }
+
+        return new DomqlQuery(new DefinitionValidator().validate(source), new ParameterBindings(bindings), Domql.#operations);
     }
 
     /**
-     * Creates a query from its definition, binding its parameters.
-     * @param {object} definition The query's definition.
-     * @param {Record<string, unknown>} [bindings] The values supplied by parameter name.
-     * @returns {DomqlQuery}
+     * Creates a module from the vocabulary it declares and the functions that carry the members out.
+     * @param {string} name The module's name.
+     * @param {object} contents What the module declares.
+     * @param {Record<string, Function> | null} functions The functions the members name.
      */
-    static create(definition, bindings = {}) {
-        return new DomqlQuery(new DefinitionValidator().validate(definition), new ParameterBindings(bindings));
+    static createModule(name, contents, functions = null) {
+        return new DomqlModule(name, contents, functions);
+    }
+
+    /** Registers a module's vocabulary, which every request resolved afterwards may use. */
+    static registerModule(module) {
+        Domql.#moduleRegistry.registerModule(module);
+    }
+
+    /** Evaluates the query once, synchronously, answering the part of its result the path reaches. */
+    static #evaluate(query, path, { window = globalThis.window }) {
+        const resolvedDefinition = Domql.#resolveFor('evaluate', query);
+
+        Domql.#typeAt(query, resolvedDefinition, path);
+
+        return ResultPath.valueAt(Domql.#createEvaluator(query, resolvedDefinition, window).evaluateOnce(), path);
     }
 
     /**
-     * Resolves a query against the registered vocabulary and types it, without evaluating anything. A query resolved again under the same options and vocabulary returns the resolution it already has.
-     *
-     * @overload
-     * @param {string} text The query text, parsed as `parse` parses it, through the same cache.
-     * @param {Record<string, unknown>} [bindings] The values supplied by parameter name.
-     * @param {DomqlResolveOptions} [options] How the query will be carried out.
-     * @returns {import('./language/ResolvedDefinition.mjs').ResolvedDefinition}
-     *
-     * @overload
-     * @param {DomqlQuery} query The query.
-     * @param {DomqlResolveOptions} [options] How the query will be carried out.
-     * @returns {import('./language/ResolvedDefinition.mjs').ResolvedDefinition}
+     * Evaluates the query once, waiting for the first sample of every maintained member it reads, and answers a promise of the part of its result the path reaches.
+     * The query is evaluated again as samples arrive and as what it depends on changes, until an evaluation reads no pending member; every observation it started is released when it settles, fails or is canceled.
      */
-    static resolve(input, ...rest) {
-        const { query, options } = Domql.#normalizeArguments(RESOLVE, input, rest);
-
-        return Domql.#resolve(query, options ?? {});
-    }
-
-    /**
-     * Reads a query once, returning an immutable snapshot containing no live DOM references.
-     * A member maintained by an observation fails the read, since its first sample cannot arrive during it; `readAsync` waits for it.
-     *
-     * @overload
-     * @param {string} text The query text, parsed as `parse` parses it, through the same cache.
-     * @param {Record<string, unknown>} [bindings] The values supplied by parameter name.
-     * @param {DomqlReadOptions} [options] How the read is carried out.
-     * @returns {unknown}
-     *
-     * @overload
-     * @param {DomqlQuery} query The query.
-     * @param {DomqlReadOptions} [options] How the read is carried out.
-     * @returns {unknown}
-     */
-    static read(input, ...rest) {
-        const { query, options } = Domql.#normalizeArguments(READ, input, rest);
-        const { window = globalThis.window } = options ?? {};
-
-        return Domql.#createEvaluator(query, Domql.#resolveFor(READ, query), window).read();
-    }
-
-    /**
-     * Reads a query once, waiting for the first sample of every maintained member it reads. Returns a promise of an immutable snapshot containing no live DOM references.
-     * The query is evaluated again as samples arrive and as what it depends on changes, until an evaluation reads no pending member; every observation it started is released when the read settles, fails or is canceled.
-     *
-     * @overload
-     * @param {string} text The query text, parsed as `parse` parses it, through the same cache.
-     * @param {Record<string, unknown>} [bindings] The values supplied by parameter name.
-     * @param {DomqlReadAsyncOptions} [options] How the read is carried out.
-     * @returns {Promise<unknown>}
-     *
-     * @overload
-     * @param {DomqlQuery} query The query.
-     * @param {DomqlReadAsyncOptions} [options] How the read is carried out.
-     * @returns {Promise<unknown>}
-     */
-    static async readAsync(input, ...rest) {
-        const { query, options } = Domql.#normalizeArguments(READ_ASYNC, input, rest);
-        const { window = globalThis.window, signal } = options ?? {};
-
+    static async #evaluateAsync(query, path, { window = globalThis.window, signal }) {
         signal?.throwIfAborted();
 
-        const evaluator = Domql.#createEvaluator(query, Domql.#resolveFor(READ_ASYNC, query), window);
+        const resolvedDefinition = Domql.#resolveFor('evaluateAsync', query);
+
+        Domql.#typeAt(query, resolvedDefinition, path);
+
+        const evaluator = Domql.#createEvaluator(query, resolvedDefinition, window);
         const observations = Domql.#getObservations(window);
         const reportError = Domql.#createErrorReporter(window);
 
@@ -201,7 +179,7 @@ export class Domql {
             let isScheduled = false;
             let isSettled = false;
 
-            // A cleanup that fails is reported, and never replaces the read's result, its failure or its cancellation.
+            // A cleanup that fails is reported, and never replaces the evaluation's result, its failure or its cancellation.
             const release = evaluation => {
                 try {
                     evaluation?.dispose();
@@ -232,7 +210,7 @@ export class Domql {
                 if (next.error !== null) {
                     settle(() => reject(next.error));
                 } else if (!next.isPending) {
-                    settle(() => resolve(next.value));
+                    settle(() => resolve(ResultPath.valueAt(next.value, path)));
                 }
             };
             // An observation reports a change inside its own delivery, so the evaluation that follows waits for it to end.
@@ -248,33 +226,8 @@ export class Domql {
         });
     }
 
-    /**
-     * Watches a query: evaluates it, reports a snapshot of the result, and evaluates again when something the result depends on changes, reporting a snapshot that differs from the last.
-     * The first snapshot is reported after the call returns, through the same callback as every later one.
-     *
-     * @overload
-     * @param {string} text The query text, parsed as `parse` parses it, through the same cache.
-     * @param {Record<string, unknown>} bindings The values supplied by parameter name; `{}` for a text that has none.
-     * @param {DomqlWatchConfiguration} configuration How the query is watched.
-     * @returns {Watch}
-     *
-     * @overload
-     * @param {DomqlQuery} query The query.
-     * @param {DomqlWatchConfiguration} configuration How the query is watched.
-     * @returns {Watch}
-     */
-    static watch(input, ...rest) {
-        const { query, options: configuration } = Domql.#normalizeArguments(WATCH, input, rest);
-        const { onChange, onError, schedule = 'frame', updateStrategy = 'snapshot', acceptPartialObservation = false, window = globalThis.window } = configuration ?? {};
-
-        if (typeof onChange !== 'function') {
-            throw DomqlError.structure('A watch takes the function that receives its snapshots, as onChange', {});
-        }
-
-        if (onError !== undefined && typeof onError !== 'function') {
-            throw DomqlError.structure('The error callback of a watch is a function', {});
-        }
-
+    /** Starts a watch of the query, whose snapshots are the part of its result the path reaches; a signal already aborted answers a watch that is disposed and starts nothing. */
+    static #watch(query, path, { schedule = 'frame', updateStrategy = 'snapshot', acceptPartialObservation = false, signal, window = globalThis.window }) {
         if (!WATCH_SCHEDULES.includes(schedule)) {
             throw DomqlError.structure(`A watch is scheduled as ${WATCH_SCHEDULES.join(' or ')}`, {});
         }
@@ -283,12 +236,19 @@ export class Domql {
             throw DomqlError.structure(`The update strategy of a watch is ${WATCH_UPDATE_STRATEGIES.join(' or ')}`, {});
         }
 
-        const resolvedDefinition = Domql.#resolveFor(WATCH, query, { watch: true, acceptPartialObservation: acceptPartialObservation === true });
+        if (updateStrategy === 'liveState' && path.length > 0) {
+            throw DomqlError.structure('A selection is watched as snapshots alone; write the smaller result in DOMQL to keep it as live state', {});
+        }
+
+        const resolvedDefinition = Domql.#resolveFor('watch', query, { watch: true, acceptPartialObservation: acceptPartialObservation === true });
 
         // Live state is one object that keeps its identity, which null and a single value have none of.
         if (updateStrategy === 'liveState' && (resolvedDefinition.type.isNullable || (resolvedDefinition.type.kind !== 'object' && resolvedDefinition.type.kind !== 'list'))) {
-            throw DomqlError.validation(`Live state keeps one object current, so its result is an object or a list that is never null, and this one is ${resolvedDefinition.type}; put it in a top-level object expression`, ParsedTexts.locationsOf(query.definition)?.locate('/query') ?? { pointer: '/query' });
+            throw DomqlError.validation(`Live state keeps one object current, so its result is an object or a list that is never null, and this one is ${resolvedDefinition.type}; put it in a top-level object expression`, Domql.#locationOf(query));
         }
+
+        Domql.#typeAt(query, resolvedDefinition, path);
+
         const evaluator = Domql.#createEvaluator(query, resolvedDefinition, window);
 
         if (schedule === 'frame' && typeof window.requestAnimationFrame !== 'function') {
@@ -301,72 +261,42 @@ export class Domql {
             comparer: new SnapshotComparer(resolvedDefinition),
             window,
             reportError: Domql.#createErrorReporter(window),
-            configuration: { schedule, updateStrategy, onChange, onError },
+            checkPath: selected => Domql.#typeAt(query, resolvedDefinition, selected),
+            options: { schedule, updateStrategy, path, signal },
         });
     }
 
     /**
-     * Subscribes to an event source and passes each projected result to `onEvent`. Returns the event listener, which listens from the call on, so an event that follows the call is heard; a source that cannot start fails the call.
-     * Each result is the object expression that follows the source, evaluated against the event in the task the event is delivered in. The source's receiver and arguments are evaluated once, as listening starts.
-     *
-     * @overload
-     * @param {string} text The subscription text, parsed as `parse` parses it, through the same cache.
-     * @param {Record<string, unknown>} bindings The values supplied by parameter name; `{}` for a text that has none.
-     * @param {DomqlSubscribeConfiguration} configuration How the event listener listens.
-     * @returns {EventListener}
-     *
-     * @overload
-     * @param {DomqlQuery} query The subscription.
-     * @param {DomqlSubscribeConfiguration} configuration How the event listener listens.
-     * @returns {EventListener}
+     * Listens to the subscription's event source from the call on, so an event that follows the call is heard, and answers the event listener; a source that cannot start fails the call.
+     * Each event is captured and projected through the object expression that follows the source, in the task the event is delivered in, and the handler receives the event listener and the result, or the failure. The source's receiver and arguments are evaluated once, as listening starts.
      */
-    static subscribe(input, ...rest) {
-        const { query, options: configuration } = Domql.#normalizeArguments(SUBSCRIBE, input, rest);
-        const { onEvent, onError, window = globalThis.window } = configuration ?? {};
-
-        if (typeof onEvent !== 'function') {
-            throw DomqlError.structure('An event listener takes the function that receives the result of each event, as onEvent', {});
-        }
-
-        if (onError !== undefined && typeof onError !== 'function') {
-            throw DomqlError.structure('The error callback of an event listener is a function', {});
+    static #subscribe(query, handler, { window = globalThis.window, signal }) {
+        if (typeof handler !== 'function') {
+            throw DomqlError.structure('A subscription takes the function that handles each event', {});
         }
 
         return new EventListener({
-            evaluator: Domql.#createEvaluator(query, Domql.#resolveFor(SUBSCRIBE, query), window),
+            evaluator: Domql.#createEvaluator(query, Domql.#resolveFor('subscribe', query), window),
             observations: Domql.#getObservations(window),
             reportError: Domql.#createErrorReporter(window),
-            configuration: { onEvent, onError },
+            handler,
+            signal,
         });
     }
 
     /**
-     * Runs an action once and returns a promise of its result, an immutable snapshot containing no live DOM references, read through the object expression that follows the action where one does.
-     * The receiver and arguments are evaluated first; a failure there rejects and runs nothing, and where one of them is null the action is not run and its result is null. The action's function receives the signal, and may return its result or a promise of it, which must be of the type the action declares.
+     * Executes the action once and answers a promise of its result, an immutable snapshot containing no live DOM references, read through the object expression that follows the action where one does.
+     * The receiver and arguments are evaluated first; a failure there rejects and executes nothing, and where one of them is null the action is not executed and its result is null. The action's function receives the signal, and may answer its result or a promise of it, which must be of the type the action declares.
      * A failure of the action rejects with an evaluation error whose cause is what it threw. A signal that aborts rejects with its reason at once; the action learns of it through the signal, its result is then discarded, and a failure it reports afterwards goes to the window's error reporting. DOMQL never undoes what an action changed.
-     *
-     * @overload
-     * @param {string} text The action request's text, parsed as `parse` parses it, through the same cache.
-     * @param {Record<string, unknown>} [bindings] The values supplied by parameter name.
-     * @param {DomqlRunAsyncOptions} [options] How the action is run.
-     * @returns {Promise<unknown>}
-     *
-     * @overload
-     * @param {DomqlQuery} query The action request.
-     * @param {DomqlRunAsyncOptions} [options] How the action is run.
-     * @returns {Promise<unknown>}
      */
-    static async runAsync(input, ...rest) {
-        const { query, options } = Domql.#normalizeArguments(RUN_ASYNC, input, rest);
-        const { window = globalThis.window, signal } = options ?? {};
-
+    static async #executeAsync(query, { window = globalThis.window, signal }) {
         signal?.throwIfAborted();
 
-        const evaluator = Domql.#createEvaluator(query, Domql.#resolveFor(RUN_ASYNC, query), window);
+        const evaluator = Domql.#createEvaluator(query, Domql.#resolveFor('executeAsync', query), window);
         const action = evaluator.resolveAction();
 
         if (action === null) {
-            return evaluator.projectResult(null, { wasRun: false });
+            return evaluator.projectResult(null, { wasExecuted: false });
         }
 
         const reportError = Domql.#createErrorReporter(window);
@@ -386,7 +316,7 @@ export class Domql {
             signal?.addEventListener('abort', cancel, { once: true });
 
             try {
-                returnValue = action.run(action.receiver, action.args, action.environment, { signal: signal ?? new AbortController().signal });
+                returnValue = action.execute(action.receiver, action.args, action.environment, { signal: signal ?? new AbortController().signal });
             } catch (error) {
                 settle(() => reject(createActionError(error)));
 
@@ -394,7 +324,7 @@ export class Domql {
             }
 
             Promise.resolve(returnValue).then(result => {
-                // A result that arrives after the run was canceled is discarded.
+                // A result that arrives after the execution was canceled is discarded.
                 if (isSettled) {
                     return;
                 }
@@ -411,7 +341,7 @@ export class Domql {
 
                 settle(() => resolve(value));
             }, error => {
-                // No caller waits for a failure that arrives after the run was canceled, so it goes to the error reporting.
+                // No caller waits for a failure that arrives after the execution was canceled, so it goes to the error reporting.
                 if (isSettled) {
                     reportError(createActionError(error));
                 } else {
@@ -422,73 +352,19 @@ export class Domql {
     }
 
     /**
-     * Activates a behavior, which is in effect once the call returns, and returns its handle, which belongs to the caller. Disposing the handle ends the behavior and leaves its module registered.
-     * The receiver and arguments are evaluated now; where one of them is null there is nothing to activate until an update supplies one. A behavior that cannot activate fails the call and leaves nothing running.
-     *
-     * @overload
-     * @param {string} text The behavior request's text, parsed as `parse` parses it, through the same cache.
-     * @param {Record<string, unknown>} [bindings] The values supplied by parameter name.
-     * @param {DomqlActivateOptions} [options] How the behavior is activated.
-     * @returns {Behavior}
-     *
-     * @overload
-     * @param {DomqlQuery} query The behavior request.
-     * @param {DomqlActivateOptions} [options] How the behavior is activated.
-     * @returns {Behavior}
+     * Applies the behavior, which is in effect once the call returns, and answers its handle, which belongs to the caller. Disposing the handle ends the behavior and leaves its module registered.
+     * The receiver and arguments are evaluated now; where one of them is null there is nothing to apply until an update supplies one. A behavior that cannot start fails the call and leaves nothing running.
      */
-    static activate(input, ...rest) {
-        const { query, options } = Domql.#normalizeArguments(ACTIVATE, input, rest);
-        const { window = globalThis.window } = options ?? {};
-        const resolveBehavior = request => Domql.#createEvaluator(request, Domql.#resolveFor(ACTIVATE, request), window).resolveBehavior();
+    static #apply(query, { window = globalThis.window, signal }) {
+        const resolveBehavior = request => Domql.#createEvaluator(request, Domql.#resolveFor('apply', request), window).resolveBehavior();
 
         return new Behavior({
             call: resolveBehavior(query),
             // An update binds the same definition anew, so it is validated and resolved as the first bindings were.
-            prepare: bindings => resolveBehavior(new DomqlQuery(query.definition, new ParameterBindings(bindings))),
+            prepare: bindings => resolveBehavior(query.with(bindings)),
             reportError: Domql.#createErrorReporter(window),
+            signal,
         });
-    }
-
-    /**
-     * Creates a module from the vocabulary it declares and the functions that carry the members out.
-     * @param {string} name The module's name.
-     * @param {object} contents What the module declares.
-     * @param {Record<string, Function> | null} functions The functions the members name.
-     */
-    static createModule(name, contents, functions = null) {
-        return new DomqlModule(name, contents, functions);
-    }
-
-    /** Registers a module's vocabulary, which every query resolved afterwards may use. */
-    static registerModule(module) {
-        Domql.#moduleRegistry.registerModule(module);
-    }
-
-    /**
-     * Interprets the arguments of a method that takes a query or its text: a text is parsed with the bindings that follow it, and a query carries its own. Returns the query and the options or the configuration that come last.
-     * A call given more arguments than its form takes is refused, so a misplaced argument is never silently ignored. A query belongs to the DOMQL instance that made it, and another instance, such as one an independently bundled library carries, refuses it; `create` makes it again from its definition and a plain object of bindings, validated and resolved against this instance's own vocabulary.
-     * @param {{ name: string, trailing: string }} method The method, and what follows the bindings in it.
-     * @param {DomqlQuery | string} input The query, or its text.
-     * @param {unknown[]} rest The arguments after it.
-     */
-    static #normalizeArguments({ name, trailing }, input, rest) {
-        if (typeof input === 'string') {
-            if (rest.length > 2) {
-                throw DomqlError.structure(`Domql.${name} takes a text, its bindings and its ${trailing}, and was given ${1 + rest.length} arguments`, {});
-            }
-
-            return { query: Domql.parse(input, rest[0]), options: rest[1] };
-        }
-
-        if (!(input instanceof DomqlQuery)) {
-            throw DomqlError.structure('Expected a query created by this DOMQL instance. To reuse a query from another instance, pass its definition and a plain object of bindings to Domql.create.', {});
-        }
-
-        if (rest.length > 1) {
-            throw DomqlError.structure(`Domql.${name} takes a query and its ${trailing}, and was given ${1 + rest.length} arguments; a query carries its own bindings`, {});
-        }
-
-        return { query: input, options: rest[0] };
     }
 
     static #resolve(query, options) {
@@ -510,27 +386,38 @@ export class Domql {
     }
 
     /**
-     * Resolves a request for the method that carries it out, refusing it with a validation error where it is not of the kind the method carries out, before anything is evaluated or started.
-     * @param {{ kind: string, operationDescription: string }} method The kind of request the method carries out, and what it does with one, for the refusal to say.
+     * Resolves a request for the operation that carries it out, refusing it with a validation error that says what the request does and names the operations it takes, where it is not of the kind the operation takes, before anything is evaluated or started.
+     * @param {keyof typeof OPERATIONS} operation
      * @param {DomqlQuery} query The request.
      * @param {DomqlResolveOptions} [options] How the request is resolved.
      */
-    static #resolveFor({ kind, operationDescription }, query, options = {}) {
+    static #resolveFor(operation, query, options = {}) {
         const resolvedDefinition = Domql.#resolve(query, options);
+        const { kind, verb } = OPERATIONS[operation];
 
         if (resolvedDefinition.kind !== kind) {
-            const article = resolvedDefinition.kind === 'action' ? 'An' : 'A';
+            const { does, takes } = REQUEST_KINDS[resolvedDefinition.kind];
 
-            throw DomqlError.validation(`${article} ${resolvedDefinition.kind} request is not ${operationDescription}`, ParsedTexts.locationsOf(query.definition)?.locate('/query') ?? { pointer: '/query' });
+            throw DomqlError.validation(`Cannot ${verb} '${DefinitionWriter.write(query.definition.query)}': ${does}.\nUse ${takes}.`, Domql.#locationOf(query));
         }
 
         return resolvedDefinition;
     }
 
+    /** Refuses a path that does not fit the type of the query's result. */
+    static #typeAt(query, resolvedDefinition, path) {
+        return ResultPath.typeAt(resolvedDefinition.type, path, Domql.#moduleRegistry, Domql.#locationOf(query));
+    }
+
+    /** Where the request stands, for a failure that belongs to the whole of it. */
+    static #locationOf(query) {
+        return ParsedTexts.locationsOf(query.definition)?.locate('/query') ?? { pointer: '/query' };
+    }
+
     /** Creates the evaluator of a resolved request in its window, which an evaluation needs. */
     static #createEvaluator(query, resolvedDefinition, window) {
         if (!window?.document) {
-            throw DomqlError.evaluation('DOMQL cannot read without a browser window. Pass a window explicitly when running outside a browser.', {});
+            throw DomqlError.evaluation('DOMQL cannot evaluate without a browser window. Pass a window explicitly when running outside a browser.', {});
         }
 
         return new QueryEvaluator(Domql.#moduleRegistry, resolvedDefinition, query.bindings, { window, document: window.document }, ParsedTexts.locationsOf(query.definition));
@@ -548,7 +435,7 @@ export class Domql {
         return observations;
     }
 
-    /** Creates the function that reports a failure no callback receives to the window's error reporting; a failure of the reporting itself is dropped. */
+    /** Creates the function that reports a failure no handler receives to the window's error reporting; a failure of the reporting itself is dropped. */
     static #createErrorReporter(window) {
         return error => {
             try {
@@ -563,3 +450,13 @@ export class Domql {
         };
     }
 }
+
+/** DOMQL: makes query objects, and registers the modules that extend the vocabulary. */
+export const domql = Object.freeze({
+    query: (source, bindings) => Domql.query(source, bindings),
+    createModule: (name, contents, functions) => Domql.createModule(name, contents, functions),
+    registerModule: module => Domql.registerModule(module),
+    specificationVersion: Domql.specificationVersion,
+});
+
+export { DomqlError };

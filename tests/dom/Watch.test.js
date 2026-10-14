@@ -9,7 +9,7 @@ const settle = (milliseconds = 0) => new Promise(resolve => setTimeout(resolve, 
 const rejection = promise => promise.then(() => { throw new Error('The promise resolved'); }, error => error);
 
 describe('Watch', () => {
-    // Each test loads its own copy of Domql, with a registry of its own.
+    // Each test loads its own copy of DOMQL, with a registry of its own.
     let isolated;
     let panel;
     let snapshots;
@@ -22,7 +22,7 @@ describe('Watch', () => {
 
     beforeEach(async () => {
         vi.resetModules();
-        ({ Domql: isolated } = await import('#domql/domql.js'));
+        ({ domql: isolated } = await import('#domql/domql.js'));
         document.body.innerHTML = '<div id="panel" data-n="1"><i data-n="1"></i><i data-n="2"></i></div>';
         panel = document.getElementById('panel');
         snapshots = [];
@@ -76,15 +76,26 @@ describe('Watch', () => {
         document.body.innerHTML = '';
     });
 
+    /**
+     * Starts a watch of the text, immediate unless the options say otherwise, whose ready results go to `onChange`, its snapshot, or for live state the object and the change set, and whose failed evaluations and handler failures go to `onError`.
+     * By default they are collected in `snapshots` and `failures`; an `onError` of null leaves the watch with no listener of its errors.
+     */
     const watch = (text, bindings = {}, options = {}) => {
-        const created = isolated.watch(isolated.parse(text, bindings), {
-            onChange: snapshot => snapshots.push(snapshot),
-            onError: error => failures.push(error),
-            schedule: 'immediate',
-            ...options,
-        });
+        const { onChange = snapshot => snapshots.push(snapshot), onError = error => failures.push(error), ...watchOptions } = options;
+        const created = isolated.query(text, bindings).watch({ schedule: 'immediate', ...watchOptions });
 
         watches.push(created);
+        created.subscribe('change', (_sender, args) => {
+            if (args.status === 'failed') {
+                return onError?.(args.error);
+            }
+
+            return 'liveState' in args ? onChange(args.liveState, args.changes) : onChange(args.value);
+        });
+
+        if (onError !== null) {
+            created.subscribe('error', (_sender, args) => onError(args.error));
+        }
 
         return created;
     };
@@ -106,17 +117,18 @@ describe('Watch', () => {
     };
 
     describe('the first snapshot', () => {
-        it('is reported after the call returns, through the callback every snapshot uses', async () => {
+        it('is reported after the call returns, through the change event every snapshot raises', async () => {
             const watched = watch('@panel attributeOf "data-n"', { panel });
 
             expect(watched.status).toBe('pending');
+            expect(watched.snapshot).toBeUndefined();
             expect(snapshots).toEqual([]);
 
             await settle();
 
             expect(watched.status).toBe('ready');
             expect(snapshots).toEqual(['1']);
-            expect(watched.lastSnapshot).toBe('1');
+            expect(watched.snapshot).toBe('1');
         });
 
         it('waits for the first sample of every maintained member it reads', async () => {
@@ -143,7 +155,7 @@ describe('Watch', () => {
 
             expect(snapshots).toEqual([null]);
             expect(watched.status).toBe('ready');
-            expect(watched.lastSnapshot).toBeNull();
+            expect(watched.snapshot).toBeNull();
         });
     });
 
@@ -312,7 +324,7 @@ describe('Watch', () => {
             expect(failures.length).toBe(1);
             expect(failures[0].name).toBe('DomqlError');
             expect(failures[0].message).toContain("The member 'flaky' failed");
-            expect(watched.lastSnapshot).toEqual({ n: 1 });
+            expect(watched.snapshot).toEqual({ n: 1 });
 
             broken = false;
             await change(panel, 1);
@@ -446,8 +458,8 @@ describe('Watch', () => {
         });
     });
 
-    describe('a callback that fails', () => {
-        it('is reported to the failure callback and leaves the watch running with the state it was handed accepted', async () => {
+    describe('a handler that fails', () => {
+        it('is raised as an error event and leaves the watch running with the state it was handed accepted', async () => {
             let fails = true;
             const watched = watch('@panel attributeOf "data-n"', { panel }, {
                 onChange: snapshot => {
@@ -479,29 +491,29 @@ describe('Watch', () => {
             expect(watched.status).toBe('ready');
         });
 
-        it('goes to the diagnostic reporting where there is no failure callback', async () => {
-            watch('@panel attributeOf "data-n"', { panel }, { onChange: () => { throw new Error('consumer'); }, onError: undefined });
+        it('goes to the diagnostic reporting where no error listener receives it', async () => {
+            watch('@panel attributeOf "data-n"', { panel }, { onChange: () => { throw new Error('consumer'); }, onError: null });
             await settle();
 
             expect(reported.map(error => error.message)).toEqual(['consumer']);
         });
 
-        it('sends the failure of the failure callback to the diagnostic reporting, calling nothing again', async () => {
+        it('sends the failure of the error handler to the diagnostic reporting, calling nothing again', async () => {
             watch('@panel attributeOf "data-n"', { panel }, {
                 onChange: () => { throw new Error('consumer'); },
                 onError: error => {
                     failures.push(error);
 
-                    return Promise.reject(new Error('failure callback'));
+                    return Promise.reject(new Error('error handler'));
                 },
             });
             await settle();
 
             expect(failures.length).toBe(1);
-            expect(reported.map(error => error.message)).toEqual(['failure callback']);
+            expect(reported.map(error => error.message)).toEqual(['error handler']);
         });
 
-        it('lets the callbacks of other watches run when one fails', async () => {
+        it('lets the handlers of other watches run when one fails', async () => {
             const others = [];
 
             watch('@panel attributeOf "data-n"', { panel }, { onChange: () => { throw new Error('first'); } });
@@ -512,7 +524,7 @@ describe('Watch', () => {
             expect(others).toEqual(['1', '2']);
         });
 
-        it('leaves the watch reporting where its failure callback and the window\'s error reporting fail too', async () => {
+        it('leaves the watch reporting where its error handler and the window\'s error reporting fail too', async () => {
             let reportings = 0;
 
             window.reportError = () => {
@@ -525,7 +537,7 @@ describe('Watch', () => {
                     snapshots.push(snapshot);
                     throw new Error('consumer');
                 },
-                onError: () => { throw new Error('failure callback'); },
+                onError: () => { throw new Error('error handler'); },
             });
 
             await settle();
@@ -576,7 +588,7 @@ describe('Watch', () => {
     });
 
     describe('refreshAsync', () => {
-        it('evaluates now and settles once the snapshot has been handed to the callback', async () => {
+        it('evaluates now and settles once the snapshot has been handed to the handlers', async () => {
             const watched = watch('@panel.tally', { panel }, { schedule: 'frame' });
 
             await settle();
@@ -605,7 +617,7 @@ describe('Watch', () => {
             expect(snapshots).toEqual(['1']);
         });
 
-        it('does not wait for a promise the callback returns, so a callback can await a refresh', async () => {
+        it('does not wait for a promise a handler returns, so a handler can await a refresh', async () => {
             let nested;
             const watched = watch('@panel.tally', { panel }, {
                 onChange: async snapshot => {
@@ -716,7 +728,7 @@ describe('Watch', () => {
             expect(watched.status).toBe('disposed');
         });
 
-        it('lets a callback already running finish, and starts none after', async () => {
+        it('lets a handler already running finish, and starts none after', async () => {
             let finished = false;
             const watched = watch('@panel attributeOf "data-n"', { panel }, {
                 onChange: async snapshot => {
@@ -736,7 +748,7 @@ describe('Watch', () => {
     });
 
     describe('keeping live state', () => {
-        /** A watch that keeps its result as live state, recording each object and change set its callback receives, and what the object held at that moment. */
+        /** A watch that keeps its result as live state, recording each object and change set its ready change events carry, and what the object held at that moment. */
         const watchLive = (text, bindings) => {
             const calls = [];
             const watched = watch(text, bindings, {
@@ -747,7 +759,7 @@ describe('Watch', () => {
             return { watched, calls };
         };
 
-        it('hands its callback one object, kept current in place, with the change set just applied to it', async () => {
+        it('hands its change handler one object, kept current in place, with the change set just applied to it', async () => {
             const { watched, calls } = watchLive('@panel { n: self attributeOf "data-n", rows: self.children { n: self attributeOf "data-n" } }', { panel });
 
             await settle();
@@ -759,8 +771,8 @@ describe('Watch', () => {
             expect(calls[1].changes).toEqual([{ op: 'replace', path: '/rows/1/n', value: '7' }]);
             expect(calls[1].seen).toEqual({ n: '1', rows: [{ n: '1' }, { n: '7' }] });
             expect(watched.liveState).toBe(calls[0].state);
-            expect(watched.lastSnapshot).toEqual(calls[1].seen);
-            expect(Object.isFrozen(watched.lastSnapshot)).toBe(true);
+            expect(watched.snapshot).toEqual(calls[1].seen);
+            expect(Object.isFrozen(watched.snapshot)).toBe(true);
         });
 
         it('keeps the object of each item as its element moves, and adds and removes items in place', async () => {
@@ -831,7 +843,7 @@ describe('Watch', () => {
             expect(calls.at(-1).changes).toEqual([{ op: 'replace', path: '/n', value: 5 }, { op: 'replace', path: '/m', value: '5' }]);
         });
 
-        it('hands its callback an empty change set when an evaluation recovers from a failure with the result it had', async () => {
+        it('hands its change handler an empty change set when an evaluation recovers from a failure with the result it had', async () => {
             const { calls } = watchLive('{ n: @panel.flaky }', { panel });
 
             await settle();
@@ -867,16 +879,16 @@ describe('Watch', () => {
 
             await settle();
 
-            expect(watched.liveState).toBeNull();
+            expect(watched.liveState).toBeUndefined();
         });
     });
 
     describe('a query that is watched', () => {
         it('is refused when a member only partly observes its changes, unless the watch accepts that', () => {
-            const query = isolated.parse('@panel.rect', { panel });
+            const query = isolated.query('@panel.rect', { panel });
             const error = (() => {
                 try {
-                    isolated.watch(query, { onChange: () => {} });
+                    query.watch();
                 } catch (failure) {
                     return failure;
                 }
@@ -888,34 +900,42 @@ describe('Watch', () => {
             expect(error.kind).toBe('validation');
             expect(error.message).toContain('rect');
 
-            watches.push(isolated.watch(query, { onChange: () => {}, acceptPartialObservation: true }));
+            watches.push(query.watch({ acceptPartialObservation: true }));
         });
 
-        it('takes the function that receives its snapshots, a schedule and a delivery that exist', () => {
-            const query = isolated.parse('@panel attributeOf "id"', { panel });
+        it('takes a schedule and an update strategy that exist', () => {
+            const query = isolated.query('@panel attributeOf "id"', { panel });
 
-            for (const options of [{}, { onChange: 3 }, { onChange: () => {}, onError: 3 }, { onChange: () => {}, schedule: 'later' }, { onChange: () => {}, updateStrategy: 'patch' }]) {
-                expect(() => isolated.watch(query, options)).toThrow(expect.objectContaining({ name: 'DomqlError', kind: 'structure' }));
+            for (const options of [{ schedule: 'later' }, { updateStrategy: 'patch' }]) {
+                expect(() => query.watch(options)).toThrow(expect.objectContaining({ name: 'DomqlError', kind: 'structure' }));
+            }
+        });
+
+        it('takes listeners of its change and error events alone, each with the function that handles them', () => {
+            const watched = watch('@panel attributeOf "id"', { panel });
+
+            for (const [eventName, handler] of [['change', 3], ['error', 3], ['changed', () => {}]]) {
+                expect(() => watched.subscribe(eventName, handler)).toThrow(expect.objectContaining({ name: 'DomqlError', kind: 'structure' }));
             }
         });
 
         it('is a query: a request that is not one is refused when the watch is made', () => {
-            const subscription = isolated.parse('(@panel eventsOf "click") { ratio: @window.devicePixelRatio }', { panel });
+            const subscription = isolated.query('(@panel eventsOf "click") { ratio: @window.devicePixelRatio }', { panel });
 
-            expect(isolated.resolve(subscription, { watch: true }).kind).toBe('subscription');
-            expect(() => isolated.watch(subscription, { onChange: () => {} })).toThrow(expect.objectContaining({ name: 'DomqlError', kind: 'validation', message: expect.stringContaining('A subscription request is not watched') }));
+            expect(subscription.resolve({ watch: true }).kind).toBe('subscription');
+            expect(() => subscription.watch()).toThrow(expect.objectContaining({ name: 'DomqlError', kind: 'validation', message: expect.stringContaining('it listens to events.\nUse subscribe()') }));
         });
 
         it('is scheduled by animation frame only in a window that has them', () => {
-            const query = isolated.parse('@panel attributeOf "id"', { panel });
+            const query = isolated.query('@panel attributeOf "id"', { panel });
             const frameless = { document, reportError: () => {} };
 
-            expect(() => isolated.watch(query, { onChange: () => {}, window: frameless })).toThrow(expect.objectContaining({ kind: 'structure' }));
-            watches.push(isolated.watch(query, { onChange: () => {}, window: frameless, schedule: 'immediate' }));
+            expect(() => query.watch({ window: frameless })).toThrow(expect.objectContaining({ kind: 'structure' }));
+            watches.push(query.watch({ window: frameless, schedule: 'immediate' }));
         });
 
         it('needs a browser window', () => {
-            expect(() => isolated.watch(isolated.parse('@window.devicePixelRatio'), { onChange: () => {}, window: null })).toThrow(expect.objectContaining({ kind: 'evaluation' }));
+            expect(() => isolated.query('@window.devicePixelRatio').watch({ window: null })).toThrow(expect.objectContaining({ kind: 'evaluation' }));
         });
     });
 });
@@ -955,9 +975,11 @@ describe('Watch cleanup', () => {
             comparer: { reconcile: (_last, _identities, next) => next },
             window,
             reportError: error => reported.push(error),
-            configuration: { schedule: 'immediate', onChange: snapshot => snapshots.push(snapshot) },
+            checkPath: () => {},
+            options: { schedule: 'immediate' },
         });
 
+        watch.subscribe('change', (_sender, args) => snapshots.push(args.value));
         await watch.refreshAsync();
         await watch.refreshAsync();
         watch.dispose();
