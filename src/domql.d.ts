@@ -414,10 +414,18 @@ export interface DomqlModule {
     readonly functions: DomqlModuleFunctions | null;
 }
 
-/** DOMQL: makes query objects, and registers the modules that extend the vocabulary. */
-export interface Domql {
-    /** The version of the specification this implementation follows, as major.minor.revision. */
+/** Which build of DOMQL this is, and which specification it follows: two versions that change apart. */
+export interface DomqlInfo {
+    /** The version of this build of the library, as the package numbers it, `1.0.0-alpha.N` for a build of N commits; `1.0.0-alpha+source` where DOMQL runs from its sources. */
+    readonly version: string;
+    /** The version of the specification this implementation follows, `1.0.0-alpha`, which changes as the language does. */
     readonly specificationVersion: string;
+}
+
+/** DOMQL: makes query objects, registers the modules that extend the vocabulary, and says which build it is and which specification it follows. */
+export interface Domql {
+    /** Which build this is, and which specification it follows. */
+    readonly info: DomqlInfo;
     /** Makes a query object from a request's text, binding its parameters; it parses and checks the text, and evaluates nothing. */
     query<T = unknown>(text: string, bindings?: DomqlBindings): DomqlQuery<T>;
     /** Makes a query object from a request's definition, binding its parameters. */

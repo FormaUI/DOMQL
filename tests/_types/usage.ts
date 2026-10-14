@@ -13,7 +13,8 @@ const definition: DomqlDefinition = query.definition;
 const created: DomqlQuery<{ count: number }> = domql.query<{ count: number }>(definition, { panel });
 const rebound: DomqlQuery<{ count: number }> = query.with({ panel: document.body });
 const bound: boolean = rebound.bindings.has('panel');
-const version: string = domql.specificationVersion;
+const version: string = domql.info.version;
+const specificationVersion: string = domql.info.specificationVersion;
 
 const resolved: DomqlResolvedDefinition = created.resolve({ watch: true, acceptPartialObservation: true });
 const kind: 'query' | 'subscription' | 'action' | 'behavior' = resolved.kind;
@@ -252,4 +253,4 @@ const named: DomqlDefinitionNode = { kind: 'object', target: { kind: 'parameter'
 // @ts-expect-error A local is named, as a field is.
 const unnamed: DomqlDefinitionNode = { kind: 'object', locals: [{ value: { kind: 'self' } }], fields: [] };
 
-export { bound, version, kind, typeText, count, anything, waited, shorthand, selected, selectedAsync, selectedWatch, key, listening, status, snapshot, failure, ready, refreshed, viewed, viewStatus, viewReady, smaller, held, livingSnapshot, livingReady, livingRefreshed, watchedAgain, keptAgain, clicking, sourceFunctions, moved, stepped, trapping, reported };
+export { bound, version, specificationVersion, kind, typeText, count, anything, waited, shorthand, selected, selectedAsync, selectedWatch, key, listening, status, snapshot, failure, ready, refreshed, viewed, viewStatus, viewReady, smaller, held, livingSnapshot, livingReady, livingRefreshed, watchedAgain, keptAgain, clicking, sourceFunctions, moved, stepped, trapping, reported };

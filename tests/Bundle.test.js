@@ -11,8 +11,11 @@ describe('Bundle', () => {
     let text;
     let bundled;
 
+    /** The version a bundle is made for, as the package project would give it. */
+    const version = '1.0.0-alpha.7';
+
     beforeAll(async () => {
-        text = await bundle();
+        text = await bundle({ version });
         bundled = new Function(text.replace(EXPORT, 'return { $2: $1, $4: $3 };'))();
     });
 
@@ -40,7 +43,16 @@ describe('Bundle', () => {
         expect(query.definition.query.fields.map(field => field.name)).toEqual(['size', 'hasFocus']);
         expect(bundled.domql.query(query.definition, { panel: 2 }).bindings.get('panel')).toBe(2);
         expect(query.with({ panel: 3 }).bindings.get('panel')).toBe(3);
-        expect(bundled.domql.specificationVersion).toMatch(/^\d+\.\d+\.\d+(?:-alpha)?$/);
+        expect(bundled.domql.info.specificationVersion).toMatch(/^\d+\.\d+\.\d+(?:-alpha)?$/);
+    });
+
+    it('answers the version it was made for as its own, and the version of the sources where it was made for none', async () => {
+        const unversioned = new Function((await bundle()).replace(EXPORT, 'return { $2: $1, $4: $3 };'))();
+
+        expect(bundled.domql.info.version).toBe(version);
+        expect(text).toContain(JSON.stringify(version));
+        expect(unversioned.domql.info.version).toBe('1.0.0-alpha+source');
+        expect(Object.isFrozen(bundled.domql.info)).toBe(true);
     });
 
     it('keeps the errors the sources raise, as DomqlError', () => {

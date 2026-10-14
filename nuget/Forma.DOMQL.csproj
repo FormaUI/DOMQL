@@ -39,9 +39,10 @@
         </PropertyGroup>
     </Target>
 
-    <!-- A package without the bundle would ship nothing, so packing stops until publish.ps1 has made it. -->
-    <Target Name="EnsureBundle" BeforeTargets="Pack">
+    <!-- A package without the bundle would ship nothing, and one whose bundle answers another version would misreport itself, so packing stops until publish.ps1 has made the bundle of this version. -->
+    <Target Name="EnsureBundle" BeforeTargets="Pack" DependsOnTargets="NumberAlphaByCommits">
         <Error Condition="!Exists('$(MSBuildProjectDirectory)\wwwroot\domql.js')" Text="wwwroot/domql.js is missing; run ./publish.ps1, which bundles DOMQL and packs it." />
+        <Error Condition="!$([System.IO.File]::ReadAllText('$(MSBuildProjectDirectory)\wwwroot\domql.js').Contains('&quot;$(Version)&quot;'))" Text="wwwroot/domql.js answers another version than $(Version); run ./publish.ps1, which bundles DOMQL of this version and packs it." />
     </Target>
 
 </Project>

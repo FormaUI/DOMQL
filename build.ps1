@@ -67,8 +67,20 @@ if ($Browser) {
     }
 }
 
-Write-Host 'Bundling'
-npm run bundle --prefix $root
+# The package project computes the package's version, and the bundle is given it, so the two never disagree.
+Push-Location $nuget
+try {
+    $version = dotnet msbuild Forma.DOMQL.csproj -getProperty:Version -t:NumberAlphaByCommits -nologo
+    if ($LASTEXITCODE -ne 0) {
+        throw "The package's version could not be computed."
+    }
+}
+finally {
+    Pop-Location
+}
+
+Write-Host "Bundling $version"
+npm run bundle --prefix $root -- --version $version
 if ($LASTEXITCODE -ne 0) {
     throw 'The bundle failed.'
 }

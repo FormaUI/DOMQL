@@ -76,6 +76,12 @@ const REQUEST_KINDS = {
     behavior: { does: 'it applies a behavior', takes: 'apply()' },
 };
 
+/**
+ * The version of this build of the library: the package's version, which bundling sets, or, where DOMQL runs from its sources, the library's version marked as source by its build metadata.
+ * @type {string}
+ */
+const LIBRARY_VERSION = typeof DOMQL_VERSION === 'string' ? DOMQL_VERSION : '1.0.0-alpha+source';
+
 /** When a watch evaluates after a change, and what its events carry. */
 const WATCH_SCHEDULES = ['frame', 'immediate'];
 const WATCH_UPDATE_STRATEGIES = ['snapshot', 'liveState'];
@@ -106,11 +112,6 @@ class Domql {
         executeAsync: (query, options) => Domql.#executeAsync(query, options ?? {}),
         apply: (query, options) => Domql.#apply(query, options ?? {}),
     });
-
-    /** The version of the specification this implementation follows, as major.minor.revision. */
-    static get specificationVersion() {
-        return Specification.version;
-    }
 
     /**
      * Makes a query object from a request's text or its definition, binding its parameters. It parses the text, a text being parsed once and its definition reused for identical text, and checks the structure; it evaluates nothing and has no effect.
@@ -451,12 +452,12 @@ class Domql {
     }
 }
 
-/** DOMQL: makes query objects, and registers the modules that extend the vocabulary. */
+/** DOMQL: makes query objects, registers the modules that extend the vocabulary, and says which build it is and which specification it follows. */
 export const domql = Object.freeze({
     query: (source, bindings) => Domql.query(source, bindings),
     createModule: (name, contents, functions) => Domql.createModule(name, contents, functions),
     registerModule: module => Domql.registerModule(module),
-    specificationVersion: Domql.specificationVersion,
+    info: Object.freeze({ version: LIBRARY_VERSION, specificationVersion: Specification.version }),
 });
 
 export { DomqlError };

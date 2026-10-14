@@ -320,7 +320,7 @@ Each entry point, operation and handle is listed here with what it takes, and th
 | `domql.format(source)` | | The canonical text of a text, a definition or a query object, as [formatting](#formatting) sets out |
 | `domql.createModule(name, contents, functions)` | | Creates a module from its declarations and the functions they name, as [declarations](#declarations) sets out |
 | `domql.registerModule(module)` | | Registers a module's declarations in the document's registry, as [modules](#modules) sets out |
-| `domql.specificationVersion` | | The version of the specification the implementation follows |
+| `domql.info` | | Which build this is and which specification it follows: `version`, the package's version, `1.0.0-alpha+source` where DOMQL runs from its sources, and `specificationVersion`, the version of the specification it follows |
 
 | Object | Members | Defined in |
 | --- | --- | --- |

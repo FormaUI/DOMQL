@@ -16,20 +16,22 @@ describe('Alignment', () => {
     it('has a specification whose version is that of the implementation', () => {
         const [, version] = specification.match(/^# DOMQL Specification v(\S+)$/m);
 
-        expect(version).toBe(domql.specificationVersion);
+        expect(version).toBe(domql.info.specificationVersion);
     });
 
     it('has a design titled with the version of the specification', () => {
         const [, version] = design.match(/^# DOMQL Design v(\S+)$/m);
 
-        expect(version).toBe(domql.specificationVersion);
+        expect(version).toBe(domql.info.specificationVersion);
     });
 
     it('has a package that is the alpha of the specification, numbered by the commits it is built from', () => {
         const [, prefix] = project.match(/<VersionPrefix>(.+?)<\/VersionPrefix>/);
 
-        expect(`${prefix}-alpha`).toBe(domql.specificationVersion);
+        expect(`${prefix}-alpha`).toBe(domql.info.specificationVersion);
         expect(project).toContain('<Version>$(VersionPrefix)-alpha.$(CommitCount)</Version>');
+        // The library's own version, run from its sources, is the package's prefix as an alpha, marked as source by its build metadata.
+        expect(domql.info.version).toBe(`${prefix}-alpha+source`);
         expect(project).toContain('git rev-list --count HEAD');
     });
 

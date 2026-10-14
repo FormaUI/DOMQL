@@ -345,6 +345,7 @@ Keep independent results in a top-level object expression when one target may be
 | `query.apply(options)` | Apply a behavior, in effect once the call returns. Returns a handle with `status`, `update(bindings)`, `subscribe('error', handler)` and `dispose()`. |
 | `domql.createModule(name, contents, functions)` | Create an extension module. |
 | `domql.registerModule(module)` | Make a module available to query resolution. |
+| `domql.info` | Which build this is, `version`, the package's version, and which specification it follows, `specificationVersion`. |
 
 An operation the request does not take is refused before anything runs, with an error saying what the request does and which operations it takes. A `signal` given to `evaluateAsync`, `watch`, `subscribe`, `executeAsync` or `apply` ends what the operation started when it aborts, and one already aborted starts nothing.
 
