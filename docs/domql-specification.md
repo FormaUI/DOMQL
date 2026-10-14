@@ -1,6 +1,6 @@
 # DOMQL Specification v1.0.0-alpha
 
-DOMQL is a small language for querying the DOM: a query names what its caller wants to know about a document and its elements, and evaluating it gives one result shaped the way it asked. The same query is read once, watched for changes, or evaluated at each event in the document, and the actions and behaviors a caller asks the browser for are requests of their own kinds. The language knows how to name values and shape results; what can be asked about, an element's size, a computed style, whether it matches a selector, comes from a vocabulary beside it, so adding to what can be asked never changes the language.
+DOMQL is a small language for querying the DOM: a query names what its caller wants to know about a document and its elements, and evaluating it gives one result shaped the way it asked. The same query is evaluated once, watched for changes, or evaluated at each event in the document, and the actions and behaviors a caller asks the browser for are requests of their own kinds. The language knows how to name values and shape results; what can be asked about, an element's size, a computed style, whether it matches a selector, comes from a vocabulary beside it, so adding to what can be asked never changes the language.
 
 This specification defines the language: its syntax, what each request means, the contracts of its vocabulary and the definition every request has. The [DOMQL design](domql-design.md) sets out how requests are built, prepared and carried out.
 
@@ -332,7 +332,7 @@ A receiver of the type `null`, a null binding or the literal `null`, says nothin
 - **Any property.** A name written as a property is accepted whatever it is, since the fields of a bound object are named by its data, as `@row.id` for a null `row` and `@rows { id: self.id }` for empty `rows` are; it is checked once its receiver's type is known.
 - **Known calls alone.** A name written as a call or a named operation is a member's, written in the form, and given the arguments, that at least one of its declarations takes; a name no member has, one written as a call where every declaration is a property, and one given an argument none takes are validation errors, since data names no operation.
 - **The request keeps its kind.** The declarations that take the name as it is written agree on the request kind they make, and the request is of that kind, so it takes the operations of its kind and is refused the others. Declarations that disagree on their kind are refused as ambiguous.
-- **What it answers.** A query answers null, a subscription listens to nothing, an action is not run and answers null, and a behavior is activated with nothing in effect, as with any null receiver. Its type is the result type those declarations share, made nullable, and `null` where they share none or the name is no member's.
+- **What it answers.** A query answers null, a subscription listens to nothing, an action is not executed and answers null, and a behavior is applied with nothing in effect, as with any null receiver. Its type is the result type those declarations share, made nullable, and `null` where they share none or the name is no member's.
 - **What is checked later.** Whether the name applies to its receiver is checked once the receiver's type is specific enough, when the binding is bound to an element, a list or another value that reveals its type.
 - **An object expression** following such a receiver, or applied to the items of a `list<never>`, resolves its fields against a `never`, so a call in it is still checked; its type is the object type of its fields, made nullable after a null, and a list of it after an empty list, which answers the empty list.
 
@@ -344,14 +344,14 @@ A request is one of four kinds, and the member its chain ends in decides which:
 
 | Kind | Its chain ends in | Its caller |
 | --- | --- | --- |
-| Query | A value | Reads it once or watches it |
+| Query | A value | Evaluates it once or watches it |
 | Subscription | An event source | Subscribes to it |
-| Action | An action | Runs it once, receiving its result |
-| Behavior request | A behavior | Activates it, updates it with new bindings, and disposes it |
+| Action | An action | Executes it once, receiving its result |
+| Behavior request | A behavior | Applies it, updates it with new bindings, and disposes it |
 
 An action is an operation the browser carries out once, and a behavior is one that runs on in the browser until it is updated or disposed; both are members an extension declares, with signatures as every member has. An object expression can follow an action to shape its result. An action or a behavior ends its request's chain, so one inside a query, an argument or another request's object expression is a validation error.
 
-Reading or watching a query never performs an action or configures a behavior: a query only reads, and an action or a behavior request acts only when its caller runs or activates it. A behavior belongs to the caller that activated it, and the event sources it offers are subscribed to, each as a subscription of its own.
+Evaluating or watching a query never performs an action or configures a behavior: a query only reads, and an action or a behavior request acts only when its caller executes or applies it. A behavior belongs to the caller that applied it, and the event sources it offers are subscribed to, each as a subscription of its own.
 
 ```
 // An action: step the viewport forward, answering whether it moved.
@@ -369,7 +369,7 @@ A chain that ends in an event source is subscribed to, in two stages. The source
 (@zone eventsOf "drop") { key: self.target.closest("[data-drop-target]") attributeOf "data-drop-key" }
 ```
 
-The object expression reads the event's own members, such as its target, and anything else a parameter reaches. Its members are read once per event, never watched, so an unobserved member is allowed in it. An event source documents its members, which of them it captured when the event happened, and when it delivers the event, such as before or after the browser carries out the action it reports; everything else it reads is read as it is evaluated. An extension's event source can report only what its caller activated, so two callers subscribed on one element each hear their own.
+The object expression reads the event's own members, such as its target, and anything else a parameter reaches. Its members are read once per event, never watched, so an unobserved member is allowed in it. An event source documents its members, which of them it captured when the event happened, and when it delivers the event, such as before or after the browser carries out the action it reports; everything else it reads is read as it is evaluated. An extension's event source can report only what its caller started, so two callers subscribed on one element each hear their own.
 
 ## Evaluation
 
@@ -389,7 +389,7 @@ A maintained member's observation starts the first time an evaluation reads it, 
 
 Evaluating a query is read-only for every vocabulary. A measurement that needs the document changed first, such as measuring columns at their intrinsic widths under a temporary class, is an action of its own.
 
-A member whose result depends on what happened before, as well as on the document as it is, is captured: it keeps that history while a watch or an event listener holds it, and documents what a read reports without it.
+A member whose result depends on what happened before, as well as on the document as it is, is captured: it keeps that history while a watch or an event listener holds it, and documents what an evaluation once reports without it.
 
 ### Elements that leave the document
 
@@ -651,7 +651,7 @@ result = evaluate(query, bindings: { panel: <the list panel>, sentinel: <the end
 
 The bindings name only what the caller chooses. The complete query below also uses `@document` and `@window`, which are absent from them because they are the document the query runs against and its window, so no caller chooses them and none can bind them.
 
-A caller can take that result once, keep it current as the document changes, or take one at each event the query subscribes to; how it asks for each is the [design](domql-design.md)'s to say. A value query is read or watched alike; subscribing needs an event source, whose projection uses the same expression language.
+A caller can take that result once, keep it current as the document changes, or take one at each event the query subscribes to; how it asks for each is the [design](domql-design.md)'s to say. A value query is evaluated or watched alike; subscribing needs an event source, whose projection uses the same expression language.
 
 ## A complete query
 

@@ -26,14 +26,14 @@ The language knows only the DOM, and nothing here refers to a consumer of it.
 ## Scripts
 
 - Do use only native modern browser APIs in `src/`, with no external library or polyfill; a script is an ES module, strict by construction.
-- Do publish DOMQL as one minified file, `nuget/wwwroot/domql.js`, which `scripts/bundle.mjs` makes from `src/` with esbuild, a development dependency that the package never carries; the file is generated, ignored by git, and as small as the sources allow, and a test runs the bundle. Ship its types beside it as `domql.d.ts`, written by hand in `src/` and copied by the same script; a test compiles a TypeScript caller against it and fails when it and `Domql` disagree.
+- Do publish DOMQL as one minified file, `nuget/wwwroot/domql.js`, which `scripts/bundle.mjs` makes from `src/` with esbuild, a development dependency that the package never carries; the file is generated, ignored by git, and as small as the sources allow, and a test runs the bundle. Ship its types beside it as `domql.d.ts`, written by hand in `src/` and copied by the same script; a test compiles a TypeScript caller against it and fails when it and `domql` disagree.
 - Do name a parameter by its role (`text`, `definition`, `bindings`), never its type.
 - Do give a name the words that say what it holds or does in its context; a short name is fine where its scope makes it plain, and is renamed only where a reader has to work out what it is.
 - Do name keyed retrieval from a store `getXxx(key)`, whether or not absence is possible, and a property or value determined from a subject `xxxOf(subject)`, judged by the caller's meaning rather than by how it is stored.
-- Do give the plain name to an operation that answers directly, and the suffix `Async` to every operation that answers a promise: `read` and `readAsync`. Never suffix the synchronous form.
-- Do call an object of settings that each have a default, and that a call can leave out whole, its options, as `DomqlReadOptions`; call one that holds something the call cannot do without, such as the callback a watch or a subscription delivers to, its configuration, as `DomqlWatchConfiguration`, and name the parameter that takes it the same way.
+- Do give the plain name to an operation that answers directly, and the suffix `Async` to every operation that answers a promise: `evaluate` and `evaluateAsync`. Never suffix the synchronous form.
+- Do call an object of settings that each have a default, and that a call can leave out whole, its options, as `DomqlEvaluateOptions`, and name the parameter that takes it `options`; what a call cannot do without, such as the handler `subscribe` calls, is a parameter of its own.
 - Do prefix every type `domql.d.ts` exports with `Domql`, and declare as a class only what the bundle exports as one; a type describing an object the library hands out is an interface, whatever its class is called inside `src/`.
-- Do write the language's name as DOMQL in prose and `Domql` in code, and name a module that exposes a capability through DOMQL `{Capability}DomqlModule`.
+- Do write the language's name as DOMQL in prose and `Domql` in a type's name, call the object the package exports `domql`, and name a module that exposes a capability through DOMQL `{Capability}DomqlModule`.
 - Do report every failure where it happens, as a `DomqlError` naming where it fails, and never swallow a rejection.
 - Do give every cache a stated validity and release, and show the work it saves by measurement.
 
@@ -43,13 +43,13 @@ The language knows only the DOM, and nothing here refers to a consumer of it.
 - Do put a test where the code it tests is, `tests/` following `src/` folder for folder, and name a test of layout, geometry or state the browser decides `*.browser.js`, beside the others, which runs in headless Chromium with `npm run test:browser` or `./build.ps1 -Browser`; the happy-dom tests lay nothing out.
 - Do keep what a test reads or compiles, rather than runs, in an underscore folder of `tests/`, so every other folder there follows `src/`: the package README's examples and the document both READMEs query in `tests/_examples/`, and the TypeScript caller in `tests/_types/`.
 - Do measure with benchmarks, `*.bench.js` beside the tests, run with `npm run bench` from `tests/` and kept out of the gate; keep each baseline under `.local/`, and record what a measurement concluded in the implementation plan.
-- Do test through the public surface, `Domql` and what it returns, and assert exact definitions, error kinds and locations.
+- Do test through the public surface, `domql` and what it returns, and assert exact definitions, error kinds and locations.
 - Don't wait on the clock for work a test controls.
 
 ## Documentation
 
 - Do state in the specification what the language means, with examples that make the contract precise, and in the design how it runs; neither restates the other.
-- Do version DOMQL as `1.0.0-alpha.N`, N the number of commits in the history the package is built from, which the package project counts as it builds; the specification's title, the design's and `Specification.mjs` carry `1.0.0-alpha`, and the alignment test fails when they disagree with the package.
+- Do version DOMQL as `1.0.0-alpha.N`, N the number of commits in the history the package is built from, which the package project counts once and gives to bundling, so `domql.info.version` answers it and packing refuses a bundle of another version; run from its sources, the library answers `1.0.0-alpha+source`. The specification's version, `domql.info.specificationVersion`, is `1.0.0-alpha`, which the specification's title, the design's and `Specification.mjs` carry, and the alignment test fails when they disagree with the package.
 - Do keep every example in the documents a valid query, parsed by the implementation.
 - Do say what a thing is in a comment or summary, never how or why.
 
