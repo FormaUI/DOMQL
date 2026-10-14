@@ -343,6 +343,7 @@ Keep independent results in a top-level object expression when one target may be
 | `query.subscribe(handler, options)` | Subscribe to an event source: the handler receives each projected result, evaluated as the event is dispatched. Returns an event listener with `status` and `dispose()`. |
 | `query.executeAsync(options)` | Execute an action once. Returns a promise of its result, read through the object expression that follows the action; `signal` cancels it, and what the action changed stays changed. |
 | `query.apply(options)` | Apply a behavior, in effect once the call returns. Returns a handle with `status`, `update(bindings)`, `subscribe('error', handler)` and `dispose()`. |
+| `domql.format(source)` | Give the canonical text of a query's text, its definition or a query object, without bindings or a registered vocabulary. |
 | `domql.createModule(name, contents, functions)` | Create an extension module. |
 | `domql.registerModule(module)` | Make a module available to query resolution. |
 | `domql.info` | Which build this is, `version`, the package's version, and which specification it follows, `specificationVersion`. |

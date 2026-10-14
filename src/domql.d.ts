@@ -422,7 +422,7 @@ export interface DomqlInfo {
     readonly specificationVersion: string;
 }
 
-/** DOMQL: makes query objects, registers the modules that extend the vocabulary, and says which build it is and which specification it follows. */
+/** DOMQL: makes query objects, formats requests, registers the modules that extend the vocabulary, and says which build it is and which specification it follows. */
 export interface Domql {
     /** Which build this is, and which specification it follows. */
     readonly info: DomqlInfo;
@@ -430,6 +430,8 @@ export interface Domql {
     query<T = unknown>(text: string, bindings?: DomqlBindings): DomqlQuery<T>;
     /** Makes a query object from a request's definition, binding its parameters. */
     query<T = unknown>(definition: DomqlDefinition, bindings?: DomqlBindings): DomqlQuery<T>;
+    /** The canonical text of a request, given as its text, its definition or a query object: it parses and checks the structure, needs no bindings and no registered vocabulary, and formatting what it gives gives that again. */
+    format(source: string | DomqlDefinition | DomqlQuery): string;
     /** Creates a module from the vocabulary it declares and the functions that carry the declarations out. */
     createModule(name: string, contents: DomqlModuleContents, functions?: DomqlModuleFunctions | null): DomqlModule;
     /** Registers a module's vocabulary, which every request resolved afterwards may use. */

@@ -1,6 +1,33 @@
-import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { describe, it, expect, vi } from 'vitest';
 import { domql } from '#domql/domql.js';
 import { DefinitionWriter } from '#domql/language/DefinitionWriter.mjs';
+
+/** The queries the specification and the design write in their plain code blocks: a block that is one query, or each line of one that holds a query on every line. */
+const documentedQueries = (() => {
+    const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
+    const parses = text => {
+        try {
+            domql.query(text);
+
+            return true;
+        } catch {
+            return false;
+        }
+    };
+
+    return ['docs/domql-specification.md', 'docs/domql-design.md'].flatMap(path => [...readFileSync(resolve(root, path), 'utf8').matchAll(/```\n([\s\S]*?)```/g)].flatMap(([, block]) => {
+        const lines = block.split('\n').filter(line => line.trim() !== '');
+
+        if (parses(block)) {
+            return [block];
+        }
+
+        return lines.every(parses) ? lines : [];
+    }));
+})();
 
 const panel = document.createElement('div');
 
@@ -37,6 +64,8 @@ describe('DefinitionWriter', () => {
         '@panel { let items: self.children, count: items.count, rows: items { key: self attributeOf "data-key" } }',
         '@panel { let key: "data-key", let first: self.children.at(0), value: first attributeOf key }',
         '@panel { let a: 1, inner: self { let b: a, value: b } }',
+        '@panel attributeOf "a \\"quoted\\" name, a \\\\ backslash"',
+        '@panel attributeOf "two\nlines"',
     ])('writes text that parses back to the same definition: %s', text => {
         const { definition } = domql.query(text, { panel });
 
@@ -70,5 +99,83 @@ describe('DefinitionWriter', () => {
         const { definition } = domql.query('@panel intersects { root: @panel, margin: 5 }', { panel });
 
         expect(DefinitionWriter.write(definition.query)).toBe('@panel intersects { root: @panel, margin: 5 }');
+    });
+
+    describe('format', () => {
+        const format = text => domql.format(text);
+
+        it.each([
+            ['an object expression of one field', '@panel {size:self.size}', '@panel { size: self.size }'],
+            ['an object expression of more fields, a line for each', '@panel { size: self.size, key: self attributeOf "data-key" }', '@panel {\n    size: self.size,\n    key: self attributeOf "data-key"\n}'],
+            ['an object expression of one field whose value takes lines', '@panel { box: { width: self.size.width, height: self.size.height } }', '@panel {\n    box: {\n        width: self.size.width,\n        height: self.size.height\n    }\n}'],
+            ['an object expression of one field and a local', '@panel { let s: self.size, width: s.width }', '@panel {\n    let s: self.size,\n    width: s.width\n}'],
+            ['a conditional with no elseif, on one line', 'if @a then 1 else 2', 'if @a then 1 else 2'],
+            ['a conditional with an elseif, a line for each clause', '@panel { state: if self is "disabled" then "locked" elseif self is "readOnly" then "read" else "open" }', '@panel {\n    state: if self is "disabled" then "locked"\n    elseif self is "readOnly" then "read"\n    else "open"\n}'],
+            ['one space around and and or', '@a   and(@b or   @c)', '@a and (@b or @c)'],
+            ['one space around a named operation and a predicate', '@panel   attributeOf    "role"   is   "set"', '@panel attributeOf "role" is "set"'],
+            ['no trailing comma', '@panel { size: self.size, key: 1, }', '@panel {\n    size: self.size,\n    key: 1\n}'],
+            ['no comment and no original layout', '@panel // the panel\n    /* its size */ .size', '@panel.size'],
+            ['the grouping a meaning needs, and none other', '((@first and @second)) or (@third)', '@first and @second or @third'],
+            ['a string escaping only a double quote and a backslash', '@panel attributeOf "say \\"hi\\" \\\\ there"', '@panel attributeOf "say \\"hi\\" \\\\ there"'],
+        ])('lays out %s', (_, text, formatted) => {
+            expect(format(text)).toBe(formatted);
+        });
+
+        it.each([
+            '@panel { size: self.size, rows: self.children { key: self attributeOf "data-key", open: self matches ".open" } }',
+            'if @a then { x: 1, y: 2 } elseif @b then (if @c then 3 else 4) else @d { z: self.size }',
+            '@panel { let items: self.children, count: items.count, first: items.at(0) { key: self attributeOf "data-key" } }',
+            '(@panel eventsOf "click") { x: self.clientX, inside: self.target.closest(".row") is null }',
+            '@panel.children.where(self is "attached" and (self has "children" or self matches ".x")).max(self.size.width)',
+            '@panel attributeOf "line\nbreak and \\"quote\\""',
+        ])('gives text that formats to itself, and parses back to the same definition: %s', text => {
+            const formatted = format(text);
+
+            expect(format(formatted)).toBe(formatted);
+            expect(domql.query(formatted).definition).toEqual(domql.query(text).definition);
+        });
+
+        it('keeps negative zero, which a number equal to it would lose', () => {
+            const literalOf = text => domql.query(text).definition.query.argument.value;
+
+            expect(format('@panel.at(-0)')).toBe('@panel.at(-0)');
+            expect(DefinitionWriter.write(domql.query('@panel.at(-0)').definition.query)).toBe('@panel.at(-0)');
+            expect(Object.is(literalOf(format('@panel.at(-0)')), -0)).toBe(true);
+            expect(Object.is(literalOf(format('@panel.at(0)')), 0)).toBe(true);
+        });
+
+        it('gives the same text for a request\'s text, its definition and a query object', () => {
+            const text = '@panel { size: self.size, key: self attributeOf "data-key" }';
+            const query = domql.query(text, { panel });
+
+            expect(domql.format(query.definition)).toBe(format(text));
+            expect(domql.format(query)).toBe(format(text));
+        });
+
+        it('needs no bindings and resolves nothing, so a query of unbound parameters and an unknown vocabulary is formatted', () => {
+            expect(format('@nobody.nothing{x:self.whatever(@other)}')).toBe('@nobody.nothing { x: self.whatever(@other) }');
+            expect(() => domql.query('@nobody.nothing').resolve()).toThrow(expect.objectContaining({ kind: 'validation' }));
+        });
+
+        it('refuses text that does not parse, a definition that is not one, and a query object another instance made', async () => {
+            vi.resetModules();
+
+            const { domql: other } = await import('#domql/domql.js');
+
+            expect(() => format('@panel {')).toThrow(expect.objectContaining({ kind: 'syntax' }));
+            expect(() => domql.format({ version: 3, query: { kind: 'nonsense' } })).toThrow(expect.objectContaining({ kind: 'structure' }));
+            expect(() => domql.format(other.query('@panel'))).toThrow(expect.objectContaining({ kind: 'structure', message: expect.stringContaining('query.definition') }));
+        });
+
+        it('formats every query the specification and the design write to text that formats to itself and means the same', () => {
+            expect(documentedQueries.length).toBeGreaterThan(15);
+
+            for (const text of documentedQueries) {
+                const formatted = format(text);
+
+                expect(format(formatted)).toBe(formatted);
+                expect(domql.query(formatted).definition).toEqual(domql.query(text).definition);
+            }
+        });
     });
 });

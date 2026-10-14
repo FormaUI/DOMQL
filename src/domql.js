@@ -137,6 +137,26 @@ class Domql {
     }
 
     /**
+     * The canonical text of a request, given as its text, its definition or a query object, which the three give alike. It parses and checks the structure as `query` does, and needs no bindings and no registered vocabulary, since it resolves nothing; formatting the text it gives gives that text again.
+     * Comments and the original layout are discarded, as a definition holds neither, and the order of the locals and the fields is kept.
+     * @param {string | object | DomqlQuery} source The request's text, its definition, or a query object this instance made.
+     * @returns {string}
+     */
+    static format(source) {
+        if (source instanceof DomqlQuery) {
+            return DefinitionWriter.format(source.definition.query);
+        }
+
+        if (typeof source?.with === 'function') {
+            throw DomqlError.structure('A query object another DOMQL instance made is formatted from its definition, as domql.format(query.definition)', {});
+        }
+
+        const definition = typeof source === 'string' ? ParsedTexts.parse(source) : new DefinitionValidator().validate(source);
+
+        return DefinitionWriter.format(definition.query);
+    }
+
+    /**
      * Creates a module from the vocabulary it declares and the functions that carry the members out.
      * @param {string} name The module's name.
      * @param {object} contents What the module declares.
@@ -452,9 +472,10 @@ class Domql {
     }
 }
 
-/** DOMQL: makes query objects, registers the modules that extend the vocabulary, and says which build it is and which specification it follows. */
+/** DOMQL: makes query objects, formats requests, registers the modules that extend the vocabulary, and says which build it is and which specification it follows. */
 export const domql = Object.freeze({
     query: (source, bindings) => Domql.query(source, bindings),
+    format: source => Domql.format(source),
     createModule: (name, contents, functions) => Domql.createModule(name, contents, functions),
     registerModule: module => Domql.registerModule(module),
     info: Object.freeze({ version: LIBRARY_VERSION, specificationVersion: Specification.version }),
