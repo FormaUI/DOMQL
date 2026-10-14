@@ -425,9 +425,9 @@ class Domql {
         return resolvedDefinition;
     }
 
-    /** Refuses a path that does not fit the type of the query's result. */
+    /** Refuses a path that does not fit the type of the query's result, finding where the request stands only when it does. */
     static #typeAt(query, resolvedDefinition, path) {
-        return ResultPath.typeAt(resolvedDefinition.type, path, Domql.#moduleRegistry, Domql.#locationOf(query));
+        return ResultPath.typeAt(resolvedDefinition.type, path, Domql.#moduleRegistry, () => Domql.#locationOf(query));
     }
 
     /** Where the request stands, for a failure that belongs to the whole of it. */

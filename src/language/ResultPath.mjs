@@ -23,9 +23,9 @@ export class ResultPath {
      * @param {Type} resultType The result's type.
      * @param {(string | number)[]} path
      * @param {import('./vocabulary/ModuleRegistry.mjs').ModuleRegistry} moduleRegistry Where a structured type's fields are declared.
-     * @param {object} location Where a path that does not fit the result is refused.
+     * @param {() => object} locationOf Where a path that does not fit the result is refused, found only when one is.
      */
-    static typeAt(resultType, path, moduleRegistry, location) {
+    static typeAt(resultType, path, moduleRegistry, locationOf) {
         let type = resultType;
         let isNullable = false;
 
@@ -38,7 +38,7 @@ export class ResultPath {
 
             if (typeof item === 'number') {
                 if (type.kind !== 'list') {
-                    throw DomqlError.validation(`The path indexes ${type.toNonNullable()}, which is no list`, location);
+                    throw DomqlError.validation(`The path indexes ${type.toNonNullable()}, which is no list`, locationOf());
                 }
 
                 // An index out of range gives null.
@@ -50,7 +50,7 @@ export class ResultPath {
             const fieldType = ResultPath.#fieldTypeOf(type, item, moduleRegistry);
 
             if (fieldType === null) {
-                throw DomqlError.validation(`The path names '${item}', which ${type.toNonNullable()} does not hold`, location);
+                throw DomqlError.validation(`The path names '${item}', which ${type.toNonNullable()} does not hold`, locationOf());
             }
 
             type = fieldType;
