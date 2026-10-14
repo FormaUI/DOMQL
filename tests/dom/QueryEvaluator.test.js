@@ -111,7 +111,7 @@ describe('QueryEvaluator', () => {
     });
 
     describe('null', () => {
-        it('answers null from the first null on', () => {
+        it('answers null from the first null an optional access meets on', () => {
             const detached = document.createElement('div');
 
             expect(read('@detached.parent?.size', { detached })).toBeNull();

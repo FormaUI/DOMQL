@@ -28,7 +28,7 @@ describe('LanguageResolver', () => {
             expect(resolve('@window.size').type.toString()).toBe('size');
         });
 
-        it('types a field of a structured type, nullable after a nullable receiver', () => {
+        it('types a field of a structured type read through an optional access, nullable where its receiver can be null', () => {
             expect(resolve('@panel.size?.width').type.toString()).toBe('number?');
         });
 
@@ -171,7 +171,7 @@ describe('LanguageResolver', () => {
             expect(failure('@panel.children.size').message).toContain('not available on list<element>');
         });
 
-        it('resolves a property after null whatever its name, and a call by its name and form, of the result its declarations share made nullable', () => {
+        it('resolves an optional access of null whatever its name, and an optional call by its name and form, of the result its declarations share made nullable', () => {
             expect(resolve('null?.size').type.toString()).toBe('size?');
             expect(resolve('null?.sise').type.toString()).toBe('null');
             expect(failure('null?.sise()').message).toContain('no member of the vocabulary');
@@ -224,6 +224,7 @@ describe('LanguageResolver', () => {
         });
 
         it('types an optional chain nullable where an optional access of it can meet null, and as its chain otherwise', () => {
+            expect(resolve('@panel.parent?.size').type.toString()).toBe('size?');
             expect(resolve('@panel.parent?.children.count').type.toString()).toBe('number?');
             expect(resolve('@panel?.children.count').type.toString()).toBe('number');
             expect(resolve('@panel.parent?.rect?.width').type.toString()).toBe('number?');
@@ -265,11 +266,6 @@ describe('LanguageResolver', () => {
         it('makes a call answer null for a written null on a propagating parameter', () => {
             expect(resolve('@window matchesMedia "(min-width: 1px)"').type.toString()).toBe('boolean');
             expect(resolve('@window matchesMedia null').type.toString()).toBe('boolean?');
-        });
-
-        it('makes a call on a nullable receiver nullable', () => {
-            expect(resolve('@panel.parent?.size').type.toString()).toBe('size?');
-            expect(resolve('@panel.parent?.children.count').type.toString()).toBe('number?');
         });
 
         it('lets an aggregate expression produce null per item', () => {

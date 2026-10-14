@@ -1301,7 +1301,7 @@ describe('domql receivers of unknown type', () => {
         panel = document.getElementById('panel');
     });
 
-    it('answer null for a member of a null binding, of the result its declarations share made nullable', () => {
+    it('answer null for an optional access of a null binding, of the result its declarations share made nullable', () => {
         expect(isolated.query('@panel?.size', { panel: null }).evaluate()).toBeNull();
         expect(isolated.query('@panel?.size', { panel: null }).resolve().type.toString()).toBe('size?');
         expect(isolated.query('@panel?.children.count', { panel: null }).resolve().type.toString()).toBe('number?');
