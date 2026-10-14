@@ -1,6 +1,6 @@
 # DOMQL Implementation Plan
 
-This plan records the steps that take DOMQL from what is built to what the [specification](domql-specification.md) and the [design](domql-design.md) describe, the decisions that shape them, the state of each step, and where the work departs from the design. The design is authoritative; this plan changes with the work and is retired when every step is done.
+This plan records the steps that take DOMQL from what is built to what the [specification](domql-specification.md) and the [design](domql-design.md) describe, the decisions that shape them, the state of each step, and where the work departs from the design. The specification is authoritative for the language, and the design for the runtime and its API; this plan changes with the work and is retired when every step is done.
 
 ## Built
 
@@ -19,7 +19,7 @@ Each item is what exists and what checks it.
 - **Change sets.** The JSON Patch change sets that bring live state up to date, computed between snapshots; lists projected from elements change by element, through identities kept beside the result. Checked by the tests of computing change sets and of applying them in place, each against expected patches and results and together, and of watches that keep live state.
 - **The package.** The bundle, exporting `domql` and `DomqlError` and answering the package's version, with its TypeScript declarations checked against `domql` and against a TypeScript caller; the READMEs' examples run as tests.
 
-What is not built: editor tooling and the C# half.
+What is not built: D13's navigation, absence and tests, editor tooling and the C# half.
 
 ## Decisions
 
@@ -32,23 +32,223 @@ Each decision is open until its state says otherwise, and a step that needs it d
 - **D3. The public API of a watch and an event listener.** Done, built by steps 3 to 5 and 7.
 - **D4. What DOMQL owns and what a host owns.** Accepted, and stated by the design.
 - **D5. The API of actions and behaviors.** Done, built by step 6.
-- **D6. Predicate expressions and parenthesized arguments.** Done; D10 replaces its predicate names combined under one verb, which step 11 removed, and its phrases, which step 10 removed.
+- **D6. Predicate expressions and parenthesized arguments.** Done; D10 replaces its predicate names combined under one verb, which step 11 removed, and its phrases, which step 10 removed, and D13 retires its predicate expressions.
 - **D7. One camelCase name for every member.** Done.
 - **D8. How a caller holds live state.** Done, built by step 7.
 - **D9. The fluent builder.** Done, built by step 8; D12 retires it, and step 10 removed it.
-- **D10. Expressions, receivers and calls.** Done, built by steps 10 to 12.
+- **D10. Expressions, receivers and calls.** Done, built by steps 10 to 12; D13 replaces its three-valued `and` and `or`.
 - **D11. Local values.** Done, built by step 12.
 - **D12. The API.** Done, built by steps 13 and 16.
 
 ### Open
 
-- **Negation.** How a query negates a Boolean, which no construct does yet.
 - **A behavior that waits.** A behavior that needs to wait before it is in effect would be applied by an `applyAsync` of its own; it is a possibility for later, no part of D12's API, and decided when one is needed.
 - **The event sources a behavior offers.** The specification subscribes to them as subscriptions of their own; how a behavior offers one is decided once a behavior that offers one exists.
-- **Members across shadow boundaries.** `host`, `shadowRoot` for an open root, and `assignedElements` for a slot are the candidates. Deciding them settles whether `host` applies to any element inside a shadow tree or only to a root, how a shadow root is typed, and whether `assignedElements` gives flattened assignments. A flat-tree parent waits until its uses and its meaning are clear.
+- **A flat-tree parent.** A parent across slots, beside the tree's own `parent` and `root` that D13 decides, waits until its uses and its meaning are clear.
 - **Saying which declaration a value means.** Where a null receiver or an empty list fits declarations that the specification refuses as ambiguous, a caller has no way to say which it means. A way is designed for the first case that needs one, from that case.
 - **Ranges of a list, and rebinding a watch.** A `slice` of a list, a general operation whose indexing, bounds and observation would be specified with it, and updating a running watch's bindings, which would settle whether bindings replace the set, what a failed resolution leaves running, how an update meets an evaluation in progress and which observations and live state survive, are two decisions, each made when a query needs it; a window the viewport decides waits for a need and a measured gain.
 - **Incremental evaluation.** Explore incremental evaluation for attribute projections over child elements, including dependency invalidation, retained evaluation state, and fallback to full evaluation. The open question is whether the evaluations that remain valid after a change can be determined reliably: locals, branches and short-circuiting make dependencies conditional, and selectors change membership and order.
+
+### D13. Navigation, absence and tests
+
+Accepted; built by steps 18 to 21, each changing the specification, the design, their examples, the READMEs' and the TypeScript declarations with its code. Access is strict by default and optional where it is written so, a test is an ordinary Boolean member, `is` compares values, and the tree is navigated through nodes as the DOM has them. It supersedes the three-valued `and` and `or`, predicate expressions and `get`, and it decides negation and the members across shadow boundaries, a flat-tree parent apart. Compatibility with the language as built is no constraint.
+
+```
+@panel {
+    width: self.rect?.width ?? 0,
+    hostWidth: (?self.root.host.rect.width),
+    parentWidth: (self.parent as "element")?.rect?.width,
+    pickerItems: @picker.shadow.root?.all("[role=option]").count,
+    editable: not @input.disabled and @input.textEditable,
+    saving: @action is "save",
+    state: @input[@stateName]
+}
+```
+
+#### Nodes and the tree
+
+- **Types.** `node` is a type whose kinds are `element`, `document`, `documentFragment` and `shadowRoot`; a value of a kind fits where a `node` is expected, never the reverse, and a kind's own members need a cast from a `node`. `window` is no node. A node has no data form, as an element has none, so a result never holds one.
+- **Members of every node.** `parent`, a `node?`, is the immediate parent in the DOM tree: a shadow root for its direct children, the light-DOM parent for an element assigned to a slot, and null for a document, a fragment, a shadow root and the topmost element of a detached tree. `root`, a `node`, is the root of its tree: the document, a fragment, a shadow root, or a detached tree's topmost element, never only a containing shadow root. `host`, an `element?`, is a shadow root's host and null for any other node. `children`, `first` and `all` move from elements to every node, selecting within the receiver's own tree.
+- **Members of elements.** `rect`, `closest` and every other element member stay on elements; a direct child of a shadow root reaches the host through `root.host`, and `parent` never crosses a boundary.
+- **Declaring.** A member declared on `node` belongs to every kind, and registration refuses a member of the same name declared on a kind, so no rule overrides one.
+
+#### Shadow trees
+
+`shadow` is an element's view of its shadow relationships, a typed value as an extension's view is, with no data form.
+
+- **`shadow.root`**, a `shadowRoot?`, is the open shadow root the element hosts, and null where it hosts none or a closed one.
+- **`shadow.elements`**, a `list<element>?`, is a slot's assigned elements, flattened: it follows slot assignment through forwarded slots, takes the slot's fallback elements where nothing is assigned, answers elements only, filters nothing by visibility and enters no assigned element's own shadow tree, and a slot with none answers the empty list. It is null for an element that is no slot. Flattening departs from the platform's default deliberately, so a forwarded slot answers the elements it carries rather than the inner slot.
+- **Selectors never pierce a shadow root**, and every crossing is written: `shadow.root` into a tree an element hosts, `root.host` out of the tree an element lives in.
+
+#### Casts
+
+`value as "element"` answers the value, typed as the target, where it is of that type, and null where it is of another or is null; its type is the target made nullable. The target is a quoted type name, fixed when the query is prepared, and for now one of `node` and its kinds; an unknown or unsupported target is a preparation error. A cast from `node` narrows, a cast to the value's own type or from null is allowed, since a binding typed from its value may already be the target or null, and a cast from a non-null type that can never be the target, such as `5 as "element"`, is a preparation error. A cast converts nothing and narrows nothing outside itself.
+
+#### Required and optional access
+
+- **Required.** `.` requires a receiver that cannot be null: `self.rect.width` is a preparation error where `rect` is a `rectangle?`, while `self.rect` alone is valid, since a nullable result is no error. A receiver of unknown type, a binding of null, is nullable, and takes `?.` with any property, as step 16 accepts one.
+- **Optional.** `?.` reads a member, or calls an operation, of a receiver that is not null, and answers null for one that is, skipping the rest of its chain: in `a?.b.c`, a null `a` gives null, and otherwise `.c` requires a `b` that is not null, written `a?.b?.c` where `b` can be. `?.` on a receiver that cannot be null is allowed, for the same reason a cast to its own type is.
+- **Boundaries.** A group ends a chain, so `(a?.b).c` is a required access on a nullable value, a preparation error, and the definition records where every optional chain ends. A local holding an optional chain's value holds a nullable value and no policy.
+- **Optional paths.** `(?path)` makes every access of the path it holds optional, including those after a group within it, such as a cast's, and its closing parenthesis ends that permission: `(?x.y.z)?.a.b` is `(x?.y?.z)?.a.b`. Its path is an initial expression followed by at least one access or call, with grouped casts within it; anything else inside it is a syntax error. Its arguments and the bodies of its object expressions keep their own rules. It is notation: parsing rewrites it to `?.`, the definition has no node for it, and the canonical text spells it with `?.`, so `(?self.parent.rect.width)` formats as `self?.parent?.rect?.width`.
+- **Nothing else is suppressed.** An unknown member, an invalid argument, an unsupported cast, a module breaking its declared contract and an evaluation failure stay errors, inside `?.` and `(?…)` alike; a member declared non-null that answers null breaks its contract.
+
+#### Access by name
+
+`@input["disabled"]` and `@input[@name]` read the property a string literal or a bound parameter names, with `?.[…]` as the optional form, at the precedence of `.`, with its receiver, evaluation and observation. The name is settled when the query is prepared and must be a non-null string naming a property of the receiver, whose declaration gives the type, so `not @input[@name]` is checked as any Boolean is; a resolution is kept for the strings a query's bindings bind, so a name bound anew is resolved anew. With its name settled, a bracket is the access of that name, so a receiver of unknown type takes `?.[@name]` as it takes `?.` with any property: the name must still be a non-null string when the query is prepared, the property is checked once the receiver's type is known, and its type is the one the specification gives such an access, the result type the declarations of that name share, made nullable, or `null` where they share none. It names one property, as `.` does: a dotted name is no chain, an operation is reached through a call, and indexing a list by number stays `at`.
+
+It replaces `get`, which also read dotted chains and operations without arguments, so its uses migrate by what they read, and one loses its dynamic form:
+
+| A `get` that read | Becomes |
+| --- | --- |
+| One property, named by a literal or a binding | A dot or a bracket: `self.rect`, `self[@name]` |
+| A dotted chain written as a literal | The chain written out: `@panel.children.count` |
+| A dotted chain from a binding | Nothing: a name bound is one property's |
+| An operation without arguments | Its call, where its name is known |
+
+#### Absence
+
+`value ?? fallback` answers the value where it is not null, and otherwise evaluates and answers the fallback; false, zero and the empty string are values. Its type is the value's made non-null where the fallback's is, and its operands are of one type as a conditional's branches are. It catches no failure. `??` associates to the right, its left operand is a named operation or anything tighter, and mixing it with `is`, `is not`, `not`, `and` or `or` without a group is a syntax error, so `(@count ?? 0) is 0` and `@count ?? (0 is 0)` each say what they mean, and `@ready and not @busy ?? false` is refused. `??` on a value that cannot be null is allowed.
+
+#### Boolean expressions
+
+`not`, `and`, `or` and a condition take a `boolean`; a `boolean?` is a preparation error, as any other type is, and `??` says what absence means at the operand: `not (self intersects { root: @list } ?? true)`. Null is never false, and no truthiness is applied. `and` stops at false and `or` at true, each operand evaluated at most once, every operand prepared and validated before anything is evaluated, and each answers a `boolean`. `not` is a prefix keyword, right-associative, so `not not @a` negates twice; `and not` and `or not` are compositions, not operators of their own. A conditional's condition is a `boolean`, and the clause it selects is evaluated. `where` keeps its declared policy, leaving out an item whose expression is null, which is separate from whether the item itself is null.
+
+#### Equality
+
+`a is b` compares two values and `a is not b` is its complement, the same as `not (a is b)`, with the same definition, and the canonical text writes `is not`. Each answers a `boolean`, evaluating both operands once, from left to right.
+
+- Strings compare exactly, by code unit; numbers numerically, so `-0 is 0` is true; Booleans by value; nodes by identity.
+- Null equals only null, and a comparison with null is allowed for any type, one that cannot be null included.
+- Two types where neither fits the other, such as `"1" is 1` or an `element` with a `document`, are a preparation error; nothing is converted.
+- Structured values, lists, objects, the window, views and event sources are compared with null alone for now.
+- Equality narrows nothing: after `@target is not null`, an access of `@target` follows its type.
+
+For a nullable Boolean `x`, comparing and negating answer differently for null, and the specification states it:
+
+| Expression | Where `x` is null | Same as |
+| --- | --- | --- |
+| `x is true` | false | `x ?? false` |
+| `x is false` | false | `not (x ?? true)` |
+| `x is not true` | true | `not (x ?? false)` |
+| `x is not false` | true | `x ?? true` |
+
+#### Tests are Boolean members
+
+A test is an ordinary expression that answers a Boolean, `@input.disabled`, `@input matches ":disabled"`, with no verb and no predicate lookup; `is` never selects one, and no quote style does. Each built-in predicate becomes a property, `is "x"` the member `x` and `has "x"` the member `hasX`:
+
+| Predicate | Receiver | Member |
+| --- | --- | --- |
+| `is "attached"`, `is "disabled"`, `is "readOnly"`, `is "textEditable"`, `is "focused"` | An element | `attached`, `disabled`, `readOnly`, `textEditable`, `focused` |
+| `has "children"`, `has "selection"` | An element | `hasChildren`, `hasSelection` |
+| `is "visible"`, `has "focus"` | The document | `visible`, `hasFocus` |
+
+- **Collisions.** `has` prefixes its names because `children` and `selection` are members already; every migrated name is checked against the members of its receiver type, `node`'s included, and registration refuses a collision as it refuses any.
+- **Contracts.** Each member takes its predicate's receiver type, answers a `boolean`, and keeps its row of how it changes and how it reads, so its observation on a receiver that is not null is unchanged; a nullable receiver follows the access rules, `@x?.disabled` being a `boolean?`.
+- **Modules** declare a Boolean member where they declared a predicate; predicate registration, the predicate forms of `is` and `has`, and `has` as a keyword are retired.
+- **By name.** `@input[@stateName]` reads one by a bound name, its receiver the input, so a former `has` predicate is named `"hasSelection"` where it was `"selection"`.
+
+#### Named operations and object expressions
+
+A named operation declares its receiver's null policy as a parameter declares one: it propagates null, accepts it with a meaning of its own, or refuses a nullable receiver when the query is prepared. An optional chain ends before a named operation, which receives its value and applies its policy. An object expression following null is null, and its body sees a current value that is not null; an item of a list that is null answers null at its position. Neither an argument nor an object expression's body inherits the permission of an optional path around it.
+
+#### Precedence and grammar
+
+From the tightest: access, calls and access by name, with `.` and `?.`; `as`, which does not chain and continues a chain only from a group, `(self.parent as "element")?.rect`; a named operation, one to an operation, which ends its chain as D10 decided: its argument is optional and may be a bare name, so in `receiver opA opB` nothing could tell `opB` as `opA`'s argument from an operation on its result, and a second applies to the first's result only from a group, `(receiver opA x) opB y`, while `a attributeOf "x" attributeOf "y"` is a syntax error; `is` and `is not`, which do not chain, so `a is b is c` is a syntax error and `@left attributeOf "name" is @right attributeOf "name"` compares two attributes; `not`; `and`; `or`; and conditionals, around them as now. `??` stands apart, grouped against `is`, `not`, `and` and `or` by the grammar itself.
+
+This is the complete grammar D13 gives the language, in the specification's notation; it replaces the specification's as steps 18 to 21 build it, and is the specification's whole once step 21 is done:
+
+```ebnf
+query            = expression end-of-input
+
+expression       = conditional | coalescing | disjunction
+
+conditional      = "if" condition "then" expression
+                   { "elseif" condition "then" expression }
+                   "else" expression
+
+condition        = coalescing | disjunction
+
+coalescing       = operation "??" ( operation | coalescing )
+
+disjunction      = conjunction { "or" conjunction }
+conjunction      = negation { "and" negation }
+negation         = "not" negation | comparison
+comparison       = operation [ "is" [ "not" ] operation ]
+
+operation        = cast [ separator named-operation ]
+named-operation  = identifier [ separator initial ]
+cast             = value [ "as" string ]
+
+value            = initial { continuation }
+initial          = "self" | parameter | literal | object | identifier
+                 | group | optional-path
+continuation     = access | object
+access           = ( "." | "?." ) ( identifier | call )
+                 | [ "?." ] "[" ( string | parameter ) "]"
+call             = identifier "(" [ expression ] ")"
+
+group            = "(" expression ")"
+
+optional-path    = "(?" path ")"
+path             = path-head access { access }
+path-head        = "self" | parameter | literal | object | identifier
+                 | "(" path-head { access } "as" string ")"
+
+object           = "{" object-content "}"
+object-content   = { local "," } field { "," field } [ "," ]
+local            = "let" identifier ":" expression
+field            = identifier ":" expression
+
+parameter        = "@" identifier
+literal          = string | number | "true" | "false" | "null"
+
+identifier       = name - reserved-word
+name             = letter { letter | digit }
+reserved-word    = "true" | "false" | "null" | keyword
+keyword          = "self" | "is" | "not" | "as" | "and" | "or"
+                 | "if" | "then" | "elseif" | "else" | "let"
+
+number           = [ "-" ] integer [ fraction ] [ exponent ]
+integer          = "0" | nonzero-digit { digit }
+fraction         = "." digit { digit }
+exponent         = ( "e" | "E" ) [ "+" | "-" ] digit { digit }
+
+string           = '"' { string-character | string-escape } '"'
+string-character = ? any character except double quote or backslash ?
+string-escape    = '\' ( '"' | '\' )
+
+letter           = ? ASCII A–Z or a–z ?
+digit            = "0" | nonzero-digit
+nonzero-digit    = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+
+separator        = trivia { trivia }
+trivia           = whitespace | line-comment | block-comment
+whitespace       = ? a character matched by ECMAScript \s ?
+
+line-comment     = "//" { line-character } [ line-feed ]
+line-character   = ? any character except LF ?
+line-feed        = ? LF ?
+
+block-comment    = "/*" block-content "*/"
+block-content    = ? characters up to, but excluding, the first closing */ ?
+
+end-of-input     = ? end of input ?
+```
+
+- **What changes from the grammar built.** The predicate and its verbs are gone, `has` among the keywords; `not`, `??`, `as`, `?.`, brackets and `(?path)` are new; `is` survives as equality alone, and the levels of `and` and `or` take negations rather than operands. The lexical rules are the specification's, unchanged.
+- **Tokens and trivia.** The tokens are names, numbers, strings and the punctuation the rules quote; `?.`, `??` and `(?` are each one token, read by the longest match as every token is, and `[` and `]` are punctuation. Trivia may stand between any two tokens and never inside one, and `separator` requires at least one item of it, so `@input [ @name ]`, `self . rect` and `@input/* note */.disabled` are what they read as, `(?`, `?.` and `??` hold none, and `( ?x.y)` is a syntax error. A name is read whole before it is checked against the reserved words, so `notable`, `isReady` and `asset` are identifiers and a keyword needs no separator to be told from a name, while a named operation keeps its separators, since two identifiers side by side would read as one.
+- **Levels.** `operation` admits an expression with no named operation, a binding, a literal or a group, so `a ?? b ?? c` is `a ?? (b ?? c)`, and no operand of `is`, `not`, `and` or `or` is an ungrouped `??`, nor is an operand of `??` an ungrouped comparison or Boolean expression. `cast` and `comparison` take one at most, so neither chains.
+- **Optional paths.** A path is a head followed by at least one access or call, and a grouped path head has the cast form, a head and its accesses cast, so `(?(self.parent as "element").rect.width)` parses and every access in it, `self.parent`'s included, becomes `?.`; a cast's head may hold no access, `(?(@x as "element").rect)`, since the path's own access follows the group. A call's argument keeps the ordinary expression grammar, groups included, and does not inherit the path's permission.
+- **Deliberate limits.** A call takes no argument or one, and several values travel in an object; brackets accept only a string literal or a bound parameter, whose name must resolve to a non-null string when the query is prepared, and general expressions inside brackets are outside this change; an object expression holds at least one field, so `{}` and an object of locals alone are syntax errors; an optional path holds at least one access; a string takes `\"` and `\\` as its only escapes and may hold a line break.
+- **Parsing and typing.** The grammar decides what parses and preparation what is valid: `@count ?? (0 is 0)` parses and fails preparation for a number `@count`, since `??`'s operands are of one type, while `if @enabled ?? false then "yes" else "no"` parses and is valid for a nullable Boolean `@enabled`.
+
+#### The definition
+
+A `member` or `call` holds `optional: true` for `?.`, and a `member`'s `name` is the name written or a `parameter` node for a bound one, so `@input["disabled"]` and `@input.disabled` are one definition; an `optionalChain` node holds the chain whose optional accesses end at it; a `cast` holds its `type` and its `target`; `not` its `operand`; `equality` its `left` and `right`; `coalescing` its `value` and `fallback`. The `predicate` node is retired. A group and an optional path add no node, and every step that changes the definition's shape raises its version.
+
+#### Observation
+
+`parent` and `root` change with the structure of the tree, which step 17's following of roots and slots observes; `shadow.elements` is observed through `slotchange` and its fallback's structure. A shadow root attached after an evaluation has no notification, so `shadow.root` is partly observable: a watch that accepts partial observation sees it at the next evaluation another change or a refresh causes. Each claim is verified in Chromium before the specification makes it, for reparenting, an ancestor moving, an element detached from the start, forwarded slots and a fallback that changes; a limit found is stated rather than assumed covered.
 
 ## Steps
 
@@ -110,6 +310,38 @@ The query object of D12 for a .NET host: `Domql.Query(text, bindings)` and its o
   - Where the connection is lost with the components that hold its results, the components that replace them start watches of their own; where a connection resumes with the existing components, an update unanswered across the interruption is uncertain, and the adapter recovers as from a timeout.
   - It reports an exception from an application handler without restarting synchronization, since the state was already accepted.
   - Its application of change sets passes a conformance corpus the JavaScript patcher passes too: each case a previous result, a change set and the result they give, the expected results reviewed independently of either applier, moves and escaped paths among them.
+- **State:** not started.
+
+### 18. Required and optional access
+
+Make access strict by default and optional where it is written so, as D13 decides.
+
+- **Needs:** D13.
+- **Done when:** `.` refuses a nullable receiver when the query is prepared; `?.` short-circuits to the end of its chain, a group ending one, and the definition records each boundary; `(?…)` is rewritten to `?.`, with no node of its own, and formats as `?.`; brackets read a property named by a string or a bound parameter, on a receiver of unknown type as `?.` does, and `get` is removed, its uses migrating as D13's table sets out; `??` falls back lazily, associates to the right and is refused ungrouped beside `and`, `or` and the predicate verbs; the specification states each, its grammar and definition among them, and its examples and the READMEs' are written in it, so `self.rect.width` reads `self.rect?.width` where `rect` can be null; text and definition round-trip, `(x.y.z)?.a`, `(?x.y.z)?.a.b` and `(?x.y.z)?.a?.b` among them; a watch acquires and releases the observations of what it evaluates, as an optional receiver turns from null to present and back and as `??` moves between its value and its fallback, and the changes of what it newly evaluates update it.
+- **State:** not started.
+
+### 19. Strict Boolean expressions
+
+Give `not`, `and`, `or` and conditions Boolean operands that cannot be null, as D13 decides.
+
+- **Needs:** step 18, for `??`.
+- **Done when:** `not` negates as a prefix keyword; `and`, `or`, `not` and a condition refuse a `boolean?` and any other type when the query is prepared, on a branch evaluation would skip as well, and answer a `boolean`, `and` and `or` stopping at the operand that decides them; the three-valued table is gone from the specification and the code; `??` is refused ungrouped beside `not`; `where` leaves out an item whose expression is null, as the specification states; examples that relied on a null operand say what absence means with `??`; a watch acquires and releases the observations of a right operand as `and` and `or` start and stop evaluating it, and of a clause as a conditional selects it and leaves it, and the changes of an operand or a clause newly evaluated update it.
+- **State:** not started.
+
+### 20. Nodes, shadow trees and casts
+
+Navigate the tree through nodes, reach shadow trees through an element's `shadow`, and narrow with `as`, as D13 decides.
+
+- **Needs:** step 18, for the nullable `parent` and `shadow.root`.
+- **Done when:** `node` and its kinds are types, with `parent`, `root`, `host`, `children`, `first` and `all` declared on `node` and the element members on elements, a redeclaration on a kind refused; `shadow.root` and `shadow.elements` answer as D13 sets out; `as` casts to `node` and its kinds, refusing an unknown target and one a non-null value can never be; Chromium tests show what `parent`, `root` and `shadow.elements` observe through reparenting, an ancestor moving, an element detached from the start, forwarded slots and a changing fallback, and the specification states it, with `shadow.root` partly observable; examples that read `parent` as an element cast it.
+- **State:** not started.
+
+### 21. Equality and Boolean members
+
+Compare values with `is` and `is not`, and turn predicates into Boolean members, as D13 decides.
+
+- **Needs:** steps 19 and 20, for `not` and the identity of nodes.
+- **Done when:** `is` and `is not` compare as D13 sets out, refusing two types neither fits and comparing nodes by identity, and `is not` has the definition of `not` around `is`; each built-in predicate is the member D13 names, keeping its receiver, how it changes and how it reads; modules declare Boolean members, and predicate registration, the `predicate` node and `has` as a keyword are gone; `is null` is equality with null; the specification states the table of nullable Booleans, and its examples, the READMEs' and the tests use the members and `@input[@name]` for a name that is bound.
 - **State:** not started.
 
 ## Departures from the design
