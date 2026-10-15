@@ -10,6 +10,34 @@ import { QueryEvaluation } from './QueryEvaluation.mjs';
 
 /** @typedef {{ window: Window, document: Document }} Environment */
 
+/**
+ * What an evaluation that observes holds while it runs: where its dependencies are observed, the sessions it acquires and those it leaves for later, and what it has found of the trees its receivers are in.
+ * @typedef {object} ObservationContext
+ * @property {import('./Observations.mjs').Observations} observations The observations of the window the evaluation runs in.
+ * @property {() => void} onChange Called when something the evaluation depends on may have changed.
+ * @property {boolean} holdsAll Whether every observation is held, as a watch holds them, rather than those a pending evaluation waits on alone.
+ * @property {QueryEvaluation[] | null} replaces The evaluations this one replaces, the latest last, or null where it replaces none.
+ * @property {object[] | null} dependencies A record of each call the evaluation depended on, or null where its caller asked for none.
+ * @property {import('./SessionCache.mjs').CachedSession[]} sessions The sessions the evaluation owns, which it disposes unless a later evaluation takes them.
+ * @property {object} owner What stands for the evaluation as the owner of its sessions.
+ * @property {SessionCache} sessionCache The sessions of the watch's evaluations, which this one takes from and adds to.
+ * @property {object[]} unheld The requests it leaves unheld, acquired only where the evaluation turns out pending.
+ * @property {WeakMap<object, object>} rootOf The root of each node found so far.
+ * @property {WeakMap<object, object[]>} rootsOf The roots of each node's flat-tree ancestry found so far.
+ * @property {WeakSet<object>} followedRoots The roots whose structure the evaluation already follows.
+ * @property {WeakSet<object>} followedAttachments The receivers whose attachment the evaluation already follows.
+ * @property {boolean} isPending Whether a maintained member it read is still waiting for its first sample.
+ */
+
+/**
+ * The locals of one application of an object expression: the values of those evaluated so far, inside the frame of the application enclosing it.
+ * @typedef {object} LocalsFrame
+ * @property {object} node The object expression whose locals the frame holds.
+ * @property {unknown} item What the expression is applied to, which its locals are evaluated against.
+ * @property {Map<string, { value: unknown, branches: Map<object, object | string> | null }>} values Each local evaluated so far, by its name, with the selections its evaluation made.
+ * @property {LocalsFrame | null} enclosing The frame of the application enclosing this one, or null for the outermost.
+ */
+
 
 /** The observation of whether an element is attached, which a member that answered null for a detached element depends on. */
 const ATTACHMENT_OBSERVATION = Object.freeze({ type: 'attachment', of: 'receiver' });
@@ -61,10 +89,10 @@ export class QueryEvaluator {
      */
     #branches = null;
 
-    /** The frame of locals of the innermost application of an object expression that has any, with the value of each evaluated so far, inside those of the applications enclosing it; null outside every one. @type {{ node: object, item: unknown, values: Map<string, { value: unknown, branches: Map<object, object | string> | null }>, enclosing: object | null } | null} */
+    /** The frame of locals of the innermost application of an object expression that has any, with the value of each evaluated so far, inside those of the applications enclosing it; null outside every one. @type {LocalsFrame | null} */
     #localsFrame = null;
 
-    /** What the evaluation in progress records, or null where none does. @type {{ observations: import('./Observations.mjs').Observations, onChange: () => void, holdsAll: boolean, replaces: QueryEvaluation[] | null, dependencies: object[] | null, sessions: import('./SessionCache.mjs').CachedSession[], owner: object, sessionCache: SessionCache, unheld: object[], rootOf: WeakMap<object, object>, rootsOf: WeakMap<object, object[]>, followedRoots: WeakSet<object>, followedAttachments: WeakSet<object>, isPending: boolean } | null} */
+    /** What the evaluation in progress records, or null where none does. @type {ObservationContext | null} */
     #recording = null;
 
     /** The identities of the value `#detach` detached last. @type {import('../snapshots/SnapshotPatcher.mjs').Identities} */
