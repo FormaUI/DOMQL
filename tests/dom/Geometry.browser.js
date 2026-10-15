@@ -64,6 +64,20 @@ describe('Geometry in a browser', () => {
             expect(read('@box.rect { left: self.left, top: self.top, width: self.width, height: self.height }', { box })).toEqual({ left: 15, top: 25, width: 100, height: 50 });
         });
 
+        it('are the browser\'s bounding box for an element split across lines, whether or not its lines have an area', () => {
+            for (const markup of ['<span>a span long enough to wrap across several lines of its paragraph</span>', '<span><span></span><br><span></span></span>']) {
+                const paragraph = add('width: 120px');
+
+                paragraph.innerHTML = markup;
+
+                const span = paragraph.firstElementChild;
+                const { left, top, width, height } = span.getBoundingClientRect();
+
+                expect(span.getClientRects().length).toBeGreaterThan(1);
+                expect(read('@span.rect', { span })).toEqual({ left, top, right: left + width, bottom: top + height, width, height });
+            }
+        });
+
         it('give the height an aggregate reads', () => {
             const list = add('');
 

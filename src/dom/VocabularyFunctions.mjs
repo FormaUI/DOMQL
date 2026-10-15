@@ -92,9 +92,22 @@ export class VocabularyFunctions {
         return element.isConnected && element.getClientRects().length > 0;
     }
 
-    /** The element's border box, or null where it has no layout box. */
+    /**
+     * The element's border box, or null where it has no layout box. Its client rects answer both for nearly every element: none where it has no box, and one that is its bounding box
+     * where it is laid out whole; an element split into several, as an inline one across lines, asks the browser for the box that bounds them.
+     */
     static #box(element) {
-        return VocabularyFunctions.#hasBox(element) ? element.getBoundingClientRect() : null;
+        if (!element.isConnected) {
+            return null;
+        }
+
+        const rects = element.getClientRects();
+
+        if (rects.length === 0) {
+            return null;
+        }
+
+        return rects.length === 1 ? rects[0] : element.getBoundingClientRect();
     }
 
     static #rect(element, relativeTo) {
