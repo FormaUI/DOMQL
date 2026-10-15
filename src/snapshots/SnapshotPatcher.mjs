@@ -2,6 +2,8 @@
  * SnapshotPatcher — the change set that takes one result to the next, and applying it in place to the result it was computed against
  */
 
+import { ObjectUtils } from '../common/ObjectUtils.mjs';
+
 /**
  * The elements a result's lists were projected from, following the result's structure: a list projected from elements holds the element of each item, and a part that holds no such list is null.
  * The result never holds them, and neither does a change set; they tell two items apart that project to the same data. A part a conditional gave also holds the branch each conditional selected for it, by the conditional, which tells the comparer whose tolerance applies.
@@ -86,11 +88,11 @@ export class SnapshotPatcher {
             return;
         }
 
-        if (!SnapshotPatcher.#isRecord(parent) || (op === 'replace' && !Object.hasOwn(parent, token))) {
+        if (!ObjectUtils.isNonArrayObject(parent) || (op === 'replace' && !Object.hasOwn(parent, token))) {
             throw new TypeError(`The path names '${token}', which the result does not hold`);
         }
 
-        SnapshotPatcher.#defineDataProperty(parent, token, value);
+        ObjectUtils.defineDataProperty(parent, token, value);
     }
 
     /** Takes the value at the end of the path out of the container that holds it, and returns it. */
@@ -112,7 +114,7 @@ export class SnapshotPatcher {
             return parent.splice(index, 1)[0];
         }
 
-        if (!SnapshotPatcher.#isRecord(parent) || !Object.hasOwn(parent, token)) {
+        if (!ObjectUtils.isNonArrayObject(parent) || !Object.hasOwn(parent, token)) {
             throw new TypeError(`The path names '${token}', which the result does not hold`);
         }
 
@@ -131,13 +133,13 @@ export class SnapshotPatcher {
             return;
         }
 
-        if (SnapshotPatcher.#isRecord(target) && SnapshotPatcher.#isRecord(value)) {
+        if (ObjectUtils.isNonArrayObject(target) && ObjectUtils.isNonArrayObject(value)) {
             for (const name of Object.keys(target)) {
                 delete target[name];
             }
 
             for (const [name, field] of Object.entries(value)) {
-                SnapshotPatcher.#defineDataProperty(target, name, field);
+                ObjectUtils.defineDataProperty(target, name, field);
             }
 
             return;
@@ -146,22 +148,13 @@ export class SnapshotPatcher {
         throw new TypeError('The whole result keeps its kind, a list or an object, in place');
     }
 
-    /** Gives the object a field of its own holding the value, a field named `__proto__` included, as a data object's fields are, so supplied data keeps its keys. */
-    static #defineDataProperty(object, name, value) {
-        if (name === '__proto__') {
-            Object.defineProperty(object, name, { value, writable: true, enumerable: true, configurable: true });
-        } else {
-            object[name] = value;
-        }
-    }
-
     /** The value as mutable data: a copy throughout, which nothing else holds. */
     static #thaw(value) {
         if (Array.isArray(value)) {
             return value.map(item => SnapshotPatcher.#thaw(item));
         }
 
-        if (SnapshotPatcher.#isRecord(value)) {
+        if (ObjectUtils.isNonArrayObject(value)) {
             return Object.fromEntries(Object.entries(value).map(([name, field]) => [name, SnapshotPatcher.#thaw(field)]));
         }
 
@@ -179,7 +172,7 @@ export class SnapshotPatcher {
             return;
         }
 
-        if (SnapshotPatcher.#isRecord(previous) && SnapshotPatcher.#isRecord(next) && SnapshotPatcher.#sameNames(previous, next)) {
+        if (ObjectUtils.isNonArrayObject(previous) && ObjectUtils.isNonArrayObject(next) && SnapshotPatcher.#sameNames(previous, next)) {
             for (const name of Object.keys(next)) {
                 SnapshotPatcher.#compare(previous[name], previousIdentities?.fields?.[name] ?? null, next[name], nextIdentities?.fields?.[name] ?? null, `${path}/${SnapshotPatcher.#escape(name)}`, operations);
             }
@@ -276,7 +269,7 @@ export class SnapshotPatcher {
                 return current[index];
             }
 
-            if (SnapshotPatcher.#isRecord(current) && Object.hasOwn(current, token)) {
+            if (ObjectUtils.isNonArrayObject(current) && Object.hasOwn(current, token)) {
                 return current[token];
             }
 
@@ -309,9 +302,5 @@ export class SnapshotPatcher {
         const names = Object.keys(next);
 
         return names.length === Object.keys(previous).length && names.every(name => Object.hasOwn(previous, name));
-    }
-
-    static #isRecord(value) {
-        return typeof value === 'object' && value !== null && !Array.isArray(value);
     }
 }

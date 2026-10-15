@@ -2,6 +2,8 @@
  * QueryEvaluator — evaluates a resolved request, answering detached data: a query as it reads now, a subscription's projection of each event its source delivers, and an action's result read through the object expression that follows it
  */
 
+import { ArrayUtils } from '../common/ArrayUtils.mjs';
+import { ObjectUtils } from '../common/ObjectUtils.mjs';
 import { DomqlError } from '../language/DomqlError.mjs';
 import { Type } from '../language/Type.mjs';
 import { SessionCache } from './SessionCache.mjs';
@@ -605,12 +607,12 @@ export class QueryEvaluator {
             case 'list': {
                 const checkItem = this.#compileTypeCheck(type.itemType);
 
-                return value => Array.isArray(value) && QueryEvaluator.#findMissingIndex(value) === -1 && value.every(checkItem);
+                return value => Array.isArray(value) && ArrayUtils.findMissingIndex(value) === -1 && value.every(checkItem);
             }
             case 'object': {
                 const fields = [...type.fieldTypes].map(([name, fieldType]) => [name, this.#compileTypeCheck(fieldType)]);
 
-                return value => QueryEvaluator.#isRecord(value) && fields.every(([name, conforms]) => conforms(value[name]));
+                return value => ObjectUtils.isNonArrayObject(value) && fields.every(([name, conforms]) => conforms(value[name]));
             }
             default: {
                 const { name } = type;
@@ -623,7 +625,7 @@ export class QueryEvaluator {
 
                 const fields = QueryEvaluator.#fieldTypesOf(structure).map(([field, fieldType]) => [field, this.#compileTypeCheck(fieldType)]);
 
-                return value => QueryEvaluator.#isRecord(value) && fields.every(([field, conforms]) => conforms(value[field]));
+                return value => ObjectUtils.isNonArrayObject(value) && fields.every(([field, conforms]) => conforms(value[field]));
             }
         }
     }
@@ -1022,9 +1024,9 @@ export class QueryEvaluator {
             case 'typeParameter':
                 return true;
             case 'list':
-                return Array.isArray(value) && QueryEvaluator.#findMissingIndex(value) === -1 && value.every(item => this.#conforms(item, type.itemType));
+                return Array.isArray(value) && ArrayUtils.findMissingIndex(value) === -1 && value.every(item => this.#conforms(item, type.itemType));
             case 'object':
-                return QueryEvaluator.#isRecord(value) && [...type.fieldTypes].every(([name, fieldType]) => this.#conforms(value[name], fieldType));
+                return ObjectUtils.isNonArrayObject(value) && [...type.fieldTypes].every(([name, fieldType]) => this.#conforms(value[name], fieldType));
             default:
                 return this.#conformsNamed(value, type.name);
         }
@@ -1039,7 +1041,7 @@ export class QueryEvaluator {
 
         const structure = this.#moduleRegistry.getType(name);
 
-        return structure !== undefined && QueryEvaluator.#isRecord(value) && QueryEvaluator.#fieldTypesOf(structure).every(([field, type]) => this.#conforms(value[field], type));
+        return structure !== undefined && ObjectUtils.isNonArrayObject(value) && QueryEvaluator.#fieldTypesOf(structure).every(([field, type]) => this.#conforms(value[field], type));
     }
 
     /** Whether the value is of the built-in type the name names, or undefined where the name names a structure a module declares. */
@@ -1096,21 +1098,6 @@ export class QueryEvaluator {
         return fields;
     }
 
-    static #isRecord(value) {
-        return typeof value === 'object' && value !== null && !Array.isArray(value);
-    }
-
-    /** The first index of the list that holds no value, or -1 where every index holds one. */
-    static #findMissingIndex(list) {
-        for (let index = 0; index < list.length; index++) {
-            if (!(index in list)) {
-                return index;
-            }
-        }
-
-        return -1;
-    }
-
     /** What the value is, for a message: nothing, a node, or its data where it has any. */
     static #describe(value) {
         if (value === undefined) {
@@ -1121,7 +1108,7 @@ export class QueryEvaluator {
             return value.nodeType === 1 ? 'an element' : 'a node';
         }
 
-        const hole = Array.isArray(value) ? QueryEvaluator.#findMissingIndex(value) : -1;
+        const hole = Array.isArray(value) ? ArrayUtils.findMissingIndex(value) : -1;
 
         if (hole !== -1) {
             return `a list with a hole at index ${hole}`;
@@ -1172,19 +1159,26 @@ export class QueryEvaluator {
             return Object.freeze(copy);
         }
 
-        if (QueryEvaluator.#isRecord(value)) {
+        if (ObjectUtils.isNonArrayObject(value)) {
             const copy = {};
             const fieldSelections = this.#fieldSelectionsByObject.get(value);
             let fieldIdentities = null;
 
             for (const name of Object.keys(value)) {
-                QueryEvaluator.#defineDataProperty(copy, name, this.#copyResult(value[name]));
+                const field = this.#copyResult(value[name]);
+
+                // A read copies every field of every row, so an ordinary field is assigned here, where the assignment sees only the copies' shapes; sharing the one in `defineDataProperty` with live state's writes made reads measurably slower.
+                if (name === '__proto__') {
+                    ObjectUtils.defineDataProperty(copy, name, field);
+                } else {
+                    copy[name] = field;
+                }
 
                 const identities = QueryEvaluator.#withSelections(this.#copiedIdentities, fieldSelections?.get(name) ?? null);
 
                 if (identities !== null) {
                     fieldIdentities ??= {};
-                    QueryEvaluator.#defineDataProperty(fieldIdentities, name, identities);
+                    ObjectUtils.defineDataProperty(fieldIdentities, name, identities);
                 }
             }
 
@@ -1201,14 +1195,5 @@ export class QueryEvaluator {
     /** The identities of a value with the selections made for it beside them, as their `branches`, or the identities alone where none were made. */
     static #withSelections(identities, selections) {
         return selections === null ? identities : { ...identities, branches: selections };
-    }
-
-    /** Gives the object a field of its own holding the value, a field named `__proto__` included, as a data object's fields are. */
-    static #defineDataProperty(object, name, value) {
-        if (name === '__proto__') {
-            Object.defineProperty(object, name, { value, writable: true, enumerable: true, configurable: true });
-        } else {
-            object[name] = value;
-        }
     }
 }

@@ -2,6 +2,8 @@
  * SnapshotComparer — compares the snapshots of a query's result, so a watch reports one that differs and shares what did not change
  */
 
+import { ObjectUtils } from '../common/ObjectUtils.mjs';
+
 export class SnapshotComparer {
     #resolvedDefinition;
 
@@ -74,7 +76,7 @@ export class SnapshotComparer {
     }
 
     #reconcileFields(node, previous, previousIdentities, next, nextIdentities) {
-        const previousRecord = SnapshotComparer.#isRecord(previous) ? previous : undefined;
+        const previousRecord = ObjectUtils.isNonArrayObject(previous) ? previous : undefined;
         const names = this.#resolvedDefinition.fieldNamesOf(node);
         const isSameShape = previousRecord !== undefined && SnapshotComparer.#hasFieldCount(previousRecord, names.length);
 
@@ -199,7 +201,7 @@ export class SnapshotComparer {
             return SnapshotComparer.#sameItems(previous, items) ? previous : Object.freeze(items);
         }
 
-        if (SnapshotComparer.#isRecord(previous) && SnapshotComparer.#isRecord(next)) {
+        if (ObjectUtils.isNonArrayObject(previous) && ObjectUtils.isNonArrayObject(next)) {
             const fields = Object.fromEntries(Object.entries(next).map(([name, field]) => [name, Object.hasOwn(previous, name) ? SnapshotComparer.#reconcileValue(previous[name], previousIdentities?.fields?.[name] ?? null, field, nextIdentities?.fields?.[name] ?? null, tolerance) : field]));
 
             return SnapshotComparer.#sameFields(previous, fields) ? previous : Object.freeze(fields);
@@ -213,16 +215,12 @@ export class SnapshotComparer {
     }
 
     static #sameFields(previous, fields) {
-        if (!SnapshotComparer.#isRecord(previous)) {
+        if (!ObjectUtils.isNonArrayObject(previous)) {
             return false;
         }
 
         const names = Object.keys(fields);
 
         return names.length === Object.keys(previous).length && names.every(name => fields[name] === previous[name]);
-    }
-
-    static #isRecord(value) {
-        return typeof value === 'object' && value !== null && !Array.isArray(value);
     }
 }

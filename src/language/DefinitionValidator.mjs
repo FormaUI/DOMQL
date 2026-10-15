@@ -2,6 +2,7 @@
  * DefinitionValidator — a definition checked against DOMQL's structure, as its canonical, frozen copy
  */
 
+import { ObjectUtils } from '../common/ObjectUtils.mjs';
 import { DomqlError } from './DomqlError.mjs';
 import { Names } from './Names.mjs';
 import { Specification } from './Specification.mjs';
@@ -66,7 +67,7 @@ export class DefinitionValidator {
     }
 
     #validateNode(node, pointer, currentValueAvailability) {
-        if (!DefinitionValidator.#isObject(node) || !Object.hasOwn(NODE_PROPERTIES, node.kind)) {
+        if (!ObjectUtils.isNonArrayObject(node) || !Object.hasOwn(NODE_PROPERTIES, node.kind)) {
             this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, infixCall, object, optionalChain, equality, conditional, coalescing, not, cast, and or or');
         }
 
@@ -194,7 +195,7 @@ export class DefinitionValidator {
 
     /** Validates a member access, a call or an infix call: its name, its receiver, whether an access or a call is optional, which it is within an optional chain alone, and the one argument a call or an infix call may take, whose current value its declaration decides. */
     #validateMember(node, pointer, currentValueAvailability) {
-        const name = node.kind === 'member' && DefinitionValidator.#isObject(node.name) ? this.#validateNameExpression(node.name, `${pointer}/name`, currentValueAvailability) : node.name;
+        const name = node.kind === 'member' && ObjectUtils.isNonArrayObject(node.name) ? this.#validateNameExpression(node.name, `${pointer}/name`, currentValueAvailability) : node.name;
 
         // A name an access by name's expression gave is checked as that expression; any other is a name, a call's and an infix call's always.
         if (name === node.name) {
@@ -314,7 +315,7 @@ export class DefinitionValidator {
     }
 
     #requireProperties(part, pointer, { properties, required }) {
-        if (!DefinitionValidator.#isObject(part)) {
+        if (!ObjectUtils.isNonArrayObject(part)) {
             this.#fail(pointer, 'This part of a definition is an object');
         }
 
@@ -345,9 +346,5 @@ export class DefinitionValidator {
 
     #fail(pointer, message) {
         throw DomqlError.structure(message, this.#locations?.locate(pointer) ?? { pointer });
-    }
-
-    static #isObject(value) {
-        return typeof value === 'object' && value !== null && !Array.isArray(value);
     }
 }

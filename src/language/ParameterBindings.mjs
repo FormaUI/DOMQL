@@ -2,6 +2,8 @@
  * ParameterBindings — the values a query's parameters are bound to, by name
  */
 
+import { ArrayUtils } from '../common/ArrayUtils.mjs';
+import { ObjectUtils } from '../common/ObjectUtils.mjs';
 import { DomqlError } from './DomqlError.mjs';
 import { Names } from './Names.mjs';
 import { Type } from './Type.mjs';
@@ -18,7 +20,7 @@ export class ParameterBindings {
 
     /** @param {Record<string, unknown>} parameters Each parameter's name and the value it is bound to. */
     constructor(parameters = {}) {
-        if (!ParameterBindings.#isPlainObject(parameters)) {
+        if (!ObjectUtils.isPlainObject(parameters)) {
             throw DomqlError.structure('Bindings are a plain object of names and the values bound to them', {});
         }
 
@@ -127,16 +129,6 @@ export class ParameterBindings {
         return Type.createObjectType(fieldTypes);
     }
 
-    static #isPlainObject(value) {
-        if (typeof value !== 'object' || value === null) {
-            return false;
-        }
-
-        const prototype = Object.getPrototypeOf(value);
-
-        return prototype === Object.prototype || prototype === null;
-    }
-
     /** The kind of node the value is, element, document, documentFragment or shadowRoot, or null where it is none of them. */
     static #nodeKindOf(value) {
         if (typeof Node === 'undefined' || !(value instanceof Node)) {
@@ -163,17 +155,6 @@ export class ParameterBindings {
         return ParameterBindings.#isData(value, ancestors);
     }
 
-    /** Whether the list has a hole, an index that holds no value. */
-    static #hasHole(list) {
-        for (let index = 0; index < list.length; index++) {
-            if (!(index in list)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     static #isData(value, ancestors) {
         if (value === null || typeof value === 'string' || typeof value === 'boolean') {
             return true;
@@ -187,11 +168,11 @@ export class ParameterBindings {
             return false;
         }
 
-        if (!Array.isArray(value) && !ParameterBindings.#isPlainObject(value)) {
+        if (!Array.isArray(value) && !ObjectUtils.isPlainObject(value)) {
             return false;
         }
 
-        if (Array.isArray(value) && ParameterBindings.#hasHole(value)) {
+        if (Array.isArray(value) && ArrayUtils.findMissingIndex(value) !== -1) {
             return false;
         }
 
