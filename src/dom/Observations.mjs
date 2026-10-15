@@ -17,8 +17,9 @@ export class Observations {
     #reportError;
 
     /**
-     * What is observed on each target, by the identity of the request: held while a holder holds it, so an observation outlives neither its sessions nor its target.
-     * @type {WeakMap<object, Map<string, { observation: any, holders: Set<ObservationSession>, observed: Map<string, any>, key: string }>>}
+     * What is observed on each target, by the identity of the request: held while a session holds it, so an observation outlives neither its sessions nor its target.
+     * Its sessions are its one session, as a single watch holds it, a set of them once a second holds it, and null once none does.
+     * @type {WeakMap<object, Map<string, { observation: any, sessions: ObservationSession | Set<ObservationSession> | null, observed: Map<string, any>, key: string }>>}
      */
     #targets = new WeakMap();
 
@@ -33,7 +34,7 @@ export class Observations {
     /**
      * @param {import('../language/vocabulary/ModuleRegistry.mjs').ModuleRegistry} moduleRegistry The vocabulary whose observation types start the observations.
      * @param {{ window: Window, document: Document }} environment The window the observations belong to; observations of two windows never share.
-     * @param {{ reportError?: (error: unknown) => void }} [options] Where a failure of a holder's callback, or of stopping an observation, is reported, by default the window's. A failure of the report itself is dropped, so reporting never interrupts what reports.
+     * @param {{ reportError?: (error: unknown) => void }} [options] Where a failure of a session's callback, or of stopping an observation, is reported, by default the window's. A failure of the report itself is dropped, so reporting never interrupts what reports.
      */
     constructor(moduleRegistry, environment, { reportError } = {}) {
         const report = reportError ?? (error => (environment.window.reportError ? environment.window.reportError(error) : console.error(error)));
@@ -279,14 +280,18 @@ export class Observations {
         let entry = observed.get(key);
 
         if (entry === undefined) {
-            const created = { observation: null, holders: new Set(), observed, key };
+            entry = { observation: null, sessions: null, observed, key };
+            entry.observation = this.#start(type, request, () => {
+                const { sessions } = entry;
 
-            created.observation = this.#start(type, request, () => {
-                for (const holder of [...created.holders]) {
-                    holder.notify();
+                if (sessions instanceof Set) {
+                    for (const session of [...sessions]) {
+                        session.notify();
+                    }
+                } else {
+                    sessions?.notify();
                 }
             });
-            entry = created;
             observed.set(key, entry);
             this.#running.add(entry);
         }
@@ -299,7 +304,13 @@ export class Observations {
             reportError: this.#reportError,
         });
 
-        entry.holders.add(session);
+        if (entry.sessions === null) {
+            entry.sessions = session;
+        } else if (entry.sessions instanceof Set) {
+            entry.sessions.add(session);
+        } else {
+            entry.sessions = new Set([entry.sessions, session]);
+        }
 
         return session;
     }
@@ -307,7 +318,9 @@ export class Observations {
     /** Ends every observation and disposes every session, for a host that is done with the window. */
     dispose() {
         for (const entry of [...this.#running]) {
-            for (const session of [...entry.holders]) {
+            const { sessions } = entry;
+
+            for (const session of sessions instanceof Set ? [...sessions] : [sessions]) {
                 session.dispose();
             }
         }
@@ -415,9 +428,15 @@ export class Observations {
     }
 
     #end(entry, session) {
-        entry.holders.delete(session);
+        if (entry.sessions instanceof Set) {
+            entry.sessions.delete(session);
 
-        if (entry.holders.size > 0) {
+            if (entry.sessions.size > 0) {
+                return;
+            }
+        } else if (entry.sessions === session) {
+            entry.sessions = null;
+        } else {
             return;
         }
 

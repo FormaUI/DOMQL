@@ -140,6 +140,18 @@ describe('Observations', () => {
     });
 
     describe('changes', () => {
+        it('reach the one session of the observation, and nothing once it is disposed', () => {
+            const calls = [];
+            const session = observations.acquire(request('ticks'), () => calls.push('only'));
+
+            record.notifiers[0]();
+            session.dispose();
+            record.notifiers[0]();
+
+            expect(calls).toEqual(['only']);
+            expect(record.stopped).toEqual([0]);
+        });
+
         it('reach every session of the observation, and none that is disposed', () => {
             const calls = [];
             const first = observations.acquire(request('ticks'), () => calls.push('first'));
