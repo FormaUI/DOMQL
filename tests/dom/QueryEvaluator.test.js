@@ -887,6 +887,32 @@ describe('QueryEvaluator evaluation', () => {
 
             expect(changes).toBe(1);
         });
+
+        it('are held once for every call that observes the same, so a change calls the evaluation back once', async () => {
+            const evaluation = evaluate('@panel.children { on: self matches "[data-on]" }', { panel }, [], true);
+            const requests = evaluation.dependencies.flatMap(dependency => dependency.observations);
+
+            expect(evaluation.dependencies.length).toBe(4);
+            expect(new Set(requests).size).toBeLessThan(requests.length);
+
+            rows[1].setAttribute('data-on', '');
+
+            await new Promise(resolve => setTimeout(resolve));
+
+            expect(changes).toBe(1);
+        });
+
+        it('are held once for every call that observes the same while a pending answer waits', async () => {
+            const evaluation = evaluate('@panel.children { on: self matches "[data-on]", level: self.level }', { panel }, [waitingModule()]);
+
+            expect(evaluation.isPending).toBe(true);
+
+            rows[1].setAttribute('data-on', '');
+
+            await new Promise(resolve => setTimeout(resolve));
+
+            expect(changes).toBe(1);
+        });
     });
 
     describe('sessions an evaluation replaces', () => {
@@ -992,17 +1018,17 @@ describe('QueryEvaluator evaluation', () => {
             expect([started, stopped]).toEqual([2, 1]);
         });
 
-        it('are each taken over once where the evaluation reaches one place with one receiver twice', () => {
+        it('are held once, and taken over once, where the evaluation observes the same twice', () => {
             const run = evaluationsOf('@items { p: self.probe() }', { items: [rows[0], rows[0]] }, [probeModule()]);
             const first = run.evaluate([]);
 
-            expect(run.acquired()).toBe(2);
+            expect(run.acquired()).toBe(1);
 
             const second = run.evaluate([first]);
 
             first.dispose();
 
-            expect(run.acquired()).toBe(2);
+            expect(run.acquired()).toBe(1);
             expect([started, stopped]).toEqual([1, 0]);
 
             second.dispose();

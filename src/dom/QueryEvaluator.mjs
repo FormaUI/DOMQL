@@ -4,6 +4,7 @@
 
 import { DomqlError } from '../language/DomqlError.mjs';
 import { Type } from '../language/Type.mjs';
+import { SessionCache } from './SessionCache.mjs';
 import { Observations } from './Observations.mjs';
 import { QueryEvaluation } from './QueryEvaluation.mjs';
 
@@ -59,7 +60,7 @@ export class QueryEvaluator {
     /** The frame of locals of the innermost application of an object expression that has any, with the value of each evaluated so far, inside those of the applications enclosing it; null outside every one. @type {{ node: object, item: unknown, values: Map<string, { value: unknown, branches: Map<object, object> | null }>, enclosing: object | null } | null} */
     #localsFrame = null;
 
-    /** What the evaluation in progress records, or null where none does. @type {{ observations: import('./Observations.mjs').Observations, onChange: () => void, holdsAll: boolean, replaces: QueryEvaluation[] | null, dependencies: object[], sessions: object[], heldSessions: Map<object, Map<unknown, object[]>> | null, unheld: object[], rootOf: WeakMap<object, object>, rootsOf: WeakMap<object, object[]>, followedRoots: WeakSet<object>, followedAttachments: WeakSet<object>, isPending: boolean } | null} */
+    /** What the evaluation in progress records, or null where none does. @type {{ observations: import('./Observations.mjs').Observations, onChange: () => void, holdsAll: boolean, replaces: QueryEvaluation[] | null, dependencies: object[], sessions: object[], sessionCache: SessionCache, unheld: object[], rootOf: WeakMap<object, object>, rootsOf: WeakMap<object, object[]>, followedRoots: WeakSet<object>, followedAttachments: WeakSet<object>, isPending: boolean } | null} */
     #recording = null;
 
     /** The identities of the value `#detach` detached last. @type {import('../snapshots/SnapshotPatcher.mjs').Identities} */
@@ -225,7 +226,7 @@ export class QueryEvaluator {
 
     /** Runs an evaluation that records what it depends on, answering the evaluation; one that waits holds what a pending result waits on, and lets a failure seen through a pending member pass. */
     #record({ observations, onChange, holdsAll, replaces, waits }, produce) {
-        const recording = { observations, onChange, holdsAll, replaces, dependencies: [], sessions: [], heldSessions: replaces === null ? null : new Map(), unheld: [], rootOf: new WeakMap(), rootsOf: new WeakMap(), followedRoots: new WeakSet(), followedAttachments: new WeakSet(), isPending: false };
+        const recording = { observations, onChange, holdsAll, replaces, dependencies: [], sessions: [], sessionCache: new SessionCache(), unheld: [], rootOf: new WeakMap(), rootsOf: new WeakMap(), followedRoots: new WeakSet(), followedAttachments: new WeakSet(), isPending: false };
         let value;
         let identities = null;
         let error = null;
@@ -252,7 +253,7 @@ export class QueryEvaluator {
             }
         }
 
-        return new QueryEvaluation({ value, identities, isPending: recording.isPending, dependencies: recording.dependencies, sessions: recording.sessions, heldSessions: recording.heldSessions, error });
+        return new QueryEvaluation({ value, identities, isPending: recording.isPending, dependencies: recording.dependencies, sessions: recording.sessions, sessionCache: replaces === null ? null : recording.sessionCache, error });
     }
 
     /** The detached result, and the identities of the elements its lists were projected from, which the result itself never holds. */
@@ -754,7 +755,7 @@ export class QueryEvaluator {
                 roots ??= this.#rootsOf(receiver);
 
                 for (let index = 0; index < roots.length; index++) {
-                    const held = this.#holdAt(node, index === 0 ? place : `${place}:${index}`, receiver, observation, args, roots[index]);
+                    const held = this.#holdAt(observation, args, roots[index]);
 
                     if (held !== null) {
                         requests.push(held.request);
@@ -773,7 +774,7 @@ export class QueryEvaluator {
 
             const isOfRoot = observation.of === 'root';
             const target = isOfRoot ? Observations.rootOf(receiver, this.#recording.rootOf) : observations.targetOf(observation, receiver, args);
-            const held = this.#holdAt(node, place, receiver, observation, args, target);
+            const held = this.#holdAt(observation, args, target);
 
             if (held !== null) {
                 requests.push(held.request);
@@ -789,7 +790,7 @@ export class QueryEvaluator {
             if (isOfRoot) {
                 // An observation of its root's structure sees the receiver leave it, so only a detached tree, which moves without a change inside it, needs more.
                 if (QueryEvaluator.#followsItsRoot(observation)) {
-                    this.#followAttachment(receiver, node, target, requests);
+                    this.#followAttachment(receiver, target, requests);
                 } else {
                     roots ??= this.#rootsOf(receiver);
                 }
@@ -797,7 +798,7 @@ export class QueryEvaluator {
         }
 
         if (roots !== null) {
-            this.#followAncestry(receiver, node, roots, requests);
+            this.#followAncestry(receiver, roots, requests);
         }
 
         dependencies.push({ member: declaration.name, pointer: this.#pointerOf(node), observations: requests });
@@ -819,7 +820,7 @@ export class QueryEvaluator {
 
         this.#recording.followedAttachments.add(receiver);
 
-        const held = this.#holdAt(node, 'attachment', receiver, ATTACHMENT_OBSERVATION, NO_ARGUMENTS, receiver);
+        const held = this.#holdAt(ATTACHMENT_OBSERVATION, NO_ARGUMENTS, receiver);
 
         this.#recording.dependencies.push({ member: declaration.name, pointer: this.#pointerOf(node), observations: [held.request] });
     }
@@ -827,11 +828,10 @@ export class QueryEvaluator {
     /**
      * Follows the flat-tree ancestry of a receiver whose roots a call observes, once an evaluation: the structure of each root and the slots assigned in it, so moving the receiver or an ancestor to another tree or slot evaluates again and rebinds what observes its roots; and, for a receiver in a detached tree, whether it is attached, since moving a detached tree changes nothing inside it.
      * @param {unknown} receiver The call's receiver.
-     * @param {object} node The node whose call observes the receiver's roots.
      * @param {object[]} roots The roots of the receiver's ancestry.
      * @param {object[]} requests The requests the call records, which these join.
      */
-    #followAncestry(receiver, node, roots, requests) {
+    #followAncestry(receiver, roots, requests) {
         const { followedRoots } = this.#recording;
 
         // Every receiver leaving a root changes the root's own structure, so each root is followed once an evaluation, whichever receiver is in it.
@@ -843,16 +843,16 @@ export class QueryEvaluator {
             followedRoots.add(root);
             ANCESTRY_OBSERVATIONS.forEach((observation, index) => {
                 if (this.#moduleRegistry.getObservationType(observation.type) !== undefined) {
-                    requests.push(this.#holdAt(node, `ancestry:${index}`, receiver, observation, NO_ARGUMENTS, root).request);
+                    requests.push(this.#holdAt(observation, NO_ARGUMENTS, root).request);
                 }
             });
         });
 
-        this.#followAttachment(receiver, node, roots.at(-1) ?? null, requests);
+        this.#followAttachment(receiver, roots.at(-1) ?? null, requests);
     }
 
     /** Follows whether the receiver is attached, once an evaluation, where the outermost root of its ancestry is the top of a detached tree, which moves without a change inside any root. */
-    #followAttachment(receiver, node, outermost, requests) {
+    #followAttachment(receiver, outermost, requests) {
         const { followedAttachments } = this.#recording;
 
         if (outermost === null || outermost.nodeType === 9 || (outermost.nodeType === 11 && outermost.host !== undefined) || followedAttachments.has(receiver) || this.#moduleRegistry.getObservationType(ATTACHMENT_OBSERVATION.type) === undefined) {
@@ -860,7 +860,7 @@ export class QueryEvaluator {
         }
 
         followedAttachments.add(receiver);
-        requests.push(this.#holdAt(node, 'ancestry:attachment', receiver, ATTACHMENT_OBSERVATION, NO_ARGUMENTS, receiver).request);
+        requests.push(this.#holdAt(ATTACHMENT_OBSERVATION, NO_ARGUMENTS, receiver).request);
     }
 
     /** Whether the observation of a receiver's root sees the receiver leave it: a mutation of the root's children through its subtree. */
@@ -874,85 +874,68 @@ export class QueryEvaluator {
     }
 
     /**
-     * The request the observation resolves to at the target, and its session: the one an evaluation this one replaces holds for it at the place, or a new one; null where the target is null.
+     * The request the observation resolves to at the target, and its session: the one this evaluation already holds for it, the one an evaluation this one replaces holds, or a new one; null where the target is null.
      * @returns {{ request: object, session: import('./ObservationSession.mjs').ObservationSession | null } | null}
      */
-    #holdAt(node, place, receiver, observation, args, target) {
-        const takenOver = this.#takeOver(node, place, receiver, observation, args, target);
+    #holdAt(observation, args, target) {
+        if (target === null || target === undefined) {
+            return null;
+        }
 
-        if (takenOver !== null) {
-            return takenOver;
+        const cachedSession = this.#recording.sessionCache.find(observation, args, target) ?? this.#takeOver(observation, args, target);
+
+        if (cachedSession !== null) {
+            return cachedSession;
         }
 
         const request = this.#recording.observations.resolveAt(observation, { args }, target);
 
-        return request === null ? null : { request, session: this.#hold(request, node, place, receiver) };
+        return { request, session: this.#hold(request, observation) };
     }
 
     /**
      * Holds the observation of the request, answering its session, or leaves it unheld where only a pending evaluation needs it and answers null.
-     * A session of a shared observation is kept where the node's call acquired it, at the observation's place among those the call observes and for its receiver, for a later evaluation to take over.
+     * A shared observation is kept under the observation and its target, held or unheld, for every later call of this evaluation that observes the same and, held, for a later evaluation to take over.
      */
-    #hold(request, node, place, receiver) {
-        const { observations, onChange, holdsAll, sessions, heldSessions, unheld } = this.#recording;
+    #hold(request, observation) {
+        const { observations, onChange, holdsAll, sessions, sessionCache, unheld } = this.#recording;
         const observationType = this.#moduleRegistry.getObservationType(request.type);
+        let session = null;
 
         if (observationType !== undefined && observationType.contract === 'invalidation' && !holdsAll) {
             unheld.push(request);
-
-            return null;
+        } else {
+            session = observations.acquire(request, onChange);
+            sessions.push(session);
         }
 
-        const session = observations.acquire(request, onChange);
-
-        sessions.push(session);
-
-        if (heldSessions !== null && observationType.shared !== false) {
-            this.#keep(node, receiver, { place, request, session, values: Observations.valuesOf(request) });
+        if (observationType.shared !== false) {
+            sessionCache.keep(observation, { request, session, values: Observations.valuesOf(request) });
         }
 
         return session;
     }
 
-    /** The session an evaluation this one replaces holds at the place, where its request is the one the observation resolves to at the target, which becomes this evaluation's own; null where none does. */
-    #takeOver(node, place, receiver, observation, args, target) {
-        const { replaces, sessions } = this.#recording;
+    /** The session an evaluation this one replaces holds whose request is the one the observation resolves to at the target, which becomes this evaluation's own; null where none does. */
+    #takeOver(observation, args, target) {
+        const { replaces, sessions, sessionCache } = this.#recording;
 
         if (replaces === null) {
             return null;
         }
 
         for (const evaluation of replaces) {
-            const held = evaluation.takeOver(node, place, receiver, observation, args, target);
+            const cachedSession = evaluation.takeOver(observation, args, target);
 
-            if (held !== null) {
-                sessions.push(held.session);
-                this.#keep(node, receiver, held);
+            if (cachedSession !== null) {
+                sessions.push(cachedSession.session);
+                sessionCache.keep(observation, cachedSession);
 
-                return held;
+                return cachedSession;
             }
         }
 
         return null;
-    }
-
-    /** Keeps the session where the node's call acquired it, for its receiver, for a later evaluation to take over. */
-    #keep(node, receiver, held) {
-        const byNode = this.#recording.heldSessions;
-        let byReceiver = byNode.get(node);
-
-        if (byReceiver === undefined) {
-            byReceiver = new Map();
-            byNode.set(node, byReceiver);
-        }
-
-        const candidates = byReceiver.get(receiver);
-
-        if (candidates === undefined) {
-            byReceiver.set(receiver, [held]);
-        } else {
-            candidates.push(held);
-        }
     }
 
     /** The member a subscription, an action or a behavior request ends in, and where it stands: the object expressions of a request each follow the one before, and the first follows that member, which an optional chain may hold. */

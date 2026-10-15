@@ -2,24 +2,17 @@
  * QueryEvaluation — one evaluation of a query: its result, what the result depends on, and the sessions that keep those dependencies observed
  */
 
-import { Observations } from './Observations.mjs';
-
 /**
  * What one call of a member depended on: the member, where it stands in the query, and the observations that cover its changes, each resolved against the call.
  * @typedef {{ member: string, pointer: string, observations: { type: string, target: object, arguments: Record<string, any> }[] }} Dependency
- */
-
-/**
- * A session an evaluation holds that a later one may take over: the observation's place among those its call observes, the request it was acquired for, the session, and the values the request was resolved with.
- * @typedef {{ place: number | string, request: { type: string, target: object, arguments: Record<string, any> }, session: import('./ObservationSession.mjs').ObservationSession, values: object }} HeldSession
  */
 
 export class QueryEvaluation {
     #sessions;
     #isDisposed = false;
 
-    /** The sessions a later evaluation may take over, by the node whose call acquired each and then its receiver, or null for an evaluation none replaces. @type {Map<object, Map<unknown, HeldSession[]>> | null} */
-    #heldSessions;
+    /** The sessions a later evaluation may take over, or null for an evaluation none replaces. @type {import('./SessionCache.mjs').SessionCache | null} */
+    #sessionCache;
 
     /** The sessions a later evaluation took over, which are its own from then on. @type {Set<import('./ObservationSession.mjs').ObservationSession>} */
     #takenOver = new Set();
@@ -31,17 +24,17 @@ export class QueryEvaluation {
      * @param {boolean} outcome.isPending Whether a maintained member the result reads is still waiting for its first sample.
      * @param {Dependency[]} outcome.dependencies What the evaluation read, including what it read before it failed.
      * @param {import('./ObservationSession.mjs').ObservationSession[]} outcome.sessions The sessions that hold the dependencies' observations.
-     * @param {Map<object, Map<unknown, HeldSession[]>> | null} [outcome.heldSessions] The sessions a later evaluation may take over, by node and receiver.
+     * @param {import('./SessionCache.mjs').SessionCache | null} [outcome.sessionCache] The sessions a later evaluation may take over.
      * @param {Error | null} outcome.error The failure that ended the evaluation, or null.
      */
-    constructor({ value, identities = null, isPending, dependencies, sessions, heldSessions = null, error }) {
+    constructor({ value, identities = null, isPending, dependencies, sessions, sessionCache = null, error }) {
         this.value = value;
         this.identities = identities;
         this.isPending = isPending;
         this.dependencies = Object.freeze(dependencies);
         this.error = error;
         this.#sessions = sessions;
-        this.#heldSessions = heldSessions;
+        this.#sessionCache = sessionCache;
     }
 
     /** Whether the evaluation has let go of its observations. */
@@ -50,29 +43,20 @@ export class QueryEvaluation {
     }
 
     /**
-     * The session it holds for the observation at the place among those the node's call observes, for the receiver, whose request is still the one the observation resolves to at the target and which is not disposed; it becomes the later evaluation's own. Null where it holds none.
-     * @param {object} node The node whose call observes.
-     * @param {number | string} place The observation's place among those the call observes.
-     * @param {unknown} receiver The call's receiver.
-     * @param {object} observation The observation the call's declaration names.
+     * The session it holds whose request the observation resolves to at the target with the arguments, and which is not disposed; it becomes the later evaluation's own. Null where it holds none.
+     * @param {object} observation The observation a declaration names.
      * @param {Record<string, unknown>} args The call's arguments by parameter name.
-     * @param {object | null} target What the observation would observe now.
-     * @returns {HeldSession | null}
+     * @param {object} target What the observation would observe now.
+     * @returns {import('./SessionCache.mjs').CachedSession | null}
      */
-    takeOver(node, place, receiver, observation, args, target) {
-        const candidates = this.#isDisposed ? undefined : this.#heldSessions?.get(node)?.get(receiver);
+    takeOver(observation, args, target) {
+        const cachedSession = this.#isDisposed ? null : this.#sessionCache?.find(observation, args, target, this.#takenOver) ?? null;
 
-        if (candidates !== undefined) {
-            for (const held of candidates) {
-                if (held.place === place && !held.session.isDisposed && !this.#takenOver.has(held.session) && Observations.resolvesAt(observation, args, target, held.values)) {
-                    this.#takenOver.add(held.session);
-
-                    return held;
-                }
-            }
+        if (cachedSession !== null) {
+            this.#takenOver.add(cachedSession.session);
         }
 
-        return null;
+        return cachedSession;
     }
 
     /**
