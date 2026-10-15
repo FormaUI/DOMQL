@@ -9,6 +9,9 @@ import { ObservationSession } from './ObservationSession.mjs';
 const OBSERVATION_PROPERTIES = new Set(['type', 'of']);
 
 export class Observations {
+    /** The names of the arguments each observation a declaration names gives its type, by the observation. @type {WeakMap<object, string[]>} */
+    static #argumentNames = new WeakMap();
+
     #moduleRegistry;
     #environment;
     #reportError;
@@ -207,34 +210,46 @@ export class Observations {
     }
 
     /**
-     * Whether resolving the observation against the call would give the request the values were recorded from: the same type, the same target, and arguments the same by the rules an identity follows, a list item by item and an object by reference, with null and a missing value alike.
+     * What the observation observes for the call: its receiver, its receiver's root, the window, the document, or an argument; a scope of several targets, `roots`, has none of its own.
      * @param {object} observation The observation a declaration names.
-     * @param {{ receiver: unknown, args: Record<string, unknown> }} call The call's receiver and its arguments by parameter name.
-     * @param {{ type: string, target: object, arguments: Record<string, any> }} values The values, as `valuesOf` answers them.
+     * @param {unknown} receiver The call's receiver.
+     * @param {Record<string, unknown>} args The call's arguments by parameter name.
      */
-    resolvesTo(observation, { receiver, args }, values) {
-        return Observations.resolvesAt(observation, { args }, this.#targetOf(observation.of, receiver, args), values);
+    targetOf(observation, receiver, args) {
+        return this.#targetOf(observation.of, receiver, args);
     }
 
     /**
-     * Whether resolving the observation against the call at the target would give the request the values were recorded from, as `resolvesTo` answers at the target the observation names.
+     * Whether resolving the observation against the call at the target would give the request the values were recorded from: the same type, the same target, and arguments the same by the rules an identity follows, a list item by item and an object by reference, with null and a missing value alike.
      * @param {object} observation The observation a declaration names.
-     * @param {{ args: Record<string, unknown> }} call The call's arguments by parameter name.
-     * @param {object} target What the request would observe.
+     * @param {Record<string, unknown>} args The call's arguments by parameter name.
+     * @param {object | null} target What the request would observe.
      * @param {{ type: string, target: object, arguments: Record<string, any> }} values The values, as `valuesOf` answers them.
      */
-    static resolvesAt(observation, { args }, target, values) {
+    static resolvesAt(observation, args, target, values) {
         if (observation.type !== values.type || target !== values.target) {
             return false;
         }
 
-        for (const name in observation) {
-            if (!OBSERVATION_PROPERTIES.has(name) && !Observations.#resolvesValueTo(observation[name], args, values.arguments[name])) {
+        for (const name of Observations.#argumentNamesOf(observation)) {
+            if (!Observations.#resolvesValueTo(observation[name], args, values.arguments[name])) {
                 return false;
             }
         }
 
         return true;
+    }
+
+    /** The names of the arguments the observation gives its type, found once for each observation a declaration names, which is frozen. */
+    static #argumentNamesOf(observation) {
+        let names = Observations.#argumentNames.get(observation);
+
+        if (names === undefined) {
+            names = Object.keys(observation).filter(name => !OBSERVATION_PROPERTIES.has(name));
+            Observations.#argumentNames.set(observation, names);
+        }
+
+        return names;
     }
 
     /**
@@ -337,7 +352,17 @@ export class Observations {
     /** Whether a value an observation declares resolves against the arguments to the recorded value. */
     static #resolvesValueTo(declared, args, recorded) {
         if (Array.isArray(declared)) {
-            return Array.isArray(recorded) && recorded.length === declared.length && declared.every((item, index) => Observations.#resolvesValueTo(item, args, recorded[index]));
+            if (!Array.isArray(recorded) || recorded.length !== declared.length) {
+                return false;
+            }
+
+            for (let index = 0; index < declared.length; index++) {
+                if (!Observations.#resolvesValueTo(declared[index], args, recorded[index])) {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         if (declared !== null && typeof declared === 'object') {

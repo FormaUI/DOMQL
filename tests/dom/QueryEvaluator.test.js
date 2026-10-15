@@ -939,6 +939,22 @@ describe('QueryEvaluator evaluation', () => {
             };
         };
 
+        it('are taken over by every evaluation in turn, each from the one it replaces, so a run of them acquires nothing after the first', () => {
+            const run = evaluationsOf('@panel.children { p: self.probe(), w: self.rect?.width }', { panel }, [probeModule()]);
+            let last = run.evaluate([]);
+            const acquired = run.acquired();
+
+            for (let index = 0; index < 4; index++) {
+                const next = run.evaluate([last]);
+
+                last.dispose();
+                last = next;
+            }
+
+            expect(run.acquired()).toBe(acquired);
+            expect([started, stopped]).toEqual([3, 0]);
+        });
+
         it('are taken over where the evaluation observes the same again, so nothing is acquired or stopped', () => {
             const run = evaluationsOf('@panel.children { p: self.probe() }', { panel }, [probeModule()]);
             const first = run.evaluate([]);

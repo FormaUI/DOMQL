@@ -2,6 +2,8 @@
  * QueryEvaluation — one evaluation of a query: its result, what the result depends on, and the sessions that keep those dependencies observed
  */
 
+import { Observations } from './Observations.mjs';
+
 /**
  * What one call of a member depended on: the member, where it stands in the query, and the observations that cover its changes, each resolved against the call.
  * @typedef {{ member: string, pointer: string, observations: { type: string, target: object, arguments: Record<string, any> }[] }} Dependency
@@ -48,19 +50,21 @@ export class QueryEvaluation {
     }
 
     /**
-     * The session it holds for the observation at the place among those the node's call observes, for the receiver, whose values `accepts` finds still the call's and which is not disposed; it becomes the later evaluation's own. Null where it holds none.
+     * The session it holds for the observation at the place among those the node's call observes, for the receiver, whose request is still the one the observation resolves to at the target and which is not disposed; it becomes the later evaluation's own. Null where it holds none.
      * @param {object} node The node whose call observes.
      * @param {number | string} place The observation's place among those the call observes.
      * @param {unknown} receiver The call's receiver.
-     * @param {(values: object) => boolean} accepts Whether the values the session's request was resolved with are still the call's.
+     * @param {object} observation The observation the call's declaration names.
+     * @param {Record<string, unknown>} args The call's arguments by parameter name.
+     * @param {object | null} target What the observation would observe now.
      * @returns {HeldSession | null}
      */
-    takeOver(node, place, receiver, accepts) {
+    takeOver(node, place, receiver, observation, args, target) {
         const candidates = this.#isDisposed ? undefined : this.#heldSessions?.get(node)?.get(receiver);
 
         if (candidates !== undefined) {
             for (const held of candidates) {
-                if (held.place === place && !held.session.isDisposed && !this.#takenOver.has(held.session) && accepts(held.values)) {
+                if (held.place === place && !held.session.isDisposed && !this.#takenOver.has(held.session) && Observations.resolvesAt(observation, args, target, held.values)) {
                     this.#takenOver.add(held.session);
 
                     return held;
