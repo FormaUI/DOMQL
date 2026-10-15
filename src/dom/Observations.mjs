@@ -12,6 +12,9 @@ export class Observations {
     /** The names of the arguments each observation a declaration names gives its type, by the observation. @type {WeakMap<object, string[]>} */
     static #argumentNames = new WeakMap();
 
+    /** Whether each observation has arguments whose values depend on the call. @type {WeakMap<object, boolean>} */
+    static #dynamicArgumentsCache = new WeakMap();
+
     #moduleRegistry;
     #environment;
     #reportError;
@@ -239,6 +242,27 @@ export class Observations {
         }
 
         return true;
+    }
+
+    /** Whether the observation's argument values depend on the call. */
+    static hasDynamicArguments(observation) {
+        let hasDynamicArguments = Observations.#dynamicArgumentsCache.get(observation);
+
+        if (hasDynamicArguments === undefined) {
+            hasDynamicArguments = Observations.#argumentNamesOf(observation).some(name => Observations.#containsArgumentReference(observation[name]));
+            Observations.#dynamicArgumentsCache.set(observation, hasDynamicArguments);
+        }
+
+        return hasDynamicArguments;
+    }
+
+    /** Whether a declared value contains a reference to a call argument. */
+    static #containsArgumentReference(value) {
+        if (Array.isArray(value)) {
+            return value.some(item => Observations.#containsArgumentReference(item));
+        }
+
+        return value !== null && typeof value === 'object';
     }
 
     /** The names of the arguments the observation gives its type, found once for each observation a declaration names, which is frozen. */

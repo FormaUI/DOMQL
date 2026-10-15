@@ -313,6 +313,14 @@ describe('Observations', () => {
             expect(record.started).toEqual([]);
         });
 
+        it('have arguments that depend on the call only where they name one, in lists too', () => {
+            expect(Observations.hasDynamicArguments(Object.freeze({ type: 'mutation', of: 'root', attributes: true, childList: true }))).toBe(false);
+            expect(Observations.hasDynamicArguments(Object.freeze({ type: 'event', of: 'document', types: Object.freeze(['scroll']) }))).toBe(false);
+            expect(Observations.hasDynamicArguments(Object.freeze({ type: 'mutation', of: 'receiver', attributes: Object.freeze([{ argument: 'name' }]) }))).toBe(true);
+            expect(Observations.hasDynamicArguments(Object.freeze({ type: 'intersection', of: 'receiver', margin: { argument: 'margin' } }))).toBe(true);
+            expect(Observations.hasDynamicArguments(Object.freeze({ type: 'resize', of: { argument: 'element' } }))).toBe(false);
+        });
+
         it('resolve the observations a built-in member names', () => {
             const [declaration] = new ModuleRegistry([Vocabulary.module]).getMembers('attributeOf');
             const requests = declaration.observations.map(observation => observations.resolve(observation, { receiver: target, args: { name: 'id' } }));

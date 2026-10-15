@@ -149,6 +149,7 @@ export class SessionCache {
     static #matches(cachedSession, observation, args, target, owner) {
         const isAvailable = cachedSession.session === null ? cachedSession.owner === owner : !cachedSession.session.isDisposed;
 
-        return isAvailable && Observations.resolvesAt(observation, args, target, cachedSession.values);
+        // The sessions found together are of observations of one content at one target, so one whose argument values do not depend on the call has no other request to compare.
+        return isAvailable && (!Observations.hasDynamicArguments(observation) || Observations.resolvesAt(observation, args, target, cachedSession.values));
     }
 }
