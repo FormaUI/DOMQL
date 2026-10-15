@@ -20,7 +20,7 @@ export class ResolvedDefinition {
      * @param {'query' | 'subscription' | 'action' | 'behavior'} kind The request's kind.
      * @param {import('./Type.mjs').Type} type The type of its result.
      * @param {Map<string, object>} resolutions What each member node, by its JSON Pointer, resolved to.
-     * @param {object[]} usedDeclarations The declarations the request uses, each with the pointer that used it.
+     * @param {object[]} usedDeclarations The declarations the request uses, each with the pointer that used it and the name a message gives it, qualified by the type its declaration is for.
      */
     constructor(definition, kind, type, resolutions, usedDeclarations) {
         this.#definition = definition;
@@ -46,7 +46,7 @@ export class ResolvedDefinition {
         return this.#type;
     }
 
-    /** The declarations the request uses, with where each is used. */
+    /** The declarations the request uses, with where each is used and the name a message gives it. */
     get usedDeclarations() {
         return this.#usedDeclarations;
     }

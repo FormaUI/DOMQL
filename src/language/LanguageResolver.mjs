@@ -169,7 +169,7 @@ export class LanguageResolver {
         }
 
         this.#resolutions.set(pointer, { kind: 'predicate', predicate });
-        this.#usedDeclarations.push({ declaration: { name: `${verb} ${name}`, changes: predicate.changes, reads: predicate.reads, misses: predicate.misses }, pointer });
+        this.#usedDeclarations.push({ declaration: { name: `${verb} ${name}`, changes: predicate.changes, reads: predicate.reads, misses: predicate.misses }, pointer, name: `${verb} "${name}"` });
     }
 
     /** Resolves a conditional: a Boolean condition, and two branches of one type, nullable where either is; the whole is resolved before any of it is evaluated. */
@@ -475,7 +475,7 @@ export class LanguageResolver {
 
         const declared = Type.parse(declaration.result).resolveTypeParameters(resultTypeArguments);
 
-        this.#usedDeclarations.push({ declaration, pointer });
+        this.#usedDeclarations.push({ declaration, pointer, name: LanguageResolver.#qualifiedNameOf(declaration, receiverType) });
         this.#resolutions.set(pointer, { kind: 'member', declaration, receiverType, type: declared, arguments: resolved.arguments, selected: resolved.selected });
 
         const type = receiverType.isNullable || resolved.isNullable ? declared.toNullable() : declared;
@@ -810,13 +810,13 @@ export class LanguageResolver {
         const unobserved = this.#usedDeclarations.filter(use => use.declaration.changes === 'unobserved');
 
         if (unobserved.length > 0) {
-            this.#fail(`A watch cannot follow ${unobserved.map(use => `'${use.declaration.name}'`).join(', ')}, which name no observations`, unobserved[0].pointer);
+            this.#fail(`A watch cannot follow ${unobserved.map(use => `'${use.name}'`).join(', ')}, which name no observations`, unobserved[0].pointer);
         }
 
         const partlyObservableUses = this.#usedDeclarations.filter(use => use.declaration.changes === 'partly-observable');
 
         if (partlyObservableUses.length > 0 && this.#options.acceptPartialObservation !== true) {
-            const missesByName = [...new Map(partlyObservableUses.map(use => [use.declaration.name, use.declaration.misses])).entries()];
+            const missesByName = [...new Map(partlyObservableUses.map(use => [use.name, use.declaration.misses])).entries()];
 
             this.#fail(`A watch over ${missesByName.map(([name, misses]) => `'${name}' (which misses ${misses})`).join(', ')} is refused unless the watch accepts partial observation`, partlyObservableUses[0].pointer);
         }
@@ -906,6 +906,23 @@ export class LanguageResolver {
         }
 
         return type.fieldTypes !== null && [...type.fieldTypes.values()].some(fieldType => LanguageResolver.#holdsTypeParameter(fieldType));
+    }
+
+    /**
+     * The member's name qualified by the type of the declaration the receiver matched, as `node.root` and `shadow.root` are, so two members of one name are told apart; a declaration for any receiver keeps its name alone.
+     * A list or an event source is named by its kind, as `list.count` is.
+     */
+    static #qualifiedNameOf(declaration, receiverType) {
+        const base = receiverType.toNonNullable();
+        const on = [declaration.on].flat().find(text => text !== 'any' && Type.tryMatchType(Type.parse(text), base, new Map()));
+
+        if (on === undefined) {
+            return declaration.name;
+        }
+
+        const type = Type.parse(on);
+
+        return `${type.kind === 'named' ? type.name : type.kind}.${declaration.name}`;
     }
 
     /** Whether the declaration applies to the receiver, recording the arguments of the type parameters its types write. */

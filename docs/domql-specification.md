@@ -479,7 +479,7 @@ Every member declares how its result changes, for a given receiver and arguments
 
 A literal is constant, so a watched object expression can carry one: `@viewport { kind: "viewport", width: self.size?.width }`.
 
-The browser reports no insertion of a detached tree into another detached tree or into a shadow root, even one in the document: nothing in the inserted tree changes, a shadow root's changes reach no observation of the document, and the tree it enters is none a watch observed. `parent`, `root`, `is "attached"` and `shadow.elements` are partly observable for that change alone, and a watch of one sees the tree a receiver entered at the next evaluation another change or a refresh causes, observing that tree from then on. A detached tree inserted into the document, a node moved within or between trees a watch observes, and a detached node another document owns, as a template's content does, inserted into the document are each observed.
+A watch does not see a detached tree inserted into another detached tree or into a shadow root, even one in the document: nothing in the inserted tree changes, a shadow root's changes reach no observation of the document, and only an observation of the tree it enters would report the insertion, a tree no watch can know of beforehand. `parent`, `root`, `is "attached"` and `shadow.elements` are partly observable for that change alone, and a watch of one sees the tree a receiver entered at the next evaluation another change or a refresh causes, observing that tree from then on. A detached tree inserted into the document, a node moved within or between trees a watch observes, and a detached node another document owns, as a template's content does, inserted into the document are each observed.
 
 ## Null
 
@@ -507,7 +507,7 @@ An optional access of null is null and ends its chain, an infix call and a predi
 | A result that would contain a node or an event source | A validation error |
 | A request used as another kind: reading or watching an event source, subscribing to a value, running a query, or reading an action or a behavior | A validation error |
 | An action or a behavior inside a query, an argument or another request's object expression | A validation error |
-| Watching a partly observable member without accepting partial observation | A validation error naming each such member and the changes it misses |
+| Watching a partly observable member without accepting partial observation | A validation error naming each such member by the type its declaration is for, as `shadow.root` and `node.root` are, or a predicate as it is written, and the changes it misses |
 | A member failing unexpectedly while it evaluates | An evaluation error |
 
 A query is validated before any evaluation, as the section on validation sets out. An evaluation error fails the whole result, and the caller receives the error in its place.

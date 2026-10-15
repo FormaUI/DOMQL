@@ -421,6 +421,16 @@ describe('LanguageResolver', () => {
             expect(() => resolve('@panel matches ":hover"', { panel }, { watch: true, acceptPartialObservation: true })).not.toThrow();
         });
 
+        it('names each member it refuses by the type its declaration is for, and a predicate as it is written', () => {
+            const error = failure('{ a: @panel.root.children.count, b: @panel.shadow.root?.children.count, c: @panel is "attached", d: @panel.first("p")?.rect?.width }', { panel }, { watch: true });
+
+            expect(error.message).toContain("'node.root' (which misses a detached tree inserted");
+            expect(error.message).toContain("'shadow.root' (which misses a shadow root attached");
+            expect(error.message).toContain(`'is "attached"' (which misses`);
+            expect(error.message).toContain("'node.first' (which misses pointer state");
+            expect(error.message).toContain("'element.rect' (which misses transforms");
+        });
+
         it('lets a watch follow what is observable', () => {
             expect(() => resolve('@panel.size', { panel }, { watch: true })).not.toThrow();
         });
@@ -523,7 +533,7 @@ describe('LanguageResolver', () => {
         it('count every operand when a watch asks what can be followed', () => {
             const error = failure('@panel is "attached" or @panel is "textEditable"', { panel }, { watch: true });
 
-            expect(error.message).toContain('is textEditable');
+            expect(error.message).toContain('is "textEditable"');
             expect(() => resolve('@panel is "attached" or @panel is "textEditable"', { panel }, { watch: true, acceptPartialObservation: true })).not.toThrow();
         });
 
