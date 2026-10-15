@@ -650,7 +650,7 @@ describe('domql', () => {
             ['an infix call with no separator before its argument', '@panel attributeOf"id"', 1, 19],
             ['an infix call with no separator after its receiver', '@panel.first(".row")attributeOf "id"', 1, 21],
             ['an infix call continued by a dot', '@panel attributeOf "id" .length', 1, 25],
-            ['an infix call followed by an object expression', '@panel eventsOf "click" { x: self.clientX }', 1, 25],
+            ['an infix call followed by an object expression', '@panel on "click" { x: self.clientX }', 1, 19],
             ['an infix call given two arguments', '@panel intersects @container 200', 1, 30],
             ['self named as a field', '@panel { self: self.size }', 1, 10],
             ['self named as a parameter', '@self.size', 1, 2],
@@ -986,16 +986,16 @@ describe('domql evaluates', () => {
     });
 
     describe('a request of another kind', () => {
-        const subscription = () => domql.query('(@panel eventsOf "click") { button: self.button }', { panel });
+        const subscription = () => domql.query('(@panel on "click") { button: self.button }', { panel });
 
         it('is refused with a validation error by the operation that does not carry it out, saying what the request does and the operations it takes', () => {
-            expect(getError(() => subscription().evaluate())).toMatchObject({ kind: 'validation', message: expect.stringContaining("Cannot evaluate '(@panel eventsOf \"click\") { button: self.button }': it listens to events.\nUse subscribe()."), location: { pointer: '/query', line: 1 } });
-            expect(getError(() => subscription().watch())).toMatchObject({ kind: 'validation', message: expect.stringContaining("Cannot watch '(@panel eventsOf \"click\") { button: self.button }': it listens to events.\nUse subscribe().") });
+            expect(getError(() => subscription().evaluate())).toMatchObject({ kind: 'validation', message: expect.stringContaining("Cannot evaluate '(@panel on \"click\") { button: self.button }': it listens to events.\nUse subscribe()."), location: { pointer: '/query', line: 1 } });
+            expect(getError(() => subscription().watch())).toMatchObject({ kind: 'validation', message: expect.stringContaining("Cannot watch '(@panel on \"click\") { button: self.button }': it listens to events.\nUse subscribe().") });
             expect(getError(() => domql.query('@panel.children.count', { panel }).subscribe(() => {}))).toMatchObject({ kind: 'validation', message: expect.stringContaining("Cannot subscribe to '@panel.children.count': it produces a value.\nUse evaluate(), evaluateAsync() or watch().") });
         });
 
         it('is refused by a waiting evaluation, which rejects with the validation error', async () => {
-            await expect(subscription().evaluateAsync()).rejects.toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringContaining("Cannot evaluate '(@panel eventsOf \"click\") { button: self.button }': it listens to events.") }));
+            await expect(subscription().evaluateAsync()).rejects.toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringContaining("Cannot evaluate '(@panel on \"click\") { button: self.button }': it listens to events.") }));
         });
 
         it('is refused after resolution and before anything needs a window', () => {
@@ -1038,7 +1038,7 @@ describe('domql evaluates', () => {
 
             expect(query.resolve({ watch: true })).not.toBe(before);
             expect(domql.query('@panel?.size', { panel: null }).resolve()).not.toBe(before);
-            expect(domql.query('(@panel eventsOf @type) { button: self.button }', { panel, type: 'click' }).resolve()).not.toBe(domql.query('(@panel eventsOf @type) { button: self.button }', { panel, type: 'pointerdown' }).resolve());
+            expect(domql.query('(@panel on @type) { button: self.button }', { panel, type: 'click' }).resolve()).not.toBe(domql.query('(@panel on @type) { button: self.button }', { panel, type: 'pointerdown' }).resolve());
         });
 
         it('is shared by the queries of one definition whose bindings have the same types', () => {
@@ -1183,7 +1183,7 @@ describe('domql modules', () => {
 
             document.body.append(panel);
 
-            const listener = isolated.query('(@panel eventsOf "input") { level: @panel.level }', { panel }).subscribe((_sender, args) => values.push(args.value));
+            const listener = isolated.query('(@panel on "input") { level: @panel.level }', { panel }).subscribe((_sender, args) => values.push(args.value));
 
             panel.dispatchEvent(new window.Event('input'));
             observations[0].deliver(5);
@@ -1280,7 +1280,7 @@ describe('domql instances', () => {
 
         expect(getError(() => domql.query(query))).toMatchObject({ kind: 'structure', message });
         expect(getError(() => domql.query(query, { panel }))).toMatchObject({ kind: 'structure', message });
-        expect(getError(() => domql.query(other.query('(@panel eventsOf "click") { button: self.button }', { panel })))).toMatchObject({ kind: 'structure', message });
+        expect(getError(() => domql.query(other.query('(@panel on "click") { button: self.button }', { panel })))).toMatchObject({ kind: 'structure', message });
     });
 
     it('reuse a query from its definition and a plain object of bindings, resolved against their own vocabulary', () => {
@@ -1750,7 +1750,7 @@ describe('domql receivers of unknown type', () => {
     });
 
     it('keep the request kind of the name, so a subscription of a null binding listens to nothing and is refused an evaluation', () => {
-        const text = '(@panel eventsOf "click") { button: self.button }';
+        const text = '(@panel on "click") { button: self.button }';
         const results = [];
         const listener = isolated.query(text, { panel: null }).subscribe((_sender, args) => results.push(args));
 

@@ -287,7 +287,7 @@ An event subscription turns each event into a record of what happened and the st
 
 ```js
 const activations = domql.query(`
-    (@panel eventsOf "click") {
+    (@panel on "click") {
         let item: self.target?.closest("[data-key]"),
 
         key: item attributeOf "data-key",

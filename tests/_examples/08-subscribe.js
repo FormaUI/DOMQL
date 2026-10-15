@@ -1,5 +1,5 @@
 const activations = domql.query(`
-    (@panel eventsOf "click") {
+    (@panel on "click") {
         let item: self.target?.closest("[data-key]"),
 
         key: item attributeOf "data-key",

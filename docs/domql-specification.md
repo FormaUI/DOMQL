@@ -174,7 +174,7 @@ Every parameter of a member is declared as one of two kinds, and the evaluator t
 - A **value argument** is evaluated once, where the call is written, against the same current value as the chain it appears in, so its `self` is that current value. In `@viewport { intersects: self.first(".item") intersects { root: self.parent as "element" } }`, `self.parent` is the viewport's parent, not the item's. At the top level, where there is no current value, a value argument starts with a parameter, a literal or an object expression: `@target intersects { root: @target.parent as "element" }`.
 - An **expression argument** is evaluated by the member against a context the member's signature declares, such as each item of a list, which is its `self`. In `@table.all("tbody tr").max(self.rect?.height)`, `self` is each row. The built-in vocabulary's expression parameters are those of `where`, `max`, `min` and `sum`.
 
-A value argument can be declared **fixed**, where it selects something validation needs before evaluation, such as the event type whose members `eventsOf` offers or the feature `supports` names. A fixed argument is a literal, a bound parameter, or a local whose value is one of them, `@window { let feature: "share", canShare: self supports feature }`, each settled when the query is prepared; any other value, a conditional among them, is a validation error.
+A value argument can be declared **fixed**, where it selects something validation needs before evaluation, such as the event type whose members `on` offers or the feature `supports` names. A fixed argument is a literal, a bound parameter, or a local whose value is one of them, `@window { let feature: "share", canShare: self supports feature }`, each settled when the query is prepared; any other value, a conditional among them, is a validation error.
 
 Because the kind is part of the signature, the evaluator validates every kind before evaluation and records the dependencies of value and expression arguments while it evaluates.
 
@@ -318,7 +318,7 @@ An object expression can name a value once, as a **local**, and use it by its na
 
 Every name in DOMQL is case-sensitive, and nothing normalizes one: `size` and `Size` are different names, and so are `@panel` and `@Panel`. A name is resolved exactly as it is written, and each kind of name is spelled by its own convention:
 
-- **Members** are named in camelCase, properties and operations alike: `size`, `clientSize`, `matchesMedia`, `attributeOf`, `eventsOf`. A member has one name, the same in a text and a definition. `self["clientSize"]` reads that property by the same name.
+- **Members** are named in camelCase, properties and operations alike: `size`, `clientSize`, `matchesMedia`, `attributeOf`, `computedStyleOf`. A member has one name, the same in a text and a definition. `self["clientSize"]` reads that property by the same name.
 - **Field names and bindings** keep the exact spelling their author gave them, so `hasFocus` and `hasfocus` are two fields, and a binding `panel` is not a binding `Panel`.
 - **Strings** are preserved exactly: `kind: "List"` answers `List`. A string is read as a DOMQL name only where it names a member, as an access by name reads one, and it is then read exactly. A value passed to a browser API, such as a selector, an attribute's name or value, or an event type, follows that API's own case rules.
 
@@ -400,7 +400,7 @@ DOMQL converts nothing implicitly: a `number` is not a `boolean`, a `string` is 
 Nullability is part of a type, and null follows the signature.
 
 - **Access requires a receiver that cannot be null, and optional access reads one that can.** `@panel.first(".row").rect` is a validation error, since `first` answers an `element?`, and `@panel.first(".row")?.rect` answers null without invoking `rect` where the panel holds no row; its type is `rectangle?`, since an optional chain is nullable where an optional access of it can meet null. An infix call propagates a null receiver: `@panel.first(".row") attributeOf "id"` answers null where there is no row, and a member written with `?.`, a test among them, answers null for it, so `@panel.first(".row")?.attached` is a `boolean?`.
-- **A null argument follows the parameter.** A parameter is declared either to propagate null, which is the default and makes the call answer null without running, or to accept null with a meaning of its own, as `intersects` accepts a null `root` to mean the window. Preparation never rejects an evaluated argument for being nullable; it rejects a type that cannot match. A fixed argument that names a declaration, the type of `eventsOf` and the feature of `supports`, is different, and so is the name of an access by name: each must resolve to a non-null string during preparation, because a declaration cannot be looked up from null, and an access by name could not determine its result type. A nullable binding is accepted when its value supplies a valid name, and an actual null is a validation error for `@panel[@name]` and `@button eventsOf @name` alike.
+- **A null argument follows the parameter.** A parameter is declared either to propagate null, which is the default and makes the call answer null without running, or to accept null with a meaning of its own, as `intersects` accepts a null `root` to mean the window. Preparation never rejects an evaluated argument for being nullable; it rejects a type that cannot match. A fixed argument that names a declaration, the type of `on` and the feature of `supports`, is different, and so is the name of an access by name: each must resolve to a non-null string during preparation, because a declaration cannot be looked up from null, and an access by name could not determine its result type. A nullable binding is accepted when its value supplies a valid name, and an actual null is a validation error for `@panel[@name]` and `@button on @name` alike.
 - **A written null is an expression that produces null.** `null` as a literal has no special treatment, and the signature and the evaluation rules decide what a call does with it.
 - **Null is unavailable too.** An element is a valid receiver of `selection`; one that is no text input answers null, as an unavailable value does. A receiver of the wrong type, a number for `rect`, is a validation error, and a module that returns a value of a type other than the one it declared has broken its contract, which is an evaluation error and never a quiet null.
 
@@ -458,7 +458,7 @@ Evaluating or watching a query never performs an action or configures a behavior
 A chain that ends in an event source is subscribed to, in two stages. The source hands each event to the evaluator, which evaluates the object expression following it at once, in the task the source delivers it in, with that event as its current value. The result is immutable data, and that result, never the browser's live event object or the object expression still to evaluate, is what reaches the caller, by the caller's own delivery. An event in DOMQL is what its source delivers, read through the event data it captured; the browser's own event object is never a value of the language. Here the event source is the built-in vocabulary's native drop event:
 
 ```
-(@zone eventsOf "drop") { key: self.target?.closest("[data-drop-target]") attributeOf "data-drop-key" }
+(@zone on "drop") { key: self.target?.closest("[data-drop-target]") attributeOf "data-drop-key" }
 ```
 
 The object expression reads the event's own members, such as its target, and anything else a parameter reaches. Its members are read once per event, never watched, so an unobserved member is allowed in it. An event source documents its members, which of them it captured when the event happened, and when it delivers the event, such as before or after the browser carries out the action it reports; everything else it reads is read as it is evaluated. An extension's event source can report only what its caller started, so two callers subscribed on one element each hear their own.
@@ -598,7 +598,7 @@ An event source delivers things that happened. It is subscribed to, never read o
 
 | Available on | Source | Type | Delivers | Reads | Fixed |
 | --- | --- | --- | --- | --- | --- |
-| Element, document, window | `eventsOf type` | `type`: `string` → `event<T>` for the event type `type` names | The native events of that type as they reach it, each with the members its declared event type offers, such as a pointer event's `button`, `clientX` and `clientY`; a type the vocabulary declares no event type for is a validation error | Captured at dispatch | `type` |
+| Element, document, window | `on type` | `type`: `string` → `event<T>` for the event type `type` names | The native events of that type as they reach it, each with the members its declared event type offers, such as a pointer event's `button`, `clientX` and `clientY`; a type the vocabulary declares no event type for is a validation error | Captured at dispatch | `type` |
 
 The built-in event types, and the members each event offers:
 
@@ -609,7 +609,7 @@ The built-in event types, and the members each event offers:
 | `drop` | `dragEvent` | `target`: `element`, `clientX`: `number`, `clientY`: `number` |
 | `focus`, `blur`, `input`, `scroll`, `resize` | `domEvent` | `target`: `element?` |
 
-An event is captured as the members its type declares when it is dispatched. A member the event carries no value of its type for is null where its type is nullable, as `domEvent`'s `target` is for a scroll or a resize that targets the document or the window, and `pointerEvent`'s `pointerType` for a browser that dispatches a click as a mouse event; where its type is not nullable, the capture fails, and the subscription reports it as it reports a failed object expression. `eventsOf` listens passively, so it never delays or prevents what the page does with an event.
+An event is captured as the members its type declares when it is dispatched. A member the event carries no value of its type for is null where its type is nullable, as `domEvent`'s `target` is for a scroll or a resize that targets the document or the window, and `pointerEvent`'s `pointerType` for a browser that dispatches a click as a mouse event; where its type is not nullable, the capture fails, and the subscription reports it as it reports a failed object expression. `on` listens passively, so it never delays or prevents what the page does with an event.
 
 `self.focused` asks whether the element itself is focused, `self matches ":focus-within"` whether focus is anywhere within it, and an extension can offer richer focus semantics under names of its own; they are separate questions with separate names.
 

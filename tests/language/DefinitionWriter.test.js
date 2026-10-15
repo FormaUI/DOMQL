@@ -55,7 +55,7 @@ describe('DefinitionWriter', () => {
         '@panel.hasChildren',
         '@window { ratio: self.devicePixelRatio, visible: @document.visible }',
         '@panel.closest(".row") attributeOf "data-key"',
-        '(@panel eventsOf "click") { x: self.clientX }',
+        '(@panel on "click") { x: self.clientX }',
         '(@panel attributeOf "role").length',
         '@panel attributeOf "role" is null',
         '@sentinel intersects',
@@ -180,7 +180,7 @@ describe('DefinitionWriter', () => {
             '@panel { size: self.size, rows: self.children { key: self attributeOf "data-key", open: self matches ".open" } }',
             'if @a then { x: 1, y: 2 } elseif @b then (if @c then 3 else 4) else @d { z: self.size }',
             '@panel { let items: self.children, count: items.count, first: items.at(0) { key: self attributeOf "data-key" } }',
-            '(@panel eventsOf "click") { x: self.clientX, inside: self.target?.closest(".row") is null }',
+            '(@panel on "click") { x: self.clientX, inside: self.target?.closest(".row") is null }',
             '@panel.children.where(self.attached and (self.hasChildren or self matches ".x")).max(self.size?.width)',
             '@panel attributeOf "line\nbreak and \\"quote\\""',
         ])('gives text that formats to itself, and parses back to the same definition: %s', text => {

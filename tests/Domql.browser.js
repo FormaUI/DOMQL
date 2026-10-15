@@ -192,7 +192,7 @@ describe('domql evaluateAsync in a browser', () => {
             it('delivers the projection of a click, with what the event carried', () => {
                 const results = [];
 
-                listeners.push(domql.query('(@panel eventsOf "click") { id: self.target attributeOf "id", button: self.button, height: self.target?.size?.height }', { panel }).subscribe((sender, args) => results.push(args.value)));
+                listeners.push(domql.query('(@panel on "click") { id: self.target attributeOf "id", button: self.button, height: self.target?.size?.height }', { panel }).subscribe((sender, args) => results.push(args.value)));
                 inside.click();
 
                 expect(results).toEqual([{ id: 'inside', button: 0, height: 40 }]);
@@ -201,7 +201,7 @@ describe('domql evaluateAsync in a browser', () => {
             it('answers null for a member the browser has not reported yet, and its sample at a later event', async () => {
                 const results = [];
 
-                listeners.push(domql.query('(@panel eventsOf "click") { near: @item intersects { root: @panel } }', { panel, item: outside }).subscribe((sender, args) => results.push(args.value)));
+                listeners.push(domql.query('(@panel on "click") { near: @item intersects { root: @panel } }', { panel, item: outside }).subscribe((sender, args) => results.push(args.value)));
 
                 panel.click();
                 await frame();

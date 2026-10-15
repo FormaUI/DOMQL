@@ -1204,7 +1204,7 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('captures a native event with its target, and null for a target that is no element', () => {
-            const { capture } = evaluatorOf('(@document eventsOf "scroll") { id: self.target attributeOf "id" }').resolveSource();
+            const { capture } = evaluatorOf('(@document on "scroll") { id: self.target attributeOf "id" }').resolveSource();
 
             expect(capture(new window.Event('scroll'))).toEqual({ target: null });
             expect(capture({ target: panel })).toEqual({ target: panel });
@@ -1223,7 +1223,7 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('reads what it captured, and the document as it is', () => {
-            const evaluator = evaluatorOf('(@document eventsOf "scroll") { id: self.target attributeOf "id" }');
+            const evaluator = evaluatorOf('(@document on "scroll") { id: self.target attributeOf "id" }');
 
             expect(projectionOf(evaluator, { target: panel }).value).toEqual({ id: 'panel' });
             expect(projectionOf(evaluator, { target: document }).value).toEqual({ id: null });

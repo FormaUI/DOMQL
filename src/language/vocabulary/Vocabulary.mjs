@@ -160,7 +160,7 @@ export class Vocabulary {
                 operation('sum', 'list<T>', 'number', { changes: 'derived', reads: 'derived', parameters: [expressionParameter('number?')] }),
                 operation('where', 'list<T>', 'list<T>', { changes: 'derived', reads: 'derived', parameters: [expressionParameter('boolean?')] }),
 
-                { ...operation('eventsOf', ['element', 'document', 'window'], 'event<@selected>', { form: 'infix', changes: 'constant', reads: 'captured', parameters: [valueParameter('type', 'string', { fixed: true, selects: 'eventType' })] }), kind: 'source' },
+                { ...operation('on', ['element', 'document', 'window'], 'event<@selected>', { form: 'infix', changes: 'constant', reads: 'captured', parameters: [valueParameter('type', 'string', { fixed: true, selects: 'eventType' })] }), kind: 'source' },
             ],
         }, functions);
     }

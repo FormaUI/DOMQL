@@ -182,7 +182,7 @@ An event's object expression is evaluated as the specification defines, and its 
 A maintained member in an event's object expression reads its latest sample, or null while it is pending, never waits for a later one and never revises a result already delivered:
 
 ```
-(@button eventsOf "click") {
+(@button on "click") {
     nearEnd: @sentinel intersects { root: @panel }
 }
 ```
@@ -193,7 +193,7 @@ The subscription holds the sessions its object expressions acquire. After each s
 
 ```js
 const clicks = domql.query(`
-    (@button eventsOf "click") {
+    (@button on "click") {
         panelSize: @panel.size
     }
 `, { button, panel });

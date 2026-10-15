@@ -68,7 +68,7 @@ export class VocabularyFunctions {
             min: (items, { expression }) => VocabularyFunctions.#extreme(items, expression, Math.min),
             sum: (items, { expression }) => VocabularyFunctions.#numbers(items, expression).reduce((total, number) => total + number, 0),
             where: (items, { expression }) => items.filter(item => expression(item) === true),
-            eventsOf: (target, { type }, _environment, deliver) => {
+            on: (target, { type }, _environment, deliver) => {
                 // Listening observes each event as it reaches the target, and a passive listener leaves its course to the page.
                 target.addEventListener(type, deliver, { passive: true });
 
