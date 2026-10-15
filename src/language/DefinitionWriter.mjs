@@ -8,8 +8,8 @@ const PRECEDENCE = { conditional: 0, or: 1, and: 2, predicate: 3, infixCall: 4, 
 /** How tightly a chain binds that no infix call ends and no optional chain holds: a member access, a call, an object expression, `self`, a local, a literal or a parameter. */
 const CHAIN_PRECEDENCE = 6;
 
-/** The nodes that stand as an initial expression, and so as an infix call's argument without parentheses. */
-const INITIAL_EXPRESSION_KINDS = new Set(['self', 'local', 'parameter', 'literal']);
+/** The nodes that stand as an input, and so as an infix call's argument without parentheses. */
+const INPUT_KINDS = new Set(['self', 'local', 'parameter', 'literal']);
 
 /** The indentation of one level of an object expression laid out on lines. */
 const INDENTATION = '    ';
@@ -122,11 +122,11 @@ export class DefinitionWriter {
         return clauses.join(level === null || clauses.length === 2 ? ' ' : `\n${INDENTATION.repeat(level)}`);
     }
 
-    /** The text of an infix call's argument: an initial expression as it is, and anything else in parentheses. */
+    /** The text of an infix call's argument: an input as it is, and anything else in parentheses. */
     static #argument(node, level) {
         const text = DefinitionWriter.#write(node, level);
 
-        return INITIAL_EXPRESSION_KINDS.has(node.kind) || (node.kind === 'object' && node.target === undefined) ? text : `(${text})`;
+        return INPUT_KINDS.has(node.kind) || (node.kind === 'object' && node.target === undefined) ? text : `(${text})`;
     }
 
     /** The text of the node where an expression of at least the given precedence stands: in parentheses where its own precedence is lower. */

@@ -18,8 +18,8 @@ const TOKEN_DESCRIPTIONS = {
 /** The verbs that test a value against predicates. */
 const VERBS = new Set(['is', 'has']);
 
-/** The tokens an initial expression starts with, and so the argument of an infix call. */
-const INITIAL_EXPRESSION_STARTS = new Set(['self', 'parameter', 'literal', 'name', '{', '(']);
+/** The tokens a chain input starts with, and so the argument of an infix call. */
+const CHAIN_INPUT_STARTS = new Set(['self', 'parameter', 'literal', 'name', '{', '(', '(?']);
 
 /** The tokens that, after a space, make the name before them a member written without its receiver, which no local is: an argument. */
 const ARGUMENT_STARTS = new Set(['self', 'parameter', 'literal']);
@@ -108,13 +108,13 @@ export class Parser {
             throw DomqlError.syntax('A conditional that is an operand is enclosed in parentheses: write (if … then … else …)', this.#text, start);
         }
 
-        const value = this.#parseValue();
+        const value = this.#parseEqualityOperand();
 
         return this.#isVerb() ? this.#parsePredicate(value, start) : value;
     }
 
-    /** Reads a value: an initial expression, the member accesses, calls and object expressions that continue it, held by an optional chain where one of its accesses is optional, and the infix call that may end it. */
-    #parseValue() {
+    /** Reads an equality operand: a chain, held by an optional chain where one of its accesses is optional, and the infix call that may end it. */
+    #parseEqualityOperand() {
         const start = this.#token.start;
         const { node, isOptional } = this.#parseChain();
         const value = isOptional ? this.#recordSpan({ kind: 'optionalChain', target: node }, start) : node;
@@ -135,20 +135,10 @@ export class Parser {
         return this.#parseInfixCall(value, start);
     }
 
-    /** Reads a chain: an initial expression and the member accesses, calls and object expressions that continue it, and whether an access of it is optional, which a group within it leaves to its own chain. */
+    /** Reads a chain: a chain input and the access expressions and object expressions that continue it, and whether an access of it is optional, which a group within it leaves to its own chain. */
     #parseChain() {
         const start = this.#token.start;
-
-        // A name that starts a chain is a local, which takes no argument, so one an argument follows is a member written without its receiver.
-        if (this.#token.type === 'name') {
-            const next = this.#tokens[this.#index + 1];
-
-            if (next.type === '(' || (next.spaced && ARGUMENT_STARTS.has(next.type))) {
-                throw DomqlError.syntax(`'${this.#token.value}' follows no receiver: write ${this.#memberForm(this.#token.value)} for a member of the current value`, this.#text, start);
-            }
-        }
-
-        let node = this.#parseInitialExpression();
+        let node = this.#parseChainInput();
         let isOptional = false;
 
         for (;;) {
@@ -161,7 +151,7 @@ export class Parser {
                     throw DomqlError.syntax(`'${this.#token.value}' tests a value and is no member: write '${this.#token.value}' after the value, without a dot`, this.#text, this.#token.start);
                 }
 
-                node = this.#parseAccess(node, start, optional);
+                node = this.#parseAccessExpression(node, start, optional);
                 isOptional ||= optional;
             } else if (this.#token.type === '{') {
                 node = this.#parseObject(node, start);
@@ -171,8 +161,80 @@ export class Parser {
         }
     }
 
-    #parseInitialExpression() {
+    /** Reads a chain input: an input, an expression group, or an optional-access group. */
+    #parseChainInput() {
         const token = this.#token;
+
+        switch (token.type) {
+            case '(': {
+                // An expression group records the expression it holds, which a chain may then continue from.
+                this.#advance();
+                const expression = this.#parseExpression();
+                this.#expect(')');
+
+                return expression;
+            }
+            case '(?':
+                return this.#parseOptionalAccessGroup();
+            default:
+                return this.#parseInput();
+        }
+    }
+
+    /**
+     * Reads an optional-access group: its access chain, a receiver followed by at least one access expression, every access of which is optional, held by the optional chain its closing parenthesis ends.
+     * It is notation for those accesses, so it adds no node of its own.
+     */
+    #parseOptionalAccessGroup() {
+        const start = this.#token.start;
+
+        this.#advance();
+
+        const receiverStart = this.#token.start;
+
+        if (this.#token.type === '(' || this.#token.type === '(?') {
+            throw DomqlError.syntax('The receiver of an optional-access group is `self`, a parameter, a literal, a local or an object expression, as in (?@panel.parent.rect)', this.#text, receiverStart);
+        }
+
+        let node = this.#parseInput();
+        let accesses = 0;
+
+        while (this.#token.type === '.' || this.#token.type === '?.') {
+            this.#advance();
+
+            if (this.#isVerb()) {
+                throw DomqlError.syntax(`'${this.#token.value}' tests a value and is no member: write '${this.#token.value}' after the optional-access group`, this.#text, this.#token.start);
+            }
+
+            node = this.#parseAccessExpression(node, receiverStart, true);
+            accesses++;
+        }
+
+        if (accesses === 0) {
+            throw DomqlError.syntax('An optional-access group holds a receiver and at least one access after it, as (?@panel.parent.rect)', this.#text, this.#token.start);
+        }
+
+        if (this.#token.type !== ')') {
+            throw this.#unexpected("')' closing the optional-access group, which holds accesses and calls alone");
+        }
+
+        this.#advance();
+
+        return this.#recordSpan({ kind: 'optionalChain', target: node }, start);
+    }
+
+    /** Reads an input: a value, `self`, a parameter or a literal; a local; or an object expression. */
+    #parseInput() {
+        const token = this.#token;
+
+        // A name that starts a chain is a local, which takes no argument, so one an argument follows is a member written without its receiver.
+        if (token.type === 'name') {
+            const next = this.#tokens[this.#index + 1];
+
+            if (next.type === '(' || (next.spaced && ARGUMENT_STARTS.has(next.type))) {
+                throw DomqlError.syntax(`'${token.value}' follows no receiver: write ${this.#memberForm(token.value)} for a member of the current value`, this.#text, token.start);
+            }
+        }
 
         switch (token.type) {
             case 'self':
@@ -193,23 +255,20 @@ export class Parser {
                 return this.#recordSpan({ kind: 'local', name: token.value }, token.start);
             case '{':
                 return this.#parseObject(null, token.start);
-            case '(': {
-                // A group records the expression it holds, which a chain may then continue from.
-                this.#advance();
-                const expression = this.#parseExpression();
-                this.#expect(')');
-
-                return expression;
-            }
             default:
                 throw this.#unexpected('a value');
         }
     }
 
-    /** Reads what follows a dot, or the `?.` of an optional access: a member access, or a call where parentheses follow the name. */
-    #parseAccess(target, start, optional) {
+    /** Reads an access expression after its dot, or the `?.` of an optional access: a member access, or a call expression where parentheses follow the name. */
+    #parseAccessExpression(target, start, optional) {
         const name = this.#expect('name').value;
         const access = optional ? { target, name, optional } : { target, name };
+
+        // `(?` is one token, so a call's parenthesis cannot also open the optional-access group that is its argument.
+        if (this.#token.type === '(?' && !this.#token.spaced) {
+            throw DomqlError.syntax(`A call whose argument is an optional-access group writes the group in parentheses of its own: '.${name}((?…))'`, this.#text, this.#token.start);
+        }
 
         if (this.#token.type !== '(') {
             if (this.#token.type === 'literal' || this.#token.type === 'parameter') {
@@ -242,7 +301,7 @@ export class Parser {
         return this.#recordSpan({ kind: 'call', ...access, argument }, start);
     }
 
-    /** Reads an infix call: its name and, after a separator, the initial expression that is its argument; it ends its chain. */
+    /** Reads an infix call: its name and, after a separator, the chain input that is its argument; it ends its chain. */
     #parseInfixCall(target, start) {
         const name = this.#token.value;
 
@@ -255,12 +314,12 @@ export class Parser {
             throw this.#unexpected("',' before the next field");
         }
 
-        if (INITIAL_EXPRESSION_STARTS.has(this.#token.type)) {
+        if (CHAIN_INPUT_STARTS.has(this.#token.type)) {
             if (!this.#token.spaced) {
                 throw DomqlError.syntax(`The argument of '${name}' follows it after a space or a comment`, this.#text, this.#token.start);
             }
 
-            node = { kind: 'infixCall', target, name, argument: this.#parseInitialExpression() };
+            node = { kind: 'infixCall', target, name, argument: this.#parseChainInput() };
         }
 
         this.#recordSpan(node, start);
@@ -310,7 +369,7 @@ export class Parser {
         const token = this.#token;
 
         if ((token.type === 'literal' && typeof token.value === 'string') || token.type === 'parameter') {
-            return this.#parseInitialExpression();
+            return this.#parseInput();
         }
 
         if (token.type === 'literal' && token.value === null) {
@@ -318,7 +377,7 @@ export class Parser {
                 throw DomqlError.syntax(`'${verb}' takes no null; 'is null' tests whether a value is null`, this.#text, token.start);
             }
 
-            return this.#parseInitialExpression();
+            return this.#parseInput();
         }
 
         if (token.type === '(') {

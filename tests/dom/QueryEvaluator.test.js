@@ -135,6 +135,11 @@ describe('QueryEvaluator', () => {
             expect(reads).toEqual([panel]);
         });
 
+        it('answers what an optional-access group reads, and null where a receiver in it is null', () => {
+            expect(read('(?@item.parent.children.count)', { item: items[0] })).toBe(items.length);
+            expect(read('(?@item.parent.children.count)', { item: document.createElement('div') })).toBeNull();
+        });
+
         it('answers null for an attribute the element does not have', () => {
             expect(read('@panel attributeOf "nothing"', { panel })).toBeNull();
         });

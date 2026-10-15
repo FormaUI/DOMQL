@@ -8,88 +8,98 @@ This specification describes the whole language. An implementation may cover par
 
 ## Terms
 
-A **query** is a value expression whose evaluation produces a **result**. An **initial expression** is `self`, a parameter, a local, a literal, an object expression or a group, and a **chain** follows **members** from one, each of the value before it, its **receiver**: a **member access** reads a property, `self.rect`, a **call** invokes an operation with parentheses, `self.closest(".row")`, and an **infix call** writes the member's name after its receiver, `self attributeOf "data-key"`, followed by an optional argument, which may be omitted where the member's declaration permits it. An access or a call written with `.` requires a receiver that cannot be null, and an **optional** one, written with `?.`, reads its receiver where it is not null and ends its chain with null where it is; the chain it ends is an **optional chain**. A member belongs to a **type**, such as an element, a list or a rectangle, and a call or an infix call can take an **argument**. `self` is the **current value**, the value an object expression or an argument is evaluated against. An **object expression** names the **fields** of the **object** it produces, each with a value, and the object's **object type** describes those fields and their types. A **local** names a value in an object expression, written once with `let` and used by its name in the entries after it. A **predicate expression** asks whether a value satisfies a **predicate**, a name the vocabulary registers, with `is` or `has`. A **logical expression** combines Boolean expressions with `and` and `or`, a **conditional** chooses between two values by a Boolean condition, and a **group** is an expression in parentheses. A **parameter** is a name a query reads a value through, such as `@panel`, and a **binding** is the value the caller supplies for it, such as an element. A **vocabulary** is a set of types and their members; the **built-in vocabulary** comes with DOMQL, and an **extension** is a vocabulary registered under a name of its own. An **event source** is a member whose value is a stream of **events**, things that happened, rather than state; an event belongs to an **event type**, such as `click`, and what its source captured of it is its **event data**. An **action** is an operation the browser carries out once, and a **behavior** one that runs on until it is updated or disposed; a **request** is a query, a subscription, an action or a behavior request. A query's **definition** is the JSON document recording its meaning, and every request has one.
+A **query** is a value expression whose evaluation produces a **result**. A **chain input** is `self`, a parameter, a local, a literal, an object expression or a group, and a **chain** follows **members** from one, each of the value before it, its **receiver**: a **member access** reads a property, `self.rect`, a **call** invokes an operation with parentheses, `self.closest(".row")`, and an **infix call** writes the member's name after its receiver, `self attributeOf "data-key"`, followed by an optional argument, which may be omitted where the member's declaration permits it. An access or a call written with `.` requires a receiver that cannot be null, and an **optional** one, written with `?.`, reads its receiver where it is not null and ends its chain with null where it is; the chain it ends is an **optional chain**. A member belongs to a **type**, such as an element, a list or a rectangle, and a call or an infix call can take an **argument**. `self` is the **current value**, the value an object expression or an argument is evaluated against. An **object expression** names the **fields** of the **object** it produces, each with a value, and the object's **object type** describes those fields and their types. A **local** names a value in an object expression, written once with `let` and used by its name in the entries after it. A **predicate expression** asks whether a value satisfies a **predicate**, a name the vocabulary registers, with `is` or `has`. A **logical expression** combines Boolean expressions with `and` and `or`, a **conditional** chooses between two values by a Boolean condition, an **expression group** is an expression in parentheses, and an **optional-access group**, `(? … )`, holds an **access chain**, a receiver and the accesses after it, every one of them optional. A **parameter** is a name a query reads a value through, such as `@panel`, and a **binding** is the value the caller supplies for it, such as an element. A **vocabulary** is a set of types and their members; the **built-in vocabulary** comes with DOMQL, and an **extension** is a vocabulary registered under a name of its own. An **event source** is a member whose value is a stream of **events**, things that happened, rather than state; an event belongs to an **event type**, such as `click`, and what its source captured of it is its **event data**. An **action** is an operation the browser carries out once, and a **behavior** one that runs on until it is updated or disposed; a **request** is a query, a subscription, an action or a behavior request. A query's **definition** is the JSON document recording its meaning, and every request has one.
 
 ## Syntax
 
 In this notation, `[...]` means optional, `{...}` means repetition, `|` separates alternatives, `-` means exclusion, and `? ... ?` describes a special sequence. A name ending in `-term` names the forms a level of `and` and `or` accepts, as `conjunction-term` names what `or` joins; every other name describes a form written or the category a position holds.
 
 ```
-query            = expression end-of-input
+query                     = expression end-of-input
 
-expression       = conditional | logical-term | operand
+expression                = conditional | logical-term | operand
+expression-group          = "(" expression ")"
 
-conditional      = "if" condition "then" expression
-                   { "elseif" condition "then" expression }
-                   "else" expression
+conditional               = "if" condition "then" expression
+                            { "elseif" condition "then" expression }
+                            "else" expression
 
-condition        = logical-term | operand
+condition                 = logical-term | operand
 
-logical-term     = disjunction | conjunction
-disjunction      = conjunction-term "or" conjunction-term
-                   { "or" conjunction-term }
-conjunction-term = conjunction | operand
-conjunction      = operand "and" operand { "and" operand }
+logical-term              = disjunction | conjunction
+disjunction               = conjunction-term "or" conjunction-term
+                            { "or" conjunction-term }
+conjunction-term          = conjunction | operand
+conjunction               = operand "and" operand { "and" operand }
 
-operand          = value [ predicate ]
+operand                   = equality-operand [ predicate ]
 
-value            = initial | chain | operation
-initial          = "self" | parameter | literal | object | group | identifier
-chain            = initial continuation { continuation }
-continuation     = ( "." | "?." ) ( identifier | call ) | object
-operation        = ( initial | chain ) separator infix-call
+equality-operand          = chain | infix-call-expression
+infix-call-expression     = chain separator infix-call
+infix-call                = identifier [ separator chain-input ]
 
-group            = "(" expression ")"
-call             = identifier "(" [ expression ] ")"
-infix-call       = identifier [ separator initial ]
+chain                     = chain-input { access-expression | object }
+chain-input               = input | group
 
-object           = "{" object-content "}"
-object-content   = { local "," } field { "," field } [ "," ]
-local            = "let" identifier ":" expression
-field            = identifier ":" expression
+access-chain              = receiver access-expression { access-expression }
+optional-access-group     = "(?" access-chain ")"
+receiver                  = input
 
-predicate        = "is" ( string | parameter | "null" )
-                 | "has" ( string | parameter )
+input                     = value | object | identifier
+value                     = "self" | parameter | literal
 
-parameter        = "@" identifier
-literal          = string | number | "true" | "false" | "null"
+group                     = expression-group | optional-access-group
 
-identifier       = name - reserved-word
-name             = letter { letter | digit }
-reserved-word    = "true" | "false" | "null" | keyword
-keyword          = "self" | "is" | "has" | "and" | "or"
-                 | "if" | "then" | "elseif" | "else" | "let"
+access-expression         = ( "." | "?." ) ( identifier | call-expression )
+call-expression           = identifier "(" [ expression ] ")"
 
-number           = [ "-" ] integer [ fraction ] [ exponent ]
-integer          = "0" | nonzero-digit { digit }
-fraction         = "." digit { digit }
-exponent         = ( "e" | "E" ) [ "+" | "-" ] digit { digit }
+object                    = "{" object-content "}"
+object-content            = { local "," } field { "," field } [ "," ]
+local                     = "let" identifier ":" expression
+field                     = identifier ":" expression
 
-string           = '"' { string-character | string-escape } '"'
-string-character = ? any character except double quote or backslash ?
-string-escape    = '\' ( '"' | '\' )
+predicate                 = "is" ( string | parameter | "null" )
+                          | "has" ( string | parameter )
 
-letter           = ? ASCII A–Z or a–z ?
-digit            = "0" | nonzero-digit
-nonzero-digit    = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+parameter                 = "@" identifier
+literal                   = string | number | "true" | "false" | "null"
 
-separator        = trivia { trivia }
-trivia           = whitespace | line-comment | block-comment
-whitespace       = ? a character matched by ECMAScript \s ?
+identifier                = name - reserved-word
+name                      = letter { letter | digit }
+reserved-word             = "true" | "false" | "null" | keyword
+keyword                   = "self" | "is" | "has" | "and" | "or"
+                          | "if" | "then" | "elseif" | "else" | "let"
 
-line-comment     = "//" { line-character } [ line-feed ]
-line-character   = ? any character except LF ?
-line-feed        = ? LF ?
+number                    = [ "-" ] integer [ fraction ] [ exponent ]
+integer                   = "0" | nonzero-digit { digit }
+fraction                  = "." digit { digit }
+exponent                  = ( "e" | "E" ) [ "+" | "-" ] digit { digit }
 
-block-comment    = "/*" block-content "*/"
-block-content    = ? characters up to, but excluding, the first closing */ ?
+string                    = '"' { string-character | string-escape } '"'
+string-character          = ? any character except double quote or backslash ?
+string-escape             = '\' ( '"' | '\' )
 
-end-of-input     = ? end of input ?
+letter                    = ? ASCII A–Z or a–z ?
+digit                     = "0" | nonzero-digit
+nonzero-digit             = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+
+separator                 = trivia { trivia }
+trivia                    = whitespace | line-comment | block-comment
+whitespace                = ? a character matched by ECMAScript \s ?
+
+line-comment              = "//" { line-character } [ line-feed ]
+line-character            = ? any character except LF ?
+line-feed                 = ? LF ?
+
+block-comment             = "/*" block-content "*/"
+block-content             = ? characters up to, but excluding, the first closing */ ?
+
+end-of-input              = ? end of input ?
 ```
 
-An identifier is a name that is no reserved word, as `matchesMedia` is; it holds no hyphen, so every identifier is also a JavaScript identifier. No reserved word, a literal's or a keyword, can be used as a name, even where its position would tell it apart, as in `self.null` or `{ null: 1 }`, so one naming rule holds everywhere; the restriction applies equally to text queries and to definitions created directly, wherever a name is declared or supplied: a member, a parameter, a field's or a local's name, and an extension's or a predicate's declaration. A string holding a reserved word stays an ordinary string, so `self attributeOf "null"` reads the attribute named `null`. `document` and `window` name the roots, and no binding can take either. They are ordinary names everywhere else, so `window: @window { size: self.size }` names a field `window`. The tokens are names, numbers, strings and the punctuation the rules quote, `?.` being one token, so `? .` is a syntax error. Trivia, which is whitespace, line breaks included, and comments, may stand between any two tokens and never inside one, and is required where the grammar writes `separator`: between an infix call's receiver and its name, and between its name and its argument, so `self attributeOf"id"` is a syntax error. A parameter is one token, its `@` and its name together, so `@ panel` and `@/* the panel */panel` are syntax errors, as `- 5` is no number. Tokens are read by the longest match, and a reserved word matches a whole name alone, so `isVisible` and `nullable` are identifiers; every match is exact, so `IS` is no keyword. A string takes `\"` and `\\` as its only escapes, and may hold a line break. A block comment does not nest, so the first `*/` closes it, and one never closed is a syntax error. Inside a string, `//` and `/*` are text, so `"https://example.com"` and `"/* */"` read as written.
+An identifier is a name that is no reserved word, as `matchesMedia` is; it holds no hyphen, so every identifier is also a JavaScript identifier. No reserved word, a literal's or a keyword, can be used as a name, even where its position would tell it apart, as in `self.null` or `{ null: 1 }`, so one naming rule holds everywhere; the restriction applies equally to text queries and to definitions created directly, wherever a name is declared or supplied: a member, a parameter, a field's or a local's name, and an extension's or a predicate's declaration. A string holding a reserved word stays an ordinary string, so `self attributeOf "null"` reads the attribute named `null`. `document` and `window` name the roots, and no binding can take either. They are ordinary names everywhere else, so `window: @window { size: self.size }` names a field `window`. The tokens are names, numbers, strings and the punctuation the rules quote, `?.` and `(?` each being one token, so `? .` and `( ?` are syntax errors. Trivia, which is whitespace, line breaks included, and comments, may stand between any two tokens and never inside one, and is required where the grammar writes `separator`: between an infix call's receiver and its name, and between its name and its argument, so `self attributeOf"id"` is a syntax error. A parameter is one token, its `@` and its name together, so `@ panel` and `@/* the panel */panel` are syntax errors, as `- 5` is no number. Tokens are read by the longest match, and a reserved word matches a whole name alone, so `isVisible` and `nullable` are identifiers; every match is exact, so `IS` is no keyword. A string takes `\"` and `\\` as its only escapes, and may hold a line break. A block comment does not nest, so the first `*/` closes it, and one never closed is a syntax error. Inside a string, `//` and `/*` are text, so `"https://example.com"` and `"/* */"` read as written.
 
-Each rule names what is written. A conjunction exists only where `and` is written, and a disjunction only where `or` is, so an expression with neither is an operand; a chain has at least one continuation, a member access, a call or an object expression, so `42` and `@panel` are initial expressions; and a `value` is the syntax that supplies a value, whose type resolution decides. A condition and an operand of `and` or `or` are Boolean by type, which validation checks, so a Boolean parameter, `if @wide then …`, and an operation answering a Boolean, `self matches ":focus" and @enabled`, are written as they read.
+A conjunction exists only where `and` is written, and a disjunction only where `or` is, so an expression with neither is an operand. A chain is its chain input and the access expressions and object expressions that continue it, so `42` and `@panel` are chains of their input alone. The grammar's `value` rule names `self`, a parameter and a literal, the forms that stand for a value by themselves, while a value in this specification's prose is any value a query has, whose type resolution decides. The grammar's `input` rule names what a chain or an access chain starts from, while a member's input declaration, which the section on arguments sets out, says how its argument is supplied. A condition and an operand of `and` or `or` are Boolean by type, which validation checks, so a Boolean parameter, `if @wide then …`, and an operation answering a Boolean, `self matches ":focus" and @enabled`, are written as they read.
 
 ```
 @viewport {
@@ -120,8 +130,9 @@ self attributeOf "data-key"                    // An infix call.
 
 - **Member access** reads a property and takes no argument; whitespace never stands for its dot, so `self rect width` is a syntax error.
 - **Required and optional access.** `.` requires a receiver that cannot be null, and a nullable one is a validation error that gives the form with `?.`. `?.` reads a member, or calls an operation, of a receiver that is not null, and answers null for one that is, skipping the rest of its chain: in `@panel.parent?.children.count`, a panel without a parent gives null, and otherwise `.count` counts its parent's children. A group ends a chain, so in `(@panel.parent?.children).count` the `.count` follows a `list<element>?` and is a validation error. `?.` on a receiver that cannot be null is valid, since a binding typed from its value may be one that can.
+- **Optional-access groups.** `(?@panel.parent.rect.width)` is `@panel?.parent?.rect?.width`: an optional-access group holds an access chain, a receiver, `self`, a parameter, a literal, a local or an object expression, followed by at least one access or call, and makes every access of it optional. Its closing parenthesis ends its optional chain, so `(?@x.y.z)?.a.b` is `(@x?.y?.z)?.a.b`, whose `.b` requires an `a` that is not null. Anything else inside it is a syntax error, an object expression or an infix call among them, and a call's argument keeps its own rules. It is notation for its accesses: the definition records them as optional, and the canonical text writes them with `?.`.
 - **A call** takes no argument or one, any expression, inside its parentheses, and the chain continues after it.
-- **An infix call** writes the member's name after its receiver and a separator, followed by an optional argument, an initial expression after another separator: `self`, a parameter, a local, a literal, an object expression or a group. The argument may be omitted where the member's declaration permits it. It ends its chain, and a group continues from its result.
+- **An infix call** writes the member's name after its receiver and a separator, followed by an optional argument, a chain input after another separator: `self`, a parameter, a local, a literal, an object expression or a group. The argument may be omitted where the member's declaration permits it. It ends its chain, and a group continues from its result.
 - **One argument.** Neither form takes named arguments or several positional ones: an operation with several parameters takes them as the fields of one object, `@sentinel intersects { root: @panel, margin: 200 }`, so `self.closest(".a", ".b")` and `@panel intersects @container 200` are syntax errors.
 - **The form a member takes** is its declaration's: a property is accessed, and an operation or an event source is a call unless it is declared an infix call. Writing a member in another form is a validation error that gives the form it takes: `'attributeOf' uses infix-call syntax: write 'self attributeOf "data-key"'`. The forms of the built-in vocabulary are in its tables.
 
@@ -201,7 +212,7 @@ Because the kind is part of the signature, the evaluator validates every kind be
 
 - **Evaluation.** Operands are evaluated from left to right, and evaluation stops at the first that decides the result, false for `and` and true for `or`; a null decides neither, so the next operand is evaluated, since it may. Every operand is resolved and validated before anything is evaluated all the same, and a watch follows the operands evaluation reached.
 - **Type.** A logical expression is a `boolean`, and a `boolean?` where an operand can be null.
-- **Groups.** A group holds an expression and adds nothing of its own, so `((@panel))` is `@panel`, and as an initial expression it can start a chain: `(@panel).children.count`.
+- **Groups.** An expression group holds an expression and adds nothing of its own, so `((@panel))` is `@panel`, and as a chain input it can start a chain: `(@panel).children.count`.
 
 ### Conditionals
 
@@ -239,7 +250,7 @@ An object expression can name a value once, as a **local**, and use it by its na
 ```
 
 - **Writing one.** A local is written as a field is, a name, a colon and a value, after `let`. An object expression writes its locals before its first field, each followed by a comma, and still holds at least one field, so `{ let x: 1 }` is a syntax error.
-- **Using one.** A bare name that starts a chain is a local, as `items` is above, and stands where any initial expression does: a chain continues from it, an object expression follows it, and an infix call takes it as its argument. A local takes no argument, so `items(…)` is a syntax error.
+- **Using one.** A bare name that starts a chain is a local, as `items` is above, and stands where any chain input does: a chain continues from it, an object expression follows it, and an infix call takes it as its argument. A local takes no argument, so `items(…)` is a syntax error.
 - **Scope.** A local is visible to the locals after it, to every field of its object expression and to everything nested in them, arguments included, and never before it, so none can depend on itself. A name no local in scope has is a validation error, which gives the form with `self` where the current value has a member of that name: `No local named 'rect' is in scope; write 'self.rect' for the member of the current value`.
 - **Names.** Two locals of one object expression never share a name, and a local never reuses the name of one an enclosing object expression has in scope, so a name means one thing wherever it is visible; either is a structure error. Locals and fields are separate, so `let items: …, items: items` holds a field named after its local.
 - **Its `self`** is the current value of the object expression that holds it, wherever it is used: inside `rows` above, `self` is each row, and `items` is still the panel's list.
@@ -592,7 +603,7 @@ A document holds the definition's `version` and the `query` node. Each node is a
 | `optionalChain` | `target`, the chain it holds | An optional chain: the chain of member accesses, calls and object expressions whose optional accesses end at it, holding at least one |
 | `and`, `or` | `operands`, two or more expressions | A logical expression |
 
-A group adds no node, the expression it holds standing in its place, so `@panel is "attached" and (@panel is "disabled")` is an `and` of two predicate expressions:
+An expression group adds no node, the expression it holds standing in its place, and neither does an optional-access group, whose accesses are recorded as optional and its optional chain where it ends, so `@panel is "attached" and (@panel is "disabled")` is an `and` of two predicate expressions:
 
 ```json
 {

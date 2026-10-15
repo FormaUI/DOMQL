@@ -73,6 +73,10 @@ describe('DefinitionWriter', () => {
         '@panel.parent?.closest(".row") attributeOf "id"',
         '@panel attributeOf (@row?.key)',
         '@panel.closest(@row?.key)?.parent',
+        '(?@x.y.z)?.a',
+        '(?@x.y.z)?.a.b',
+        '(?@x.y.z)?.a?.b',
+        '(@x.y.z)?.a',
     ])('writes text that parses back to the same definition: %s', text => {
         const { definition } = domql.query(text, { panel });
 
@@ -93,7 +97,7 @@ describe('DefinitionWriter', () => {
         expect(write('(if @a then @b else @c) is "attached"')).toBe('(if @a then @b else @c) is "attached"');
     });
 
-    it('writes the argument of an infix call as an initial expression, grouping any other', () => {
+    it('writes the argument of an infix call as an input, grouping any other', () => {
         const target = { kind: 'parameter', name: 'panel' };
         const named = argument => ({ kind: 'infixCall', target, name: 'attributeOf', argument });
 
@@ -123,6 +127,8 @@ describe('DefinitionWriter', () => {
             ['no trailing comma', '@panel { size: self.size, key: 1, }', '@panel {\n    size: self.size,\n    key: 1\n}'],
             ['no comment and no original layout', '@panel // the panel\n    /* its size */ .size', '@panel.size'],
             ['an optional access as one token, with the group that ends its chain', '(@panel.parent  ?.children) . count', '(@panel.parent?.children).count'],
+            ['an optional-access group as the accesses it makes optional', '(?@panel.parent.rect.width)', '@panel?.parent?.rect?.width'],
+            ['an optional-access group followed by more of a chain, with the parentheses its boundary needs', '(?@x.y.z)?.a.b', '(@x?.y?.z)?.a.b'],
             ['the grouping a meaning needs, and none other', '((@first and @second)) or (@third)', '@first and @second or @third'],
             ['a string escaping only a double quote and a backslash', '@panel attributeOf "say \\"hi\\" \\\\ there"', '@panel attributeOf "say \\"hi\\" \\\\ there"'],
         ])('lays out %s', (_, text, formatted) => {

@@ -230,6 +230,11 @@ describe('LanguageResolver', () => {
             expect(resolve('@panel.parent?.rect?.width').type.toString()).toBe('number?');
         });
 
+        it('types an optional-access group as the optional chain it writes', () => {
+            expect(resolve('(?@panel.parent.rect.width)').type.toString()).toBe('number?');
+            expect(resolve('(?@panel.children.count)').type.toString()).toBe('number');
+        });
+
         it('lets an infix call and a predicate expression propagate a null receiver', () => {
             expect(resolve('@panel.parent attributeOf "id"').type.toString()).toBe('string?');
             expect(resolve('@panel.parent is "attached"').type.toString()).toBe('boolean?');

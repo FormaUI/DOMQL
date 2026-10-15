@@ -62,7 +62,7 @@ describe('domql', () => {
             expect(domql.query('@rows.where(self is "attached" and self is "visible")').definition.query.argument.kind).toBe('and');
         });
 
-        it('takes an initial expression as an infix call\'s argument, an options object among them', () => {
+        it('takes a chain input as an infix call\'s argument, an options object among them', () => {
             expect(domql.query('@sentinel intersects { root: @panel, margin: 200, }').definition.query.argument).toEqual({ kind: 'object', fields: [{ name: 'root', value: parameter('panel') }, { name: 'margin', value: literal(200) }] });
             expect(domql.query('@panel attributeOf @name').definition.query.argument).toEqual(parameter('name'));
             expect(domql.query('@panel attributeOf ("data-" )').definition.query.argument).toEqual(literal('data-'));
@@ -354,6 +354,38 @@ describe('domql', () => {
             expect(error.location.pointer).toBe(pointer);
         });
 
+        it('read an optional-access group as the optional chain of its accesses, every one of them optional', () => {
+            expect(domql.query('(?@panel.parent.rect)').definition).toEqual(domql.query('@panel?.parent?.rect').definition);
+            expect(domql.query('(?@panel.first(".a").closest(".b"))').definition.query).toEqual(chain(optional(call('closest', literal('.b'), optional(call('first', literal('.a'), parameter('panel')))))));
+        });
+
+        it('end the optional chain of an optional-access group at its closing parenthesis', () => {
+            const group = chain(optional(member('z', optional(member('y', parameter('x'))))));
+
+            expect(domql.query('(?@x.y.z)?.a.b').definition.query).toEqual(chain(member('b', optional(member('a', group)))));
+            expect(domql.query('(?@x.y.z)?.a?.b').definition.query).toEqual(chain(optional(member('b', optional(member('a', group))))));
+            expect(domql.query('(@x.y.z)?.a').definition.query).toEqual(chain(optional(member('a', member('z', member('y', parameter('x')))))));
+        });
+
+        it('take an optional-access group as a chain input, an infix call\'s argument among them, keeping its arguments their own', () => {
+            expect(domql.query('@panel attributeOf (?@row.key)').definition.query).toEqual(infixCall('attributeOf', chain(optional(member('key', parameter('row')))), parameter('panel')));
+            expect(domql.query('(?@panel.closest(@row.key))').definition.query).toEqual(chain(optional(call('closest', member('key', parameter('row')), parameter('panel')))));
+        });
+
+        it.each([
+            ['a question mark apart from its parenthesis', '( ?@panel.size)', 1, 3],
+            ['an optional-access group with no access', '(?@panel)', 1, 9],
+            ['an optional-access group whose receiver is a group', '(?(@panel).size)', 1, 3],
+            ['an optional-access group holding an object expression', '(?@panel.rect { top: self.top })', 1, 15],
+            ['an optional-access group holding an infix call', '(?@panel.parent attributeOf "id")', 1, 17],
+            ['a call whose parenthesis opens the optional-access group that is its argument', '@panel.closest(?@row.key)', 1, 15],
+        ])('refuse %s', (_, text, line, column) => {
+            const error = getError(() => domql.query(text));
+
+            expect(error.kind).toBe('syntax');
+            expect(error.location).toMatchObject({ line, column });
+        });
+
         it.each([
             ['a question mark apart from its dot', '@panel? .size', 1, 7],
             ['an optional access with no name', '@panel?.', 1, 9],
@@ -377,7 +409,7 @@ describe('domql', () => {
             });
         });
 
-        it('stand where an initial expression stands, an object expression following one and an infix call taking one', () => {
+        it('stand where a chain input stands, an object expression following one and an infix call taking one', () => {
             const { query } = domql.query('@panel { let key: "data-key", let items: self.children, rows: items { key: self attributeOf key } }').definition;
 
             expect(query.fields[0].value).toEqual({ kind: 'object', target: local('items'), fields: [{ name: 'key', value: infixCall('attributeOf', local('key')) }] });
