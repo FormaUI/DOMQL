@@ -1,7 +1,13 @@
-const livePanel = document.createElement('div');
-const live = domql.query('{ count: @panel.children.count }', { panel: livePanel }).watch({
-    updateStrategy: 'liveState'
-});
+const list = document.createElement('ul');
+
+list.innerHTML = '<li data-key="b1">Apples</li><li data-key="b2">Pears</li>';
+
+const live = domql.query(`
+    @list.children {
+        key: self attributeOf "data-key",
+        selected: self attributeOf "aria-selected" is "true"
+    }
+`, { list }).watch({ updateStrategy: 'liveState' });
 
 live.subscribe('change', (sender, args) => {
     if (args.status === 'failed') {
@@ -9,14 +15,19 @@ live.subscribe('change', (sender, args) => {
         return;
     }
 
-    console.log(args.liveState.count);
+    console.log(args.changes);
 });
 
 await live.refreshAsync();
-// 0
+// []
 
-livePanel.append(document.createElement('div'));
+const pears = live.liveState[1];
+
+list.children[1].setAttribute('aria-selected', 'true');
 await live.refreshAsync();
-// 1
+// [{ op: 'replace', path: '/1/selected', value: true }]
+
+console.log(live.liveState[1] === pears);
+// true
 
 live.dispose();

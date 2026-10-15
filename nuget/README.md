@@ -156,13 +156,17 @@ The receiving instance validates the definition against its own vocabulary. Modu
 
 ## Wait for a browser observation
 
-Some values need an initial sample from a browser observer. For example, `intersects` reports whether an element intersects the viewport. Use `evaluateAsync()` to wait for that sample:
+Some values need an initial sample from a browser observer, such as whether an element is in view, which `intersects` reports. Count the items the viewport shows, as a lazy loader or an impression tracker needs, and wait for the browser's first report on each:
 
 ```js
-const inView = await domql.query('@panel intersects', { panel }).evaluateAsync();
+const visibleItems = await domql.query(
+    '@panel.all("[data-key]").where(self intersects).count',
+    { panel }
+).evaluateAsync();
+// 3: every item of the example panel is in view
 ```
 
-`inView` is a Boolean whose value depends on the panel's position. Synchronous `evaluate()` rejects queries that require an observation sample.
+DOMQL starts one intersection observation for each item and waits until each has reported. Synchronous `evaluate()` rejects queries that require an observation sample.
 
 `evaluateAsync()` also accepts ordinary queries. Pass `{ signal }` to cancel a pending evaluation. Observations started for the evaluation are released when it completes, fails or is canceled.
 
@@ -170,31 +174,40 @@ const inView = await domql.query('@panel intersects', { panel }).evaluateAsync()
 
 Use `watch()` when you want updates as the result changes. It returns a handle that you subscribe to and later dispose.
 
-Continuing with `emptyPanel` and `rebound` from the reuse example:
+Keep a toolbar in step with the panel's selection, whichever code selects an item:
 
 ```js
-const watch = rebound.watch();
+const selection = domql.query(`
+    @panel.children
+        .where(self attributeOf "aria-selected" is "true") {
+            key: self attributeOf "data-key"
+        }
+`, { panel }).watch();
 
-watch.subscribe('change', (sender, args) => {
+selection.subscribe('change', (sender, args) => {
     if (args.status === 'failed') {
         console.error('The query could not be evaluated.');
         return;
     }
 
-    console.log(args.value);
+    console.log(args.value.map(item => item.key));
 });
 
-await watch.refreshAsync();
-// 0
+await selection.refreshAsync();
+// ['a2']
 
-emptyPanel.append(document.createElement('div'));
-await watch.refreshAsync();
-// 1
+panel.children[0].setAttribute('aria-selected', 'true');
+await selection.refreshAsync();
+// ['a1', 'a2']
 
-watch.dispose();
+panel.children[0].removeAttribute('aria-selected');
+await selection.refreshAsync();
+// ['a2']
+
+selection.dispose();
 ```
 
-The listener receives an initial snapshot and then a new one when the result changes. Handlers receive `(sender, args)`, where `sender` is the watch handle.
+The query says what the toolbar needs, and the watch works out what to observe: the panel's children and the two attributes it reads of each, an item added included. It reads the attribute rather than `matches`, so every change it depends on is observed and the watch needs no option, as [observation limits](#observation-limits) explains. The listener receives an initial snapshot and then a new one when the result changes, never one equal to the last. Handlers receive `(sender, args)`, where `sender` is the watch handle.
 
 A watch responds automatically to observed changes, normally at the next animation frame. The example calls `refreshAsync()` to make each step explicit: it evaluates immediately and resolves after listeners have received the result. Use `schedule: 'immediate'` to evaluate in the task that reports a change instead of batching changes until the next frame.
 
@@ -224,13 +237,19 @@ For an object result, `watch.select('items')` creates a view of that field and s
 
 By default, each update is an immutable snapshot. Use `updateStrategy: 'liveState'` when you want one object updated in place.
 
-This example uses its own empty element and can be run independently:
+Live state suits a view that patches what changed rather than rendering everything again. This example uses a list of its own and can be run independently:
 
 ```js
-const livePanel = document.createElement('div');
-const live = domql.query('{ count: @panel.children.count }', { panel: livePanel }).watch({
-    updateStrategy: 'liveState'
-});
+const list = document.createElement('ul');
+
+list.innerHTML = '<li data-key="b1">Apples</li><li data-key="b2">Pears</li>';
+
+const live = domql.query(`
+    @list.children {
+        key: self attributeOf "data-key",
+        selected: self attributeOf "aria-selected" is "true"
+    }
+`, { list }).watch({ updateStrategy: 'liveState' });
 
 live.subscribe('change', (sender, args) => {
     if (args.status === 'failed') {
@@ -238,18 +257,25 @@ live.subscribe('change', (sender, args) => {
         return;
     }
 
-    console.log(args.liveState.count);
+    console.log(args.changes);
 });
 
 await live.refreshAsync();
-// 0
+// []
 
-livePanel.append(document.createElement('div'));
+const pears = live.liveState[1];
+
+list.children[1].setAttribute('aria-selected', 'true');
 await live.refreshAsync();
-// 1
+// [{ op: 'replace', path: '/1/selected', value: true }]
+
+console.log(live.liveState[1] === pears);
+// true
 
 live.dispose();
 ```
+
+The first event is the baseline, with no changes. Selecting the pears changes one field, so the change set holds that one replacement, and the object for the pears is the same object, now selected.
 
 The current object is available as `watch.liveState` and as `args.liveState` in change events. `args.changes` contains the applied change set. Objects and lists retain their identity; in a list projected from elements, an item's object follows the element when it moves.
 
@@ -257,12 +283,16 @@ Treat live state as read-only: the watch owns and updates it. Use snapshots or c
 
 ## Subscribe to events
 
-An event subscription runs a projection for each event. For example, read the key of the item that was clicked:
+An event subscription turns each event into a record of what happened and the state around it at that moment. Record which item a click activated, whether it was already selected, and how many items were selected then:
 
 ```js
-const clicks = domql.query(`
+const activations = domql.query(`
     (@panel eventsOf "click") {
-        key: self.target?.closest("[data-key]") attributeOf "data-key"
+        let item: self.target?.closest("[data-key]"),
+
+        key: item attributeOf "data-key",
+        wasSelected: item matches "[aria-selected=true]" ?? false,
+        selectedCount: @panel.all("[aria-selected=true]").count
     }
 `, { panel }).subscribe((sender, args) => {
     if (args.status === 'failed') {
@@ -270,16 +300,18 @@ const clicks = domql.query(`
         return;
     }
 
-    console.log(args.value.key);
+    console.log(args.value);
 });
 
 panel.querySelector('[data-key="a2"]').click();
-// 'a2'
+// { key: 'a2', wasSelected: true, selectedCount: 1 }
 
-clicks.dispose();
+activations.dispose();
 ```
 
-The object expression reads event fields such as `target`, `button` and `clientX`. It can also read other bound values. The projection runs when the event is dispatched, and the subscription does not change the event's propagation or default behavior.
+Each record is plain data read as the event was dispatched, holding no event object and no element, so it can go straight into application state, a log or a message to a worker, and a handler that runs later still sees the state of that moment. The query is checked when you subscribe, so a misspelled member fails then rather than at the first click.
+
+The object expression reads event fields such as `target`, `button` and `clientX`, and anything else the bindings reach. The subscription does not change the event's propagation or default behavior.
 
 Listening starts during `subscribe()` and ends with `dispose()`. A failed projection reaches the handler with `status: 'failed'`; a handler failure goes to the window's error reporting. The subscription continues in either case.
 

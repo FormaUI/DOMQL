@@ -1,6 +1,10 @@
-const clicks = domql.query(`
+const activations = domql.query(`
     (@panel eventsOf "click") {
-        key: self.target?.closest("[data-key]") attributeOf "data-key"
+        let item: self.target?.closest("[data-key]"),
+
+        key: item attributeOf "data-key",
+        wasSelected: item matches "[aria-selected=true]" ?? false,
+        selectedCount: @panel.all("[aria-selected=true]").count
     }
 `, { panel }).subscribe((sender, args) => {
     if (args.status === 'failed') {
@@ -8,10 +12,10 @@ const clicks = domql.query(`
         return;
     }
 
-    console.log(args.value.key);
+    console.log(args.value);
 });
 
 panel.querySelector('[data-key="a2"]').click();
-// 'a2'
+// { key: 'a2', wasSelected: true, selectedCount: 1 }
 
-clicks.dispose();
+activations.dispose();
