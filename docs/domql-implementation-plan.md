@@ -65,7 +65,19 @@ Accepted; built by step 14. One error-tolerant parser builds a lossless syntax t
 
 A step is done when its tests pass in the gate, its documents say what it built, and its state here says so. Completed steps leave the plan. Built describes the capabilities they delivered.
 
-The remaining work is editor tooling and the C# half.
+The remaining work is the beta, then editor tooling and the C# half, which follow it.
+
+### 22. Beta
+
+Make the language and the JavaScript API ready for external use: no breaking redesign is planned, the limitations that remain are documented, and a breaking change after it is exceptional, recorded and given migration guidance.
+
+- **Needs:** nothing beyond what is built.
+- **Done when:**
+  - a cast inside an optional-access group is settled: which compositions the grammar allows and the parser refuses, as `(?((@a ?? @b) as "element").rect)` and `(?((?@a.b) as "element").c)`, and why, are established, and the parser reads each one the grammar allows whose meaning is clear, the grammar staying as it is until that is known;
+  - the module API is audited as the documents were, what `createModule`, `registerModule`, a declaration and the functions it names accept checked against what the design and the declarations say, each finding fixed or documented as a limitation. Known so far: what an observation's `sample` answers is not checked, so one answering a bare value reads as a sample that is never pending; `query.bindings` is public and typed, and whether it belongs to the API is decided; and a class instance a module answers for a structured type, as a `DOMRect` is, reads its fields through access and is copied as an empty object where the result holds it whole;
+  - `CHANGELOG.md` records each change a caller must act on, from `clientSize` becoming partly observable on, with how to migrate;
+  - the specification's version is `1.0.0-beta`, the package's `1.0.0-beta.N`, numbered by its commits as the alpha is, and a run from the sources reports `1.0.0-beta+source`, wherever a version is written or checked: the package project, the specification's and the design's titles, `Specification.mjs`, `domql.js`, the declarations, the agent guide's version rules, the CI workflow's comments, and the alignment and bundle tests.
+- **State:** the specification, the design, the READMEs and the guides are audited and corrected; the cast, the module API audit, the changelog and the version are not started.
 
 ### 14. Editor tooling
 
