@@ -5,7 +5,8 @@
     "scripts": {
         "test": "vitest run",
         "test:browser": "vitest run --config vitest.browser.config.js",
-        "bench": "vitest bench --run"
+        "bench": "vitest bench --run",
+        "scale": "vitest run --config vitest.scale.config.js"
     },
     "devDependencies": {
         "@vitest/browser": "^3.2.7",
