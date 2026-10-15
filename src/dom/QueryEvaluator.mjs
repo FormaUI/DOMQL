@@ -1,5 +1,5 @@
 /**
- * QueryEvaluator — evaluates a resolved request, answering detached data: a query as it reads now, and a subscription's projection of each event its source delivers
+ * QueryEvaluator — evaluates a resolved request, answering detached data: a query as it reads now, a subscription's projection of each event its source delivers, and an action's result read through the object expression that follows it
  */
 
 import { DomqlError } from '../language/DomqlError.mjs';
@@ -51,13 +51,17 @@ export class QueryEvaluator {
     /** The element each item of a list an object expression projected came from, by the list it produced, for the evaluation in progress. @type {WeakMap<unknown[], (Element | null)[]>} */
     #elementsOf = new WeakMap();
 
-    /** The branch each conditional selected for each field of an object an object expression gave, by the object, for the evaluation in progress. @type {WeakMap<object, Map<string, Map<object, object>>>} */
+    /** The selections made for each field of an object an object expression gave, as `#branches` holds them, by the object and then the field's name, for the evaluation in progress. @type {WeakMap<object, Map<string, Map<object, object | string>>>} */
     #branchesOf = new WeakMap();
 
-    /** The branch each conditional selected for the value being evaluated at its place in the result, by the conditional, or null where none has. @type {Map<object, object> | null} */
+    /**
+     * The selections made for the value being evaluated at its place in the result, by the node that made each: the branch a conditional or a coalescing selected, as its node, and the name an access by name selected; null where none has been made.
+     * A result's identities hold them as their `branches`, a name kept from when conditionals alone made them.
+     * @type {Map<object, object | string> | null}
+     */
     #branches = null;
 
-    /** The frame of locals of the innermost application of an object expression that has any, with the value of each evaluated so far, inside those of the applications enclosing it; null outside every one. @type {{ node: object, item: unknown, values: Map<string, { value: unknown, branches: Map<object, object> | null }>, enclosing: object | null } | null} */
+    /** The frame of locals of the innermost application of an object expression that has any, with the value of each evaluated so far, inside those of the applications enclosing it; null outside every one. @type {{ node: object, item: unknown, values: Map<string, { value: unknown, branches: Map<object, object | string> | null }>, enclosing: object | null } | null} */
     #localsFrame = null;
 
     /** What the evaluation in progress records, or null where none does. @type {{ observations: import('./Observations.mjs').Observations, onChange: () => void, holdsAll: boolean, replaces: QueryEvaluation[] | null, dependencies: object[] | null, sessions: import('./SessionCache.mjs').CachedSession[], owner: object, sessionCache: SessionCache, unheld: object[], rootOf: WeakMap<object, object>, rootsOf: WeakMap<object, object[]>, followedRoots: WeakSet<object>, followedAttachments: WeakSet<object>, isPending: boolean } | null} */
@@ -243,7 +247,7 @@ export class QueryEvaluator {
         try {
             ({ value, identities } = produce());
         } catch (failure) {
-            // A member read through a pending one saw null where a sample will be, so its failure says nothing until the sample arrives.
+            // An evaluation that fails having read a maintained member still pending reports nothing and waits for its sample, since the failure may come from the null the member answered, and nothing tells which failures do; one that fails before it reads a pending member reports its failure.
             error = waits && recording.isPending ? null : failure;
         } finally {
             this.#recording = null;
@@ -395,8 +399,10 @@ export class QueryEvaluator {
                     return value !== null && evaluator.#conformsNamed(value, type) ? value : null;
                 };
             }
-            default:
+            case 'object':
                 return this.#compileObject(node);
+            default:
+                this.#fail(`A '${node.kind}' node has no evaluation`, this.#pointerOf(node));
         }
     }
 
@@ -814,7 +820,7 @@ export class QueryEvaluator {
         return samples;
     }
 
-    /** A member that answered null because its element is detached depends on whether the element is attached, so it is read again when the element returns. */
+    /** A member that answered null for an element that is detached depends on whether the element is attached, so it is read again when the element returns. */
     #followDetachedReceiver(declaration, receiver, value, node) {
         if (this.#recording === null || value !== null || receiver?.nodeType !== 1 || receiver.isConnected || this.#moduleRegistry.getObservationType('attachment') === undefined || this.#recording.followedAttachments.has(receiver)) {
             return;
@@ -843,7 +849,7 @@ export class QueryEvaluator {
             }
 
             followedRoots.add(root);
-            ANCESTRY_OBSERVATIONS.forEach((observationDeclaration, index) => {
+            ANCESTRY_OBSERVATIONS.forEach(observationDeclaration => {
                 if (this.#moduleRegistry.getObservationType(observationDeclaration.type) !== undefined) {
                     const held = this.#holdAt(observationDeclaration, NO_ARGUMENTS, root);
 
@@ -881,6 +887,7 @@ export class QueryEvaluator {
 
     /**
      * The request the observation resolves to at the target, and its session: the one this evaluation already holds for it, the one an evaluation this one replaces holds, which becomes this one's own, or a new one; null where the target is null.
+     * The session is null where the evaluation leaves the request unheld, acquiring it only where the evaluation turns out pending.
      * @returns {import('./SessionCache.mjs').CachedSession | null}
      */
     #holdAt(observationDeclaration, args, target) {
@@ -919,6 +926,7 @@ export class QueryEvaluator {
             sessions.push(cachedSession);
         }
 
+        // A type no module declares is refused by `acquire` before here, so the type is known.
         if (observationType.shared !== false) {
             cachedSession.values = Observations.valuesOf(request);
             sessionCache.keep(observationDeclaration, cachedSession);
@@ -940,7 +948,7 @@ export class QueryEvaluator {
         return { node, pointer };
     }
 
-    /** The event as the fields its type declares, read now, so a projection never holds what the source delivered. */
+    /** The event as the fields its type declares, each read and checked now as the event gives it, or the event itself where its type declares no structure; copying the projection's result is what isolates the data it answers. */
     #capture(event, node) {
         const pointer = this.#pointerOf(node);
         const { declaration, type } = this.#resolvedDefinition.resolutionOf(node);
@@ -1162,7 +1170,7 @@ export class QueryEvaluator {
         return value;
     }
 
-    /** The identities of a value with the branches its conditionals selected beside them, or the identities alone where none did. */
+    /** The identities of a value with the selections made for it beside them, as their `branches`, or the identities alone where none were made. */
     static #withBranches(identities, branches) {
         return branches === null ? identities : { ...identities, branches };
     }
