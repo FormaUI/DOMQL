@@ -11,11 +11,3 @@ const query = domql.query(`
 `, { panel });
 
 const snapshot = query.evaluate();
-// {
-//   count: 3,
-//   items: [
-//     { key: 'a1', selected: false },
-//     { key: 'a2', selected: true },
-//     { key: 'a3', selected: false }
-//   ]
-// }

@@ -2,7 +2,7 @@ domql.query(`
     @panel {
         count: self.children.count,
         attached: self.attached,
-        children: self.hasChildren,
+        hasChildren: self.hasChildren
     }
 `, { panel }).evaluate();
-// { count: 3, attached: true, children: true }
+// { count: 3, attached: true, hasChildren: true }

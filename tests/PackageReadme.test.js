@@ -16,43 +16,65 @@ const blocks = (document, language) => [...document.matchAll(new RegExp('```' + 
 /** The value the lines of a comment write, which throws where they write prose or anything else that is no value. */
 const valueOf = lines => new Function(`return (${lines.join('\n')});`)();
 
+/** Whether a comment line shows the answer, alone or followed by a colon and what explains it. */
+const showsAnswer = (comment, answer) => {
+    const at = comment.indexOf(`// ${answer}`);
+
+    return at !== -1 && /^(:.*)?$/.test(comment.slice(at + answer.length + 3));
+};
+
 /**
  * The package README's examples, in the order it shows them. Each is a fixture holding the block as written, run in the one scope the README's examples share.
- * `answers` are the comment lines after the example, one list for each answer it shows; `observed` says where the example's answers come from:
- * what it reads, what it logs, or the expressions it ends in.
+ * `answers` are the comment lines that show what the example gives, one list for each answer; `observed` says where its answers come from:
+ * what it reads, what it logs, what it prints, or the list the expression `inspect` evaluates to after it. An example that shows its answer outside its comments
+ * names the JSON block that holds it, as `json`, or what it gives, as `gives`.
  */
 const examples = [
-    {
-        file: '01-evaluate-a-query.js',
-        observed: 'reads',
-        answers: [['{', '  count: 3,', '  items: [', "    { key: 'a1', selected: false },", "    { key: 'a2', selected: true },", "    { key: 'a3', selected: false }", '  ]', '}']],
-    },
+    { file: '01-evaluate-a-query.js', observed: 'reads', json: 0 },
     { file: '02-evaluate-again.js', observed: 'reads', answers: [['3'], ['0']] },
-    { file: '04-evaluate-async.js', observed: 'reads', answers: [['true']] },
+    { file: '03-reuse-a-definition.js', observed: 'inspected', inspect: '[localQuery.evaluate()]', gives: [3] },
+    { file: '04-evaluate-async.js', observed: 'reads', gives: [true] },
     { file: '05-watch.js', observed: 'printed', answers: [['0'], ['1']] },
-    { file: '06-live-state.js', observed: 'printed', answers: [['1'], ['2']] },
-    { file: '07-subscribe.js', observed: 'printed', answers: [["'a2'"]] },
-    { file: '08-paths.js', observed: 'reads', answers: [['3'], ['3'], ['true']] },
-    { file: '09-objects.js', observed: 'reads', answers: [['{ count: 3, attached: true, children: true }']] },
+    {
+        file: '06-accept-partial-observation.js',
+        observed: 'inspected',
+        inspect: "[(() => { try { query.watch(); } catch (error) { return error.kind; } })()]",
+        gives: ['validation'],
+    },
+    { file: '07-live-state.js', observed: 'printed', answers: [['0'], ['1']] },
+    { file: '08-subscribe.js', observed: 'printed', answers: [["'a2'"]] },
+    { file: '09-objects.js', observed: 'reads', answers: [['{ count: 3, attached: true, hasChildren: true }']] },
     {
         file: '10-objects-of-lists.js',
         observed: 'reads',
         answers: [['[', "  { key: 'a1', selected: false },", "  { key: 'a2', selected: true },", "  { key: 'a3', selected: false }", ']']],
     },
-    { file: '11-lists.js', observed: 'reads', answers: [['1'], ['64']] },
-    { file: '12-locals.js', observed: 'reads', answers: [['{ count: 3, tallest: 64 }']] },
-    { file: '13-null.js', observed: 'reads', answers: [['null']] },
-    { file: '14-bindings.js', observed: 'reads', answers: [['{ panel: null, ids: [] }']] },
-    { file: '15-resolve.js', observed: 'inspected', inspect: '[resolved.kind, resolved.type.toString()]', answers: [["'query'"], ["'number?'"]] },
+    { file: '11-where.js', observed: 'reads', answers: [['1']] },
+    { file: '12-aggregates.js', observed: 'reads', answers: [['64']] },
+    { file: '13-locals.js', observed: 'reads', answers: [['{ count: 3, tallest: 64 }']] },
+    { file: '14-fallback.js', observed: 'reads', answers: [['false']] },
+    { file: '15-null.js', observed: 'reads', answers: [['null']] },
+    { file: '16-access-by-name.js', observed: 'reads', answers: [['3']] },
+    { file: '17-bindings.js', observed: 'reads', answers: [['{ panel: null, ids: [] }']] },
+    { file: '18-resolve.js', observed: 'inspected', inspect: '[resolved.kind, resolved.type.toString()]', answers: [["'query'"], ["'number?'"]] },
     {
-        file: '16-errors.js',
+        file: '19-errors.js',
         observed: 'logged',
         answers: [['validation'], ["The argument 'name' of 'attributeOf' expects string and finds number", '(line 1, column 20, at /query/argument)']],
     },
-    { file: '17-module.js', observed: 'reads', answers: [['{ childCount: 3 }']] },
-    { file: '18-execute-action.js', observed: 'reads', answers: [['true']] },
-    { file: '19-apply-behavior.js', observed: 'printed', answers: [["'gold'"], ["'teal'"], ['undefined']] },
+    { file: '20-module.js', observed: 'reads', answers: [['{ childCount: 3 }']] },
+    { file: '21-execute-action.js', observed: 'reads', answers: [['true']] },
+    { file: '22-apply-behavior.js', observed: 'printed', answers: [["'gold'"], ["'teal'"], ['undefined']] },
 ];
+
+/** What an example gives: the values its comments show, those it names, or the result in the JSON block it names. */
+const expectedOf = example => {
+    if (example.json !== undefined) {
+        return [JSON.parse(blocks(packageReadme, 'json')[example.json])];
+    }
+
+    return example.gives ?? example.answers.map(valueOf);
+};
 
 /** Gives each element with an inline height a layout box of that height, since the test environment lays nothing out. */
 const layOut = document => {
@@ -72,6 +94,11 @@ describe('the package README', () => {
         vi.resetModules();
 
         const { domql: real } = await import('#domql/domql.js');
+
+        // Another copy of DOMQL, as an independently bundled library holds, whose query the README passes on by its definition.
+        vi.resetModules();
+
+        const { domql: other } = await import('#domql/domql.js');
         const reads = [];
         const logged = [];
         const printed = [];
@@ -101,8 +128,12 @@ describe('the package README', () => {
         document.body.innerHTML = fixture('document.html');
         layOut(document);
 
+        const otherQuery = other.query('@panel.children.count', { panel: document.getElementById('panel') });
         const mark = (index, inspect) => {
-            results[index] = { reads: reads.splice(0), logged: logged.splice(0), printed: printed.splice(0), inspected: inspect === null ? [] : inspect() };
+            // What is inspected is read first, so a read it makes belongs to its own example.
+            const inspected = inspect === null ? [] : inspect();
+
+            results[index] = { reads: reads.splice(0), logged: logged.splice(0), printed: printed.splice(0), inspected };
         };
 
         const script = examples.map((example, index) => `${fixture(example.file)}\nmark(${index}, ${example.inspect === undefined ? 'null' : `() => ${example.inspect}`});`).join('\n');
@@ -127,7 +158,7 @@ describe('the package README', () => {
         };
 
         try {
-            await new AsyncFunction('domql', 'document', 'mark', script)(domql, document, mark);
+            await new AsyncFunction('domql', 'document', 'mark', 'otherQuery', script)(domql, document, mark, otherQuery);
         } finally {
             watches.forEach(watch => watch.dispose());
             window.IntersectionObserver = IntersectionObserver;
@@ -146,8 +177,8 @@ describe('the package README', () => {
         it('shows the answers that are the lines of its comments', () => {
             const comments = fixture(file).split('\n').map(line => line.trimEnd());
 
-            for (const line of example.answers.flat()) {
-                expect(comments.some(comment => comment.endsWith(`// ${line}`)), line).toBe(true);
+            for (const line of (example.answers ?? []).flat()) {
+                expect(comments.some(comment => showsAnswer(comment, line)), line).toBe(true);
             }
         });
 
@@ -162,9 +193,9 @@ describe('the package README', () => {
                 expect(logged[0][0]).toBe(kind[0]);
                 expect(logged[0][1]).toBe(message.join(' '));
             } else {
-                const observed = { reads, printed, inspected }[example.observed];
-
-                expect(observed).toEqual(example.answers.map(valueOf));
+                // An example whose handler reports a failure on the console shows no answer it gives.
+                expect(logged).toEqual([]);
+                expect({ reads, printed, inspected }[example.observed]).toEqual(expectedOf(example));
             }
         });
     });
@@ -181,82 +212,63 @@ describe('the package README', () => {
 });
 
 describe('the repository README', () => {
-    // The comparison with jQuery comes first, its jQuery half shown and never run.
-    const [, comparisonExample, firstExample, secondExample, , watchExample, changeExample, disposeExample] = blocks(repositoryReadme, 'js');
+    const [firstExample, readAgainExample, watchExample, refreshExample, filterExample] = blocks(repositoryReadme, 'js');
 
-    it('shows the document its examples query', () => {
-        expect(blocks(repositoryReadme, 'html')[0]).toBe(fixture('document.html'));
-    });
+    /** The values the comments after each `console.log` show, on its own line. */
+    const loggedValuesOf = example => [...example.matchAll(/^console\.log\(.*\);\s*\/\/ (.*)$/gm)].map(([, value]) => valueOf([value]));
 
-    it('reads, in its comparison with jQuery, the items its first example shows', async () => {
-        vi.resetModules();
-
-        const { domql } = await import('#domql/domql.js');
-
-        document.body.innerHTML = fixture('document.html');
-        layOut(document);
-
-        const items = new Function('domql', 'panel', `${comparisonExample}\nreturn items;`)(domql, document.getElementById('panel'));
-
-        expect(items).toEqual(JSON.parse(blocks(repositoryReadme, 'json')[0]).items);
-    });
-
-    it('gives the result it shows, and the results of reading again, from that document', async () => {
-        vi.resetModules();
-
-        const { domql } = await import('#domql/domql.js');
-        const logged = [];
-
-        document.body.innerHTML = fixture('document.html');
-        layOut(document);
-
-        // The first two examples share one scope, as they are shown: the second reads the first one's query again.
-        const code = `${firstExample.replace(/^import .*\n/, '')}\n${secondExample}\nreturn snapshot;`;
-        const snapshot = new Function('domql', 'document', 'console', code)(domql, document, { log: value => logged.push(value) });
-        // The values are the comments that follow a log; the comments above the code explain it.
-        const lines = secondExample.split('\n');
-        const comments = lines.filter((line, index) => line.startsWith('// ') && lines[index - 1]?.startsWith('console.log(')).map(line => valueOf([line.slice(3)]));
-
-        expect(snapshot).toEqual(JSON.parse(blocks(repositoryReadme, 'json')[0]));
-        expect(logged).toEqual(comments);
-    });
-
-    it('delivers the snapshots its watch examples promise', async () => {
+    /** Runs the examples in one scope, in the order they are shown, against the document the README shows, and answers what the code returns. */
+    const run = async (code, frames = []) => {
         vi.resetModules();
 
         const { domql } = await import('#domql/domql.js');
         const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
-        const rendered = [];
-        const frames = [];
+        const printed = [];
+        const failed = [];
         const settle = () => new Promise(resolve => setTimeout(resolve));
 
-        document.body.innerHTML = fixture('document.html');
-        layOut(document);
+        document.body.innerHTML = blocks(repositoryReadme, 'html')[0];
+
+        const console = { log: value => printed.push(value), error: message => failed.push(message) };
+        const answer = await new AsyncFunction('domql', 'document', 'console', 'settle', 'frames', code)(domql, document, console, settle, frames);
+
+        return { answer, printed, failed };
+    };
+
+    it('gives the result it shows, and reads the change again as its comments say', async () => {
+        const { answer, printed } = await run([firstExample.replace(/^import .*\n/, ''), readAgainExample, 'return snapshot;'].join('\n'));
+
+        expect(answer).toEqual(JSON.parse(blocks(repositoryReadme, 'json')[0]));
+        expect(printed).toEqual(loggedValuesOf(readAgainExample));
+    });
+
+    it('delivers the first snapshot to its watch, leaves an unchanged one undelivered, and counts what is selected', async () => {
+        const frames = [];
+
         vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => frames.push(callback));
 
-        // The examples share one scope in the order they are shown, and the test waits for what each promises between them.
-        const code = [
-            firstExample.replace(/^import .*\n/, ''),
-            watchExample,
-            'await settle();',
-            changeExample,
-            'await settle();',
-            'frames.splice(0).forEach(run => run());',
-            disposeExample,
-            'return watch;',
-        ].join('\n');
-        let watch;
+        let outcome;
 
         try {
-            watch = await new AsyncFunction('domql', 'document', 'render', 'settle', 'frames', code)(domql, document, snapshot => rendered.push(snapshot), settle, frames);
+            outcome = await run([
+                firstExample.replace(/^import .*\n/, ''),
+                readAgainExample,
+                watchExample,
+                'await settle();',
+                'frames.splice(0).forEach(callback => callback());',
+                refreshExample,
+                filterExample,
+                'return { next, watch, selectedCount };',
+            ].join('\n'), frames);
         } finally {
             vi.restoreAllMocks();
         }
 
-        expect(rendered).toHaveLength(2);
-        expect(rendered[0]).toEqual(JSON.parse(blocks(repositoryReadme, 'json')[0]));
-        expect(rendered[1].selected).toEqual([{ key: 'a1' }, { key: 'a2' }]);
-        expect(rendered[1].items[2]).toBe(rendered[0].items[2]);
+        const { answer: { next, watch, selectedCount }, printed, failed } = outcome;
+
+        expect(failed).toEqual([]);
+        expect(printed).toEqual([...loggedValuesOf(readAgainExample), next]);
         expect(watch.status).toBe('disposed');
+        expect(selectedCount).toBe(2);
     });
 });

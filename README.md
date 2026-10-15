@@ -1,78 +1,38 @@
 # DOMQL
 
-DOMQL is a small, extensible query language for reading DOM state as plain data. Describe what you need from elements, collections and the browser, and receive an immutable snapshot shaped by your query.
+**A declarative approach to managing the DOM.**
 
-Combine measurements, attributes, selection state and collection summaries in one query. Reuse that query as the document changes, or bind it to different elements.
+DOMQL is a small, extensible query language and JavaScript library. Use it to read information from the document, track changes, respond to events and update its content or state.
 
-DOMQL is a FormaUI product, developed alongside [Forma](https://github.com/FormaUI/Forma). It is both a language and a JavaScript library, and it stands on its own.
+DOMQL is a FormaUI product, developed alongside [Forma](https://github.com/FormaUI/Forma). It stands on its own and works independently of any UI framework.
 
-## How DOMQL differs from jQuery
+> **Preview:** DOMQL is not yet published to npm or NuGet. You can [build and try it locally](#build-and-try-it).
 
-jQuery gives JavaScript code methods for selecting elements, reading and changing the DOM, and handling events. To collect several facts into a result, your code calls those methods and assembles the data.
+## Features
 
-DOMQL is a declarative language and a runtime for carrying out its requests. A query describes the values to read and the shape of the result. The runtime checks it against a typed vocabulary, evaluates it and returns an immutable snapshot of plain data.
+- **Choose your result shape.** Read attributes, dimensions, element state and browser state into named fields.
+- **Work with collections.** Project items, filter them, count them and calculate summaries.
+- **Keep results current.** Watch for changes and receive immutable snapshots or an object updated in place.
+- **Handle missing values.** Use optional access, fallbacks and conditionals directly in your query.
+- **Reuse queries.** Evaluate again, bind different targets, or store and exchange definitions as JSON.
+- **Catch invalid requests early.** DOMQL checks bindings, member names, arguments and types before evaluation.
+- **Read events as data.** Subscribe to an event source and choose the fields each event delivers.
+- **Extend the vocabulary.** Add typed members, observations, actions and behaviors through modules.
+- **Use JavaScript or TypeScript.** The library ships as one minified ES module with type declarations.
 
-For example, given a panel whose items have layout boxes, both examples read each item’s key, height and selection state:
-
-```js
-const panel = document.getElementById('panel');
-
-// jQuery: the callback reads the values and constructs each object.
-const items = $(panel).find('[data-key]').map((_, item) => ({
-    key: $(item).attr('data-key'),
-    height: item.getBoundingClientRect().height,
-    selected: $(item).is('[aria-selected=true]')
-})).get();
-```
-
-```js
-// DOMQL: the query describes the values and each object's shape.
-const items = domql.query(`
-    @panel.all("[data-key]") {
-        key: self attributeOf "data-key",
-        height: self.rect?.height,
-        selected: self matches "[aria-selected=true]"
-    }
-`, { panel }).evaluate();
-```
-
-`@panel` refers to the supplied element; it is not an ID selector. If an item has no layout box, DOMQL reports its height as `null`.
-
-A DOMQL request can be written as text or created from a JSON definition. Both forms use the same language and vocabulary rules. Making a query object does not evaluate it against the DOM: the same query can be evaluated repeatedly, watched for changes or bound anew with `with`.
-
-The runtime also supports subscriptions that project events into data, actions that are executed once, and behaviors that remain applied until disposed. Actions and behaviors are supplied by extension modules. Queries remain read-only.
-
-| | jQuery | DOMQL |
-| --- | --- | --- |
-| Main abstraction | A collection of elements with methods your code calls | A typed request whose definition the runtime carries out |
-| Reading data | Your code reads values and constructs a result | A query specifies the values and result shape |
-| Read result | Whatever your code constructs | An immutable snapshot without live DOM references |
-| Validation | JavaScript calls, with checks available through tooling | Request structure, vocabulary names and types checked before evaluation |
-| Keeping data current | Your code chooses when to repeat its reads | A watch tracks dependencies and reports changed results as snapshots or live state |
-| Events | Handlers receive events and perform your logic | Subscriptions project events into plain data |
-| Changing the page | DOM manipulation methods | Separate action and behavior requests supplied by modules |
-| Extension | Plugins add methods | Modules declare typed capabilities and their implementations |
-| Reuse | Functions encapsulate operations | Definitions can be reused with new bindings, stored or transmitted as JSON |
-
-Watching follows the observation coverage declared by the vocabulary. Some members are only partly observable and require `acceptPartialObservation: true`; changes outside that coverage need an explicit refresh. Live state is updated in place, while snapshots preserve earlier results.
-
-The [specification](docs/domql-specification.md) defines the language, types and vocabulary contracts.
-
-## From the DOM to a snapshot
+## Your first query
 
 Suppose a panel contains three items:
 
 ```html
 <div id="panel">
-    <div data-key="a1" style="height: 48px"></div>
-    <div data-key="a2" style="height: 64px" aria-selected="true"></div>
-    <div data-key="a3" style="height: 48px"></div>
+    <div data-key="a1"></div>
+    <div data-key="a2" aria-selected="true"></div>
+    <div data-key="a3"></div>
 </div>
 ```
 
-You want the panel’s item count, each item’s height and selection state, the selected items, and the tallest item.
-
-Describe that answer in DOMQL:
+This query reads the item count and each item's key and selection state:
 
 ```js
 import { domql } from './src/domql.js';
@@ -81,225 +41,169 @@ const panel = document.getElementById('panel');
 
 const query = domql.query(`
     @panel {
-        let items: self.all("[data-key]"),
-
         count: self.children.count,
-
-        items: items {
+        items: self.all("[data-key]") {
             key: self attributeOf "data-key",
-            height: self.rect?.height,
             selected: self matches "[aria-selected=true]"
-        },
-
-        selected: items
-            .where(self matches "[aria-selected=true]") {
-                key: self attributeOf "data-key"
-            },
-
-        tallest: items.max(self.rect?.height)
+        }
     }
 `, { panel });
 
 const snapshot = query.evaluate();
 ```
 
-With the markup above rendered without additional styling, the result is:
+The result is plain data:
 
 ```json
 {
     "count": 3,
     "items": [
-        { "key": "a1", "height": 48, "selected": false },
-        { "key": "a2", "height": 64, "selected": true },
-        { "key": "a3", "height": 48, "selected": false }
-    ],
-    "selected": [
-        { "key": "a2" }
-    ],
-    "tallest": 64
+        { "key": "a1", "selected": false },
+        { "key": "a2", "selected": true },
+        { "key": "a3", "selected": false }
+    ]
 }
 ```
 
-The query describes the answer directly:
+`@panel` is the element you supplied in `{ panel }`. Inside each object expression, `self` refers to the current element. The field names you write become the field names in the result; after a list, the object expression runs for each item.
 
-- `@panel` refers to the element supplied in the bindings.
-- Chains such as `self.rect?.height` read members, `?.` reading one of a value that can be null.
-- `let` names a value once, here the items, for the fields after it.
-- Object expressions choose fields and their output names.
-- An object expression after a list projects each item.
-- `where` filters items, and `max` evaluates an expression across them.
+Snapshots are immutable and contain no live DOM references. You can retain a snapshot, serialize it or pass it to another part of your application.
 
-The result contains data, not live DOM references. You can retain it, serialize it or pass it to another part of your application.
+The source import above works when serving the repository. For the packaged bundle, see [Install and load](nuget/README.md#install-and-load).
 
-## Write once, evaluate again
+## Read again or watch for changes
 
-Making the query reads nothing in the document, so one query serves every evaluation. Take the `query` and the `snapshot` from the example above. When the document changes, evaluate the same `query` again to get a snapshot of its new state. Here the panel's first item becomes selected:
+Creating a query does not read the DOM. Evaluate the same query whenever you need a new snapshot:
 
 ```js
-// Access the panel's first item and select it.
 panel.children[0].setAttribute('aria-selected', 'true');
 
-// Evaluate the query from the first example.
 const next = query.evaluate();
 
-console.log(next.selected);
-// [{ key: 'a1' }, { key: 'a2' }]
-
-console.log(snapshot.selected);
-// [{ key: 'a2' }]
+console.log(next.items[0].selected);     // true
+console.log(snapshot.items[0].selected); // false
 ```
 
-The new snapshot, `next`, holds both selected items. `snapshot`, the first example's, was taken before the change and still holds only `a2`: earlier snapshots remain unchanged. Compatible name and type resolutions are reused between evaluations; DOM values are read again.
+Earlier snapshots keep their values. You can also reuse the definition with another element through `query.with({ panel: anotherPanel })`.
 
-The same definition can also be bound to another target:
-
-```js
-const anotherQuery = query.with({
-    panel: anotherPanel
-});
-
-const anotherSnapshot = anotherQuery.evaluate();
-```
-
-## Keep a query current
-
-Evaluating again by hand is not always what you want. Watch the query, and DOMQL evaluates it again whenever something it depends on changes. `render` stands for whatever your application does with a snapshot:
+To receive updates automatically, start a watch:
 
 ```js
 const watch = query.watch({
     acceptPartialObservation: true
 });
 
-watch.subscribe('change', (sender, args) => render(args.value));
-```
-
-Members such as `all`, `rect` and `matches` can miss some changes, such as pointer state or a transform, so a watch over them says it accepts that. Without it, DOMQL refuses the watch and names each member and what it misses.
-
-A listener of the watch's `change` event receives the first snapshot right after `watch` returns, then a new one each time the result changes, evaluated at most once per animation frame. A snapshot that did not change is not delivered, and a new one shares every part that did not change with the one before it.
-
-A watch follows the document rather than a fixed set of elements: it observes what the query reads now, so an item added to the panel is watched from the next evaluation on. Change the document, and the watch delivers the new snapshot to `render`:
-
-```js
-// Access the panel's first item and select it.
-panel.children[0].setAttribute('aria-selected', 'true');
-
-// The watch notices, evaluates the query again at the next animation frame
-// and calls render with a snapshot whose `selected` holds a1 and a2.
-```
-
-A failed evaluation arrives as a `change` event whose `status` is `failed`, and a failing handler as an `error` event; the watch keeps running. `watch.status` and `watch.snapshot` say where it stands, `await watch.refreshAsync()` evaluates now, and `dispose()` ends it and releases its observations:
-
-```js
-watch.dispose();
-```
-
-## Combine targets
-
-A query can combine independent targets and browser state into one answer:
-
-```js
-const surroundings = domql.query(`
-    {
-        panel: @panel {
-            size: self.size,
-            hasFocus: self matches ":focus-within"
-        },
-
-        window: @window {
-            size: self.size,
-            dark: self matchesMedia "(prefers-color-scheme: dark)"
-        },
-
-        visible: @document.visible
+watch.subscribe('change', (sender, args) => {
+    if (args.status === 'failed') {
+        console.error('The query could not be evaluated.');
+        return;
     }
-`, { panel });
 
-const state = surroundings.evaluate();
-```
-
-Use this to assemble the state a component needs without maintaining a separate JavaScript function for every result shape.
-
-## Evaluate now or wait for an observation
-
-`evaluate` returns synchronously for queries that read fresh values.
-
-Some values, such as an observed intersection, require a browser observation to provide its first sample. Use `evaluateAsync` for these queries:
-
-```js
-const sentinel = document.getElementById('sentinel');
-const controller = new AbortController();
-
-const sentinelQuery = domql.query(`
-    @sentinel intersects { root: @panel, margin: 200 }
-`, { sentinel, panel });
-
-const nearEnd = await sentinelQuery.evaluateAsync({
-    signal: controller.signal
+    console.log(args.value);
 });
 ```
 
-`evaluateAsync` also supports queries containing only fresh values. It releases its observation sessions when the evaluation completes, fails or is canceled.
+The listener receives the initial snapshot and then a new snapshot when the result changes. By default, DOMQL combines observed changes into one evaluation at the next animation frame. Unchanged results are not delivered again.
+
+Some DOM members cannot report every change. For example, `matches` cannot track pointer state such as `:hover`. A watch using partly observable members requires `acceptPartialObservation: true`; without it, DOMQL reports which members have gaps and what they miss.
+
+Refresh explicitly when your application knows about a change the watch cannot detect, and dispose of the watch when you no longer need it:
+
+```js
+await watch.refreshAsync();
+watch.dispose();
+```
+
+The [watch guide](nuget/README.md#watch-a-query) covers observation limits, live state, scheduling and errors.
+
+## Filter and summarize
+
+Build on the same panel to count selected items:
+
+```js
+const selectedCount = domql.query(`
+    @panel.all("[data-key]")
+        .where(self matches "[aria-selected=true]")
+        .count
+`, { panel }).evaluate();
+```
+
+`where` evaluates its expression for each item. Collections also support `first`, `last`, `at`, `min`, `max` and `sum`. Locals let you reuse a value within a query, while conditionals and null handling let you choose what the result should contain.
+
+See [The language](nuget/README.md#the-language) for focused examples of each feature, including casts, shadow trees and access by property name.
+
+## Choose how to use a request
+
+| You want to… | Use |
+| --- | --- |
+| Read the current state once | `query.evaluate()` |
+| Wait for a browser observation, such as an intersection sample | `query.evaluateAsync()` |
+| Keep a result current | `query.watch()` |
+| Project each event into data | `query.subscribe(handler)` |
+| Run an action supplied by a module | `query.executeAsync()` |
+| Apply a behavior until it is disposed | `query.apply()` |
+
+Queries are read-only. Actions and behaviors are separate requests supplied by extension modules. Async evaluation, watches, event subscriptions, actions and behaviors accept an `AbortSignal` for cancellation.
+
+## How DOMQL differs from jQuery
+
+With jQuery, your JavaScript selects elements, reads values and assembles a result. With DOMQL, a query describes the values and their result shape, and the runtime validates and evaluates it.
+
+| | jQuery | DOMQL |
+| --- | --- | --- |
+| Main abstraction | Element collections with methods | Typed requests |
+| Reading data | JavaScript assembles the result | A query describes the result |
+| Keeping data current | Application code repeats its reads | A watch tracks declared observations |
+| Events | Handlers work with events | Subscriptions project events into data |
+| Changing the page | DOM manipulation methods | Module-defined actions and behaviors |
+| Extension | Plugins | Typed vocabulary modules |
+
+DOMQL is useful when you want a reusable description of DOM state, especially when several values need to stay current together. You can use it alongside ordinary JavaScript and other DOM libraries.
 
 ## Extend the vocabulary
 
-DOMQL separates the language from the concepts it can read.
+Modules add typed members and their implementations without changing the query syntax. Use them to expose application state or additional browser capabilities. Modules can also declare how their values are observed and provide event sources, actions and behaviors.
 
-Modules declare their members, types and arguments, and supply the functions that implement them. A module can expose an application’s own state or integrate a browser capability without adding syntax to the language.
-
-Queries are checked against those declarations. Unknown members and incompatible arguments are errors; unavailable values are represented by null.
-
-DOMQL is independent of any UI library and can be used by other libraries and applications.
-
-See the [library guide](nuget/README.md) for module registration, binding types, null behavior and the complete public API.
+See [Extend the vocabulary](nuget/README.md#extend-the-vocabulary) for a complete example.
 
 ## Status
 
-DOMQL is in preview and is not yet published to npm or NuGet.
+The features listed above are implemented in the current preview. Editor tooling and C# integration are planned; the NuGet package currently distributes the JavaScript library.
 
-Available today:
-
-- Text queries and JSON definitions.
-- Binding, name and type validation.
-- Evaluating a query synchronously, and waiting for maintained values.
-- Watching a query, with a snapshot each time its result changes, or one object kept current in place.
-- Subscribing to events, with the projection of each one.
-- Executing actions once, and applying behaviors that stay in effect until disposed.
-- Immutable snapshots.
-- Extensible vocabulary and observation types.
-- TypeScript declarations.
-
-C# integration is planned. The [implementation plan](docs/domql-implementation-plan.md) tracks their progress.
+The [implementation plan](docs/domql-implementation-plan.md) tracks remaining work and open decisions.
 
 ## Build and try it
 
-Clone the repository and run:
+Clone the repository. You'll need Node.js with npm, PowerShell and the .NET SDK pinned in `nuget/global.json`. See [CONTRIBUTING.md](CONTRIBUTING.md#set-up) for setup details.
+
+From the repository root, run the build and checks:
 
 ```powershell
 ./build.ps1
 ```
 
-To include the real-browser tests:
+Include the real-browser tests with:
 
 ```powershell
 ./build.ps1 -Browser
 ```
 
-To build the NuGet package locally:
+Build a local NuGet package with:
 
 ```powershell
 ./publish.ps1
 ```
 
-The package is written to `artifacts/`. It supplies the JavaScript bundle at `_content/domql/domql.js`, with its TypeScript declarations alongside it.
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and contribution guidance.
+The package is written to `artifacts/`. It supplies the JavaScript bundle at `_content/domql/domql.js`, with TypeScript declarations alongside it. The [library guide](nuget/README.md#install-and-load) explains how to load it.
 
 ## Documentation
 
-- [Library guide](nuget/README.md) — loading DOMQL, using its API and extending it.
-- [Language specification](docs/domql-specification.md) — syntax, types and vocabulary contracts.
-- [Runtime design](docs/domql-design.md) — resolution, evaluation, watching, subscribing to events and observation sessions.
-- [Implementation plan](docs/domql-implementation-plan.md) — completed work and upcoming capabilities.
+- [Library guide](nuget/README.md) — install DOMQL, learn the language and use the API.
+- [Language specification](docs/domql-specification.md) — precise syntax, types and vocabulary contracts.
+- [Runtime design](docs/domql-design.md) — runtime architecture and public API contracts.
+- [Implementation plan](docs/domql-implementation-plan.md) — remaining work and open decisions.
+- [Contributing](CONTRIBUTING.md) — report a bug, develop a change and run the checks.
+- [Security](SECURITY.md) — report a vulnerability privately.
 
 ## License
 
