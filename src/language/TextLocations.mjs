@@ -61,6 +61,11 @@ export class TextLocations {
             }
         }
 
+        if (node.kind === 'coalescing') {
+            this.#collect(node.value, `${pointer}/value`, spans);
+            this.#collect(node.fallback, `${pointer}/fallback`, spans);
+        }
+
         node.operands?.forEach((operand, index) => this.#collect(operand, `${pointer}/operands/${index}`, spans));
 
         for (const entriesProperty of ['locals', 'fields']) {

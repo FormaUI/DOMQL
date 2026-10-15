@@ -230,6 +230,18 @@ describe('LanguageResolver', () => {
             expect(resolve('@panel.parent?.rect?.width').type.toString()).toBe('number?');
         });
 
+        it('types a coalescing operator as its value made non-null where its fallback is, and as their merged type', () => {
+            expect(resolve('@panel.rect?.width ?? 0').type.toString()).toBe('number');
+            expect(resolve('@panel.rect?.width ?? @panel.parent?.rect?.width').type.toString()).toBe('number?');
+            expect(resolve('@panel.children.count ?? 0').type.toString()).toBe('number');
+            expect(resolve('null ?? "none"').type.toString()).toBe('string');
+        });
+
+        it('refuses a coalescing operator whose sides are of different types, or no values', () => {
+            expect(failure('@panel.rect?.width ?? "none"').message).toContain("The value and the fallback of '??' are of one type, and these are number? and string");
+            expect(failure('(@panel eventsOf "click") ?? 0').message).toContain("The value of '??' is a value, and this one is an event source");
+        });
+
         it('types an optional-access group as the optional chain it writes', () => {
             expect(resolve('(?@panel.parent.rect.width)').type.toString()).toBe('number?');
             expect(resolve('(?@panel.children.count)').type.toString()).toBe('number');
@@ -388,7 +400,7 @@ describe('LanguageResolver', () => {
 
         it('points into a definition that has no text', () => {
             const definition = {
-                version: 5,
+                version: 6,
                 query: { kind: 'member', target: { kind: 'parameter', name: 'panel' }, name: 'nonsense', arguments: [] },
             };
 

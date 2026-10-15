@@ -33,7 +33,8 @@ export class SnapshotComparer {
             return this.#reconcileNode(node.target, previous, previousIdentities, next, nextIdentities);
         }
 
-        if (node.kind === 'conditional') {
+        // A conditional and a coalescing each give the value of the side they selected, compared as that side is where both values came from it.
+        if (node.kind === 'conditional' || node.kind === 'coalescing') {
             const branch = SnapshotComparer.#branchOf(node, previousIdentities, nextIdentities);
 
             return branch === null
@@ -100,7 +101,7 @@ export class SnapshotComparer {
             return this.#toleranceOf(node.target, previousIdentities, nextIdentities);
         }
 
-        if (node.kind === 'conditional') {
+        if (node.kind === 'conditional' || node.kind === 'coalescing') {
             const branch = SnapshotComparer.#branchOf(node, previousIdentities, nextIdentities);
 
             return branch === null ? null : this.#toleranceOf(branch, previousIdentities, nextIdentities);

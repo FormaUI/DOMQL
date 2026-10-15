@@ -140,6 +140,23 @@ describe('QueryEvaluator', () => {
             expect(read('(?@item.parent.children.count)', { item: document.createElement('div') })).toBeNull();
         });
 
+        it('answers a coalescing operator\'s value where it is not null, and only otherwise evaluates its fallback', () => {
+            const reads = [];
+            const registry = new ModuleRegistry([BrowserModule.create(), propertyModule('probe', element => (reads.push(element), 7))]);
+            const readProbe = text => {
+                const query = domql.query(text, { item: items[0] });
+                const resolved = new LanguageResolver(registry, query.bindings, null, {}).resolveDefinition(query.definition);
+
+                return new QueryEvaluator(registry, resolved, query.bindings, { window, document }, null).evaluateOnce();
+            };
+
+            expect(readProbe('1 ?? @item.probe')).toBe(1);
+            expect(reads).toEqual([]);
+            expect(readProbe('null ?? @item.probe')).toBe(7);
+            expect(reads).toEqual([items[0]]);
+            expect(read('@item attributeOf "missing" ?? "first" ?? "second"', { item: items[0] })).toBe('first');
+        });
+
         it('answers null for an attribute the element does not have', () => {
             expect(read('@panel attributeOf "nothing"', { panel })).toBeNull();
         });

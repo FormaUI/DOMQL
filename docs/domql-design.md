@@ -174,7 +174,7 @@ A watch keeps its result as live state when its caller chooses it as its update 
 
 A watch reports a snapshot that differs from the last one it reported, compared field by field and item by item. Strings, Booleans and null compare exactly; a number compares within the tolerance its member declares, and exactly where it declares none.
 
-A number a conditional gave compares within the tolerance of the member its branch read where the number last reported came from the same branch, and exactly where it came from another, which is a different reading whose difference no tolerance absorbs. A conditional can select a different branch at each place in the result, as for each item of a list, so evaluation keeps the branch each conditional selected for each place beside the elements its lists came from, and the comparer reads it there.
+A number a conditional gave compares within the tolerance of the member its branch read where the number last reported came from the same branch, and exactly where it came from another, which is a different reading whose difference no tolerance absorbs. A number a coalescing operator gave compares the same way, by the side it came from, its value or its fallback. A conditional can select a different branch at each place in the result, as for each item of a list, so evaluation keeps the branch each conditional selected for each place beside the elements its lists came from, and the comparer reads it there.
 
 ## Event delivery
 

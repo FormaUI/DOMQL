@@ -172,6 +172,7 @@ export type DomqlDefinitionNode =
     | { readonly kind: 'infixCall'; readonly target: DomqlDefinitionNode; readonly name: string; readonly argument?: DomqlDefinitionNode }
     | { readonly kind: 'object'; readonly target?: DomqlDefinitionNode; readonly locals?: readonly DomqlDefinitionLocal[]; readonly fields: readonly DomqlDefinitionField[] }
     | { readonly kind: 'optionalChain'; readonly target: DomqlDefinitionNode }
+    | { readonly kind: 'coalescing'; readonly value: DomqlDefinitionNode; readonly fallback: DomqlDefinitionNode }
     | { readonly kind: 'predicate'; readonly verb: 'is' | 'has'; readonly target: DomqlDefinitionNode; readonly name: DomqlPredicateName }
     | { readonly kind: 'conditional'; readonly condition: DomqlDefinitionNode; readonly consequent: DomqlDefinitionNode; readonly alternative: DomqlDefinitionNode }
     | { readonly kind: 'and' | 'or'; readonly operands: readonly DomqlDefinitionNode[] };

@@ -263,6 +263,8 @@ export class QueryEvaluator {
             case 'optionalChain':
                 // An access that meets null answers null, and so does everything after it in its chain, which is evaluated no further.
                 return this.#evaluate(node.target, current);
+            case 'coalescing':
+                return this.#coalescing(node, current);
             case 'and':
                 return this.#and(node, current);
             case 'or':
@@ -279,6 +281,16 @@ export class QueryEvaluator {
         (this.#branches ??= new Map()).set(node, branch);
 
         return this.#evaluate(branch, current);
+    }
+
+    /** The value, evaluated once, where it is not null, and otherwise the fallback, evaluated only then; the side it answers is recorded for the value's place in the result, as a conditional's branch is. */
+    #coalescing(node, current) {
+        const value = this.#evaluate(node.value, current);
+        const side = value === null ? node.fallback : node.value;
+
+        (this.#branches ??= new Map()).set(node, side);
+
+        return value === null ? this.#evaluate(node.fallback, current) : value;
     }
 
     /**

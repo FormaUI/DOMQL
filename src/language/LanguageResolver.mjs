@@ -82,12 +82,36 @@ export class LanguageResolver {
                 return this.#resolveConditional(node, pointer, scope);
             case 'optionalChain':
                 return this.#resolveOptionalChain(node, pointer, scope);
+            case 'coalescing':
+                return this.#resolveCoalescing(node, pointer, scope);
             case 'and':
             case 'or':
                 return this.#resolveLogical(node, pointer, scope);
             default:
                 return this.#resolveObject(node, pointer, scope);
         }
+    }
+
+    /** Resolves a coalescing: a value and a fallback of one type, as a conditional's branches are, its type the value's made non-null where the fallback's is; the whole is resolved before any of it is evaluated. */
+    #resolveCoalescing(node, pointer, scope) {
+        const [value, fallback] = ['value', 'fallback'].map(side => {
+            const result = this.#resolveNode(node[side], `${pointer}/${side}`, scope);
+
+            if (result.kind !== 'query') {
+                this.#fail(`The ${side} of '??' is a value, and this one is ${LanguageResolver.#descriptionOf(result.kind)}`, `${pointer}/${side}`);
+            }
+
+            return result.type;
+        });
+
+        // A value of the type null is never anything but null, so the fallback's type is the whole's.
+        const type = value.kind === 'null' ? fallback : Type.merge(value.toNonNullable(), fallback);
+
+        if (type === null) {
+            this.#fail(`The value and the fallback of '??' are of one type, and these are ${value} and ${fallback}`, `${pointer}/fallback`);
+        }
+
+        return { type, kind: 'query', isFixed: false };
     }
 
     /** Resolves an optional chain: the chain it holds, nullable where an optional access of it can meet a null receiver, which ends the chain with null. */

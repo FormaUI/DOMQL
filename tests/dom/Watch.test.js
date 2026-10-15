@@ -338,6 +338,30 @@ describe('Watch', () => {
         });
     });
 
+    describe('a coalescing operator', () => {
+        it('holds what its fallback reads only while its value is null', async () => {
+            const item = panel.querySelector('i');
+
+            watch('{ level: @item.level ?? @panel.level }', { item, panel });
+            await settle();
+            gauges.get(item).sample = { pending: false, value: null };
+            gauges.get(item).notify();
+            await settle();
+            gauges.get(panel).sample = { pending: false, value: 2 };
+            gauges.get(panel).notify();
+            await settle();
+
+            expect(snapshots.at(-1)).toEqual({ level: 2 });
+
+            gauges.get(item).sample = { pending: false, value: 5 };
+            gauges.get(item).notify();
+            await settle();
+
+            expect(snapshots.at(-1)).toEqual({ level: 5 });
+            expect(gauges.get(panel).stopped).toBe(1);
+        });
+    });
+
     describe('an evaluation that fails', () => {
         it('is reported, keeps the watch running and its last snapshot, and its recovery reports the snapshot whether or not it differs', async () => {
             const watched = watch('{ n: @panel.flaky }', { panel });

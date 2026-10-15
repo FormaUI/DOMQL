@@ -32,6 +32,9 @@ export class Parser {
     /** @type {WeakMap<object, Span>} */
     #spans = new WeakMap();
 
+    /** The coalescing operators read where no group holds them, which no `and`, `or` or predicate expression may stand beside. @type {WeakSet<object>} */
+    #ungroupedCoalescings = new WeakSet();
+
     /** @param {string} text The query text. */
     constructor(text) {
         this.#text = text;
@@ -59,7 +62,7 @@ export class Parser {
         return this.#parseCondition();
     }
 
-    /** Reads what a condition is: operands joined by `and` and `or`, `and` binding tighter, or an operand alone. */
+    /** Reads what a condition is: operands joined by `and` and `or`, `and` binding tighter, an operand alone, or a coalescing operator, which stands beside neither. */
     #parseCondition() {
         return this.#parseLogical('or', () => this.#parseLogical('and', () => this.#parseOperand()));
     }
@@ -96,10 +99,29 @@ export class Parser {
         return this.#recordSpan({ kind: 'conditional', condition, consequent, alternative }, start);
     }
 
-    /** Reads an operand: a value, and a predicate expression of it where a verb follows it. */
+    /** Reads an operand: an equality operand, and a predicate expression of it where a verb follows it, or the coalescing operator that takes it where `??` follows it. */
     #parseOperand() {
         const start = this.#token.start;
 
+        this.#refuseOperandStart(start);
+
+        const value = this.#parseEqualityOperand();
+
+        if (this.#token.type === '??') {
+            return this.#parseCoalescingOperator(value, start);
+        }
+
+        const operand = this.#isVerb() ? this.#parsePredicate(value, start) : value;
+
+        if (this.#token.type === '??') {
+            throw DomqlError.syntax("'??' and a predicate expression stand apart, one of them grouped: write '(… is …) ?? …' or '… is (… ?? …)'", this.#text, this.#token.start);
+        }
+
+        return operand;
+    }
+
+    /** Refuses what an operand cannot start with: a verb, which tests the value written before it, and a conditional, which is grouped where it is an operand. */
+    #refuseOperandStart(start) {
         if (this.#isVerb()) {
             throw DomqlError.syntax(`'${this.#token.value}' tests the value written before it: write 'self ${this.#token.value} …' to test the current value`, this.#text, start);
         }
@@ -107,10 +129,28 @@ export class Parser {
         if (this.#isKeyword('if')) {
             throw DomqlError.syntax('A conditional that is an operand is enclosed in parentheses: write (if … then … else …)', this.#text, start);
         }
+    }
 
-        const value = this.#parseEqualityOperand();
+    /** Reads a coalescing operator after its value: `??` and its fallback, an equality operand or another coalescing operator, so it associates to the right. */
+    #parseCoalescingOperator(value, start) {
+        this.#advance();
 
-        return this.#isVerb() ? this.#parsePredicate(value, start) : value;
+        const fallbackStart = this.#token.start;
+
+        this.#refuseOperandStart(fallbackStart);
+
+        const fallbackValue = this.#parseEqualityOperand();
+        const fallback = this.#token.type === '??' ? this.#parseCoalescingOperator(fallbackValue, fallbackStart) : fallbackValue;
+
+        if (this.#isVerb()) {
+            throw DomqlError.syntax("'??' and a predicate expression stand apart, one of them grouped: write '(… ?? …) is …' or '… ?? (… is …)'", this.#text, this.#token.start);
+        }
+
+        const node = this.#recordSpan({ kind: 'coalescing', value, fallback }, start);
+
+        this.#ungroupedCoalescings.add(node);
+
+        return node;
     }
 
     /** Reads an equality operand: a chain, held by an optional chain where one of its accesses is optional, and the infix call that may end it. */
@@ -167,10 +207,11 @@ export class Parser {
 
         switch (token.type) {
             case '(': {
-                // An expression group records the expression it holds, which a chain may then continue from.
+                // An expression group records the expression it holds, which a chain may then continue from, and groups a coalescing operator it holds.
                 this.#advance();
                 const expression = this.#parseExpression();
                 this.#expect(')');
+                this.#ungroupedCoalescings.delete(expression);
 
                 return expression;
             }
@@ -357,11 +398,21 @@ export class Parser {
         const operands = [first];
 
         while (this.#isKeyword(operator)) {
+            this.#refuseUngroupedCoalescing(operands.at(-1), operator);
             this.#advance();
             operands.push(parseOperand());
         }
 
+        this.#refuseUngroupedCoalescing(operands.at(-1), operator);
+
         return this.#recordSpan({ kind: operator, operands }, start);
+    }
+
+    /** Refuses a coalescing operator no group holds as an operand of `and` or `or`, which it never stands beside. */
+    #refuseUngroupedCoalescing(operand, operator) {
+        if (this.#ungroupedCoalescings.has(operand)) {
+            throw DomqlError.syntax(`'??' and '${operator}' stand apart, one of them grouped: write '(… ?? …) ${operator} …' or '… ?? (… ${operator} …)'`, this.#text, this.#spans.get(operand).start);
+        }
     }
 
     /** Reads the one predicate name a predicate expression reads: a string or a parameter, or the null `is null` tests for. */

@@ -21,6 +21,7 @@ const NODE_PROPERTIES = {
     optionalChain: { properties: ['kind', 'target'], required: ['target'] },
     predicate: { properties: ['kind', 'verb', 'target', 'name'], required: ['verb', 'target', 'name'] },
     conditional: { properties: ['kind', 'condition', 'consequent', 'alternative'], required: ['condition', 'consequent', 'alternative'] },
+    coalescing: { properties: ['kind', 'value', 'fallback'], required: ['value', 'fallback'] },
     and: { properties: ['kind', 'operands'], required: ['operands'] },
     or: { properties: ['kind', 'operands'], required: ['operands'] },
 };
@@ -64,7 +65,7 @@ export class DefinitionValidator {
 
     #validateNode(node, pointer, currentValueAvailability) {
         if (!DefinitionValidator.#isObject(node) || !Object.hasOwn(NODE_PROPERTIES, node.kind)) {
-            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, infixCall, object, optionalChain, predicate, conditional, and or or');
+            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, infixCall, object, optionalChain, predicate, conditional, coalescing, and or or');
         }
 
         this.#requireProperties(node, pointer, NODE_PROPERTIES[node.kind]);
@@ -119,6 +120,12 @@ export class DefinitionValidator {
                 return this.#validateLogical(node, pointer, currentValueAvailability);
             case 'optionalChain':
                 return this.#validateOptionalChain(node, pointer, currentValueAvailability);
+            case 'coalescing':
+                return Object.freeze({
+                    kind: 'coalescing',
+                    value: this.#validateNode(node.value, `${pointer}/value`, currentValueAvailability),
+                    fallback: this.#validateNode(node.fallback, `${pointer}/fallback`, currentValueAvailability),
+                });
             default:
                 return this.#validateObject(node, pointer, currentValueAvailability);
         }

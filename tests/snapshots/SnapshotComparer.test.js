@@ -135,6 +135,20 @@ describe('SnapshotComparer', () => {
             });
         });
 
+        describe('under a coalescing operator', () => {
+            const selecting = (coalescing, side) => ({ branches: new Map([[coalescing, side]]) });
+
+            it('compares a number within the tolerance of the side both values came from, and exactly where they came from different sides', () => {
+                const resolved = resolvedOf('@element.wobble.width ?? @element.steady', { element }, { tolerance: 2 });
+                const snapshotComparer = new SnapshotComparer(resolved);
+                const { query } = resolved.definition;
+
+                expect(snapshotComparer.reconcile(100, selecting(query, query.value), 101.5, selecting(query, query.value))).toBe(100);
+                expect(snapshotComparer.reconcile(100, selecting(query, query.fallback), 101.5, selecting(query, query.fallback))).toBe(101.5);
+                expect(snapshotComparer.reconcile(100, selecting(query, query.value), 101.5, selecting(query, query.fallback))).toBe(101.5);
+            });
+        });
+
         it('compares what an optional chain gives as the chain it holds, within the tolerance of its member', () => {
             const snapshotComparer = snapshotComparerOf('@element { width: self.parent?.wobble.width, box: self.parent?.wobble { w: self.width } }', { element }, { tolerance: 2 });
             const previous = freeze({ width: 10, box: { w: 10 } });

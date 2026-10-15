@@ -298,7 +298,7 @@ A local's `self` is the value where it is written, wherever it is used. It is ev
 
 ### Null and unavailable values
 
-Null represents a missing or unavailable value; it does not hide an invalid query. A member of a value that can be null is read with `?.`, which answers null where the value is null and skips the rest of its chain, and `.` on such a value is an error before anything is evaluated. An optional-access group makes every access it holds optional, so `(?@panel.parent.rect.height)` reads as `@panel?.parent?.rect?.height`. An infix call or a targeted object expression whose receiver is null returns null.
+Null represents a missing or unavailable value; it does not hide an invalid query. A member of a value that can be null is read with `?.`, which answers null where the value is null and skips the rest of its chain, and `.` on such a value is an error before anything is evaluated. An optional-access group makes every access it holds optional, so `(?@panel.parent.rect.height)` reads as `@panel?.parent?.rect?.height`. `??` answers a fallback where a value is null, so `@panel.rect?.height ?? 0` is 0 for an element with no layout box; it stands beside `and`, `or`, `is` and `has` only where a group holds one of them. An infix call or a targeted object expression whose receiver is null returns null.
 
 ```js
 domql.query(

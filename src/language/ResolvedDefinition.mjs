@@ -112,6 +112,10 @@ export class ResolvedDefinition {
             case 'or':
                 node.operands.forEach((operand, index) => this.#index(operand, `${pointer}/operands/${index}`));
                 break;
+            case 'coalescing':
+                this.#index(node.value, `${pointer}/value`);
+                this.#index(node.fallback, `${pointer}/fallback`);
+                break;
         }
     }
 }
