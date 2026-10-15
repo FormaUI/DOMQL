@@ -164,6 +164,7 @@ describe('DefinitionWriter', () => {
             ['no comment and no original layout', '@panel // the panel\n    /* its size */ .size', '@panel.size'],
             ['an optional access as one token, with the group that ends its chain', '(@panel.parent  ?.children) . count', '(@panel.parent?.children).count'],
             ['a cast in an optional-access group as the optional accesses it writes', '(?(@panel.parent as "element").rect.width)', '(@panel?.parent as "element")?.rect?.width'],
+            ['a grouped coalescing operator cast in an optional-access group, its sides as written', '(?((@a.x ?? @b) as "element").rect)', '((@a.x ?? @b) as "element")?.rect'],
             ['an equality negated as is not, however its negation is written', 'not (@a is @b)', '@a is not @b'],
             ['a negation, grouped only where what it negates needs it', 'not ((@panel.attached))', 'not @panel.attached'],
             ['an access by name of a string literal that is a name, as the name', '@panel["size"]', '@panel.size'],

@@ -357,7 +357,7 @@ export class Parser {
         return this.#recordSpan({ kind: 'optionalChain', target: node }, start);
     }
 
-    /** Reads a receiver within an optional-access group: an input, or a grouped cast, its own target's accesses optional as the group's are. */
+    /** Reads a receiver within an optional-access group: an input, or a grouped cast, its own target's accesses optional as the group's are, where its target is no group that keeps its own rules. */
     #parseReceiver() {
         const start = this.#token.start;
 
@@ -372,8 +372,7 @@ export class Parser {
         this.#advance();
 
         const targetStart = this.#token.start;
-        const { node, accesses } = this.#parseMemberAccessChain(this.#parseReceiver(), targetStart);
-        const target = accesses > 0 ? this.#recordSpan({ kind: 'optionalChain', target: node }, targetStart) : node;
+        const target = this.#parseCastTarget(targetStart);
 
         if (!this.#isKeyword('as')) {
             throw DomqlError.syntax('A group as the receiver of an optional-access group holds a cast, as in (?(@node.parent as "element").rect)', this.#text, this.#token.start);
@@ -384,6 +383,65 @@ export class Parser {
         this.#expect(')');
 
         return this.#spans.has(cast) ? cast : this.#recordSpan(cast, start);
+    }
+
+    /**
+     * Reads the target of a cast that is the receiver of an optional-access group: a coalescing operator in parentheses or an optional-access group, each keeping its own rules as it does outside one,
+     * or a receiver and the member-access expressions after it, every one of them optional.
+     */
+    #parseCastTarget(start) {
+        if (this.#token.type === '(?' || (this.#token.type === '(' && !this.#groupHoldsCast())) {
+            const target = this.#parseChainInput();
+
+            if (target.kind !== 'coalescing' && target.kind !== 'optionalChain') {
+                throw DomqlError.syntax(`A cast's target is a receiver and the member-access expressions after it, a coalescing operator in parentheses, or an optional-access group, and this is none of them`, this.#text, start);
+            }
+
+            if (this.#token.type === '.' || this.#token.type === '?.' || this.#token.type === '[') {
+                throw DomqlError.syntax('A grouped target is cast as it is, with nothing after it but its cast, as in ((@a ?? @b) as "element")', this.#text, this.#token.start);
+            }
+
+            return target;
+        }
+
+        const { node, accesses } = this.#parseMemberAccessChain(this.#parseReceiver(), start);
+
+        return accesses > 0 ? this.#recordSpan({ kind: 'optionalChain', target: node }, start) : node;
+    }
+
+    /**
+     * Whether the group the current parenthesis opens holds a cast at its own level, outside any group, brackets or braces within it: one that holds `as` there and no `??` or other keyword,
+     * since a cast's own level holds its target's receiver and accesses alone, while a coalescing operator's side or a conditional's branch may be a cast.
+     */
+    #groupHoldsCast() {
+        let depth = 0;
+        let holdsAs = false;
+
+        for (let index = this.#index; index < this.#tokens.length; index++) {
+            const token = this.#tokens[index];
+
+            if (token.type === '(' || token.type === '(?' || token.type === '[' || token.type === '{') {
+                depth++;
+            } else if (token.type === ')' || token.type === ']' || token.type === '}') {
+                depth--;
+
+                if (depth === 0) {
+                    return holdsAs;
+                }
+            } else if (depth === 1 && token.type === '??') {
+                return false;
+            } else if (depth === 1 && token.type === 'keyword') {
+                if (token.value !== 'as') {
+                    return false;
+                }
+
+                holdsAs = true;
+            } else if (token.type === 'end') {
+                return false;
+            }
+        }
+
+        return false;
     }
 
     /** Reads the rest of a member-access chain within an optional-access group, the member-access expressions after its receiver, every one of them optional, and how many there are. */

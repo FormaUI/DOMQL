@@ -445,6 +445,31 @@ describe('domql', () => {
 
         it('stand as the receiver of an optional-access group, their own target\'s accesses optional too', () => {
             expect(domql.query('(?(@panel.parent as "element").rect.width)').definition).toEqual(domql.query('(@panel?.parent as "element")?.rect?.width').definition);
+            expect(domql.query('(?((@node.parent as "node") as "element").rect)').definition).toEqual(domql.query('((@node?.parent as "node") as "element")?.rect').definition);
+            // `self` and a literal are receivers a grouped cast holds, never keywords that tell a grouped target from a grouped cast.
+            expect(domql.query('@panel { w: (?((self.parent as "node") as "element").rect) }').definition).toEqual(domql.query('@panel { w: ((self?.parent as "node") as "element")?.rect }').definition);
+            expect(domql.query('(?((null as "node") as "element").rect)').definition).toEqual(domql.query('((null as "node") as "element")?.rect').definition);
+        });
+
+        it('stand as the receiver of an optional-access group with a grouped target that keeps its own rules, a coalescing operator or another optional-access group', () => {
+            expect(domql.query('(?((@a.x ?? @b.y) as "element").rect.width)').definition).toEqual(domql.query('((@a.x ?? @b.y) as "element")?.rect?.width').definition);
+            expect(domql.query('(?((?@a.b) as "element").c)').definition).toEqual(domql.query('(@a?.b as "element")?.c').definition);
+            expect(domql.query('(?(((@a ?? @b) as "node") as "element").rect)').definition).toEqual(domql.query('(((@a ?? @b) as "node") as "element")?.rect').definition);
+            expect(domql.query('(?((@a ?? @b as "node") as "element").rect)').definition).toEqual(domql.query('((@a ?? @b as "node") as "element")?.rect').definition);
+            expect(domql.query('(?((@a as "node" ?? @b) as "element").rect)').definition).toEqual(domql.query('((@a as "node" ?? @b) as "element")?.rect').definition);
+        });
+
+        it.each([
+            ['a grouped coalescing operator an access follows', '(?((@a ?? @b).x as "element").rect)', 1, 14],
+            ['an optional-access group an access follows', '(?((?@a.b).c as "element").d)', 1, 11],
+            ['a conditional in parentheses', '(?((if @a then @b else @c) as "element").d)', 1, 4],
+            ['a conditional in parentheses whose branch is a cast', '(?((if @a then @b as "node" else @c) as "element").d)', 1, 4],
+            ['a coalescing operator that no cast holds', '(?((@a ?? @b)).rect)', 1, 14],
+        ])('refuse as the cast an optional-access group receives %s', (_, text, line, column) => {
+            const error = getError(() => domql.query(text));
+
+            expect(error.kind).toBe('syntax');
+            expect(error.location).toMatchObject({ line, column });
         });
 
         it.each([
