@@ -1,76 +1,119 @@
-# DOMQL
+# Working on DOMQL
 
-DOMQL, a small query language over the DOM. **A JavaScript library · ES modules in `src/` · bundled to one minified file · published as the NuGet package `formaui-net.DOMQL`.**
+DOMQL is a small, extensible query language and JavaScript library for managing the DOM: reading information from the document, tracking changes, responding to events and updating its content or state. A query only reads; the document changes only through an action or a behavior, each a request of its own kind that a module supplies. Source ES modules live in `src/`; the build produces one minified bundle, distributed by the `formaui-net.DOMQL` NuGet package.
 
-The language knows only the DOM, and nothing here refers to a consumer of it.
+## Before making a change
 
-## Source of truth
+Read the documents that govern the affected contract:
 
-- Do use the [DOMQL specification](docs/domql-specification.md) for what the language means: its syntax, resolution, values, requests, evaluation semantics, vocabulary contracts and the definition. It is authoritative; code follows it, and a change to the language changes it first.
-- Do use the [DOMQL design](docs/domql-design.md) for how DOMQL runs and is used: preparation, waiting and sessions, watching, snapshots and live state, event delivery, modules, tooling and the authoring APIs. The design is authoritative for the JavaScript runtime and its public API. Code follows it; changes to those contracts must be reflected there before implementation.
-- Do use the [implementation plan](docs/domql-implementation-plan.md) for the steps that build what is not built yet, their state and the open decisions; mark a step done when its work is finished and nothing remains, and record a departure from the design there until the design is brought into line.
-- Do read `.editorconfig` before writing C#; it is the authority on style.
-- Don't invent scope, status or style rules when an authoritative file defines them.
+| Document | Authority |
+| --- | --- |
+| [Specification](docs/domql-specification.md) | Language syntax, resolution, values, requests, evaluation semantics, vocabulary contracts and definitions |
+| [Design](docs/domql-design.md) | Runtime architecture and public API: preparation, sessions, watching, snapshots, live state, events, modules and tooling |
+| [Implementation plan](docs/domql-implementation-plan.md) | Unfinished work, its status and open decisions |
+| `.editorconfig` | Code style; read it before writing C# |
 
-## Structure
+Update the specification before implementing a language change, and the design before changing a runtime or public API contract. Record a departure from the design in the plan until the design is aligned. When planned work is complete, remove its unfinished-work entry and update Built to describe what exists.
 
-- Do keep the language's scripts under `src/`: the `domql.js` entry, composing the modules beside it, and those modules in folders organized by responsibility. `language/` holds what needs no browser: a query as text and as a definition, the types, resolving a definition against the vocabulary, and a DOMQL failure and its location; the modules, their registry and the built-in vocabulary's declarations are in `language/vocabulary/`. `dom/` holds what works on a window and its document: reading a resolved definition, watching it and listening to it, running actions and activating behaviors, the observations and the sessions that reach them, and the functions that carry out the built-in vocabulary. `snapshots/` computes, compares, dispatches and applies snapshot updates, using identity metadata without reading or observing the DOM. `common/` holds operations on JavaScript objects and arrays that need no knowledge of the language, a document or snapshots. Add a folder when a responsibility arrives.
-- Do let `dom/` depend on `language/`, `snapshots/` and `common/`, `snapshots/` on `language/` and `common/`, and `language/` on `common/` alone, never the other way, while `common/` depends on none of the other source layers; let `dom/` receive the window and the document it works on, never reach for a global. Importing `language/` and resolving a query works without a DOM.
-- Do keep the package project, which only carries the bundle to NuGet, in `nuget/`, the tests in `tests/`, and the script that bundles in `scripts/`.
-- Do keep experiments, spikes and notes that belong to a person under `.local/`, which git ignores whole.
-- Do write each module as one concept expressed as a class, taking its collaborators once in its constructor, with `#`-private mechanics; a family of pure helpers is a class with static members.
-- Do keep the entry composing its modules rather than re-exporting them.
-- Do keep DOMQL free of any consumer: no code, comment or document depends on or describes Forma, a component, Blazor, a watcher or an engine as something DOMQL serves. FormaUI appears as DOMQL's publisher, and Forma as a product developed alongside it, only in the package's metadata and the READMEs' opening.
-- Do keep a module's registration apart from the instances it creates, as the design sets out.
+Use these sources rather than inventing scope, status or style rules.
 
-## Scripts
+## Repository structure
 
-- Do use only native modern browser APIs in `src/`, with no external library or polyfill; a script is an ES module, strict by construction.
-- Do publish DOMQL as one minified file, `nuget/wwwroot/domql.js`, which `scripts/bundle.mjs` makes from `src/` with esbuild, a development dependency that the package never carries; the file is generated, ignored by git, and as small as the sources allow, and a test runs the bundle. Ship its types beside it as `domql.d.ts`, written by hand in `src/` and copied by the same script; a test compiles a TypeScript caller against it and fails when it and `domql` disagree.
-- Do name a parameter by its role (`text`, `definition`, `bindings`), never its type.
-- Do give a name the words that say what it holds or does in its context; a short name is fine where its scope makes it plain, and is renamed only where a reader has to work out what it is.
-- Do name keyed retrieval from a store `getXxx(key)`, whether or not absence is possible, and a property or value determined from a subject `xxxOf(subject)`, judged by the caller's meaning rather than by how it is stored.
-- Do give the plain name to an operation that answers directly, and the suffix `Async` to every operation that answers a promise: `evaluate` and `evaluateAsync`. Never suffix the synchronous form.
-- Do call an object of settings that each have a default, and that a call can leave out whole, its options, as `DomqlEvaluateOptions`, and name the parameter that takes it `options`; what a call cannot do without, such as the handler `subscribe` calls, is a parameter of its own.
-- Do prefix every type `domql.d.ts` exports with `Domql`, and declare as a class only what the bundle exports as one; a type describing an object the library hands out is an interface, whatever its class is called inside `src/`.
-- Do write the language's name as DOMQL in prose and `Domql` in a type's name, call the object the package exports `domql`, and name a module that exposes a capability through DOMQL `{Capability}DomqlModule`.
-- Do report every failure where it happens, as a `DomqlError` naming where it fails, and never swallow a rejection.
-- Do give every cache a stated validity and release, and show the work it saves by measurement.
+| Path | Responsibility |
+| --- | --- |
+| `src/domql.js` | Entry point that composes the library's modules |
+| `src/language/` | Text queries, definitions, types, resolution, errors and locations; no browser dependency |
+| `src/language/vocabulary/` | Modules, their registry and built-in vocabulary declarations |
+| `src/dom/` | Evaluation, watches, events, actions, behaviors, observations, sessions and built-in implementations |
+| `src/snapshots/` | Computing, comparing, dispatching and applying snapshot updates using identity metadata; no DOM access |
+| `src/common/` | Object and array operations independent of the language, DOM and snapshots |
+| `tests/` | Tests mirroring the source folders |
+| `scripts/` | Bundling scripts |
+| `nuget/` | The package project, which distributes the bundle |
+| `.local/` | Personal experiments, spikes, notes and benchmark baselines; ignored by Git |
 
-## Tests
+Add a folder when a new responsibility needs one. Keep dependencies in this direction:
 
-- Do add or change a test for every module you add or change, in `tests/`, and run them with `npm test` from that folder.
-- Do put a test where the code it tests is, `tests/` following `src/` folder for folder, and name a test of layout, geometry or state the browser decides `*.browser.js`, beside the others, which runs in headless Chromium with `npm run test:browser` or `./build.ps1 -Browser`; the happy-dom tests lay nothing out.
-- Do keep what a test reads or compiles, rather than runs, in an underscore folder of `tests/`, so every other folder there follows `src/`: the package README's examples and the document both READMEs query in `tests/_examples/`, and the TypeScript caller in `tests/_types/`.
-- Do measure with benchmarks, `*.bench.js` beside the tests, run with `npm run bench` from `tests/` and kept out of the gate; keep each baseline under `.local/`, and record what a measurement concluded in the implementation plan.
-- Do test through the public surface, `domql` and what it returns, and assert exact definitions, error kinds and locations.
-- Don't wait on the clock for work a test controls.
+- `dom/` may depend on `language/`, `snapshots/` and `common/`.
+- `snapshots/` may depend on `language/` and `common/`.
+- `language/` may depend only on `common/` among the other source layers.
+- `common/` depends on none of the other layers.
 
-## Documentation
+Pass the window and document into DOM code; do not read globals there. Importing the language layer and resolving a query must work without a DOM.
 
-- Do state in the specification what the language means, with examples that make the contract precise, and in the design how it runs; neither restates the other.
-- Do version DOMQL as `1.0.0-alpha.N`, N the number of commits in the history the package is built from, which the package project counts once and gives to bundling, so `domql.info.version` answers it and packing refuses a bundle of another version; run from its sources, the library answers `1.0.0-alpha+source`. The specification's version, `domql.info.specificationVersion`, is `1.0.0-alpha`, which the specification's title, the design's and `Specification.mjs` carry, and the alignment test fails when they disagree with the package.
-- Do keep every example in the documents a valid query, parsed by the implementation.
-- Do say what a thing is in a comment or summary, never how or why.
+## Implementation conventions
 
-## Build and verification
+- Express one concept per module as a class. Supply collaborators through its constructor and use `#`-private implementation details. A family of pure helpers is a class with static members.
+- Keep the entry point responsible for composition rather than re-exporting internal modules.
+- Keep a module's registration separate from the instances it creates, as defined in the design.
+- Use native modern browser APIs in `src/`, with no external runtime libraries or polyfills. Scripts are ES modules.
+- Keep DOMQL independent of its consumers. Source code and documentation must not describe it as serving Forma, a component framework, Blazor or a consumer's watcher or engine. Mention FormaUI as publisher and Forma as a companion product only in package metadata and README introductions.
+- Report failures at their origin as a `DomqlError` with a location. Never swallow a rejection.
+- State each cache's validity and release conditions. Measure the work it saves.
 
-The gate is `./build.ps1`: the tests, the bundle, the package project's build with no warnings, and the format check; `./publish.ps1` runs it and packs the package.
+### Names and types
 
-- Do treat every compiler warning as a build failure.
+Use names that explain their role in context. Short names are fine when their meaning is clear; rename only when the reader otherwise has to infer what they mean.
 
-## Working agreement
+| Convention | Example or rule |
+| --- | --- |
+| Parameter names describe roles | `text`, `definition`, `bindings`; avoid naming by type alone |
+| Keyed retrieval uses `getXxx(key)` | Applies whether or not the key may be absent |
+| A value derived from a subject uses `xxxOf(subject)` | Judge by what the call means, not by storage details |
+| Promise-returning operations end in `Async` | `evaluate` and `evaluateAsync`; no suffix on the synchronous form |
+| Optional settings use `options` | Each setting has a default and the whole object may be omitted |
+| Required inputs are separate parameters | For example, the handler passed to `subscribe` |
+| Exported declaration names start with `Domql` | Declare a class only when the bundle exports that class; otherwise use an interface for returned objects |
+| Product and API names are consistent | `DOMQL` in prose, `Domql` in type names, `domql` for the exported object |
+| Capability modules use a consistent suffix | `{Capability}DomqlModule` |
 
-- Do present a piece of work for review and stop; iterate on it until the maintainer declares it complete.
-- Do finish a piece of work with it unstaged, report what changed and what the gate said, and propose a commit message for the maintainer to run themselves.
-- Do keep changes minimal and on-scope.
-- Don't run a state-changing Git command, `add`, `commit`, `push`, `reset`, `restore`, `stash`, a path-scoped `checkout`, without permission for that command, asked for once the work exists.
+### Bundle and declarations
+
+`scripts/bundle.mjs` uses esbuild to generate `nuget/wwwroot/domql.js`. Keep this minified bundle as small as the sources allow; it is generated and ignored by Git. esbuild is a development dependency and is not shipped in the package.
+
+Maintain `src/domql.d.ts` by hand. The bundler copies it beside the bundle. Keep the bundle test and the TypeScript caller test passing so the published JavaScript and declarations agree.
+
+## Tests and verification
+
+Add or update a test for every source module changed. Test through `domql` and the objects it returns, asserting exact definitions, error kinds and locations. Avoid clock-based waits for work the test controls.
+
+Tests mirror `src/` under `tests/`. Layout, geometry and browser-managed state belong in `*.browser.js` files beside the other tests for that code; happy-dom does not calculate layout. Files tests read or compile belong in underscore folders: `tests/_examples/` for README fixtures and their shared document, and `tests/_types/` for the TypeScript caller.
+
+| Command | Run from | Purpose |
+| --- | --- | --- |
+| `npm test` | `tests/` | Unit tests |
+| `npm run test:browser` | `tests/` | Headless Chromium tests |
+| `npm run bench` | `tests/` | Benchmarks, outside the gate |
+| `npm run scale` | `tests/` | A watch of 1,000 to 100,000 rows timed in Chromium, outside the gate |
+| `./build.ps1` | Repository root | Tests, bundle, package build and format check |
+| `./build.ps1 -Browser` | Repository root | Gate including browser tests |
+| `./publish.ps1` | Repository root | Gate followed by package creation |
+
+Every compiler warning is a build failure. Keep `*.bench.js` and `*.scale.js` beside the corresponding tests, store baselines in `.local/`, and record measurement conclusions in the implementation plan.
+
+## Documentation and versions
+
+The specification explains what the language means; the design explains how the runtime works. Avoid duplicating their contracts. Keep documentation examples valid and checked by the parser. Comments and summaries state what a thing is, rather than narrating how or why it was implemented.
+
+Use these version rules:
+
+- Package version: `1.0.0-alpha.N`, where N is the number of commits in the build's history. The package project counts it once and passes it to bundling.
+- `domql.info.version` reports that package version. Packing rejects a bundle with a different version. Running from source reports `1.0.0-alpha+source`.
+- Specification version: `1.0.0-alpha`. Keep the specification title, design title, `Specification.mjs` and `domql.info.specificationVersion` aligned. Preserve the version-alignment test.
+
+## Review and Git
+
+Keep changes focused on the requested work. Present each piece for review and iterate until the maintainer considers it complete.
+
+Leave finished changes unstaged. Report what changed, the build gate's result and any checks you could not run. Propose a commit message for the maintainer to use.
+
+Ask for permission before each state-changing Git command, once the work is ready to review. This includes `add`, `commit`, `push`, `reset`, `restore`, `stash` and path-scoped `checkout`.
 
 ## Commit messages
 
-A commit message describes the durable change the commit introduces, never the session that produced it.
+Describe the durable change, not the session that produced it. Follow the format in [CONTRIBUTING.md](CONTRIBUTING.md#commit-messages).
 
-- Do make the title summarize the entire commit, and split a commit one honest title cannot cover.
-- Do add a body only where the title alone is not enough.
-- Don't describe how the change was implemented, narrate attempts, enumerate files or members, or report test counts or routine verification.
-- Don't append an attribution trailer such as `Co-Authored-By`.
+- Make the title cover the whole commit. Split unrelated work when one honest title cannot cover it.
+- Add a body only when the title needs context.
+- Explain the resulting change; omit implementation narration, file or member inventories, test counts and routine verification.
+- Do not add attribution trailers such as `Co-Authored-By`.

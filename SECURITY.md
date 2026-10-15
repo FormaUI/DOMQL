@@ -1,24 +1,28 @@
 # Security policy
 
-## Reporting a vulnerability
+## Report a vulnerability
 
-Please report a vulnerability privately, not in a public issue.
+Please report possible vulnerabilities privately through either of these channels:
 
-- Use GitHub's **Report a vulnerability** on the repository's Security tab, or
-- write to domql@formaui.net.
+- Open the repository's **Security** tab and choose **Report a vulnerability**.
+- Email [domql@formaui.net](mailto:domql@formaui.net).
 
-Say what you found, how to reproduce it, and which version it affects. You will get an answer once the report has been read, and the report is kept private until a fix is available or a disclosure is agreed with you.
+Include the affected DOMQL version, a description of the impact and the smallest example you can provide to reproduce it. Query text or definitions, relevant markup and browser details are helpful. Please leave out credentials and other private data.
+
+We will reply after reviewing your report. Reports remain private until a fix is available or we agree on disclosure with you. Please avoid posting vulnerability details in a public issue.
 
 ## Supported versions
 
-DOMQL is a preview. Only the latest version receives fixes.
+DOMQL is in preview. Only the latest version receives fixes.
 
-## What counts
+## Scope
 
-DOMQL runs in the browser and reads the document it is given, answering data. These reports are in scope:
+DOMQL queries read DOM state and return detached data. Please report cases where DOMQL violates that contract, including:
 
-- a query that changes the document, runs script or reaches data it was not given, since reading never writes;
-- an answer that leaks a live reference to the document instead of detached data;
-- a crafted query text or definition that makes the library hang, fail in a way other than a `DomqlError`, or consume unbounded resources.
+- A read query changes the document, executes script or accesses data outside its intended access.
+- A result exposes a live DOM reference instead of detached data.
+- Crafted query text or a definition causes a hang, unbounded resource use or an unexpected failure outside DOMQL's `DomqlError` handling.
 
-A module that a host registers runs with the host's authority, so what a module's functions do is the host's responsibility, not a vulnerability in DOMQL.
+Actions and behaviors are separate operations that can intentionally change the page. Extension modules run with the authority of the application that registers them; DOMQL does not sandbox their JavaScript. A registered module's own behavior is the host application's responsibility.
+
+If you are unsure whether an issue is security-related, use one of the private reporting channels above.
