@@ -31,11 +31,14 @@ export class ParameterBindings {
                 throw DomqlError.structure(`'${name}' names a root, which no binding takes`, { binding: name });
             }
 
-            if (!ParameterBindings.#isBindable(value, new Set())) {
+            // A node is bound as its kind, asked once; anything else is data, checked and typed through its items and fields.
+            const nodeKind = ParameterBindings.#nodeKindOf(value);
+
+            if (nodeKind === null && !ParameterBindings.#isBindable(value, new Set())) {
                 throw DomqlError.structure('A binding is a node, an element, a document, a fragment or a shadow root, or data: a number, a string, a Boolean, null, a list holding a value at every index, or an object', { binding: name });
             }
 
-            const type = ParameterBindings.#typeOf(value);
+            const type = nodeKind === null ? ParameterBindings.#typeOf(value) : Type.createNamedType(nodeKind);
 
             if (type === null) {
                 throw DomqlError.structure('A list whose items have different types has no type, since DOMQL has no union types and a list holds items of one type', { binding: name });
