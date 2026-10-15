@@ -1011,6 +1011,26 @@ describe('domql evaluates', () => {
             expect(domql.query('@panel.size', { panel: other }).resolve()).toBe(domql.query('@panel.size', { panel }).resolve());
         });
 
+        it('evaluates each query that shares it against its own bindings, interleaved, its locals and branches its own', () => {
+            const text = '@panel { let id: self attributeOf "id", id: id, kind: if id is "first" then "one" else "other", count: self.children.count }';
+            const first = document.createElement('div');
+            const second = document.createElement('div');
+
+            first.id = 'first';
+            second.id = 'second';
+            second.append(document.createElement('i'));
+
+            const queries = [domql.query(text, { panel: first }), domql.query(text, { panel: second })];
+
+            expect(queries[0].resolve()).toBe(queries[1].resolve());
+            expect([0, 1, 0, 1].map(index => queries[index].evaluate())).toEqual([
+                { id: 'first', kind: 'one', count: 0 },
+                { id: 'second', kind: 'other', count: 1 },
+                { id: 'first', kind: 'one', count: 0 },
+                { id: 'second', kind: 'other', count: 1 },
+            ]);
+        });
+
         it('is not kept for a query that fails to resolve', () => {
             const query = domql.query('@panel.nonsense', { panel });
 

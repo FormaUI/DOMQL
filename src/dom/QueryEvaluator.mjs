@@ -22,9 +22,21 @@ const ANCESTRY_OBSERVATIONS = Object.freeze([
 /** The arguments of a call that takes none. */
 const NO_ARGUMENTS = Object.freeze({});
 
+/** The samples of a call that reads none. */
+const NO_SAMPLES = Object.freeze([]);
+
 export class QueryEvaluator {
     /** The fields of each declared structure, each with its type parsed, by the structure: valid for as long as the structure, which is frozen, and released with it. @type {WeakMap<object, [string, Type][]>} */
     static #fieldTypes = new WeakMap();
+
+    /**
+     * The function each node of a resolved definition compiles to, by the definition and then the node, with the registry they were compiled against: built once, it holds what the node's evaluation needs that no evaluation changes, and takes the evaluator, which holds what one does, and the current value.
+     * @type {WeakMap<object, { registry: object, functions: Map<object, (evaluator: QueryEvaluator, current: unknown) => unknown> }>}
+     */
+    static #compiled = new WeakMap();
+
+    /** The functions this evaluator's nodes compile to. @type {Map<object, (evaluator: QueryEvaluator, current: unknown) => unknown>} */
+    #compiledFunctions;
 
     #moduleRegistry;
     #resolvedDefinition;
@@ -70,6 +82,15 @@ export class QueryEvaluator {
         this.#parameterBindings = parameterBindings;
         this.#environment = environment;
         this.#locations = locations;
+
+        let compiled = QueryEvaluator.#compiled.get(resolvedDefinition);
+
+        if (compiled === undefined || compiled.registry !== moduleRegistry) {
+            compiled = { registry: moduleRegistry, functions: new Map() };
+            QueryEvaluator.#compiled.set(resolvedDefinition, compiled);
+        }
+
+        this.#compiledFunctions = compiled.functions;
     }
 
     /** The result of evaluating the query once: immutable data holding no reference to the document. A member maintained by an observation fails it, since its first sample cannot arrive during a synchronous evaluation. */
@@ -241,62 +262,330 @@ export class QueryEvaluator {
     }
 
     #evaluate(node, current) {
+        return this.#getCompiledFunction(node)(this, current);
+    }
+
+    /** The function the node compiles to, built the first time it is asked for and kept for every evaluation of its resolved definition. */
+    #getCompiledFunction(node) {
+        let compiledFunction = this.#compiledFunctions.get(node);
+
+        if (compiledFunction === undefined) {
+            compiledFunction = this.#compileNode(node);
+            this.#compiledFunctions.set(node, compiledFunction);
+        }
+
+        return compiledFunction;
+    }
+
+    /** The node as a function of the evaluator and the current value, each kind evaluated as its section of the specification sets out, the nodes it holds compiled with it. */
+    #compileNode(node) {
         switch (node.kind) {
-            case 'literal':
-                return node.value;
+            case 'literal': {
+                const { value } = node;
+
+                return () => value;
+            }
             case 'parameter':
-                return this.#parameter(node);
+                if (node.name === 'window') {
+                    return evaluator => evaluator.#environment.window;
+                }
+
+                if (node.name === 'document') {
+                    return evaluator => evaluator.#environment.document;
+                }
+
+                return evaluator => evaluator.#parameterBindings.get(node.name);
             case 'self':
-                return current;
+                return (evaluator, current) => current;
             case 'local':
-                return this.#local(node);
+                return evaluator => evaluator.#local(node);
             case 'member':
             case 'call':
             case 'infixCall':
-                return this.#member(node, current);
-            case 'equality':
-                return this.#equals(node, current);
-            case 'conditional':
-                return this.#conditional(node, current);
+                return this.#compileMember(node);
+            case 'equality': {
+                const left = this.#getCompiledFunction(node.left);
+                const right = this.#getCompiledFunction(node.right);
+
+                return (evaluator, current) => {
+                    const value = left(evaluator, current);
+
+                    return value === right(evaluator, current);
+                };
+            }
+            case 'conditional': {
+                const condition = this.#getCompiledFunction(node.condition);
+                const consequent = this.#getCompiledFunction(node.consequent);
+                const alternative = this.#getCompiledFunction(node.alternative);
+
+                // The branch the condition selects is recorded for the value's place in the result.
+                return (evaluator, current) => {
+                    const isTrue = condition(evaluator, current) === true;
+
+                    (evaluator.#branches ??= new Map()).set(node, isTrue ? node.consequent : node.alternative);
+
+                    return (isTrue ? consequent : alternative)(evaluator, current);
+                };
+            }
             case 'optionalChain':
                 // An access that meets null answers null, and so does everything after it in its chain, which is evaluated no further.
-                return this.#evaluate(node.target, current);
-            case 'coalescing':
-                return this.#coalescing(node, current);
-            case 'and':
-                return this.#and(node, current);
-            case 'or':
-                return this.#or(node, current);
-            case 'not':
-                return this.#evaluate(node.operand, current) !== true;
-            case 'cast': {
-                // A cast answers its target where it is of the type, and null where it is of another or is null.
-                const value = this.#evaluate(node.target, current);
+                return this.#getCompiledFunction(node.target);
+            case 'coalescing': {
+                const value = this.#getCompiledFunction(node.value);
+                const fallback = this.#getCompiledFunction(node.fallback);
 
-                return value !== null && this.#conformsNamed(value, node.type) ? value : null;
+                return (evaluator, current) => {
+                    const answer = value(evaluator, current);
+
+                    (evaluator.#branches ??= new Map()).set(node, answer === null ? node.fallback : node.value);
+
+                    return answer === null ? fallback(evaluator, current) : answer;
+                };
+            }
+            case 'and': {
+                const operands = node.operands.map(operand => this.#getCompiledFunction(operand));
+
+                return (evaluator, current) => {
+                    for (const operand of operands) {
+                        if (operand(evaluator, current) !== true) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                };
+            }
+            case 'or': {
+                const operands = node.operands.map(operand => this.#getCompiledFunction(operand));
+
+                return (evaluator, current) => {
+                    for (const operand of operands) {
+                        if (operand(evaluator, current) === true) {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                };
+            }
+            case 'not': {
+                const operand = this.#getCompiledFunction(node.operand);
+
+                return (evaluator, current) => operand(evaluator, current) !== true;
+            }
+            case 'cast': {
+                const target = this.#getCompiledFunction(node.target);
+                const { type } = node;
+
+                // A cast answers its target where it is of the type, and null where it is of another or is null.
+                return (evaluator, current) => {
+                    const value = target(evaluator, current);
+
+                    return value !== null && evaluator.#conformsNamed(value, type) ? value : null;
+                };
             }
             default:
-                return this.#object(node, current);
+                return this.#compileObject(node);
         }
     }
 
-    /** The value of the branch the condition selects, true selecting the consequent and false or null the alternative; the other branch is never evaluated, and the one selected is recorded for the value's place in the result. */
-    #conditional(node, current) {
-        const branch = this.#evaluate(node.condition, current) === true ? node.consequent : node.alternative;
+    /**
+     * A member access, a call or an infix call, with its resolution, its function, its arguments and the check of its result made once.
+     * An access by name, and a member of a receiver of unknown type, which answers null without reading anything, are evaluated as the node itself says.
+     */
+    #compileMember(node) {
+        const resolution = this.#resolvedDefinition.resolutionOf(node);
 
-        (this.#branches ??= new Map()).set(node, branch);
+        if (resolution === undefined || resolution.kind === 'byName' || (resolution.kind !== 'field' && resolution.declaration === null)) {
+            return (evaluator, current) => evaluator.#member(node, current);
+        }
 
-        return this.#evaluate(branch, current);
+        const target = this.#getCompiledFunction(node.target);
+
+        if (resolution.kind === 'field') {
+            const { name } = resolution;
+
+            return (evaluator, current) => {
+                if (evaluator.#projectionContext !== null && node === evaluator.#projectionContext.node) {
+                    return evaluator.#projectionContext.value;
+                }
+
+                const receiver = target(evaluator, current);
+
+                return receiver === null ? null : receiver[name] ?? null;
+            };
+        }
+
+        const { declaration, type } = resolution;
+        const implementation = this.#moduleRegistry.getFunction(declaration);
+        const conforms = this.#compileConformance(type);
+        const argumentsOf = this.#compileArguments(resolution);
+
+        return (evaluator, current) => {
+            // A projection stands the event or the result where its member is, so that member is never read again.
+            if (evaluator.#projectionContext !== null && node === evaluator.#projectionContext.node) {
+                return evaluator.#projectionContext.value;
+            }
+
+            const receiver = target(evaluator, current);
+
+            if (receiver === null) {
+                return null;
+            }
+
+            const args = argumentsOf(evaluator, current);
+
+            return args === null ? null : evaluator.#call(declaration, implementation, conforms, receiver, args, type, node);
+        };
     }
 
-    /** The value, evaluated once, where it is not null, and otherwise the fallback, evaluated only then; the side it answers is recorded for the value's place in the result, as a conditional's branch is. */
-    #coalescing(node, current) {
-        const value = this.#evaluate(node.value, current);
-        const side = value === null ? node.fallback : node.value;
+    /** The arguments a call is given, each argument's plan made once: its default or fixed value, an expression evaluated against each item, or a value, null where it makes the call answer null. */
+    #compileArguments(resolution) {
+        if (resolution.arguments.length === 0) {
+            return () => NO_ARGUMENTS;
+        }
 
-        (this.#branches ??= new Map()).set(node, side);
+        const plans = resolution.arguments.map(argument => {
+            const { parameter } = argument;
 
-        return value === null ? this.#evaluate(node.fallback, current) : value;
+            if (argument.isDefault || parameter.fixed) {
+                return { name: parameter.name, kind: 'constant', value: argument.isDefault ? parameter.default : argument.value };
+            }
+
+            return { name: parameter.name, kind: parameter.kind, evaluate: this.#getCompiledFunction(argument.node), propagates: parameter.nulls === 'propagate' };
+        });
+
+        return (evaluator, current) => {
+            const args = {};
+
+            for (const plan of plans) {
+                if (plan.kind === 'constant') {
+                    args[plan.name] = plan.value;
+                } else if (plan.kind === 'expression') {
+                    const { evaluate } = plan;
+
+                    args[plan.name] = item => evaluate(evaluator, item);
+                } else {
+                    const value = plan.evaluate(evaluator, current);
+
+                    if (value === null && plan.propagates) {
+                        return null;
+                    }
+
+                    args[plan.name] = value;
+                }
+            }
+
+            return args;
+        };
+    }
+
+    /** An object expression, its target, its fields' names and values and whether it holds locals found once; applied to each item of a list it follows, and to the value it follows otherwise. */
+    #compileObject(node) {
+        const hasTarget = node.target !== undefined;
+        const target = hasTarget ? this.#getCompiledFunction(node.target) : null;
+        const names = this.#resolvedDefinition.fieldNamesOf(node);
+        const fields = node.fields.map((field, index) => ({ name: names[index], evaluate: this.#getCompiledFunction(field.value) }));
+        const hasProtoField = names.includes('__proto__');
+
+        return (evaluator, current) => {
+            const value = hasTarget ? target(evaluator, current) : current;
+
+            if (!(hasTarget && Array.isArray(value))) {
+                return value === null && hasTarget ? null : evaluator.#applyFields(node, fields, hasProtoField, value);
+            }
+
+            const items = [];
+            let isOfElements = value.length > 0;
+
+            for (const item of value) {
+                items.push(item === null ? null : evaluator.#applyFields(node, fields, hasProtoField, item));
+                isOfElements &&= item === null || item?.nodeType === 1;
+            }
+
+            // A list of elements is projected item by item, so each item keeps the element it came from; two elements can project to the same data.
+            if (isOfElements) {
+                evaluator.#elementsOf.set(items, [...value]);
+            }
+
+            return items;
+        };
+    }
+
+    /** The object the fields give the item, evaluated against it in order with the expression's locals in scope, with the branches each field's conditionals selected. */
+    #applyFields(node, fields, hasProtoField, item) {
+        const object = {};
+        const enclosingBranches = this.#branches;
+        const enclosingLocals = this.#localsFrame;
+        let branches = null;
+
+        if (node.locals !== undefined) {
+            this.#localsFrame = { node, item, values: new Map(), enclosing: enclosingLocals };
+        }
+
+        try {
+            for (const field of fields) {
+                this.#branches = null;
+
+                const value = field.evaluate(this, item);
+
+                if (hasProtoField) {
+                    QueryEvaluator.#define(object, field.name, value);
+                } else {
+                    object[field.name] = value;
+                }
+
+                if (this.#branches !== null) {
+                    (branches ??= new Map()).set(field.name, this.#branches);
+                }
+            }
+        } finally {
+            this.#branches = enclosingBranches;
+            this.#localsFrame = enclosingLocals;
+        }
+
+        if (branches !== null) {
+            this.#branchesOf.set(object, branches);
+        }
+
+        return object;
+    }
+
+    /** Whether a value is one the type admits, as `#conforms` answers, with the type's structure, and each declared structure's fields, found once. */
+    #compileConformance(type) {
+        const admits = this.#compileAdmission(type);
+
+        return value => (value === undefined ? false : value === null ? type.isNullable : admits(value));
+    }
+
+    #compileAdmission(type) {
+        switch (type.kind) {
+            case 'typeParameter':
+                return () => true;
+            case 'list': {
+                const item = this.#compileConformance(type.itemType);
+
+                return value => Array.isArray(value) && QueryEvaluator.#holeOf(value) === -1 && value.every(item);
+            }
+            case 'object': {
+                const fields = [...type.fieldTypes].map(([name, fieldType]) => [name, this.#compileConformance(fieldType)]);
+
+                return value => QueryEvaluator.#isRecord(value) && fields.every(([name, conforms]) => conforms(value[name]));
+            }
+            default: {
+                const { name } = type;
+                const structure = this.#moduleRegistry.getType(name);
+
+                // A compiled function holds no evaluator, so it holds nothing an evaluation bound.
+                if (structure === undefined) {
+                    return value => QueryEvaluator.#isOfBuiltIn(value, name) ?? false;
+                }
+
+                const fields = QueryEvaluator.#fieldTypesOf(structure).map(([field, fieldType]) => [field, this.#compileConformance(fieldType)]);
+
+                return value => QueryEvaluator.#isRecord(value) && fields.every(([field, conforms]) => conforms(value[field]));
+            }
+        }
     }
 
     /**
@@ -336,37 +625,6 @@ export class QueryEvaluator {
         }
 
         return entry.value;
-    }
-
-    /**
-     * Whether the two operands, evaluated once each from left to right, are equal: strings by code unit, numbers numerically, so -0 is 0, Booleans by value and nodes by identity, null equal to null alone.
-     * Values of any other type are compared with null alone, which preparation sees to.
-     */
-    #equals(node, current) {
-        const left = this.#evaluate(node.left, current);
-
-        return left === this.#evaluate(node.right, current);
-    }
-
-    /** The operands combined by and, left to right: false as soon as one is false, so no operand after it is evaluated, and true where none is. */
-    #and(node, current) {
-        return node.operands.every(operand => this.#evaluate(operand, current) === true);
-    }
-
-    /** The operands combined by or, left to right: true as soon as one is true, so no operand after it is evaluated, and false where none is. */
-    #or(node, current) {
-        return node.operands.some(operand => this.#evaluate(operand, current) === true);
-    }
-
-    #parameter(node) {
-        switch (node.name) {
-            case 'window':
-                return this.#environment.window;
-            case 'document':
-                return this.#environment.document;
-            default:
-                return this.#parameterBindings.get(node.name);
-        }
     }
 
     #member(node, current) {
@@ -433,8 +691,11 @@ export class QueryEvaluator {
 
     /** Carries out a declaration's function, checking that its result is of the declared type. */
     #invoke(declaration, receiver, args, type, node) {
-        const implementation = this.#moduleRegistry.getFunction(declaration);
+        return this.#call(declaration, this.#moduleRegistry.getFunction(declaration), value => this.#conforms(value, type), receiver, args, type, node);
+    }
 
+    /** Carries out the function of a declaration whose function and check of its result are found already. */
+    #call(declaration, implementation, conforms, receiver, args, type, node) {
         if (implementation === undefined) {
             this.#fail(`The module '${this.#moduleRegistry.getOwner(declaration)}' supplies no function for '${declaration.name}'`, this.#pointerOf(node));
         }
@@ -453,7 +714,7 @@ export class QueryEvaluator {
             throw DomqlError.evaluation(`The member '${declaration.name}' failed: ${error?.message ?? String(error)}`, this.#locate(this.#pointerOf(node)), { cause: error });
         }
 
-        if (!this.#conforms(value, type)) {
+        if (!conforms(value)) {
             this.#fail(`The member '${declaration.name}' answered ${QueryEvaluator.#describe(value)}, and it declares ${type}`, this.#pointerOf(node));
         }
 
@@ -472,7 +733,7 @@ export class QueryEvaluator {
                 this.#fail(`The member '${declaration.name}' is maintained by an observation, and reading it waits for the first sample, which a synchronous evaluation cannot`, this.#pointerOf(node));
             }
 
-            return [];
+            return NO_SAMPLES;
         }
 
         const { observations, dependencies } = this.#recording;
@@ -742,60 +1003,6 @@ export class QueryEvaluator {
         return captured;
     }
 
-    #object(node, current) {
-        const hasTarget = node.target !== undefined;
-        const target = hasTarget ? this.#evaluate(node.target, current) : current;
-        const apply = item => item === null && hasTarget
-            ? null
-            : this.#applyObjectExpression(node, item);
-
-        if (!(hasTarget && Array.isArray(target))) {
-            return apply(target);
-        }
-
-        const items = target.map(apply);
-
-        // A list of elements is projected item by item, so each item keeps the element it came from; two elements can project to the same data.
-        if (target.length > 0 && target.every(item => item === null || item?.nodeType === 1)) {
-            this.#elementsOf.set(items, [...target]);
-        }
-
-        return items;
-    }
-
-    /** The object an object expression gives the item: each of its fields, in order, under its name, evaluated against the item with the expression's locals in scope, with the branches each field's conditionals selected. */
-    #applyObjectExpression(node, item) {
-        const names = this.#resolvedDefinition.fieldNamesOf(node);
-        const object = {};
-        const enclosingBranches = this.#branches;
-        const enclosingLocals = this.#localsFrame;
-        let branches = null;
-
-        if (node.locals !== undefined) {
-            this.#localsFrame = { node, item, values: new Map(), enclosing: enclosingLocals };
-        }
-
-        try {
-            node.fields.forEach((field, index) => {
-                this.#branches = null;
-                QueryEvaluator.#define(object, names[index], this.#evaluate(field.value, item));
-
-                if (this.#branches !== null) {
-                    (branches ??= new Map()).set(names[index], this.#branches);
-                }
-            });
-        } finally {
-            this.#branches = enclosingBranches;
-            this.#localsFrame = enclosingLocals;
-        }
-
-        if (branches !== null) {
-            this.#branchesOf.set(object, branches);
-        }
-
-        return object;
-    }
-
     /** Whether the value is one the type admits. */
     #conforms(value, type) {
         if (value === undefined) {
@@ -819,6 +1026,19 @@ export class QueryEvaluator {
     }
 
     #conformsNamed(value, name) {
+        const isOfBuiltIn = QueryEvaluator.#isOfBuiltIn(value, name);
+
+        if (isOfBuiltIn !== undefined) {
+            return isOfBuiltIn;
+        }
+
+        const structure = this.#moduleRegistry.getType(name);
+
+        return structure !== undefined && QueryEvaluator.#isRecord(value) && QueryEvaluator.#fieldTypesOf(structure).every(([field, type]) => this.#conforms(value[field], type));
+    }
+
+    /** Whether the value is of the built-in type the name names, or undefined where the name names a structure a module declares. */
+    static #isOfBuiltIn(value, name) {
         switch (name) {
             case 'number':
                 return Number.isFinite(value);
@@ -841,11 +1061,8 @@ export class QueryEvaluator {
                 return value?.nodeType === 1;
             case 'window':
                 return value?.window === value;
-            default: {
-                const structure = this.#moduleRegistry.getType(name);
-
-                return structure !== undefined && QueryEvaluator.#isRecord(value) && QueryEvaluator.#fieldTypesOf(structure).every(([field, type]) => this.#conforms(value[field], type));
-            }
+            default:
+                return undefined;
         }
     }
 
