@@ -64,7 +64,7 @@ const TEXT_SELECTION = [
 ];
 
 const SELECTOR_PARAMETERS = [valueParameter('selector', 'string')];
-const MATCHING = { changes: 'partly-observable', misses: 'pointer state such as :hover and control state such as :checked' };
+const MATCHING = { changes: 'partly-observable', misses: 'pointer state such as :hover, control state such as :checked, and a popover\'s open state' };
 const GEOMETRY = { changes: 'partly-observable', misses: 'a move its own size, the scrolling of its scroll containers, the window\'s size and the structure of its trees do not cause, as a sibling before it growing or a margin or padding around it changing, and transforms and animations' };
 const STYLE = { changes: 'partly-observable', misses: 'rules matching from elsewhere' };
 
