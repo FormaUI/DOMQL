@@ -281,8 +281,10 @@ export class Observations {
      * Holds the observation the request names, starting it where no equivalent request holds one, and answers the session.
      * @param {{ type: string, target: object, arguments: Record<string, any> } | null} request What to observe, as `resolve` answers it.
      * @param {() => void} onChange Called, synchronously, when something may have changed. What it returns is ignored: a promise it returns is not awaited, and a rejection of it is not caught here.
+     * @param {object | null} [consumer] Whose evaluations the session serves: a watch, a wait or an event listener. A type that is not shared gives each consumer an observation of its own,
+     * which its later evaluations reach again, so a sample it has delivered carries from one evaluation to the next; without a consumer, every request of such a type starts one.
      */
-    acquire(request, onChange) {
+    acquire(request, onChange, consumer = null) {
         if (request === null) {
             return ObservationSession.none();
         }
@@ -293,7 +295,9 @@ export class Observations {
             throw DomqlError.evaluation(`The observation type '${request.type}' is declared by no module`, {});
         }
 
-        const key = type.shared ? this.#identityOf(type, request) : `${type.name}#${this.#nextUnshared++}`;
+        const key = type.shared
+            ? this.#identityOf(type, request)
+            : consumer === null ? `${type.name}#${this.#nextUnshared++}` : `${this.#identityOf(type, request)}@${this.#identityKeyOf(consumer)}`;
         let observed = this.#targets.get(request.target);
 
         if (observed === undefined) {

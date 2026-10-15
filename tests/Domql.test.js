@@ -1089,6 +1089,114 @@ describe('domql modules', () => {
         members: [{ name, function: name, kind: 'property', on: 'element', parameters: [], result: 'number', changes: 'constant', reads: 'fresh' }],
     }, { [name]: () => 7 });
 
+    describe('an observation type that is not shared', () => {
+        /** Registers `level`, a member maintained by an observation that is not shared; each observation it starts is recorded, its sample given by `deliver`. */
+        const registerLevel = () => {
+            const observations = [];
+
+            isolated.registerModule(isolated.createModule('level', {
+                observationTypes: [{ name: 'level', contract: 'maintained', shared: false, function: 'observeLevel' }],
+                members: [{ name: 'level', function: 'level', kind: 'property', on: 'element', parameters: [], result: 'number?', changes: 'observable', reads: 'maintained', observations: [{ type: 'level', of: 'receiver' }] }],
+            }, {
+                observeLevel: (request, notify) => {
+                    const observation = { sample: { pending: true, value: null }, isStopped: false, deliver: value => {
+                        observation.sample = { pending: false, value };
+                        notify();
+                    } };
+
+                    observations.push(observation);
+
+                    return { stop: () => { observation.isStopped = true; }, sample: () => observation.sample };
+                },
+                level: (_receiver, _args, _environment, [sample]) => sample,
+            }));
+
+            return observations;
+        };
+
+        const settle = () => new Promise(resolve => setTimeout(resolve));
+
+        it('gives a wait the sample its observation delivers, from one observation that stops once the wait settles', async () => {
+            const observations = registerLevel();
+            const panel = document.createElement('div');
+            const answer = isolated.query('@panel.level', { panel }).evaluateAsync();
+
+            await settle();
+            observations[0].deliver(7);
+
+            await expect(answer).resolves.toBe(7);
+            expect(observations.length).toBe(1);
+            expect(observations[0].isStopped).toBe(true);
+        });
+
+        it('keeps one observation for a watch across its evaluations, and stops it when the watch ends', async () => {
+            const observations = registerLevel();
+            const panel = document.createElement('div');
+            const watch = isolated.query('@panel.level', { panel }).watch({ schedule: 'immediate' });
+
+            await settle();
+            observations[0].deliver(3);
+
+            await expect(watch.readyAsync()).resolves.toBe(3);
+
+            await watch.refreshAsync();
+            await watch.refreshAsync();
+
+            expect(watch.snapshot).toBe(3);
+            expect(observations.length).toBe(1);
+
+            watch.dispose();
+
+            expect(observations[0].isStopped).toBe(true);
+        });
+
+        it('gives each watch an observation of its own, which ends with that watch alone', async () => {
+            const observations = registerLevel();
+            const panel = document.createElement('div');
+            const first = isolated.query('@panel.level', { panel }).watch({ schedule: 'immediate' });
+            const second = isolated.query('@panel.level', { panel }).watch({ schedule: 'immediate' });
+
+            await settle();
+            observations[0].deliver(1);
+            observations[1].deliver(2);
+
+            expect(observations.length).toBe(2);
+            expect([await first.readyAsync(), await second.readyAsync()].sort()).toEqual([1, 2]);
+
+            first.dispose();
+
+            expect(observations.filter(observation => observation.isStopped).length).toBe(1);
+
+            await second.refreshAsync();
+
+            expect(observations.length).toBe(2);
+
+            second.dispose();
+
+            expect(observations.every(observation => observation.isStopped)).toBe(true);
+        });
+
+        it('lets an event listener read, at a later event, the sample its observation delivered after an earlier one', async () => {
+            const observations = registerLevel();
+            const panel = document.createElement('div');
+            const values = [];
+
+            document.body.append(panel);
+
+            const listener = isolated.query('(@panel eventsOf "input") { level: @panel.level }', { panel }).subscribe((_sender, args) => values.push(args.value));
+
+            panel.dispatchEvent(new window.Event('input'));
+            observations[0].deliver(5);
+            panel.dispatchEvent(new window.Event('input'));
+            listener.dispose();
+            panel.remove();
+
+            expect(values).toEqual([{ level: null }, { level: 5 }]);
+            expect(observations.length).toBe(1);
+            expect(observations[0].isStopped).toBe(true);
+        });
+    });
+
     it('fail inside an item of a list where the failing member is written', () => {
         isolated.registerModule(isolated.createModule('weight', {
             members: [{ name: 'weight', function: 'weight', kind: 'property', on: 'element', parameters: [], result: 'number', changes: 'constant', reads: 'fresh' }],

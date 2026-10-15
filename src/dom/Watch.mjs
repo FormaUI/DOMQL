@@ -351,7 +351,7 @@ export class Watch {
             // The next evaluation takes over the sessions of the ones it replaces wherever it observes the same again.
             const replaces = [this.#successfulEvaluation, this.#failedEvaluation].filter(evaluation => evaluation !== null);
 
-            this.#settle(this.#evaluator.evaluate({ observations: this.#observations, onChange: this.#onDependencyChange, holdsAllObservations: true, replaces }), waiting);
+            this.#settle(this.#evaluator.evaluate({ observations: this.#observations, onChange: this.#onDependencyChange, holdsAllObservations: true, replaces, consumer: this }), waiting);
         } finally {
             this.#isRunning = false;
         }

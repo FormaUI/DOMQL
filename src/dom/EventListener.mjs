@@ -148,7 +148,7 @@ export class EventListener {
      * A successful projection replaces the sessions the event listener retains; one that fails hands the handler its error instead, lets go of the sessions it opened and keeps those retained before it, and the event listener goes on listening.
      */
     #receive(event) {
-        const projection = this.#evaluator.project(event, { observations: this.#observations });
+        const projection = this.#evaluator.project(event, { observations: this.#observations, consumer: this });
 
         if (projection.error !== null) {
             this.#release(projection);

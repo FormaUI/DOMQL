@@ -321,7 +321,7 @@ export interface DomqlObservationTypeDeclaration {
     contract: 'invalidation' | 'maintained';
     /** The arguments that belong to the identity of an observation, beside its target. */
     identity?: string[];
-    /** Whether equivalent requests share one observation. */
+    /** Whether equivalent requests share one observation; one that is not shared is kept for each watch, `evaluateAsync` call or event listener alone, whose later evaluations reach it again. */
     shared?: boolean;
     /** The key of the function that starts an observation, among the module's functions. */
     function: string;

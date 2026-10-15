@@ -22,6 +22,7 @@ import { QueryEvaluation } from './QueryEvaluation.mjs';
  * @property {object[] | null} dependencies A record of each call the evaluation depended on, or null where its caller asked for none.
  * @property {import('./SessionCache.mjs').CachedSession[]} sessions The sessions the evaluation owns, which it disposes unless a later evaluation takes them.
  * @property {object} owner What stands for the evaluation as the owner of its sessions.
+ * @property {object | null} consumer Whose evaluations the sessions serve, which an observation of a type that is not shared is kept for.
  * @property {SessionCache} sessionCache The sessions of the watch's evaluations, which this one takes from and adds to.
  * @property {object[]} deferredRequests The requests it leaves unheld, acquired only where the evaluation turns out pending.
  * @property {WeakMap<object, object>} rootOf The root of each node found so far.
@@ -146,10 +147,11 @@ export class QueryEvaluator {
      * @param {() => void} observationContext.onChange Called, synchronously, when something the result depends on may have changed.
      * @param {boolean} [observationContext.holdsAllObservations] Whether every dependency's observation is held, as a watch holds them, rather than those a pending evaluation waits on.
      * @param {QueryEvaluation[] | null} [observationContext.replaces] The evaluations this one replaces, the latest last, as a watch's next evaluation replaces its last: it carries on the sessions the latest hands on, which hold every one the watch's evaluations kept, and takes a shared one wherever its call observes the same again, and a later evaluation may take its own. Null where none is replaced.
+     * @param {object | null} [observationContext.consumer] Whose evaluations these are, a watch's or a wait's, so an observation of a type that is not shared is reached again by its later evaluations.
      * @param {boolean} [observationContext.recordsDependencies] Whether the evaluation answers a record of each call it depended on, which nothing it holds needs, since its sessions keep what it depends on observed; without one, its dependencies are null.
      */
-    evaluate({ observations, onChange, holdsAllObservations = false, replaces = null, recordsDependencies = false }) {
-        return this.#evaluateWithObservations({ observations, onChange, holdsAllObservations, replaces, recordsDependencies, waits: true }, () => this.#evaluateQuery());
+    evaluate({ observations, onChange, holdsAllObservations = false, replaces = null, consumer = null, recordsDependencies = false }) {
+        return this.#evaluateWithObservations({ observations, onChange, holdsAllObservations, replaces, consumer, recordsDependencies, waits: true }, () => this.#evaluateQuery());
     }
 
     /**
@@ -244,9 +246,10 @@ export class QueryEvaluator {
      * @param {unknown} event The event, as `capture` answered it.
      * @param {object} observationContext Where the dependencies are observed.
      * @param {import('./Observations.mjs').Observations} observationContext.observations The observations of the window the subscription listens in.
+     * @param {object | null} [observationContext.consumer] The event listener the projections serve, so an observation of a type that is not shared is reached again by its later projections.
      */
-    project(event, { observations }) {
-        return this.#evaluateWithObservations({ observations, onChange: () => {}, holdsAllObservations: false, replaces: null, recordsDependencies: false, waits: false }, () => {
+    project(event, { observations, consumer = null }) {
+        return this.#evaluateWithObservations({ observations, onChange: () => {}, holdsAllObservations: false, replaces: null, consumer, recordsDependencies: false, waits: false }, () => {
             const { node } = this.#findTerminalMember();
 
             this.#projectionContext = { node, value: event };
@@ -260,14 +263,14 @@ export class QueryEvaluator {
     }
 
     /** Runs an evaluation that records what it depends on, answering the evaluation; one that waits holds what a pending result waits on, and lets a failure seen through a pending member pass. */
-    #evaluateWithObservations({ observations, onChange, holdsAllObservations, replaces, recordsDependencies, waits }, produce) {
+    #evaluateWithObservations({ observations, onChange, holdsAllObservations, replaces, consumer, recordsDependencies, waits }, produce) {
         // A watch's sessions are carried from each evaluation to the next, so one it keeps needing is taken where it is rather than moved.
         const sessionCache = replaces?.at(-1)?.handOverSessionCache() ?? new SessionCache();
 
         sessionCache.beginEvaluation();
 
         const owner = {};
-        const observationContext = { observations, onChange, holdsAllObservations, replaces, dependencies: recordsDependencies ? [] : null, sessions: [], owner, sessionCache, deferredRequests: [], rootOf: new WeakMap(), rootsOf: new WeakMap(), followedRoots: new WeakSet(), followedAttachments: new WeakSet(), isPending: false };
+        const observationContext = { observations, onChange, holdsAllObservations, replaces, dependencies: recordsDependencies ? [] : null, sessions: [], owner, consumer, sessionCache, deferredRequests: [], rootOf: new WeakMap(), rootsOf: new WeakMap(), followedRoots: new WeakSet(), followedAttachments: new WeakSet(), isPending: false };
         let value;
         let identities = null;
         let error = null;
@@ -287,7 +290,7 @@ export class QueryEvaluator {
             try {
                 // The pending result waits on whatever changes the evaluation depended on, so it holds them now.
                 for (const request of observationContext.deferredRequests) {
-                    observationContext.sessions.push({ request, session: observations.acquire(request, onChange), values: null, owner });
+                    observationContext.sessions.push({ request, session: observations.acquire(request, onChange, consumer), values: null, owner });
                 }
             } catch (failure) {
                 error = failure;
@@ -945,14 +948,14 @@ export class QueryEvaluator {
      * @returns {import('./SessionCache.mjs').CachedSession}
      */
     #hold(request, observationDeclaration) {
-        const { observations, onChange, holdsAllObservations, sessions, sessionCache, deferredRequests, owner } = this.#observationContext;
+        const { observations, onChange, holdsAllObservations, sessions, sessionCache, deferredRequests, owner, consumer } = this.#observationContext;
         const observationType = this.#moduleRegistry.getObservationType(request.type);
         const cachedSession = { request, session: null, values: null, owner };
 
         if (observationType !== undefined && observationType.contract === 'invalidation' && !holdsAllObservations) {
             deferredRequests.push(request);
         } else {
-            cachedSession.session = observations.acquire(request, onChange);
+            cachedSession.session = observations.acquire(request, onChange, consumer);
             sessions.push(cachedSession);
         }
 

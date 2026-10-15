@@ -200,6 +200,9 @@ class Domql {
             let isScheduled = false;
             let isSettled = false;
 
+            // What stands for this wait as the consumer of its observations, so each of its evaluations reaches again an observation the one before it started.
+            const wait = {};
+
             // A cleanup that fails is reported, and never replaces the evaluation's result, its failure or its cancellation.
             const release = evaluation => {
                 try {
@@ -222,7 +225,7 @@ class Domql {
                     return;
                 }
 
-                const next = evaluator.evaluate({ observations, onChange: schedule });
+                const next = evaluator.evaluate({ observations, onChange: schedule, consumer: wait });
 
                 // The next evaluation holds its observations before the last releases its own, so one both need keeps running.
                 release(queryEvaluation);
