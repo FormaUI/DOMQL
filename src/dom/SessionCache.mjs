@@ -42,25 +42,25 @@ export class SessionCache {
 
     /**
      * The cached session whose request the observation resolves to at the target with the arguments, and which is still held, or left unheld by the owner given; null where none is.
-     * @param {object} observation The observation a declaration names.
+     * @param {object} observationDeclaration The observation a declaration names.
      * @param {Record<string, unknown>} args The call's arguments by parameter name.
      * @param {object} target What the observation would observe.
      * @param {object} owner The evaluation looking, whose sessions left unheld it alone finds.
      * @returns {CachedSession | null}
      */
-    find(observation, args, target, owner) {
-        const candidates = this.#byObservation.get(SessionCache.#contentOf(observation))?.get(target);
+    find(observationDeclaration, args, target, owner) {
+        const candidates = this.#byObservation.get(SessionCache.#contentOf(observationDeclaration))?.get(target);
 
         if (candidates === undefined) {
             return null;
         }
 
         if (!Array.isArray(candidates)) {
-            return SessionCache.#matches(candidates, observation, args, target, owner) ? candidates : null;
+            return SessionCache.#matches(candidates, observationDeclaration, args, target, owner) ? candidates : null;
         }
 
         for (const cachedSession of candidates) {
-            if (SessionCache.#matches(cachedSession, observation, args, target, owner)) {
+            if (SessionCache.#matches(cachedSession, observationDeclaration, args, target, owner)) {
                 return cachedSession;
             }
         }
@@ -86,11 +86,11 @@ export class SessionCache {
 
     /**
      * Keeps a session its owner has just acquired, under the observation and its request's target.
-     * @param {object} observation The observation a declaration names.
+     * @param {object} observationDeclaration The observation a declaration names.
      * @param {CachedSession} cachedSession The session and what it was acquired for.
      */
-    keep(observation, cachedSession) {
-        const content = SessionCache.#contentOf(observation);
+    keep(observationDeclaration, cachedSession) {
+        const content = SessionCache.#contentOf(observationDeclaration);
         let byTarget = this.#byObservation.get(content);
 
         if (byTarget === undefined) {
@@ -131,12 +131,12 @@ export class SessionCache {
     }
 
     /** The observation's content, written once for each observation. */
-    static #contentOf(observation) {
-        let content = SessionCache.#contents.get(observation);
+    static #contentOf(observationDeclaration) {
+        let content = SessionCache.#contents.get(observationDeclaration);
 
         if (content === undefined) {
-            content = JSON.stringify(observation);
-            SessionCache.#contents.set(observation, content);
+            content = JSON.stringify(observationDeclaration);
+            SessionCache.#contents.set(observationDeclaration, content);
         }
 
         return content;
@@ -146,10 +146,10 @@ export class SessionCache {
         return cachedSession.session !== null && !cachedSession.session.isDisposed;
     }
 
-    static #matches(cachedSession, observation, args, target, owner) {
+    static #matches(cachedSession, observationDeclaration, args, target, owner) {
         const isAvailable = cachedSession.session === null ? cachedSession.owner === owner : !cachedSession.session.isDisposed;
 
-        // The sessions found together are of observations of one content at one target, so one whose argument values do not depend on the call has no other request to compare.
-        return isAvailable && (!Observations.hasDynamicArguments(observation) || Observations.resolvesAt(observation, args, target, cachedSession.values));
+        // The sessions found together are of one observation's content at one target, and a declaration is frozen, so one whose argument values do not depend on the call has no other request to compare.
+        return isAvailable && (!Observations.hasDynamicArguments(observationDeclaration) || Observations.resolvesAt(observationDeclaration, args, target, cachedSession.values));
     }
 }

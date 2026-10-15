@@ -748,21 +748,21 @@ export class QueryEvaluator {
         }
 
         const { observations, dependencies } = this.#recording;
-        const declared = declaration.observations ?? NO_OBSERVATIONS;
+        const observationDeclarations = declaration.observations ?? NO_OBSERVATIONS;
         const requests = dependencies === null ? null : [];
         let samples = NO_SAMPLES;
         let isPending = false;
         let roots = null;
 
-        for (let place = 0; place < declared.length; place++) {
-            const observation = declared[place];
+        for (let place = 0; place < observationDeclarations.length; place++) {
+            const observationDeclaration = observationDeclarations[place];
 
             // An observation of the receiver's roots is one request at each of them.
-            if (observation.of === 'roots') {
+            if (observationDeclaration.of === 'roots') {
                 roots ??= this.#rootsOf(receiver);
 
                 for (let index = 0; index < roots.length; index++) {
-                    const held = this.#holdAt(observation, args, roots[index]);
+                    const held = this.#holdAt(observationDeclaration, args, roots[index]);
 
                     if (held !== null) {
                         requests?.push(held.request);
@@ -779,9 +779,9 @@ export class QueryEvaluator {
                 continue;
             }
 
-            const isOfRoot = observation.of === 'root';
-            const target = isOfRoot ? Observations.rootOf(receiver, this.#recording.rootOf) : observations.targetOf(observation, receiver, args);
-            const held = this.#holdAt(observation, args, target);
+            const isOfRoot = observationDeclaration.of === 'root';
+            const target = isOfRoot ? Observations.rootOf(receiver, this.#recording.rootOf) : observations.targetOf(observationDeclaration, receiver, args);
+            const held = this.#holdAt(observationDeclaration, args, target);
 
             if (held !== null) {
                 requests?.push(held.request);
@@ -796,7 +796,7 @@ export class QueryEvaluator {
 
             if (isOfRoot) {
                 // An observation of its root's structure sees the receiver leave it, so only a detached tree, which moves without a change inside it, needs more.
-                if (QueryEvaluator.#followsItsRoot(observation)) {
+                if (QueryEvaluator.#followsItsRoot(observationDeclaration)) {
                     this.#followAttachment(receiver, target, requests);
                 } else {
                     roots ??= this.#rootsOf(receiver);
@@ -848,9 +848,9 @@ export class QueryEvaluator {
             }
 
             followedRoots.add(root);
-            ANCESTRY_OBSERVATIONS.forEach((observation, index) => {
-                if (this.#moduleRegistry.getObservationType(observation.type) !== undefined) {
-                    const held = this.#holdAt(observation, NO_ARGUMENTS, root);
+            ANCESTRY_OBSERVATIONS.forEach((observationDeclaration, index) => {
+                if (this.#moduleRegistry.getObservationType(observationDeclaration.type) !== undefined) {
+                    const held = this.#holdAt(observationDeclaration, NO_ARGUMENTS, root);
 
                     requests?.push(held.request);
                 }
@@ -875,8 +875,8 @@ export class QueryEvaluator {
     }
 
     /** Whether the observation of a receiver's root sees the receiver leave it: a mutation of the root's children through its subtree. */
-    static #followsItsRoot(observation) {
-        return observation.type === 'mutation' && observation.childList === true && observation.subtree === true;
+    static #followsItsRoot(observationDeclaration) {
+        return observationDeclaration.type === 'mutation' && observationDeclaration.childList === true && observationDeclaration.subtree === true;
     }
 
     /** The roots of the receiver's flat-tree ancestry, each node's found once an evaluation, so receivers that share an ancestry walk it once. */
@@ -888,16 +888,16 @@ export class QueryEvaluator {
      * The request the observation resolves to at the target, and its session: the one this evaluation already holds for it, the one an evaluation this one replaces holds, which becomes this one's own, or a new one; null where the target is null.
      * @returns {import('./SessionCache.mjs').CachedSession | null}
      */
-    #holdAt(observation, args, target) {
+    #holdAt(observationDeclaration, args, target) {
         if (target === null || target === undefined) {
             return null;
         }
 
         const { sessionCache, owner, sessions } = this.#recording;
-        const cachedSession = sessionCache.find(observation, args, target, owner);
+        const cachedSession = sessionCache.find(observationDeclaration, args, target, owner);
 
         if (cachedSession === null) {
-            return this.#hold(this.#recording.observations.resolveAt(observation, { args }, target), observation);
+            return this.#hold(this.#recording.observations.resolveAt(observationDeclaration, { args }, target), observationDeclaration);
         }
 
         if (sessionCache.claim(cachedSession, owner)) {
@@ -912,7 +912,7 @@ export class QueryEvaluator {
      * A shared observation is kept under the observation and its target, held or unheld, for every later call of this evaluation that observes the same and, held, for a later evaluation to take.
      * @returns {import('./SessionCache.mjs').CachedSession}
      */
-    #hold(request, observation) {
+    #hold(request, observationDeclaration) {
         const { observations, onChange, holdsAll, sessions, sessionCache, unheld, owner } = this.#recording;
         const observationType = this.#moduleRegistry.getObservationType(request.type);
         const cachedSession = { request, session: null, values: null, owner };
@@ -926,7 +926,7 @@ export class QueryEvaluator {
 
         if (observationType.shared !== false) {
             cachedSession.values = Observations.valuesOf(request);
-            sessionCache.keep(observation, cachedSession);
+            sessionCache.keep(observationDeclaration, cachedSession);
         }
 
         return cachedSession;

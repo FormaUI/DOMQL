@@ -56,34 +56,34 @@ export class Observations {
     /**
      * Resolves an observation a declaration names against a call into the request to start: the type, the target the observation names, and its arguments with each argument it names replaced by its value.
      * Answers null where the target is an argument that is null, which has nothing to observe.
-     * @param {object} observation The observation a declaration names.
+     * @param {object} observationDeclaration The observation a declaration names.
      * @param {{ receiver: unknown, args: Record<string, unknown> }} call The call's receiver and its arguments by parameter name.
      */
-    resolve(observation, { receiver, args }) {
-        return this.resolveAt(observation, { args }, this.#targetOf(observation.of, receiver, args));
+    resolve(observationDeclaration, { receiver, args }) {
+        return this.resolveAt(observationDeclaration, { args }, this.#targetOf(observationDeclaration.of, receiver, args));
     }
 
     /**
      * Resolves an observation against a call at the target given, as `resolve` does at the target the observation names; null where the target is null.
      * A scope of several targets, `roots`, resolves to one request at each of them.
-     * @param {object} observation The observation a declaration names.
+     * @param {object} observationDeclaration The observation a declaration names.
      * @param {{ args: Record<string, unknown> }} call The call's arguments by parameter name.
      * @param {object | null | undefined} target What the request observes.
      */
-    resolveAt(observation, { args }, target) {
+    resolveAt(observationDeclaration, { args }, target) {
         if (target === null || target === undefined) {
             return null;
         }
 
         const resolved = {};
 
-        for (const [name, value] of Object.entries(observation)) {
+        for (const [name, value] of Object.entries(observationDeclaration)) {
             if (!OBSERVATION_PROPERTIES.has(name)) {
                 resolved[name] = Observations.#resolveValue(value, args);
             }
         }
 
-        return { type: observation.type, target, arguments: resolved };
+        return { type: observationDeclaration.type, target, arguments: resolved };
     }
 
     /**
@@ -215,28 +215,28 @@ export class Observations {
 
     /**
      * What the observation observes for the call: its receiver, its receiver's root, the window, the document, or an argument; a scope of several targets, `roots`, has none of its own.
-     * @param {object} observation The observation a declaration names.
+     * @param {object} observationDeclaration The observation a declaration names.
      * @param {unknown} receiver The call's receiver.
      * @param {Record<string, unknown>} args The call's arguments by parameter name.
      */
-    targetOf(observation, receiver, args) {
-        return this.#targetOf(observation.of, receiver, args);
+    targetOf(observationDeclaration, receiver, args) {
+        return this.#targetOf(observationDeclaration.of, receiver, args);
     }
 
     /**
      * Whether resolving the observation against the call at the target would give the request the values were recorded from: the same type, the same target, and arguments the same by the rules an identity follows, a list item by item and an object by reference, with null and a missing value alike.
-     * @param {object} observation The observation a declaration names.
+     * @param {object} observationDeclaration The observation a declaration names.
      * @param {Record<string, unknown>} args The call's arguments by parameter name.
      * @param {object | null} target What the request would observe.
      * @param {{ type: string, target: object, arguments: Record<string, any> }} values The values, as `valuesOf` answers them.
      */
-    static resolvesAt(observation, args, target, values) {
-        if (observation.type !== values.type || target !== values.target) {
+    static resolvesAt(observationDeclaration, args, target, values) {
+        if (observationDeclaration.type !== values.type || target !== values.target) {
             return false;
         }
 
-        for (const name of Observations.#argumentNamesOf(observation)) {
-            if (!Observations.#resolvesValueTo(observation[name], args, values.arguments[name])) {
+        for (const name of Observations.#argumentNamesOf(observationDeclaration)) {
+            if (!Observations.#resolvesValueTo(observationDeclaration[name], args, values.arguments[name])) {
                 return false;
             }
         }
@@ -245,12 +245,12 @@ export class Observations {
     }
 
     /** Whether the observation's argument values depend on the call. */
-    static hasDynamicArguments(observation) {
-        let hasDynamicArguments = Observations.#dynamicArgumentsCache.get(observation);
+    static hasDynamicArguments(observationDeclaration) {
+        let hasDynamicArguments = Observations.#dynamicArgumentsCache.get(observationDeclaration);
 
         if (hasDynamicArguments === undefined) {
-            hasDynamicArguments = Observations.#argumentNamesOf(observation).some(name => Observations.#containsArgumentReference(observation[name]));
-            Observations.#dynamicArgumentsCache.set(observation, hasDynamicArguments);
+            hasDynamicArguments = Observations.#argumentNamesOf(observationDeclaration).some(name => Observations.#containsArgumentReference(observationDeclaration[name]));
+            Observations.#dynamicArgumentsCache.set(observationDeclaration, hasDynamicArguments);
         }
 
         return hasDynamicArguments;
@@ -266,12 +266,12 @@ export class Observations {
     }
 
     /** The names of the arguments the observation gives its type, found once for each observation a declaration names, which is frozen. */
-    static #argumentNamesOf(observation) {
-        let names = Observations.#argumentNames.get(observation);
+    static #argumentNamesOf(observationDeclaration) {
+        let names = Observations.#argumentNames.get(observationDeclaration);
 
         if (names === undefined) {
-            names = Object.keys(observation).filter(name => !OBSERVATION_PROPERTIES.has(name));
-            Observations.#argumentNames.set(observation, names);
+            names = Object.keys(observationDeclaration).filter(name => !OBSERVATION_PROPERTIES.has(name));
+            Observations.#argumentNames.set(observationDeclaration, names);
         }
 
         return names;
