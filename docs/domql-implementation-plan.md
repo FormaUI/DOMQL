@@ -27,23 +27,12 @@ What is not built: editor tooling and the C# half.
 
 ## Decisions
 
-Each decision is open until its state says otherwise, and a step that needs it does not start before. A decision that is built keeps its line here alone, and what it decided is in the specification or the design.
+Each decision is open until its state says otherwise, and a step that needs it does not start before. A decision that is built leaves the plan once the specification or the design states what it decided; one a remaining step builds on stays, with its state.
 
-### Done
+### Accepted
 
-- **D1. How a declaration names the observations that cover its changes.** Done, built by step 1.
-- **D2. How a read waits.** Done, built by step 2.
-- **D3. The public API of a watch and an event listener.** Done, built by steps 3 to 5 and 7.
-- **D4. What DOMQL owns and what a host owns.** Accepted, and stated by the design.
-- **D5. The API of actions and behaviors.** Done, built by step 6.
-- **D6. Predicate expressions and parenthesized arguments.** Done; D10 replaces its predicate names combined under one verb, which step 11 removed, and its phrases, which step 10 removed, and D13 retires its predicate expressions.
-- **D7. One camelCase name for every member.** Done.
-- **D8. How a caller holds live state.** Done, built by step 7.
-- **D9. The fluent builder.** Done, built by step 8; D12 retires it, and step 10 removed it.
-- **D10. Expressions, receivers and calls.** Done, built by steps 10 to 12; D13 replaces its three-valued `and` and `or`.
-- **D11. Local values.** Done, built by step 12.
-- **D12. The API.** Done, built by steps 13 and 16.
-- **D13. Navigation, absence and tests.** Done, built by steps 18 to 21.
+- **D4. What DOMQL owns and what a host owns.** Accepted, and stated by the design; step 15 holds the C# half to it.
+- **D12. The API.** Accepted, and stated by the design; its JavaScript half is built, and step 15 builds its C# half.
 
 ### Open
 
@@ -74,27 +63,9 @@ Accepted; built by step 14. One error-tolerant parser builds a lossless syntax t
 
 ## Steps
 
-A step is done when its tests pass in the gate, its documents say what it built, and its state here says so. A step that is done keeps its line here alone.
+A step is done when its tests pass in the gate, its documents say what it built, and its state here says so. Completed steps leave the plan. Built describes the capabilities they delivered.
 
-- **1. Observation types and observations.** Done.
-- **2. Dependencies and maintained members.** Done.
-- **3. Watches.** Done.
-- **4. Change sets and recovery.** Done; step 13 removed the change-set strategy, and live state keeps its change sets, as D12 decided.
-- **5. Event sources.** Done.
-- **6. Actions and behaviors.** Done.
-- **7. Live state.** Done.
-- **8. The fluent builder.** Done; step 10 removed it, as D12 decided.
-- **9. Measured performance.** Done: reads and watches are cheaper where a measurement showed the work, with every result, error and change set as it was, as Built records; the change set by longest increasing subsequence is an open decision.
-- **10. Explicit receivers, calls and infix calls.** Done: every receiver is written, and member access, calls and infix calls are distinct, each written in the form its declaration takes.
-- **11. Conditional and logical expressions.** Done: conditionals with `elseif`, `is null`, groups, and `and` and `or` by the three-valued table, a watch comparing what a conditional gave by the branch it selected.
-- **12. Local values.** Done: `let` names a value once in an object expression, and the specification holds the complete grammar.
-- **13. The API.** Done: every operation is carried out through a query object, which watches and behaviors answer with handles that raise events, selections and selected views take a part of a result, a signal ends every lifetime, `domql.format` gives a request's canonical text, and `domql.info` tells the build's version from the specification's.
-- **16. Binding types.** Done: every binding takes its type from its value, null as a `null` and the empty list as a `list<never>`, and on a receiver of unknown type a property is accepted until the receiver's type is known, a call is checked by its name, its form and its arguments, and the request keeps its kind, an empty list refusing a tie between declarations as ambiguous.
-- **17. Shadow trees in watches.** Done: an observation follows its receiver's root or every root of its flat-tree ancestry, a watch follows a receiver to another tree or slot, and `is "textEditable"` counts an inert ancestor in the flat tree. Following them adds 0.5 to 1 ms to refreshing a watch of 1,000 rows in the simulated DOM, most of it the scrolling each row's `rect` follows at its roots.
-- **18. Required and optional access.** Done: `.` requires a receiver that cannot be null and `?.` reads one that can, ending its optional chain with null; an optional-access group makes a chain's accesses optional at once; the coalescing operator falls back where a value is null; and brackets read the property a name determined when the query is prepared names, which replaced `get`.
-- **19. Strict Boolean expressions.** Done: `not` negates a Boolean, and `not`, `and`, `or` and a condition take a Boolean that cannot be null, refusing one that can with the fallback to write, which replaced the three-valued `and` and `or`.
-- **20. Nodes, shadow trees and casts.** Done: the tree is navigated through nodes, an element's `shadow` crosses into the shadow tree it hosts and to the elements a slot shows, and `as` casts a node to its kind. Chromium tests show that a watch does not see a detached tree inserted into another detached tree or into a shadow root, which only an observation of the tree it enters would report, so `parent`, `root`, `attached` and `shadow.elements` are partly observable for it.
-- **21. Equality and Boolean members.** Done: tests are Boolean members, and `is` and `is not` compare values, nodes by identity, refusing two types that fit neither way, which replaced predicate expressions and `has`.
+The remaining work is editor tooling and the C# half.
 
 ### 14. Editor tooling
 
@@ -108,7 +79,7 @@ Diagnostics and completion over the grammar and the declaration metadata, withou
 
 The query object of D12 for a .NET host: `Domql.Query(text, bindings)` and its operations, `Domql.TryQuery`, typed mapping and snapshots, with `CancellationToken` for cancellation.
 
-- **Needs:** the JavaScript API settled (step 13), D4, D12.
+- **Needs:** D4 and D12, whose JavaScript half is built.
 - **Keeping a watch's result in C#:** the adapter that carries a watch to the host owns its synchronization, and an application starts a watch and receives its results.
   - It watches live state by default.
   - It takes the initial baseline from the first ready event's `args.snapshot`.
