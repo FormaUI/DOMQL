@@ -176,7 +176,7 @@ export class Parser {
         return this.#parseInfixCall(value, start);
     }
 
-    /** Reads a chain: a chain input and the access expressions and object expressions that continue it, and whether an access of it is optional, which a group within it leaves to its own chain. */
+    /** Reads a chain: a chain input and the member-access expressions and object expressions that continue it, and whether an access of it is optional, which a group within it leaves to its own chain. */
     #parseChain() {
         const start = this.#token.start;
         let node = this.#parseChainInput();
@@ -200,7 +200,7 @@ export class Parser {
                     throw DomqlError.syntax(`'${this.#token.value}' tests a value and is no member: write '${this.#token.value}' after the value, without a dot`, this.#text, this.#token.start);
                 }
 
-                node = this.#parseAccessExpression(node, start, optional);
+                node = this.#parseMemberAccessExpression(node, start, optional);
                 isOptional ||= optional;
             } else if (this.#token.type === '{') {
                 node = this.#parseObject(node, start);
@@ -232,7 +232,7 @@ export class Parser {
     }
 
     /**
-     * Reads an optional-access group: its access chain, a receiver followed by at least one access expression, every access of which is optional, held by the optional chain its closing parenthesis ends.
+     * Reads an optional-access group: its member-access chain, a receiver followed by at least one member-access expression, every access of which is optional, held by the optional chain its closing parenthesis ends.
      * It is notation for those accesses, so it adds no node of its own.
      */
     #parseOptionalAccessGroup() {
@@ -268,7 +268,7 @@ export class Parser {
                 throw DomqlError.syntax(`'${this.#token.value}' tests a value and is no member: write '${this.#token.value}' after the optional-access group`, this.#text, this.#token.start);
             }
 
-            node = this.#parseAccessExpression(node, receiverStart, true);
+            node = this.#parseMemberAccessExpression(node, receiverStart, true);
             accesses++;
         }
 
@@ -337,8 +337,8 @@ export class Parser {
         return this.#recordSpan(optional ? { kind: 'member', target, name, optional } : { kind: 'member', target, name }, start);
     }
 
-    /** Reads an access expression after its dot, or the `?.` of an optional access: a member access, or a call expression where parentheses follow the name. */
-    #parseAccessExpression(target, start, optional) {
+    /** Reads a member-access expression after its dot, or the `?.` of an optional access: a member access, or a call expression where parentheses follow the name. */
+    #parseMemberAccessExpression(target, start, optional) {
         const name = this.#expect('name').value;
         const access = optional ? { target, name, optional } : { target, name };
 
