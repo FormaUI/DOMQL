@@ -17,10 +17,10 @@ In this notation, `[...]` means optional, `{...}` means repetition, `|` separate
 ```
 query                     = expression end-of-input
 
-expression                = conditional | coalescing-operator | logical-term | operand
+expression                = conditional-expression | coalescing-operator | logical-term | operand
 expression-group          = "(" expression ")"
 
-conditional               = "if" condition "then" expression
+conditional-expression    = "if" condition "then" expression
                             { "elseif" condition "then" expression }
                             "else" expression
 

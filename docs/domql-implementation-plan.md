@@ -175,10 +175,10 @@ This is the complete grammar D13 gives the language, in the specification's nota
 ```ebnf
 query                     = expression end-of-input
 
-expression                = conditional | condition
+expression                = conditional-expression | condition
 expression-group          = "(" expression ")"
 
-conditional               = "if" condition "then" expression
+conditional-expression    = "if" condition "then" expression
                             { "elseif" condition "then" expression }
                             "else" expression
 

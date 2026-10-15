@@ -56,7 +56,7 @@ export class Parser {
 
             this.#advance();
 
-            return this.#parseConditional(start);
+            return this.#parseConditionalExpression(start);
         }
 
         return this.#parseCondition();
@@ -68,7 +68,7 @@ export class Parser {
     }
 
     /** Reads a conditional after its `if` or an `elseif`: its condition, a logical term or an operand, its consequent, and its alternative, an `elseif` being a conditional nested there. */
-    #parseConditional(start) {
+    #parseConditionalExpression(start) {
         if (this.#isKeyword('if')) {
             throw DomqlError.syntax('A conditional that is a condition is enclosed in parentheses: write if (if … then … else …) then …', this.#text, this.#token.start);
         }
@@ -88,7 +88,7 @@ export class Parser {
             const elseifStart = this.#token.start;
 
             this.#advance();
-            alternative = this.#parseConditional(elseifStart);
+            alternative = this.#parseConditionalExpression(elseifStart);
         } else if (this.#isKeyword('else')) {
             this.#advance();
             alternative = this.#parseExpression();
