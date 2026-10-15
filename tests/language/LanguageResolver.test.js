@@ -400,7 +400,7 @@ describe('LanguageResolver', () => {
             expect(error.message).toContain("'shadow.root' (which misses a shadow root attached");
             expect(error.message).toContain("'element.attached' (which misses");
             expect(error.message).toContain("'node.first' (which misses pointer state");
-            expect(error.message).toContain("'element.rect' (which misses transforms");
+            expect(error.message).toContain("'element.rect' (which misses a move its own size");
         });
 
         it('lets a watch follow what is observable', () => {

@@ -83,6 +83,37 @@ describe('domql evaluateAsync in a browser', () => {
             expect(watch.status).toBe('ready');
         });
 
+        it('follows a box through its own size and the structure around it, and misses a move nothing it observes causes until a refresh', async () => {
+            const snapshots = [];
+            const watch = domql.query('@item.rect?.top', { item: outside }).watch({ acceptPartialObservation: true });
+
+            watch.subscribe('change', (sender, args) => snapshots.push(args.value));
+            watches.push(watch);
+            await frame();
+
+            expect(snapshots).toEqual([440]);
+
+            panel.style.paddingTop = '30px';
+            await frame();
+            inside.style.height = '60px';
+            await frame();
+
+            expect(snapshots).toEqual([440]);
+            expect(outside.getBoundingClientRect().top).toBe(490);
+
+            await watch.refreshAsync();
+
+            expect(snapshots).toEqual([440, 490]);
+
+            const inserted = document.createElement('div');
+
+            inserted.style.height = '20px';
+            panel.insertBefore(inserted, outside);
+            await frame();
+
+            expect(snapshots).toEqual([440, 490, 510]);
+        });
+
         it('waits for the browser to report a member it keeps, then follows it', async () => {
             const snapshots = [];
             const watch = domql.query('@item intersects { root: @panel }', { item: outside, panel }).watch();

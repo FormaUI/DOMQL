@@ -547,7 +547,7 @@ A property exposes a value, read by member access, and takes no argument. Each p
 | --- | --- | --- | --- | --- | --- |
 | Window | `size` | `size` | The layout viewport's `width` and `height` | Observable | Fresh |
 | Window | `devicePixelRatio` | `number` | Device pixels per CSS pixel | Observable | Fresh |
-| Element | `rect` | `rectangle?` | Its border box's `left`, `top`, `right`, `bottom`, `width` and `height`, relative to the layout viewport | Partly observable: size and the scrolling of its scroll containers are observed, transforms and animations are not | Fresh |
+| Element | `rect` | `rectangle?` | Its border box's `left`, `top`, `right`, `bottom`, `width` and `height`, relative to the layout viewport | Partly observable: its own size, the scrolling of its scroll containers, the window's size and the structure of the trees it is in are observed; a move none of them causes, as a sibling before it growing or a margin or padding around it changing, and transforms and animations, are not | Fresh |
 | Element | `size` | `size?` | Its border box's `width` and `height` | Observable | Fresh |
 | Element | `clientSize` | `size?` | Its padding box's `width` and `height`, without scrollbars | Observable | Fresh |
 | Element | `grid.columns` | `list<number>?` | The sizes of its grid's column tracks, an empty list for an element that is no grid | Partly observable, as `computedStyleOf` | Fresh |
