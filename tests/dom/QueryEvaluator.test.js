@@ -685,8 +685,8 @@ describe('QueryEvaluator evaluation', () => {
         document.body.innerHTML = '';
     });
 
-    /** Evaluates the query against the registry, holding its observations in `observations`. */
-    const evaluate = (text, bindings = {}, modules = [], holdsAll = false) => {
+    /** Evaluates the query against the registry, holding its observations in `observations`, and records each call it depends on unless asked not to. */
+    const evaluate = (text, bindings = {}, modules = [], holdsAll = false, recordsDependencies = true) => {
         const registry = new ModuleRegistry([BrowserModule.create(), ...modules]);
         const query = domql.query(text, bindings);
         const resolved = new LanguageResolver(registry, query.bindings, null, { watch: true, acceptPartialObservation: true }).resolveDefinition(query.definition);
@@ -694,7 +694,7 @@ describe('QueryEvaluator evaluation', () => {
 
         observations = new Observations(registry, { window, document });
 
-        const evaluation = evaluator.evaluate({ observations, onChange: () => changes++, holdsAll });
+        const evaluation = evaluator.evaluate({ observations, onChange: () => changes++, holdsAll, recordsDependencies });
 
         evaluations.push(evaluation);
 
@@ -879,6 +879,19 @@ describe('QueryEvaluator evaluation', () => {
             expect(evaluation.isDisposed).toBe(true);
         });
 
+        it('are followed without a record of each call where the caller asks for none', async () => {
+            const evaluation = evaluate('@panel attributeOf "id"', { panel }, [], true, false);
+
+            expect(evaluation.dependencies).toBeNull();
+            expect(observations.runningCount).toBe(1);
+
+            panel.setAttribute('id', 'renamed');
+
+            await new Promise(resolve => setTimeout(resolve));
+
+            expect(changes).toBe(1);
+        });
+
         it('call the evaluation back when something it depends on changes', async () => {
             evaluate('@panel attributeOf "id"', { panel }, [], true);
             panel.setAttribute('id', 'renamed');
@@ -956,7 +969,7 @@ describe('QueryEvaluator evaluation', () => {
             return {
                 acquired: () => acquire.mock.calls.length,
                 evaluate: replaces => {
-                    const evaluation = evaluator.evaluate({ observations: shared, onChange: () => changes++, holdsAll: true, replaces });
+                    const evaluation = evaluator.evaluate({ observations: shared, onChange: () => changes++, holdsAll: true, replaces, recordsDependencies: true });
 
                     evaluations.push(evaluation);
 

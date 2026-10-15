@@ -22,7 +22,7 @@ export class QueryEvaluation {
      * @param {unknown} outcome.value The detached result, in which a member still waiting for its first sample answers null, or undefined where the evaluation produced none.
      * @param {import('../snapshots/SnapshotPatcher.mjs').Identities} outcome.identities The elements the result's lists were projected from.
      * @param {boolean} outcome.isPending Whether a maintained member the result reads is still waiting for its first sample.
-     * @param {Dependency[]} outcome.dependencies What the evaluation read, including what it read before it failed.
+     * @param {Dependency[] | null} outcome.dependencies What the evaluation read, including what it read before it failed, or null where its caller asked for no record.
      * @param {import('./ObservationSession.mjs').ObservationSession[]} outcome.sessions The sessions that hold the dependencies' observations.
      * @param {import('./SessionCache.mjs').SessionCache | null} [outcome.sessionCache] The sessions a later evaluation may take over.
      * @param {Error | null} outcome.error The failure that ended the evaluation, or null.
@@ -31,7 +31,7 @@ export class QueryEvaluation {
         this.value = value;
         this.identities = identities;
         this.isPending = isPending;
-        this.dependencies = Object.freeze(dependencies);
+        this.dependencies = dependencies === null ? null : Object.freeze(dependencies);
         this.error = error;
         this.#sessions = sessions;
         this.#sessionCache = sessionCache;
