@@ -53,27 +53,67 @@ export class SnapshotComparer {
         // An object expression that follows a list projects each of its items, which are matched by element where the list was projected from elements and by position otherwise.
         const previousItems = Array.isArray(previous) ? previous : [];
         const previousIndexes = SnapshotComparer.#matchByElement(previousIdentities, previousItems.length, nextIdentities, next.length);
-        const items = next.map((item, index) => {
+        const isSameLength = Array.isArray(previous) && previous.length === next.length;
+
+        // The items are gathered only from the first that is not the previous list's at its place, until which they are the previous list's own.
+        let items = null;
+
+        for (let index = 0; index < next.length; index++) {
             const previousIndex = previousIndexes === null ? index : previousIndexes[index];
+            const item = next[index] === null ? null : this.#reconcileFields(node, previousIndex === -1 ? undefined : previousItems[previousIndex], previousIdentities?.items?.[previousIndex] ?? null, next[index], nextIdentities?.items?.[index] ?? null);
 
-            return item === null ? null : this.#reconcileFields(node, previousIndex === -1 ? undefined : previousItems[previousIndex], previousIdentities?.items?.[previousIndex] ?? null, item, nextIdentities?.items?.[index] ?? null);
-        });
+            if (items === null && isSameLength && item === previous[index]) {
+                continue;
+            }
 
-        return SnapshotComparer.#sameItems(previous, items) ? previous : Object.freeze(items);
+            items ??= previousItems.slice(0, index);
+            items.push(item);
+        }
+
+        return items === null && isSameLength ? previous : Object.freeze(items ?? []);
     }
 
     #reconcileFields(node, previous, previousIdentities, next, nextIdentities) {
         const previousRecord = SnapshotComparer.#isRecord(previous) ? previous : undefined;
-        const fields = {};
         const names = this.#resolvedDefinition.fieldNamesOf(node);
+        const isSameShape = previousRecord !== undefined && SnapshotComparer.#hasFieldCount(previousRecord, names.length);
 
-        node.fields.forEach((field, index) => {
+        // The fields are gathered only from the first that is not the previous object's, until which they are the previous object's own.
+        let fields = null;
+
+        for (let index = 0; index < names.length; index++) {
             const name = names[index];
+            const value = this.#reconcileNode(node.fields[index].value, previousRecord?.[name], previousIdentities?.fields?.[name] ?? null, next[name], nextIdentities?.fields?.[name] ?? null);
 
-            fields[name] = this.#reconcileNode(field.value, previousRecord?.[name], previousIdentities?.fields?.[name] ?? null, next[name], nextIdentities?.fields?.[name] ?? null);
-        });
+            if (fields === null && isSameShape && Object.hasOwn(previousRecord, name) && value === previousRecord[name]) {
+                continue;
+            }
 
-        return SnapshotComparer.#sameFields(previousRecord, fields) ? previousRecord : Object.freeze(fields);
+            if (fields === null) {
+                fields = {};
+
+                for (let earlier = 0; earlier < index; earlier++) {
+                    fields[names[earlier]] = previousRecord[names[earlier]];
+                }
+            }
+
+            fields[name] = value;
+        }
+
+        return fields === null ? (isSameShape ? previousRecord : Object.freeze({})) : Object.freeze(fields);
+    }
+
+    /** Whether the record has exactly as many fields as given, counted without a list of their names. */
+    static #hasFieldCount(record, count) {
+        let found = 0;
+
+        for (const name in record) {
+            if (Object.hasOwn(record, name) && ++found > count) {
+                return false;
+            }
+        }
+
+        return found === count;
     }
 
     /** For each next item, the index of the previous item projected from its element, or -1 for an element that entered; null where either list is matched by position. */

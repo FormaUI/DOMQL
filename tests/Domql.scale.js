@@ -91,7 +91,8 @@ it.each(SIZES)('times a watch of %i rows phase by phase', async rows => {
     document.body.innerHTML = '';
 
     const table = createTable(rows);
-    const row = table.querySelectorAll('tr')[rows / 2];
+    const allRows = [...table.querySelectorAll('tr')];
+    const row = allRows[rows / 2];
     const query = domql.query(ROWS_TEXT, { table });
 
     report(rows, 'read', await time(rows, { run: () => query.evaluate() }));
@@ -111,6 +112,12 @@ it.each(SIZES)('times a watch of %i rows phase by phase', async rows => {
 
                 return watch.refreshAsync();
             },
+        }));
+
+        // Every row's class changes before the timing starts, so only the refresh is timed, comparing and delivering every row anew.
+        report(rows, `refresh, every row changed, ${updateStrategy === 'snapshot' ? 'delivering snapshots' : 'keeping live state'}`, await time(rows, {
+            prepare: async () => allRows.forEach(each => each.classList.toggle('selected')),
+            run: () => watch.refreshAsync(),
         }));
         watch.dispose();
     }
