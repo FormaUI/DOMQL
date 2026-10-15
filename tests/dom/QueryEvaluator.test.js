@@ -406,6 +406,32 @@ describe('QueryEvaluator', () => {
         });
     });
 
+    describe('equalities', () => {
+        it('compare strings by code unit, numbers numerically, Booleans by value and nodes by identity', () => {
+            expect(read('@a is "x"', { a: 'x' })).toBe(true);
+            expect(read('@a is "X"', { a: 'x' })).toBe(false);
+            expect(read('@a is 0', { a: -0 })).toBe(true);
+            expect(read('@a is false', { a: false })).toBe(true);
+            expect(read('@a is @b', { a: items[0], b: items[0] })).toBe(true);
+            expect(read('@a is not @b', { a: items[0], b: items[1] })).toBe(true);
+            expect(read('(@item.parent as "element") is @panel', { item: items[0], panel })).toBe(true);
+        });
+
+        it('equal null to null alone, whatever the other value\'s type', () => {
+            expect(read('@a is null', { a: null })).toBe(true);
+            expect(read('@panel.first(".none") is null', { panel })).toBe(true);
+            expect(read('@a is not null', { a: 0 })).toBe(true);
+            expect(read('@a is ""', { a: null })).toBe(false);
+        });
+
+        it.each([true, false, null])('compare and negate a nullable Boolean %s as the table of nullable Booleans states', x => {
+            expect(read('@x is true', { x })).toBe(read('@x ?? false', { x }));
+            expect(read('@x is false', { x })).toBe(read('not (@x ?? true)', { x }));
+            expect(read('@x is not true', { x })).toBe(read('not (@x ?? false)', { x }));
+            expect(read('@x is not false', { x })).toBe(read('@x ?? true', { x }));
+        });
+    });
+
     describe('conditionals', () => {
         it.each([
             [true, 'consequent'],
@@ -738,6 +764,10 @@ describe('QueryEvaluator evaluation', () => {
                 ['all', '/query/target'],
                 ...rows.flatMap(() => [['rect', '/query/fields/0/value/target/target'], ['attached', '/query/fields/1/value/operands/0']]),
             ]);
+        });
+
+        it('stand where each operand of an equality is written, both evaluated', () => {
+            expect(membersOf(evaluate('@panel attributeOf "id" is @panel.first("i") attributeOf "id"', { panel }))).toEqual(['attributeOf', 'first', 'attributeOf']);
         });
 
         it('stop where an optional chain meets null, and reach as far as its receivers are present', () => {

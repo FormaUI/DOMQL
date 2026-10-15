@@ -254,9 +254,8 @@ export class QueryEvaluator {
             case 'call':
             case 'infixCall':
                 return this.#member(node, current);
-            // A null test answers whether its subject is null, never null itself.
-            case 'predicate':
-                return this.#evaluate(node.target, current) === null;
+            case 'equality':
+                return this.#equals(node, current);
             case 'conditional':
                 return this.#conditional(node, current);
             case 'optionalChain':
@@ -337,6 +336,16 @@ export class QueryEvaluator {
         }
 
         return entry.value;
+    }
+
+    /**
+     * Whether the two operands, evaluated once each from left to right, are equal: strings by code unit, numbers numerically, so -0 is 0, Booleans by value and nodes by identity, null equal to null alone.
+     * Values of any other type are compared with null alone, which preparation sees to.
+     */
+    #equals(node, current) {
+        const left = this.#evaluate(node.left, current);
+
+        return left === this.#evaluate(node.right, current);
     }
 
     /** The operands combined by and, left to right: false as soon as one is false, so no operand after it is evaluated, and true where none is. */

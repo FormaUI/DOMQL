@@ -75,8 +75,8 @@ export class LanguageResolver {
             case 'call':
             case 'infixCall':
                 return this.#resolveMember(node, pointer, scope);
-            case 'predicate':
-                return this.#resolveNullTest(node, pointer, scope);
+            case 'equality':
+                return this.#resolveEquality(node, pointer, scope, false);
             case 'conditional':
                 return this.#resolveConditional(node, pointer, scope);
             case 'optionalChain':
@@ -132,15 +132,59 @@ export class LanguageResolver {
         }
     }
 
-    /** Resolves a null test: its subject, a value, and answers a Boolean, never null itself, whatever its subject's type. */
-    #resolveNullTest(node, pointer, scope) {
-        const subject = this.#resolveNode(node.target, `${pointer}/target`, scope);
+    /**
+     * Resolves an equality: two values, compared, and answers a Boolean that is never null, whatever their types.
+     * A string, a number, a Boolean or a node is compared with a value of a type one of theirs fits, and a value of any other type with null alone; a value of the type null, and a never, compare with any.
+     * Where `is`, or `is not` as it is negated, compares a value with a string that names one of its Boolean members, the refusal gives the member to write.
+     */
+    #resolveEquality(node, pointer, scope, isNegated) {
+        const left = this.#resolveNode(node.left, `${pointer}/left`, scope);
+        const right = this.#resolveNode(node.right, `${pointer}/right`, scope);
 
-        if (subject.kind !== 'query') {
-            this.#fail(`'is' tests ${LanguageResolver.#descriptionOf(subject.kind)}, which is no value`, pointer);
+        for (const [side, result] of [['left', left], ['right', right]]) {
+            if (result.kind !== 'query') {
+                this.#fail(`'is' compares values, and this is ${LanguageResolver.#descriptionOf(result.kind)}`, `${pointer}/${side}`);
+            }
+        }
+
+        if (!LanguageResolver.#comparesWithAny(left.type) && !LanguageResolver.#comparesWithAny(right.type)) {
+            const leftType = left.type.toNonNullable();
+            const rightType = right.type.toNonNullable();
+
+            for (const [side, type] of [['left', leftType], ['right', rightType]]) {
+                if (!LanguageResolver.#isComparable(type)) {
+                    this.#fail(`'is' compares a value of ${type} with null alone, since only strings, numbers, Booleans and nodes are compared with each other`, `${pointer}/${side}`);
+                }
+            }
+
+            if (!leftType.isAssignableTo(rightType) && !rightType.isAssignableTo(leftType)) {
+                this.#fail(`'is' compares values whose types fit one way or the other, and ${leftType} and ${rightType} fit neither way${this.#testOf(node, left, right, isNegated)}`, pointer);
+            }
         }
 
         return { type: Type.createNamedType('boolean'), kind: 'query', isFixed: false };
+    }
+
+    /**
+     * For an equality of a value and a string that names one of the value's Boolean members, as `@input is "disabled"` or `@input is @state` writes one, the member to write, negated for `is not`; nothing for any other.
+     * The name is read exactly, and the member is one the value's type declares.
+     */
+    #testOf(node, left, right, isNegated) {
+        if (!right.isFixed || typeof right.value !== 'string' || (node.right.kind !== 'literal' && node.right.kind !== 'parameter')) {
+            return '';
+        }
+
+        const receiverType = left.type.toNonNullable();
+        const declares = this.#moduleRegistry.getMembers(right.value).some(candidate => candidate.kind === 'property' && candidate.result === 'boolean' && LanguageResolver.#matchesReceiver(candidate, receiverType, new Map()));
+
+        if (!declares) {
+            return '';
+        }
+
+        const name = node.right.kind === 'literal' ? right.value : node.right;
+        const access = left.type.isNullable ? { kind: 'member', target: node.left, name, optional: true } : { kind: 'member', target: node.left, name };
+
+        return `: a test is the member that answers it, so write '${DefinitionWriter.write(isNegated ? { kind: 'not', operand: access } : access)}'`;
     }
 
     /** Resolves a conditional: a Boolean condition, and two branches of one type, nullable where either is; the whole is resolved before any of it is evaluated. */
@@ -206,7 +250,10 @@ export class LanguageResolver {
 
     /** Resolves a negation: what it negates, a Boolean that cannot be null, and answers a Boolean. */
     #resolveNot(node, pointer, scope) {
-        this.#requireBoolean(this.#resolveNode(node.operand, `${pointer}/operand`, scope), node.operand, "What 'not' negates", `${pointer}/operand`);
+        // An equality is negated as `is not` writes it, so the member a refusal gives is negated too.
+        const operand = node.operand.kind === 'equality' ? this.#resolveEquality(node.operand, `${pointer}/operand`, scope, true) : this.#resolveNode(node.operand, `${pointer}/operand`, scope);
+
+        this.#requireBoolean(operand, node.operand, "What 'not' negates", `${pointer}/operand`);
 
         return { type: Type.createNamedType('boolean'), kind: 'query', isFixed: false };
     }
@@ -909,6 +956,16 @@ export class LanguageResolver {
         const declares = this.#moduleRegistry.getMembers(name).some(candidate => candidate.result === 'boolean' && LanguageResolver.#matchesReceiver(candidate, receiverType, new Map()));
 
         return declares ? `: a presence test is the member that answers it, so write '${DefinitionWriter.write({ kind: 'member', target: node.target, name })}'` : '';
+    }
+
+    /** Whether a value of the type compares with a value of any type: null, which equals null alone, or a never, which no value has. */
+    static #comparesWithAny(type) {
+        return type.kind === 'null' || type.kind === 'never';
+    }
+
+    /** Whether values of the type are compared with each other, rather than with null alone: strings, numbers, Booleans and nodes. */
+    static #isComparable(type) {
+        return type.kind === 'named' && (['string', 'number', 'boolean'].includes(type.name) || type.isNode);
     }
 
     /** Whether the declaration applies to the receiver, recording the arguments of the type parameters its types write. */

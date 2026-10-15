@@ -245,14 +245,13 @@ const tested = domql.query('@panel.attached or @panel is null', { panel }).defin
 if (tested.kind === 'or') {
     const second: DomqlDefinitionNode = tested.operands[1];
 
-    if (second.kind === 'predicate') {
-        const verb: 'is' = second.verb;
-        const testedFor: null = second.name.value;
+    if (second.kind === 'equality') {
+        const compared: DomqlDefinitionNode = second.right;
     }
 }
 
-// @ts-expect-error A null test tests for null alone; any other test is a member that answers a Boolean.
-const misread: DomqlDefinitionNode = { kind: 'predicate', verb: 'is', target: { kind: 'self' }, name: { kind: 'literal', value: 'attached' } };
+// @ts-expect-error An equality compares two values, and a test is a member that answers a Boolean.
+const misread: DomqlDefinitionNode = { kind: 'predicate', verb: 'is', target: { kind: 'self' }, name: { kind: 'literal', value: null } };
 
 const named: DomqlDefinitionNode = { kind: 'object', target: { kind: 'parameter', name: 'panel' }, locals: [{ name: 'size', value: { kind: 'member', target: { kind: 'self' }, name: 'size' } }], fields: [{ name: 'width', value: { kind: 'optionalChain', target: { kind: 'member', target: { kind: 'local', name: 'size' }, name: 'width', optional: true } } }] };
 

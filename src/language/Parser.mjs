@@ -31,7 +31,7 @@ export class Parser {
     /** @type {WeakMap<object, Span>} */
     #spans = new WeakMap();
 
-    /** The coalescing operators read where no group holds them, which no `and`, `or` or null test may stand beside. @type {WeakSet<object>} */
+    /** The coalescing operators read where no group holds them, which no `and`, `or` or equality may stand beside. @type {WeakSet<object>} */
     #ungroupedCoalescings = new WeakSet();
 
     /** @param {string} text The query text. */
@@ -71,12 +71,12 @@ export class Parser {
         return this.#parseLogical('and', () => this.#parseAndOperand());
     }
 
-    /** Reads an and-operand: a negation, or an operand. */
+    /** Reads an and-operand: a negation, an equality, or an equality operand alone. */
     #parseAndOperand() {
-        return this.#isKeyword('not') ? this.#parseNegation() : this.#parseOperand();
+        return this.#isKeyword('not') ? this.#parseNegation() : this.#parseEquality();
     }
 
-    /** Reads a negation: `not` and what it negates, another negation or an operand, so it associates to the right; a coalescing operator stands beside it only where a group holds it. */
+    /** Reads a negation: `not` and what it negates, another negation, an equality or an equality operand, so it associates to the right; a coalescing operator stands beside it only where a group holds it. */
     #parseNegation() {
         const start = this.#token.start;
 
@@ -123,31 +123,56 @@ export class Parser {
         return this.#recordSpan({ kind: 'conditional', condition, consequent, alternative }, start);
     }
 
-    /** Reads an operand: an equality operand, and a null test of it where `is` follows it, or the coalescing operator that takes it where `??` follows it. */
-    #parseOperand() {
+    /**
+     * Reads an equality: an equality operand, `is` or `is not`, and the equality operand it compares with, `is not` recorded as the negation of `is`; an equality operand alone where no `is` follows it, or the coalescing operator that takes it where `??` follows it.
+     * An equality does not chain, and stands beside a coalescing operator only where a group holds one of them.
+     */
+    #parseEquality() {
         const start = this.#token.start;
 
         this.#refuseOperandStart(start);
 
-        const value = this.#parseEqualityOperand();
+        const left = this.#parseEqualityOperand();
 
         if (this.#token.type === '??') {
-            return this.#parseCoalescingOperator(value, start);
+            return this.#parseCoalescingOperator(left, start);
         }
 
-        const operand = this.#isKeyword('is') ? this.#parseNullTest(value, start) : value;
+        if (!this.#isKeyword('is')) {
+            return left;
+        }
+
+        this.#advance();
+
+        const isNegated = this.#isKeyword('not');
+
+        if (isNegated) {
+            this.#advance();
+        }
+
+        const rightStart = this.#token.start;
+
+        this.#refuseOperandStart(rightStart);
+
+        const right = this.#parseEqualityOperand();
 
         if (this.#token.type === '??') {
-            throw DomqlError.syntax("'??' and 'is' stand apart, one of them grouped: write '(… is null) ?? …' or '(… ?? …) is null'", this.#text, this.#token.start);
+            throw DomqlError.syntax("'??' and 'is' stand apart, one of them grouped: write '(… is …) ?? …' or '… is (… ?? …)'", this.#text, this.#token.start);
         }
 
-        return operand;
+        if (this.#isKeyword('is')) {
+            throw DomqlError.syntax("An equality compares two values and does not chain: write '(… is …) is …' to compare its result", this.#text, this.#token.start);
+        }
+
+        const equality = this.#recordSpan({ kind: 'equality', left, right }, start);
+
+        return isNegated ? this.#recordSpan({ kind: 'not', operand: equality }, start) : equality;
     }
 
-    /** Refuses what an operand cannot start with: `is`, which tests the value written before it, and a conditional, which is grouped where it is an operand. */
+    /** Refuses what an equality operand cannot start with: `is`, which compares the value written before it, and a conditional, which is grouped where it is an operand. */
     #refuseOperandStart(start) {
         if (this.#isKeyword('is')) {
-            throw DomqlError.syntax("'is' tests the value written before it: write 'self is null' to test the current value", this.#text, start);
+            throw DomqlError.syntax("'is' compares the value written before it: write 'self is …' to compare the current value", this.#text, start);
         }
 
         if (this.#isKeyword('if')) {
@@ -171,7 +196,7 @@ export class Parser {
         const fallback = this.#token.type === '??' ? this.#parseCoalescingOperator(fallbackValue, fallbackStart) : fallbackValue;
 
         if (this.#isKeyword('is')) {
-            throw DomqlError.syntax("'??' and 'is' stand apart, one of them grouped: write '(… ?? …) is null' or '… ?? (… is null)'", this.#text, this.#token.start);
+            throw DomqlError.syntax("'??' and 'is' stand apart, one of them grouped: write '(… ?? …) is …' or '… ?? (… is …)'", this.#text, this.#token.start);
         }
 
         const node = this.#recordSpan({ kind: 'coalescing', value, fallback }, start);
@@ -232,7 +257,7 @@ export class Parser {
                 }
 
                 if (this.#isKeyword('is')) {
-                    throw DomqlError.syntax("'is' tests a value and is no member: write 'is' after the value, without a dot", this.#text, this.#token.start);
+                    throw DomqlError.syntax("'is' compares a value and is no member: write 'is' after the value, without a dot", this.#text, this.#token.start);
                 }
 
                 node = this.#parseMemberAccessExpression(node, start, optional);
@@ -382,7 +407,7 @@ export class Parser {
             }
 
             if (this.#isKeyword('is')) {
-                throw DomqlError.syntax("'is' tests a value and is no member: write 'is' after the optional-access group", this.#text, this.#token.start);
+                throw DomqlError.syntax("'is' compares a value and is no member: write 'is' after the optional-access group", this.#text, this.#token.start);
             }
 
             node = this.#parseMemberAccessExpression(node, start, true);
@@ -518,19 +543,6 @@ export class Parser {
     /** How a member of the current value is written, for a name an argument follows with no receiver before it: a call, or an infix call. */
     #memberForm(name) {
         return this.#tokens[this.#index + 1].type === '(' ? `'self.${name}(…)'` : `'self ${name} …'`;
-    }
-
-    /** Reads a null test: `is null`, of the subject written before it; a test of anything else is a member that answers a Boolean. */
-    #parseNullTest(subject, start) {
-        this.#advance();
-
-        const token = this.#token;
-
-        if (token.type !== 'literal' || token.value !== null) {
-            throw DomqlError.syntax("'is' tests whether a value is null, as in '… is null'; any other test is a member that answers a Boolean, read as a property is, as '@input.disabled' is", this.#text, token.start);
-        }
-
-        return this.#recordSpan({ kind: 'predicate', verb: 'is', target: subject, name: this.#parseInput() }, start);
     }
 
     /** Reads operands joined by the operator, answering the operand alone where there is one. */

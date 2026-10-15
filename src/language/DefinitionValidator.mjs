@@ -19,7 +19,7 @@ const NODE_PROPERTIES = {
     infixCall: { properties: ['kind', 'target', 'name', 'argument'], required: ['target', 'name'] },
     object: { properties: ['kind', 'target', 'locals', 'fields'], required: ['fields'] },
     optionalChain: { properties: ['kind', 'target'], required: ['target'] },
-    predicate: { properties: ['kind', 'verb', 'target', 'name'], required: ['verb', 'target', 'name'] },
+    equality: { properties: ['kind', 'left', 'right'], required: ['left', 'right'] },
     conditional: { properties: ['kind', 'condition', 'consequent', 'alternative'], required: ['condition', 'consequent', 'alternative'] },
     coalescing: { properties: ['kind', 'value', 'fallback'], required: ['value', 'fallback'] },
     not: { properties: ['kind', 'operand'], required: ['operand'] },
@@ -67,7 +67,7 @@ export class DefinitionValidator {
 
     #validateNode(node, pointer, currentValueAvailability) {
         if (!DefinitionValidator.#isObject(node) || !Object.hasOwn(NODE_PROPERTIES, node.kind)) {
-            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, infixCall, object, optionalChain, predicate, conditional, coalescing, not, cast, and or or');
+            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, infixCall, object, optionalChain, equality, conditional, coalescing, not, cast, and or or');
         }
 
         this.#requireProperties(node, pointer, NODE_PROPERTIES[node.kind]);
@@ -108,8 +108,12 @@ export class DefinitionValidator {
             case 'call':
             case 'infixCall':
                 return this.#validateMember(node, pointer, currentValueAvailability);
-            case 'predicate':
-                return this.#validateNullTest(node, pointer, currentValueAvailability);
+            case 'equality':
+                return Object.freeze({
+                    kind: 'equality',
+                    left: this.#validateNode(node.left, `${pointer}/left`, currentValueAvailability),
+                    right: this.#validateNode(node.right, `${pointer}/right`, currentValueAvailability),
+                });
             case 'conditional':
                 return Object.freeze({
                     kind: 'conditional',
@@ -165,21 +169,6 @@ export class DefinitionValidator {
         }
 
         return Object.freeze({ kind: 'optionalChain', target });
-    }
-
-    /** Validates a null test: `is` and the null literal it tests its subject for; any other test is a member that answers a Boolean. */
-    #validateNullTest(node, pointer, currentValueAvailability) {
-        if (node.verb !== 'is') {
-            this.#fail(`${pointer}/verb`, "A null test reads 'is'; any other test is a member that answers a Boolean");
-        }
-
-        if (!DefinitionValidator.#isObject(node.name) || node.name.kind !== 'literal' || node.name.value !== null || Object.keys(node.name).length !== 2) {
-            this.#fail(`${pointer}/name`, "A null test tests for the null literal; any other test is a member that answers a Boolean");
-        }
-
-        const target = this.#validateNode(node.target, `${pointer}/target`, currentValueAvailability);
-
-        return Object.freeze({ kind: 'predicate', verb: 'is', target, name: Object.freeze({ kind: 'literal', value: null }) });
     }
 
     /** Validates an and or an or: two or more expressions it combines, each with the current value the and or the or has. */

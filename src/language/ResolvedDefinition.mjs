@@ -105,8 +105,9 @@ export class ResolvedDefinition {
                 node.fields.forEach((field, index) => this.#index(field.value, `${pointer}/fields/${index}/value`));
                 this.#fieldNames.set(node, node.fields.map(field => field.name));
                 break;
-            case 'predicate':
-                this.#index(node.name, `${pointer}/name`);
+            case 'equality':
+                this.#index(node.left, `${pointer}/left`);
+                this.#index(node.right, `${pointer}/right`);
                 break;
             case 'conditional':
                 for (const branch of ['condition', 'consequent', 'alternative']) {

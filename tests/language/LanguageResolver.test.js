@@ -425,7 +425,7 @@ describe('LanguageResolver', () => {
 
         it('points into a definition that has no text', () => {
             const definition = {
-                version: 10,
+                version: 11,
                 query: { kind: 'member', target: { kind: 'parameter', name: 'panel' }, name: 'nonsense', arguments: [] },
             };
 
@@ -442,6 +442,40 @@ describe('LanguageResolver', () => {
 
         it('resolves without a browser-bound evaluation', () => {
             expect(resolve('@panel.size').definition).toBe(domql.query('@panel.size', { panel }).definition);
+        });
+    });
+
+    describe('equalities', () => {
+        it('type an equality as a Boolean that is never null, whatever its operands', () => {
+            expect(resolve('@panel.parent is null').type.toString()).toBe('boolean');
+            expect(resolve('@panel.first("a")?.rect?.width is 0').type.toString()).toBe('boolean');
+            expect(resolve('@panel is not @panel').type.toString()).toBe('boolean');
+            expect(resolve('@panel.parent is @document').type.toString()).toBe('boolean');
+            expect(resolve('@panel.rect is null').type.toString()).toBe('boolean');
+            expect(resolve('@missing is "x"', { missing: null }).type.toString()).toBe('boolean');
+        });
+
+        it('refuse two values whose types fit neither way', () => {
+            expect(failure('"1" is 1').message).toContain("'is' compares values whose types fit one way or the other, and string and number fit neither way");
+            expect(failure('@panel is @document').message).toContain('element and document fit neither way');
+            expect(failure('@panel.attached is "true"').message).toContain('boolean and string fit neither way');
+        });
+
+        it('compare a value that is no string, number, Boolean or node with null alone', () => {
+            expect(failure('@panel.rect is @panel.rect').message).toContain("'is' compares a value of rectangle with null alone");
+            expect(failure('@panel.children is @panel.children').message).toContain('a value of list<element> with null alone');
+            expect(failure('@window is @window').message).toContain('a value of window with null alone');
+            expect(failure('(@panel eventsOf "click") { x: self.clientX } is null').message).toContain("'is' compares values, and this is an event source");
+        });
+
+        it('give the test to write for a value compared with the name of one of its Boolean members, and nothing for any other', () => {
+            expect(failure('@panel is "attached"').message).toContain("a test is the member that answers it, so write '@panel.attached'");
+            expect(failure('@panel is not "attached"').message).toContain("write 'not @panel.attached'");
+            expect(failure('@panel is @state', { panel, state: 'disabled' }).message).toContain("write '@panel[@state]'");
+            expect(failure('@panel.first("a") is "focused"').message).toContain(`write '@panel.first("a")?.focused'`);
+            expect(failure('@panel is "visible"').message).not.toContain('write');
+            expect(failure('@panel is "Attached"').message).not.toContain('write');
+            expect(failure('@panel is "children"').message).not.toContain('write');
         });
     });
 

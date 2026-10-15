@@ -3,7 +3,7 @@
  */
 
 /** How tightly each kind of expression binds, the loosest lowest: one written where a tighter one stands is parenthesized. An optional chain is an infix call's receiver as it is, and is grouped where a chain continues from it, since its short-circuit ends where it does. */
-const PRECEDENCE = { conditional: 0, coalescing: 1, or: 2, and: 3, not: 4, predicate: 5, infixCall: 6, cast: 7, optionalChain: 8 };
+const PRECEDENCE = { conditional: 0, coalescing: 1, or: 2, and: 3, not: 4, equality: 5, infixCall: 6, cast: 7, optionalChain: 8 };
 
 /** How tightly a chain binds that no infix call ends and no optional chain holds: a member access, a call, an object expression, `self`, a local, a literal or a parameter. */
 const CHAIN_PRECEDENCE = 9;
@@ -59,15 +59,16 @@ export class DefinitionWriter {
 
                 return node.argument === undefined ? head : `${head} ${DefinitionWriter.#argument(node.argument, level)}`;
             }
-            case 'predicate':
-                return `${DefinitionWriter.#within(node.target, PRECEDENCE.infixCall, level)} is null`;
+            case 'equality':
+                return DefinitionWriter.#equality(node, 'is', level);
             case 'conditional':
                 return DefinitionWriter.#conditional(node, level);
             case 'coalescing':
                 // A coalescing operator associates to the right, so a fallback that is one is written as it is.
                 return `${DefinitionWriter.#within(node.value, PRECEDENCE.infixCall, level)} ?? ${node.fallback.kind === 'coalescing' ? DefinitionWriter.#write(node.fallback, level) : DefinitionWriter.#within(node.fallback, PRECEDENCE.infixCall, level)}`;
             case 'not':
-                return `not ${DefinitionWriter.#within(node.operand, PRECEDENCE.not, level)}`;
+                // The negation of an equality is written as `is not`, which is its canonical text.
+                return node.operand.kind === 'equality' ? DefinitionWriter.#equality(node.operand, 'is not', level) : `not ${DefinitionWriter.#within(node.operand, PRECEDENCE.not, level)}`;
             case 'cast':
                 return `${DefinitionWriter.#within(node.target, PRECEDENCE.optionalChain, level)} as ${DefinitionWriter.#literal(node.type)}`;
             case 'and':
@@ -110,6 +111,11 @@ export class DefinitionWriter {
         const indentation = INDENTATION.repeat(level + 1);
 
         return `{\n${entries.map(entry => `${indentation}${entry}`).join(',\n')}\n${INDENTATION.repeat(level)}}`;
+    }
+
+    /** An equality, or its negation, as its operator writes it: two equality operands, each grouped where it binds more loosely than an infix call. */
+    static #equality(node, operator, level) {
+        return `${DefinitionWriter.#within(node.left, PRECEDENCE.infixCall, level)} ${operator} ${DefinitionWriter.#within(node.right, PRECEDENCE.infixCall, level)}`;
     }
 
     /** A conditional's clauses: a conditional nested in its alternative is written as an `elseif`, and one in its condition or consequent in parentheses; laid out on lines, one with an `elseif` has a line for each clause. */

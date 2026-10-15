@@ -47,7 +47,7 @@ export class TextLocations {
             this.#collect(node.target, `${pointer}/target`, spans);
         }
 
-        if (node.kind === 'predicate' || (node.kind === 'member' && typeof node.name !== 'string')) {
+        if (node.kind === 'member' && typeof node.name !== 'string') {
             this.#collect(node.name, `${pointer}/name`, spans);
         }
 
@@ -59,6 +59,11 @@ export class TextLocations {
             for (const branch of ['condition', 'consequent', 'alternative']) {
                 this.#collect(node[branch], `${pointer}/${branch}`, spans);
             }
+        }
+
+        if (node.kind === 'equality') {
+            this.#collect(node.left, `${pointer}/left`, spans);
+            this.#collect(node.right, `${pointer}/right`, spans);
         }
 
         if (node.kind === 'not') {
