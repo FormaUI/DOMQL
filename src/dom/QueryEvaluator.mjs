@@ -497,20 +497,19 @@ export class QueryEvaluator {
         const target = hasTarget ? this.#getCompiledFunction(node.target) : null;
         const names = this.#resolvedDefinition.fieldNamesOf(node);
         const fields = node.fields.map((field, index) => ({ name: names[index], evaluate: this.#getCompiledFunction(field.value) }));
-        const hasProtoField = names.includes('__proto__');
 
         return (evaluator, current) => {
             const value = hasTarget ? target(evaluator, current) : current;
 
             if (!(hasTarget && Array.isArray(value))) {
-                return value === null && hasTarget ? null : evaluator.#applyFields(node, fields, hasProtoField, value);
+                return value === null && hasTarget ? null : evaluator.#applyFields(node, fields, value);
             }
 
             const items = [];
             let isOfElements = value.length > 0;
 
             for (const item of value) {
-                items.push(item === null ? null : evaluator.#applyFields(node, fields, hasProtoField, item));
+                items.push(item === null ? null : evaluator.#applyFields(node, fields, item));
                 isOfElements &&= item === null || item?.nodeType === 1;
             }
 
@@ -523,8 +522,8 @@ export class QueryEvaluator {
         };
     }
 
-    /** The object the fields give the item, evaluated against it in order with the expression's locals in scope, with the branches each field's conditionals selected. */
-    #applyFields(node, fields, hasProtoField, item) {
+    /** The object the fields give the item, evaluated against it in order with the expression's locals in scope, with the branches each field's conditionals selected; a field's name is a name, so it is assigned as it is. */
+    #applyFields(node, fields, item) {
         const object = {};
         const enclosingBranches = this.#branches;
         const enclosingLocals = this.#localsFrame;
@@ -540,11 +539,7 @@ export class QueryEvaluator {
 
                 const value = field.evaluate(this, item);
 
-                if (hasProtoField) {
-                    QueryEvaluator.#define(object, field.name, value);
-                } else {
-                    object[field.name] = value;
-                }
+                object[field.name] = value;
 
                 if (this.#branches !== null) {
                     (branches ??= new Map()).set(field.name, this.#branches);

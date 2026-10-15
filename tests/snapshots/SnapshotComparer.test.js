@@ -78,6 +78,23 @@ describe('SnapshotComparer', () => {
             expect(Object.keys(next)).toEqual(['a', 'b']);
         });
 
+        it('keeps a data object\'s own __proto__ field as an ordinary field, where another field changed and where it first appears', () => {
+            const snapshotComparer = snapshotComparerOf('@row', { row: { id: 'a' } });
+            const data = text => freeze(JSON.parse(text));
+            const previous = data('{ "__proto__": { "polluted": true }, "id": "a" }');
+            const changed = snapshotComparer.reconcile(previous, null, data('{ "__proto__": { "polluted": true }, "id": "b" }'), null);
+            const appeared = snapshotComparer.reconcile(data('{ "id": "a" }'), null, data('{ "__proto__": { "polluted": true }, "id": "a" }'), null);
+
+            for (const next of [changed, appeared]) {
+                expect(Object.keys(next)).toEqual(['__proto__', 'id']);
+                expect(Object.getPrototypeOf(next)).toBe(Object.prototype);
+                expect(Object.getOwnPropertyDescriptor(next, '__proto__').value).toEqual({ polluted: true });
+                expect(next.polluted).toBeUndefined();
+            }
+
+            expect(Object.getOwnPropertyDescriptor(changed, '__proto__').value).toBe(Object.getOwnPropertyDescriptor(previous, '__proto__').value);
+        });
+
         it('compares a list by position, and gives a new one where its length changed', () => {
             const snapshotComparer = snapshotComparerOf('@element { items: self.children { key: self attributeOf "key" } }', { element });
             const previous = freeze({ items: [{ key: 'a' }, { key: 'b' }] });

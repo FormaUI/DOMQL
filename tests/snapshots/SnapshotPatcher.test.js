@@ -151,6 +151,23 @@ describe('SnapshotPatcher', () => {
     });
 
     describe('applyInPlace', () => {
+        it('writes a field named __proto__ as an ordinary field of its own, whether a change set adds it, replaces it or replaces the whole result', () => {
+            const added = thaw({ id: 'a' });
+            const replaced = thaw(JSON.parse('{ "__proto__": { "first": true }, "id": "a" }'));
+            const whole = thaw({ id: 'a' });
+
+            SnapshotPatcher.applyInPlace(added, [{ op: 'add', path: '/__proto__', value: { polluted: true } }]);
+            SnapshotPatcher.applyInPlace(replaced, [{ op: 'replace', path: '/__proto__', value: { polluted: true } }]);
+            SnapshotPatcher.applyInPlace(whole, [{ op: 'replace', path: '', value: JSON.parse('{ "__proto__": { "polluted": true }, "id": "b" }') }]);
+
+            for (const state of [added, replaced, whole]) {
+                expect(Object.keys(state)).toContain('__proto__');
+                expect(Object.getPrototypeOf(state)).toBe(Object.prototype);
+                expect(Object.getOwnPropertyDescriptor(state, '__proto__').value).toEqual({ polluted: true });
+                expect(state.polluted).toBeUndefined();
+            }
+        });
+
         it('changes the state itself, and every object and list the change set reaches into stays the same object', () => {
             const state = thaw({ panel: { size: { width: 10 } }, ids: [1, 2] });
             const { panel, ids } = state;

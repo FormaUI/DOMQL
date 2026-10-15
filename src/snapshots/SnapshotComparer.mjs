@@ -200,7 +200,7 @@ export class SnapshotComparer {
         }
 
         if (SnapshotComparer.#isRecord(previous) && SnapshotComparer.#isRecord(next)) {
-            const fields = Object.fromEntries(Object.entries(next).map(([name, field]) => [name, name in previous ? SnapshotComparer.#reconcileValue(previous[name], previousIdentities?.fields?.[name] ?? null, field, nextIdentities?.fields?.[name] ?? null, tolerance) : field]));
+            const fields = Object.fromEntries(Object.entries(next).map(([name, field]) => [name, Object.hasOwn(previous, name) ? SnapshotComparer.#reconcileValue(previous[name], previousIdentities?.fields?.[name] ?? null, field, nextIdentities?.fields?.[name] ?? null, tolerance) : field]));
 
             return SnapshotComparer.#sameFields(previous, fields) ? previous : Object.freeze(fields);
         }

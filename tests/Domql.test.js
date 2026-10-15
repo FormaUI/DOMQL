@@ -820,6 +820,42 @@ describe('domql', () => {
             expect(result.tags).not.toBe(row.tags);
         });
 
+        it.each(['snapshot', 'liveState'])('keeps a bound object\'s own __proto__ field through a watch\'s first snapshot and a refresh after a change, delivering %s', async updateStrategy => {
+            document.body.innerHTML = '<div id="panel"></div>';
+
+            const panel = document.getElementById('panel');
+            const row = JSON.parse('{ "__proto__": { "polluted": true }, "id": "a" }');
+            const watch = domql.query('{ row: @row, title: @panel attributeOf "title" }', { row, panel }).watch({ updateStrategy, schedule: 'immediate' });
+            const values = [];
+
+            // A watch of live state delivers its snapshot beside the state it keeps current, and both hold the row.
+            watch.subscribe('change', (_sender, args) => values.push(...(updateStrategy === 'liveState' ? [args.snapshot, args.liveState] : [args.value])));
+            await watch.readyAsync();
+            panel.setAttribute('title', 'changed');
+            await watch.refreshAsync();
+            watch.dispose();
+
+            expect(values.at(-1).title).toBe('changed');
+
+            for (const { row: delivered } of values) {
+                expect(Object.keys(delivered)).toEqual(['__proto__', 'id']);
+                expect(Object.getPrototypeOf(delivered)).toBe(Object.prototype);
+                expect(Object.getOwnPropertyDescriptor(delivered, '__proto__').value).toEqual({ polluted: true });
+                expect(delivered.polluted).toBeUndefined();
+            }
+        });
+
+        it.each([
+            ['a field', '@panel { a: self attributeOf "id" }', /"name":"a"/g],
+            ['a local', '@panel { let k: self attributeOf "id", a: k }', /"name":"k"/g],
+        ])('refuses __proto__ as the name of %s a definition declares, as it refuses every name that is no letter followed by letters and digits', (_, text, name) => {
+            const definition = JSON.parse(JSON.stringify(domql.query(text).definition).replace(name, '"name":"__proto__"'));
+            const error = getError(() => domql.query(definition, { panel: document.body }));
+
+            expect(error.kind).toBe('structure');
+            expect(error.message).toContain('A name is a letter followed by letters and digits');
+        });
+
         it.each([
             ['a list of items of different types', [1, 'two']],
             ['a list of lists of different item types', [[1], ['two']]],
