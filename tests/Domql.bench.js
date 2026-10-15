@@ -1,11 +1,11 @@
 import { bench, describe } from 'vitest';
 import { domql } from '#domql/domql.js';
 
-/** How many rows a table holds. */
-const ROWS = 1000;
-
-/** The row the workloads that change one row change. */
-const CHANGED = ROWS / 2;
+/**
+ * The sizes of table each workload of rows runs at, so a cost that grows faster than the rows shows: the simulated document the benchmarks use is fit for comparing
+ * commits at these sizes, while how a watch scales, and what starting and disposing one costs, are measured in Chromium by `npm run scale`.
+ */
+const SIZES = [100, 1000, 10000, 100000];
 
 /** Each row as data: its key, whether it is selected, and its box. */
 const ROWS_TEXT = '@table.all("tr") { key: self attributeOf "data-key", selected: self matches ".selected", box: self.rect { width: self.width, height: self.height } }';
@@ -14,11 +14,11 @@ const ROWS_TEXT = '@table.all("tr") { key: self attributeOf "data-key", selected
 const LOCALS_TEXT = '@table.all("tr") { let key: self attributeOf "data-key", let box: self.rect, key: key, state: if self matches ".selected" ?? false then "selected" else "plain", width: box?.width, height: if key is null then 0 else box?.height }';
 
 /** A table of rows, in the document, each with a key. */
-const createTable = () => {
+const createTable = rows => {
     const table = document.createElement('table');
     const body = document.createElement('tbody');
 
-    for (let index = 0; index < ROWS; index++) {
+    for (let index = 0; index < rows; index++) {
         const row = document.createElement('tr');
 
         row.setAttribute('data-key', `r${index}`);
@@ -36,71 +36,114 @@ const createTable = () => {
 window.requestAnimationFrame = () => 1;
 window.cancelAnimationFrame = () => {};
 
-describe('evaluate', () => {
-    const table = createTable();
+/** What the workload running now holds, released as the next workload builds its own. */
+let running = null;
+
+/**
+ * The resources of a workload, built at its first iteration, which is a warm-up and goes unreported, and released when the next workload builds its own, so each
+ * workload has the document to itself and no workload pays for another's rows or observers; the runner calls no hook of a group's in a benchmark.
+ */
+const resourcesOf = build => {
+    let resources = null;
+
+    return () => {
+        if (resources === null) {
+            running?.release();
+            resources = build();
+            running = { release: () => { resources.release(); resources = null; } };
+        }
+
+        return resources;
+    };
+};
+
+describe('a small object', () => {
     const panel = document.createElement('div');
 
     panel.setAttribute('data-key', 'panel');
     document.body.append(panel);
 
-    const rows = domql.query(ROWS_TEXT, { table });
-    const locals = domql.query(LOCALS_TEXT, { table });
     const small = domql.query('@panel { key: self attributeOf "data-key", open: self matches ".open", count: self.children.count }', { panel });
 
-    bench(`a list of ${ROWS} rows, each shaped`, () => {
-        rows.evaluate();
-    });
-
-    bench(`a list of ${ROWS} rows, each shaped through locals and conditionals`, () => {
-        locals.evaluate();
-    });
-
-    bench('a small object, as a query', () => {
+    bench('read as a query', () => {
         small.evaluate();
     });
 
-    bench('a small object, from its text and bindings', () => {
+    bench('read from its text and bindings', () => {
         domql.query('@panel { key: self attributeOf "data-key", open: self matches ".open", count: self.children.count }', { panel }).evaluate();
     });
 });
 
-describe(`a watch of ${ROWS} rows, refreshed`, () => {
-    /** A watch of a table of its own, and the table's row that changes. */
-    const createWatch = (updateStrategy, text = ROWS_TEXT) => {
-        const table = createTable();
-        const watch = domql.query(text, { table }).watch({
-            updateStrategy,
-            acceptPartialObservation: true,
+for (const rows of SIZES) {
+    describe(`a list of ${rows} rows, each shaped, read`, () => {
+        /** A query of a table of its own. */
+        const createQuery = text => {
+            const table = createTable(rows);
+
+            return { query: domql.query(text, { table }), release: () => table.remove() };
+        };
+
+        const shaped = resourcesOf(() => createQuery(ROWS_TEXT));
+        const locals = resourcesOf(() => createQuery(LOCALS_TEXT));
+
+        bench('shaped', () => {
+            shaped().query.evaluate();
         });
 
-        watch.subscribe('change', () => {});
-
-        return { watch, row: table.querySelectorAll('tr')[CHANGED] };
-    };
-
-    const unchanged = createWatch('snapshot');
-    const snapshots = createWatch('snapshot');
-    const liveState = createWatch('liveState');
-    const locals = createWatch('snapshot', LOCALS_TEXT);
-
-    bench('unchanged', async () => {
-        await unchanged.watch.refreshAsync();
+        bench('through locals and conditionals', () => {
+            locals().query.evaluate();
+        });
     });
 
-    bench('unchanged, its rows shaped through locals and conditionals', async () => {
-        await locals.watch.refreshAsync();
-    });
+    describe(`a watch of ${rows} rows, refreshed`, () => {
+        /** A watch of a table of its own, and the table's row that changes. */
+        const createWatch = (updateStrategy, text = ROWS_TEXT) => {
+            const table = createTable(rows);
+            const watch = domql.query(text, { table }).watch({
+                updateStrategy,
+                acceptPartialObservation: true,
+            });
 
-    bench('one row changed, delivering snapshots', async () => {
-        snapshots.row.classList.toggle('selected');
-        await snapshots.watch.refreshAsync();
-    });
+            watch.subscribe('change', () => {});
 
-    bench('one row changed, keeping live state', async () => {
-        liveState.row.classList.toggle('selected');
-        await liveState.watch.refreshAsync();
+            return {
+                watch,
+                row: table.querySelectorAll('tr')[rows / 2],
+                release: () => {
+                    watch.dispose();
+                    table.remove();
+                },
+            };
+        };
+
+        const unchanged = resourcesOf(() => createWatch('snapshot'));
+        const locals = resourcesOf(() => createWatch('snapshot', LOCALS_TEXT));
+        const snapshots = resourcesOf(() => createWatch('snapshot'));
+        const liveState = resourcesOf(() => createWatch('liveState'));
+
+        bench('unchanged', async () => {
+            await unchanged().watch.refreshAsync();
+        });
+
+        bench('unchanged, its rows shaped through locals and conditionals', async () => {
+            await locals().watch.refreshAsync();
+        });
+
+        bench('one row changed, delivering snapshots', async () => {
+            const { watch, row } = snapshots();
+
+            row.classList.toggle('selected');
+            await watch.refreshAsync();
+        });
+
+        bench('one row changed, keeping live state', async () => {
+            const { watch, row } = liveState();
+
+            row.classList.toggle('selected');
+            await watch.refreshAsync();
+        });
     });
-});
+}
 
 /** How many items a windowed list draws in its range, beside the one it keeps drawn outside it. */
 const DRAWN = 60;
@@ -167,32 +210,43 @@ describe(`a windowed list of ${DRAWN} drawn items, watched as live state and ref
 
         watch.subscribe('change', () => {});
 
-        return { list, closing, watch };
+        return {
+            list,
+            closing,
+            watch,
+            release: () => {
+                watch.dispose();
+                list.remove();
+            },
+        };
     };
 
-    const unchanged = createWatch();
-    const resized = createWatch();
-    const scrolled = createWatch();
+    const unchanged = resourcesOf(createWatch);
+    const resized = resourcesOf(createWatch);
+    const scrolled = resourcesOf(createWatch);
     let next = DRAWN;
     let scrolledBy = 0;
 
     bench('unchanged', async () => {
-        await unchanged.watch.refreshAsync();
+        await unchanged().watch.refreshAsync();
     });
 
     bench('one item resized', async () => {
-        const item = resized.list.children[DRAWN / 2];
+        const { list, watch } = resized();
+        const item = list.children[DRAWN / 2];
 
         item.layout.height = item.layout.height === 40 ? 64 : 40;
-        layOut(resized.list);
-        await resized.watch.refreshAsync();
+        layOut(list);
+        await watch.refreshAsync();
     });
 
     bench('scrolled by one item: the first drawn leaves, the next is drawn', async () => {
-        scrolled.list.children[1].remove();
-        scrolled.closing.before(createItem(`i${next++}`));
+        const { list, closing, watch } = scrolled();
+
+        list.children[1].remove();
+        closing.before(createItem(`i${next++}`));
         scrolledBy += 40;
-        layOut(scrolled.list, scrolledBy);
-        await scrolled.watch.refreshAsync();
+        layOut(list, scrolledBy);
+        await watch.refreshAsync();
     });
 });
