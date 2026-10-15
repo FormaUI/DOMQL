@@ -61,6 +61,10 @@ export class TextLocations {
             }
         }
 
+        if (node.kind === 'not') {
+            this.#collect(node.operand, `${pointer}/operand`, spans);
+        }
+
         if (node.kind === 'coalescing') {
             this.#collect(node.value, `${pointer}/value`, spans);
             this.#collect(node.fallback, `${pointer}/fallback`, spans);

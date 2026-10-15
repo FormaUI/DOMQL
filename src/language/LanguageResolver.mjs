@@ -83,6 +83,8 @@ export class LanguageResolver {
                 return this.#resolveOptionalChain(node, pointer, scope);
             case 'coalescing':
                 return this.#resolveCoalescing(node, pointer, scope);
+            case 'not':
+                return this.#resolveNot(node, pointer, scope);
             case 'and':
             case 'or':
                 return this.#resolveLogical(node, pointer, scope);
@@ -172,9 +174,7 @@ export class LanguageResolver {
     #resolveConditional(node, pointer, scope) {
         const condition = this.#resolveNode(node.condition, `${pointer}/condition`, scope);
 
-        if (condition.kind !== 'query' || !(LanguageResolver.#isOfUnknownType(condition.type) || (condition.type.kind === 'named' && condition.type.name === 'boolean'))) {
-            this.#fail(`The condition of 'if' is a Boolean expression, and this one is ${condition.kind === 'query' ? condition.type : LanguageResolver.#descriptionOf(condition.kind)}`, `${pointer}/condition`);
-        }
+        this.#requireBoolean(condition, node.condition, "The condition of 'if'", `${pointer}/condition`);
 
         const branches = ['consequent', 'alternative'].map(branch => {
             const result = this.#resolveNode(node[branch], `${pointer}/${branch}`, scope);
@@ -194,28 +194,44 @@ export class LanguageResolver {
         return { type, kind: 'query', isFixed: false };
     }
 
-    /** Resolves an and or an or: every expression it combines, each a Boolean, so the whole is validated before any of it is evaluated, and answers a Boolean that is nullable where an operand is. */
+    /** Resolves an and or an or: every expression it combines, each a Boolean that cannot be null, so the whole is validated before any of it is evaluated, and answers a Boolean. */
     #resolveLogical(node, pointer, scope) {
-        let isNullable = false;
-
         node.operands.forEach((operand, index) => {
             const operandPointer = `${pointer}/operands/${index}`;
-            const result = this.#resolveNode(operand, operandPointer, scope);
 
-            if (result.kind !== 'query') {
-                this.#fail(`'${node.kind}' combines Boolean expressions, and this one is ${LanguageResolver.#descriptionOf(result.kind)}`, operandPointer);
-            }
-
-            if (!LanguageResolver.#isOfUnknownType(result.type) && !(result.type.kind === 'named' && result.type.name === 'boolean')) {
-                this.#fail(`'${node.kind}' combines Boolean expressions, and this one is ${result.type}`, operandPointer);
-            }
-
-            isNullable ||= result.type.isNullable;
+            this.#requireBoolean(this.#resolveNode(operand, operandPointer, scope), operand, `An operand of '${node.kind}'`, operandPointer);
         });
 
-        const type = Type.createNamedType('boolean');
+        return { type: Type.createNamedType('boolean'), kind: 'query', isFixed: false };
+    }
 
-        return { type: isNullable ? type.toNullable() : type, kind: 'query', isFixed: false };
+    /** Resolves a negation: what it negates, a Boolean that cannot be null, and answers a Boolean. */
+    #resolveNot(node, pointer, scope) {
+        this.#requireBoolean(this.#resolveNode(node.operand, `${pointer}/operand`, scope), node.operand, "What 'not' negates", `${pointer}/operand`);
+
+        return { type: Type.createNamedType('boolean'), kind: 'query', isFixed: false };
+    }
+
+    /** Refuses what is no Boolean that cannot be null where one stands: null is never false, so a nullable one says what absence means with `??`. */
+    #requireBoolean(result, node, what, pointer) {
+        if (result.kind !== 'query') {
+            this.#fail(`${what} is a Boolean, and this one is ${LanguageResolver.#descriptionOf(result.kind)}`, pointer);
+        }
+
+        const { type } = result;
+
+        // A never, which a member of the items of an empty list answers, is checked once a value reveals its type.
+        if (type.kind === 'never' || (type.kind === 'named' && type.name === 'boolean' && !type.isNullable)) {
+            return;
+        }
+
+        if (type.isNullable && (type.kind === 'null' || (type.kind === 'named' && type.name === 'boolean'))) {
+            const text = DefinitionWriter.write({ kind: 'coalescing', value: node, fallback: { kind: 'literal', value: false } });
+
+            this.#fail(`${what} is a Boolean that cannot be null, and this one is ${type}: write '(${text})', or '?? true', to say what its absence means`, pointer);
+        }
+
+        this.#fail(`${what} is a Boolean, and this one is ${type}`, pointer);
     }
 
     /** Resolves a local: what the one in scope with its name resolved to where it was written. A name no local in scope has is refused, with the form of the current value's member of that name where it has one. */
@@ -488,7 +504,9 @@ export class LanguageResolver {
         const shared = resultTypes.reduce((merged, type) => (merged === null ? null : Type.merge(merged, type)), Type.never);
         // An optional access of null ends its chain, which is nullable for it, so its own type is the one its declarations share.
         const isShortCircuited = node.optional === true && receiverType.kind === 'null';
-        const type = shared === null || shared.kind === 'never' || LanguageResolver.#holdsTypeParameter(shared) ? Type.null : isShortCircuited ? shared : shared.toNullable();
+        // A member of a never is never evaluated, since no value has that type, so where no declaration says what it would answer, it answers nothing yet: a never, which fits wherever a value of any type is required.
+        const unknown = receiverType.kind === 'never' ? Type.never : Type.null;
+        const type = shared === null || shared.kind === 'never' || LanguageResolver.#holdsTypeParameter(shared) ? unknown : isShortCircuited ? shared : shared.toNullable();
 
         this.#resolutions.set(pointer, { kind: 'member', declaration: null, receiverType, type, arguments: [] });
 

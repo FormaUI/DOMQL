@@ -208,9 +208,9 @@ Brackets read the property a name names, `@panel["children"]` or `@panel[@name]`
 @panel has "children" and @enabled
 ```
 
-`is null` answers whether a value is null, never null itself. `and` binds tighter than `or`, parentheses group any expression, and evaluation stops at the first operand that decides the result. An operand that is null decides neither: `and` answers false where an operand is false, otherwise null where one is null, and true where none is; `or` answers true where an operand is true, otherwise null where one is null, and false where none is. Inside an object expression or an expression argument, `self` tests the current value, as `where(self is "disabled")` does. The strings that name members and predicates are case-sensitive too. Selectors, attribute names and other strings passed to browser APIs follow the browser's own rules.
+`is null` answers whether a value is null, never null itself. `not` negates a Boolean and binds tighter than `and`, which binds tighter than `or`, parentheses group any expression, and evaluation stops at the first operand that decides the result. Every operand of `not`, `and` and `or`, and every condition, is a Boolean that cannot be null, so one that can be null, such as a test of a value that may be missing, says what its absence means: `(@panel.parent is "attached") ?? false`. Inside an object expression or an expression argument, `self` tests the current value, as `where(self is "disabled")` does. The strings that name members and predicates are case-sensitive too. Selectors, attribute names and other strings passed to browser APIs follow the browser's own rules.
 
-A conditional chooses between two values, testing its conditions in order; false or null moves to the next clause, and only the branch it selects is evaluated:
+A conditional chooses between two values, testing its conditions in order; false moves to the next clause, and only the branch it selects is evaluated:
 
 ```text
 if @wide then @panel else @sidebar

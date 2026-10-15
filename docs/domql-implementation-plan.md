@@ -8,6 +8,7 @@ Each item is what exists and what checks it.
 
 - **The language.** Parsing text and creating queries from their definition, with the position of every mistake, and writing a definition back as text, on one line or laid out as `domql.format` gives a request's canonical text. Checked by the tests of parsing, of the definition and of writing it.
 - **Navigation and absence.** Access that requires a receiver that cannot be null, `?.`, optional-access groups, the coalescing operator and access by name, each recorded in the definition and written back as canonical text, a watch following what each evaluates. Checked by the tests of parsing, of the definition, of resolution, of evaluation, of watches and of comparing snapshots.
+- **Boolean expressions.** `not`, `and` and `or` of Booleans that cannot be null, and conditions of one, each refusing a Boolean that can be null with the fallback to write, a watch following the operands and clauses evaluation reaches. Checked by the tests of parsing, of resolution, of evaluation and of watches.
 - **The vocabulary.** The built-in vocabulary declared as module data, and modules that extend it. Checked by the tests of modules, the registry and the vocabulary.
 - **Bindings and resolution.** Every binding typed from its value, and a definition resolved against the vocabulary and its result typed, without a browser; the resolution is kept for its definition, so the queries made from one text share it. Checked by the resolver tests and the tests of `query.resolve`.
 - **The query object.** `domql.query` makes a query object from text or a definition, `with` binds it anew and `select` takes a part of its result, and every operation is carried out through it, one the request's kind does not take refused before anything runs. Checked by the tests of the query object, of selections and of refusals.
@@ -20,7 +21,7 @@ Each item is what exists and what checks it.
 - **Change sets.** The JSON Patch change sets that bring live state up to date, computed between snapshots; lists projected from elements change by element, through identities kept beside the result. Checked by the tests of computing change sets and of applying them in place, each against expected patches and results and together, and of watches that keep live state.
 - **The package.** The bundle, exporting `domql` and `DomqlError` and answering the package's version, with its TypeScript declarations checked against `domql` and against a TypeScript caller; the READMEs' examples run as tests.
 
-What is not built: the rest of D13, from strict Boolean expressions to equality and Boolean members, editor tooling and the C# half.
+What is not built: the rest of D13, nodes, shadow trees and casts, and equality and Boolean members, editor tooling and the C# half.
 
 ## Decisions
 
@@ -306,6 +307,7 @@ A step is done when its tests pass in the gate, its documents say what it built,
 - **16. Binding types.** Done: every binding takes its type from its value, null as a `null` and the empty list as a `list<never>`, and on a receiver of unknown type a property is accepted until the receiver's type is known, a call is checked by its name, its form and its arguments, and the request keeps its kind, an empty list refusing a tie between declarations as ambiguous.
 - **17. Shadow trees in watches.** Done: an observation follows its receiver's root or every root of its flat-tree ancestry, a watch follows a receiver to another tree or slot, and `is "textEditable"` counts an inert ancestor in the flat tree. Following them adds 0.5 to 1 ms to refreshing a watch of 1,000 rows in the simulated DOM, most of it the scrolling each row's `rect` follows at its roots.
 - **18. Required and optional access.** Done: `.` requires a receiver that cannot be null and `?.` reads one that can, ending its optional chain with null; an optional-access group makes a chain's accesses optional at once; the coalescing operator falls back where a value is null; and brackets read the property a name determined when the query is prepared names, which replaced `get`.
+- **19. Strict Boolean expressions.** Done: `not` negates a Boolean, and `not`, `and`, `or` and a condition take a Boolean that cannot be null, refusing one that can with the fallback to write, which replaced the three-valued `and` and `or`.
 
 ### 9. Measured performance
 
@@ -348,14 +350,6 @@ The query object of D12 for a .NET host: `Domql.Query(text, bindings)` and its o
   - Where the connection is lost with the components that hold its results, the components that replace them start watches of their own; where a connection resumes with the existing components, an update unanswered across the interruption is uncertain, and the adapter recovers as from a timeout.
   - It reports an exception from an application handler without restarting synchronization, since the state was already accepted.
   - Its application of change sets passes a conformance corpus the JavaScript patcher passes too: each case a previous result, a change set and the result they give, the expected results reviewed independently of either applier, moves and escaped paths among them.
-- **State:** not started.
-
-### 19. Strict Boolean expressions
-
-Give `not`, `and`, `or` and conditions Boolean operands that cannot be null, as D13 decides.
-
-- **Needs:** step 18, for `??`.
-- **Done when:** `not` negates as a prefix keyword; `and`, `or`, `not` and a condition refuse a `boolean?` and any other type when the query is prepared, on a branch evaluation would skip as well, and answer a `boolean`, `and` and `or` stopping at the operand that decides them; the three-valued table is gone from the specification and the code; `??` is refused ungrouped beside `not`; `where` leaves out an item whose expression is null, as the specification states; examples that relied on a null operand say what absence means with `??`; a watch acquires and releases the observations of a right operand as `and` and `or` start and stop evaluating it, and of a clause as a conditional selects it and leaves it, and the changes of an operand or a clause newly evaluated update it.
 - **State:** not started.
 
 ### 20. Nodes, shadow trees and casts

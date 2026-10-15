@@ -63,9 +63,34 @@ export class Parser {
         return this.#parseCondition();
     }
 
-    /** Reads what a condition is: operands joined by `and` and `or`, `and` binding tighter, an operand alone, or a coalescing operator, which stands beside neither. */
+    /** Reads what a condition is: a disjunction, or an or-operand alone, a coalescing operator among them, which stands beside neither `and` nor `or`. */
     #parseCondition() {
-        return this.#parseLogical('or', () => this.#parseLogical('and', () => this.#parseOperand()));
+        return this.#parseLogical('or', () => this.#parseOrOperand());
+    }
+
+    /** Reads an or-operand: a conjunction, or an and-operand alone. */
+    #parseOrOperand() {
+        return this.#parseLogical('and', () => this.#parseAndOperand());
+    }
+
+    /** Reads an and-operand: a negation, or an operand. */
+    #parseAndOperand() {
+        return this.#isKeyword('not') ? this.#parseNegation() : this.#parseOperand();
+    }
+
+    /** Reads a negation: `not` and what it negates, another negation or an operand, so it associates to the right; a coalescing operator stands beside it only where a group holds it. */
+    #parseNegation() {
+        const start = this.#token.start;
+
+        this.#advance();
+
+        const operand = this.#parseAndOperand();
+
+        if (this.#ungroupedCoalescings.has(operand)) {
+            throw DomqlError.syntax("'??' and 'not' stand apart, one of them grouped: write 'not (… ?? …)' or '(not …) ?? …'", this.#text, this.#spans.get(operand).start);
+        }
+
+        return this.#recordSpan({ kind: 'not', operand }, start);
     }
 
     /** Reads a conditional after its `if` or an `elseif`: its condition, a logical term or an operand, its consequent, and its alternative, an `elseif` being a conditional nested there. */
@@ -137,6 +162,10 @@ export class Parser {
         this.#advance();
 
         const fallbackStart = this.#token.start;
+
+        if (this.#isKeyword('not')) {
+            throw DomqlError.syntax("'??' and 'not' stand apart, one of them grouped: write '… ?? (not …)'", this.#text, fallbackStart);
+        }
 
         this.#refuseOperandStart(fallbackStart);
 

@@ -3,10 +3,10 @@
  */
 
 /** How tightly each kind of expression binds, the loosest lowest: one written where a tighter one stands is parenthesized. An optional chain is an infix call's receiver as it is, and is grouped where a chain continues from it, since its short-circuit ends where it does. */
-const PRECEDENCE = { conditional: 0, coalescing: 1, or: 2, and: 3, predicate: 4, infixCall: 5, optionalChain: 6 };
+const PRECEDENCE = { conditional: 0, coalescing: 1, or: 2, and: 3, not: 4, predicate: 5, infixCall: 6, optionalChain: 7 };
 
 /** How tightly a chain binds that no infix call ends and no optional chain holds: a member access, a call, an object expression, `self`, a local, a literal or a parameter. */
-const CHAIN_PRECEDENCE = 7;
+const CHAIN_PRECEDENCE = 8;
 
 /** The nodes that stand as an input, and so as an infix call's argument without parentheses. */
 const INPUT_KINDS = new Set(['self', 'local', 'parameter', 'literal']);
@@ -66,6 +66,8 @@ export class DefinitionWriter {
             case 'coalescing':
                 // A coalescing operator associates to the right, so a fallback that is one is written as it is.
                 return `${DefinitionWriter.#within(node.value, PRECEDENCE.infixCall, level)} ?? ${node.fallback.kind === 'coalescing' ? DefinitionWriter.#write(node.fallback, level) : DefinitionWriter.#within(node.fallback, PRECEDENCE.infixCall, level)}`;
+            case 'not':
+                return `not ${DefinitionWriter.#within(node.operand, PRECEDENCE.not, level)}`;
             case 'and':
             case 'or':
                 return node.operands.map(operand => DefinitionWriter.#within(operand, PRECEDENCE[node.kind] + 1, level)).join(` ${node.kind} `);

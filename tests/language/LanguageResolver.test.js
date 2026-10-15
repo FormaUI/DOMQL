@@ -410,7 +410,7 @@ describe('LanguageResolver', () => {
 
         it('points into a definition that has no text', () => {
             const definition = {
-                version: 7,
+                version: 8,
                 query: { kind: 'member', target: { kind: 'parameter', name: 'panel' }, name: 'nonsense', arguments: [] },
             };
 
@@ -450,11 +450,16 @@ describe('LanguageResolver', () => {
     });
 
     describe('logical expressions', () => {
-        it('type an and or an or as a Boolean, nullable where an operand is', () => {
+        it('type an and, an or and a not as a Boolean', () => {
             expect(resolve('@panel is "attached" and @panel is "focused"').type.toString()).toBe('boolean');
-            expect(resolve('@panel is "attached" or @panel.parent is "attached"').type.toString()).toBe('boolean?');
-            expect(resolve('@panel is "attached" and null').type.toString()).toBe('boolean?');
-            expect(resolve('@on or @off', { on: true, off: null }).type.toString()).toBe('boolean?');
+            expect(resolve('@panel is "attached" or ((@panel.parent is "attached") ?? false)').type.toString()).toBe('boolean');
+            expect(resolve('not @panel is "attached"').type.toString()).toBe('boolean');
+        });
+
+        it('refuse an operand that can be null, giving the fallback to write', () => {
+            expect(failure('@panel is "attached" or @panel.parent is "attached"').message).toContain(`An operand of 'or' is a Boolean that cannot be null, and this one is boolean?: write '((@panel.parent is "attached") ?? false)', or '?? true', to say what its absence means`);
+            expect(failure('@panel is "attached" and null').message).toContain("and this one is null: write '(null ?? false)'");
+            expect(failure('not @off', { off: null }).message).toContain("What 'not' negates is a Boolean that cannot be null, and this one is null");
         });
 
         it('resolve every operand with its own location, the current value of each the one around the expression', () => {
@@ -478,7 +483,7 @@ describe('LanguageResolver', () => {
         ])('refuse an operand that is %s, naming its type', (_, text, pointer, type) => {
             const error = failure(text);
 
-            expect(error.message).toContain(`'${text.includes(' or ') ? 'or' : 'and'}' combines Boolean expressions, and this one is ${type}`);
+            expect(error.message).toContain(`An operand of '${text.includes(' or ') ? 'or' : 'and'}' is a Boolean, and this one is ${type}`);
             expect(error.location.pointer).toBe(pointer);
         });
 
@@ -537,12 +542,13 @@ describe('LanguageResolver', () => {
             expect(failure('if @wide then { a: 1 } else { b: 1 }', { panel, wide: true }).message).toContain('{ a: number } and { b: number }');
         });
 
-        it('refuse a condition that is no Boolean, and accept a nullable one', () => {
+        it('refuse a condition that is no Boolean, or one that can be null', () => {
             const error = failure('if @panel.size then 1 else 2');
 
-            expect(error.message).toContain("The condition of 'if' is a Boolean expression, and this one is size?");
+            expect(error.message).toContain("The condition of 'if' is a Boolean, and this one is size?");
             expect(error.location.pointer).toBe('/query/condition');
-            expect(resolve('if @panel.parent is "attached" then 1 else 2').type.toString()).toBe('number');
+            expect(failure('if @panel.parent is "attached" then 1 else 2').message).toContain("The condition of 'if' is a Boolean that cannot be null, and this one is boolean?");
+            expect(resolve('if (@panel.parent is "attached") ?? false then 1 else 2').type.toString()).toBe('number');
         });
 
         it('validate a branch that evaluation might never reach', () => {

@@ -338,6 +338,32 @@ describe('Watch', () => {
         });
     });
 
+    describe('a disjunction', () => {
+        it('holds what its right operand reads only while it evaluates that operand', async () => {
+            const item = panel.querySelector('i');
+
+            watch('{ v: (@item attributeOf "data-on") is null or @item.level is null }', { item });
+            await settle();
+
+            expect(snapshots.at(-1)).toEqual({ v: true });
+            expect(gauges.has(item)).toBe(false);
+
+            item.setAttribute('data-on', '');
+            await settle();
+            gauges.get(item).sample = { pending: false, value: 4 };
+            gauges.get(item).notify();
+            await settle();
+
+            expect(snapshots.at(-1)).toEqual({ v: false });
+
+            item.removeAttribute('data-on');
+            await settle();
+
+            expect(snapshots.at(-1)).toEqual({ v: true });
+            expect(gauges.get(item).stopped).toBe(1);
+        });
+    });
+
     describe('an access by name', () => {
         it('follows what its name reads and the property it selects, holding the one it no longer selects no longer', async () => {
             const item = panel.querySelector('i');

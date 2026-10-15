@@ -319,28 +319,30 @@ describe('QueryEvaluator', () => {
         it.each([
             [true, true, true, true],
             [true, false, false, true],
-            [true, null, null, true],
             [false, true, false, true],
             [false, false, false, false],
-            [false, null, false, null],
-            [null, true, null, true],
-            [null, false, false, null],
-            [null, null, null, null],
-        ])('answer %s and %s as %s, and %s or %s as %s, by three-valued logic', (left, right, and, or) => {
+        ])('combine %s and %s into %s with and, and %s with or', (left, right, and, or) => {
             const bindings = { left: left, right: right };
 
             expect(read('@left and @right', bindings)).toBe(and);
             expect(read('@left or @right', bindings)).toBe(or);
         });
 
-        it('read no operand once the result is decided, and read on past a null', () => {
+        it('negate a Boolean with not, as many times as it is written', () => {
+            expect(read('not @on', { on: true })).toBe(false);
+            expect(read('not @on', { on: false })).toBe(true);
+            expect(read('not not @on', { on: true })).toBe(true);
+            expect(read('not (@on ?? true)', { on: null })).toBe(false);
+        });
+
+        it('read no operand once the result is decided', () => {
             const { module, record } = probes();
 
             expect(readWith(module, '@panel is "no" and @panel is "yes"', { panel })).toBe(false);
             expect(record).toEqual({ yes: 0, no: 1 });
             expect(readWith(module, '@panel is "yes" or @panel is "no"', { panel })).toBe(true);
             expect(record).toEqual({ yes: 1, no: 1 });
-            expect(readWith(module, '@nothing or @panel is "yes"', { panel, nothing: null })).toBe(true);
+            expect(readWith(module, '(@nothing ?? false) or @panel is "yes"', { panel, nothing: null })).toBe(true);
             expect(record).toEqual({ yes: 2, no: 1 });
         });
 
@@ -383,18 +385,17 @@ describe('QueryEvaluator', () => {
         it.each([
             [true, 'consequent'],
             [false, 'alternative'],
-            [null, 'alternative'],
         ])('select by a condition of %s the %s', (condition, branch) => {
             expect(read('if @condition then "consequent" else "alternative"', { condition: condition })).toBe(branch);
         });
 
-        it('move to the next clause where a condition is false or null, and to the alternative where none is true', () => {
+        it('move to the next clause where a condition is false, and to the alternative where none is true', () => {
             const bindings = (a, b) => ({ a: a, b: b });
 
             expect(read('if @a then 1 elseif @b then 2 else 3', bindings(false, true))).toBe(2);
-            expect(read('if @a then 1 elseif @b then 2 else 3', bindings(null, true))).toBe(2);
-            expect(read('if @a then 1 elseif @b then 2 else 3', bindings(false, null))).toBe(3);
+            expect(read('if @a then 1 elseif @b then 2 else 3', bindings(false, false))).toBe(3);
             expect(read('if @a then 1 elseif @b then 2 else 3', bindings(true, true))).toBe(1);
+            expect(read('if @a ?? false then 1 elseif @b then 2 else 3', bindings(null, true))).toBe(2);
         });
 
         it('evaluate only the branch the condition selects', () => {
@@ -667,9 +668,9 @@ describe('QueryEvaluator evaluation', () => {
         it('are recorded for each item, which can select a different branch', () => {
             rows[1].setAttribute('data-on', '');
 
-            const { items } = evaluate('@panel.children { pick: if self matches "[data-on]" then 1 else 2 }', { panel }).identities;
+            const { items } = evaluate('@panel.children { pick: if (self attributeOf "data-on") is null then 2 else 1 }', { panel }).identities;
 
-            expect(items.map(item => consequents(item.fields.pick))).toEqual([[false], [true], [false]]);
+            expect(items.map(item => consequents(item.fields.pick))).toEqual([[true], [false], [true]]);
         });
 
         it('leave the identities of a result no conditional gave as they were', () => {

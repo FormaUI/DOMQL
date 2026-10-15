@@ -91,6 +91,14 @@ describe('DefinitionWriter', () => {
         '@panel["data-key"]',
         '@panel[if @wide then "size" else "clientSize"]',
         '(?@panel.parent[@name].width)',
+        'not @a',
+        'not not @a',
+        'not @panel is "attached"',
+        'not (@a and @b)',
+        'not @a or not @b',
+        'not (@a ?? false)',
+        '(not @a) ?? false',
+        'if not @a then 1 else 2',
     ])('writes text that parses back to the same definition: %s', text => {
         const { definition } = domql.query(text, { panel });
 
@@ -141,6 +149,7 @@ describe('DefinitionWriter', () => {
             ['no trailing comma', '@panel { size: self.size, key: 1, }', '@panel {\n    size: self.size,\n    key: 1\n}'],
             ['no comment and no original layout', '@panel // the panel\n    /* its size */ .size', '@panel.size'],
             ['an optional access as one token, with the group that ends its chain', '(@panel.parent  ?.children) . count', '(@panel.parent?.children).count'],
+            ['a negation, grouped only where what it negates needs it', 'not ((@panel is "attached"))', 'not @panel is "attached"'],
             ['an access by name of a string literal that is a name, as the name', '@panel["size"]', '@panel.size'],
             ['a coalescing operator, grouped only where its sides need it', '((@a) ?? ((@b ?? 0)))', '@a ?? @b ?? 0'],
             ['an optional-access group as the accesses it makes optional', '(?@panel.parent.rect.width)', '@panel?.parent?.rect?.width'],
@@ -193,7 +202,7 @@ describe('DefinitionWriter', () => {
             const { domql: other } = await import('#domql/domql.js');
 
             expect(() => format('@panel {')).toThrow(expect.objectContaining({ kind: 'syntax' }));
-            expect(() => domql.format({ version: 7, query: { kind: 'nonsense' } })).toThrow(expect.objectContaining({ kind: 'structure' }));
+            expect(() => domql.format({ version: 8, query: { kind: 'nonsense' } })).toThrow(expect.objectContaining({ kind: 'structure' }));
             expect(() => domql.format(other.query('@panel'))).toThrow(expect.objectContaining({ kind: 'structure', message: expect.stringContaining('query.definition') }));
         });
 

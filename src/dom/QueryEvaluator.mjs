@@ -269,6 +269,8 @@ export class QueryEvaluator {
                 return this.#and(node, current);
             case 'or':
                 return this.#or(node, current);
+            case 'not':
+                return this.#evaluate(node.operand, current) !== true;
             default:
                 return this.#object(node, current);
         }
@@ -343,42 +345,14 @@ export class QueryEvaluator {
         return subject === null ? null : this.#invoke(this.#resolvedDefinition.resolutionOf(node.name).predicate, subject, {}, BOOLEAN, node.name);
     }
 
-    /** The operands combined by and, left to right: false as soon as one is false, so no operand after it is evaluated, and otherwise null where one was null and true where none was. */
+    /** The operands combined by and, left to right: false as soon as one is false, so no operand after it is evaluated, and true where none is. */
     #and(node, current) {
-        let result = true;
-
-        for (const operand of node.operands) {
-            const value = this.#evaluate(operand, current);
-
-            if (value === false) {
-                return false;
-            }
-
-            if (value === null) {
-                result = null;
-            }
-        }
-
-        return result;
+        return node.operands.every(operand => this.#evaluate(operand, current) === true);
     }
 
-    /** The operands combined by or, left to right: true as soon as one is true, so no operand after it is evaluated, and otherwise null where one was null and false where none was. */
+    /** The operands combined by or, left to right: true as soon as one is true, so no operand after it is evaluated, and false where none is. */
     #or(node, current) {
-        let result = false;
-
-        for (const operand of node.operands) {
-            const value = this.#evaluate(operand, current);
-
-            if (value === true) {
-                return true;
-            }
-
-            if (value === null) {
-                result = null;
-            }
-        }
-
-        return result;
+        return node.operands.some(operand => this.#evaluate(operand, current) === true);
     }
 
     #parameter(node) {
