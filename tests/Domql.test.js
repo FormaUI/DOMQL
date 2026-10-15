@@ -1553,6 +1553,18 @@ describe('domql receivers of unknown type', () => {
         expect(getError(() => isolated.query('not @off', { off: null }).resolve()).message).toContain('cannot be null');
     });
 
+    it('type a member of the items of an empty list as its declarations share it, unchanged, as a list of known items does', () => {
+        const panel = document.createElement('div');
+
+        const rows = isolated.query('@rows { c: self.children.count }', { rows: [] });
+
+        expect(rows.resolve().type.toString()).toBe('list<{ c: number }>');
+        expect(isolated.query(rows.definition, { rows: [panel] }).evaluate()).toEqual([{ c: 0 }]);
+        expect(isolated.query('@rows { w: self.rect?.width }', { rows: [] }).resolve().type.toString()).toBe('list<{ w: number? }>');
+        expect(getError(() => isolated.query('@rows { c: self.children.sise }', { rows: [] }).resolve()).message).toContain("'sise' is no member of the vocabulary");
+        expect(isolated.query('@panel.children { c: self.children.count }', { panel }).resolve().type.toString()).toBe('list<{ c: number }>');
+    });
+
     it('accept any property of data that has not arrived, the empty rows projected to the empty list', () => {
         const rows = isolated.query('@rows { id: self.id }', { rows: [] });
 

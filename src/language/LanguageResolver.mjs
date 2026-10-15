@@ -530,11 +530,12 @@ export class LanguageResolver {
             ...fields.map(text => Type.parse(text)),
         ];
         const shared = resultTypes.reduce((merged, type) => (merged === null ? null : Type.merge(merged, type)), Type.never);
+        // A member of a never is never evaluated, since no value has that type, so it answers what its declarations share as they declare it, and where none says what it would answer, nothing yet: a never, which fits wherever a value of any type is required.
+        const isNever = receiverType.kind === 'never';
         // An optional access of null ends its chain, which is nullable for it, so its own type is the one its declarations share.
         const isShortCircuited = node.optional === true && receiverType.kind === 'null';
-        // A member of a never is never evaluated, since no value has that type, so where no declaration says what it would answer, it answers nothing yet: a never, which fits wherever a value of any type is required.
-        const unknown = receiverType.kind === 'never' ? Type.never : Type.null;
-        const type = shared === null || shared.kind === 'never' || LanguageResolver.#holdsTypeParameter(shared) ? unknown : isShortCircuited ? shared : shared.toNullable();
+        const unknown = isNever ? Type.never : Type.null;
+        const type = shared === null || shared.kind === 'never' || LanguageResolver.#holdsTypeParameter(shared) ? unknown : isNever || isShortCircuited ? shared : shared.toNullable();
 
         this.#resolutions.set(pointer, { kind: 'member', declaration: null, receiverType, type, arguments: [] });
 
