@@ -70,10 +70,13 @@ export class BrowserObservers {
         return { stop: () => observer.disconnect() };
     }
 
-    /** Whether a node is attached to its document, through every shadow root between them; a document is its own. */
+    /**
+     * Whether a node is attached to its document, through every shadow root between them; a document is its own.
+     * The window's document is observed too, since a node of another document, as a template's content is, is adopted by the one it is inserted into.
+     */
     static #observeAttachment({ target }, notify, { window }) {
         const rootsOf = () => {
-            const roots = new Set([target.ownerDocument ?? target]);
+            const roots = new Set([window.document, target.ownerDocument ?? target]);
 
             for (let node = target; ;) {
                 const root = node.getRootNode();

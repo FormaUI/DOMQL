@@ -253,6 +253,14 @@ describe('LanguageResolver', () => {
             expect(heldType('if @wide then @panel else @document', { panel, wide: true })).toBe('node');
         });
 
+        it('types an element\'s shadow view by its own members, which are no element\'s, and refuses it as data', () => {
+            expect(resolve('@panel.shadow.root?.children.count').type.toString()).toBe('number?');
+            expect(resolve('@panel.shadow.elements?.count').type.toString()).toBe('number?');
+            expect(heldType('@panel.shadow')).toBe('shadow');
+            expect(failure('@panel.shadow.rect').message).toContain("'rect' is not available on shadow");
+            expect(failure('@panel.root.shadow').message).toContain("'shadow' is not available on node");
+        });
+
         it('types a cast as the type it casts to, made nullable', () => {
             expect(heldType('@panel.parent as "element"')).toBe('element?');
             expect(resolve('(@panel.parent as "element")?.rect?.width').type.toString()).toBe('number?');
