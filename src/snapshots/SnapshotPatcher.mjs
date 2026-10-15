@@ -90,7 +90,7 @@ export class SnapshotPatcher {
             throw new TypeError(`The path names '${token}', which the result does not hold`);
         }
 
-        SnapshotPatcher.#define(parent, token, value);
+        SnapshotPatcher.#defineDataProperty(parent, token, value);
     }
 
     /** Takes the value at the end of the path out of the container that holds it, and returns it. */
@@ -137,7 +137,7 @@ export class SnapshotPatcher {
             }
 
             for (const [name, field] of Object.entries(value)) {
-                SnapshotPatcher.#define(target, name, field);
+                SnapshotPatcher.#defineDataProperty(target, name, field);
             }
 
             return;
@@ -147,7 +147,7 @@ export class SnapshotPatcher {
     }
 
     /** Gives the object a field of its own holding the value, a field named `__proto__` included, as a data object's fields are, so supplied data keeps its keys. */
-    static #define(object, name, value) {
+    static #defineDataProperty(object, name, value) {
         if (name === '__proto__') {
             Object.defineProperty(object, name, { value, writable: true, enumerable: true, configurable: true });
         } else {

@@ -686,7 +686,7 @@ describe('QueryEvaluator evaluation', () => {
     });
 
     /** Evaluates the query against the registry, holding its observations in `observations`, and records each call it depends on unless asked not to. */
-    const evaluate = (text, bindings = {}, modules = [], holdsAll = false, recordsDependencies = true) => {
+    const evaluate = (text, bindings = {}, modules = [], holdsAllObservations = false, recordsDependencies = true) => {
         const registry = new ModuleRegistry([BrowserModule.create(), ...modules]);
         const query = domql.query(text, bindings);
         const resolved = new LanguageResolver(registry, query.bindings, null, { watch: true, acceptPartialObservation: true }).resolveDefinition(query.definition);
@@ -694,7 +694,7 @@ describe('QueryEvaluator evaluation', () => {
 
         observations = new Observations(registry, { window, document });
 
-        const evaluation = evaluator.evaluate({ observations, onChange: () => changes++, holdsAll, recordsDependencies });
+        const evaluation = evaluator.evaluate({ observations, onChange: () => changes++, holdsAllObservations, recordsDependencies });
 
         evaluations.push(evaluation);
 
@@ -969,7 +969,7 @@ describe('QueryEvaluator evaluation', () => {
             return {
                 acquired: () => acquire.mock.calls.length,
                 evaluate: replaces => {
-                    const evaluation = evaluator.evaluate({ observations: shared, onChange: () => changes++, holdsAll: true, replaces, recordsDependencies: true });
+                    const evaluation = evaluator.evaluate({ observations: shared, onChange: () => changes++, holdsAllObservations: true, replaces, recordsDependencies: true });
 
                     evaluations.push(evaluation);
 
