@@ -120,7 +120,7 @@ export class Vocabulary {
                 property('devicePixelRatio', 'window', 'number', { observations: [{ type: 'pixelRatio', of: 'window' }] }),
                 property('rect', 'element', 'rectangle?', { ...GEOMETRY, observations: [RESIZE, SCROLLING, WINDOW_RESIZE] }),
                 property('size', 'element', 'size?', { observations: [RESIZE] }),
-                property('clientSize', 'element', 'size?', { observations: [RESIZE] }),
+                property('clientSize', 'element', 'size?', { changes: 'partly-observable', misses: 'a change that leaves its border box as it was, as a scrollbar appearing or going, or its border changing while its border box keeps its size', observations: [RESIZE] }),
                 property('grid', 'element', 'grid?', { ...STYLE, observations: [RESIZE, ATTRIBUTES] }),
                 property('selection', 'element', 'selection?', { changes: 'partly-observable', misses: 'selections assigned by script', observations: TEXT_SELECTION }),
                 property('children', 'node', 'list<element>', { observations: [CHILDREN] }),

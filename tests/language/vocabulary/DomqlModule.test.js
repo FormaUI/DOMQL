@@ -59,10 +59,11 @@ describe('DomqlModule', () => {
         expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ kind: 'operation', form: 'phrase' })] }))).toContain('written as call or infix');
     });
 
-    it('requires an operation with parameters to declare its input, direct for exactly one parameter', () => {
+    it('requires an operation with parameters to declare its input, direct for exactly one parameter and options for one or several', () => {
         const two = [parameter({ name: 'first' }), parameter({ name: 'second', required: false, default: 1 })];
 
         expect(() => new DomqlModule('charts', { members: [declaration({ kind: 'operation', input: 'options', parameters: two })] })).not.toThrow();
+        expect(() => new DomqlModule('charts', { members: [declaration({ kind: 'operation', input: 'options', parameters: [parameter()] })] })).not.toThrow();
         expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ kind: 'operation', parameters: [parameter()] })] }))).toContain('declares its input');
         expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ kind: 'operation', input: 'direct', parameters: two })] }))).toContain('exactly one parameter');
         expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ kind: 'operation', input: 'direct' })] }))).toContain('declares no input');

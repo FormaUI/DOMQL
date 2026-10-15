@@ -1197,6 +1197,17 @@ describe('domql modules', () => {
         });
     });
 
+    it('take the one parameter of an options input as the field of an object', () => {
+        isolated.registerModule(isolated.createModule('zoom', {
+            members: [{ name: 'zoom', function: 'zoom', kind: 'operation', on: 'element', input: 'options', parameters: [{ name: 'factor', kind: 'value', type: 'number', required: true, fixed: false, nulls: 'propagate' }], result: 'number', changes: 'constant', reads: 'fresh' }],
+        }, { zoom: (_receiver, args) => args.factor * 2 }));
+
+        const panel = document.createElement('div');
+
+        expect(isolated.query('@panel.zoom({ factor: 3 })', { panel }).evaluate()).toBe(6);
+        expect(getError(() => isolated.query('@panel.zoom(3)', { panel }).resolve()).kind).toBe('validation');
+    });
+
     it('fail inside an item of a list where the failing member is written', () => {
         isolated.registerModule(isolated.createModule('weight', {
             members: [{ name: 'weight', function: 'weight', kind: 'property', on: 'element', parameters: [], result: 'number', changes: 'constant', reads: 'fresh' }],

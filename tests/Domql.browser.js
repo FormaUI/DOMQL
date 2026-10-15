@@ -114,6 +114,45 @@ describe('domql evaluateAsync in a browser', () => {
             expect(snapshots).toEqual([440, 490, 510]);
         });
 
+        it('follows a client size through its border box, and misses a change that leaves the border box as it was until a refresh', async () => {
+            const box = document.createElement('div');
+
+            box.style.cssText = 'box-sizing: border-box; width: 200px; height: 100px; padding: 10px; border: 10px solid';
+            document.body.append(box);
+
+            const snapshots = [];
+            const watch = domql.query('@box.clientSize?.width', { box }).watch({ acceptPartialObservation: true });
+
+            watch.subscribe('change', (sender, args) => snapshots.push(args.value));
+            watches.push(watch);
+            await frame();
+
+            expect(snapshots).toEqual([180]);
+
+            // The border box keeps its 200 pixels and the content box its 160, while the padding box grows to 190.
+            box.style.padding = '15px';
+            box.style.borderWidth = '5px';
+            await frame();
+
+            expect(box.clientWidth).toBe(190);
+            expect(snapshots).toEqual([180]);
+
+            await watch.refreshAsync();
+
+            expect(snapshots).toEqual([180, 190]);
+
+            box.style.borderWidth = '2px';
+            await frame();
+
+            expect(box.clientWidth).toBe(196);
+            expect(snapshots).toEqual([180, 190]);
+
+            box.style.width = '220px';
+            await frame();
+
+            expect(snapshots).toEqual([180, 190, 216]);
+        });
+
         it('waits for the browser to report a member it keeps, then follows it', async () => {
             const snapshots = [];
             const watch = domql.query('@item intersects { root: @panel }', { item: outside, panel }).watch();

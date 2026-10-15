@@ -352,6 +352,12 @@ describe('LanguageResolver', () => {
             expect(resolve('@window supports "share"').type.toString()).toBe('boolean');
         });
 
+        it('resolves a feature held in a local whose value is a literal or a bound parameter, and refuses one any other expression gives', () => {
+            expect(resolve('@window { let feature: "share", canShare: self supports feature }').type.toString()).toBe('{ canShare: boolean }');
+            expect(resolve('@window { let feature: @feature, canShare: self supports feature }', { feature: 'share' }).type.toString()).toBe('{ canShare: boolean }');
+            expect(failure('@window { let feature: if @wide then "share" else "clipboard", canShare: self supports feature }', { wide: true }).message).toContain('a string literal, a parameter bound to a string or a local holding one');
+        });
+
         it('refuses an event type or a feature the vocabulary does not declare', () => {
             expect(failure('@panel eventsOf "nonsense"').message).toContain('no event type');
             expect(failure('@window supports "nonsense"').message).toContain('no feature');
@@ -391,6 +397,11 @@ describe('LanguageResolver', () => {
 
             expect(error.message).toContain('misses pointer state');
             expect(() => resolve('@panel matches ":hover"', { panel }, { watch: true, acceptPartialObservation: true })).not.toThrow();
+        });
+
+        it('refuses a watch of a client size unless it accepts partial observation, since its border box can keep its size while it changes', () => {
+            expect(failure('@panel.clientSize', { panel }, { watch: true }).message).toContain("'element.clientSize' (which misses a change that leaves its border box as it was");
+            expect(() => resolve('@panel.clientSize', { panel }, { watch: true, acceptPartialObservation: true })).not.toThrow();
         });
 
         it('names each member it refuses by the type its declaration is for', () => {
