@@ -109,14 +109,51 @@ describe('Nodes in a browser', () => {
             expect(await after(() => parent.append(item))).toEqual({ parent: 'parent', inDocument: false });
         });
 
-        it('follow a node detached from the start into another detached tree', async () => {
-            const tree = element('<div id="tree"></div>', null);
-            const item = element('<i></i>', null);
+    });
 
-            await watch('{ parent: (@item.parent as "element") attributeOf "id", root: (@item.root as "element") attributeOf "id" }', { item });
+    // The browser reports no insertion of a detached tree into a tree but the document's, since nothing in the inserted tree changes, a shadow root's changes reach no observer of the document, and the tree it enters is one no observation knew of.
+    describe('a detached tree inserted into another tree or a shadow root', () => {
+        const into = {
+            'another detached tree': () => element('<div></div>', null),
+            'a detached host\'s shadow root': () => element('<div></div>', null).attachShadow({ mode: 'open' }),
+            'a shadow root in the document': () => element('<div></div>').attachShadow({ mode: 'open' }),
+        };
 
-            expect(snapshots).toEqual([{ parent: null, root: null }]);
-            expect(await after(() => tree.append(item))).toEqual({ parent: 'tree', root: 'tree' });
+        /** A slot holding a fallback element, the top of a detached tree of its own. */
+        const slot = () => element('<slot><b></b></slot>', null);
+
+        // Each row: the member, the tree a detached tree enters, a query reading it, its receiver, and what it answers before the insertion, after a refresh, and once the tree it entered changes.
+        it.each([
+            ['parent', 'another detached tree', '@item.parent?.children.count', () => element('<i></i>', null), null, 1, 2],
+            ['parent', 'a shadow root in the document', '@item.parent?.children.count', () => element('<i></i>', null), null, 1, 2],
+            ['root', 'another detached tree', '@item.root.all("*").count', () => element('<section><i></i></section>', null).firstElementChild, 1, 2, 3],
+            ['root', 'a shadow root in the document', '@item.root.all("*").count', () => element('<section><i></i></section>', null).firstElementChild, 1, 2, 3],
+            ['is "attached"', 'a shadow root in the document', '@item is "attached"', () => element('<i></i>', null), false, true, true],
+            ['shadow.elements', 'a detached host\'s shadow root', '@item.shadow.elements?.count', slot, 0, 1, 2],
+            ['shadow.elements', 'a shadow root in the document', '@item.shadow.elements?.count', slot, 0, 1, 2],
+        ])('hide from %s an insertion into %s until a refresh, which observes the tree it entered', async (member, target, text, receiver, before, refreshed, followed) => {
+            const tree = into[target]();
+            const item = receiver();
+            const created = await watch(text, { item });
+
+            expect(snapshots).toEqual([before]);
+            expect(await after(() => tree.append(item.parentNode ?? item))).toBe(before);
+            expect(await after(() => created.refreshAsync())).toBe(refreshed);
+
+            // A slot's fallback changes within the slot, and every other member's tree beside the item.
+            expect(await after(() => (member === 'shadow.elements' ? item : tree).append(document.createElement('b')))).toBe(followed);
+        });
+
+        it('leave shadow.elements following a slot that enters a shadow tree with an element assigned to it', async () => {
+            const host = element('<div><i></i></div>');
+            const tree = host.attachShadow({ mode: 'open' });
+            const item = slot();
+
+            await watch('@item.shadow.elements?.count', { item });
+
+            expect(snapshots).toEqual([0]);
+            expect(await after(() => tree.append(item))).toBe(1);
+            expect(await after(() => host.append(document.createElement('i')))).toBe(2);
         });
     });
 

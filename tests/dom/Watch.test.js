@@ -316,7 +316,7 @@ describe('Watch', () => {
         it('holds what it reads past a receiver only while that receiver is present', async () => {
             const item = document.createElement('i');
 
-            watch('{ level: (@item.parent as "element")?.level }', { item });
+            watch('{ level: (@item.parent as "element")?.level }', { item }, { acceptPartialObservation: true });
             await settle();
 
             expect(snapshots).toEqual([{ level: null }]);
@@ -412,7 +412,7 @@ describe('Watch', () => {
         it('follows a detached node into the document, and the document as its own root', async () => {
             const detached = document.createElement('section');
 
-            watch('{ own: @document.root.children.count, detached: @detached.root.children.count }', { detached });
+            watch('{ own: @document.root.children.count, detached: @detached.root.children.count }', { detached }, { acceptPartialObservation: true });
             await settle();
 
             expect(snapshots.at(-1)).toEqual({ own: 1, detached: 0 });

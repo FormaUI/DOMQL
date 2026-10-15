@@ -307,7 +307,7 @@ A field answers the key its name is written as, and how a consumer matches keys 
 
 A value is a number, a string, a Boolean, null, a list, a structured value such as a rectangle, a node such as an element or the document, the window, or an event source. A member's signature declares its result type, as the section on types sets out, and a result marked `?` can be null by itself; an optional access answers null where its receiver is null, as an infix call does, and any member answers null where an argument is null and its parameter propagates null.
 
-A result is data: numbers, strings, Booleans, null, lists and objects. A node or an event source has no data form, so a query whose result would contain one is a validation error; a query reads the facts it needs of a node through an object expression.
+A result is data: numbers, strings, Booleans, null, lists and objects. A node, an element's shadow view or an event source has no data form, so a query whose result would contain one is a validation error; a query reads the facts it needs of a node through an object expression.
 
 ### Objects
 
@@ -331,7 +331,7 @@ CSS selectors and `where` are the two ways a query filters: a selector chooses e
 
 A value has a type, and every member declares the types it works with. Type checking is part of preparation: a request that cannot be typed is a validation error naming where it fails, the type it expected and the type it found, before anything is evaluated.
 
-The types are `number`, `string`, `boolean`, `node` and its kinds, `element`, `document`, `documentFragment` and `shadowRoot`, and `window`; `list<T>` of items of type `T`; the structured values, each with named fields of declared types, such as `rectangle`, `size` and `selection`, the object types of the objects a query's object expressions produce, and any a module declares; and `event<T>`, an event source whose events carry event data of type `T`. A module can declare types of its own. `null` is a value of every type that is written with a `?`: `T?` is a `T` or null. Null alone is of the type `null`, which fits every nullable type, and `never` is the type no value has, which fits every type, so `list<never>`, the type of the empty list, fits every list type. Both are names of the type notation, and neither is a word of the expression language.
+The types are `number`, `string`, `boolean`, `node` and its kinds, `element`, `document`, `documentFragment` and `shadowRoot`, `window`, and `shadow`, an element's view of its shadow relationships; `list<T>` of items of type `T`; the structured values, each with named fields of declared types, such as `rectangle`, `size` and `selection`, the object types of the objects a query's object expressions produce, and any a module declares; and `event<T>`, an event source whose events carry event data of type `T`. A module can declare types of its own. `null` is a value of every type that is written with a `?`: `T?` is a `T` or null. Null alone is of the type `null`, which fits every nullable type, and `never` is the type no value has, which fits every type, so `list<never>`, the type of the empty list, fits every list type. Both are names of the type notation, and neither is a word of the expression language.
 
 ### What a member declares
 
@@ -354,6 +354,21 @@ A node is a value of the DOM tree, and its kinds are `element`, `document`, `doc
 - **Kinds fit where a node does.** A value of a kind fits where a `node` is expected, and a `node` fits where a kind is expected only through a cast, so a kind's own members, such as an element's `rect`, are read of a `node` through one: `(@panel.parent as "element")?.rect`.
 - **Of two kinds.** Values of two different kinds, a conditional's branches or a coalescing operator's sides, are of the type `node`, so `if @wide then @panel else @document` is a `node`.
 - **Declaring on a node.** A member declared on `node` is a member of every kind, and no member of the same name can be declared on a kind, so no declaration overrides another.
+
+### Shadow trees
+
+Every crossing of a shadow boundary is written, so a query shows the relationship it follows:
+
+```
+@host.shadow.root            // Into the shadow tree an element hosts.
+@element.root.host           // Out of the shadow tree an element is in, to its host.
+@slot.shadow.elements        // The elements a slot shows.
+```
+
+- **Selectors never pierce a shadow root.** `first`, `all` and `closest` select within their receiver's own tree, so `@host.all("p")` holds no element of the host's shadow tree, and `@host.shadow.root?.all("p")` selects within it. `parent` never crosses a boundary either: a direct child of a shadow root has that root as its parent, and reaches the host through `root.host`.
+- **The view.** An element's `shadow` is a value of the type `shadow`, which has no data form, so a result never holds one. It is the same for its element whatever changes, and its members answer the element's shadow relationships as they are.
+- **`shadow.root`** is the open shadow root the element hosts, and null where it hosts none or a closed one.
+- **`shadow.elements`** is a slot's assigned elements, flattened, as `assignedElements({ flatten: true })` answers them: it follows assignment through forwarded slots, takes the slot's fallback where nothing is assigned to it, answers elements alone, filters nothing by visibility and enters no assigned element's own shadow tree. A slot that yields no element answers the empty list, as one does whose assigned nodes are text alone, since assigned text suppresses the fallback, and one outside a shadow tree, whatever its fallback. An element that is no slot answers null, so null tells an element that is no slot from a slot that shows nothing.
 
 ### No conversion
 
@@ -464,6 +479,8 @@ Every member declares how its result changes, for a given receiver and arguments
 
 A literal is constant, so a watched object expression can carry one: `@viewport { kind: "viewport", width: self.size?.width }`.
 
+The browser reports no insertion of a detached tree into another detached tree or into a shadow root, even one in the document: nothing in the inserted tree changes, a shadow root's changes reach no observation of the document, and the tree it enters is none a watch observed. `parent`, `root`, `is "attached"` and `shadow.elements` are partly observable for that change alone, and a watch of one sees the tree a receiver entered at the next evaluation another change or a refresh causes, observing that tree from then on. A detached tree inserted into the document, a node moved within or between trees a watch observes, and a detached node another document owns, as a template's content does, inserted into the document are each observed.
+
 ## Null
 
 Null answers both "there is no such value", as when `closest` finds no element, and "the value is unavailable", as when an element has no layout to measure. One null for both keeps results simple, at the cost of telling the two apart; a member whose consumers need the difference offers it separately, as `is "attached"` says whether an element is still attached to the document.
@@ -499,7 +516,7 @@ A query is validated before any evaluation, as the section on validation sets ou
 
 The built-in vocabulary exposes properties and operations over familiar browser concepts. Properties and operations are named in camelCase. Names are case-sensitive. Measurements use CSS pixels unless stated otherwise. Built-in members expose state or event sources; actions and behaviors come from extensions.
 
-A property of a structured value, such as a rectangle's `width`, reads data the value holds and is constant for that value. A property is read by member access, and an operation is written as a call or as an infix call, as its declaration says; the tables write each as it is written, with a receiver left out. A member available on a node is available on each of its kinds, and one available on an element on elements alone.
+A property of a structured value, such as a rectangle's `width`, reads data the value holds and is constant for that value. A property is read by member access, and an operation is written as a call or as an infix call, as its declaration says; the tables write each as it is written, with a receiver left out. A member available on a node is available on each of its kinds, one available on an element on elements alone, and one available on a shadow view on an element's `shadow`.
 
 ### Properties
 
@@ -515,9 +532,12 @@ A property exposes a value, read by member access, and takes no argument. Each p
 | Element | `grid.columns` | `list<number>?` | The sizes of its grid's column tracks, an empty list for an element that is no grid | Partly observable, as `computedStyleOf` | Fresh |
 | Element | `selection` | `selection?` | Its selection's `start` and `end`, null for an element that is no text input or text area | Partly observable: input and selection events are observed, assignments by script are not | Fresh |
 | Node | `children` | `list<element>` | Its child elements, in document order | Observable | Fresh |
-| Node | `parent` | `node?` | Its parent in the DOM tree: a shadow root for the nodes directly in it, and null for a document, a document fragment, a shadow root and the topmost element of a detached tree, so it never crosses a shadow boundary | Observable | Fresh |
-| Node | `root` | `node` | The root of its tree: the document, a document fragment, the shadow root it is in, or the topmost element of a detached tree | Observable | Fresh |
+| Node | `parent` | `node?` | Its parent in the DOM tree: a shadow root for the nodes directly in it, and null for a document, a document fragment, a shadow root and the topmost element of a detached tree, so it never crosses a shadow boundary | Partly observable: its detached tree inserted into another detached tree or into a shadow root is not observed | Fresh |
+| Node | `root` | `node` | The root of its tree: the document, a document fragment, the shadow root it is in, or the topmost element of a detached tree | Partly observable, as `parent` | Fresh |
 | Node | `host` | `element?` | A shadow root's host, and null for any other node | Constant | Fresh |
+| Element | `shadow` | `shadow` | Its view of its shadow relationships | Constant | Fresh |
+| Shadow view | `root` | `shadowRoot?` | The open shadow root its element hosts, null where it hosts none or a closed one | Partly observable: a root attached as its element connects to its document is observed, one attached at any other time is not | Fresh |
+| Shadow view | `elements` | `list<element>?` | The elements its slot shows, flattened, as the section on shadow trees sets out, and null for an element that is no slot | Partly observable: assignment, the fallback and the slot's moves are observed; its detached tree inserted into a shadow tree that assigns it nothing is not | Fresh |
 | List | `count`, `first`, `last` | `number`, `T?`, `T?` for a `list<T>` | The number of items, the first item and the last item, null where a list has none | As their items | As their items |
 
 ### Operations
@@ -577,7 +597,7 @@ A predicate is a name the vocabulary registers for `is` or `has` with its contra
 
 | Predicate | Of | Answers | Changes | Reads |
 | --- | --- | --- | --- | --- |
-| `is "attached"` | An element | Whether the element is attached to the document, including through a shadow root | Observable, through the structure of the document and of every shadow root between the element and the document | Fresh |
+| `is "attached"` | An element | Whether the element is attached to the document, including through a shadow root | Partly observable: the structure of the document and of every shadow root between the element and the document is observed; its detached tree inserted into a shadow root in the document is not | Fresh |
 | `is "disabled"` | An element | Whether the element matches `:disabled`, as the browser decides it: by its own `disabled` attribute, a disabled ancestor `fieldset` other than through that fieldset's first `legend`, or a disabled `optgroup` holding an `option`; whether it carries a `disabled` attribute is `self attributeOf "disabled"`, a separate question | Observable: its own and its ancestors' `disabled` attributes and the structure between them | Fresh |
 | `is "readOnly"` | An element | Whether native `readonly` applies to the control and is set: a text area, or an input whose type is `text`, `search`, `url`, `tel`, `email`, `password`, `date`, `month`, `week`, `time`, `datetime-local` or `number`; any other element answers false, whatever its attributes | Observable: its `readonly` and `type` attributes | Fresh |
 | `is "textEditable"` | An element | Whether the element supports text editing and its current state permits it: a text area, or an input whose type is `text`, `search`, `url`, `tel`, `email`, `password` or `number`, that is neither disabled nor read-only; or an element whose content is editable, by its own or an ancestor's `contenteditable` of `true` or `plaintext-only`, or by the document's design mode. An element with the `inert` attribute, itself or on an ancestor in the flat tree, which goes from each node to the slot it is assigned to, or otherwise to its parent, and from a shadow root to its host, is not text editable: this is the attribute's inertness, so the inertness a modal dialog gives the rest of the document does not count, and a slot in a closed shadow root hides an inert ancestor past it unless the element is inside that root | Partly observable: everything `is "disabled"` observes, the `readonly` and `type` attributes, the `contenteditable` attributes of the element and its ancestors, the `inert` attributes along its flat tree, and the structure and slot assignments between them are observed; the document's design mode is not | Fresh |

@@ -9,7 +9,7 @@ Each item is what exists and what checks it.
 - **The language.** Parsing text and creating queries from their definition, with the position of every mistake, and writing a definition back as text, on one line or laid out as `domql.format` gives a request's canonical text. Checked by the tests of parsing, of the definition and of writing it.
 - **Navigation and absence.** Access that requires a receiver that cannot be null, `?.`, optional-access groups, the coalescing operator and access by name, each recorded in the definition and written back as canonical text, a watch following what each evaluates. Checked by the tests of parsing, of the definition, of resolution, of evaluation, of watches and of comparing snapshots.
 - **Boolean expressions.** `not`, `and` and `or` of Booleans that cannot be null, and conditions of one, each refusing a Boolean that can be null with the fallback to write, a watch following the operands and clauses evaluation reaches. Checked by the tests of parsing, of resolution, of evaluation and of watches.
-- **Nodes and casts.** `node` and its kinds, each a binding can hold, with `parent`, `root`, `host`, `children`, `first` and `all` on every node, a member on a kind of the name of one on `node` refused, and `as`, which casts to `node` and its kinds and refuses a type that is no node and a target that can never be of it. Checked by the tests of types, of parsing, of the definition, of resolution, of evaluation, of writing and of registration.
+- **Nodes, shadow trees and casts.** `node` and its kinds, each a binding can hold, with `parent`, `root`, `host`, `children`, `first` and `all` on every node, a member on a kind of the name of one on `node` refused; an element's `shadow`, whose `root` and `elements` cross into the tree it hosts and the elements a slot shows; and `as`, which casts to `node` and its kinds and refuses a type that is no node and a target that can never be of it. Checked by the tests of types, of parsing, of the definition, of resolution, of evaluation, of writing and of registration, and in Chromium by what the tree's members and the shadow view answer and observe as nodes move, slots are assigned and shadow roots attached.
 - **The vocabulary.** The built-in vocabulary declared as module data, and modules that extend it. Checked by the tests of modules, the registry and the vocabulary.
 - **Bindings and resolution.** Every binding typed from its value, and a definition resolved against the vocabulary and its result typed, without a browser; the resolution is kept for its definition, so the queries made from one text share it. Checked by the resolver tests and the tests of `query.resolve`.
 - **The query object.** `domql.query` makes a query object from text or a definition, `with` binds it anew and `select` takes a part of its result, and every operation is carried out through it, one the request's kind does not take refused before anything runs. Checked by the tests of the query object, of selections and of refusals.
@@ -22,7 +22,7 @@ Each item is what exists and what checks it.
 - **Change sets.** The JSON Patch change sets that bring live state up to date, computed between snapshots; lists projected from elements change by element, through identities kept beside the result. Checked by the tests of computing change sets and of applying them in place, each against expected patches and results and together, and of watches that keep live state.
 - **The package.** The bundle, exporting `domql` and `DomqlError` and answering the package's version, with its TypeScript declarations checked against `domql` and against a TypeScript caller; the READMEs' examples run as tests.
 
-What is not built: the rest of D13, shadow trees and equality and Boolean members, editor tooling and the C# half.
+What is not built: the rest of D13, equality and Boolean members, editor tooling and the C# half.
 
 ## Decisions
 
@@ -287,7 +287,7 @@ A `member` or `call` holds `optional: true` for `?.`, and a `member`'s `name` is
 
 #### Observation
 
-`parent` and `root` change with the structure of the tree, which step 17's following of roots and slots observes; `shadow.elements` is observed through `slotchange` and its fallback's structure. A shadow root attached after an evaluation has no notification, so `shadow.root` is partly observable: a watch that accepts partial observation sees it at the next evaluation another change or a refresh causes. Each claim is verified in Chromium before the specification makes it, for reparenting, an ancestor moving, an element detached from the start, forwarded slots and a fallback that changes; a limit found is stated rather than assumed covered.
+`parent` and `root` change with the structure of the tree, which step 17's following of roots and slots observes; `shadow.elements` is observed through `slotchange` and its fallback's structure. A shadow root attached after an evaluation has no notification, so `shadow.root` is partly observable: a watch that accepts partial observation sees it at the next evaluation another change or a refresh causes. Each claim is verified in Chromium before the specification makes it, for reparenting, an ancestor moving, an element detached from the start, forwarded slots and a fallback that changes; a limit found is stated rather than assumed covered. Step 20 found one, a detached tree inserted into another detached tree or into a shadow root, which the browser does not report.
 
 ## Steps
 
@@ -309,6 +309,7 @@ A step is done when its tests pass in the gate, its documents say what it built,
 - **17. Shadow trees in watches.** Done: an observation follows its receiver's root or every root of its flat-tree ancestry, a watch follows a receiver to another tree or slot, and `is "textEditable"` counts an inert ancestor in the flat tree. Following them adds 0.5 to 1 ms to refreshing a watch of 1,000 rows in the simulated DOM, most of it the scrolling each row's `rect` follows at its roots.
 - **18. Required and optional access.** Done: `.` requires a receiver that cannot be null and `?.` reads one that can, ending its optional chain with null; an optional-access group makes a chain's accesses optional at once; the coalescing operator falls back where a value is null; and brackets read the property a name determined when the query is prepared names, which replaced `get`.
 - **19. Strict Boolean expressions.** Done: `not` negates a Boolean, and `not`, `and`, `or` and a condition take a Boolean that cannot be null, refusing one that can with the fallback to write, which replaced the three-valued `and` and `or`.
+- **20. Nodes, shadow trees and casts.** Done: the tree is navigated through nodes, an element's `shadow` crosses into the shadow tree it hosts and to the elements a slot shows, and `as` casts a node to its kind. Chromium tests show that the browser reports no insertion of a detached tree into another detached tree or into a shadow root, so `parent`, `root`, `is "attached"` and `shadow.elements` are partly observable for it.
 
 ### 9. Measured performance
 
@@ -352,14 +353,6 @@ The query object of D12 for a .NET host: `Domql.Query(text, bindings)` and its o
   - It reports an exception from an application handler without restarting synchronization, since the state was already accepted.
   - Its application of change sets passes a conformance corpus the JavaScript patcher passes too: each case a previous result, a change set and the result they give, the expected results reviewed independently of either applier, moves and escaped paths among them.
 - **State:** not started.
-
-### 20. Nodes, shadow trees and casts
-
-Navigate the tree through nodes, reach shadow trees through an element's `shadow`, and narrow with `as`, as D13 decides.
-
-- **Needs:** step 18, for the nullable `parent` and `shadow.root`.
-- **Done when:** `node` and its kinds are types, with `parent`, `root`, `host`, `children`, `first` and `all` declared on `node` and the element members on elements, a redeclaration on a kind refused; `shadow.root` and `shadow.elements` answer as D13 sets out; `as` casts to `node` and its kinds, refusing an unknown type and one a non-null target can never be; Chromium tests show what `parent`, `root` and `shadow.elements` observe through reparenting, an ancestor moving, an element detached from the start, forwarded slots and a changing fallback, and the specification states it, with `shadow.root` partly observable; examples that read `parent` as an element cast it.
-- **State:** in progress. Nodes and casts are built; `shadow.root`, `shadow.elements` and the Chromium tests of what `parent`, `root` and `shadow.elements` observe remain.
 
 ### 21. Equality and Boolean members
 

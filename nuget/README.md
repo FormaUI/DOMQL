@@ -200,7 +200,7 @@ domql.query('@panel is "attached"', { panel }).evaluate();
 // true
 ```
 
-Brackets read the property a name names, `@panel["children"]` or `@panel[@name]`, the name determined when the query is prepared. `parent` and `root` answer a node, an element, a document, a document fragment or a shadow root, and `as` casts one to its kind, answering null where it is of another, so an element's own members are read of a parent through a cast: `(@panel.parent as "element")?.rect`. `is` asks about a state or classification and `has` about presence: they are operators that test the value before them against one predicate the vocabulary registers. `and` and `or` combine Boolean expressions:
+Brackets read the property a name names, `@panel["children"]` or `@panel[@name]`, the name determined when the query is prepared. `parent` and `root` answer a node, an element, a document, a document fragment or a shadow root, and `as` casts one to its kind, answering null where it is of another, so an element's own members are read of a parent through a cast: `(@panel.parent as "element")?.rect`. Selectors never pierce a shadow root, and every crossing is written: `@host.shadow.root` is the open shadow root an element hosts, `@element.root.host` the host of the shadow tree an element is in, and `@slot.shadow.elements` the elements a slot shows, null for an element that is no slot. `is` asks about a state or classification and `has` about presence: they are operators that test the value before them against one predicate the vocabulary registers. `and` and `or` combine Boolean expressions:
 
 ```text
 @input is "disabled" or @input is "readOnly"
