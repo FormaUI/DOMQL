@@ -356,7 +356,7 @@ export class DomqlModule {
         }
 
         if (member.input === 'direct' && parameters.length !== 1) {
-            fail('A direct input supplies exactly one parameter; an options input supplies several', name);
+            fail('A direct input supplies exactly one parameter', name);
         }
     }
 
