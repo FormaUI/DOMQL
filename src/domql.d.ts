@@ -209,6 +209,7 @@ export interface DomqlParameterBindings {
 export interface DomqlQuery<T = unknown> {
     /** The immutable definition, without its bindings. */
     readonly definition: DomqlDefinition;
+    /** The values its parameters are bound to, read by name. */
     readonly bindings: DomqlParameterBindings;
     /** The type of the result the query produces, for TypeScript alone: the caller's type argument asserts it, and no query holds it. */
     readonly [domqlResult]?: { result(value: T): void };
@@ -386,11 +387,11 @@ export interface DomqlModuleContents {
 
 /**
  * The functions that carry a module's members and observation types out, by the key each declaration names.
- * A member takes its receiver, its arguments by name and the environment, and a member that reads maintained values also its samples, in the order its declaration names the observations.
+ * A member takes its receiver, its arguments by name and the environment, and a member that reads maintained values also their values, in the order its declaration names the observations; it is not called while one of them is pending.
  * A source takes its receiver, its arguments and the environment, and the function it delivers each event to, and returns an object whose `stop` ends the listening.
  * An action takes its receiver, its arguments, the environment and `{ signal }`, and returns its result or a promise of it.
  * A behavior takes its receiver, its arguments, the environment and `{ reportError }`, starts before it returns, and returns an object whose `update(receiver, args)` applies new arguments and whose `dispose` ends it.
- * An observation type takes the request, the function it calls when something may have changed and the environment, and returns an object whose `stop` ends the observation and, for a maintained one, whose `sample` returns its latest sample.
+ * An observation type takes the request, the function it calls when something may have changed and the environment, and returns an object whose `stop` ends the observation and, for a maintained one, whose `sample` returns its latest sample as `{ pending, value }`, pending until the first arrives.
  */
 export type DomqlModuleFunctions = Record<string, (...args: any[]) => unknown>;
 

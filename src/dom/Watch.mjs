@@ -200,7 +200,7 @@ export class Watch {
     }
 
     /**
-     * Evaluates now instead of at the schedule, and settles once the evaluation has completed and the event it produced, if any, has been raised.
+     * Evaluates now instead of at the schedule, and settles once the evaluation has completed and the event it produced, if any, has been raised; where that evaluation waits for a sample, it settles with the evaluation that ends the wait.
      * It rejects with the failure of its evaluation, resolves without delivering where disposal cancels it, and rejects where called after disposal.
      */
     refreshAsync() {

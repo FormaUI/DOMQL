@@ -8,7 +8,7 @@ This design describes the whole runtime, and the [README](../README.md#status) s
 
 | Decision | Contract |
 | --- | --- |
-| A small language | Chains, object expressions and their locals, lists, equalities, logical expressions, negations and conditionals, with literals and parameters. Arithmetic, ordering and anything else a query needs computed belongs to a member or to the caller. |
+| A small language | Chains, with required and optional access and access by name, object expressions and their locals, lists, equalities, logical expressions, negations, conditionals, coalescing operators and casts, with literals and parameters. Arithmetic, ordering and anything else a query needs computed belongs to a member or to the caller. |
 | An open vocabulary | Everything a query can ask about is a member a vocabulary contributes; the built-in vocabulary and every extension follow one contract, and adding a member leaves the grammar unchanged. |
 | Queries read, requests act | Evaluating, watching or subscribing to a request reads the document and changes nothing, whatever vocabulary it uses; an action or a behavior is a request of its own kind, carried out only when its caller executes or applies it. |
 | One meaning | A query evaluates the same way for every caller, however it was written. |
@@ -17,7 +17,7 @@ This design describes the whole runtime, and the [README](../README.md#status) s
 
 ## Preparation
 
-An extension a request names is loaded when the request is prepared, before it is first carried out, and preparation validates it against the vocabulary, as the specification sets out.
+A request is prepared before it is first carried out, and preparation validates it against the vocabulary registered then, as the specification sets out; a module a request names is registered by its caller beforehand.
 
 ### Evaluating
 
@@ -49,7 +49,7 @@ A watch keeps a query's result current: it evaluates the query, reports a snapsh
 - **The first evaluation** runs in a microtask the call queues, after `watch` returns and before any later task, so a caller subscribes before any event is raised; a `refreshAsync` called before then runs that evaluation at once instead. Its result is the first `"change"` event.
 - **Status.** `status` is `pending` until the first snapshot is available, the samples of the maintained members it reads included, and `ready` from then on. After an evaluation fails it is `failed`: the watch keeps running and keeps its last successful snapshot, if it has one, and returns to `ready` with its next successful evaluation. Once ended it is `disposed`. `snapshot` is the last successful snapshot, `undefined` before the first, so a result that is null is told apart from none yet, and `error` is the latest evaluation failure, cleared by the next success.
 - **`readyAsync(options?)`** waits for a successful ready state and answers its snapshot. Its `signal` cancels that wait alone; it rejects where an evaluation fails while it waits or the watch is disposed, and the watch goes on after a failed evaluation.
-- **`refreshAsync()`** evaluates now instead of at the schedule, and answers a promise that settles once that evaluation has completed and the event it produced, if any, has been raised. It does not wait for a promise a handler returns, so a handler can await a refresh. It rejects with the failure of its evaluation, which its `"change"` event reports too; it resolves without delivering where disposal cancels it; and it rejects where called after disposal.
+- **`refreshAsync()`** evaluates now instead of at the schedule, and answers a promise that settles once that evaluation has completed and the event it produced, if any, has been raised. Where that evaluation waits, as the first snapshot does for the first samples of the maintained members it reads, or as one does that failed having read a member still pending, the promise settles with the evaluation that ends the wait. It does not wait for a promise a handler returns, so a handler can await a refresh. It rejects with the failure of its evaluation, which its `"change"` event reports too; it resolves without delivering where disposal cancels it; and it rejects where called after disposal.
 - **`dispose()`** cancels the evaluation the watch scheduled, disposes every session, stops every listener subscribed to it, sets the status to `disposed` and prevents any new handler call; a handler already running may finish. Disposing again does nothing.
 
 ### Events of a handle
@@ -57,7 +57,7 @@ A watch keeps a query's result current: it evaluates the query, reports a snapsh
 A running watch or behavior raises events, which the listeners subscribed to it receive; a query object holds none, so queries shared between callers never share their listeners. `subscribe(eventName, handler, options?)` adds a listener and answers a `DomqlEventListener`, with `status`, `ready` or `disposed`, and `dispose()`, which stops it; its `signal` option stops it when it aborts.
 
 ```js
-const watcher = panelQuery.watch();
+const watcher = panelQuery.watch({ acceptPartialObservation: true });
 
 const listener = watcher.subscribe("change", (sender, args) => {
     if (args.status === "ready") {
@@ -88,7 +88,7 @@ listener.dispose(); // Stops this listener.
 Each `watch` starts a watch of its own. To share one evaluation, a caller keeps its handle and subscribes to it and to views of it:
 
 ```js
-const watcher = panelQuery.watch();
+const watcher = panelQuery.watch({ acceptPartialObservation: true });
 
 watcher.select("size").subscribe("change", (sender, args) => {
     if (args.status === "ready") {
@@ -106,9 +106,9 @@ Accepting partial observation is an option of the watch, chosen when the caller 
 
 ### Dependencies
 
-A watch's dependencies are what its last evaluation actually read, recorded as it evaluated: each member applied to its receiver and arguments, with that member's observations. Dependencies belong to the complete query.
+A watch's dependencies are what its last evaluation actually read: each member applied to its receiver and arguments, with that member's observations, each held through a session as the evaluation reaches it. Dependencies belong to the complete query.
 
-- **Every evaluation records its dependencies afresh,** and the watch subscribes to the observations the new set names and releases the ones it no longer names. What a watch observes therefore follows the document: in `@table.all("tbody tr").max(self.rect?.height)`, the watch depends on what the selector matches within the table, and on the height of each row it matched. A row added starts being observed after the evaluation the addition causes, and a row removed stops being observed.
+- **Every evaluation holds its dependencies afresh:** it takes over the session of the evaluation before it wherever it reaches the same observation again, acquires the observations it reaches for the first time, and the sessions it no longer reaches are disposed. What a watch observes therefore follows the document: in `@table.all("tbody tr").max(self.rect?.height)`, the watch depends on what the selector matches within the table, and on the height of each row it matched. A row added starts being observed after the evaluation the addition causes, and a row removed stops being observed.
 - **A value argument is a dependency of its own.** `@target intersects { root: @panel }` depends on the intersection of the target with the panel; `self intersects { root: self.parent as "element" }` also depends on which element is the parent, and a new parent is observed after the evaluation its change causes.
 - **An expression argument contributes its dependencies for every item** it was evaluated against.
 - **A chain that met null depends on what it read before the null,** so `self.closest(".row")` finding nothing still depends on the ancestors it searched, and the watch evaluates again when one starts to match.
@@ -127,7 +127,7 @@ A member that answered null because its element is detached depends on whether t
 A watch follows its receivers through shadow trees, by two scopes of observation a module can name.
 
 - **A node's root** is the root of the tree it is in, as `getRootNode` answers: its document, the shadow root it is in, or the top of a detached tree. An observation of it sees a change inside a shadow tree, which an observation of the document never reaches.
-- **Its flat-tree ancestry** is found step by step from the node. A step goes to the slot the node is assigned to, where it is assigned to one; from a node whose parent is a shadow root, to that root's host; and otherwise to the node's parent. The nodes the steps reach are its **flat-tree ancestors**, which `is "textEditable"` reads for `inert`.
+- **Its flat-tree ancestry** is found step by step from the node. A step goes to the slot the node is assigned to, where it is assigned to one; from a node whose parent is a shadow root, to that root's host; and otherwise to the node's parent. The nodes the steps reach are its **flat-tree ancestors**, which `textEditable` reads for `inert`.
 - **Its roots** are collected along those steps, nearest first, and each kept once: the shadow root each step to a host leaves; the open shadow root of each host whose child a step leaves, since that root's slots may come to take the child; and the node the steps end at, its document or the top of a detached tree. A node's own root is always among them, a slotted node's too, since it is a child of its host and in its host's tree; the shadow root a node hosts is not.
 - **A closed shadow root hides its slots' assignments,** so a node assigned to one of its slots steps to its parent instead, and the roots past that slot are reached only from a node inside that root.
 
@@ -137,15 +137,14 @@ Moving a receiver, or one of its flat-tree ancestors, to another tree or slot ev
 
 A watch whose evaluation fails raises a failed `"change"` event, and keeps the dependencies of its last successful evaluation together with those the failed one recorded before failing. It evaluates again when any of them changes or its caller refreshes it, and its next successful evaluation reports its snapshot whether or not it equals the last one reported; a watch that keeps live state hands over an empty change set where the snapshot equals the last one.
 
-### Cached state, snapshots and change sets
+### Snapshots, live state and change sets
 
-A watch keeps its result as cached state and hands its caller snapshots or live state:
+A watch hands its caller snapshots or live state:
 
 | Concept | Is |
 | --- | --- |
-| Cached state | The watch's own copy of its result, updated in place as individual values change |
 | Snapshot | An immutable result captured at one moment |
-| Live state | A stable object a JavaScript caller holds, updated in place as the cached state is |
+| Live state | A stable object a JavaScript caller holds, updated in place by the change sets between snapshots |
 | Baseline | A complete result, establishing the state the changes after it are relative to |
 | Change set | The fields and list entries that changed, relative to the result it was computed against |
 
@@ -252,29 +251,30 @@ DOMQL owns the semantics every host shares: evaluation, dependency recording, ob
 An extension is registered as a module, which declares under its name the state members, event sources, actions and behaviors it contributes and supplies the implementation that carries each out; requests resolve against those declarations. The declarations are data, each member's DOMQL name, signature, result type, argument types and kinds and the request kinds it supports, so they can be read without running the implementations. A module associates two things explicitly, and neither is derived from the other: an operation's DOMQL name, `computedStyleOf`, and the function that carries it out, whatever that function is called. A module registers under a name of its own, and registering a name twice is an error.
 
 ```js
-domql.registerModule(new VirtualizerDomqlModule(Virtualizer));
-domql.registerModule(new InputRouterDomqlModule(InputRouter));
+const virtualizer = domql.createModule('virtualizer', declarations, functions);
+
+domql.registerModule(virtualizer);
 ```
 
 ### Declarations
 
 A module is created with its members and, once it can carry them out, the functions they name; declarations are validated when the module is created and checked against the registry when it is registered. The built-in vocabulary is the module `builtIn`, whose identity no other module takes and whose members stand without a namespace; any other module adds members to its own types and a single member named for itself to any other.
 
-- **A declaration** names the member's DOMQL name, and the key of its function in the module's functions, independent of its name; its kind, one of property, operation, source, action and behavior; for a member that is no property, its form, a call by default or an infix call, and, where it has parameters, its input, direct for its one parameter or options for several, as the specification sets out; the types it applies to; its parameters; its result type; its observation coverage; and, for a member that answers a number, the `tolerance` within which a watch compares it, exactly where it declares none.
+- **A declaration** names the member's DOMQL name, and the key of its function in the module's functions, independent of its name; its kind, one of property, operation, source, action and behavior; for a member that is no property, its form, a call by default or an infix call, and, where it has parameters, its input, direct, the value of its one parameter, or options, an object whose fields supply its parameters however many it has, as the specification sets out; the types it applies to; its parameters; its result type; its observation coverage; and, for a member that answers a number, the `tolerance` within which a watch compares it, exactly where it declares none.
 - **A parameter** is a value or an expression. An expression is evaluated against each item of the list it follows and declares the type it produces. A parameter declares whether it is required, its default where it is not, and whether a null argument propagates, making the call answer null, or is accepted.
 - **A fixed parameter** names something the vocabulary resolves before any evaluation, and declares what it selects: an event type or a feature.
-- **Observations.** A member that changes observably or partly observably names the observations that cover its changes. An observation is of a type, observes the receiver, the receiver's root, its roots, the window, the document or an argument of the member, and gives the arguments its type takes, as `{ type: 'resize', of: 'receiver' }` does; a member that changes in any other way names none. The receiver's **root** and its **roots** are those [trees and slots](#trees-and-slots) defines: a member that depends on the structure around its receiver observes its root, as `all` and `closest` do, and one that depends on any tree its receiver is shown in observes its roots, as `rect` does for scrolling. An observation of the roots is one request at each, so it is an invalidation, and a maintained observation, which gives its member one sample, observes one target. A module declares a type of observation by a camelCase name, its contract, the arguments that belong to an observation's identity, whether equivalent requests share one, and the function that starts one, which takes the request, the function it calls when something may have changed and the environment, and answers an object whose `stop` ends the observation and, for a maintained type, whose `sample` answers its latest sample. An observation of a type that is not shared is kept for each watch, `evaluateAsync` call and event listener alone, so the sample it delivered reaches that caller's later evaluations. The built-in vocabulary's types are `resize`, `mutation`, `attachment`, `intersection`, `media`, `pixelRatio`, `event` and `visibility`, each shared; `intersection` is maintained, and the others are invalidations. A type is either an invalidation observation, which says that a result may have changed and carries no value, or a maintained observation, which provides a sample a member reads and is pending until its first arrives; a member that reads maintained values names a maintained observation, and no other member does.
-- **Functions.** A member takes its receiver, its arguments by name and the environment, and a member that reads maintained values also its samples, in the order its declaration names the observations. A source takes its receiver, its arguments, the environment and the function it delivers each event to, and answers an object whose `stop` ends the listening. An action takes its receiver, its arguments, the environment and `{ signal }`, and answers its result or a promise of it. A behavior takes its receiver, its arguments, the environment and `{ reportError }`, starts before it returns, and answers an object whose `update(receiver, args)` applies new arguments and whose `dispose` ends it.
+- **Observations.** A member that changes observably or partly observably names the observations that cover its changes. An observation is of a type, observes the receiver, the receiver's root, its roots, the window, the document or an argument of the member, and gives the arguments its type takes, as `{ type: 'resize', of: 'receiver' }` does; a member that changes in any other way names none. The receiver's **root** and its **roots** are those [trees and slots](#trees-and-slots) defines: a member that depends on the structure around its receiver observes its root, as `all` and `closest` do, and one that depends on any tree its receiver is shown in observes its roots, as `rect` does for scrolling. An observation of the roots is one request at each, so it is an invalidation, and a maintained observation, which gives its member one sample, observes one target. A module declares a type of observation by a camelCase name, its contract, the arguments that belong to an observation's identity, whether equivalent requests share one, and the function that starts one, which takes the request, the function it calls when something may have changed and the environment, and answers an object whose `stop` ends the observation and, for a maintained type, whose `sample` answers its latest sample as `{ pending, value }`, pending until the first arrives; a member reads the value, and is not called while a sample it reads is pending, answering null. An observation of a type that is not shared is kept for each watch, `evaluateAsync` call and event listener alone, so the sample it delivered reaches that caller's later evaluations. The built-in vocabulary's types are `resize`, `mutation`, `attachment`, `intersection`, `media`, `pixelRatio`, `event` and `visibility`, each shared; `intersection` is maintained, and the others are invalidations. A type is either an invalidation observation, which says that a result may have changed and carries no value, or a maintained observation, which provides a sample a member reads and is pending until its first arrives; a member that reads maintained values names a maintained observation, and no other member does.
+- **Functions.** A member takes its receiver, its arguments by name and the environment, and a member that reads maintained values also their values, in the order its declaration names the observations. A source takes its receiver, its arguments, the environment and the function it delivers each event to, and answers an object whose `stop` ends the listening. An action takes its receiver, its arguments, the environment and `{ signal }`, and answers its result or a promise of it. A behavior takes its receiver, its arguments, the environment and `{ reportError }`, starts before it returns, and answers an object whose `update(receiver, args)` applies new arguments and whose `dispose` ends it.
 - **Types, events and features** are contributed by modules as data: structured types with their fields, event types with the type of their event data, and the features `supports` names; a test is a member that answers a Boolean.
-- **Observation coverage** states how a member changes (constant, observable, partly observable with the changes it misses, unobserved, or derived from its receiver and arguments) and how it reads (fresh, maintained, captured or derived).
+- **Observation coverage** states how a member changes (constant, observable, partly observable with the changes it misses, unobserved, or derived from the items it selects and the expression it evaluates) and how it reads (fresh, maintained, captured or derived).
 
 `query.resolve(options?)` resolves a request: it resolves every member against the registry, types the result and records what each member resolved to, without a browser and without evaluating anything. A watch over a member that is unobserved is refused, and one over a partly observable member is refused unless it accepts partial observation.
 
 A module is given the capability it exposes, never an instance of it, since instances belong to the callers that apply them. A module exposes a capability through DOMQL without the capability depending on DOMQL: the capability keeps an API of its own, and its module lives beside it or in an integration package for it.
 
-- **The registry holds definitions.** One registry per document holds every registered module's declarations, shared by all its callers. The instances behaviors create, the event listeners subscribed to them and the state of whoever applied them are scoped to their callers, never to the registry.
+- **The registry holds definitions.** Each DOMQL instance has one registry, which holds the declarations of every module registered with it, shared by all its callers. The instances behaviors create, the event listeners subscribed to them and the state of whoever applied them are scoped to their callers, never to the registry.
 - **Registering is not applying.** Registering a module makes its capability understood; applying one of its behaviors creates an instance for its caller and target. Disposing that instance leaves the module registered.
-- **Loading follows requests.** A module is registered before a request naming it is prepared, by its caller or on demand by the caller's environment, so a request loads only the modules it names.
+- **Registering comes first.** A module is registered before a request naming it is prepared, and a member no registered module declares is a validation error naming it.
 
 ## Tooling
 
@@ -308,6 +308,7 @@ Each entry point, operation and handle is listed here with what it takes, and th
 | `domql.query(text, bindings?)`, `domql.query(definition, bindings?)` | `Domql.Query(text, bindings)`, `Domql.Query<T>(text, bindings)`, and from a definition alike | Makes a query object, binding its parameters, as [making a query](#making-a-query) sets out |
 | | `Domql.TryQuery(…)`, `Domql.TryQuery<T>(…)` | Attempts exactly what `Domql.Query` does, answering false with a diagnostic for a syntax or structure failure |
 | `query.definition` | `query.Definition` | The query's immutable definition, without its bindings |
+| `query.bindings` | | The values its parameters are bound to, read by name through `has(name)` and `get(name)` |
 | `query.with(bindings)` | | A new query with the same definition, bound to these bindings |
 | `query.resolve(options?)` | | Resolves and types a request without evaluating anything; its options `watch` and `acceptPartialObservation` resolve it as a watch would, as [declarations](#declarations) sets out |
 | `query.select(...path)` | | A part of its result, as [selecting a result](#selecting-a-result) sets out |
@@ -319,12 +320,12 @@ Each entry point, operation and handle is listed here with what it takes, and th
 | `query.apply(options?)` | | Applies a behavior, answering a `DomqlBehavior`, as [applying a behavior](#applying-a-behavior) sets out |
 | `domql.format(source)` | | The canonical text of a text, a definition or a query object, as [formatting](#formatting) sets out |
 | `domql.createModule(name, contents, functions)` | | Creates a module from its declarations and the functions they name, as [declarations](#declarations) sets out |
-| `domql.registerModule(module)` | | Registers a module's declarations in the document's registry, as [modules](#modules) sets out |
+| `domql.registerModule(module)` | | Registers a module's declarations in the instance's registry, as [modules](#modules) sets out |
 | `domql.info` | | Which build this is and which specification it follows: `version`, the package's version, `1.0.0-alpha+source` where DOMQL runs from its sources, and `specificationVersion`, the version of the specification it follows |
 
 | Object | Members | Defined in |
 | --- | --- | --- |
-| `DomqlQuery` | `definition`, `with(bindings)`, `resolve(options?)`, `select(...path)`, `evaluate(options?)`, `evaluateAsync(options?)`, `watch(options?)`, `subscribe(handler, options?)`, `executeAsync(options?)`, `apply(options?)` | [Making a query](#making-a-query) |
+| `DomqlQuery` | `definition`, `bindings`, `with(bindings)`, `resolve(options?)`, `select(...path)`, `evaluate(options?)`, `evaluateAsync(options?)`, `watch(options?)`, `subscribe(handler, options?)`, `executeAsync(options?)`, `apply(options?)` | [Making a query](#making-a-query) |
 | `DomqlSelection` | `select(...path)`, `evaluate(options?)`, `evaluateAsync(options?)`, `watch(options?)` | [Selecting a result](#selecting-a-result) |
 | `DomqlWatch` | `status`, `snapshot`, `error`, `readyAsync(options?)`, `refreshAsync()`, `subscribe(eventName, handler, options?)`, `dispose()`, and `select(...path)` for snapshots or `liveState` for live state | [The watch and its handle](#the-watch-and-its-handle), [live state](#live-state) |
 | `DomqlSelectedView` | `snapshot`, `status`, `error`, `select(...path)`, `subscribe(eventName, handler, options?)`, `readyAsync(options?)` | [Sharing a watch](#sharing-a-watch) |
@@ -433,7 +434,7 @@ A `signal` is one lifetime for watches, event listeners and behaviors alike:
 ```js
 const lifetime = new AbortController();
 
-panelQuery.watch({ signal: lifetime.signal });
+panelQuery.watch({ acceptPartialObservation: true, signal: lifetime.signal });
 clicks.subscribe((sender, args) => handleClick(args.value), { signal: lifetime.signal });
 
 lifetime.abort();
