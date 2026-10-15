@@ -143,6 +143,13 @@ describe('Type', () => {
             expect(Type.merge(firstType, secondType).toString()).toBe('{ a: number, b: string? }');
         });
 
+        it('answers a node for two different kinds of node, nullable where either is', () => {
+            expect(merge('element', 'document')).toBe('node');
+            expect(merge('shadowRoot?', 'node')).toBe('node?');
+            expect(merge('documentFragment', 'documentFragment')).toBe('documentFragment');
+            expect(merge('element', 'window')).toBeNull();
+        });
+
         it('answers null for types of different structures', () => {
             expect(merge('number', 'string')).toBeNull();
             expect(merge('list<number>', 'list<string>')).toBeNull();
@@ -170,6 +177,12 @@ describe('Type', () => {
             ['list<never>', 'list<string>', true],
             ['list<null>', 'list<number?>', true],
             ['list<null>', 'list<number>', false],
+            ['element', 'node', true],
+            ['shadowRoot?', 'node?', true],
+            ['list<document>', 'list<node>', true],
+            ['node', 'element', false],
+            ['document', 'element', false],
+            ['window', 'node', false],
         ])('answers %s to %s as %s', (actualType, otherType, answer) => {
             expect(Type.parse(actualType).isAssignableTo(Type.parse(otherType))).toBe(answer);
         });

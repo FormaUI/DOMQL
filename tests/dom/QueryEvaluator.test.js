@@ -106,7 +106,52 @@ describe('QueryEvaluator', () => {
         });
 
         it('reads the parent', () => {
-            expect(read('@item.parent { id: self attributeOf "id" }', { item: items[0] })).toEqual({ id: 'panel' });
+            expect(read('(@item.parent as "element") { id: self attributeOf "id" }', { item: items[0] })).toEqual({ id: 'panel' });
+        });
+    });
+
+    describe('nodes', () => {
+        const shadowHost = () => {
+            const host = document.createElement('div');
+            const root = host.attachShadow({ mode: 'open' });
+
+            host.id = 'host';
+            root.innerHTML = '<p id="inner"></p>';
+            document.body.append(host);
+
+            return { host, root, inner: root.getElementById('inner') };
+        };
+
+        it('reads the immediate parent, the root of the tree and a shadow root\'s host', () => {
+            const { host, root, inner } = shadowHost();
+
+            expect(read('(@inner.parent as "shadowRoot")?.host attributeOf "id"', { inner })).toBe('host');
+            expect(read('@inner.root.host attributeOf "id"', { inner })).toBe('host');
+            expect(read('@inner.root.children.count', { inner })).toBe(1);
+            expect(read('(@host.root as "document")?.children.count', { host })).toBe(1);
+            expect(read('@host.root.host attributeOf "id"', { host })).toBeNull();
+            expect(read('@root.parent?.children.count', { root })).toBeNull();
+            expect(read('@root.all("p").count', { root })).toBe(1);
+            expect(read('@root.first("#inner") attributeOf "id"', { root })).toBe('inner');
+        });
+
+        it('casts a node to its kind, and answers null for one of another kind', () => {
+            const { inner } = shadowHost();
+
+            expect(read('(@inner.parent as "element") attributeOf "id"', { inner })).toBeNull();
+            expect(read('(@item.parent as "element") attributeOf "id"', { item: items[0] })).toBe('panel');
+            expect(read('(@item.root as "document")?.children.count', { item: items[0] })).toBe(1);
+            expect(read('(@item.root as "shadowRoot")?.children.count', { item: items[0] })).toBeNull();
+        });
+
+        it('answers the topmost element of a detached tree as its root, which has no parent', () => {
+            const detached = document.createElement('section');
+
+            detached.id = 'top';
+            detached.innerHTML = '<b></b>';
+
+            expect(read('(@b.root as "element") attributeOf "id"', { b: detached.firstChild })).toBe('top');
+            expect(read('@top.parent?.children.count', { top: detached })).toBeNull();
         });
     });
 
@@ -114,16 +159,16 @@ describe('QueryEvaluator', () => {
         it('answers null from the first null an optional access meets on', () => {
             const detached = document.createElement('div');
 
-            expect(read('@detached.parent?.size', { detached })).toBeNull();
+            expect(read('(@detached.parent as "element")?.size', { detached })).toBeNull();
             expect(read('@detached.parent?.children.count', { detached })).toBeNull();
-            expect(read('@detached { parent: self.parent?.size, tag: self attributeOf "id" }', { detached })).toEqual({ parent: null, tag: null });
+            expect(read('@detached { parent: (self.parent as "element")?.size, tag: self attributeOf "id" }', { detached })).toEqual({ parent: null, tag: null });
         });
 
         it('skips the rest of an optional chain where a receiver is null, reading it where the receiver is present', () => {
             const reads = [];
             const registry = new ModuleRegistry([BrowserModule.create(), propertyModule('probe', element => (reads.push(element), 1))]);
             const readProbe = item => {
-                const query = domql.query('@item.parent?.probe', { item });
+                const query = domql.query('(@item.parent as "element")?.probe', { item });
                 const resolved = new LanguageResolver(registry, query.bindings, null, {}).resolveDefinition(query.definition);
 
                 return new QueryEvaluator(registry, resolved, query.bindings, { window, document }, null).evaluateOnce();
@@ -232,7 +277,7 @@ describe('QueryEvaluator', () => {
             const detached = document.createElement('div');
 
             expect(read('@detached[@name]?.width', { detached, name: 'size' })).toBeNull();
-            expect(read('@detached.parent?.[@name]', { detached, name: 'size' })).toBeNull();
+            expect(read('(@detached.parent as "element")?.[@name]', { detached, name: 'size' })).toBeNull();
         });
     });
 
@@ -716,12 +761,12 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('stop where an optional chain meets null, and reach as far as its receivers are present', () => {
-            expect(membersOf(evaluate('@item.parent?.size', { item: document.createElement('i') }))).toEqual(['parent']);
-            expect(membersOf(evaluate('@item.parent?.size', { item: rows[0] }))).toEqual(['parent', 'size']);
+            expect(membersOf(evaluate('(@item.parent as "element")?.size', { item: document.createElement('i') }))).toEqual(['parent']);
+            expect(membersOf(evaluate('(@item.parent as "element")?.size', { item: rows[0] }))).toEqual(['parent', 'size']);
         });
 
         it('include those of an argument that is a value of its own', () => {
-            const evaluation = evaluate('@row overlaps { other: @panel.parent }', { row: rows[0], panel });
+            const evaluation = evaluate('@row overlaps { other: @panel.parent as "element" }', { row: rows[0], panel });
             const overlaps = evaluation.dependencies.find(dependency => dependency.member === 'overlaps');
 
             expect(membersOf(evaluation)).toContain('parent');

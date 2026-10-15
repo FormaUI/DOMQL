@@ -3,10 +3,10 @@
  */
 
 /** How tightly each kind of expression binds, the loosest lowest: one written where a tighter one stands is parenthesized. An optional chain is an infix call's receiver as it is, and is grouped where a chain continues from it, since its short-circuit ends where it does. */
-const PRECEDENCE = { conditional: 0, coalescing: 1, or: 2, and: 3, not: 4, predicate: 5, infixCall: 6, optionalChain: 7 };
+const PRECEDENCE = { conditional: 0, coalescing: 1, or: 2, and: 3, not: 4, predicate: 5, infixCall: 6, cast: 7, optionalChain: 8 };
 
 /** How tightly a chain binds that no infix call ends and no optional chain holds: a member access, a call, an object expression, `self`, a local, a literal or a parameter. */
-const CHAIN_PRECEDENCE = 8;
+const CHAIN_PRECEDENCE = 9;
 
 /** The nodes that stand as an input, and so as an infix call's argument without parentheses. */
 const INPUT_KINDS = new Set(['self', 'local', 'parameter', 'literal']);
@@ -55,7 +55,7 @@ export class DefinitionWriter {
             case 'optionalChain':
                 return DefinitionWriter.#write(node.target, level);
             case 'infixCall': {
-                const head = `${DefinitionWriter.#within(node.target, PRECEDENCE.optionalChain, level)} ${node.name}`;
+                const head = `${DefinitionWriter.#within(node.target, PRECEDENCE.cast, level)} ${node.name}`;
 
                 return node.argument === undefined ? head : `${head} ${DefinitionWriter.#argument(node.argument, level)}`;
             }
@@ -68,6 +68,8 @@ export class DefinitionWriter {
                 return `${DefinitionWriter.#within(node.value, PRECEDENCE.infixCall, level)} ?? ${node.fallback.kind === 'coalescing' ? DefinitionWriter.#write(node.fallback, level) : DefinitionWriter.#within(node.fallback, PRECEDENCE.infixCall, level)}`;
             case 'not':
                 return `not ${DefinitionWriter.#within(node.operand, PRECEDENCE.not, level)}`;
+            case 'cast':
+                return `${DefinitionWriter.#within(node.target, PRECEDENCE.optionalChain, level)} as ${DefinitionWriter.#literal(node.type)}`;
             case 'and':
             case 'or':
                 return node.operands.map(operand => DefinitionWriter.#within(operand, PRECEDENCE[node.kind] + 1, level)).join(` ${node.kind} `);

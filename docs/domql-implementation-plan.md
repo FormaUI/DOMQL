@@ -9,6 +9,7 @@ Each item is what exists and what checks it.
 - **The language.** Parsing text and creating queries from their definition, with the position of every mistake, and writing a definition back as text, on one line or laid out as `domql.format` gives a request's canonical text. Checked by the tests of parsing, of the definition and of writing it.
 - **Navigation and absence.** Access that requires a receiver that cannot be null, `?.`, optional-access groups, the coalescing operator and access by name, each recorded in the definition and written back as canonical text, a watch following what each evaluates. Checked by the tests of parsing, of the definition, of resolution, of evaluation, of watches and of comparing snapshots.
 - **Boolean expressions.** `not`, `and` and `or` of Booleans that cannot be null, and conditions of one, each refusing a Boolean that can be null with the fallback to write, a watch following the operands and clauses evaluation reaches. Checked by the tests of parsing, of resolution, of evaluation and of watches.
+- **Nodes and casts.** `node` and its kinds, each a binding can hold, with `parent`, `root`, `host`, `children`, `first` and `all` on every node, a member on a kind of the name of one on `node` refused, and `as`, which casts to `node` and its kinds and refuses a type that is no node and a target that can never be of it. Checked by the tests of types, of parsing, of the definition, of resolution, of evaluation, of writing and of registration.
 - **The vocabulary.** The built-in vocabulary declared as module data, and modules that extend it. Checked by the tests of modules, the registry and the vocabulary.
 - **Bindings and resolution.** Every binding typed from its value, and a definition resolved against the vocabulary and its result typed, without a browser; the resolution is kept for its definition, so the queries made from one text share it. Checked by the resolver tests and the tests of `query.resolve`.
 - **The query object.** `domql.query` makes a query object from text or a definition, `with` binds it anew and `select` takes a part of its result, and every operation is carried out through it, one the request's kind does not take refused before anything runs. Checked by the tests of the query object, of selections and of refusals.
@@ -21,7 +22,7 @@ Each item is what exists and what checks it.
 - **Change sets.** The JSON Patch change sets that bring live state up to date, computed between snapshots; lists projected from elements change by element, through identities kept beside the result. Checked by the tests of computing change sets and of applying them in place, each against expected patches and results and together, and of watches that keep live state.
 - **The package.** The bundle, exporting `domql` and `DomqlError` and answering the package's version, with its TypeScript declarations checked against `domql` and against a TypeScript caller; the READMEs' examples run as tests.
 
-What is not built: the rest of D13, nodes, shadow trees and casts, and equality and Boolean members, editor tooling and the C# half.
+What is not built: the rest of D13, shadow trees and equality and Boolean members, editor tooling and the C# half.
 
 ## Decisions
 
@@ -358,7 +359,7 @@ Navigate the tree through nodes, reach shadow trees through an element's `shadow
 
 - **Needs:** step 18, for the nullable `parent` and `shadow.root`.
 - **Done when:** `node` and its kinds are types, with `parent`, `root`, `host`, `children`, `first` and `all` declared on `node` and the element members on elements, a redeclaration on a kind refused; `shadow.root` and `shadow.elements` answer as D13 sets out; `as` casts to `node` and its kinds, refusing an unknown type and one a non-null target can never be; Chromium tests show what `parent`, `root` and `shadow.elements` observe through reparenting, an ancestor moving, an element detached from the start, forwarded slots and a changing fallback, and the specification states it, with `shadow.root` partly observable; examples that read `parent` as an element cast it.
-- **State:** not started.
+- **State:** in progress. Nodes and casts are built; `shadow.root`, `shadow.elements` and the Chromium tests of what `parent`, `root` and `shadow.elements` observe remain.
 
 ### 21. Equality and Boolean members
 

@@ -32,7 +32,7 @@ export class ParameterBindings {
             }
 
             if (!ParameterBindings.#isBindable(value, new Set())) {
-                throw DomqlError.structure('A binding is an element, or data: a number, a string, a Boolean, null, a list holding a value at every index, or an object', { binding: name });
+                throw DomqlError.structure('A binding is a node, an element, a document, a fragment or a shadow root, or data: a number, a string, a Boolean, null, a list holding a value at every index, or an object', { binding: name });
             }
 
             const type = ParameterBindings.#typeOf(value);
@@ -83,8 +83,10 @@ export class ParameterBindings {
             return Type.null;
         }
 
-        if (typeof Element !== 'undefined' && value instanceof Element) {
-            return Type.createNamedType('element');
+        const nodeKind = ParameterBindings.#nodeKindOf(value);
+
+        if (nodeKind !== null) {
+            return Type.createNamedType(nodeKind);
         }
 
         if (typeof value !== 'object') {
@@ -132,8 +134,26 @@ export class ParameterBindings {
         return prototype === Object.prototype || prototype === null;
     }
 
+    /** The kind of node the value is, element, document, documentFragment or shadowRoot, or null where it is none of them. */
+    static #nodeKindOf(value) {
+        if (typeof Node === 'undefined' || !(value instanceof Node)) {
+            return null;
+        }
+
+        switch (value.nodeType) {
+            case Node.ELEMENT_NODE:
+                return 'element';
+            case Node.DOCUMENT_NODE:
+                return 'document';
+            case Node.DOCUMENT_FRAGMENT_NODE:
+                return value.host === undefined ? 'documentFragment' : 'shadowRoot';
+            default:
+                return null;
+        }
+    }
+
     static #isBindable(value, ancestors) {
-        if (typeof Element !== 'undefined' && value instanceof Element) {
+        if (ParameterBindings.#nodeKindOf(value) !== null) {
             return true;
         }
 

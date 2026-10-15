@@ -186,8 +186,12 @@ export class Parser {
     /** Reads an equality operand: a chain, held by an optional chain where one of its accesses is optional, and the infix call that may end it. */
     #parseEqualityOperand() {
         const start = this.#token.start;
-        const { node, isOptional } = this.#parseChain();
-        const value = isOptional ? this.#recordSpan({ kind: 'optionalChain', target: node }, start) : node;
+        const chain = this.#parseChain();
+        let value = chain.isOptional ? this.#recordSpan({ kind: 'optionalChain', target: chain.node }, start) : chain.node;
+
+        if (this.#isKeyword('as')) {
+            value = this.#parseCast(value, chain, start);
+        }
 
         if (this.#token.type !== 'name') {
             return value;
@@ -208,10 +212,14 @@ export class Parser {
     /** Reads a chain: a chain input and the member-access expressions and object expressions that continue it, and whether an access of it is optional, which a group within it leaves to its own chain. */
     #parseChain() {
         const start = this.#token.start;
+        const input = this.#token.type === '(' ? 'expressionGroup' : this.#token.type === '(?' ? 'optionalAccessGroup' : 'input';
         let node = this.#parseChainInput();
+        const grouped = node.kind;
         let isOptional = false;
+        let isContinued = false;
+        let hasObject = false;
 
-        for (;;) {
+        for (;; isContinued = true) {
             if (this.#token.type === '[') {
                 node = this.#parseAccessByName(node, start, false);
             } else if (this.#token.type === '.' || this.#token.type === '?.') {
@@ -233,10 +241,51 @@ export class Parser {
                 isOptional ||= optional;
             } else if (this.#token.type === '{') {
                 node = this.#parseObject(node, start);
+                hasObject = true;
             } else {
-                return { node, isOptional };
+                return { node, isOptional, input, grouped, isContinued, hasObject };
             }
         }
+    }
+
+    /**
+     * Reads a cast after its target: `as` and the quoted name of the type it casts to. Its target is a receiver and the member-access expressions after it, a coalescing operator in parentheses, or an optional-access group, and a cast continues a chain only from a group.
+     */
+    #parseCast(target, chain, start) {
+        const isTarget = !chain.hasObject && (chain.input === 'input'
+            || (chain.input === 'expressionGroup' && (chain.grouped === 'cast' || (chain.grouped === 'coalescing' && !chain.isContinued)))
+            || (chain.input === 'optionalAccessGroup' && !chain.isContinued));
+
+        if (!isTarget) {
+            throw DomqlError.syntax(`A cast's target is a receiver and the member-access expressions after it, a coalescing operator in parentheses, or an optional-access group, and this is none of them`, this.#text, start);
+        }
+
+        return this.#readCast(target, start);
+    }
+
+    /** Reads `as` and the quoted type name after a cast's target, which nothing continues but a group. */
+    #readCast(target, start) {
+        this.#advance();
+
+        const token = this.#token;
+
+        if (token.type !== 'literal' || typeof token.value !== 'string') {
+            throw this.#unexpected('the quoted name of the type it casts to, as in as "element"');
+        }
+
+        this.#advance();
+
+        const node = this.#recordSpan({ kind: 'cast', type: token.value, target }, start);
+
+        if (this.#token.type === '.' || this.#token.type === '?.' || this.#token.type === '[' || this.#token.type === '{') {
+            throw DomqlError.syntax(`A cast continues a chain only from a group: write '(… as "${token.value}")…'`, this.#text, this.#token.start);
+        }
+
+        if (this.#isKeyword('as')) {
+            throw DomqlError.syntax(`A cast's target holds a cast only in a group: write '(… as "${token.value}") as …'`, this.#text, this.#token.start);
+        }
+
+        return node;
     }
 
     /** Reads a chain input: an input, an expression group, or an optional-access group. */
@@ -270,39 +319,10 @@ export class Parser {
         this.#advance();
 
         const receiverStart = this.#token.start;
-
-        if (this.#token.type === '(' || this.#token.type === '(?') {
-            throw DomqlError.syntax('The receiver of an optional-access group is `self`, a parameter, a literal, a local or an object expression, as in (?@panel.parent.rect)', this.#text, receiverStart);
-        }
-
-        let node = this.#parseInput();
-        let accesses = 0;
-
-        while (this.#token.type === '.' || this.#token.type === '?.' || this.#token.type === '[') {
-            if (this.#token.type === '[') {
-                node = this.#parseAccessByName(node, receiverStart, true);
-                accesses++;
-                continue;
-            }
-
-            this.#advance();
-
-            if (this.#token.type === '[') {
-                node = this.#parseAccessByName(node, receiverStart, true);
-                accesses++;
-                continue;
-            }
-
-            if (this.#isVerb()) {
-                throw DomqlError.syntax(`'${this.#token.value}' tests a value and is no member: write '${this.#token.value}' after the optional-access group`, this.#text, this.#token.start);
-            }
-
-            node = this.#parseMemberAccessExpression(node, receiverStart, true);
-            accesses++;
-        }
+        const { node, accesses } = this.#parseMemberAccessChain(this.#parseReceiver(), receiverStart);
 
         if (accesses === 0) {
-            throw DomqlError.syntax('An optional-access group holds a receiver and at least one access after it, as (?@panel.parent.rect)', this.#text, this.#token.start);
+            throw DomqlError.syntax('An optional-access group holds a receiver and at least one access after it, as (?@panel.first(".row").rect)', this.#text, this.#token.start);
         }
 
         if (this.#token.type !== ')') {
@@ -312,6 +332,66 @@ export class Parser {
         this.#advance();
 
         return this.#recordSpan({ kind: 'optionalChain', target: node }, start);
+    }
+
+    /** Reads a receiver within an optional-access group: an input, or a grouped cast, its own target's accesses optional as the group's are. */
+    #parseReceiver() {
+        const start = this.#token.start;
+
+        if (this.#token.type === '(?') {
+            throw DomqlError.syntax('The receiver of an optional-access group is `self`, a parameter, a literal, a local, an object expression or a grouped cast, as in (?@panel.first(".row").rect)', this.#text, start);
+        }
+
+        if (this.#token.type !== '(') {
+            return this.#parseInput();
+        }
+
+        this.#advance();
+
+        const targetStart = this.#token.start;
+        const { node, accesses } = this.#parseMemberAccessChain(this.#parseReceiver(), targetStart);
+        const target = accesses > 0 ? this.#recordSpan({ kind: 'optionalChain', target: node }, targetStart) : node;
+
+        if (!this.#isKeyword('as')) {
+            throw DomqlError.syntax('A group as the receiver of an optional-access group holds a cast, as in (?(@node.parent as "element").rect)', this.#text, this.#token.start);
+        }
+
+        const cast = this.#readCast(target, targetStart);
+
+        this.#expect(')');
+
+        return this.#spans.has(cast) ? cast : this.#recordSpan(cast, start);
+    }
+
+    /** Reads the rest of a member-access chain within an optional-access group, the member-access expressions after its receiver, every one of them optional, and how many there are. */
+    #parseMemberAccessChain(receiver, start) {
+        let node = receiver;
+        let accesses = 0;
+
+        while (this.#token.type === '.' || this.#token.type === '?.' || this.#token.type === '[') {
+            if (this.#token.type === '[') {
+                node = this.#parseAccessByName(node, start, true);
+                accesses++;
+                continue;
+            }
+
+            this.#advance();
+
+            if (this.#token.type === '[') {
+                node = this.#parseAccessByName(node, start, true);
+                accesses++;
+                continue;
+            }
+
+            if (this.#isVerb()) {
+                throw DomqlError.syntax(`'${this.#token.value}' tests a value and is no member: write '${this.#token.value}' after the optional-access group`, this.#text, this.#token.start);
+            }
+
+            node = this.#parseMemberAccessExpression(node, start, true);
+            accesses++;
+        }
+
+        return { node, accesses };
     }
 
     /** Reads an input: a value, `self`, a parameter or a literal; a local; or an object expression. */

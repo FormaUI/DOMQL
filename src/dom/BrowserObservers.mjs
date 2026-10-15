@@ -70,10 +70,10 @@ export class BrowserObservers {
         return { stop: () => observer.disconnect() };
     }
 
-    /** Whether an element is attached to its document, through every shadow root between them. */
+    /** Whether a node is attached to its document, through every shadow root between them; a document is its own. */
     static #observeAttachment({ target }, notify, { window }) {
         const rootsOf = () => {
-            const roots = new Set([target.ownerDocument]);
+            const roots = new Set([target.ownerDocument ?? target]);
 
             for (let node = target; ;) {
                 const root = node.getRootNode();

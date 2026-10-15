@@ -85,6 +85,8 @@ export class LanguageResolver {
                 return this.#resolveCoalescing(node, pointer, scope);
             case 'not':
                 return this.#resolveNot(node, pointer, scope);
+            case 'cast':
+                return this.#resolveCast(node, pointer, scope);
             case 'and':
             case 'or':
                 return this.#resolveLogical(node, pointer, scope);
@@ -203,6 +205,32 @@ export class LanguageResolver {
         });
 
         return { type: Type.createNamedType('boolean'), kind: 'query', isFixed: false };
+    }
+
+    /**
+     * Resolves a cast: its target, a value, and the type it casts to, a node or one of its kinds, its result that type made nullable.
+     * A target that can never be of the type is refused, while one that always is, and null, are not, since a binding typed from its value may be either.
+     */
+    #resolveCast(node, pointer, scope) {
+        const target = this.#resolveNode(node.target, `${pointer}/target`, scope);
+        const type = Type.createNamedType(node.type);
+
+        if (target.kind !== 'query') {
+            this.#fail(`A cast's target is a value, and this one is ${LanguageResolver.#descriptionOf(target.kind)}`, `${pointer}/target`);
+        }
+
+        if (!type.isNode) {
+            this.#fail(`'as' casts to node or one of its kinds, ${Type.nodeKinds.join(', ')}, and '${node.type}' is none of them`, pointer);
+        }
+
+        const from = target.type;
+        const canBe = from.kind === 'null' || from.kind === 'never' || (from.isNode && (from.name === 'node' || type.name === 'node' || from.name === type.name));
+
+        if (!canBe) {
+            this.#fail(`A value of ${from.toNonNullable()} can never be cast to ${node.type}: the cast would always answer null`, pointer);
+        }
+
+        return { type: type.toNullable(), kind: 'query', isFixed: false };
     }
 
     /** Resolves a negation: what it negates, a Boolean that cannot be null, and answers a Boolean. */

@@ -217,22 +217,22 @@ describe('LanguageResolver', () => {
         });
 
         it('refuses an access or a call of a receiver that can be null, giving the optional form', () => {
-            expect(failure('@panel.parent.size').message).toContain("'size' follows element?, which can be null: write '@panel.parent?.size'");
+            expect(failure('@panel.first(".a").size').message).toContain(`'size' follows element?, which can be null: write '@panel.first(".a")?.size'`);
             expect(failure('null.size').message).toContain("'size' follows null: write 'null?.size'");
             expect(failure('@panel.first(".a").closest(".b")').message).toContain(`write '@panel.first(".a")?.closest(".b")'`);
             expect(failure('(@panel.parent?.children).count').message).toContain("write '(@panel.parent?.children)?.count'");
         });
 
         it('types an optional chain nullable where an optional access of it can meet null, and as its chain otherwise', () => {
-            expect(resolve('@panel.parent?.size').type.toString()).toBe('size?');
+            expect(resolve('(@panel.parent as "element")?.size').type.toString()).toBe('size?');
             expect(resolve('@panel.parent?.children.count').type.toString()).toBe('number?');
             expect(resolve('@panel?.children.count').type.toString()).toBe('number');
-            expect(resolve('@panel.parent?.rect?.width').type.toString()).toBe('number?');
+            expect(resolve('(@panel.parent as "element")?.rect?.width').type.toString()).toBe('number?');
         });
 
         it('types a coalescing operator as its value made non-null where its fallback is, and as their merged type', () => {
             expect(resolve('@panel.rect?.width ?? 0').type.toString()).toBe('number');
-            expect(resolve('@panel.rect?.width ?? @panel.parent?.rect?.width').type.toString()).toBe('number?');
+            expect(resolve('@panel.rect?.width ?? (@panel.parent as "element")?.rect?.width').type.toString()).toBe('number?');
             expect(resolve('@panel.children.count ?? 0').type.toString()).toBe('number');
             expect(resolve('null ?? "none"').type.toString()).toBe('string');
         });
@@ -242,14 +242,39 @@ describe('LanguageResolver', () => {
             expect(failure('(@panel eventsOf "click") ?? 0').message).toContain("The value of '??' is a value, and this one is an event source");
         });
 
+        // A node is no data, so its type is read from the refusal of a result that would hold one.
+        const heldType = (text, bindings) => failure(text, bindings).message.match(/would hold (\S+),/)[1];
+
+        it('types a node\'s tree members, and a node of two kinds as a node', () => {
+            expect(heldType('@panel.parent')).toBe('node?');
+            expect(heldType('@panel.root')).toBe('node');
+            expect(heldType('@panel.root.host')).toBe('element?');
+            expect(resolve('@document.all("p").count').type.toString()).toBe('number');
+            expect(heldType('if @wide then @panel else @document', { panel, wide: true })).toBe('node');
+        });
+
+        it('types a cast as the type it casts to, made nullable', () => {
+            expect(heldType('@panel.parent as "element"')).toBe('element?');
+            expect(resolve('(@panel.parent as "element")?.rect?.width').type.toString()).toBe('number?');
+            expect(heldType('@panel as "element"')).toBe('element?');
+            expect(heldType('@panel as "node"')).toBe('node?');
+            expect(heldType('null as "shadowRoot"')).toBe('shadowRoot?');
+        });
+
+        it('refuses a cast to a type that is no node, and one its target can never be', () => {
+            expect(failure('@panel as "widget"').message).toContain("'as' casts to node or one of its kinds, element, document, documentFragment, shadowRoot, and 'widget' is none of them");
+            expect(failure('@document as "element"').message).toContain('A value of document can never be cast to element');
+            expect(failure('5 as "element"').message).toContain('A value of number can never be cast to element');
+        });
+
         it('types an optional-access group as the optional chain it writes', () => {
-            expect(resolve('(?@panel.parent.rect.width)').type.toString()).toBe('number?');
+            expect(resolve('(?(@panel.parent as "element").rect.width)').type.toString()).toBe('number?');
             expect(resolve('(?@panel.children.count)').type.toString()).toBe('number');
         });
 
         it('lets an infix call and a predicate expression propagate a null receiver', () => {
-            expect(resolve('@panel.parent attributeOf "id"').type.toString()).toBe('string?');
-            expect(resolve('@panel.parent is "attached"').type.toString()).toBe('boolean?');
+            expect(resolve('(@panel.parent as "element") attributeOf "id"').type.toString()).toBe('string?');
+            expect(resolve('(@panel.parent as "element") is "attached"').type.toString()).toBe('boolean?');
         });
 
         it('refuses a member written in a form its declaration does not take, giving the form it does', () => {
@@ -337,8 +362,8 @@ describe('LanguageResolver', () => {
         });
 
         it('refuses an access by name of a receiver that can be null, giving the optional form', () => {
-            expect(failure('@panel.parent[@name]', { panel, name: 'size' }).message).toContain("write '@panel.parent?.[@name]'");
-            expect(resolve('@panel.parent?.[@name]', { panel, name: 'size' }).type.toString()).toBe('size?');
+            expect(failure('@panel.first(".a")[@name]', { panel, name: 'size' }).message).toContain(`write '@panel.first(".a")?.[@name]'`);
+            expect(resolve('@panel.first(".a")?.[@name]', { panel, name: 'size' }).type.toString()).toBe('size?');
             expect(resolve('@row?.[@name]', { row: null, name: 'id' }).type.toString()).toBe('null');
         });
 
@@ -410,7 +435,7 @@ describe('LanguageResolver', () => {
 
         it('points into a definition that has no text', () => {
             const definition = {
-                version: 8,
+                version: 9,
                 query: { kind: 'member', target: { kind: 'parameter', name: 'panel' }, name: 'nonsense', arguments: [] },
             };
 
@@ -433,7 +458,7 @@ describe('LanguageResolver', () => {
     describe('predicate expressions', () => {
         it('type a predicate expression as a Boolean, nullable where its subject is', () => {
             expect(resolve('@panel is "attached"').type.toString()).toBe('boolean');
-            expect(resolve('@panel.parent is "attached"').type.toString()).toBe('boolean?');
+            expect(resolve('(@panel.parent as "element") is "attached"').type.toString()).toBe('boolean?');
         });
 
         it('read their name under their verb alone', () => {
@@ -452,12 +477,12 @@ describe('LanguageResolver', () => {
     describe('logical expressions', () => {
         it('type an and, an or and a not as a Boolean', () => {
             expect(resolve('@panel is "attached" and @panel is "focused"').type.toString()).toBe('boolean');
-            expect(resolve('@panel is "attached" or ((@panel.parent is "attached") ?? false)').type.toString()).toBe('boolean');
+            expect(resolve('@panel is "attached" or (((@panel.parent as "element") is "attached") ?? false)').type.toString()).toBe('boolean');
             expect(resolve('not @panel is "attached"').type.toString()).toBe('boolean');
         });
 
         it('refuse an operand that can be null, giving the fallback to write', () => {
-            expect(failure('@panel is "attached" or @panel.parent is "attached"').message).toContain(`An operand of 'or' is a Boolean that cannot be null, and this one is boolean?: write '((@panel.parent is "attached") ?? false)', or '?? true', to say what its absence means`);
+            expect(failure('@panel is "attached" or (@panel.parent as "element") is "attached"').message).toContain(`An operand of 'or' is a Boolean that cannot be null, and this one is boolean?: write '((@panel.parent as "element" is "attached") ?? false)', or '?? true', to say what its absence means`);
             expect(failure('@panel is "attached" and null').message).toContain("and this one is null: write '(null ?? false)'");
             expect(failure('not @off', { off: null }).message).toContain("What 'not' negates is a Boolean that cannot be null, and this one is null");
         });
@@ -547,8 +572,8 @@ describe('LanguageResolver', () => {
 
             expect(error.message).toContain("The condition of 'if' is a Boolean, and this one is size?");
             expect(error.location.pointer).toBe('/query/condition');
-            expect(failure('if @panel.parent is "attached" then 1 else 2').message).toContain("The condition of 'if' is a Boolean that cannot be null, and this one is boolean?");
-            expect(resolve('if (@panel.parent is "attached") ?? false then 1 else 2').type.toString()).toBe('number');
+            expect(failure('if (@panel.parent as "element") is "attached" then 1 else 2').message).toContain("The condition of 'if' is a Boolean that cannot be null, and this one is boolean?");
+            expect(resolve('if ((@panel.parent as "element") is "attached") ?? false then 1 else 2').type.toString()).toBe('number');
         });
 
         it('validate a branch that evaluation might never reach', () => {

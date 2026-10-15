@@ -31,6 +31,10 @@ describe('ModuleRegistry', () => {
         expect(messageOf(() => new ModuleRegistry([Vocabulary.module, new DomqlModule('size', { members: [declaration({ name: 'size', on: 'element' })] })]))).toContain('declared already');
     });
 
+    it('refuses a member on a kind of node that the same name on node already answers', () => {
+        expect(messageOf(() => new ModuleRegistry([Vocabulary.module, new DomqlModule('parent', { members: [declaration({ name: 'parent', on: 'shadowRoot' })] })]))).toContain('declared already');
+    });
+
     it('lets one name answer on different receivers', () => {
         const owners = new ModuleRegistry([Vocabulary.module]).getMembers('size').map(member => member.on);
 

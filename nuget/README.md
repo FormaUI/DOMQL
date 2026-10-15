@@ -200,7 +200,7 @@ domql.query('@panel is "attached"', { panel }).evaluate();
 // true
 ```
 
-Brackets read the property a name names, `@panel["children"]` or `@panel[@name]`, the name determined when the query is prepared. `is` asks about a state or classification and `has` about presence: they are operators that test the value before them against one predicate the vocabulary registers. `and` and `or` combine Boolean expressions:
+Brackets read the property a name names, `@panel["children"]` or `@panel[@name]`, the name determined when the query is prepared. `parent` and `root` answer a node, an element, a document, a document fragment or a shadow root, and `as` casts one to its kind, answering null where it is of another, so an element's own members are read of a parent through a cast: `(@panel.parent as "element")?.rect`. `is` asks about a state or classification and `has` about presence: they are operators that test the value before them against one predicate the vocabulary registers. `and` and `or` combine Boolean expressions:
 
 ```text
 @input is "disabled" or @input is "readOnly"
@@ -208,7 +208,7 @@ Brackets read the property a name names, `@panel["children"]` or `@panel[@name]`
 @panel has "children" and @enabled
 ```
 
-`is null` answers whether a value is null, never null itself. `not` negates a Boolean and binds tighter than `and`, which binds tighter than `or`, parentheses group any expression, and evaluation stops at the first operand that decides the result. Every operand of `not`, `and` and `or`, and every condition, is a Boolean that cannot be null, so one that can be null, such as a test of a value that may be missing, says what its absence means: `(@panel.parent is "attached") ?? false`. Inside an object expression or an expression argument, `self` tests the current value, as `where(self is "disabled")` does. The strings that name members and predicates are case-sensitive too. Selectors, attribute names and other strings passed to browser APIs follow the browser's own rules.
+`is null` answers whether a value is null, never null itself. `not` negates a Boolean and binds tighter than `and`, which binds tighter than `or`, parentheses group any expression, and evaluation stops at the first operand that decides the result. Every operand of `not`, `and` and `or`, and every condition, is a Boolean that cannot be null, so one that can be null, such as a test of a value that may be missing, says what its absence means: `(@panel.first("input") is "disabled") ?? false`. Inside an object expression or an expression argument, `self` tests the current value, as `where(self is "disabled")` does. The strings that name members and predicates are case-sensitive too. Selectors, attribute names and other strings passed to browser APIs follow the browser's own rules.
 
 A conditional chooses between two values, testing its conditions in order; false moves to the next clause, and only the branch it selects is evaluated:
 
@@ -298,7 +298,7 @@ A local's `self` is the value where it is written, wherever it is used. It is ev
 
 ### Null and unavailable values
 
-Null represents a missing or unavailable value; it does not hide an invalid query. A member of a value that can be null is read with `?.`, which answers null where the value is null and skips the rest of its chain, and `.` on such a value is an error before anything is evaluated. An optional-access group makes every access it holds optional, so `(?@panel.parent.rect.height)` reads as `@panel?.parent?.rect?.height`. `??` answers a fallback where a value is null, so `@panel.rect?.height ?? 0` is 0 for an element with no layout box; it stands beside `and`, `or`, `is` and `has` only where a group holds one of them. An infix call or a targeted object expression whose receiver is null returns null.
+Null represents a missing or unavailable value; it does not hide an invalid query. A member of a value that can be null is read with `?.`, which answers null where the value is null and skips the rest of its chain, and `.` on such a value is an error before anything is evaluated. An optional-access group makes every access it holds optional, so `(?@panel.first(".row").rect.height)` reads as `@panel?.first(".row")?.rect?.height`. `??` answers a fallback where a value is null, so `@panel.rect?.height ?? 0` is 0 for an element with no layout box; it stands beside `and`, `or`, `is` and `has` only where a group holds one of them. An infix call or a targeted object expression whose receiver is null returns null.
 
 ```js
 domql.query(

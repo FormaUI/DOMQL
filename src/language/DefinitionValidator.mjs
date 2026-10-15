@@ -23,12 +23,16 @@ const NODE_PROPERTIES = {
     conditional: { properties: ['kind', 'condition', 'consequent', 'alternative'], required: ['condition', 'consequent', 'alternative'] },
     coalescing: { properties: ['kind', 'value', 'fallback'], required: ['value', 'fallback'] },
     not: { properties: ['kind', 'operand'], required: ['operand'] },
+    cast: { properties: ['kind', 'type', 'target'], required: ['type', 'target'] },
     and: { properties: ['kind', 'operands'], required: ['operands'] },
     or: { properties: ['kind', 'operands'], required: ['operands'] },
 };
 
 /** The kinds of node that continue a chain through their target, and so carry its optional chain to the access their target is. */
 const CHAIN_KINDS = new Set(['member', 'call', 'object']);
+
+/** The kinds of node a cast's target can be, as text writes one: a receiver and its accesses, a coalescing operator, another cast, or an optional chain. */
+const CAST_TARGET_KINDS = new Set(['self', 'parameter', 'local', 'literal', 'object', 'member', 'call', 'optionalChain', 'coalescing', 'cast']);
 
 /** The verbs a predicate expression reads its predicate under. */
 const VERBS = ['is', 'has'];
@@ -66,7 +70,7 @@ export class DefinitionValidator {
 
     #validateNode(node, pointer, currentValueAvailability) {
         if (!DefinitionValidator.#isObject(node) || !Object.hasOwn(NODE_PROPERTIES, node.kind)) {
-            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, infixCall, object, optionalChain, predicate, conditional, coalescing, not, and or or');
+            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, infixCall, object, optionalChain, predicate, conditional, coalescing, not, cast, and or or');
         }
 
         this.#requireProperties(node, pointer, NODE_PROPERTIES[node.kind]);
@@ -123,6 +127,8 @@ export class DefinitionValidator {
                 return this.#validateOptionalChain(node, pointer, currentValueAvailability);
             case 'not':
                 return Object.freeze({ kind: 'not', operand: this.#validateNode(node.operand, `${pointer}/operand`, currentValueAvailability) });
+            case 'cast':
+                return this.#validateCast(node, pointer, currentValueAvailability);
             case 'coalescing':
                 return Object.freeze({
                     kind: 'coalescing',
@@ -132,6 +138,21 @@ export class DefinitionValidator {
             default:
                 return this.#validateObject(node, pointer, currentValueAvailability);
         }
+    }
+
+    /** Validates a cast: the quoted type it casts to, and its target, which is a receiver and its accesses, a coalescing operator, another cast, or an optional chain, as text can write one. */
+    #validateCast(node, pointer, currentValueAvailability) {
+        if (typeof node.type !== 'string') {
+            this.#fail(`${pointer}/type`, 'A cast names the type it casts to by a string');
+        }
+
+        const target = this.#validateNode(node.target, `${pointer}/target`, currentValueAvailability);
+
+        if (!CAST_TARGET_KINDS.has(target.kind) || (target.kind === 'object' && target.target !== undefined)) {
+            this.#fail(`${pointer}/target`, "A cast's target is a receiver and the member-access expressions after it, a coalescing operator in parentheses, or an optional-access group");
+        }
+
+        return Object.freeze({ kind: 'cast', type: node.type, target });
     }
 
     /** Validates an optional chain: the chain whose optional accesses end at it, at least one of them, since a chain with none is the chain alone. */

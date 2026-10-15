@@ -5,7 +5,7 @@
 /** A letter followed by letters and digits, which is also a JavaScript identifier. */
 const PATTERN = /^[A-Za-z][A-Za-z0-9]*$/;
 const LITERALS = new Map([['true', true], ['false', false], ['null', null]]);
-const KEYWORDS = new Set(['self', 'is', 'has', 'not', 'and', 'or', 'if', 'then', 'elseif', 'else', 'let']);
+const KEYWORDS = new Set(['self', 'is', 'has', 'not', 'as', 'and', 'or', 'if', 'then', 'elseif', 'else', 'let']);
 
 export class Names {
     /** The words no name can be: those that write a literal, and the keywords. */

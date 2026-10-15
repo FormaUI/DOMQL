@@ -8,7 +8,7 @@ This specification describes the whole language. An implementation may cover par
 
 ## Terms
 
-A **query** is a value expression whose evaluation produces a **result**. A **chain input** is `self`, a parameter, a local, a literal, an object expression or a group, and a **chain** follows **members** from one, each of the value before it, its **receiver**: a **member access** reads a property, `self.rect`, or one its name names in brackets, an **access by name**, `self[@name]`, a **call** invokes an operation with parentheses, `self.closest(".row")`, and an **infix call** writes the member's name after its receiver, `self attributeOf "data-key"`, followed by an optional argument, which may be omitted where the member's declaration permits it. An access or a call written with `.` requires a receiver that cannot be null, and an **optional** one, written with `?.`, reads its receiver where it is not null and ends its chain with null where it is; the chain it ends is an **optional chain**. A member belongs to a **type**, such as an element, a list or a rectangle, and a call or an infix call can take an **argument**. `self` is the **current value**, the value an object expression or an argument is evaluated against. An **object expression** names the **fields** of the **object** it produces, each with a value, and the object's **object type** describes those fields and their types. A **local** names a value in an object expression, written once with `let` and used by its name in the entries after it. A **predicate expression** asks whether a value satisfies a **predicate**, a name the vocabulary registers, with `is` or `has`. A **logical expression** combines Boolean expressions with `and` and `or`, a **negation** negates one with `not`, a **conditional** chooses between two values by a Boolean condition, a **coalescing operator**, `??`, answers a value where it is not null and its fallback where it is, an **expression group** is an expression in parentheses, and an **optional-access group**, `(? … )`, holds a **member-access chain**, a receiver and the accesses after it, every one of them optional. A **parameter** is a name a query reads a value through, such as `@panel`, and a **binding** is the value the caller supplies for it, such as an element. A **vocabulary** is a set of types and their members; the **built-in vocabulary** comes with DOMQL, and an **extension** is a vocabulary registered under a name of its own. An **event source** is a member whose value is a stream of **events**, things that happened, rather than state; an event belongs to an **event type**, such as `click`, and what its source captured of it is its **event data**. An **action** is an operation the browser carries out once, and a **behavior** one that runs on until it is updated or disposed; a **request** is a query, a subscription, an action or a behavior request. A query's **definition** is the JSON document recording its meaning, and every request has one.
+A **query** is a value expression whose evaluation produces a **result**. A **chain input** is `self`, a parameter, a local, a literal, an object expression or a group, and a **chain** follows **members** from one, each of the value before it, its **receiver**: a **member access** reads a property, `self.rect`, or one its name names in brackets, an **access by name**, `self[@name]`, a **call** invokes an operation with parentheses, `self.closest(".row")`, and an **infix call** writes the member's name after its receiver, `self attributeOf "data-key"`, followed by an optional argument, which may be omitted where the member's declaration permits it. An access or a call written with `.` requires a receiver that cannot be null, and an **optional** one, written with `?.`, reads its receiver where it is not null and ends its chain with null where it is; the chain it ends is an **optional chain**. A member belongs to a **type**, such as an element, a list or a rectangle, and a call or an infix call can take an **argument**. A **node** is a value of the DOM tree, an element, a document, a document fragment or a shadow root, each a **kind** of node, and a **cast**, `as`, answers a node as one of its kinds where it is one. `self` is the **current value**, the value an object expression or an argument is evaluated against. An **object expression** names the **fields** of the **object** it produces, each with a value, and the object's **object type** describes those fields and their types. A **local** names a value in an object expression, written once with `let` and used by its name in the entries after it. A **predicate expression** asks whether a value satisfies a **predicate**, a name the vocabulary registers, with `is` or `has`. A **logical expression** combines Boolean expressions with `and` and `or`, a **negation** negates one with `not`, a **conditional** chooses between two values by a Boolean condition, a **coalescing operator**, `??`, answers a value where it is not null and its fallback where it is, an **expression group** is an expression in parentheses, and an **optional-access group**, `(? … )`, holds a **member-access chain**, a receiver and the accesses after it, every one of them optional. A **parameter** is a name a query reads a value through, such as `@panel`, and a **binding** is the value the caller supplies for it, such as an element. A **vocabulary** is a set of types and their members; the **built-in vocabulary** comes with DOMQL, and an **extension** is a vocabulary registered under a name of its own. An **event source** is a member whose value is a stream of **events**, things that happened, rather than state; an event belongs to an **event type**, such as `click`, and what its source captured of it is its **event data**. An **action** is an operation the browser carries out once, and a **behavior** one that runs on until it is updated or disposed; a **request** is a query, a subscription, an action or a behavior request. A query's **definition** is the JSON document recording its meaning, and every request has one.
 
 ## Syntax
 
@@ -42,16 +42,20 @@ negation                  = "not"
 
 operand                   = equality-operand [ predicate ]
 
-equality-operand          = chain | infix-call-expression
-infix-call-expression     = chain separator infix-call
+equality-operand          = chain | cast | infix-call-expression
+infix-call-expression     = ( chain | cast ) separator infix-call
 infix-call                = identifier [ separator chain-input ]
+
+cast                      = cast-target "as" string
+cast-target               = receiver { member-access-expression } | cast-target-group
+cast-target-group         = "(" coalescing-operator ")" | optional-access-group
 
 chain                     = chain-input { member-access-expression | object }
 chain-input               = input | group
 
 member-access-chain       = receiver member-access-expression { member-access-expression }
 optional-access-group     = "(?" member-access-chain ")"
-receiver                  = input
+receiver                  = input | "(" cast ")"
 
 input                     = value | object | identifier
 value                     = "self" | parameter | literal
@@ -76,7 +80,7 @@ literal                   = string | number | "true" | "false" | "null"
 identifier                = name - reserved-word
 name                      = letter { letter | digit }
 reserved-word             = "true" | "false" | "null" | keyword
-keyword                   = "self" | "is" | "has" | "not" | "and" | "or"
+keyword                   = "self" | "is" | "has" | "not" | "as" | "and" | "or"
                           | "if" | "then" | "elseif" | "else" | "let"
 
 number                    = [ "-" ] integer [ fraction ] [ exponent ]
@@ -108,7 +112,7 @@ end-of-input              = ? end of input ?
 
 An identifier is a name that is no reserved word, as `matchesMedia` is; it holds no hyphen, so every identifier is also a JavaScript identifier. No reserved word, a literal's or a keyword, can be used as a name, even where its position would tell it apart, as in `self.null` or `{ null: 1 }`, so one naming rule holds everywhere; the restriction applies equally to text queries and to definitions created directly, wherever a name is declared or supplied: a member, a parameter, a field's or a local's name, and an extension's or a predicate's declaration. A string holding a reserved word stays an ordinary string, so `self attributeOf "null"` reads the attribute named `null`. `document` and `window` name the roots, and no binding can take either. They are ordinary names everywhere else, so `window: @window { size: self.size }` names a field `window`. The tokens are names, numbers, strings and the punctuation the rules quote, `?.`, `??` and `(?` each being one token, so `? .`, `? ?` and `( ?` are syntax errors. Trivia, which is whitespace, line breaks included, and comments, may stand between any two tokens and never inside one, and is required where the grammar writes `separator`: between an infix call's receiver and its name, and between its name and its argument, so `self attributeOf"id"` is a syntax error. A parameter is one token, its `@` and its name together, so `@ panel` and `@/* the panel */panel` are syntax errors, as `- 5` is no number. Tokens are read by the longest match, and a reserved word matches a whole name alone, so `isVisible` and `nullable` are identifiers; every match is exact, so `IS` is no keyword. A string takes `\"` and `\\` as its only escapes, and may hold a line break. A block comment does not nest, so the first `*/` closes it, and one never closed is a syntax error. Inside a string, `//` and `/*` are text, so `"https://example.com"` and `"/* */"` read as written.
 
-A conjunction exists only where `and` is written, a disjunction only where `or` is and a negation only where `not` is, so an expression with none of them is an operand. A chain is its chain input and the member-access expressions and object expressions that continue it, so `42` and `@panel` are chains of their input alone. The grammar's `value` rule names `self`, a parameter and a literal, the forms that stand for a value by themselves, while a value in this specification's prose is any value a query has, whose type resolution decides. The grammar's `input` rule names what a chain or a member-access chain starts from, while a member's input declaration, which the section on arguments sets out, says how its argument is supplied. A condition and an operand of `not`, `and` or `or` are Booleans that cannot be null by type, which validation checks, so a Boolean parameter, `if @wide then …`, and an operation answering one, `self is "focused" and @enabled`, are written as they read, and one that can be null says what its absence means, `(self matches ":focus" ?? false) and @enabled`.
+A conjunction exists only where `and` is written, a disjunction only where `or` is and a negation only where `not` is, so an expression with none of them is an operand. A cast exists only where `as` is written, and holds another cast only inside parentheses, so casts do not chain, and a chain continues from one only through a group. A chain is its chain input and the member-access expressions and object expressions that continue it, so `42` and `@panel` are chains of their input alone. The grammar's `value` rule names `self`, a parameter and a literal, the forms that stand for a value by themselves, while a value in this specification's prose is any value a query has, whose type resolution decides. The grammar's `input` rule names what a chain starts from, and its `receiver` rule what a member-access chain and a cast target start from, an input or a cast in parentheses, while a member's input declaration, which the section on arguments sets out, says how its argument is supplied. A condition and an operand of `not`, `and` or `or` are Booleans that cannot be null by type, which validation checks, so a Boolean parameter, `if @wide then …`, and an operation answering one, `self is "focused" and @enabled`, are written as they read, and one that can be null says what its absence means, `(self matches ":focus" ?? false) and @enabled`.
 
 ```
 @viewport {
@@ -140,7 +144,7 @@ self attributeOf "data-key"                    // An infix call.
 
 - **Member access** reads a property and takes no argument; whitespace never stands for its dot, so `self rect width` is a syntax error.
 - **Required and optional access.** `.` requires a receiver that cannot be null, and a nullable one is a validation error that gives the form with `?.`. `?.` reads a member, or calls an operation, of a receiver that is not null, and answers null for one that is, skipping the rest of its chain: in `@panel.parent?.children.count`, a panel without a parent gives null, and otherwise `.count` counts its parent's children. A group ends a chain, so in `(@panel.parent?.children).count` the `.count` follows a `list<element>?` and is a validation error. `?.` on a receiver that cannot be null is valid, since a binding typed from its value may be one that can.
-- **Optional-access groups.** `(?@panel.parent.rect.width)` is `@panel?.parent?.rect?.width`: an optional-access group holds a member-access chain, a receiver, `self`, a parameter, a literal, a local or an object expression, followed by at least one access or call, and makes every access of it optional. Its closing parenthesis ends its optional chain, so `(?@x.y.z)?.a.b` is `(@x?.y?.z)?.a.b`, whose `.b` requires an `a` that is not null. Anything else inside it is a syntax error, an object expression or an infix call among them, and a call's argument keeps its own rules. It is notation for its accesses: the definition records them as optional, and the canonical text writes them with `?.`.
+- **Optional-access groups.** `(?@panel.first(".row").rect.width)` is `@panel?.first(".row")?.rect?.width`: an optional-access group holds a member-access chain, a receiver, `self`, a parameter, a literal, a local, an object expression or a cast in parentheses, followed by at least one access or call, and makes every access of it optional, those of a grouped cast's own target included, so `(?(@panel.parent as "element").rect.width)` is `(@panel?.parent as "element")?.rect?.width`. Its closing parenthesis ends its optional chain, so `(?@x.y.z)?.a.b` is `(@x?.y?.z)?.a.b`, whose `.b` requires an `a` that is not null. Anything else inside it is a syntax error, an object expression or an infix call among them, and a call's argument keeps its own rules. It is notation for its accesses: the definition records them as optional, and the canonical text writes them with `?.`.
 - **A call** takes no argument or one, any expression, inside its parentheses, and the chain continues after it.
 - **An infix call** writes the member's name after its receiver and a separator, followed by an optional argument, a chain input after another separator: `self`, a parameter, a local, a literal, an object expression or a group. The argument may be omitted where the member's declaration permits it. It ends its chain, and a group continues from its result.
 - **One argument.** Neither form takes named arguments or several positional ones: an operation with several parameters takes them as the fields of one object, `@sentinel intersects { root: @panel, margin: 200 }`, so `self.closest(".a", ".b")` and `@panel intersects @container 200` are syntax errors.
@@ -155,7 +159,7 @@ Every member access, call, infix call and predicate expression has its receiver 
 - **At the top level** there is no current value, so a query starts with a parameter, a literal or an object expression, and `self` there is a structure error.
 - **Inside an object expression**, the current value is the value it follows: in `@viewport { width: self.rect?.width }`, `self` is the viewport. An object expression at the top level, `{ anchor: @anchor.rect, open: @popup matches ":popover-open" }`, has no current value, so each of its fields starts with a parameter, a literal or an object expression.
 - **An object expression following no value** keeps the current value around it, so it groups fields: in `@panel { layout: { width: self.size?.width, height: self.size?.height } }`, `self` is the panel. At the top level that value is absent.
-- **Parameters** resolve the same way everywhere, inside object expressions and arguments alike. A parameter's value is an element, or data: a number, a string, a Boolean, null, a list or an object, as a behavior's configuration is, and a list or an object can hold elements.
+- **Parameters** resolve the same way everywhere, inside object expressions and arguments alike. A parameter's value is a node, or data: a number, a string, a Boolean, null, a list or an object, as a behavior's configuration is, and a list or an object can hold nodes.
 - **The roots** are predefined parameters: `@document` is the document and `@window` is the browser window, its layout viewport and what it supports. No binding can take either name.
 
 ### Arguments
@@ -167,7 +171,7 @@ A call or an infix call takes one argument, and its declaration states what that
 
 Every parameter of a member is declared as one of two kinds, and the evaluator treats them differently; a parameter an options object supplies is the same.
 
-- A **value argument** is evaluated once, where the call is written, against the same current value as the chain it appears in, so its `self` is that current value. In `@viewport { intersects: self.first(".item") intersects { root: self.parent } }`, `self.parent` is the viewport's parent, not the item's. At the top level, where there is no current value, a value argument starts with a parameter, a literal or an object expression: `@target intersects { root: @target.parent }`.
+- A **value argument** is evaluated once, where the call is written, against the same current value as the chain it appears in, so its `self` is that current value. In `@viewport { intersects: self.first(".item") intersects { root: self.parent as "element" } }`, `self.parent` is the viewport's parent, not the item's. At the top level, where there is no current value, a value argument starts with a parameter, a literal or an object expression: `@target intersects { root: @target.parent as "element" }`.
 - An **expression argument** is evaluated by the member against a context the member's signature declares, such as each item of a list, which is its `self`. In `@table.all("tbody tr").max(self.rect?.height)`, `self` is each row. The built-in vocabulary's expression parameters are those of `where`, `max`, `min` and `sum`.
 
 A value argument can be declared **fixed**, where it selects something validation needs before evaluation, such as the event type whose members `eventsOf` offers or the feature `supports` names. A fixed argument is a literal or a bound parameter, whose value is settled when the query is prepared; any other value is a validation error.
@@ -180,13 +184,13 @@ Because the kind is part of the signature, the evaluator validates every kind be
 
 ```
 @document is "visible"
-@panel.parent is "attached"
+@panel.first("input") is "disabled"
 @input has "selection"
 @panel is @state
 @panel.parent is null
 ```
 
-- **The subject** is the value of the chain before the verb, always written. A dot binds tighter than a verb, so `@panel.parent is "attached"` tests the panel's parent, and an infix call's result can be tested too, `@panel attributeOf "role" is "set"`. The current value is tested as `self`, inside an object expression or an expression argument: `@panel { attached: self is "attached" }` and `@panel.all("input").where(self is "disabled")`.
+- **The subject** is the value of the chain before the verb, always written. A dot binds tighter than a verb, so `@panel.first("input") is "disabled"` tests the panel's first input, and an infix call's result can be tested too, `@panel attributeOf "role" is "set"`. The current value is tested as `self`, inside an object expression or an expression argument: `@panel { attached: self is "attached" }` and `@panel.all("input").where(self is "disabled")`.
 - **One predicate.** A predicate expression reads one predicate name, and combining predicate expressions is a logical expression's work: `@panel is "attached" and @panel is "visible"` tests the panel twice, while `@panel is "attached" and "visible"` is an `and` whose second operand is the string `"visible"`, which fails validation.
 - **Evaluation.** The subject is evaluated, and the predicate is applied to it.
 - **Names.** A predicate is named by a string, read exactly, or by a bound parameter, which is fixed: it is settled when the query is prepared and must supply a non-null string. `@panel is @state` takes its name from the bindings.
@@ -205,7 +209,7 @@ Because the kind is part of the signature, the evaluator validates every kind be
 not (@panel is "attached" or @input is "disabled") and @enabled
 ```
 
-- **Operands.** Every operand of `and` and `or`, and what `not` negates, is a `boolean` that cannot be null; a `boolean?` is a validation error that gives the fallback to write, as is an operand of another type, which it names. Null is never false: an operand that can be null says what its absence means with a coalescing operator, `(@panel.parent is "attached") ?? false`.
+- **Operands.** Every operand of `and` and `or`, and what `not` negates, is a `boolean` that cannot be null; a `boolean?` is a validation error that gives the fallback to write, as is an operand of another type, which it names. Null is never false: an operand that can be null says what its absence means with a coalescing operator, `(@panel.first("input") is "disabled") ?? false`.
 - **Binding.** A predicate expression binds tighter than `not`, `not` tighter than `and`, and `and` tighter than `or`, so `@panel is "attached" or not @input is "disabled" and @enabled` combines the negation of the input's predicate expression and `@enabled` before the panel's. `not` associates to the right, so `not not @a` negates `@a` twice, and `and not` and `or not` are `and` and `or` of a negation.
 - **Results.** `and` answers true where every operand is true and false otherwise, `or` false where every operand is false and true otherwise, and `not` the Boolean its operand is not; each answers a `boolean`.
 - **Evaluation.** Operands are evaluated from left to right, each once, and evaluation stops at the first that decides the result, false for `and` and true for `or`. Every operand is resolved and validated before anything is evaluated all the same, and a watch follows the operands evaluation reached, so it holds what an operand reads only while evaluation reaches it.
@@ -217,7 +221,7 @@ A conditional chooses between two values: `if` a Boolean condition `then` its co
 
 ```
 if @wide then @panel else @sidebar
-if (@panel.parent is "attached") ?? false then "ready" elseif @panel.parent is null then "unknown" else "waiting"
+if (@panel.first("input") is "disabled") ?? false then "locked" elseif @panel.first("input") is null then "empty" else "open"
 @panel { state: if self is "disabled" then "locked" else "open" }
 (if @wide then @panel else @sidebar).rect?.width
 ```
@@ -240,8 +244,26 @@ A coalescing operator answers its value where it is not null, and otherwise its 
 
 - **Evaluation.** The value is evaluated once, and the fallback only where the value is null, so a watch follows what the fallback reads while the value is null alone. False, zero and the empty string are values, which the fallback never replaces, and a failure of either side stays a failure.
 - **Type.** The value and the fallback are of one type, compared as a conditional's branches are, and the whole is of the value's type made non-null where the fallback's is, so `@panel.rect?.width ?? 0` is a `number`. A value of the type `null` gives the fallback's type, and `??` after a value that cannot be null is valid, since a binding typed from its value may be one that can.
-- **Association.** `??` associates to the right, so `@a ?? @b ?? 0` is `@a ?? (@b ?? 0)`, and each side is an equality operand: a chain or an infix call.
+- **Association.** `??` associates to the right, so `@a ?? @b ?? 0` is `@a ?? (@b ?? 0)`, and each side is an equality operand: a chain, a cast or an infix call.
 - **Grouping.** A coalescing operator stands beside `not`, `and`, `or` and a predicate expression only where a group holds one of them, so `@enabled ?? false and @ready` and `@a ?? @b is "attached"` are syntax errors, while `(@enabled ?? false) and @ready` and `@enabled ?? (@ready and @visible)` each say what they mean.
+
+### Casts
+
+A cast answers a node as one of its kinds: `target as "type"` answers its target where it is of that type, and null where it is of another or is null.
+
+```
+@panel.parent as "element"
+(@panel.parent as "element")?.rect?.width
+(@preferred ?? @fallback) as "element"
+(?(@panel.parent as "element").rect.width)
+```
+
+- **The type** is a quoted type name, `node` or one of its kinds, and the cast is of that type made nullable, so `@panel.parent as "element"` is an `element?`. A type that is no node is a validation error naming those a cast takes.
+- **What it narrows.** A cast of a `node` narrows it to a kind, and one to its target's own type, to `node`, or of null is valid, since a binding typed from its value may already be of the type or null. A cast of a target that can never be of the type, such as `5 as "element"` or `@document as "element"`, is a validation error. A cast converts nothing and narrows nothing outside itself: its target keeps its type wherever else it is read.
+- **Its target** is a receiver and the member-access expressions after it, a coalescing operator in parentheses, or an optional-access group: `@panel.parent as "element"`, `(@preferred ?? @fallback) as "element"` and `(?@panel.parent) as "element"`. Any other grouped expression is no target, so `(if @wide then @a else @b) as "element"` is a syntax error, and neither is a chain an object expression continues.
+- **Binding.** A cast binds looser than access and tighter than an infix call, so `@panel.parent as "element" attributeOf "id"` reads the attribute of the cast. A chain continues from a cast only through a group, `(@panel.parent as "element")?.rect`, and a cast takes another as its target only in one, `(@node as "node") as "element"`, so `@panel.parent as "element".rect` and `@a as "node" as "element"` are syntax errors.
+- **In an optional-access group**, a cast in parentheses is a receiver, and the accesses of its own target become optional with the group's: `(?(@panel.parent as "element").rect.width)` is `(@panel?.parent as "element")?.rect?.width`.
+- **Evaluation.** The target is evaluated once, and the cast answers it unchanged where it is of the type.
 
 ### Locals
 
@@ -257,7 +279,7 @@ An object expression can name a value once, as a **local**, and use it by its na
         top: self.rectRelativeTo(@panel)?.top
     },
     tallest: items.max(self.rect?.height),
-    attached: self.parent is "attached"
+    attached: self is "attached"
 }
 ```
 
@@ -274,7 +296,7 @@ An object expression can name a value once, as a **local**, and use it by its na
 
 Every name in DOMQL is case-sensitive, and nothing normalizes one: `size` and `Size` are different names, and so are `@panel` and `@Panel`. A name is resolved exactly as it is written, and each kind of name is spelled by its own convention:
 
-- **Members** are named in camelCase, properties and operations alike: `size`, `clientSize`, `matchesMedia`, `attributeOf`, `eventsOf`. A member has one name, the same in a text and a definition. `self.get("clientSize")` reads that property by the same name.
+- **Members** are named in camelCase, properties and operations alike: `size`, `clientSize`, `matchesMedia`, `attributeOf`, `eventsOf`. A member has one name, the same in a text and a definition. `self["clientSize"]` reads that property by the same name.
 - **Predicates** keep their declared spelling, which `is` and `has` read from a string: `self is "readOnly"`, `self is "scroll.atEnd"`.
 - **Field names and bindings** keep the exact spelling their author gave them, so `hasFocus` and `hasfocus` are two fields, and a binding `panel` is not a binding `Panel`.
 - **Strings** are preserved exactly: `kind: "List"` answers `List`. A string is read as a DOMQL name only where it names a member or a predicate, as an access by name, `is` and `has` read one, and it is then read exactly. A value passed to a browser API, such as a selector, an attribute's name or value, or an event type, follows that API's own case rules.
@@ -283,9 +305,9 @@ A field answers the key its name is written as, and how a consumer matches keys 
 
 ## Values
 
-A value is a number, a string, a Boolean, null, a list, a structured value such as a rectangle, an element, the window, the document, or an event source. A member's signature declares its result type, as the section on types sets out, and a result marked `?` can be null by itself; an optional access answers null where its receiver is null, as an infix call does, and any member answers null where an argument is null and its parameter propagates null.
+A value is a number, a string, a Boolean, null, a list, a structured value such as a rectangle, a node such as an element or the document, the window, or an event source. A member's signature declares its result type, as the section on types sets out, and a result marked `?` can be null by itself; an optional access answers null where its receiver is null, as an infix call does, and any member answers null where an argument is null and its parameter propagates null.
 
-A result is data: numbers, strings, Booleans, null, lists and objects. An element or an event source has no data form, so a query whose result would contain one is a validation error; a query reads the facts it needs of an element through an object expression.
+A result is data: numbers, strings, Booleans, null, lists and objects. A node or an event source has no data form, so a query whose result would contain one is a validation error; a query reads the facts it needs of a node through an object expression.
 
 ### Objects
 
@@ -309,7 +331,7 @@ CSS selectors and `where` are the two ways a query filters: a selector chooses e
 
 A value has a type, and every member declares the types it works with. Type checking is part of preparation: a request that cannot be typed is a validation error naming where it fails, the type it expected and the type it found, before anything is evaluated.
 
-The types are `number`, `string`, `boolean`, `element`, `window` and `document`; `list<T>` of items of type `T`; the structured values, each with named fields of declared types, such as `rectangle`, `size` and `selection`, the object types of the objects a query's object expressions produce, and any a module declares; and `event<T>`, an event source whose events carry event data of type `T`. A module can declare types of its own. `null` is a value of every type that is written with a `?`: `T?` is a `T` or null. Null alone is of the type `null`, which fits every nullable type, and `never` is the type no value has, which fits every type, so `list<never>`, the type of the empty list, fits every list type. Both are names of the type notation, and neither is a word of the expression language.
+The types are `number`, `string`, `boolean`, `node` and its kinds, `element`, `document`, `documentFragment` and `shadowRoot`, and `window`; `list<T>` of items of type `T`; the structured values, each with named fields of declared types, such as `rectangle`, `size` and `selection`, the object types of the objects a query's object expressions produce, and any a module declares; and `event<T>`, an event source whose events carry event data of type `T`. A module can declare types of its own. `null` is a value of every type that is written with a `?`: `T?` is a `T` or null. Null alone is of the type `null`, which fits every nullable type, and `never` is the type no value has, which fits every type, so `list<never>`, the type of the empty list, fits every list type. Both are names of the type notation, and neither is a word of the expression language.
 
 ### What a member declares
 
@@ -325,6 +347,14 @@ These expressions declare a nullable result because they consume null per item i
 
 - An object expression following an `event<T>` is evaluated against that event, a `T`.
 
+### Nodes
+
+A node is a value of the DOM tree, and its kinds are `element`, `document`, `documentFragment`, a document fragment that is no shadow root, and `shadowRoot`. `window` is no node.
+
+- **Kinds fit where a node does.** A value of a kind fits where a `node` is expected, and a `node` fits where a kind is expected only through a cast, so a kind's own members, such as an element's `rect`, are read of a `node` through one: `(@panel.parent as "element")?.rect`.
+- **Of two kinds.** Values of two different kinds, a conditional's branches or a coalescing operator's sides, are of the type `node`, so `if @wide then @panel else @document` is a `node`.
+- **Declaring on a node.** A member declared on `node` is a member of every kind, and no member of the same name can be declared on a kind, so no declaration overrides another.
+
 ### No conversion
 
 DOMQL converts nothing implicitly: a `number` is not a `boolean`, a `string` is not a `number`, and an `element` is not a `string`. `self attributeOf 200`, `self intersects { root: 5 }` and a `where` whose expression produces a `number` are each validation errors, as is an `element` where a `list` is required.
@@ -333,7 +363,7 @@ DOMQL converts nothing implicitly: a `number` is not a `boolean`, a `string` is 
 
 Nullability is part of a type, and null follows the signature.
 
-- **Access requires a receiver that cannot be null, and optional access reads one that can.** `@panel.parent.rect` is a validation error, since `parent` is an `element?`, and `@panel.parent?.rect` answers null without invoking `rect` where the panel has no parent; its type is `rectangle?`, since an optional chain is nullable where an optional access of it can meet null. An infix call and a predicate expression propagate a null receiver: `@panel.parent attributeOf "id"` answers null where there is no parent.
+- **Access requires a receiver that cannot be null, and optional access reads one that can.** `@panel.first(".row").rect` is a validation error, since `first` answers an `element?`, and `@panel.first(".row")?.rect` answers null without invoking `rect` where the panel holds no row; its type is `rectangle?`, since an optional chain is nullable where an optional access of it can meet null. An infix call and a predicate expression propagate a null receiver: `@panel.first(".row") attributeOf "id"` answers null where there is no row.
 - **A null argument follows the parameter.** A parameter is declared either to propagate null, which is the default and makes the call answer null without running, or to accept null with a meaning of its own, as `intersects` accepts a null `root` to mean the window. Preparation never rejects an evaluated argument for being nullable; it rejects a type that cannot match. A fixed argument that names a declaration, the type of `eventsOf` and the feature of `supports`, is different, and so is a predicate name a predicate expression takes from a parameter and the name of an access by name: each must resolve to a non-null string during preparation, because a declaration cannot be looked up from null, and an access by name could not determine its result type. A nullable binding is accepted when its value supplies a valid name, and an actual null is a validation error for `@panel[@name]`, `@panel is @name` and `@button eventsOf @name` alike.
 - **A written null is an expression that produces null.** `null` as a literal has no special treatment, and the signature and the evaluation rules decide what a call does with it.
 - **Null is unavailable too.** An element is a valid receiver of `selection`; one that is no text input answers null, as an unavailable value does. A receiver of the wrong type, a number for `rect`, is a validation error, and a module that returns a value of a type other than the one it declared has broken its contract, which is an evaluation error and never a quiet null.
@@ -342,7 +372,8 @@ Nullability is part of a type, and null follows the signature.
 
 A binding takes its type from its value, and a caller declares none.
 
-- An element is an `element`, and a number, a string and a Boolean are `number`, `string` and `boolean`.
+- A node is of its kind: an element is an `element`, a document a `document`, a shadow root a `shadowRoot` and any other document fragment a `documentFragment`, and a node of another kind, such as text, is no binding.
+- A number, a string and a Boolean are `number`, `string` and `boolean`.
 - Null is a `null`.
 - A list is a `list<T>`, `T` the type its items share, made nullable where one of them is null: `[element, null]` is a `list<element?>`. A list of nulls alone, `[null]` or `[null, null]`, is a `list<null>`, whose items can only be null, and the empty list is a `list<never>`, which holds no item.
 - An object is of the object type of its fields' types, each typed as a binding is.
@@ -451,11 +482,12 @@ An optional access of null is null and ends its chain, an infix call and a predi
 | A name no local in scope has, or a local in an options object | A validation error, giving the form with `self` where the current value has a member of that name |
 | A member written in a form its declaration does not take, or an argument that does not supply its input | A validation error giving the form or the input it takes |
 | A predicate its verb does not register, or one that does not apply to its subject | A validation error naming it |
+| A cast to a type that is no node, or of a target that can never be of its type | A validation error naming the types |
 | An operand of `and` or `or` that is no Boolean | A validation error naming its type |
 | A condition that is no Boolean, or branches of different types | A validation error naming the types |
 | A receiver, an argument, an expression or a binding of the wrong type, an argument of the wrong kind, or a missing required one | A validation error naming where, the expected type and the type found |
 | A module returning a value of a type other than the one it declared | An evaluation error |
-| A result that would contain an element or an event source | A validation error |
+| A result that would contain a node or an event source | A validation error |
 | A request used as another kind: reading or watching an event source, subscribing to a value, running a query, or reading an action or a behavior | A validation error |
 | An action or a behavior inside a query, an argument or another request's object expression | A validation error |
 | Watching a partly observable member without accepting partial observation | A validation error naming each such member and the changes it misses |
@@ -467,7 +499,7 @@ A query is validated before any evaluation, as the section on validation sets ou
 
 The built-in vocabulary exposes properties and operations over familiar browser concepts. Properties and operations are named in camelCase. Names are case-sensitive. Measurements use CSS pixels unless stated otherwise. Built-in members expose state or event sources; actions and behaviors come from extensions.
 
-A property of a structured value, such as a rectangle's `width`, reads data the value holds and is constant for that value. A property is read by member access, and an operation is written as a call or as an infix call, as its declaration says; the tables write each as it is written, with a receiver left out.
+A property of a structured value, such as a rectangle's `width`, reads data the value holds and is constant for that value. A property is read by member access, and an operation is written as a call or as an infix call, as its declaration says; the tables write each as it is written, with a receiver left out. A member available on a node is available on each of its kinds, and one available on an element on elements alone.
 
 ### Properties
 
@@ -482,8 +514,10 @@ A property exposes a value, read by member access, and takes no argument. Each p
 | Element | `clientSize` | `size?` | Its padding box's `width` and `height`, without scrollbars | Observable | Fresh |
 | Element | `grid.columns` | `list<number>?` | The sizes of its grid's column tracks, an empty list for an element that is no grid | Partly observable, as `computedStyleOf` | Fresh |
 | Element | `selection` | `selection?` | Its selection's `start` and `end`, null for an element that is no text input or text area | Partly observable: input and selection events are observed, assignments by script are not | Fresh |
-| Element | `children` | `list<element>` | Its child elements, in document order | Observable | Fresh |
-| Element | `parent` | `element?` | Its parent element | Observable | Fresh |
+| Node | `children` | `list<element>` | Its child elements, in document order | Observable | Fresh |
+| Node | `parent` | `node?` | Its parent in the DOM tree: a shadow root for the nodes directly in it, and null for a document, a document fragment, a shadow root and the topmost element of a detached tree, so it never crosses a shadow boundary | Observable | Fresh |
+| Node | `root` | `node` | The root of its tree: the document, a document fragment, the shadow root it is in, or the topmost element of a detached tree | Observable | Fresh |
+| Node | `host` | `element?` | A shadow root's host, and null for any other node | Constant | Fresh |
 | List | `count`, `first`, `last` | `number`, `T?`, `T?` for a `list<T>` | The number of items, the first item and the last item, null where a list has none | As their items | As their items |
 
 ### Operations
@@ -500,7 +534,8 @@ An operation performs a lookup, a calculation or a selection with the argument i
 | Element | `overlaps { other, margin }` | required `other`: `element`; optional `margin`: `number`, 0 when omitted → `boolean?` | Whether its border box overlaps the other's, grown by the margin, compared as rectangles | Partly observable, as `rect` | Fresh |  |
 | Element | `matches selector` | `selector`: `string` → `boolean?` | Whether it matches the selector | Partly observable: attributes, structure, focus and popovers' open state are observed; pointer state such as `:hover` and control state such as `:checked` are not | Fresh |  |
 | Element | `rectRelativeTo(relativeTo)` | `relativeTo`: `element` → `rectangle?` | Its border box's `left`, `top`, `right`, `bottom`, `width` and `height`, relative to `relativeTo`'s border box | Partly observable, as `rect`, and the size of `relativeTo` | Fresh |  |
-| Element | `closest(selector)`, `first(selector)`, `all(selector)` | `selector`: `string` → `element?`, `element?`, `list<element>` | The nearest matching ancestor, itself included; the first matching descendant; the matching descendants, in document order | Partly observable, as `matches` | Fresh |  |
+| Element | `closest(selector)` | `selector`: `string` → `element?` | The nearest matching ancestor, itself included | Partly observable, as `matches` | Fresh |  |
+| Node | `first(selector)`, `all(selector)` | `selector`: `string` → `element?`, `list<element>` | The first matching descendant, and the matching descendants in document order, within its own tree | Partly observable, as `matches` | Fresh |  |
 | List | `at(index)` | `index`: `number` → `T?` | The item at the index, null where there is none | As its items | As its items |  |
 | List | `max(expression)`, `min(expression)`, `sum(expression)` | `expression`: `T` → `number?`; answers `number?`, `number?`, `number` | An aggregate over a number expression, as the section on lists defines | As their items and expressions | As their items |  |
 | List | `where(expression)` | `expression`: `T` → `boolean?`; answers `list<T>` | The items for which a Boolean expression holds | As its items and expression | As its items |  |
@@ -606,6 +641,7 @@ A document holds the definition's `version` and the `query` node. Each node is a
 | `predicate` | `verb`, `is` or `has`; `name`, a `literal` holding a string or a `parameter`, the predicate it reads, or under `is` a `literal` holding null, for `is null`; and `target`, the node whose value it tests | A predicate expression |
 | `conditional` | `condition`, `consequent` and `alternative`, three expressions | A conditional; an `elseif` is a conditional nested in the alternative before it |
 | `coalescing` | `value` and `fallback`, two expressions | A coalescing operator |
+| `cast` | `type`, the name of the type it casts to, and `target`, the expression it casts | A cast |
 | `optionalChain` | `target`, the chain it holds | An optional chain: the chain of member accesses, calls and object expressions whose optional accesses end at it, holding at least one |
 | `and`, `or` | `operands`, two or more expressions | A logical expression |
 | `not` | `operand`, the expression it negates | A negation |
@@ -628,7 +664,7 @@ Every member access, call, infix call and predicate expression holds its receive
 
 ```json
 {
-  "version": 8,
+  "version": 9,
   "query": {
     "kind": "object",
     "target": { "kind": "parameter", "name": "panel" },
@@ -656,8 +692,8 @@ A definition names its parameters and never holds their values. An element is bo
 
 A query is validated in two stages, both before any evaluation.
 
-- **Structure,** when the query is created: the definition follows the node structures and structural validation rules this specification defines, which need no vocabulary: every field with its name, unique within its object expression; every local with its name, which no other local in scope where it is written has; no object expression without a field; every member access, call, infix call and predicate expression with its receiver; every optional access within an optional chain, through the targets of member accesses, calls and object expressions alone, and every optional chain holding one; no `self` at the top level, nor in a field of an object expression there, since there is no current value for it to stand for; every predicate expression's verb `is` or `has`, and its name a string literal or a parameter, or under `is` the null literal of `is null`; every `and` and `or` of two or more expressions; every coalescing with its value and its fallback; and no binding supplied under the name `document` or `window`. Text that does not follow the syntax fails here as a syntax error.
-- **Vocabulary,** when the query is prepared: every member and extension exists and is written in the form its declaration takes, every argument supplies its member's input, directly or as an options object whose fields name its parameters, every receiver, argument, expression and binding has the type its signature declares and every argument its kind, every access and call written with `.` has a receiver that cannot be null, every fixed argument is a literal or a bound parameter, every access by name gives names determined when the query is prepared, each a property of its receiver and all of one type, every predicate a predicate expression names is registered for its verb and applies to its subject, every local a name uses is in scope where it is used, is a value and stands in no options object, every operand of `and` and `or`, what every `not` negates and every condition is a Boolean that cannot be null, the value and the fallback of every coalescing operator are values of one type, the branches of every conditional are of one type, every expression is valid in the context its member declares, the request is used as its kind, the result holds only data, and a watch's members can be watched.
+- **Structure,** when the query is created: the definition follows the node structures and structural validation rules this specification defines, which need no vocabulary: every field with its name, unique within its object expression; every local with its name, which no other local in scope where it is written has; no object expression without a field; every member access, call, infix call and predicate expression with its receiver; every optional access within an optional chain, through the targets of member accesses, calls and object expressions alone, and every optional chain holding one; no `self` at the top level, nor in a field of an object expression there, since there is no current value for it to stand for; every predicate expression's verb `is` or `has`, and its name a string literal or a parameter, or under `is` the null literal of `is null`; every `and` and `or` of two or more expressions; every coalescing with its value and its fallback; every cast with a string type and a target its grammar takes, `self`, a parameter, a local, a literal, an object expression following nothing, a member access, a call, an optional chain, a coalescing operator or another cast; and no binding supplied under the name `document` or `window`. Text that does not follow the syntax fails here as a syntax error.
+- **Vocabulary,** when the query is prepared: every member and extension exists and is written in the form its declaration takes, every argument supplies its member's input, directly or as an options object whose fields name its parameters, every receiver, argument, expression and binding has the type its signature declares and every argument its kind, every access and call written with `.` has a receiver that cannot be null, every fixed argument is a literal or a bound parameter, every access by name gives names determined when the query is prepared, each a property of its receiver and all of one type, every predicate a predicate expression names is registered for its verb and applies to its subject, every local a name uses is in scope where it is used, is a value and stands in no options object, every cast names `node` or one of its kinds and has a target that can be of it, every operand of `and` and `or`, what every `not` negates and every condition is a Boolean that cannot be null, the value and the fallback of every coalescing operator are values of one type, the branches of every conditional are of one type, every expression is valid in the context its member declares, the request is used as its kind, the result holds only data, and a watch's members can be watched.
 
 A failure in either stage names where it is: its position in the text, or its node's location in the definition, as a JSON Pointer.
 
@@ -763,5 +799,6 @@ With no item selected, `current` is null. With an empty panel, `items` is an emp
 | An element's states and what it holds | `@target { attached: self is "attached", disabled: self is "disabled", hasChildren: self has "children", hasSelection: self has "selection" }` |
 | Whether a control cannot take text | `@input is "disabled" or @input is "readOnly"` |
 | A control's state, one word | `@input { state: if self is "disabled" then "locked" elseif self is "readOnly" then "read" else "open" }` |
-| Whether an element has a parent | `@panel.parent is null` |
+| Whether an element has no parent | `@panel.parent is null` |
+| The width of an element's parent element, null where the parent is none | `(@panel.parent as "element")?.rect?.width` |
 | A list's size and its tallest item, the list read once | `@panel { let items: self.all("[data-key]"), count: items.count, tallest: items.max(self.rect?.height) }` |

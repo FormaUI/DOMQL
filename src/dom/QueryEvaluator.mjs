@@ -271,6 +271,12 @@ export class QueryEvaluator {
                 return this.#or(node, current);
             case 'not':
                 return this.#evaluate(node.operand, current) !== true;
+            case 'cast': {
+                // A cast answers its target where it is of the type, and null where it is of another or is null.
+                const value = this.#evaluate(node.target, current);
+
+                return value !== null && this.#conformsNamed(value, node.type) ? value : null;
+            }
             default:
                 return this.#object(node, current);
         }
@@ -827,6 +833,12 @@ export class QueryEvaluator {
                 return value?.nodeType === 1;
             case 'document':
                 return value?.nodeType === 9;
+            case 'documentFragment':
+                return value?.nodeType === 11 && value.host === undefined;
+            case 'shadowRoot':
+                return value?.nodeType === 11 && value.host !== undefined;
+            case 'node':
+                return value?.nodeType === 1 || value?.nodeType === 9 || value?.nodeType === 11;
             case 'window':
                 return value?.window === value;
             default: {

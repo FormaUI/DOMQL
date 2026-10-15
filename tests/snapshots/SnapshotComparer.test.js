@@ -164,7 +164,7 @@ describe('SnapshotComparer', () => {
         });
 
         it('compares what an optional chain gives as the chain it holds, within the tolerance of its member', () => {
-            const snapshotComparer = snapshotComparerOf('@element { width: self.parent?.wobble.width, box: self.parent?.wobble { w: self.width } }', { element }, { tolerance: 2 });
+            const snapshotComparer = snapshotComparerOf('@element { width: (self.parent as "element")?.wobble.width, box: (self.parent as "element")?.wobble { w: self.width } }', { element }, { tolerance: 2 });
             const previous = freeze({ width: 10, box: { w: 10 } });
 
             expect(snapshotComparer.reconcile(previous, null, freeze({ width: 11, box: { w: 10 } }), null)).toBe(previous);

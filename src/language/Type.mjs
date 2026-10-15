@@ -135,6 +135,19 @@ export class Type {
         return this.isNullable ? `${text}?` : text;
     }
 
+    /** The kinds of node, each of which fits where a node is declared. */
+    static nodeKinds = Object.freeze(['element', 'document', 'documentFragment', 'shadowRoot']);
+
+    /** Whether the type is a node or one of its kinds. */
+    get isNode() {
+        return this.kind === 'named' && (this.name === 'node' || Type.nodeKinds.includes(this.name));
+    }
+
+    /** Whether a value of the actual type is a value of the declared type by kind: the same named type, or a kind of node where a node is declared. */
+    static #fitsByName(declaredType, actualType) {
+        return declaredType.name === actualType.name || (declaredType.name === 'node' && actualType.isNode);
+    }
+
     /**
      * Whether the actual type matches the declared one, structure for structure: a type parameter the declared type writes matches any type, the first time it is met, and records that type as its argument; a parameter met again matches the type it recorded, nullability aside.
      * @param {Type} declaredType
@@ -159,7 +172,7 @@ export class Type {
             return true;
         }
 
-        if (declaredType.kind !== actualType.kind || declaredType.name !== actualType.name) {
+        if (declaredType.kind !== actualType.kind || !Type.#fitsByName(declaredType, actualType)) {
             return false;
         }
 
@@ -210,11 +223,16 @@ export class Type {
             return firstType.toNullable();
         }
 
+        const isNullable = firstType.isNullable || secondType.isNullable;
+
+        // Two kinds of node are both nodes, the least type holding either.
+        if (firstType.isNode && secondType.isNode && firstType.name !== secondType.name) {
+            return Type.createNamedType('node', isNullable);
+        }
+
         if (firstType.kind !== secondType.kind || firstType.name !== secondType.name) {
             return null;
         }
-
-        const isNullable = firstType.isNullable || secondType.isNullable;
 
         if (firstType.itemType !== null) {
             const itemType = Type.merge(firstType.itemType, secondType.itemType);
@@ -260,7 +278,7 @@ export class Type {
             return false;
         }
 
-        if (this.kind !== otherType.kind || this.name !== otherType.name) {
+        if (this.kind !== otherType.kind || !Type.#fitsByName(otherType, this)) {
             return false;
         }
 
