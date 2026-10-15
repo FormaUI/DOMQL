@@ -297,7 +297,7 @@ describe('Observations in a browser', () => {
         it('starts and ends every observation it names, against a real receiver', async () => {
             const element = add('width: 40px; height: 40px');
             const other = add('width: 10px; height: 10px');
-            const declarations = [...Vocabulary.module.members, ...Vocabulary.module.predicates].filter(declaration => declaration.observations.length > 0);
+            const declarations = Vocabulary.module.members.filter(declaration => declaration.observations.length > 0);
 
             expect(declarations.length).toBeGreaterThan(15);
 

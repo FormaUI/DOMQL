@@ -210,7 +210,7 @@ const surroundings = domql.query(`
             dark: self matchesMedia "(prefers-color-scheme: dark)"
         },
 
-        visible: @document is "visible"
+        visible: @document.visible
     }
 `, { panel });
 

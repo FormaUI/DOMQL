@@ -175,14 +175,9 @@ export type DomqlDefinitionNode =
     | { readonly kind: 'coalescing'; readonly value: DomqlDefinitionNode; readonly fallback: DomqlDefinitionNode }
     | { readonly kind: 'not'; readonly operand: DomqlDefinitionNode }
     | { readonly kind: 'cast'; readonly type: string; readonly target: DomqlDefinitionNode }
-    | { readonly kind: 'predicate'; readonly verb: 'is' | 'has'; readonly target: DomqlDefinitionNode; readonly name: DomqlPredicateName }
+    | { readonly kind: 'predicate'; readonly verb: 'is'; readonly target: DomqlDefinitionNode; readonly name: { readonly kind: 'literal'; readonly value: null } }
     | { readonly kind: 'conditional'; readonly condition: DomqlDefinitionNode; readonly consequent: DomqlDefinitionNode; readonly alternative: DomqlDefinitionNode }
     | { readonly kind: 'and' | 'or'; readonly operands: readonly DomqlDefinitionNode[] };
-
-/** The one predicate a predicate expression reads: named by a string, or by a parameter bound to one; or the null that `is null` tests for. */
-export type DomqlPredicateName =
-    | { readonly kind: 'literal'; readonly value: string | null }
-    | { readonly kind: 'parameter'; readonly name: string };
 
 /** A local of an object expression: its name, which a `local` node uses, and the value it names, never output. */
 export interface DomqlDefinitionLocal {
@@ -376,18 +371,6 @@ export interface DomqlMemberDeclaration {
     observations?: DomqlObservationDeclaration[];
 }
 
-/** A predicate that `is` or `has` reads. */
-export interface DomqlPredicateDeclaration {
-    verb: 'is' | 'has';
-    name: string;
-    function: string;
-    on: string | string[];
-    changes: DomqlChangeCategory;
-    reads: DomqlReadingMode;
-    misses?: string;
-    observations?: DomqlObservationDeclaration[];
-}
-
 /** What a module declares. */
 export interface DomqlModuleContents {
     members?: DomqlMemberDeclaration[];
@@ -395,7 +378,6 @@ export interface DomqlModuleContents {
     types?: { name: string; fields: Record<string, string> }[];
     /** The event types it declares, each with the type of its event data. */
     eventTypes?: { name: string; payload: string }[];
-    predicates?: DomqlPredicateDeclaration[];
     /** The features `supports` names. */
     features?: string[];
     /** The types of observation it declares. */
@@ -403,8 +385,8 @@ export interface DomqlModuleContents {
 }
 
 /**
- * The functions that carry a module's members, predicates and observation types out, by the key each declaration names.
- * A member or a predicate takes its receiver, its arguments by name and the environment, and a member that reads maintained values also its samples, in the order its declaration names the observations.
+ * The functions that carry a module's members and observation types out, by the key each declaration names.
+ * A member takes its receiver, its arguments by name and the environment, and a member that reads maintained values also its samples, in the order its declaration names the observations.
  * A source takes its receiver, its arguments and the environment, and the function it delivers each event to, and returns an object whose `stop` ends the listening.
  * An action takes its receiver, its arguments, the environment and `{ signal }`, and returns its result or a promise of it.
  * A behavior takes its receiver, its arguments, the environment and `{ reportError }`, starts before it returns, and returns an object whose `update(receiver, args)` applies new arguments and whose `dispose` ends it.

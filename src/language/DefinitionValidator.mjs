@@ -34,9 +34,6 @@ const CHAIN_KINDS = new Set(['member', 'call', 'object']);
 /** The kinds of node a cast's target can be, as text writes one: a receiver and its accesses, a coalescing operator, another cast, or an optional chain. */
 const CAST_TARGET_KINDS = new Set(['self', 'parameter', 'local', 'literal', 'object', 'member', 'call', 'optionalChain', 'coalescing', 'cast']);
 
-/** The verbs a predicate expression reads its predicate under. */
-const VERBS = ['is', 'has'];
-
 /** What a local and a field of an object expression each hold: a name, always written, and a value. */
 const ENTRY_PROPERTIES = { properties: ['name', 'value'], required: ['name', 'value'] };
 
@@ -112,7 +109,7 @@ export class DefinitionValidator {
             case 'infixCall':
                 return this.#validateMember(node, pointer, currentValueAvailability);
             case 'predicate':
-                return this.#validatePredicate(node, pointer, currentValueAvailability);
+                return this.#validateNullTest(node, pointer, currentValueAvailability);
             case 'conditional':
                 return Object.freeze({
                     kind: 'conditional',
@@ -170,30 +167,19 @@ export class DefinitionValidator {
         return Object.freeze({ kind: 'optionalChain', target });
     }
 
-    #validatePredicate(node, pointer, currentValueAvailability) {
-        if (!VERBS.includes(node.verb)) {
-            this.#fail(`${pointer}/verb`, 'A predicate expression reads its predicate under is or has');
+    /** Validates a null test: `is` and the null literal it tests its subject for; any other test is a member that answers a Boolean. */
+    #validateNullTest(node, pointer, currentValueAvailability) {
+        if (node.verb !== 'is') {
+            this.#fail(`${pointer}/verb`, "A null test reads 'is'; any other test is a member that answers a Boolean");
+        }
+
+        if (!DefinitionValidator.#isObject(node.name) || node.name.kind !== 'literal' || node.name.value !== null || Object.keys(node.name).length !== 2) {
+            this.#fail(`${pointer}/name`, "A null test tests for the null literal; any other test is a member that answers a Boolean");
         }
 
         const target = this.#validateNode(node.target, `${pointer}/target`, currentValueAvailability);
-        const name = this.#validateName(node.name, `${pointer}/name`, node.verb);
 
-        return Object.freeze({ kind: 'predicate', verb: node.verb, target, name });
-    }
-
-    /** Validates the one name a predicate expression reads: a string or a parameter, or under `is` the null it tests for. */
-    #validateName(node, pointer, verb) {
-        if (!DefinitionValidator.#isObject(node) || (node.kind !== 'literal' && node.kind !== 'parameter')) {
-            this.#fail(pointer, 'A predicate expression names its predicate by a string or a parameter');
-        }
-
-        const name = this.#validateNode(node, pointer, CurrentValueAvailability.unknown);
-
-        if (name.kind === 'literal' && typeof name.value !== 'string' && !(name.value === null && verb === 'is')) {
-            this.#fail(`${pointer}/value`, verb === 'is' ? 'A predicate is named by a string, and is null tests for null' : `A predicate is named by a string, and '${verb}' takes no null`);
-        }
-
-        return name;
+        return Object.freeze({ kind: 'predicate', verb: 'is', target, name: Object.freeze({ kind: 'literal', value: null }) });
     }
 
     /** Validates an and or an or: two or more expressions it combines, each with the current value the and or the or has. */

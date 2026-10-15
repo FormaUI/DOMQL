@@ -19,7 +19,6 @@ export class ModuleRegistry {
     #eventTypes = new Map();
 
     /** @type {Map<string, object>} */
-    #predicates = new Map();
 
     /** @type {Set<string>} */
     #features = new Set();
@@ -67,12 +66,6 @@ export class ModuleRegistry {
             }
         }
 
-        for (const predicate of module.predicates) {
-            if (this.#predicates.has(ModuleRegistry.#predicateKey(predicate.verb, predicate.name))) {
-                fail(`The predicate '${predicate.verb} ${predicate.name}' is declared already`, predicate.name);
-            }
-        }
-
         for (const type of module.observationTypes) {
             if (this.#observationTypes.has(type.name)) {
                 fail(`The observation type '${type.name}' is declared already`, type.name);
@@ -81,7 +74,7 @@ export class ModuleRegistry {
 
         const observationTypes = new Map([...this.#observationTypes, ...module.observationTypes.map(type => [type.name, type])]);
 
-        for (const declaration of [...module.members, ...module.predicates]) {
+        for (const declaration of module.members) {
             ModuleRegistry.#validateObservations(declaration, observationTypes, fail);
         }
 
@@ -98,11 +91,6 @@ export class ModuleRegistry {
 
         for (const event of module.eventTypes) {
             this.#eventTypes.set(event.name, event);
-        }
-
-        for (const predicate of module.predicates) {
-            this.#predicates.set(ModuleRegistry.#predicateKey(predicate.verb, predicate.name), predicate);
-            this.#owners.set(predicate, module.name);
         }
 
         module.features.forEach(feature => this.#features.add(feature));
@@ -140,11 +128,6 @@ export class ModuleRegistry {
         return this.#eventTypes.get(name);
     }
 
-    /** The predicate the verb reads under the name, or undefined. */
-    getPredicate(verb, name) {
-        return this.#predicates.get(ModuleRegistry.#predicateKey(verb, name));
-    }
-
     /** Whether a module declared the feature. */
     hasFeature(name) {
         return this.#features.has(name);
@@ -155,23 +138,14 @@ export class ModuleRegistry {
         return this.#observationTypes.get(name);
     }
 
-    /** The names a verb reads, for a message that lists them. */
-    getPredicateNames(verb) {
-        return [...this.#predicates.values()].filter(predicate => predicate.verb === verb).map(predicate => predicate.name);
-    }
-
-    /** The name of the module that declared the member or the predicate. */
+    /** The name of the module that declared the member. */
     getOwner(declaration) {
         return this.#owners.get(declaration);
     }
 
-    /** The function that carries out the member or answers the predicate, or undefined where its module supplies none. */
+    /** The function that carries out the member, or undefined where its module supplies none. */
     getFunction(declaration) {
         return this.#modules.get(this.#owners.get(declaration))?.functions?.[declaration.function];
-    }
-
-    static #predicateKey(verb, name) {
-        return `${verb} ${name}`;
     }
 
     /** A module outside the built-in module adds members to its own types, and a single member named for itself to any other. */

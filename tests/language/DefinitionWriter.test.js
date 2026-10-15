@@ -37,29 +37,29 @@ describe('DefinitionWriter', () => {
         '@panel attributeOf "data-key"',
         '@panel intersects { root: @panel, margin: 10 }',
         '@panel { size: self.size, box: { width: self.size?.width }, kind: "panel", rank: 3, none: null }',
-        '@panel.children.where(self is "attached").max(self.size?.width)',
-        '(@panel is "attached" or @panel is "focused") and @panel is "disabled"',
-        '@panel is "attached" or @panel is "focused" and @panel is "disabled"',
+        '@panel.children.where(self.attached).max(self.size?.width)',
+        '(@panel.attached or @panel.focused) and @panel.disabled',
+        '@panel.attached or @panel.focused and @panel.disabled',
         '@first and (@second and @third)',
         '(@first or @second) or @third',
-        '(@panel is "attached").size',
+        '(@panel is null).size',
         '(@first or @second) { size: self.size }',
         '@panel.children.count',
-        '@panel has "children"',
-        '@window { ratio: self.devicePixelRatio, visible: @document is "visible" }',
+        '@panel.hasChildren',
+        '@window { ratio: self.devicePixelRatio, visible: @document.visible }',
         '@panel.closest(".row") attributeOf "data-key"',
         '(@panel eventsOf "click") { x: self.clientX }',
         '(@panel attributeOf "role").length',
-        '@panel attributeOf "role" is "set"',
+        '@panel attributeOf "role" is null',
         '@sentinel intersects',
         '@panel attributeOf (@panel attributeOf "for")',
         '@panel.rectRelativeTo(@panel.parent)?.top',
-        'if @panel is "attached" then "here" elseif @panel is null then "gone" else "away"',
+        'if @panel.attached then "here" elseif @panel is null then "gone" else "away"',
         '(if @a then @panel else @other).size',
         '(if @a then true else false) and @b',
         'if (if @a then @b else @c) then 1 else 2',
         'if @a then (if @b then 1 else 2) else 3',
-        '@panel { state: if self is "disabled" then "locked" else "open" }',
+        '@panel { state: if self.disabled then "locked" else "open" }',
         '@panel.parent is null',
         '@panel { let items: self.children, count: items.count, rows: items { key: self attributeOf "data-key" } }',
         '@panel { let key: "data-key", let first: self.children.at(0), value: first attributeOf key }',
@@ -81,8 +81,8 @@ describe('DefinitionWriter', () => {
         '(@a ?? @b) ?? 0',
         '(@a ?? false) and @b',
         '@a ?? (@b or @c)',
-        '(@a ?? @b) is "attached"',
-        '@a ?? (@b is "attached")',
+        '(@a ?? @b).attached',
+        '@a ?? (@b.attached)',
         'if @on ?? false then 1 else 2',
         '@panel attributeOf (@name ?? "id")',
         '(@a ?? @b).size',
@@ -97,10 +97,10 @@ describe('DefinitionWriter', () => {
         '(@a ?? @b) as "element"',
         '(?@a.b) as "element"',
         '(@a as "node") as "element"',
-        '(@panel.parent as "element") is "attached"',
+        '(@panel.parent as "element")?.attached',
         'not @a',
         'not not @a',
-        'not @panel is "attached"',
+        'not @panel.attached',
         'not (@a and @b)',
         'not @a or not @b',
         'not (@a ?? false)',
@@ -117,13 +117,13 @@ describe('DefinitionWriter', () => {
 
         expect(write('(@first or @second) and @third')).toBe('(@first or @second) and @third');
         expect(write('(@first and @second) or @third')).toBe('@first and @second or @third');
-        expect(write('(@panel is "attached").size')).toBe('(@panel is "attached").size');
+        expect(write('(@panel is null).size')).toBe('(@panel is null).size');
         expect(write('@panel.size')).toBe('@panel.size');
         expect(write('((@panel attributeOf "role")).length')).toBe('(@panel attributeOf "role").length');
-        expect(write('(@panel attributeOf "role") is "set"')).toBe('@panel attributeOf "role" is "set"');
+        expect(write('(@panel attributeOf "role") is null')).toBe('@panel attributeOf "role" is null');
         expect(write('if @a then 1 else if @b then 2 else 3')).toBe('if @a then 1 elseif @b then 2 else 3');
         expect(write('if @a then 1 else (if @b then 2 else 3)')).toBe('if @a then 1 elseif @b then 2 else 3');
-        expect(write('(if @a then @b else @c) is "attached"')).toBe('(if @a then @b else @c) is "attached"');
+        expect(write('(if @a then @b else @c).attached')).toBe('(if @a then @b else @c).attached');
     });
 
     it('writes the argument of an infix call as an input, grouping any other', () => {
@@ -150,14 +150,14 @@ describe('DefinitionWriter', () => {
             ['an object expression of one field whose value takes lines', '@panel { box: { width: self.size?.width, height: self.size?.height } }', '@panel {\n    box: {\n        width: self.size?.width,\n        height: self.size?.height\n    }\n}'],
             ['an object expression of one field and a local', '@panel { let s: self.size, width: s.width }', '@panel {\n    let s: self.size,\n    width: s.width\n}'],
             ['a conditional with no elseif, on one line', 'if @a then 1 else 2', 'if @a then 1 else 2'],
-            ['a conditional with an elseif, a line for each clause', '@panel { state: if self is "disabled" then "locked" elseif self is "readOnly" then "read" else "open" }', '@panel {\n    state: if self is "disabled" then "locked"\n    elseif self is "readOnly" then "read"\n    else "open"\n}'],
+            ['a conditional with an elseif, a line for each clause', '@panel { state: if self.disabled then "locked" elseif self.readOnly then "read" else "open" }', '@panel {\n    state: if self.disabled then "locked"\n    elseif self.readOnly then "read"\n    else "open"\n}'],
             ['one space around and and or', '@a   and(@b or   @c)', '@a and (@b or @c)'],
-            ['one space around an infix call and a predicate', '@panel   attributeOf    "role"   is   "set"', '@panel attributeOf "role" is "set"'],
+            ['one space around an infix call and is', '@panel   attributeOf    "role"   is   null', '@panel attributeOf "role" is null'],
             ['no trailing comma', '@panel { size: self.size, key: 1, }', '@panel {\n    size: self.size,\n    key: 1\n}'],
             ['no comment and no original layout', '@panel // the panel\n    /* its size */ .size', '@panel.size'],
             ['an optional access as one token, with the group that ends its chain', '(@panel.parent  ?.children) . count', '(@panel.parent?.children).count'],
             ['a cast in an optional-access group as the optional accesses it writes', '(?(@panel.parent as "element").rect.width)', '(@panel?.parent as "element")?.rect?.width'],
-            ['a negation, grouped only where what it negates needs it', 'not ((@panel is "attached"))', 'not @panel is "attached"'],
+            ['a negation, grouped only where what it negates needs it', 'not ((@panel.attached))', 'not @panel.attached'],
             ['an access by name of a string literal that is a name, as the name', '@panel["size"]', '@panel.size'],
             ['a coalescing operator, grouped only where its sides need it', '((@a) ?? ((@b ?? 0)))', '@a ?? @b ?? 0'],
             ['an optional-access group as the accesses it makes optional', '(?@panel.parent.rect.width)', '@panel?.parent?.rect?.width'],
@@ -173,7 +173,7 @@ describe('DefinitionWriter', () => {
             'if @a then { x: 1, y: 2 } elseif @b then (if @c then 3 else 4) else @d { z: self.size }',
             '@panel { let items: self.children, count: items.count, first: items.at(0) { key: self attributeOf "data-key" } }',
             '(@panel eventsOf "click") { x: self.clientX, inside: self.target?.closest(".row") is null }',
-            '@panel.children.where(self is "attached" and (self has "children" or self matches ".x")).max(self.size?.width)',
+            '@panel.children.where(self.attached and (self.hasChildren or self matches ".x")).max(self.size?.width)',
             '@panel attributeOf "line\nbreak and \\"quote\\""',
         ])('gives text that formats to itself, and parses back to the same definition: %s', text => {
             const formatted = format(text);
@@ -210,7 +210,7 @@ describe('DefinitionWriter', () => {
             const { domql: other } = await import('#domql/domql.js');
 
             expect(() => format('@panel {')).toThrow(expect.objectContaining({ kind: 'syntax' }));
-            expect(() => domql.format({ version: 9, query: { kind: 'nonsense' } })).toThrow(expect.objectContaining({ kind: 'structure' }));
+            expect(() => domql.format({ version: 10, query: { kind: 'nonsense' } })).toThrow(expect.objectContaining({ kind: 'structure' }));
             expect(() => domql.format(other.query('@panel'))).toThrow(expect.objectContaining({ kind: 'structure', message: expect.stringContaining('query.definition') }));
         });
 

@@ -76,7 +76,7 @@ export class LanguageResolver {
             case 'infixCall':
                 return this.#resolveMember(node, pointer, scope);
             case 'predicate':
-                return this.#resolvePredicate(node, pointer, scope);
+                return this.#resolveNullTest(node, pointer, scope);
             case 'conditional':
                 return this.#resolveConditional(node, pointer, scope);
             case 'optionalChain':
@@ -132,44 +132,15 @@ export class LanguageResolver {
         }
     }
 
-    /** Resolves a predicate expression: its subject, and the predicate name it reads, under its verb and against the subject's type. */
-    #resolvePredicate(node, pointer, scope) {
-        const { verb } = node;
+    /** Resolves a null test: its subject, a value, and answers a Boolean, never null itself, whatever its subject's type. */
+    #resolveNullTest(node, pointer, scope) {
         const subject = this.#resolveNode(node.target, `${pointer}/target`, scope);
 
         if (subject.kind !== 'query') {
-            this.#fail(`'${verb}' tests ${LanguageResolver.#descriptionOf(subject.kind)}, which is no value`, pointer);
+            this.#fail(`'is' tests ${LanguageResolver.#descriptionOf(subject.kind)}, which is no value`, pointer);
         }
 
-        // Is null answers whether the subject is null, so it is never null itself.
-        if (node.name.kind === 'literal' && node.name.value === null) {
-            return { type: Type.createNamedType('boolean'), kind: 'query', isFixed: false };
-        }
-
-        this.#resolvePredicateName(node.name, `${pointer}/name`, verb, subject.type);
-
-        const type = Type.createNamedType('boolean');
-
-        return { type: subject.type.isNullable || LanguageResolver.#isOfUnknownType(subject.type) ? type.toNullable() : type, kind: 'query', isFixed: false };
-    }
-
-    /** Resolves the predicate name a predicate expression reads, under its verb and against the subject's type; a subject of unknown type is checked for the name alone. */
-    #resolvePredicateName(node, pointer, verb, subjectType) {
-        const predicateName = this.#resolveNode(node, pointer, { current: null, locals: new Map() });
-
-        if (!predicateName.isFixed || typeof predicateName.value !== 'string') {
-            this.#fail(`A predicate '${verb}' reads is named by a string, or a parameter bound to a string, never null`, pointer);
-        }
-
-        const name = predicateName.value;
-        const predicate = this.#moduleRegistry.getPredicate(verb, name);
-
-        if (predicate === undefined || (!LanguageResolver.#isOfUnknownType(subjectType) && !LanguageResolver.#matchesAny(predicate.on, subjectType))) {
-            this.#fail(`'${verb} "${name}"' is no predicate of ${subjectType.toNonNullable()}; '${verb}' reads ${this.#moduleRegistry.getPredicateNames(verb).join(', ')}`, pointer);
-        }
-
-        this.#resolutions.set(pointer, { kind: 'predicate', predicate });
-        this.#usedDeclarations.push({ declaration: { name: `${verb} ${name}`, changes: predicate.changes, reads: predicate.reads, misses: predicate.misses }, pointer, name: `${verb} "${name}"` });
+        return { type: Type.createNamedType('boolean'), kind: 'query', isFixed: false };
     }
 
     /** Resolves a conditional: a Boolean condition, and two branches of one type, nullable where either is; the whole is resolved before any of it is evaluated. */
@@ -444,7 +415,7 @@ export class LanguageResolver {
         const candidates = this.#moduleRegistry.getMembers(node.name);
 
         if (candidates.length === 0) {
-            this.#fail(`'${node.name}' is no member of the vocabulary`, pointer);
+            this.#fail(`'${node.name}' is no member of the vocabulary${this.#presenceTestOf(node, receiverType)}`, pointer);
         }
 
         const matching = candidates.filter(candidate => LanguageResolver.#matchesReceiver(candidate, receiverType, new Map()));
@@ -923,6 +894,21 @@ export class LanguageResolver {
         const type = Type.parse(on);
 
         return `${type.kind === 'named' ? type.name : type.kind}.${declaration.name}`;
+    }
+
+    /**
+     * For `has` written as a presence test, as `@input has "selection"`, the Boolean member the receiver's type declares for it, as the form to write; nothing for any other name or receiver.
+     * The name is read exactly, as a presence test's was, so `"Selection"` names nothing.
+     */
+    #presenceTestOf(node, receiverType) {
+        if (node.kind !== 'infixCall' || node.name !== 'has' || node.argument?.kind !== 'literal' || typeof node.argument.value !== 'string' || !/^[a-z]/.test(node.argument.value)) {
+            return '';
+        }
+
+        const name = `has${node.argument.value[0].toUpperCase()}${node.argument.value.slice(1)}`;
+        const declares = this.#moduleRegistry.getMembers(name).some(candidate => candidate.result === 'boolean' && LanguageResolver.#matchesReceiver(candidate, receiverType, new Map()));
+
+        return declares ? `: a presence test is the member that answers it, so write '${DefinitionWriter.write({ kind: 'member', target: node.target, name })}'` : '';
     }
 
     /** Whether the declaration applies to the receiver, recording the arguments of the type parameters its types write. */

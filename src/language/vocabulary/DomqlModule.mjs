@@ -22,7 +22,6 @@ const READING_MODES = ['fresh', 'maintained', 'captured', 'derived'];
 const NULL_POLICIES = ['propagate', 'accept'];
 const SELECTION_KINDS = ['eventType', 'feature'];
 const PARAMETER_KINDS = ['value', 'expression'];
-const PREDICATE_VERBS = ['is', 'has'];
 
 /** What an observation type provides: a signal that an answer may have changed, or a sampled value a member reads. */
 const OBSERVATION_CONTRACTS = ['invalidation', 'maintained'];
@@ -36,6 +35,9 @@ const OBSERVATION_TARGETS = ['receiver', 'root', 'roots', 'window', 'document'];
 /** The names of the types DOMQL itself defines, which a module cannot declare again. */
 const RESERVED_TYPE_NAMES = new Set(['number', 'string', 'boolean', 'node', 'element', 'document', 'documentFragment', 'shadowRoot', 'shadow', 'window', 'list', 'event', 'null', 'never']);
 
+/** What a module can declare. */
+const CONTENTS = ['members', 'types', 'eventTypes', 'features', 'observationTypes'];
+
 /** The name that identifies the built-in module, whose members stand without a namespace. */
 const BUILTIN_MODULE_NAME = 'builtIn';
 
@@ -44,7 +46,6 @@ export class DomqlModule {
     #members;
     #types;
     #eventTypes;
-    #predicates;
     #features;
     #observationTypes;
     #functions;
@@ -58,7 +59,6 @@ export class DomqlModule {
      * @param {object[]} [contents.members] The properties, operations, sources, actions and behaviors it adds.
      * @param {object[]} [contents.types] The structured types it declares, each with its fields.
      * @param {object[]} [contents.eventTypes] The event types it declares, each with the type of its event data.
-     * @param {object[]} [contents.predicates] The predicates a predicate expression reads under `is` and `has`.
      * @param {string[]} [contents.features] The features `supports` names.
      * @param {object[]} [contents.observationTypes] The types of observation it declares, each with the function that starts one.
      * @param {Record<string, Function> | null} [functions] The functions that carry the members out, by the key each member names.
@@ -73,19 +73,25 @@ export class DomqlModule {
             throw DomqlError.module(`'${BUILTIN_MODULE_NAME}' is the built-in module's identity, which no other module takes`, { module: name });
         }
 
-        const { members = [], types = [], eventTypes = [], predicates = [], features = [], observationTypes = [] } = contents;
+        const { members = [], types = [], eventTypes = [], features = [], observationTypes = [] } = contents;
         const fail = (message, declaration) => { throw DomqlError.module(message, declaration === undefined ? { module: name } : { module: name, declaration }); };
+
+        // A module declares what it lists alone, and one that names predicates is told that a test is a Boolean member.
+        for (const key of Object.keys(contents)) {
+            if (!CONTENTS.includes(key)) {
+                fail(`A module declares ${CONTENTS.join(', ')}, and '${key}' is none of them${key === 'predicates' ? '; a test is a member that answers a Boolean' : ''}`);
+            }
+        }
 
         this.#name = name;
         this.#types = DomqlModule.#freezeItems(types.map(type => DomqlModule.#validateTypeDeclaration(type, fail)));
         this.#members = DomqlModule.#freezeItems(members.map(member => DomqlModule.#validateMember(member, fail)));
         this.#eventTypes = DomqlModule.#freezeItems(eventTypes.map(eventType => DomqlModule.#validateEventType(eventType, fail)));
-        this.#predicates = DomqlModule.#freezeItems(predicates.map(predicate => DomqlModule.#validatePredicate(predicate, fail)));
         this.#features = DomqlModule.#freezeItems(features.map(feature => DomqlModule.#validateFeatureName(feature, fail)));
         this.#observationTypes = DomqlModule.#freezeItems(observationTypes.map(type => DomqlModule.#validateObservationType(type, fail)));
 
         if (functions !== null) {
-            for (const declaration of [...this.#members, ...this.#predicates, ...this.#observationTypes]) {
+            for (const declaration of [...this.#members, ...this.#observationTypes]) {
                 if (declaration.function !== undefined && typeof functions[declaration.function] !== 'function') {
                     fail(`The function '${declaration.function}' it names is not among the module's functions`, declaration.name);
                 }
@@ -123,11 +129,6 @@ export class DomqlModule {
     /** The event types the module declares. */
     get eventTypes() {
         return this.#eventTypes;
-    }
-
-    /** The predicates the module declares. */
-    get predicates() {
-        return this.#predicates;
     }
 
     /** The features the module declares. */
@@ -192,24 +193,6 @@ export class DomqlModule {
         }
 
         return structuredClone(eventType);
-    }
-
-    static #validatePredicate(predicate, fail) {
-        const name = predicate?.name;
-
-        if (!PREDICATE_VERBS.includes(predicate?.verb) || typeof name !== 'string' || !/^[A-Za-z][A-Za-z0-9.]*$/.test(name)) {
-            fail('A predicate declares the verb, is or has, and its name', name);
-        }
-
-        if (!DomqlModule.#isIdentifier(predicate.function)) {
-            fail('It names the function that answers it, as an identifier', name);
-        }
-
-        DomqlModule.#validateReceiverTypes(predicate, name, fail);
-        DomqlModule.#validateChangeContract(predicate, name, fail);
-        DomqlModule.#validateObservations(predicate, new Set(), name, fail);
-
-        return structuredClone({ observations: [], ...predicate });
     }
 
     static #validateFeatureName(feature, fail) {

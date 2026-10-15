@@ -32,25 +32,25 @@ describe('Vocabulary', () => {
         expect(new Set(keys).size).toBe(keys.length);
     });
 
-    it('declares is and has predicates in separate namespaces', () => {
-        expect(registry.getPredicate('is', 'disabled')).toBeDefined();
-        expect(registry.getPredicate('has', 'disabled')).toBeUndefined();
-        expect(registry.getPredicate('has', 'children')).toBeDefined();
+    it('declares each test as a Boolean member, a presence test named with has', () => {
+        const tests = Vocabulary.module.members.filter(member => member.result === 'boolean' && member.kind === 'property').map(member => `${member.on}.${member.name}`);
+
+        expect(tests).toEqual(['element.attached', 'element.disabled', 'element.readOnly', 'element.textEditable', 'element.focused', 'element.hasChildren', 'element.hasSelection', 'document.visible', 'document.hasFocus']);
     });
 
 describe('observations', () => {
         const members = Vocabulary.module.members;
         const covered = declaration => ['observable', 'partly-observable'].includes(declaration.changes);
 
-        it('are named by every member and predicate whose changes they cover, and by no other', () => {
-            for (const declaration of [...members, ...Vocabulary.module.predicates]) {
-                expect(declaration.observations.length > 0, `${declaration.verb ?? ''} ${declaration.name}`).toBe(covered(declaration));
+        it('are named by every member whose changes they cover, and by no other', () => {
+            for (const declaration of members) {
+                expect(declaration.observations.length > 0, declaration.name).toBe(covered(declaration));
             }
         });
 
         it('are of types the built-in module declares', () => {
             const types = new Set(Vocabulary.module.observationTypes.map(type => type.name));
-            const named = [...members, ...Vocabulary.module.predicates].flatMap(declaration => declaration.observations.map(observation => observation.type));
+            const named = members.flatMap(declaration => declaration.observations.map(observation => observation.type));
 
             expect(named.every(type => types.has(type))).toBe(true);
             expect([...new Set(named)].sort()).toEqual([...types].sort());

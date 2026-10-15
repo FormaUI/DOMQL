@@ -85,11 +85,10 @@ describe('DomqlModule', () => {
         expect(messageOf(() => new DomqlModule('charts', { types: [{ name, fields: { level: 'number' } }] }))).toContain('built-in names');
     });
 
-    it('requires a predicate to name the function that answers it', () => {
-        const predicate = { verb: 'is', name: 'plotted', on: 'element', changes: 'constant', reads: 'fresh' };
-
-        expect(messageOf(() => new DomqlModule('charts', { predicates: [predicate] }))).toContain('function that answers it');
-        expect(messageOf(() => new DomqlModule('charts', { predicates: [{ ...predicate, function: 'isPlotted' }] }, {}))).toContain("'isPlotted'");
+    it('refuses what a module does not declare, predicates among them, a test being a member that answers a Boolean', () => {
+        expect(messageOf(() => new DomqlModule('charts', { predicates: [] }))).toContain("'predicates' is none of them; a test is a member that answers a Boolean");
+        expect(messageOf(() => new DomqlModule('charts', { member: [] }))).toContain("A module declares members, types, eventTypes, features, observationTypes, and 'member' is none of them");
+        expect(() => new DomqlModule('charts', { members: [declaration({ name: 'charts', result: 'boolean' })] })).not.toThrow();
     });
 
     it('refuses a member that selects a member, which an access by name reads', () => {
@@ -99,7 +98,7 @@ describe('DomqlModule', () => {
         expect(() => new DomqlModule('charts', { members: [selecting('feature')] })).not.toThrow();
     });
 
-    it('refuses a member that selects a predicate, which only a predicate expression reads', () => {
+    it('refuses a member that selects a predicate, which no member is', () => {
         const selecting = declaration({ name: 'charts', parameters: [parameter({ fixed: true, selects: 'predicate' })] });
 
         expect(messageOf(() => new DomqlModule('charts', { members: [selecting] }))).toContain('declares what it selects');
@@ -141,13 +140,6 @@ describe('observations', () => {
             expect(fails({ members: [observed({ observations: 'resize' })] })).toContain('observations are a list');
         });
 
-        it('are named by predicates in the same way, with no arguments to refer to', () => {
-            const predicate = { verb: 'is', name: 'plotted', function: 'isPlotted', on: 'element', changes: 'observable', reads: 'fresh' };
-
-            expect(() => new DomqlModule('charts', { predicates: [{ ...predicate, observations: [attributes] }] })).not.toThrow();
-            expect(fails({ predicates: [predicate] })).toContain('names the observations that cover its changes');
-            expect(fails({ predicates: [{ ...predicate, observations: [{ type: 'resize', of: { argument: 'other' } }] }] })).toContain('observes the receiver');
-        });
     });
 
     describe('observation types', () => {

@@ -50,21 +50,6 @@ function member(kind, name, on, result, { function: implementation = name, param
 const property = (name, on, result, options) => member('property', name, on, result, options);
 const operation = (name, on, result, options) => member('operation', name, on, result, options);
 
-/** A predicate the verb reads. */
-function predicate(verb, name, on, { changes = 'observable', reads = 'fresh', misses, observations } = {}) {
-    const declaration = { verb, name, function: `${verb}${name[0].toUpperCase()}${name.slice(1)}`, on, changes, reads };
-
-    if (observations !== undefined) {
-        declaration.observations = observations;
-    }
-
-    if (misses !== undefined) {
-        declaration.misses = misses;
-    }
-
-    return declaration;
-}
-
 /** The observations the members share. */
 const RESIZE = { type: 'resize', of: 'receiver' };
 const WINDOW_RESIZE = { type: 'resize', of: 'window' };
@@ -130,18 +115,6 @@ export class Vocabulary {
                 { name: 'visibility', contract: 'invalidation', function: 'observeVisibility' },
             ],
 
-            predicates: [
-                predicate('is', 'attached', 'element', { changes: 'partly-observable', misses: 'a detached tree inserted into a shadow root in the document', observations: [{ type: 'attachment', of: 'receiver' }] }),
-                predicate('is', 'disabled', 'element', { observations: [{ type: 'mutation', of: 'root', attributes: ['disabled'], childList: true, subtree: true }] }),
-                predicate('is', 'readOnly', 'element', { observations: [{ type: 'mutation', of: 'receiver', attributes: ['readonly', 'type'] }] }),
-                predicate('is', 'textEditable', 'element', { changes: 'partly-observable', misses: 'the document\'s design mode', observations: [{ type: 'mutation', of: 'roots', attributes: ['disabled', 'readonly', 'type', 'contenteditable', 'inert'], childList: true, subtree: true }] }),
-                predicate('is', 'focused', 'element', { observations: [FOCUS] }),
-                predicate('is', 'visible', 'document', { observations: [{ type: 'visibility', of: 'receiver' }] }),
-                predicate('has', 'children', 'element', { observations: [CHILDREN] }),
-                predicate('has', 'selection', 'element', { changes: 'partly-observable', misses: 'selections assigned by script', observations: TEXT_SELECTION }),
-                predicate('has', 'focus', 'document', { observations: [{ type: 'event', of: 'window', types: ['focus', 'blur'] }] }),
-            ],
-
             members: [
                 property('size', 'window', 'size', { function: 'windowSize', observations: [WINDOW_RESIZE] }),
                 property('devicePixelRatio', 'window', 'number', { observations: [{ type: 'pixelRatio', of: 'window' }] }),
@@ -157,6 +130,15 @@ export class Vocabulary {
                 property('shadow', 'element', 'shadow', { changes: 'constant' }),
                 property('root', 'shadow', 'shadowRoot?', { function: 'shadowRoot', changes: 'partly-observable', misses: 'a shadow root attached at any time but as the element connects to its document', observations: [{ type: 'attachment', of: 'receiver' }] }),
                 property('elements', 'shadow', 'list<element>?', { function: 'assignedElements', changes: 'partly-observable', misses: 'a detached tree holding the slot inserted into a shadow tree that assigns it nothing', observations: [{ type: 'event', of: 'receiver', types: ['slotchange'] }, { type: 'mutation', of: 'root', childList: true, subtree: true }, { type: 'attachment', of: 'receiver' }] }),
+                property('attached', 'element', 'boolean', { changes: 'partly-observable', misses: 'a detached tree inserted into a shadow root in the document', observations: [{ type: 'attachment', of: 'receiver' }] }),
+                property('disabled', 'element', 'boolean', { observations: [{ type: 'mutation', of: 'root', attributes: ['disabled'], childList: true, subtree: true }] }),
+                property('readOnly', 'element', 'boolean', { observations: [{ type: 'mutation', of: 'receiver', attributes: ['readonly', 'type'] }] }),
+                property('textEditable', 'element', 'boolean', { changes: 'partly-observable', misses: 'the document\'s design mode', observations: [{ type: 'mutation', of: 'roots', attributes: ['disabled', 'readonly', 'type', 'contenteditable', 'inert'], childList: true, subtree: true }] }),
+                property('focused', 'element', 'boolean', { observations: [FOCUS] }),
+                property('hasChildren', 'element', 'boolean', { observations: [CHILDREN] }),
+                property('hasSelection', 'element', 'boolean', { changes: 'partly-observable', misses: 'selections assigned by script', observations: TEXT_SELECTION }),
+                property('visible', 'document', 'boolean', { observations: [{ type: 'visibility', of: 'receiver' }] }),
+                property('hasFocus', 'document', 'boolean', { observations: [{ type: 'event', of: 'window', types: ['focus', 'blur'] }] }),
                 property('count', 'list<T>', 'number', { changes: 'derived', reads: 'derived' }),
                 property('first', 'list<T>', 'T?', { changes: 'derived', reads: 'derived' }),
                 property('last', 'list<T>', 'T?', { changes: 'derived', reads: 'derived' }),

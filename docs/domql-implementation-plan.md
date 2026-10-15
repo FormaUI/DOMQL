@@ -8,7 +8,7 @@ Each item is what exists and what checks it.
 
 - **The language.** Parsing text and creating queries from their definition, with the position of every mistake, and writing a definition back as text, on one line or laid out as `domql.format` gives a request's canonical text. Checked by the tests of parsing, of the definition and of writing it.
 - **Navigation and absence.** Access that requires a receiver that cannot be null, `?.`, optional-access groups, the coalescing operator and access by name, each recorded in the definition and written back as canonical text, a watch following what each evaluates. Checked by the tests of parsing, of the definition, of resolution, of evaluation, of watches and of comparing snapshots.
-- **Boolean expressions.** `not`, `and` and `or` of Booleans that cannot be null, and conditions of one, each refusing a Boolean that can be null with the fallback to write, a watch following the operands and clauses evaluation reaches. Checked by the tests of parsing, of resolution, of evaluation and of watches.
+- **Boolean expressions.** `not`, `and` and `or` of Booleans that cannot be null, and conditions of one, each refusing a Boolean that can be null with the fallback to write, a watch following the operands and clauses evaluation reaches; tests are Boolean members, `is null` the one test the language writes itself. Checked by the tests of parsing, of resolution, of evaluation, of watches and of modules.
 - **Nodes, shadow trees and casts.** `node` and its kinds, each a binding can hold, with `parent`, `root`, `host`, `children`, `first` and `all` on every node, a member on a kind of the name of one on `node` refused; an element's `shadow`, whose `root` and `elements` cross into the tree it hosts and the elements a slot shows; and `as`, which casts to `node` and its kinds and refuses a type that is no node and a target that can never be of it. Checked by the tests of types, of parsing, of the definition, of resolution, of evaluation, of writing and of registration, and in Chromium by what the tree's members and the shadow view answer and observe as nodes move, slots are assigned and shadow roots attached.
 - **The vocabulary.** The built-in vocabulary declared as module data, and modules that extend it. Checked by the tests of modules, the registry and the vocabulary.
 - **Bindings and resolution.** Every binding typed from its value, and a definition resolved against the vocabulary and its result typed, without a browser; the resolution is kept for its definition, so the queries made from one text share it. Checked by the resolver tests and the tests of `query.resolve`.
@@ -167,7 +167,7 @@ A test is an ordinary expression that answers a Boolean, `@input.disabled`, `@in
 
 #### Infix calls and object expressions
 
-An infix call declares its receiver's null policy as a parameter declares one: it propagates null, accepts it with a meaning of its own, or refuses a nullable receiver when the query is prepared. An optional chain ends before an infix call, which receives its value and applies its policy. An object expression following null is null, and its body sees a current value that is not null; an item of a list that is null answers null at its position. Neither an argument nor an object expression's body inherits the permission of an optional-access group around it.
+An infix call propagates a null receiver: one whose receiver is null answers null without running. A receiver's null policy declared as a parameter's is, accepting null with a meaning of its own or refusing a nullable receiver when the query is prepared, is deferred until a member needs one, since no built-in infix call does. An optional chain ends before an infix call, which receives its value and propagates it where it is null. An object expression following null is null, and its body sees a current value that is not null; an item of a list that is null answers null at its position. Neither an argument nor an object expression's body inherits the permission of an optional-access group around it.
 
 #### Precedence and grammar
 
@@ -360,7 +360,8 @@ Compare values with `is` and `is not`, and turn predicates into Boolean members,
 
 - **Needs:** steps 19 and 20, for `not` and the identity of nodes.
 - **Done when:** `is` and `is not` compare as D13 sets out, refusing two types neither fits and comparing nodes by identity, and `is not` has the definition of `not` around `is`; each built-in predicate is the member D13 names, keeping its receiver, how it changes and how it reads; modules declare Boolean members, and predicate registration, the `predicate` node and `has` as a keyword are gone; `is null` is equality with null; the specification states the table of nullable Booleans, and its examples, the READMEs' and the tests use the members and `@input[@name]` for a name that is bound.
-- **State:** not started.
+- **Commits:** two, for review, each raising the definition's version: predicates become Boolean members, the `predicate` node keeping `is null` alone, at version 10; then equality, which retires the `predicate` node, at version 11.
+- **State:** in progress. Predicates are Boolean members, at version 10; equality remains.
 
 ## Departures from the design
 

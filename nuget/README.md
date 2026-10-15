@@ -196,25 +196,25 @@ domql.query('@panel.children.count', { panel }).evaluate();
 domql.query('@panel["children"].count', { panel }).evaluate();
 // 3
 
-domql.query('@panel is "attached"', { panel }).evaluate();
+domql.query('@panel.attached', { panel }).evaluate();
 // true
 ```
 
-Brackets read the property a name names, `@panel["children"]` or `@panel[@name]`, the name determined when the query is prepared. `parent` and `root` answer a node, an element, a document, a document fragment or a shadow root, and `as` casts one to its kind, answering null where it is of another, so an element's own members are read of a parent through a cast: `(@panel.parent as "element")?.rect`. Selectors never pierce a shadow root, and every crossing is written: `@host.shadow.root` is the open shadow root an element hosts, `@element.root.host` the host of the shadow tree an element is in, and `@slot.shadow.elements` the elements a slot shows, null for an element that is no slot. `is` asks about a state or classification and `has` about presence: they are operators that test the value before them against one predicate the vocabulary registers. `and` and `or` combine Boolean expressions:
+Brackets read the property a name names, `@panel["children"]` or `@panel[@name]`, the name determined when the query is prepared. `parent` and `root` answer a node, an element, a document, a document fragment or a shadow root, and `as` casts one to its kind, answering null where it is of another, so an element's own members are read of a parent through a cast: `(@panel.parent as "element")?.rect`. Selectors never pierce a shadow root, and every crossing is written: `@host.shadow.root` is the open shadow root an element hosts, `@element.root.host` the host of the shadow tree an element is in, and `@slot.shadow.elements` the elements a slot shows, null for an element that is no slot. A test is a member that answers a Boolean, as `@input.disabled` and `@panel.hasChildren` are, and `and` and `or` combine Boolean expressions:
 
 ```text
-@input is "disabled" or @input is "readOnly"
-@input is "disabled" or (@input is "readOnly" and @input is "textEditable")
-@panel has "children" and @enabled
+@input.disabled or @input.readOnly
+@input.disabled or (@input.readOnly and @input.textEditable)
+@panel.hasChildren and @enabled
 ```
 
-`is null` answers whether a value is null, never null itself. `not` negates a Boolean and binds tighter than `and`, which binds tighter than `or`, parentheses group any expression, and evaluation stops at the first operand that decides the result. Every operand of `not`, `and` and `or`, and every condition, is a Boolean that cannot be null, so one that can be null, such as a test of a value that may be missing, says what its absence means: `(@panel.first("input") is "disabled") ?? false`. Inside an object expression or an expression argument, `self` tests the current value, as `where(self is "disabled")` does. The strings that name members and predicates are case-sensitive too. Selectors, attribute names and other strings passed to browser APIs follow the browser's own rules.
+`is null` answers whether a value is null, never null itself. `not` negates a Boolean and binds tighter than `and`, which binds tighter than `or`, parentheses group any expression, and evaluation stops at the first operand that decides the result. Every operand of `not`, `and` and `or`, and every condition, is a Boolean that cannot be null, so one that can be null, such as a test of a value that may be missing, says what its absence means: `@panel.first("input")?.disabled ?? false`. Inside an object expression or an expression argument, `self` tests the current value, as `where(self.disabled)` does. The strings that name members are case-sensitive too. Selectors, attribute names and other strings passed to browser APIs follow the browser's own rules.
 
 A conditional chooses between two values, testing its conditions in order; false moves to the next clause, and only the branch it selects is evaluated:
 
 ```text
 if @wide then @panel else @sidebar
-@input { state: if self is "disabled" then "locked" elseif self is "readOnly" then "read" else "open" }
+@input { state: if self.disabled then "locked" elseif self.readOnly then "read" else "open" }
 (if @wide then @panel else @sidebar).rect?.width
 ```
 
@@ -227,7 +227,7 @@ self.closest(".row")?.rect?.height
 self attributeOf "data-key"
 self attributeOf @attributeName
 @sentinel intersects { root: @panel, margin: 200 }
-(self.closest("[data-group]") attributeOf "data-group") is "set"
+(self.closest("[data-group]") attributeOf "data-group") is null
 ```
 
 An infix call ends its chain, and a group continues from its result. Writing a member in a form it does not take is an error that gives the one it does, as `'attributeOf' uses infix-call syntax: write 'self attributeOf "data-key"'`. Commas separate the fields of an object expression.
@@ -240,8 +240,8 @@ An object expression chooses output fields, each written with the name it answer
 domql.query(`
     @panel {
         count: self.children.count,
-        attached: self is "attached",
-        children: self has "children",
+        attached: self.attached,
+        children: self.hasChildren,
     }
 `, { panel }).evaluate();
 // { count: 3, attached: true, children: true }
@@ -424,7 +424,7 @@ domql.query('@panel.metrics { childCount: self.childCount }', { panel }).evaluat
 
 The result can change, so it is not declared `constant`. This module names no observation and therefore declares `unobserved`: it supports evaluation, without promising watch support. Register a module once during setup, rather than before each evaluation.
 
-Modules can also declare event types, predicates, supported feature names and event sources. A source's function takes the receiver, the arguments, the environment and the function it delivers each event to, and answers an object whose `stop` ends the listening; each event is captured as the fields its event type declares. An action or a behavior is a member a module declares, as the next section shows.
+Modules can also declare event types, supported feature names and event sources, and a test is a member that answers a Boolean. A source's function takes the receiver, the arguments, the environment and the function it delivers each event to, and answers an object whose `stop` ends the listening; each event is captured as the fields its event type declares. An action or a behavior is a member a module declares, as the next section shows.
 
 ## Execute actions and apply behaviors
 

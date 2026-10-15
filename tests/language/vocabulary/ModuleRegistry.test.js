@@ -41,7 +41,7 @@ describe('ModuleRegistry', () => {
         expect(owners).toEqual(['window', 'element']);
     });
 
-    it('refuses an event, a predicate or a type declared twice', () => {
+    it('refuses an event or a type declared twice', () => {
         const events = new DomqlModule('twice', { eventTypes: [{ name: 'click', payload: 'domEvent' }] });
 
         expect(messageOf(() => new ModuleRegistry([Vocabulary.module, events]))).toContain("'click' is declared already");

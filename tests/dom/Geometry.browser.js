@@ -106,7 +106,7 @@ describe('Geometry in a browser', () => {
                 expect(read('@box.size', { box })).toBeNull();
                 expect(read('@box.rect', { box })).toBeNull();
                 expect(read('@box.clientSize', { box })).toBeNull();
-                expect(read('@box is "attached"', { box })).toBe(true);
+                expect(read('@box.attached', { box })).toBe(true);
             }
         });
 
@@ -151,7 +151,7 @@ describe('Geometry in a browser', () => {
         it('knows when an element is disabled through its fieldset', () => {
             document.body.innerHTML = '<fieldset disabled><legend><input id="inLegend"></legend><input id="outside"></fieldset><input id="free">';
 
-            const answer = id => read('@input is "disabled"', { input: document.getElementById(id) });
+            const answer = id => read('@input.disabled', { input: document.getElementById(id) });
 
             expect(answer('outside')).toBe(true);
             expect(answer('inLegend')).toBe(false);
@@ -162,7 +162,7 @@ describe('Geometry in a browser', () => {
             document.body.innerHTML = '<input id="text"><input id="readonly" readonly><input id="checkbox" type="checkbox"><div id="editable" contenteditable="true"><span id="inner"></span></div><div id="plain"></div>';
 
             const element = id => document.getElementById(id);
-            const ask = (id, predicate) => read(`@e is "${predicate}"`, { e: element(id) });
+            const ask = (id, test) => read(`@e.${test}`, { e: element(id) });
 
             expect(ask('text', 'textEditable')).toBe(true);
             expect(ask('readonly', 'textEditable')).toBe(false);
@@ -188,7 +188,7 @@ describe('Geometry in a browser', () => {
             input.setSelectionRange(2, 7);
 
             expect(read('@input.selection { start: self.start, end: self.end }', { input })).toEqual({ start: 2, end: 7 });
-            expect(read('@input has "selection"', { input })).toBe(true);
+            expect(read('@input.hasSelection', { input })).toBe(true);
             expect(read('@input attributeOf "value"', { input })).toBeNull();
         });
 
@@ -196,7 +196,7 @@ describe('Geometry in a browser', () => {
             expect(read('@window.devicePixelRatio')).toBeGreaterThan(0);
             expect(read('@window matchesMedia "(min-width: 1px)"')).toBe(true);
             expect(read('@window matchesMedia "(max-width: 0px)"')).toBe(false);
-            expect(read('@document is "visible"')).toBe(true);
+            expect(read('@document.visible')).toBe(true);
         });
     });
 });

@@ -1,6 +1,6 @@
 // How a TypeScript caller uses DOMQL, which the declarations must accept; the test compiles this file.
 import { domql, DomqlError } from '../../src/domql.js';
-import type { DomqlBehavior, DomqlChangeOperation, DomqlDefinition, DomqlDefinitionNode, DomqlEvaluateAsyncOptions, DomqlEventListener, DomqlLiveStateWatch, DomqlLiveStateWatchOptions, DomqlModule, DomqlModuleContents, DomqlModuleFunctions, DomqlOperationOptions, DomqlPredicateName, DomqlQuery, DomqlReadOnly, DomqlResolvedDefinition, DomqlResultArgs, DomqlSelectedView, DomqlSelection, DomqlWatch, DomqlWatchOptions } from '../../src/domql.js';
+import type { DomqlBehavior, DomqlChangeOperation, DomqlDefinition, DomqlDefinitionNode, DomqlEvaluateAsyncOptions, DomqlEventListener, DomqlLiveStateWatch, DomqlLiveStateWatchOptions, DomqlModule, DomqlModuleContents, DomqlModuleFunctions, DomqlOperationOptions, DomqlQuery, DomqlReadOnly, DomqlResolvedDefinition, DomqlResultArgs, DomqlSelectedView, DomqlSelection, DomqlWatch, DomqlWatchOptions } from '../../src/domql.js';
 
 const panel = document.createElement('div');
 const controller = new AbortController();
@@ -202,17 +202,18 @@ const contents: DomqlModuleContents = {
     types: [{ name: 'childMetrics', fields: { childCount: 'number' } }],
     members: [{ name: 'metrics', function: 'readMetrics', kind: 'property', on: 'element', parameters: [], result: 'childMetrics', changes: 'unobserved', reads: 'fresh', tolerance: 0.5 }],
     eventTypes: [{ name: 'chart-selected', payload: 'number' }],
-    predicates: [{ verb: 'is', name: 'plotted', function: 'isPlotted', on: 'element', changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: true }] }],
     features: ['share'],
     observationTypes: [{ name: 'chartsChanged', contract: 'maintained', identity: ['root'], shared: true, function: 'observeCharts' }],
 };
 const functions: DomqlModuleFunctions = {
     readMetrics: (element: Element) => ({ childCount: element.children.length }),
-    isPlotted: () => true,
 };
 const module: DomqlModule = domql.createModule('metrics', contents, functions);
 
 domql.registerModule(module);
+
+// @ts-expect-error A module declares a test as a member that answers a Boolean, and no predicates.
+domql.createModule('tests', { predicates: [] });
 
 // @ts-expect-error A member is one of the kinds the language has.
 domql.createModule('bad', { members: [{ name: 'bad', function: 'bad', kind: 'method', on: 'element', result: 'number', changes: 'constant', reads: 'fresh' }] });
@@ -239,23 +240,23 @@ domql.query(42);
 // @ts-expect-error A query object is made from text or a definition, never from another query object.
 domql.query(query);
 
-const tested = domql.query('@panel is "attached" or @panel is "focused"', { panel }).definition.query;
+const tested = domql.query('@panel.attached or @panel is null', { panel }).definition.query;
 
 if (tested.kind === 'or') {
-    const first: DomqlDefinitionNode = tested.operands[0];
+    const second: DomqlDefinitionNode = tested.operands[1];
 
-    if (first.kind === 'predicate') {
-        const verb: 'is' | 'has' = first.verb;
-        const name: DomqlPredicateName = first.name;
+    if (second.kind === 'predicate') {
+        const verb: 'is' = second.verb;
+        const testedFor: null = second.name.value;
     }
 }
 
-// @ts-expect-error A predicate expression reads its predicate under is or has.
-const misread: DomqlDefinitionNode = { kind: 'predicate', verb: 'was', name: { kind: 'literal', value: 'attached' } };
+// @ts-expect-error A null test tests for null alone; any other test is a member that answers a Boolean.
+const misread: DomqlDefinitionNode = { kind: 'predicate', verb: 'is', target: { kind: 'self' }, name: { kind: 'literal', value: 'attached' } };
 
 const named: DomqlDefinitionNode = { kind: 'object', target: { kind: 'parameter', name: 'panel' }, locals: [{ name: 'size', value: { kind: 'member', target: { kind: 'self' }, name: 'size' } }], fields: [{ name: 'width', value: { kind: 'optionalChain', target: { kind: 'member', target: { kind: 'local', name: 'size' }, name: 'width', optional: true } } }] };
 
-// @ts-expect-error An infix call applies its receiver's null policy, and is never optional.
+// @ts-expect-error An infix call propagates a null receiver, and is never optional.
 const optionalOperation: DomqlDefinitionNode = { kind: 'infixCall', target: { kind: 'self' }, name: 'attributeOf', optional: true };
 
 // @ts-expect-error A local is named, as a field is.

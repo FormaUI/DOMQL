@@ -9,8 +9,6 @@ import { QueryEvaluation } from './QueryEvaluation.mjs';
 
 /** @typedef {{ window: Window, document: Document }} Environment */
 
-/** What a predicate answers. */
-const BOOLEAN = Type.createNamedType('boolean');
 
 /** The observation of whether an element is attached, which a member that answered null for a detached element depends on. */
 const ATTACHMENT_OBSERVATION = Object.freeze({ type: 'attachment', of: 'receiver' });
@@ -256,8 +254,9 @@ export class QueryEvaluator {
             case 'call':
             case 'infixCall':
                 return this.#member(node, current);
+            // A null test answers whether its subject is null, never null itself.
             case 'predicate':
-                return this.#predicate(node, current);
+                return this.#evaluate(node.target, current) === null;
             case 'conditional':
                 return this.#conditional(node, current);
             case 'optionalChain':
@@ -338,17 +337,6 @@ export class QueryEvaluator {
         }
 
         return entry.value;
-    }
-
-    /** Tests the subject, evaluated once, against the predicate the predicate expression names; a predicate expression of null is null. */
-    #predicate(node, current) {
-        const subject = this.#evaluate(node.target, current);
-
-        if (node.name.kind === 'literal' && node.name.value === null) {
-            return subject === null;
-        }
-
-        return subject === null ? null : this.#invoke(this.#resolvedDefinition.resolutionOf(node.name).predicate, subject, {}, BOOLEAN, node.name);
     }
 
     /** The operands combined by and, left to right: false as soon as one is false, so no operand after it is evaluated, and true where none is. */
@@ -434,7 +422,7 @@ export class QueryEvaluator {
         return args;
     }
 
-    /** Carries out a declaration's function, or a predicate's, checking that its result is of the declared type. */
+    /** Carries out a declaration's function, checking that its result is of the declared type. */
     #invoke(declaration, receiver, args, type, node) {
         const implementation = this.#moduleRegistry.getFunction(declaration);
 

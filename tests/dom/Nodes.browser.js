@@ -128,7 +128,7 @@ describe('Nodes in a browser', () => {
             ['parent', 'a shadow root in the document', '@item.parent?.children.count', () => element('<i></i>', null), null, 1, 2],
             ['root', 'another detached tree', '@item.root.all("*").count', () => element('<section><i></i></section>', null).firstElementChild, 1, 2, 3],
             ['root', 'a shadow root in the document', '@item.root.all("*").count', () => element('<section><i></i></section>', null).firstElementChild, 1, 2, 3],
-            ['is "attached"', 'a shadow root in the document', '@item is "attached"', () => element('<i></i>', null), false, true, true],
+            ['attached', 'a shadow root in the document', '@item.attached', () => element('<i></i>', null), false, true, true],
             ['shadow.elements', 'a detached host\'s shadow root', '@item.shadow.elements?.count', slot, 0, 1, 2],
             ['shadow.elements', 'a shadow root in the document', '@item.shadow.elements?.count', slot, 0, 1, 2],
         ])('hide from %s an insertion into %s until a refresh, which observes the tree it entered', async (member, target, text, receiver, before, refreshed, followed) => {

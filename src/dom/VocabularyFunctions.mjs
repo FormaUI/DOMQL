@@ -1,5 +1,5 @@
 /**
- * VocabularyFunctions — the functions that carry out the built-in vocabulary's members and answer its predicates
+ * VocabularyFunctions — the functions that carry out the built-in vocabulary's members
  */
 
 /** The input types `readonly` applies to. */
@@ -75,12 +75,12 @@ export class VocabularyFunctions {
                 return { stop: () => target.removeEventListener(type, deliver) };
             },
 
-            isAttached: element => element.isConnected,
-            isDisabled: element => element.matches(':disabled'),
-            isReadOnly: element => VocabularyFunctions.#isReadOnly(element),
-            isTextEditable: element => VocabularyFunctions.#isTextEditable(element),
-            isFocused: element => element.getRootNode().activeElement === element,
-            isVisible: document => document.visibilityState === 'visible',
+            attached: element => element.isConnected,
+            disabled: element => element.matches(':disabled'),
+            readOnly: element => VocabularyFunctions.#isReadOnly(element),
+            textEditable: element => VocabularyFunctions.#isTextEditable(element),
+            focused: element => element.getRootNode().activeElement === element,
+            visible: document => document.visibilityState === 'visible',
             hasChildren: element => element.childElementCount > 0,
             hasSelection: element => VocabularyFunctions.#hasSelection(element),
             hasFocus: document => document.hasFocus(),

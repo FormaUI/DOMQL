@@ -16,8 +16,6 @@ const TOKEN_DESCRIPTIONS = {
     end: 'the end of the query',
 };
 
-/** The verbs that test a value against predicates. */
-const VERBS = new Set(['is', 'has']);
 
 /** The tokens a chain input starts with, and so the argument of an infix call. */
 const CHAIN_INPUT_STARTS = new Set(['self', 'parameter', 'literal', 'name', '{', '(', '(?']);
@@ -33,7 +31,7 @@ export class Parser {
     /** @type {WeakMap<object, Span>} */
     #spans = new WeakMap();
 
-    /** The coalescing operators read where no group holds them, which no `and`, `or` or predicate expression may stand beside. @type {WeakSet<object>} */
+    /** The coalescing operators read where no group holds them, which no `and`, `or` or null test may stand beside. @type {WeakSet<object>} */
     #ungroupedCoalescings = new WeakSet();
 
     /** @param {string} text The query text. */
@@ -125,7 +123,7 @@ export class Parser {
         return this.#recordSpan({ kind: 'conditional', condition, consequent, alternative }, start);
     }
 
-    /** Reads an operand: an equality operand, and a predicate expression of it where a verb follows it, or the coalescing operator that takes it where `??` follows it. */
+    /** Reads an operand: an equality operand, and a null test of it where `is` follows it, or the coalescing operator that takes it where `??` follows it. */
     #parseOperand() {
         const start = this.#token.start;
 
@@ -137,19 +135,19 @@ export class Parser {
             return this.#parseCoalescingOperator(value, start);
         }
 
-        const operand = this.#isVerb() ? this.#parsePredicate(value, start) : value;
+        const operand = this.#isKeyword('is') ? this.#parseNullTest(value, start) : value;
 
         if (this.#token.type === '??') {
-            throw DomqlError.syntax("'??' and a predicate expression stand apart, one of them grouped: write '(… is …) ?? …' or '… is (… ?? …)'", this.#text, this.#token.start);
+            throw DomqlError.syntax("'??' and 'is' stand apart, one of them grouped: write '(… is null) ?? …' or '(… ?? …) is null'", this.#text, this.#token.start);
         }
 
         return operand;
     }
 
-    /** Refuses what an operand cannot start with: a verb, which tests the value written before it, and a conditional, which is grouped where it is an operand. */
+    /** Refuses what an operand cannot start with: `is`, which tests the value written before it, and a conditional, which is grouped where it is an operand. */
     #refuseOperandStart(start) {
-        if (this.#isVerb()) {
-            throw DomqlError.syntax(`'${this.#token.value}' tests the value written before it: write 'self ${this.#token.value} …' to test the current value`, this.#text, start);
+        if (this.#isKeyword('is')) {
+            throw DomqlError.syntax("'is' tests the value written before it: write 'self is null' to test the current value", this.#text, start);
         }
 
         if (this.#isKeyword('if')) {
@@ -172,8 +170,8 @@ export class Parser {
         const fallbackValue = this.#parseEqualityOperand();
         const fallback = this.#token.type === '??' ? this.#parseCoalescingOperator(fallbackValue, fallbackStart) : fallbackValue;
 
-        if (this.#isVerb()) {
-            throw DomqlError.syntax("'??' and a predicate expression stand apart, one of them grouped: write '(… ?? …) is …' or '… ?? (… is …)'", this.#text, this.#token.start);
+        if (this.#isKeyword('is')) {
+            throw DomqlError.syntax("'??' and 'is' stand apart, one of them grouped: write '(… ?? …) is null' or '… ?? (… is null)'", this.#text, this.#token.start);
         }
 
         const node = this.#recordSpan({ kind: 'coalescing', value, fallback }, start);
@@ -233,8 +231,8 @@ export class Parser {
                     continue;
                 }
 
-                if (this.#isVerb()) {
-                    throw DomqlError.syntax(`'${this.#token.value}' tests a value and is no member: write '${this.#token.value}' after the value, without a dot`, this.#text, this.#token.start);
+                if (this.#isKeyword('is')) {
+                    throw DomqlError.syntax("'is' tests a value and is no member: write 'is' after the value, without a dot", this.#text, this.#token.start);
                 }
 
                 node = this.#parseMemberAccessExpression(node, start, optional);
@@ -383,8 +381,8 @@ export class Parser {
                 continue;
             }
 
-            if (this.#isVerb()) {
-                throw DomqlError.syntax(`'${this.#token.value}' tests a value and is no member: write '${this.#token.value}' after the optional-access group`, this.#text, this.#token.start);
+            if (this.#isKeyword('is')) {
+                throw DomqlError.syntax("'is' tests a value and is no member: write 'is' after the optional-access group", this.#text, this.#token.start);
             }
 
             node = this.#parseMemberAccessExpression(node, start, true);
@@ -522,13 +520,17 @@ export class Parser {
         return this.#tokens[this.#index + 1].type === '(' ? `'self.${name}(…)'` : `'self ${name} …'`;
     }
 
-    /** Reads a predicate expression: its verb and the one predicate name it reads, of the subject written before it. */
-    #parsePredicate(subject, start) {
-        const verb = this.#token.value;
-
+    /** Reads a null test: `is null`, of the subject written before it; a test of anything else is a member that answers a Boolean. */
+    #parseNullTest(subject, start) {
         this.#advance();
 
-        return this.#recordSpan({ kind: 'predicate', verb, target: subject, name: this.#parsePredicateName(verb) }, start);
+        const token = this.#token;
+
+        if (token.type !== 'literal' || token.value !== null) {
+            throw DomqlError.syntax("'is' tests whether a value is null, as in '… is null'; any other test is a member that answers a Boolean, read as a property is, as '@input.disabled' is", this.#text, token.start);
+        }
+
+        return this.#recordSpan({ kind: 'predicate', verb: 'is', target: subject, name: this.#parseInput() }, start);
     }
 
     /** Reads operands joined by the operator, answering the operand alone where there is one. */
@@ -558,29 +560,6 @@ export class Parser {
         if (this.#ungroupedCoalescings.has(operand)) {
             throw DomqlError.syntax(`'??' and '${operator}' stand apart, one of them grouped: write '(… ?? …) ${operator} …' or '… ?? (… ${operator} …)'`, this.#text, this.#spans.get(operand).start);
         }
-    }
-
-    /** Reads the one predicate name a predicate expression reads: a string or a parameter, or the null `is null` tests for. */
-    #parsePredicateName(verb) {
-        const token = this.#token;
-
-        if ((token.type === 'literal' && typeof token.value === 'string') || token.type === 'parameter') {
-            return this.#parseInput();
-        }
-
-        if (token.type === 'literal' && token.value === null) {
-            if (verb !== 'is') {
-                throw DomqlError.syntax(`'${verb}' takes no null; 'is null' tests whether a value is null`, this.#text, token.start);
-            }
-
-            return this.#parseInput();
-        }
-
-        if (token.type === '(') {
-            throw DomqlError.syntax(`'${verb}' reads one predicate name; combine predicate expressions with and and or, as in '@panel is "attached" and @panel is "visible"'`, this.#text, token.start);
-        }
-
-        throw this.#unexpected('a predicate named by a string or a parameter');
     }
 
     /** Reads an object expression: its locals, each followed by a comma, and then its fields, at least one. */
@@ -682,10 +661,6 @@ export class Parser {
 
     get #token() {
         return this.#tokens[this.#index];
-    }
-
-    #isVerb() {
-        return this.#token.type === 'keyword' && VERBS.has(this.#token.value);
     }
 
     /** Whether a local starts here: `let`, which a colon after it would make a field's name instead, a keyword that names nothing. */

@@ -60,7 +60,7 @@ export class DefinitionWriter {
                 return node.argument === undefined ? head : `${head} ${DefinitionWriter.#argument(node.argument, level)}`;
             }
             case 'predicate':
-                return `${DefinitionWriter.#within(node.target, PRECEDENCE.infixCall, level)} ${node.verb} ${DefinitionWriter.#write(node.name, level)}`;
+                return `${DefinitionWriter.#within(node.target, PRECEDENCE.infixCall, level)} is null`;
             case 'conditional':
                 return DefinitionWriter.#conditional(node, level);
             case 'coalescing':
