@@ -7,6 +7,7 @@ This plan records the steps that take DOMQL from what is built to what the [spec
 Each item is what exists and what checks it.
 
 - **The language.** Parsing text and creating queries from their definition, with the position of every mistake, and writing a definition back as text, on one line or laid out as `domql.format` gives a request's canonical text. Checked by the tests of parsing, of the definition and of writing it.
+- **Navigation and absence.** Access that requires a receiver that cannot be null, `?.`, optional-access groups, the coalescing operator and access by name, each recorded in the definition and written back as canonical text, a watch following what each evaluates. Checked by the tests of parsing, of the definition, of resolution, of evaluation, of watches and of comparing snapshots.
 - **The vocabulary.** The built-in vocabulary declared as module data, and modules that extend it. Checked by the tests of modules, the registry and the vocabulary.
 - **Bindings and resolution.** Every binding typed from its value, and a definition resolved against the vocabulary and its result typed, without a browser; the resolution is kept for its definition, so the queries made from one text share it. Checked by the resolver tests and the tests of `query.resolve`.
 - **The query object.** `domql.query` makes a query object from text or a definition, `with` binds it anew and `select` takes a part of its result, and every operation is carried out through it, one the request's kind does not take refused before anything runs. Checked by the tests of the query object, of selections and of refusals.
@@ -19,7 +20,7 @@ Each item is what exists and what checks it.
 - **Change sets.** The JSON Patch change sets that bring live state up to date, computed between snapshots; lists projected from elements change by element, through identities kept beside the result. Checked by the tests of computing change sets and of applying them in place, each against expected patches and results and together, and of watches that keep live state.
 - **The package.** The bundle, exporting `domql` and `DomqlError` and answering the package's version, with its TypeScript declarations checked against `domql` and against a TypeScript caller; the READMEs' examples run as tests.
 
-What is not built: D13's navigation, absence and tests, editor tooling and the C# half.
+What is not built: the rest of D13, from strict Boolean expressions to equality and Boolean members, editor tooling and the C# half.
 
 ## Decisions
 
@@ -304,6 +305,7 @@ A step is done when its tests pass in the gate, its documents say what it built,
 - **13. The API.** Done: every operation is carried out through a query object, which watches and behaviors answer with handles that raise events, selections and selected views take a part of a result, a signal ends every lifetime, `domql.format` gives a request's canonical text, and `domql.info` tells the build's version from the specification's.
 - **16. Binding types.** Done: every binding takes its type from its value, null as a `null` and the empty list as a `list<never>`, and on a receiver of unknown type a property is accepted until the receiver's type is known, a call is checked by its name, its form and its arguments, and the request keeps its kind, an empty list refusing a tie between declarations as ambiguous.
 - **17. Shadow trees in watches.** Done: an observation follows its receiver's root or every root of its flat-tree ancestry, a watch follows a receiver to another tree or slot, and `is "textEditable"` counts an inert ancestor in the flat tree. Following them adds 0.5 to 1 ms to refreshing a watch of 1,000 rows in the simulated DOM, most of it the scrolling each row's `rect` follows at its roots.
+- **18. Required and optional access.** Done: `.` requires a receiver that cannot be null and `?.` reads one that can, ending its optional chain with null; an optional-access group makes a chain's accesses optional at once; the coalescing operator falls back where a value is null; and brackets read the property a name determined when the query is prepared names, which replaced `get`.
 
 ### 9. Measured performance
 
@@ -347,14 +349,6 @@ The query object of D12 for a .NET host: `Domql.Query(text, bindings)` and its o
   - It reports an exception from an application handler without restarting synchronization, since the state was already accepted.
   - Its application of change sets passes a conformance corpus the JavaScript patcher passes too: each case a previous result, a change set and the result they give, the expected results reviewed independently of either applier, moves and escaped paths among them.
 - **State:** not started.
-
-### 18. Required and optional access
-
-Make access strict by default and optional where it is written so, as D13 decides.
-
-- **Needs:** D13.
-- **Done when:** `.` refuses a nullable receiver when the query is prepared; `?.` short-circuits to the end of its chain, a group ending one, and the definition records each boundary; `(?…)` is rewritten to `?.`, with no node of its own, and formats as `?.`; brackets read the property a string expression names, from the possible names preparation determines, refusing one whose names it cannot, `[…]` refusing a receiver that can be null and `?.[…]` answering null for one that is, on a receiver of unknown type as `?.` does, and a watch follows the name's dependencies and the property selected, and `get` is removed, its uses migrating as D13's table sets out; `??` falls back lazily, associates to the right and is refused ungrouped beside `and`, `or` and the predicate verbs; the specification states each, its grammar and definition among them, and its examples and the READMEs' are written in it, so `self.rect.width` reads `self.rect?.width` where `rect` can be null; text and definition round-trip, `(x.y.z)?.a`, `(?x.y.z)?.a.b` and `(?x.y.z)?.a?.b` among them; a watch acquires and releases the observations of what it evaluates, as an optional receiver turns from null to present and back and as `??` moves between its value and its fallback, and the changes of what it newly evaluates update it.
-- **State:** in progress. Required and optional access are built: `.` refuses a nullable receiver, `?.` short-circuits to the end of its optional chain, which the definition records, and the specification, the design, the READMEs and the tests write `?.` where a receiver can be null. Optional-access groups are built: `(?` is one token, a group's accesses are recorded as optional and its optional chain ends at its closing parenthesis, and the specification holds the rules of D13's grammar they touch, from `chain` and `chain-input` to `access-expression`, with the parser's methods named after them; a receiver that is a grouped cast waits for step 20's casts. The coalescing operator is built: `??` evaluates its fallback only where its value is null, associates to the right, is refused ungrouped beside `and`, `or` and a predicate expression, compares a number by the side it came from, and is recorded as a `coalescing` node, the definition's version 6. Access by name remains.
 
 ### 19. Strict Boolean expressions
 

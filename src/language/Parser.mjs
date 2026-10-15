@@ -3,6 +3,7 @@
  */
 
 import { DomqlError } from './DomqlError.mjs';
+import { Names } from './Names.mjs';
 import { Specification } from './Specification.mjs';
 import { Tokenizer } from './Tokenizer.mjs';
 
@@ -182,10 +183,18 @@ export class Parser {
         let isOptional = false;
 
         for (;;) {
-            if (this.#token.type === '.' || this.#token.type === '?.') {
+            if (this.#token.type === '[') {
+                node = this.#parseAccessByName(node, start, false);
+            } else if (this.#token.type === '.' || this.#token.type === '?.') {
                 const optional = this.#token.type === '?.';
 
                 this.#advance();
+
+                if (optional && this.#token.type === '[') {
+                    node = this.#parseAccessByName(node, start, true);
+                    isOptional = true;
+                    continue;
+                }
 
                 if (this.#isVerb()) {
                     throw DomqlError.syntax(`'${this.#token.value}' tests a value and is no member: write '${this.#token.value}' after the value, without a dot`, this.#text, this.#token.start);
@@ -240,8 +249,20 @@ export class Parser {
         let node = this.#parseInput();
         let accesses = 0;
 
-        while (this.#token.type === '.' || this.#token.type === '?.') {
+        while (this.#token.type === '.' || this.#token.type === '?.' || this.#token.type === '[') {
+            if (this.#token.type === '[') {
+                node = this.#parseAccessByName(node, receiverStart, true);
+                accesses++;
+                continue;
+            }
+
             this.#advance();
+
+            if (this.#token.type === '[') {
+                node = this.#parseAccessByName(node, receiverStart, true);
+                accesses++;
+                continue;
+            }
 
             if (this.#isVerb()) {
                 throw DomqlError.syntax(`'${this.#token.value}' tests a value and is no member: write '${this.#token.value}' after the optional-access group`, this.#text, this.#token.start);
@@ -299,6 +320,21 @@ export class Parser {
             default:
                 throw this.#unexpected('a value');
         }
+    }
+
+    /**
+     * Reads an access by name, its expression in brackets, which `?.` makes optional: a member access whose name is that expression's node, or the name itself where the expression is a string literal that is a name, as `.` writes it.
+     */
+    #parseAccessByName(target, start, optional) {
+        this.#advance();
+
+        const expression = this.#parseExpression();
+
+        this.#expect(']');
+
+        const name = expression.kind === 'literal' && Names.isName(expression.value) ? expression.value : expression;
+
+        return this.#recordSpan(optional ? { kind: 'member', target, name, optional } : { kind: 'member', target, name }, start);
     }
 
     /** Reads an access expression after its dot, or the `?.` of an optional access: a member access, or a call expression where parentheses follow the name. */
@@ -365,7 +401,7 @@ export class Parser {
 
         this.#recordSpan(node, start);
 
-        if (this.#token.type === '.' || this.#token.type === '?.' || this.#token.type === '{' || this.#token.type === 'name') {
+        if (this.#token.type === '.' || this.#token.type === '?.' || this.#token.type === '[' || this.#token.type === '{' || this.#token.type === 'name') {
             throw DomqlError.syntax(`An infix call ends its chain; group it to continue from its result, as in '(… ${name} …).value'`, this.#text, this.#token.start);
         }
 

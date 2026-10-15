@@ -215,21 +215,24 @@ describe('QueryEvaluator', () => {
         });
     });
 
-    describe('reading by name', () => {
-        it('reads what a name resolves to, as direct access does', () => {
-            expect(read('@panel.get("children.count")', { panel })).toBe(3);
-            expect(read('@panel.get("size.width")', { panel })).toBe(640);
-            expect(read('@panel { size: self.get("size"), clientSize: self.get("clientSize") }', { panel }).size).toEqual({ width: 640, height: 480 });
+    describe('access by name', () => {
+        it('reads what a name names, as direct access does', () => {
+            expect(read('@panel["children"].count', { panel })).toBe(3);
+            expect(read('@panel["size"]?.width', { panel })).toBe(640);
+            expect(read('@panel { size: self["size"], clientSize: self["clientSize"] }', { panel }).size).toEqual({ width: 640, height: 480 });
         });
 
-        it('takes the name from a bound string', () => {
-            expect(read('@panel.get(@name)', { panel, name: 'children.count' })).toBe(3);
+        it('takes the name from a bound string, a local, a conditional and a coalescing operator', () => {
+            expect(read('@panel[@name]?.width', { panel, name: 'size' })).toBe(640);
+            expect(read('@panel { let name: if @wide then "size" else "clientSize", width: self[name]?.width }', { panel, wide: true })).toEqual({ width: 640 });
+            expect(read('@panel[@name ?? "size"]?.width', { panel, name: null })).toBe(640);
         });
 
-        it('answers null where a step of the chain is null', () => {
+        it('answers null where its receiver is null and it is optional', () => {
             const detached = document.createElement('div');
 
-            expect(read('@detached.get("size.width")', { detached })).toBeNull();
+            expect(read('@detached[@name]?.width', { detached, name: 'size' })).toBeNull();
+            expect(read('@detached.parent?.[@name]', { detached, name: 'size' })).toBeNull();
         });
     });
 
@@ -465,9 +468,9 @@ describe('QueryEvaluator', () => {
                 .toEqual({ key: 'a1', inner: { last: 'a3' } });
         });
 
-        it('stand where a fixed argument is, with the value it was resolved to', () => {
-            expect(read('@panel { let path: "size.width", width: self.get(path) }', { panel })).toEqual({ width: 640 });
-            expect(read('@panel { let path: @path, let selected: path, width: self.get(selected) }', { panel, path: 'size.width' })).toEqual({ width: 640 });
+        it('stand where an access by name\'s name is, with the names they can give', () => {
+            expect(read('@panel { let name: "size", width: self[name]?.width }', { panel })).toEqual({ width: 640 });
+            expect(read('@panel { let name: @name, let selected: name, width: self[selected]?.width }', { panel, name: 'size' })).toEqual({ width: 640 });
         });
     });
 

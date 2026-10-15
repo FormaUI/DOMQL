@@ -20,7 +20,7 @@ const CHANGE_CATEGORIES = ['constant', 'observable', 'partly-observable', 'unobs
 /** How a member reads: the specification's modes, and `derived` for a contract that comes from the member or expression a member selects or evaluates. */
 const READING_MODES = ['fresh', 'maintained', 'captured', 'derived'];
 const NULL_POLICIES = ['propagate', 'accept'];
-const SELECTION_KINDS = ['member', 'eventType', 'feature'];
+const SELECTION_KINDS = ['eventType', 'feature'];
 const PARAMETER_KINDS = ['value', 'expression'];
 const PREDICATE_VERBS = ['is', 'has'];
 
@@ -32,9 +32,6 @@ const OBSERVED_CHANGE_CATEGORIES = ['observable', 'partly-observable'];
 
 /** What an observation observes, besides a target an argument names. */
 const OBSERVATION_TARGETS = ['receiver', 'root', 'roots', 'window', 'document'];
-
-/** What a fixed parameter can select that carries out the member itself: the member its name resolves to. */
-const DELEGATED_SELECTION_KINDS = ['member'];
 
 /** The names of the types DOMQL itself defines, which a module cannot declare again. */
 const RESERVED_TYPE_NAMES = new Set(['number', 'string', 'boolean', 'element', 'window', 'document', 'list', 'event', 'null', 'never']);
@@ -318,10 +315,8 @@ export class DomqlModule {
             fail(`A member is named as a name is and is one of ${MEMBER_KINDS.join(', ')}`, String(name));
         }
 
-        const delegatesEvaluation = (member.parameters ?? []).some(parameter => parameter?.fixed === true && DELEGATED_SELECTION_KINDS.includes(parameter.selects));
-
-        if (delegatesEvaluation ? member.function !== undefined : !DomqlModule.#isIdentifier(member.function)) {
-            fail(delegatesEvaluation ? 'It names no function, since what its name resolves to carries it out' : 'It names its function as an identifier', name);
+        if (!DomqlModule.#isIdentifier(member.function)) {
+            fail('It names its function as an identifier', name);
         }
 
         DomqlModule.#validateReceiverTypes(member, name, fail);

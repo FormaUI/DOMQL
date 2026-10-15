@@ -338,6 +338,26 @@ describe('Watch', () => {
         });
     });
 
+    describe('an access by name', () => {
+        it('follows what its name reads and the property it selects, holding the one it no longer selects no longer', async () => {
+            const item = panel.querySelector('i');
+
+            watch('{ v: @item[if @item attributeOf "data-on" is null then "level" else "tally"] }', { item });
+            await settle();
+            gauges.get(item).sample = { pending: false, value: 4 };
+            gauges.get(item).notify();
+            await settle();
+
+            expect(snapshots.at(-1)).toEqual({ v: 4 });
+
+            item.setAttribute('data-on', '');
+            await settle();
+
+            expect(snapshots.at(-1)).toEqual({ v: evaluations });
+            expect(gauges.get(item).stopped).toBe(1);
+        });
+    });
+
     describe('a coalescing operator', () => {
         it('holds what its fallback reads only while its value is null', async () => {
             const item = panel.querySelector('i');

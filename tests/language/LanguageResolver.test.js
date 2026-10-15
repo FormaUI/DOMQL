@@ -322,14 +322,24 @@ describe('LanguageResolver', () => {
             expect(failure('@panel is @document').message).toContain('never null');
         });
 
-        it('resolves the chain of names a get reads to the type at its end', () => {
-            expect(resolve('@panel.get("size.width")').type.toString()).toBe('number?');
-            expect(resolve('@panel.get("children.count")').type.toString()).toBe('number');
+        it('resolves an access by name to the type the properties its names name share', () => {
+            expect(resolve('@panel["children"].count').type.toString()).toBe('number');
+            expect(resolve('@panel[@name]', { panel, name: 'size' }).type.toString()).toBe('size?');
+            expect(resolve('@panel { let name: if @wide then "size" else "clientSize", s: self[name] }', { panel, wide: true }).type.toString()).toBe('{ s: size? }');
+            expect(resolve('@panel[null ?? "size"]').type.toString()).toBe('size?');
         });
 
-        it('refuses a get of a chain that names nothing', () => {
-            expect(failure('@panel.get("size.depth")').message).toContain("'depth' names no property");
-            expect(failure('@panel.get("matches")').message).toContain('reads without arguments');
+        it('refuses an access by name whose names cannot be determined, can be null, name no property or are of different types', () => {
+            expect(failure('@panel[@panel attributeOf "data-name"]').message).toContain('An access by name reads a name determined when the query is prepared');
+            expect(failure('@panel[@name]', { panel, name: null }).message).toContain("An access by name reads a string, and '@name' can be null");
+            expect(failure('@panel["depth"]').message).toContain("'depth' is no member of the vocabulary");
+            expect(failure('@panel[if @wide then "size" else "children"]', { panel, wide: true }).message).toContain('are of one type, and these are size?, list<element>');
+        });
+
+        it('refuses an access by name of a receiver that can be null, giving the optional form', () => {
+            expect(failure('@panel.parent[@name]', { panel, name: 'size' }).message).toContain("write '@panel.parent?.[@name]'");
+            expect(resolve('@panel.parent?.[@name]', { panel, name: 'size' }).type.toString()).toBe('size?');
+            expect(resolve('@row?.[@name]', { row: null, name: 'id' }).type.toString()).toBe('null');
         });
 
         it('resolves an event type and a feature', () => {
@@ -400,7 +410,7 @@ describe('LanguageResolver', () => {
 
         it('points into a definition that has no text', () => {
             const definition = {
-                version: 6,
+                version: 7,
                 query: { kind: 'member', target: { kind: 'parameter', name: 'panel' }, name: 'nonsense', arguments: [] },
             };
 
@@ -547,7 +557,7 @@ describe('LanguageResolver', () => {
 
     describe('the resolved definition', () => {
         it('names each field of each object expression once, as it is written', () => {
-            const resolved = resolve('@panel { size: self.size, kind: self attributeOf "role", attached: self is "attached", clientSize: self.get("clientSize"), rows: self.all("i") { rect: self.rect } }');
+            const resolved = resolve('@panel { size: self.size, kind: self attributeOf "role", attached: self is "attached", clientSize: self["clientSize"], rows: self.all("i") { rect: self.rect } }');
             const { query } = resolved.definition;
 
             expect(resolved.fieldNamesOf(query)).toEqual(['size', 'kind', 'attached', 'clientSize', 'rows']);

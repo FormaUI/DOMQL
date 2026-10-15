@@ -8,7 +8,6 @@ import { ResolvedDefinition } from './ResolvedDefinition.mjs';
 import { Type } from './Type.mjs';
 
 const DATA_TYPE_NAMES = new Set(['number', 'string', 'boolean']);
-const READABLE_MEMBER_KINDS = new Set(['property', 'operation']);
 
 /** How each form of a declaration is written, and the node that writes it. */
 const FORM_NODE_KINDS = { access: 'member', call: 'call', infix: 'infixCall' };
@@ -274,9 +273,10 @@ export class LanguageResolver {
 
     #resolveMember(node, pointer, scope) {
         const receiver = this.#resolveNode(node.target, `${pointer}/target`, scope);
+        const written = typeof node.name === 'string' ? node.name : `[${DefinitionWriter.write(node.name)}]`;
 
         if (receiver.kind !== 'query') {
-            this.#fail(`'${node.name}' follows ${LanguageResolver.#descriptionOf(receiver.kind)}, which takes no members`, pointer);
+            this.#fail(`'${written}' follows ${LanguageResolver.#descriptionOf(receiver.kind)}, which takes no members`, pointer);
         }
 
         // An access and a call require a receiver that cannot be null, and an optional one reads it where it is not null, ending its chain with null where it is; an infix call applies its receiver's null policy.
@@ -284,7 +284,7 @@ export class LanguageResolver {
             if (node.optional !== true) {
                 const follows = receiver.type.kind === 'null' ? 'null' : `${receiver.type}, which can be null`;
 
-                this.#fail(`'${node.name}' follows ${follows}: write '${DefinitionWriter.write({ ...node, optional: true })}' to read it where it is not`, pointer);
+                this.#fail(`'${written}' follows ${follows}: write '${DefinitionWriter.write({ ...node, optional: true })}' to read it where it is not`, pointer);
             }
 
             this.#chains.at(-1).shortCircuits = true;
@@ -292,6 +292,95 @@ export class LanguageResolver {
 
         const receiverType = node.optional === true ? receiver.type.toNonNullable() : receiver.type;
 
+        if (typeof node.name !== 'string') {
+            return this.#resolveByName(node, pointer, scope, receiverType);
+        }
+
+        return this.#resolveMemberOf(node, pointer, scope, receiverType);
+    }
+
+    /**
+     * Resolves an access by name: the names its expression can give, which preparation determines, each a property of the receiver, their types of one type as a conditional's branches are.
+     * The resolution keeps each name's, so evaluation reads the one the name selects; on a receiver of unknown type, whether each is a property and whether their types agree are checked once its type is known.
+     */
+    #resolveByName(node, pointer, scope, receiverType) {
+        const namePointer = `${pointer}/name`;
+        const name = this.#resolveNode(node.name, namePointer, scope);
+        const possible = name.kind === 'query' ? this.#possibleNamesOf(node.name, scope) : null;
+
+        if (possible === null) {
+            this.#fail(`An access by name reads a name determined when the query is prepared, which a string literal, null, a bound parameter, a local holding one, or a conditional or a '??' of them gives, and '${DefinitionWriter.write(node.name)}' is none of them`, namePointer);
+        }
+
+        if (possible.canBeNull || possible.names.size === 0) {
+            this.#fail(`An access by name reads a string, and '${DefinitionWriter.write(node.name)}' can be null`, namePointer);
+        }
+
+        const candidates = new Map();
+        const types = [];
+
+        for (const candidate of possible.names) {
+            const access = { kind: 'member', target: node.target, name: candidate, ...(node.optional === true ? { optional: true } : {}) };
+
+            types.push(this.#resolveMemberOf(access, pointer, scope, receiverType).type);
+            candidates.set(candidate, this.#resolutions.get(pointer));
+        }
+
+        let type = types.reduce((merged, candidateType) => (merged === null ? null : Type.merge(merged, candidateType)), Type.never);
+
+        if (type === null) {
+            if (!LanguageResolver.#isOfUnknownType(receiverType)) {
+                this.#fail(`The properties '${DefinitionWriter.write(node.name)}' can name are of one type, and these are ${types.join(', ')}`, namePointer);
+            }
+
+            type = Type.null;
+        }
+
+        this.#resolutions.set(pointer, { kind: 'byName', candidates });
+
+        return { type, kind: 'query', isFixed: false };
+    }
+
+    /**
+     * The names an access by name's expression can give, determined through these forms alone: a string literal, null, a bound parameter, a local whose value is one of them, a conditional whose branches are, and a `??` of them, whose names are its value's and, where its value can be null, its fallback's.
+     * Null is tracked through them, so a `??` can remove it; any other expression gives no names that can be determined, and answers null.
+     * @returns {{ names: Set<string>, canBeNull: boolean } | null}
+     */
+    #possibleNamesOf(node, scope) {
+        const of = value => (typeof value === 'string' ? { names: new Set([value]), canBeNull: false } : value === null ? { names: new Set(), canBeNull: true } : null);
+
+        switch (node.kind) {
+            case 'literal':
+                return of(node.value);
+            case 'parameter':
+                return node.name === 'document' || node.name === 'window' ? null : of(this.#bindings.get(node.name));
+            case 'local': {
+                const local = scope.locals.get(node.name);
+
+                return local === undefined ? null : this.#possibleNamesOf(local.value, local.scope);
+            }
+            case 'conditional': {
+                const sides = [node.consequent, node.alternative].map(branch => this.#possibleNamesOf(branch, scope));
+
+                return sides.includes(null) ? null : { names: new Set(sides.flatMap(side => [...side.names])), canBeNull: sides.some(side => side.canBeNull) };
+            }
+            case 'coalescing': {
+                const value = this.#possibleNamesOf(node.value, scope);
+                const fallback = this.#possibleNamesOf(node.fallback, scope);
+
+                if (value === null || fallback === null) {
+                    return null;
+                }
+
+                return { names: new Set([...value.names, ...(value.canBeNull ? fallback.names : [])]), canBeNull: value.canBeNull && fallback.canBeNull };
+            }
+            default:
+                return null;
+        }
+    }
+
+    /** Resolves the member the node names on a receiver of the type, which its receiver's null policy has already been applied to. */
+    #resolveMemberOf(node, pointer, scope, receiverType) {
         if (LanguageResolver.#isOfUnknownType(receiverType)) {
             return this.#resolveOnUnknownType(node, pointer, scope, receiverType);
         }
@@ -343,7 +432,7 @@ export class LanguageResolver {
         const declared = Type.parse(declaration.result).resolveTypeParameters(resultTypeArguments);
 
         this.#usedDeclarations.push({ declaration, pointer });
-        this.#resolutions.set(pointer, { kind: 'member', declaration, receiverType, type: declared, arguments: resolved.arguments, selected: resolved.selected, steps: resolved.steps });
+        this.#resolutions.set(pointer, { kind: 'member', declaration, receiverType, type: declared, arguments: resolved.arguments, selected: resolved.selected });
 
         const type = receiverType.isNullable || resolved.isNullable ? declared.toNullable() : declared;
 
@@ -487,7 +576,6 @@ export class LanguageResolver {
         const resolved = [];
         let isNullable = false;
         let selected;
-        let steps;
 
         for (const parameter of parameters) {
             const given = supplied.get(parameter.name);
@@ -531,13 +619,12 @@ export class LanguageResolver {
                 const selection = this.#select(parameter, result, declaration, receiverType, valuePointer);
 
                 selected = selection.selected ?? selected;
-                steps = selection.steps ?? steps;
             }
 
             resolved.push({ parameter, isDefault: false, pointer: valuePointer, node: given.node, value: parameter.fixed === true ? result.value : undefined });
         }
 
-        return { arguments: resolved, isNullable, selected, steps };
+        return { arguments: resolved, isNullable, selected };
     }
 
     /** Checks a value argument against its parameter, answering false where a null makes the call answer null. */
@@ -587,8 +674,6 @@ export class LanguageResolver {
         const name = result.value;
 
         switch (parameter.selects) {
-            case 'member':
-                return this.#selectMember(receiverType, name, pointer);
             case 'eventType': {
                 const event = this.#moduleRegistry.getEventType(name);
 
@@ -605,47 +690,6 @@ export class LanguageResolver {
 
                 return { selected: { name, type: Type.createNamedType('string') } };
         }
-    }
-
-    /** Resolves the chain of names a get reads, each segment against the type before it, answering the type of the last. */
-    #selectMember(receiverType, path, pointer) {
-        let current = receiverType;
-        let isNullable = false;
-        const steps = [];
-
-        for (const segment of path.split('.')) {
-            isNullable ||= current.isNullable;
-
-            // A receiver of unknown type is never read, and each name of the path may be a field of data, so the path is checked once its receiver's type is known.
-            if (LanguageResolver.#isOfUnknownType(current)) {
-                current = Type.null;
-                continue;
-            }
-
-            const field = this.#fieldTypeOf(current, segment);
-
-            if (field !== null) {
-                steps.push({ kind: 'field', name: segment });
-                current = field;
-                isNullable ||= field.isNullable;
-                continue;
-            }
-
-            const declaration = this.#moduleRegistry.getMembers(segment).find(candidate => READABLE_MEMBER_KINDS.has(candidate.kind) && candidate.parameters.every(parameter => !parameter.required) && LanguageResolver.#matchesReceiver(candidate, current, new Map()));
-
-            if (declaration === undefined) {
-                this.#fail(`'${segment}' names no property or operation of ${current.toNonNullable()} that reads without arguments`, pointer);
-            }
-
-            const typeArguments = new Map();
-            LanguageResolver.#matchesReceiver(declaration, current, typeArguments);
-            current = Type.parse(declaration.result).resolveTypeParameters(typeArguments);
-            steps.push({ kind: 'member', declaration, type: current });
-            isNullable ||= current.isNullable;
-            this.#usedDeclarations.push({ declaration, pointer });
-        }
-
-        return { selected: { name: path, type: isNullable ? current.toNullable() : current }, steps };
     }
 
     #resolveObject(node, pointer, scope) {
@@ -680,7 +724,7 @@ export class LanguageResolver {
                 this.#fail(`The local '${local.name}' is ${LanguageResolver.#descriptionOf(result.kind)}, and a local is a value`, valuePointer);
             }
 
-            locals = new Map(locals).set(local.name, { result, value: local.value });
+            locals = new Map(locals).set(local.name, { result, value: local.value, scope: { current, locals } });
         });
 
         const fieldTypes = new Map();

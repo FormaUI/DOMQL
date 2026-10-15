@@ -167,7 +167,6 @@ export class Vocabulary {
                 operation('closest', 'element', 'element?', { ...MATCHING, parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS] }),
                 operation('first', 'element', 'element?', { ...MATCHING, function: 'firstMatching', parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS] }),
                 operation('all', 'element', 'list<element>', { ...MATCHING, parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS] }),
-                operation('get', 'any', '@selected', { function: null, changes: 'derived', reads: 'derived', parameters: [valueParameter('name', 'string', { fixed: true, selects: 'member' })] }),
                 operation('at', 'list<T>', 'T?', { changes: 'derived', reads: 'derived', parameters: [valueParameter('index', 'number')] }),
                 operation('max', 'list<T>', 'number?', { changes: 'derived', reads: 'derived', parameters: [expressionParameter('number?')] }),
                 operation('min', 'list<T>', 'number?', { changes: 'derived', reads: 'derived', parameters: [expressionParameter('number?')] }),

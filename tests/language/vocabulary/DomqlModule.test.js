@@ -92,11 +92,10 @@ describe('DomqlModule', () => {
         expect(messageOf(() => new DomqlModule('charts', { predicates: [{ ...predicate, function: 'isPlotted' }] }, {}))).toContain("'isPlotted'");
     });
 
-    it('carries a member that selects a member out through what its name resolves to', () => {
+    it('refuses a member that selects a member, which an access by name reads', () => {
         const selecting = selects => declaration({ name: 'charts', kind: 'operation', input: 'direct', parameters: [parameter({ fixed: true, selects })] });
 
-        expect(() => new DomqlModule('charts', { members: [{ ...selecting('member'), function: undefined }] })).not.toThrow();
-        expect(messageOf(() => new DomqlModule('charts', { members: [selecting('member')] }))).toContain('no function');
+        expect(messageOf(() => new DomqlModule('charts', { members: [selecting('member')] }))).toContain('declares what it selects, one of eventType, feature');
         expect(() => new DomqlModule('charts', { members: [selecting('feature')] })).not.toThrow();
     });
 

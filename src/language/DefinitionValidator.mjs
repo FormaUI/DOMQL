@@ -195,7 +195,12 @@ export class DefinitionValidator {
 
     /** Validates a member access, a call or an infix call: its name, its receiver, whether an access or a call is optional, which it is within an optional chain alone, and the one argument a call or an infix call may take, whose current value its declaration decides. */
     #validateMember(node, pointer, currentValueAvailability) {
-        this.#requireName(node.name, `${pointer}/name`);
+        const name = node.kind === 'member' && DefinitionValidator.#isObject(node.name) ? this.#validateNameExpression(node.name, `${pointer}/name`, currentValueAvailability) : node.name;
+
+        // A name an access by name's expression gave is checked as that expression; any other is a name, a call's and an infix call's always.
+        if (name === node.name) {
+            this.#requireName(name, `${pointer}/name`);
+        }
 
         if (node.optional !== undefined) {
             if (node.optional !== true) {
@@ -210,7 +215,7 @@ export class DefinitionValidator {
         }
 
         const target = this.#validateNode(node.target, `${pointer}/target`, currentValueAvailability);
-        const access = Object.freeze({ kind: node.kind, target, name: node.name, ...(node.optional === true ? { optional: true } : {}) });
+        const access = Object.freeze({ kind: node.kind, target, name, ...(node.optional === true ? { optional: true } : {}) });
 
         if (node.kind === 'member' || node.argument === undefined) {
             return access;
@@ -221,6 +226,21 @@ export class DefinitionValidator {
         const argument = this.#validateNode(node.argument, `${pointer}/argument`, CurrentValueAvailability.unknown);
 
         return Object.freeze({ ...access, argument });
+    }
+
+    /** Validates the expression an access by name holds, which continues no chain; a string literal that is a name is the name itself, as `.` writes it, so an access has one definition. */
+    #validateNameExpression(node, pointer, currentValueAvailability) {
+        const enclosingChain = this.#chain;
+
+        this.#chain = null;
+
+        try {
+            const expression = this.#validateNode(node, pointer, currentValueAvailability);
+
+            return expression.kind === 'literal' && Names.isName(expression.value) ? expression.value : expression;
+        } finally {
+            this.#chain = enclosingChain;
+        }
     }
 
     #validateObject(node, pointer, currentValueAvailability) {

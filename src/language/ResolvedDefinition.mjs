@@ -89,6 +89,11 @@ export class ResolvedDefinition {
         }
 
         switch (node.kind) {
+            case 'member':
+                if (typeof node.name !== 'string') {
+                    this.#index(node.name, `${pointer}/name`);
+                }
+                break;
             case 'call':
             case 'infixCall':
                 if (node.argument !== undefined) {

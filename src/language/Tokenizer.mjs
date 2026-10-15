@@ -7,14 +7,14 @@ import { Names } from './Names.mjs';
 
 /**
  * @typedef {object} Token
- * @property {'name' | 'parameter' | 'literal' | 'keyword' | 'self' | 'end' | '.' | '?.' | '??' | '(?' | ',' | ':' | '(' | ')' | '{' | '}'} type
+ * @property {'name' | 'parameter' | 'literal' | 'keyword' | 'self' | 'end' | '.' | '?.' | '??' | '(?' | ',' | ':' | '(' | ')' | '{' | '}' | '[' | ']'} type
  * @property {unknown} [value] A name's, a parameter's or a keyword's text, or a literal's value.
  * @property {number} start
  * @property {number} end
  * @property {boolean} spaced Whether trivia, whitespace or a comment, comes before it, as an infix call's separator requires.
  */
 
-const PUNCTUATION = new Set(['.', ',', ':', '(', ')', '{', '}']);
+const PUNCTUATION = new Set(['.', ',', ':', '(', ')', '{', '}', '[', ']']);
 const NAME = /[A-Za-z][A-Za-z0-9]*/y;
 const NUMBER = /-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?/y;
 const SPACE = /\s/;

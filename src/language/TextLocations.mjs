@@ -47,7 +47,7 @@ export class TextLocations {
             this.#collect(node.target, `${pointer}/target`, spans);
         }
 
-        if (node.kind === 'predicate') {
+        if (node.kind === 'predicate' || (node.kind === 'member' && typeof node.name !== 'string')) {
             this.#collect(node.name, `${pointer}/name`, spans);
         }
 

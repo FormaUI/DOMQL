@@ -135,6 +135,20 @@ describe('SnapshotComparer', () => {
             });
         });
 
+        describe('under an access by name', () => {
+            const selecting = (access, name) => ({ branches: new Map([[access, name]]) });
+
+            it('compares a number within the tolerance of the property both values came from, and exactly where they came from different ones', () => {
+                const resolved = resolvedOf('@element[if @wide then "wobble" else "size"]?.width', { element, wide: true }, { tolerance: 2 });
+                const snapshotComparer = new SnapshotComparer(resolved);
+                const access = resolved.definition.query.target.target;
+
+                expect(snapshotComparer.reconcile(100, selecting(access, 'wobble'), 101.5, selecting(access, 'wobble'))).toBe(100);
+                expect(snapshotComparer.reconcile(100, selecting(access, 'size'), 101.5, selecting(access, 'size'))).toBe(101.5);
+                expect(snapshotComparer.reconcile(100, selecting(access, 'wobble'), 101.5, selecting(access, 'size'))).toBe(101.5);
+            });
+        });
+
         describe('under a coalescing operator', () => {
             const selecting = (coalescing, side) => ({ branches: new Map([[coalescing, side]]) });
 

@@ -167,7 +167,7 @@ export type DomqlDefinitionNode =
     | { readonly kind: 'parameter'; readonly name: string }
     | { readonly kind: 'self' }
     | { readonly kind: 'local'; readonly name: string }
-    | { readonly kind: 'member'; readonly target: DomqlDefinitionNode; readonly name: string; readonly optional?: true }
+    | { readonly kind: 'member'; readonly target: DomqlDefinitionNode; readonly name: string | DomqlDefinitionNode; readonly optional?: true }
     | { readonly kind: 'call'; readonly target: DomqlDefinitionNode; readonly name: string; readonly optional?: true; readonly argument?: DomqlDefinitionNode }
     | { readonly kind: 'infixCall'; readonly target: DomqlDefinitionNode; readonly name: string; readonly argument?: DomqlDefinitionNode }
     | { readonly kind: 'object'; readonly target?: DomqlDefinitionNode; readonly locals?: readonly DomqlDefinitionLocal[]; readonly fields: readonly DomqlDefinitionField[] }
@@ -340,7 +340,7 @@ export interface DomqlParameterDeclaration {
     default?: unknown;
     /** Whether the argument names something the vocabulary resolves before any evaluation. */
     fixed?: boolean;
-    selects?: 'member' | 'eventType' | 'feature';
+    selects?: 'eventType' | 'feature';
     /** Whether a null argument makes the call answer null, or is accepted. */
     nulls: 'propagate' | 'accept';
     /** What an expression argument is evaluated against. */

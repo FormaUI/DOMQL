@@ -111,7 +111,18 @@ export class SnapshotComparer {
             return null;
         }
 
-        const resolution = this.#resolvedDefinition.resolutionOf(node);
+        let resolution = this.#resolvedDefinition.resolutionOf(node);
+
+        // An access by name gave the value of the property it selected, compared within that one's tolerance where both values came from it.
+        if (resolution?.kind === 'byName') {
+            const name = SnapshotComparer.#branchOf(node, previousIdentities, nextIdentities);
+
+            if (name === null) {
+                return null;
+            }
+
+            resolution = resolution.candidates.get(name);
+        }
 
         if (resolution?.kind === 'field') {
             return this.#toleranceOf(node.target, previousIdentities, nextIdentities);

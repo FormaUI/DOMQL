@@ -193,14 +193,14 @@ Every member has its receiver written before it, and `self` is the current value
 domql.query('@panel.children.count', { panel }).evaluate();
 // 3
 
-domql.query('@panel.get("children.count")', { panel }).evaluate();
+domql.query('@panel["children"].count', { panel }).evaluate();
 // 3
 
 domql.query('@panel is "attached"', { panel }).evaluate();
 // true
 ```
 
-`get` reads a named member or chain of members. `is` asks about a state or classification and `has` about presence: they are operators that test the value before them against one predicate the vocabulary registers. `and` and `or` combine Boolean expressions:
+Brackets read the property a name names, `@panel["children"]` or `@panel[@name]`, the name determined when the query is prepared. `is` asks about a state or classification and `has` about presence: they are operators that test the value before them against one predicate the vocabulary registers. `and` and `or` combine Boolean expressions:
 
 ```text
 @input is "disabled" or @input is "readOnly"

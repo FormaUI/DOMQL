@@ -406,12 +406,22 @@ export class QueryEvaluator {
 
         const resolution = this.#resolvedDefinition.resolutionOf(node);
 
-        if (resolution.kind === 'field') {
-            return receiver[node.name] ?? null;
+        if (resolution.kind !== 'byName') {
+            return this.#read(resolution, receiver, node, current);
         }
 
-        if (resolution.steps !== undefined) {
-            return this.#readSteps(resolution.steps, receiver, node);
+        // An access by name computes its name once and reads the property it selects, which is recorded for the value's place in the result.
+        const name = this.#evaluate(node.name, current);
+
+        (this.#branches ??= new Map()).set(node, name);
+
+        return this.#read(resolution.candidates.get(name), receiver, node, current);
+    }
+
+    /** Reads the member the resolution names of the receiver: a field of its data, or the declaration's function with the arguments it is given. */
+    #read(resolution, receiver, node, current) {
+        if (resolution.kind === 'field') {
+            return receiver[resolution.name] ?? null;
         }
 
         const args = this.#arguments(resolution, current);
@@ -442,27 +452,6 @@ export class QueryEvaluator {
         }
 
         return args;
-    }
-
-    /** Reads the chain of names a `get` names, each step from the value before it, answering null from the first null. */
-    #readSteps(steps, receiver, node) {
-        let value = receiver;
-
-        for (const step of steps) {
-            if (step.kind === 'field') {
-                value = value[step.name] ?? null;
-            } else {
-                const args = Object.fromEntries(step.declaration.parameters.map(parameter => [parameter.name, parameter.default]));
-
-                value = this.#invoke(step.declaration, value, args, step.type, node);
-            }
-
-            if (value === null) {
-                return null;
-            }
-        }
-
-        return value;
     }
 
     /** Carries out a declaration's function, or a predicate's, checking that its result is of the declared type. */
