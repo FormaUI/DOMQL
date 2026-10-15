@@ -60,7 +60,7 @@ export class QueryEvaluator {
     /** The frame of locals of the innermost application of an object expression that has any, with the value of each evaluated so far, inside those of the applications enclosing it; null outside every one. @type {{ node: object, item: unknown, values: Map<string, { value: unknown, branches: Map<object, object> | null }>, enclosing: object | null } | null} */
     #localsFrame = null;
 
-    /** What the evaluation in progress records, or null where none does. @type {{ observations: import('./Observations.mjs').Observations, onChange: () => void, holdsAll: boolean, replaces: QueryEvaluation[] | null, dependencies: object[] | null, sessions: object[], sessionCache: SessionCache, unheld: object[], rootOf: WeakMap<object, object>, rootsOf: WeakMap<object, object[]>, followedRoots: WeakSet<object>, followedAttachments: WeakSet<object>, isPending: boolean } | null} */
+    /** What the evaluation in progress records, or null where none does. @type {{ observations: import('./Observations.mjs').Observations, onChange: () => void, holdsAll: boolean, replaces: QueryEvaluation[] | null, dependencies: object[] | null, sessions: import('./SessionCache.mjs').CachedSession[], owner: object, sessionCache: SessionCache, unheld: object[], rootOf: WeakMap<object, object>, rootsOf: WeakMap<object, object[]>, followedRoots: WeakSet<object>, followedAttachments: WeakSet<object>, isPending: boolean } | null} */
     #recording = null;
 
     /** The identities of the value `#detach` detached last. @type {import('../snapshots/SnapshotPatcher.mjs').Identities} */
@@ -111,7 +111,7 @@ export class QueryEvaluator {
      * @param {import('./Observations.mjs').Observations} recording.observations The observations of the window the query is evaluated in.
      * @param {() => void} recording.onChange Called, synchronously, when something the result depends on may have changed.
      * @param {boolean} [recording.holdsAll] Whether every dependency's observation is held, as a watch holds them, rather than those a pending evaluation waits on.
-     * @param {QueryEvaluation[] | null} [recording.replaces] The evaluations this one replaces, as a watch's next evaluation replaces its last: it takes over a session of theirs wherever its call would acquire that same observation again, a shared one, and a later evaluation may take over its own. Null where none is replaced.
+     * @param {QueryEvaluation[] | null} [recording.replaces] The evaluations this one replaces, the latest last, as a watch's next evaluation replaces its last: it carries on the sessions the latest hands on, which hold every one the watch's evaluations kept, and takes a shared one wherever its call observes the same again, and a later evaluation may take its own. Null where none is replaced.
      * @param {boolean} [recording.recordsDependencies] Whether the evaluation answers a record of each call it depended on, which nothing it holds needs, since its sessions keep what it depends on observed; without one, its dependencies are null.
      */
     evaluate({ observations, onChange, holdsAll = false, replaces = null, recordsDependencies = false }) {
@@ -227,7 +227,13 @@ export class QueryEvaluator {
 
     /** Runs an evaluation that records what it depends on, answering the evaluation; one that waits holds what a pending result waits on, and lets a failure seen through a pending member pass. */
     #record({ observations, onChange, holdsAll, replaces, recordsDependencies, waits }, produce) {
-        const recording = { observations, onChange, holdsAll, replaces, dependencies: recordsDependencies ? [] : null, sessions: [], sessionCache: new SessionCache(), unheld: [], rootOf: new WeakMap(), rootsOf: new WeakMap(), followedRoots: new WeakSet(), followedAttachments: new WeakSet(), isPending: false };
+        // A watch's sessions are carried from each evaluation to the next, so one it keeps needing is taken where it is rather than moved.
+        const sessionCache = replaces?.at(-1)?.handOverSessionCache() ?? new SessionCache();
+
+        sessionCache.beginEvaluation();
+
+        const owner = {};
+        const recording = { observations, onChange, holdsAll, replaces, dependencies: recordsDependencies ? [] : null, sessions: [], owner, sessionCache, unheld: [], rootOf: new WeakMap(), rootsOf: new WeakMap(), followedRoots: new WeakSet(), followedAttachments: new WeakSet(), isPending: false };
         let value;
         let identities = null;
         let error = null;
@@ -247,14 +253,14 @@ export class QueryEvaluator {
             try {
                 // The pending result waits on whatever changes the evaluation depended on, so it holds them now.
                 for (const request of recording.unheld) {
-                    recording.sessions.push(observations.acquire(request, onChange));
+                    recording.sessions.push({ request, session: observations.acquire(request, onChange), values: null, owner });
                 }
             } catch (failure) {
                 error = failure;
             }
         }
 
-        return new QueryEvaluation({ value, identities, isPending: recording.isPending, dependencies: recording.dependencies, sessions: recording.sessions, sessionCache: replaces === null ? null : recording.sessionCache, error });
+        return new QueryEvaluation({ value, identities, isPending: recording.isPending, dependencies: recording.dependencies, sessions: recording.sessions, owner, sessionCache: replaces === null ? null : sessionCache, error });
     }
 
     /** The detached result, and the identities of the elements its lists were projected from, which the result itself never holds. */
@@ -879,68 +885,51 @@ export class QueryEvaluator {
     }
 
     /**
-     * The request the observation resolves to at the target, and its session: the one this evaluation already holds for it, the one an evaluation this one replaces holds, or a new one; null where the target is null.
-     * @returns {{ request: object, session: import('./ObservationSession.mjs').ObservationSession | null } | null}
+     * The request the observation resolves to at the target, and its session: the one this evaluation already holds for it, the one an evaluation this one replaces holds, which becomes this one's own, or a new one; null where the target is null.
+     * @returns {import('./SessionCache.mjs').CachedSession | null}
      */
     #holdAt(observation, args, target) {
         if (target === null || target === undefined) {
             return null;
         }
 
-        const cachedSession = this.#recording.sessionCache.find(observation, args, target) ?? this.#takeOver(observation, args, target);
+        const { sessionCache, owner, sessions } = this.#recording;
+        const cachedSession = sessionCache.find(observation, args, target, owner);
 
-        if (cachedSession !== null) {
-            return cachedSession;
+        if (cachedSession === null) {
+            return this.#hold(this.#recording.observations.resolveAt(observation, { args }, target), observation);
         }
 
-        const request = this.#recording.observations.resolveAt(observation, { args }, target);
+        if (sessionCache.claim(cachedSession, owner)) {
+            sessions.push(cachedSession);
+        }
 
-        return { request, session: this.#hold(request, observation) };
+        return cachedSession;
     }
 
     /**
-     * Holds the observation of the request, answering its session, or leaves it unheld where only a pending evaluation needs it and answers null.
-     * A shared observation is kept under the observation and its target, held or unheld, for every later call of this evaluation that observes the same and, held, for a later evaluation to take over.
+     * Holds the observation of the request, answering it with its session, or leaves it unheld where only a pending evaluation needs it, with no session.
+     * A shared observation is kept under the observation and its target, held or unheld, for every later call of this evaluation that observes the same and, held, for a later evaluation to take.
+     * @returns {import('./SessionCache.mjs').CachedSession}
      */
     #hold(request, observation) {
-        const { observations, onChange, holdsAll, sessions, sessionCache, unheld } = this.#recording;
+        const { observations, onChange, holdsAll, sessions, sessionCache, unheld, owner } = this.#recording;
         const observationType = this.#moduleRegistry.getObservationType(request.type);
-        let session = null;
+        const cachedSession = { request, session: null, values: null, owner };
 
         if (observationType !== undefined && observationType.contract === 'invalidation' && !holdsAll) {
             unheld.push(request);
         } else {
-            session = observations.acquire(request, onChange);
-            sessions.push(session);
+            cachedSession.session = observations.acquire(request, onChange);
+            sessions.push(cachedSession);
         }
 
         if (observationType.shared !== false) {
-            sessionCache.keep(observation, { request, session, values: Observations.valuesOf(request) });
+            cachedSession.values = Observations.valuesOf(request);
+            sessionCache.keep(observation, cachedSession);
         }
 
-        return session;
-    }
-
-    /** The session an evaluation this one replaces holds whose request is the one the observation resolves to at the target, which becomes this evaluation's own; null where none does. */
-    #takeOver(observation, args, target) {
-        const { replaces, sessions, sessionCache } = this.#recording;
-
-        if (replaces === null) {
-            return null;
-        }
-
-        for (const evaluation of replaces) {
-            const cachedSession = evaluation.takeOver(observation, args, target);
-
-            if (cachedSession !== null) {
-                sessions.push(cachedSession.session);
-                sessionCache.keep(observation, cachedSession);
-
-                return cachedSession;
-            }
-        }
-
-        return null;
+        return cachedSession;
     }
 
     /** The member a subscription, an action or a behavior request ends in, and where it stands: the object expressions of a request each follow the one before, and the first follows that member, which an optional chain may hold. */

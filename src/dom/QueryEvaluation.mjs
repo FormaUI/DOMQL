@@ -9,13 +9,11 @@
 
 export class QueryEvaluation {
     #sessions;
+    #owner;
     #isDisposed = false;
 
-    /** The sessions a later evaluation may take over, or null for an evaluation none replaces. @type {import('./SessionCache.mjs').SessionCache | null} */
+    /** The sessions the evaluation hands on to the one that replaces it, or null once it has, and for an evaluation none replaces. @type {import('./SessionCache.mjs').SessionCache | null} */
     #sessionCache;
-
-    /** The sessions a later evaluation took over, which are its own from then on. @type {Set<import('./ObservationSession.mjs').ObservationSession>} */
-    #takenOver = new Set();
 
     /**
      * @param {object} outcome What the evaluation produced.
@@ -23,17 +21,19 @@ export class QueryEvaluation {
      * @param {import('../snapshots/SnapshotPatcher.mjs').Identities} outcome.identities The elements the result's lists were projected from.
      * @param {boolean} outcome.isPending Whether a maintained member the result reads is still waiting for its first sample.
      * @param {Dependency[] | null} outcome.dependencies What the evaluation read, including what it read before it failed, or null where its caller asked for no record.
-     * @param {import('./ObservationSession.mjs').ObservationSession[]} outcome.sessions The sessions that hold the dependencies' observations.
-     * @param {import('./SessionCache.mjs').SessionCache | null} [outcome.sessionCache] The sessions a later evaluation may take over.
+     * @param {import('./SessionCache.mjs').CachedSession[]} outcome.sessions The sessions that hold the dependencies' observations, each of which it owns until a later evaluation takes it.
+     * @param {object} outcome.owner What stands for the evaluation as the owner of its sessions.
+     * @param {import('./SessionCache.mjs').SessionCache | null} [outcome.sessionCache] The sessions it hands on to the evaluation that replaces it.
      * @param {Error | null} outcome.error The failure that ended the evaluation, or null.
      */
-    constructor({ value, identities = null, isPending, dependencies, sessions, sessionCache = null, error }) {
+    constructor({ value, identities = null, isPending, dependencies, sessions, owner, sessionCache = null, error }) {
         this.value = value;
         this.identities = identities;
         this.isPending = isPending;
         this.dependencies = dependencies === null ? null : Object.freeze(dependencies);
         this.error = error;
         this.#sessions = sessions;
+        this.#owner = owner;
         this.#sessionCache = sessionCache;
     }
 
@@ -43,24 +43,19 @@ export class QueryEvaluation {
     }
 
     /**
-     * The session it holds whose request the observation resolves to at the target with the arguments, and which is not disposed; it becomes the later evaluation's own. Null where it holds none.
-     * @param {object} observation The observation a declaration names.
-     * @param {Record<string, unknown>} args The call's arguments by parameter name.
-     * @param {object} target What the observation would observe now.
-     * @returns {import('./SessionCache.mjs').CachedSession | null}
+     * Hands its sessions on to the evaluation that replaces it, which takes each it observes again; null where it has none to hand on, having handed them on already or let them go.
+     * @returns {import('./SessionCache.mjs').SessionCache | null}
      */
-    takeOver(observation, args, target) {
-        const cachedSession = this.#isDisposed ? null : this.#sessionCache?.find(observation, args, target, this.#takenOver) ?? null;
+    handOverSessionCache() {
+        const sessionCache = this.#isDisposed ? null : this.#sessionCache;
 
-        if (cachedSession !== null) {
-            this.#takenOver.add(cachedSession.session);
-        }
+        this.#sessionCache = null;
 
-        return cachedSession;
+        return sessionCache;
     }
 
     /**
-     * Disposes every session the evaluation holds and no later one took over, so the observations only it needed stop. Disposing again does nothing.
+     * Disposes every session the evaluation still owns, those no later evaluation took, so the observations only it needed stop. Disposing again does nothing.
      * Every session is disposed even where one fails to be, and the first failure is thrown once all of them have been.
      */
     dispose() {
@@ -72,13 +67,13 @@ export class QueryEvaluation {
 
         let failure = null;
 
-        for (const session of this.#sessions) {
-            if (this.#takenOver.has(session)) {
+        for (const cachedSession of this.#sessions) {
+            if (cachedSession.owner !== this.#owner) {
                 continue;
             }
 
             try {
-                session.dispose();
+                cachedSession.session.dispose();
             } catch (error) {
                 failure ??= { error };
             }

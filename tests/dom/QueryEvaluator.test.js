@@ -1012,6 +1012,30 @@ describe('QueryEvaluator evaluation', () => {
             expect(observations.runningCount).toBe(0);
         });
 
+        it('are taken from every evaluation replaced, so one only an earlier of them still holds is not started again', () => {
+            const run = evaluationsOf('@panel.children { p: self.probe() }', { panel }, [probeModule()]);
+            const first = run.evaluate([]);
+            const last = rows[2];
+
+            last.remove();
+
+            const second = run.evaluate([first]);
+
+            panel.append(last);
+
+            const third = run.evaluate([first, second]);
+
+            first.dispose();
+            second.dispose();
+
+            expect([started, stopped]).toEqual([3, 0]);
+
+            third.dispose();
+
+            expect([started, stopped]).toEqual([3, 3]);
+            expect(observations.runningCount).toBe(0);
+        });
+
         it('are acquired again where an argument changed, a bound list changed in place included, and the old one is let go', () => {
             const names = ['a'];
             const run = evaluationsOf('@panel.probe(@names)', { panel, names }, [probeModule()]);

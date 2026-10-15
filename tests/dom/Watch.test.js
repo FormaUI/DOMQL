@@ -1079,7 +1079,9 @@ describe('Watch cleanup', () => {
 
                 evaluations.push(sessions);
 
-                return new QueryEvaluation({ value: evaluations.length, isPending: false, dependencies: [], sessions, error: null });
+                const owner = {};
+
+                return new QueryEvaluation({ value: evaluations.length, isPending: false, dependencies: [], sessions: sessions.map(held => ({ session: held, owner })), owner, error: null });
             },
         };
         const watch = new Watch({
