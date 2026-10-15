@@ -166,16 +166,16 @@ export class ModuleRegistry {
     static #validateObservations(declaration, observationTypes, fail) {
         let hasMaintained = false;
 
-        for (const observation of declaration.observations) {
-            const type = observationTypes.get(observation.type);
+        for (const observationDeclaration of declaration.observations) {
+            const type = observationTypes.get(observationDeclaration.type);
 
             if (type === undefined) {
-                fail(`The observation type '${observation.type}' is declared by no module`, declaration.name);
+                fail(`The observation type '${observationDeclaration.type}' is declared by no module`, declaration.name);
             }
 
             // A maintained observation gives the member one sample, and a receiver's roots are as many as its ancestry has.
-            if (type.contract === 'maintained' && observation.of === 'roots') {
-                fail(`The maintained observation '${observation.type}' gives one sample, so it observes one target, never a receiver's roots`, declaration.name);
+            if (type.contract === 'maintained' && observationDeclaration.of === 'roots') {
+                fail(`The maintained observation '${observationDeclaration.type}' gives one sample, so it observes one target, never a receiver's roots`, declaration.name);
             }
 
             hasMaintained ||= type.contract === 'maintained';

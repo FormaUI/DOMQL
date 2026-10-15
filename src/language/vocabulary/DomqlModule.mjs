@@ -242,20 +242,20 @@ export class DomqlModule {
             fail(`It changes as ${declaration.changes}, so it names no observations`, name);
         }
 
-        for (const observation of observations) {
-            if (observation === null || typeof observation !== 'object' || !Names.isName(observation.type)) {
+        for (const observationDeclaration of observations) {
+            if (observationDeclaration === null || typeof observationDeclaration !== 'object' || !Names.isName(observationDeclaration.type)) {
                 fail('An observation names its type as a name is', name);
             }
 
-            const isTarget = OBSERVATION_TARGETS.includes(observation.of) || DomqlModule.#isArgumentReference(observation.of, parameterNames);
+            const isTarget = OBSERVATION_TARGETS.includes(observationDeclaration.of) || DomqlModule.#isArgumentReference(observationDeclaration.of, parameterNames);
 
             if (!isTarget) {
-                fail(`The observation '${observation.type}' observes the receiver, its root, its roots, the window, the document or an argument of the member, and not '${JSON.stringify(observation.of)}'`, name);
+                fail(`The observation '${observationDeclaration.type}' observes the receiver, its root, its roots, the window, the document or an argument of the member, and not '${JSON.stringify(observationDeclaration.of)}'`, name);
             }
 
-            for (const [key, value] of Object.entries(observation)) {
+            for (const [key, value] of Object.entries(observationDeclaration)) {
                 if (key !== 'type' && key !== 'of' && !DomqlModule.#isObservationValue(value, parameterNames)) {
-                    fail(`The observation '${observation.type}' gives '${key}' a value that is no literal, list of literals or argument of the member`, name);
+                    fail(`The observation '${observationDeclaration.type}' gives '${key}' a value that is no literal, list of literals or argument of the member`, name);
                 }
             }
         }
