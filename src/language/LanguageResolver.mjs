@@ -733,7 +733,7 @@ export class LanguageResolver {
     /** Resolves what a fixed argument selects from the vocabulary, which must be known before anything is evaluated. */
     #select(parameter, result, declaration, receiverType, pointer) {
         if (!result.isFixed || typeof result.value !== 'string') {
-            this.#fail(`The argument '${parameter.name}' of '${declaration.name}' selects from the vocabulary, so it is a string literal or a parameter bound to a string, never null`, pointer);
+            this.#fail(`The argument '${parameter.name}' of '${declaration.name}' selects from the vocabulary, so it is a string literal, a parameter bound to a string or a local holding one, never null`, pointer);
         }
 
         const name = result.value;

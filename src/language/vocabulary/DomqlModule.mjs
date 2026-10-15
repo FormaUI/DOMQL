@@ -14,10 +14,10 @@ const FORMS = ['call', 'infix'];
 /** What a member's argument supplies: its one parameter, directly, or every parameter, as the fields of an options object. */
 const INPUTS = ['direct', 'options'];
 
-/** How a member changes: the specification's categories, and `derived` for a contract that comes from the member or expression a member selects or evaluates. */
+/** How a member changes, as the specification's categories name it, `derived` for a contract that comes from the items and expression a member selects or evaluates. */
 const CHANGE_CATEGORIES = ['constant', 'observable', 'partly-observable', 'unobserved', 'derived'];
 
-/** How a member reads: the specification's modes, and `derived` for a contract that comes from the member or expression a member selects or evaluates. */
+/** How a member reads, as the specification's modes name it, `derived` for a contract that comes from the items and expression a member selects or evaluates. */
 const READING_MODES = ['fresh', 'maintained', 'captured', 'derived'];
 const NULL_POLICIES = ['propagate', 'accept'];
 const SELECTION_KINDS = ['eventType', 'feature'];
