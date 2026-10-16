@@ -249,6 +249,27 @@ describe('Watch', () => {
         });
     });
 
+    describe('a named indexer', () => {
+        it('follows the key it is given, observing what that key names and letting go of what it named before', async () => {
+            panel.setAttribute('data-which', 'data-a');
+            panel.setAttribute('data-a', 'a1');
+            panel.setAttribute('data-b', 'b1');
+            watch('@panel:attribute[@panel:attribute["data-which"] ?? "data-a"]', { panel });
+            await settle();
+
+            panel.setAttribute('data-a', 'a2');
+            await settle();
+            panel.setAttribute('data-which', 'data-b');
+            await settle();
+            panel.setAttribute('data-a', 'a3');
+            await settle();
+            panel.setAttribute('data-b', 'b2');
+            await settle();
+
+            expect(snapshots).toEqual(['a1', 'a2', 'b1', 'b2']);
+        });
+    });
+
     describe('a conversion', () => {
         it('follows the value it converts, fails while that value has no conversion, and recovers once it has', async () => {
             const watched = watch('@panel attributeOf "data-n" to "number"', { panel });

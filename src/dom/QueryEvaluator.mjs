@@ -353,6 +353,7 @@ export class QueryEvaluator {
             case 'member':
             case 'call':
             case 'infixCall':
+            case 'indexer':
                 return this.#compileMember(node);
             case 'equality': {
                 const left = this.#getCompiledFunction(node.left);

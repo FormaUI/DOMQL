@@ -52,6 +52,8 @@ export class DefinitionWriter {
                     : `${DefinitionWriter.#within(node.target, CHAIN_PRECEDENCE, level)}${node.optional === true ? '?' : ''}[${DefinitionWriter.#write(node.name, level)}]`;
             case 'call':
                 return `${DefinitionWriter.#within(node.target, CHAIN_PRECEDENCE, level)}${DefinitionWriter.#dot(node)}${node.name}(${node.argument === undefined ? '' : DefinitionWriter.#write(node.argument, level)})`;
+            case 'indexer':
+                return `${DefinitionWriter.#within(node.target, CHAIN_PRECEDENCE, level)}${node.optional === true ? '?:' : ':'}${node.name}[${DefinitionWriter.#write(node.argument, level)}]`;
             case 'optionalChain':
                 return DefinitionWriter.#write(node.target, level);
             case 'infixCall': {

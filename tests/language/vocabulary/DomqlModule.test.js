@@ -56,7 +56,7 @@ describe('DomqlModule', () => {
         expect(zoom.members.map(member => member.form)).toEqual(['call', 'infix']);
         expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ parameters: [parameter()] })] }))).toContain('A property is accessed');
         expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ form: 'call' })] }))).toContain('A property is accessed');
-        expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ kind: 'operation', form: 'phrase' })] }))).toContain('written as call or infix');
+        expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ kind: 'operation', form: 'phrase' })] }))).toContain('written as call, infix or indexer');
     });
 
     it('requires an operation with parameters to declare its input, direct for exactly one parameter and options for one or several', () => {

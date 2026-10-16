@@ -342,6 +342,15 @@ Members that take input use the form declared by the vocabulary. `all` is a call
 @panel attributeOf "data-key"
 ```
 
+A named indexer reads a value of its receiver by a key, written after a colon with the key in brackets. `attribute` reads an attribute and `style` a computed style:
+
+```text
+@panel:attribute["data-key"]
+@panel:style["display"]
+```
+
+The key can be any expression of the type the indexer takes, such as a binding, `@panel:attribute[@name]`. Use `?:` when the receiver can be null: `@panel.first(".row")?:attribute["data-key"]` is null when there is no row, and its key is not evaluated.
+
 All DOMQL names are case-sensitive and use names such as `clientSize`, `attributeOf` and `matchesMedia`. Strings passed to browser APIs, including selectors and attribute names, follow the browser's rules.
 
 Calls take one argument. When a member takes options, pass an object whose fields supply its parameters. This query checks for an intersection with a margin around the panel and needs `evaluateAsync()`:

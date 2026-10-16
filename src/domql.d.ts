@@ -170,6 +170,7 @@ export type DomqlDefinitionNode =
     | { readonly kind: 'member'; readonly target: DomqlDefinitionNode; readonly name: string | DomqlDefinitionNode; readonly optional?: true }
     | { readonly kind: 'call'; readonly target: DomqlDefinitionNode; readonly name: string; readonly optional?: true; readonly argument?: DomqlDefinitionNode }
     | { readonly kind: 'infixCall'; readonly target: DomqlDefinitionNode; readonly name: string; readonly argument?: DomqlDefinitionNode }
+    | { readonly kind: 'indexer'; readonly target: DomqlDefinitionNode; readonly name: string; readonly argument: DomqlDefinitionNode; readonly optional?: true }
     | { readonly kind: 'object'; readonly target?: DomqlDefinitionNode; readonly locals?: readonly DomqlDefinitionLocal[]; readonly fields: readonly DomqlDefinitionField[] }
     | { readonly kind: 'optionalChain'; readonly target: DomqlDefinitionNode }
     | { readonly kind: 'coalescing'; readonly value: DomqlDefinitionNode; readonly fallback: DomqlDefinitionNode }
@@ -368,9 +369,9 @@ export interface DomqlMemberDeclaration {
     /** The key of the function that carries it out, among the module's functions. */
     function: string;
     kind: 'property' | 'operation' | 'source' | 'action' | 'behavior';
-    /** How a member that is no property is written: called, `self.closest(".row")`, the default, or named, `self attributeOf "data-key"`. A property declares none. */
-    form?: 'call' | 'infix';
-    /** What its argument supplies, where it has parameters: its one parameter, directly, or every parameter, as the fields of an options object. */
+    /** How a member that is no property is written: called, `self.closest(".row")`, the default, named, `self attributeOf "data-key"`, or a named indexer, `self:attribute["data-key"]`, an operation whose one required value parameter is its key. A property declares none. */
+    form?: 'call' | 'infix' | 'indexer';
+    /** What its argument supplies, where it has parameters: its one parameter, directly, or every parameter, as the fields of an options object; an indexer's is direct. */
     input?: 'direct' | 'options';
     /** The types it applies to, in DOMQL's notation. */
     on: string | string[];

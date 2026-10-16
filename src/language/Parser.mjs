@@ -20,6 +20,9 @@ const TOKEN_DESCRIPTIONS = {
 /** The tokens a chain input starts with, and so the argument of an infix call. */
 const CHAIN_INPUT_STARTS = new Set(['self', 'parameter', 'literal', 'name', '{', '(', '(?']);
 
+/** The tokens that continue a chain after what is before them. */
+const CHAIN_CONTINUATIONS = new Set(['.', '?.', '[', '?[', ':', '?:', '{']);
+
 /** The tokens that, after a space, make the name before them a member written without its receiver, which no local is: an argument. */
 const ARGUMENT_STARTS = new Set(['self', 'parameter', 'literal']);
 
@@ -301,7 +304,7 @@ export class Parser {
 
         const node = this.#recordSpan({ kind: 'conversion', type: token.value, target }, start);
 
-        if (this.#token.type === '.' || this.#token.type === '?.' || this.#token.type === '[' || this.#token.type === '?[' || this.#token.type === '{') {
+        if (this.#continuesChain()) {
             throw DomqlError.syntax(`A conversion ends its chain; group it to continue from its result, as in '(… to "${token.value}").value'`, this.#text, this.#token.start);
         }
 
@@ -327,6 +330,11 @@ export class Parser {
                 const optional = this.#token.type === '?[';
 
                 node = this.#parseAccessByName(node, start, optional);
+                isOptional ||= optional;
+            } else if (this.#token.type === ':' || this.#token.type === '?:') {
+                const optional = this.#token.type === '?:';
+
+                node = this.#parseIndexer(node, start, optional);
                 isOptional ||= optional;
             } else if (this.#token.type === '.' || this.#token.type === '?.') {
                 const optional = this.#token.type === '?.';
@@ -378,7 +386,7 @@ export class Parser {
 
         const node = this.#recordSpan({ kind: 'cast', type: token.value, target }, start);
 
-        if (this.#token.type === '.' || this.#token.type === '?.' || this.#token.type === '[' || this.#token.type === '?[' || this.#token.type === '{') {
+        if (this.#continuesChain()) {
             throw DomqlError.syntax(`A cast continues a chain only from a group: write '(… as "${token.value}")…'`, this.#text, this.#token.start);
         }
 
@@ -475,7 +483,7 @@ export class Parser {
                 throw DomqlError.syntax(`A cast's target is a receiver and the member-access expressions after it, a coalescing operator in parentheses, or an optional-access group, and this is none of them`, this.#text, start);
             }
 
-            if (this.#token.type === '.' || this.#token.type === '?.' || this.#token.type === '[' || this.#token.type === '?[') {
+            if (this.#continuesChain() && this.#token.type !== '{') {
                 throw DomqlError.syntax('A grouped target is cast as it is, with nothing after it but its cast, as in ((@a ?? @b) as "element")', this.#text, this.#token.start);
             }
 
@@ -527,9 +535,15 @@ export class Parser {
         let node = receiver;
         let accesses = 0;
 
-        while (this.#token.type === '.' || this.#token.type === '?.' || this.#token.type === '[' || this.#token.type === '?[') {
+        while (this.#continuesChain() && this.#token.type !== '{') {
             if (this.#token.type === '[' || this.#token.type === '?[') {
                 node = this.#parseAccessByName(node, start, true);
+                accesses++;
+                continue;
+            }
+
+            if (this.#token.type === ':' || this.#token.type === '?:') {
+                node = this.#parseIndexer(node, start, true);
                 accesses++;
                 continue;
             }
@@ -589,6 +603,47 @@ export class Parser {
             default:
                 throw this.#unexpected('a value');
         }
+    }
+
+    /** Whether the current token continues a chain: an access, an access by name, an indexer, each optional or not, or an object expression. */
+    #continuesChain() {
+        return CHAIN_CONTINUATIONS.has(this.#token.type);
+    }
+
+    /**
+     * Reads a named indexer after its receiver: `:`, or `?:` where it is optional, the indexer's name, and its one key in brackets, an expression.
+     * The parser knows no indexer: the vocabulary says which a name is, and a bracket after the indexer's own is an access by name of what it answers.
+     */
+    #parseIndexer(target, start, optional) {
+        this.#advance();
+
+        if (this.#token.type !== 'name') {
+            throw this.#unexpected('the name of an indexer, as in :attribute["id"]');
+        }
+
+        const name = this.#token.value;
+
+        this.#advance();
+
+        if (this.#token.type !== '[') {
+            throw DomqlError.syntax(`The indexer '${name}' takes its key in brackets, as in :${name}[…]`, this.#text, this.#token.start);
+        }
+
+        this.#advance();
+
+        if (this.#token.type === ']') {
+            throw DomqlError.syntax(`The indexer '${name}' takes one key in its brackets`, this.#text, this.#token.start);
+        }
+
+        const argument = this.#parseExpression();
+
+        if (this.#token.type === ',') {
+            throw DomqlError.syntax(`The indexer '${name}' takes one key`, this.#text, this.#token.start);
+        }
+
+        this.#expect(']');
+
+        return this.#recordSpan(optional ? { kind: 'indexer', target, name, argument, optional } : { kind: 'indexer', target, name, argument }, start);
     }
 
     /** Refuses brackets after the dot just read: an access by name follows its receiver with no dot, as `[…]`, or `?[…]` where it is optional. */
@@ -680,7 +735,7 @@ export class Parser {
 
         this.#recordSpan(node, start);
 
-        if (this.#token.type === '.' || this.#token.type === '?.' || this.#token.type === '[' || this.#token.type === '?[' || this.#token.type === '{') {
+        if (this.#continuesChain()) {
             throw DomqlError.syntax(`An infix call ends its chain; group it to continue from its result, as in '(… ${name} …).value'`, this.#text, this.#token.start);
         }
 

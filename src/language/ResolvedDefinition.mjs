@@ -96,6 +96,7 @@ export class ResolvedDefinition {
                 break;
             case 'call':
             case 'infixCall':
+            case 'indexer':
                 if (node.argument !== undefined) {
                     this.#index(node.argument, `${pointer}/argument`);
                 }

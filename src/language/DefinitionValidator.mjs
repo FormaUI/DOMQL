@@ -18,6 +18,7 @@ const NODE_PROPERTIES = {
     member: { properties: ['kind', 'target', 'name', 'optional'], required: ['target', 'name'] },
     call: { properties: ['kind', 'target', 'name', 'optional', 'argument'], required: ['target', 'name'] },
     infixCall: { properties: ['kind', 'target', 'name', 'argument'], required: ['target', 'name'] },
+    indexer: { properties: ['kind', 'target', 'name', 'optional', 'argument'], required: ['target', 'name', 'argument'] },
     object: { properties: ['kind', 'target', 'locals', 'fields'], required: ['fields'] },
     optionalChain: { properties: ['kind', 'target'], required: ['target'] },
     equality: { properties: ['kind', 'left', 'right'], required: ['left', 'right'] },
@@ -32,10 +33,10 @@ const NODE_PROPERTIES = {
 };
 
 /** The kinds of node that continue a chain through their target, and so carry its optional chain to the access their target is. */
-const CHAIN_KINDS = new Set(['member', 'call', 'object']);
+const CHAIN_KINDS = new Set(['member', 'call', 'indexer', 'object']);
 
 /** The kinds of node a cast's target can be, as text writes one: a receiver and its accesses, a coalescing operator, another cast, or an optional chain. */
-const CAST_TARGET_KINDS = new Set(['self', 'parameter', 'local', 'literal', 'object', 'member', 'call', 'optionalChain', 'coalescing', 'cast']);
+const CAST_TARGET_KINDS = new Set(['self', 'parameter', 'local', 'literal', 'object', 'member', 'call', 'indexer', 'optionalChain', 'coalescing', 'cast']);
 
 /** What a local and a field of an object expression each hold: a name, always written, and a value. */
 const ENTRY_PROPERTIES = { properties: ['name', 'value'], required: ['name', 'value'] };
@@ -70,7 +71,7 @@ export class DefinitionValidator {
 
     #validateNode(node, pointer, currentValueAvailability) {
         if (!ObjectUtils.isNonArrayObject(node) || !Object.hasOwn(NODE_PROPERTIES, node.kind)) {
-            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, infixCall, object, optionalChain, equality, conditional, coalescing, not, cast, conversion, convertibility, and or or');
+            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, infixCall, indexer, object, optionalChain, equality, conditional, coalescing, not, cast, conversion, convertibility, and or or');
         }
 
         this.#requireProperties(node, pointer, NODE_PROPERTIES[node.kind]);
@@ -110,6 +111,7 @@ export class DefinitionValidator {
             case 'member':
             case 'call':
             case 'infixCall':
+            case 'indexer':
                 return this.#validateMember(node, pointer, currentValueAvailability);
             case 'equality':
                 return Object.freeze({

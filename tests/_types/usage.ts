@@ -226,6 +226,12 @@ domql.createModule('partial', { conversions: [{ from: 'string', function: 'parse
 const converted: DomqlDefinitionNode = { kind: 'conversion', type: 'number', target: { kind: 'parameter', name: 'count' } };
 const convertibility: DomqlDefinitionNode = { kind: 'convertibility', type: 'number', target: { kind: 'parameter', name: 'count' } };
 
+// A named indexer is a form a member declares, and a node of a definition that names its key.
+const keyed: DomqlDefinitionNode = { kind: 'indexer', target: { kind: 'parameter', name: 'panel' }, name: 'attribute', argument: { kind: 'literal', value: 'id' } };
+const indexers: DomqlModuleContents = {
+    members: [{ name: 'token', function: 'readToken', kind: 'operation', form: 'indexer', on: 'element', parameters: [{ name: 'name', kind: 'value', type: 'string', required: true, nulls: 'propagate' }], result: 'string?', changes: 'constant', reads: 'fresh' }],
+};
+
 // A rejection never returns, so nothing follows it.
 const rejected: never = ({} as DomqlConversionContext).reject('no count');
 

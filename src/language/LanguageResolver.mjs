@@ -10,7 +10,7 @@ import { Type } from './Type.mjs';
 const DATA_TYPE_NAMES = new Set(['number', 'string', 'boolean']);
 
 /** How each form of a declaration is written, and the node that writes it. */
-const FORM_NODE_KINDS = { access: 'member', call: 'call', infix: 'infixCall' };
+const FORM_NODE_KINDS = { access: 'member', call: 'call', infix: 'infixCall', indexer: 'indexer' };
 
 export class LanguageResolver {
     #moduleRegistry;
@@ -74,6 +74,7 @@ export class LanguageResolver {
             case 'member':
             case 'call':
             case 'infixCall':
+            case 'indexer':
                 return this.#resolveMember(node, pointer, scope);
             case 'equality':
                 return this.#resolveEquality(node, pointer, scope, false);
@@ -361,7 +362,7 @@ export class LanguageResolver {
             return `self.${name}`;
         }
 
-        return declaration.form === 'infix' ? `self ${name} …` : `self.${name}(…)`;
+        return { infix: `self ${name} …`, indexer: `self:${name}[…]` }[declaration.form] ?? `self.${name}(…)`;
     }
 
     #resolveLiteral(node) {
@@ -637,8 +638,14 @@ export class LanguageResolver {
             return;
         }
 
+        const described = { access: 'is a property', call: 'uses call syntax', infix: 'uses infix-call syntax', indexer: 'is an indexer' }[form];
+
+        // An indexer takes its key in brackets, which a node written another way may not give.
+        if (form === 'indexer' && node.argument === undefined) {
+            this.#fail(`'${node.name}' ${described}: write '${DefinitionWriter.write(node.target)}${node.optional === true ? '?:' : ':'}${node.name}[…]'`, pointer);
+        }
+
         const written = form === 'access' ? LanguageResolver.#accessOf(node) : { ...node, kind: FORM_NODE_KINDS[form] };
-        const described = { access: 'is a property', call: 'uses call syntax', infix: 'uses infix-call syntax' }[form];
 
         this.#fail(`'${node.name}' ${described}: write '${DefinitionWriter.write(written)}'`, pointer);
     }

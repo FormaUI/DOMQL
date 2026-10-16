@@ -138,6 +138,21 @@ describe('DefinitionWriter', () => {
         '@a is (convertible to "number")',
         '@a is not (convertible to "string" to "number")',
         '{ convertible: @a is convertible to "number" }',
+        '@panel:attribute["data-key"]',
+        '@panel:attribute[@name]',
+        '@panel?:attribute["data-key"]',
+        '@panel.first(".row")?:style["display"]',
+        '@panel:lookup["a"]["b"]',
+        '@panel:lookup["a"]?.label',
+        '@panel:lookup[@panel:attribute["data-which"]]',
+        '{ key: @panel:attribute["data-key"], n: 1 }',
+        '@panel { key: self:attribute["data-key"] }',
+        '(?@panel.first(".row"):attribute["id"])',
+        '(@panel:attribute["n"]) attributeOf "id"',
+        '@panel attributeOf (@row:attribute["key"])',
+        '@panel:attribute["n"] to "number"',
+        '@panel:attribute["n"] is convertible to "number"',
+        '@panel:lookup["a"] as "element"',
     ])('writes text that parses back to the same definition: %s', text => {
         const { definition } = domql.query(text, { panel });
 
@@ -252,7 +267,7 @@ describe('DefinitionWriter', () => {
             const { domql: other } = await import('#domql/domql.js');
 
             expect(() => format('@panel {')).toThrow(expect.objectContaining({ kind: 'syntax' }));
-            expect(() => domql.format({ version: 13, query: { kind: 'nonsense' } })).toThrow(expect.objectContaining({ kind: 'structure' }));
+            expect(() => domql.format({ version: 14, query: { kind: 'nonsense' } })).toThrow(expect.objectContaining({ kind: 'structure' }));
             expect(() => domql.format(other.query('@panel'))).toThrow(expect.objectContaining({ kind: 'structure', message: expect.stringContaining('query.definition') }));
         });
 
