@@ -400,10 +400,10 @@ class Domql {
             Domql.#resolutionsByDefinition.set(query.definition, resolutions);
         }
 
-        const key = `${options.watch === true}|${options.acceptPartialObservation === true}|${query.bindings.resolutionKey}`;
+        const key = `${options.watch === true}|${options.acceptPartialObservation === true}|${DomqlQuery.bindingsOf(query).resolutionKey}`;
 
         if (!resolutions.byKey.has(key)) {
-            resolutions.byKey.set(key, new LanguageResolver(Domql.#moduleRegistry, query.bindings, ParsedTexts.locationsOf(query.definition), options).resolveDefinition(query.definition));
+            resolutions.byKey.set(key, new LanguageResolver(Domql.#moduleRegistry, DomqlQuery.bindingsOf(query), ParsedTexts.locationsOf(query.definition), options).resolveDefinition(query.definition));
         }
 
         return resolutions.byKey.get(key);
@@ -444,7 +444,7 @@ class Domql {
             throw DomqlError.evaluation('DOMQL cannot evaluate without a browser window. Pass a window explicitly when running outside a browser.', {});
         }
 
-        return new QueryEvaluator(Domql.#moduleRegistry, resolvedDefinition, query.bindings, { window, document: window.document }, ParsedTexts.locationsOf(query.definition));
+        return new QueryEvaluator(Domql.#moduleRegistry, resolvedDefinition, DomqlQuery.bindingsOf(query), { window, document: window.document }, ParsedTexts.locationsOf(query.definition));
     }
 
     /** Returns the observations shared by everything carried out in the window, creating them on first use. */

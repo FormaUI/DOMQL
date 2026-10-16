@@ -196,12 +196,6 @@ export interface DomqlBindings {
     [name: string]: unknown;
 }
 
-/** The values a query's parameters are bound to, by name. */
-export interface DomqlParameterBindings {
-    has(name: string): boolean;
-    get(name: string): unknown;
-}
-
 /**
  * A query object: a request's definition and the values its parameters are bound to, through which every operation on it is carried out.
  * It belongs to the DOMQL instance that made it; another instance makes it again from its definition and a plain object of bindings.
@@ -209,8 +203,6 @@ export interface DomqlParameterBindings {
 export interface DomqlQuery<T = unknown> {
     /** The immutable definition, without its bindings. */
     readonly definition: DomqlDefinition;
-    /** The values its parameters are bound to, read by name. */
-    readonly bindings: DomqlParameterBindings;
     /** The type of the result the query produces, for TypeScript alone: the caller's type argument asserts it, and no query holds it. */
     readonly [domqlResult]?: { result(value: T): void };
     /** A new query object with the same definition, bound to these bindings, which replace the old ones whole. */

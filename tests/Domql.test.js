@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
+import { DomqlQuery } from '#domql/dom/DomqlQuery.mjs';
 import { domql } from '#domql/domql.js';
 import { DomqlError } from '#domql/language/DomqlError.mjs';
 import { ParsedTexts } from '#domql/language/ParsedTexts.mjs';
@@ -155,7 +156,7 @@ describe('domql', () => {
             const second = domql.query('@panel { size: self.size, clientSize: self.clientSize }', { panel: 2 });
 
             expect(second.definition).toBe(first.definition);
-            expect(second.bindings.get('panel')).toBe(2);
+            expect(DomqlQuery.bindingsOf(second).get('panel')).toBe(2);
         });
 
         it('reads a source that is no text as a definition, refusing one that is none', () => {
@@ -766,7 +767,7 @@ describe('domql', () => {
             const created = domql.query(parsed.definition, { panel: 2 });
 
             expect(created.definition).toEqual(parsed.definition);
-            expect(created.bindings.get('panel')).toBe(2);
+            expect(DomqlQuery.bindingsOf(created).get('panel')).toBe(2);
         });
 
         it('copies and freezes the definition it is given', () => {
@@ -811,9 +812,9 @@ describe('domql', () => {
             const element = document.createElement('div');
             const query = domql.query('@panel { size: self.size }', { panel: element, Panel: 2 });
 
-            expect(query.bindings.get('panel')).toBe(element);
-            expect(query.bindings.get('Panel')).toBe(2);
-            expect(query.bindings.has('PANEL')).toBe(false);
+            expect(DomqlQuery.bindingsOf(query).get('panel')).toBe(element);
+            expect(DomqlQuery.bindingsOf(query).get('Panel')).toBe(2);
+            expect(DomqlQuery.bindingsOf(query).has('PANEL')).toBe(false);
         });
 
         it.each([
@@ -828,7 +829,7 @@ describe('domql', () => {
             ['an object holding a null', () => ({ id: 'a', parent: null }), '{ id: string, parent: null }'],
             ['a list of lists, one of them empty', () => [[1], []], 'list<list<number>>'],
         ])('types %s from the value alone', (_, value, type) => {
-            const { bindings } = domql.query('@target', { target: value() });
+            const bindings = DomqlQuery.bindingsOf(domql.query('@target', { target: value() }));
 
             expect(bindings.getType('target').toString()).toBe(type);
         });
@@ -910,13 +911,13 @@ describe('domql', () => {
             const parsed = domql.query('@target { size: self.size }', { target: null });
             const created = domql.query(parsed.definition, { target: document.createElement('div') });
 
-            expect(parsed.bindings.getType('target').toString()).toBe('null');
-            expect(created.bindings.getType('target').toString()).toBe('element');
+            expect(DomqlQuery.bindingsOf(parsed).getType('target').toString()).toBe('null');
+            expect(DomqlQuery.bindingsOf(created).getType('target').toString()).toBe('element');
         });
 
         it('types a binding that holds a node by its kind', () => {
             const host = document.createElement('div');
-            const bindings = domql.query('@a.children.count', { a: host, b: document, c: document.createDocumentFragment(), d: host.attachShadow({ mode: 'open' }) }).bindings;
+            const bindings = DomqlQuery.bindingsOf(domql.query('@a.children.count', { a: host, b: document, c: document.createDocumentFragment(), d: host.attachShadow({ mode: 'open' }) }));
 
             expect(['a', 'b', 'c', 'd'].map(name => bindings.getType(name).toString())).toEqual(['element', 'document', 'documentFragment', 'shadowRoot']);
         });
@@ -932,7 +933,7 @@ describe('domql', () => {
         it('binds data: numbers, strings, Booleans, null, lists and objects', () => {
             const configuration = { modifier: 'shift', steps: [1, 2], wrap: true };
 
-            expect(domql.query('@target { size: self.size }', { target: configuration }).bindings.get('target')).toBe(configuration);
+            expect(DomqlQuery.bindingsOf(domql.query('@target { size: self.size }', { target: configuration })).get('target')).toBe(configuration);
         });
 
         it.each([

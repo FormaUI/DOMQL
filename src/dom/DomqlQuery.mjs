@@ -38,9 +38,9 @@ export class DomqlQuery {
         return this.#definition;
     }
 
-    /** The values the request's parameters are bound to. */
-    get bindings() {
-        return this.#bindings;
+    /** The values a query's parameters are bound to, which DOMQL prepares and evaluates it with; no part of a query object's API, which binds anew through `with`. */
+    static bindingsOf(query) {
+        return query.#bindings;
     }
 
     /** A new query object with the same definition, bound to these bindings, which replace the old ones whole; this one, and every operation running from it, are unaffected. */

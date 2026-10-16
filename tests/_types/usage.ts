@@ -12,7 +12,8 @@ const optional = domql.query('@panel { size: self.size }', { panel: null, ids: [
 const definition: DomqlDefinition = query.definition;
 const created: DomqlQuery<{ count: number }> = domql.query<{ count: number }>(definition, { panel });
 const rebound: DomqlQuery<{ count: number }> = query.with({ panel: document.body });
-const bound: boolean = rebound.bindings.has('panel');
+// @ts-expect-error A query's bindings are no part of its API; `with` binds it anew.
+const bound: unknown = rebound.bindings;
 const version: string = domql.info.version;
 const specificationVersion: string = domql.info.specificationVersion;
 const formatted: string = domql.format(query);

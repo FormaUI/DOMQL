@@ -308,7 +308,6 @@ Each entry point, operation and handle is listed here with what it takes, and th
 | `domql.query(text, bindings?)`, `domql.query(definition, bindings?)` | `Domql.Query(text, bindings)`, `Domql.Query<T>(text, bindings)`, and from a definition alike | Makes a query object, binding its parameters, as [making a query](#making-a-query) sets out |
 | | `Domql.TryQuery(…)`, `Domql.TryQuery<T>(…)` | Attempts exactly what `Domql.Query` does, answering false with a diagnostic for a syntax or structure failure |
 | `query.definition` | `query.Definition` | The query's immutable definition, without its bindings |
-| `query.bindings` | | The values its parameters are bound to, read by name through `has(name)` and `get(name)` |
 | `query.with(bindings)` | | A new query with the same definition, bound to these bindings |
 | `query.resolve(options?)` | | Resolves and types a request without evaluating anything; its options `watch` and `acceptPartialObservation` resolve it as a watch would, as [declarations](#declarations) sets out |
 | `query.select(...path)` | | A part of its result, as [selecting a result](#selecting-a-result) sets out |
@@ -325,7 +324,7 @@ Each entry point, operation and handle is listed here with what it takes, and th
 
 | Object | Members | Defined in |
 | --- | --- | --- |
-| `DomqlQuery` | `definition`, `bindings`, `with(bindings)`, `resolve(options?)`, `select(...path)`, `evaluate(options?)`, `evaluateAsync(options?)`, `watch(options?)`, `subscribe(handler, options?)`, `executeAsync(options?)`, `apply(options?)` | [Making a query](#making-a-query) |
+| `DomqlQuery` | `definition`, `with(bindings)`, `resolve(options?)`, `select(...path)`, `evaluate(options?)`, `evaluateAsync(options?)`, `watch(options?)`, `subscribe(handler, options?)`, `executeAsync(options?)`, `apply(options?)` | [Making a query](#making-a-query) |
 | `DomqlSelection` | `select(...path)`, `evaluate(options?)`, `evaluateAsync(options?)`, `watch(options?)` | [Selecting a result](#selecting-a-result) |
 | `DomqlWatch` | `status`, `snapshot`, `error`, `readyAsync(options?)`, `refreshAsync()`, `subscribe(eventName, handler, options?)`, `dispose()`, and `select(...path)` for snapshots or `liveState` for live state | [The watch and its handle](#the-watch-and-its-handle), [live state](#live-state) |
 | `DomqlSelectedView` | `snapshot`, `status`, `error`, `select(...path)`, `subscribe(eventName, handler, options?)`, `readyAsync(options?)` | [Sharing a watch](#sharing-a-watch) |

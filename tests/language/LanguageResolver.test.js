@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { DomqlQuery } from '#domql/dom/DomqlQuery.mjs';
 import { domql } from '#domql/domql.js';
 import { DomqlError } from '#domql/language/DomqlError.mjs';
 import { DomqlModule } from '#domql/language/vocabulary/DomqlModule.mjs';
@@ -65,7 +66,7 @@ describe('LanguageResolver', () => {
             }, null)]);
             const query = domql.query(text, { panel });
 
-            expect(() => new LanguageResolver(registry, query.bindings, null, {}).resolveDefinition(query.definition)).toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringMatching(/\bT\b/) }));
+            expect(() => new LanguageResolver(registry, DomqlQuery.bindingsOf(query), null, {}).resolveDefinition(query.definition)).toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringMatching(/\bT\b/) }));
         });
     });
 
@@ -111,7 +112,7 @@ describe('LanguageResolver', () => {
         const resolveWith = text => {
             const query = domql.query(text, { panel });
 
-            return new LanguageResolver(registry, query.bindings, null, {}).resolveDefinition(query.definition);
+            return new LanguageResolver(registry, DomqlQuery.bindingsOf(query), null, {}).resolveDefinition(query.definition);
         };
         const failureWith = text => {
             try {
@@ -201,7 +202,7 @@ describe('LanguageResolver', () => {
             }, null)]);
             const query = domql.query('@panel.ping(1)', { panel });
 
-            expect(() => new LanguageResolver(registry, query.bindings, null, {}).resolveDefinition(query.definition)).toThrow(expect.objectContaining({ message: expect.stringContaining("'ping' takes no argument") }));
+            expect(() => new LanguageResolver(registry, DomqlQuery.bindingsOf(query), null, {}).resolveDefinition(query.definition)).toThrow(expect.objectContaining({ message: expect.stringContaining("'ping' takes no argument") }));
         });
 
         it('refuses an argument of the wrong type', () => {
@@ -377,7 +378,7 @@ describe('LanguageResolver', () => {
             const resolveWith = text => {
                 const query = domql.query(text, { panel: element });
 
-                return new LanguageResolver(registry, query.bindings, null, {}).resolveDefinition(query.definition);
+                return new LanguageResolver(registry, DomqlQuery.bindingsOf(query), null, {}).resolveDefinition(query.definition);
             };
             const events = resolveWith('(@panel on "chart-selected") { value: self.value }');
             const test = resolveWith('@panel.charts');

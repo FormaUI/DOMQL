@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { SnapshotComparer } from '#domql/snapshots/SnapshotComparer.mjs';
+import { DomqlQuery } from '#domql/dom/DomqlQuery.mjs';
 import { domql } from '#domql/domql.js';
 import { LanguageResolver } from '#domql/language/LanguageResolver.mjs';
 import { DomqlModule } from '#domql/language/vocabulary/DomqlModule.mjs';
@@ -16,7 +17,7 @@ const resolvedOf = (text, bindings, tolerance) => {
     const registry = new ModuleRegistry([Vocabulary.module, property('wobble', 'size', tolerance), property('steady', 'number')]);
     const query = domql.query(text, bindings);
 
-    return new LanguageResolver(registry, query.bindings, null, {}).resolveDefinition(query.definition);
+    return new LanguageResolver(registry, DomqlQuery.bindingsOf(query), null, {}).resolveDefinition(query.definition);
 };
 
 /** The comparer of the snapshots of a query, which compares them as a watch does. */

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { BrowserModule } from '#domql/dom/BrowserModule.mjs';
+import { DomqlQuery } from '#domql/dom/DomqlQuery.mjs';
 import { Observations } from '#domql/dom/Observations.mjs';
 import { QueryEvaluator } from '#domql/dom/QueryEvaluator.mjs';
 import { domql } from '#domql/domql.js';
@@ -31,9 +32,9 @@ const propertyModule = (name, implementation) => new DomqlModule(name, {
 const readWith = (modules, text, bindings) => {
     const registry = new ModuleRegistry([Vocabulary.module, ...[modules].flat()]);
     const query = domql.query(text, bindings);
-    const resolved = new LanguageResolver(registry, query.bindings, null, {}).resolveDefinition(query.definition);
+    const resolved = new LanguageResolver(registry, DomqlQuery.bindingsOf(query), null, {}).resolveDefinition(query.definition);
 
-    return new QueryEvaluator(registry, resolved, query.bindings, { window, document }, null).evaluateOnce();
+    return new QueryEvaluator(registry, resolved, DomqlQuery.bindingsOf(query), { window, document }, null).evaluateOnce();
 };
 
 /** Two modules, each a Boolean member named for itself that answers what its name says and counts how often it is read. */
@@ -179,9 +180,9 @@ describe('QueryEvaluator', () => {
             const registry = new ModuleRegistry([BrowserModule.create(), propertyModule('probe', element => (reads.push(element), 1))]);
             const readProbe = item => {
                 const query = domql.query('(@item.parent as "element")?.probe', { item });
-                const resolved = new LanguageResolver(registry, query.bindings, null, {}).resolveDefinition(query.definition);
+                const resolved = new LanguageResolver(registry, DomqlQuery.bindingsOf(query), null, {}).resolveDefinition(query.definition);
 
-                return new QueryEvaluator(registry, resolved, query.bindings, { window, document }, null).evaluateOnce();
+                return new QueryEvaluator(registry, resolved, DomqlQuery.bindingsOf(query), { window, document }, null).evaluateOnce();
             };
 
             expect(readProbe(document.createElement('div'))).toBeNull();
@@ -200,9 +201,9 @@ describe('QueryEvaluator', () => {
             const registry = new ModuleRegistry([BrowserModule.create(), propertyModule('probe', element => (reads.push(element), 7))]);
             const readProbe = text => {
                 const query = domql.query(text, { item: items[0] });
-                const resolved = new LanguageResolver(registry, query.bindings, null, {}).resolveDefinition(query.definition);
+                const resolved = new LanguageResolver(registry, DomqlQuery.bindingsOf(query), null, {}).resolveDefinition(query.definition);
 
-                return new QueryEvaluator(registry, resolved, query.bindings, { window, document }, null).evaluateOnce();
+                return new QueryEvaluator(registry, resolved, DomqlQuery.bindingsOf(query), { window, document }, null).evaluateOnce();
             };
 
             expect(readProbe('1 ?? @item.probe')).toBe(1);
@@ -689,8 +690,8 @@ describe('QueryEvaluator evaluation', () => {
     const evaluate = (text, bindings = {}, modules = [], holdsAllObservations = false, recordsDependencies = true) => {
         const registry = new ModuleRegistry([BrowserModule.create(), ...modules]);
         const query = domql.query(text, bindings);
-        const resolved = new LanguageResolver(registry, query.bindings, null, { watch: true, acceptPartialObservation: true }).resolveDefinition(query.definition);
-        const evaluator = new QueryEvaluator(registry, resolved, query.bindings, { window, document }, null);
+        const resolved = new LanguageResolver(registry, DomqlQuery.bindingsOf(query), null, { watch: true, acceptPartialObservation: true }).resolveDefinition(query.definition);
+        const evaluator = new QueryEvaluator(registry, resolved, DomqlQuery.bindingsOf(query), { window, document }, null);
 
         observations = new Observations(registry, { window, document });
 
@@ -959,8 +960,8 @@ describe('QueryEvaluator evaluation', () => {
         const evaluationsOf = (text, bindings, modules) => {
             const registry = new ModuleRegistry([BrowserModule.create(), ...modules]);
             const query = domql.query(text, bindings);
-            const resolved = new LanguageResolver(registry, query.bindings, null, { watch: true, acceptPartialObservation: true }).resolveDefinition(query.definition);
-            const evaluator = new QueryEvaluator(registry, resolved, query.bindings, { window, document }, null);
+            const resolved = new LanguageResolver(registry, DomqlQuery.bindingsOf(query), null, { watch: true, acceptPartialObservation: true }).resolveDefinition(query.definition);
+            const evaluator = new QueryEvaluator(registry, resolved, DomqlQuery.bindingsOf(query), { window, document }, null);
             const shared = new Observations(registry, { window, document });
             const acquire = vi.spyOn(shared, 'acquire');
 
@@ -1144,11 +1145,11 @@ describe('QueryEvaluator projection', () => {
     const evaluatorOf = (text, bindings = {}, modules = []) => {
         const registry = new ModuleRegistry([BrowserModule.create(), ...modules]);
         const query = domql.query(text, bindings);
-        const resolved = new LanguageResolver(registry, query.bindings, null, {}).resolveDefinition(query.definition);
+        const resolved = new LanguageResolver(registry, DomqlQuery.bindingsOf(query), null, {}).resolveDefinition(query.definition);
 
         observations = new Observations(registry, { window, document });
 
-        return new QueryEvaluator(registry, resolved, query.bindings, { window, document }, null);
+        return new QueryEvaluator(registry, resolved, DomqlQuery.bindingsOf(query), { window, document }, null);
     };
 
     const failureOf = call => {
