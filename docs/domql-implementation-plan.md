@@ -10,7 +10,7 @@ Each item is what exists and what checks it.
 - **Navigation and absence.** Access that requires a receiver that cannot be null, `?.`, optional-access groups, the coalescing operator and access by name, each recorded in the definition and written back as canonical text, a watch following what each evaluates. Checked by the tests of parsing, of the definition, of resolution, of evaluation, of watches and of comparing snapshots.
 - **Boolean expressions.** `not`, `and` and `or` of Booleans that cannot be null, and conditions of one, each refusing a Boolean that can be null with the fallback to write, a watch following the operands and clauses evaluation reaches; tests are Boolean members, and `is` and `is not` compare strings, numbers, Booleans and nodes, refusing two types that fit neither way. Checked by the tests of parsing, of resolution, of evaluation, of writing, of watches and of modules.
 - **Nodes, shadow trees and casts.** `node` and its kinds, each a binding can hold, with `parent`, `root`, `host`, `children`, `first` and `all` on every node, a member on a kind of the name of one on `node` refused; an element's `shadow`, whose `root` and `elements` cross into the tree it hosts and the elements a slot shows; and `as`, which casts to `node` and its kinds and refuses a type that is no node and a target that can never be of it. Checked by the tests of types, of parsing, of the definition, of resolution, of evaluation, of writing and of registration, and in Chromium by what the tree's members and the shadow view answer and observe as nodes move, slots are assigned and shadow roots attached.
-- **The vocabulary.** The built-in vocabulary declared as module data, and modules that extend it. Checked by the tests of modules, the registry and the vocabulary.
+- **The vocabulary.** The built-in vocabulary declared as module data, and modules that extend it. `clientSize` observes its border box and its content box under one observation, the resize's client box, at a cost measured in Chromium and accepted: a watch reading it for 1,000 to 100,000 rows starts 6 to 14 percent slower, disposes 18 to 32 percent slower and holds 13 percent more script memory a row than one observing its border box alone, and reads and refreshes alike. Checked by the tests of modules, the registry and the vocabulary, and in Chromium; a scrollbar appearing is shown only by an experiment outside the gate, since the gate's Chromium hides scrollbars, and a browser test with a launch of its own would bring it in without changing the other tests' geometry.
 - **Bindings and resolution.** Every binding typed from its value, and a definition resolved against the vocabulary and its result typed, without a browser; the resolution is kept for its definition, so the queries made from one text share it. Checked by the resolver tests and the tests of `query.resolve`.
 - **The query object.** `domql.query` makes a query object from text or a definition, `with` binds it anew and `select` takes a part of its result, and every operation is carried out through it, one the request's kind does not take refused before anything runs. Checked by the tests of the query object, of selections and of refusals.
 - **Evaluating.** `evaluate` evaluates every built-in member except `intersects`, which is maintained, and fails it with an evaluation error that says so. `evaluateAsync` waits for the first sample of a maintained member, evaluates again as samples arrive and as what the query depends on changes, and lets go of its observations when it answers, fails or is canceled. Each evaluation records its dependencies, and answers detached, immutable data. Checked by the evaluator tests, in a simulated DOM, and by the browser tests, in Chromium, for geometry, for state the browser decides and for the evaluations that wait.
@@ -49,22 +49,17 @@ Each decision here is answered without building it, with what was found and what
 
 The open decisions are taken a group at a time, in this order, each group one kind of work, until every one is answered: built, or settled with why it is not and what would reopen it.
 
-#### 1. What a watch observes
-
-Whether a watch can go stale without saying so, and what observing more costs.
-
-- **What a client size observes.** `clientSize` observes its border box, and observing its content box as well was prototyped and measured in Chromium. It caught what the border box alone misses: a border changing while the border box keeps its size, and a scrollbar appearing where it takes space, shown once the scrollbar was given its width. Neither box sees a border and padding changing by the same amount, so `clientSize` stays partly observable either way. Its ongoing cost: a padding change that leaves the client size as it was evaluates the watch once, where it evaluated none, delivering nothing; a resize both boxes report evaluates once under the frame schedule and twice under `immediate`; and resizing 5,000 watched rows at once took about 15 percent longer, with 1,000 rows and scrolling unchanged. Against the code without it, a watch reading `clientSize` for 1,000 to 100,000 rows started 15 to 25 percent slower, disposed 17 to 52 percent slower and held about 50 percent more script memory a row, most of it the second observation's own sessions, its refresh 0 to 9 percent slower and its read unchanged. With sharing native observers settled, which removed the second box's native cost and not its sessions, whether it is built waits on both boxes observed under one observation, which keeps one session.
-
-#### 2. Watches, subscriptions and behaviors
+#### 1. Watches, subscriptions and behaviors
 
 How a running handle takes new bindings, delivers and waits.
 
+- **Batching watch invalidations under immediate scheduling.** Under `immediate`, a watch evaluates once for each notification it receives, so one layout change that resizes 1,000 watched rows caused 1,001 update evaluations in Chromium, its first evaluation aside: one for the panel's style attribute its selector observes through its root and one for each row's resize, where the frame schedule caused two; a resize both of a client size's boxes report evaluates it twice. Coalescing the notifications one change delivers into one evaluation is a hypothesis to prove: that notifications from separate observer callbacks coalesce as intended, and what timing `immediate` then promises, since evaluating at a microtask is no longer synchronous with the notification. It is decided with that resize as its workload.
 - **Rebinding a watch.** Updating a running watch's bindings would settle whether bindings replace the set, what a failed resolution leaves running, how an update meets an evaluation in progress and which observations and live state survive; it is decided when a query needs it.
 - **A subscription delivered by frame.** A subscription projects every event in the task it is dispatched in, and a watch already evaluates once a frame however many observations fire; a subscription to events that describe state, as a scroll position does, could take a `schedule: 'frame'` of its own, delivering only the latest projection of each frame and saying that the others are dropped; it would settle whether an event it drops is projected at all, since a projection reads the document as its event is dispatched. The built-in scroll and resize events arrive at most once a frame already, as HTML fires them in its rendering steps, and the others are discrete, so it waits for a source or a query that needs it; waiting for events to go quiet is the caller's policy, carried out in its handler or an extension, and no part of it.
 - **The event sources a behavior offers.** The specification subscribes to them as subscriptions of their own; how a behavior offers one is decided once a behavior that offers one exists.
 - **A behavior that waits.** A behavior that needs to wait before it is in effect would be applied by an `applyAsync` of its own; it is a possibility for later, no part of D12's API, and decided when one is needed.
 
-#### 3. The language
+#### 2. The language
 
 What a query can say that it cannot yet.
 
@@ -73,7 +68,7 @@ What a query can say that it cannot yet.
 - **A flat-tree parent.** A parent across slots, beside the tree's own `parent` and `root`, waits until its uses and its meaning are clear.
 - **An infix call's receiver null policy.** An infix call propagates a null receiver; a policy declared as a parameter's is, accepting null with a meaning of its own or refusing a nullable receiver when the query is prepared, is designed when a member needs one, since no built-in infix call does.
 
-#### 4. Evaluation cost
+#### 3. Evaluation cost
 
 Work a measured workload would have to ask for.
 

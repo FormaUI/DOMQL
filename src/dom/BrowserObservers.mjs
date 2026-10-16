@@ -30,13 +30,32 @@ export class BrowserObservers {
         };
     }
 
-    /** The size of an element, as its border box or content box, or the window's. */
+    /**
+     * The size of an element, as its border box or its content box, or of the window. Its `client` box is DOMQL's combined mode: the client box changes where either the border box or the content box does,
+     * so it observes both, one native observer each, since an observer watches an element for one box; one that fails to start lets go of the one started before it.
+     */
     static #observeResize({ target, arguments: { box = 'border-box' } }, notify, { window }) {
         if (target === window) {
             return BrowserObservers.#listen(target, ['resize'], false, notify);
         }
 
-        // An observer reports the element once it starts to observe it, which is no change.
+        const observers = [];
+
+        try {
+            for (const observedBox of box === 'client' ? ['border-box', 'content-box'] : [box]) {
+                observers.push(BrowserObservers.#observeBox(target, observedBox, notify, window));
+            }
+        } catch (error) {
+            observers.forEach(observer => observer.disconnect());
+
+            throw error;
+        }
+
+        return { stop: () => observers.forEach(observer => observer.disconnect()) };
+    }
+
+    /** A native observer of one box of an element, which reports the element once it starts to observe it, no change. */
+    static #observeBox(target, box, notify, window) {
         let isStarted = false;
         const observer = new window.ResizeObserver(() => {
             if (isStarted) {
@@ -46,9 +65,15 @@ export class BrowserObservers {
             isStarted = true;
         });
 
-        observer.observe(target, { box });
+        try {
+            observer.observe(target, { box });
+        } catch (error) {
+            observer.disconnect();
 
-        return { stop: () => observer.disconnect() };
+            throw error;
+        }
+
+        return observer;
     }
 
     /** The attributes, the children and the text of a node, and of its descendants where it says so. */

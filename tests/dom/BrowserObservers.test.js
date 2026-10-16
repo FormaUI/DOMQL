@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { BrowserModule } from '#domql/dom/BrowserModule.mjs';
+import { BrowserObservers } from '#domql/dom/BrowserObservers.mjs';
 import { Observations } from '#domql/dom/Observations.mjs';
 import { ModuleRegistry } from '#domql/language/vocabulary/ModuleRegistry.mjs';
 
@@ -83,6 +84,65 @@ describe('BrowserObservers', () => {
             session.dispose();
 
             expect(fake.lists[1].listeners).toBe(0);
+        });
+    });
+
+    describe('resize of the client box', () => {
+        /** A window whose resize observers the test controls: each records the boxes it observes and whether it is disconnected, and the one `failing` names fails to start. */
+        const createResizeWindow = ({ failing = -1 } = {}) => {
+            const observers = [];
+            const fake = {
+                observers,
+                ResizeObserver: class {
+                    constructor(callback) {
+                        this.callback = callback;
+                        this.boxes = [];
+                        this.isDisconnected = false;
+                        observers.push(this);
+                    }
+
+                    observe(target, { box }) {
+                        if (observers.indexOf(this) === failing) {
+                            throw new Error('cannot observe');
+                        }
+
+                        this.boxes.push(box);
+                    }
+
+                    disconnect() {
+                        this.isDisconnected = true;
+                    }
+                },
+            };
+
+            return fake;
+        };
+
+        const element = document.createElement('div');
+
+        it('observes the border box and the content box, one observer each, and reports a change either reports after its first report', () => {
+            const fake = createResizeWindow();
+            let changes = 0;
+            const observation = BrowserObservers.functions.observeResize({ type: 'resize', target: element, arguments: { box: 'client' } }, () => changes++, { window: fake });
+
+            expect(fake.observers.map(observer => observer.boxes)).toEqual([['border-box'], ['content-box']]);
+
+            fake.observers.forEach(observer => observer.callback([]));
+            expect(changes).toBe(0);
+
+            fake.observers[1].callback([]);
+            fake.observers[0].callback([]);
+            expect(changes).toBe(2);
+
+            observation.stop();
+            expect(fake.observers.every(observer => observer.isDisconnected)).toBe(true);
+        });
+
+        it('lets go of the border box observer where the content box one fails to start', () => {
+            const fake = createResizeWindow({ failing: 1 });
+
+            expect(() => BrowserObservers.functions.observeResize({ type: 'resize', target: element, arguments: { box: 'client' } }, () => {}, { window: fake })).toThrow('cannot observe');
+            expect(fake.observers.map(observer => observer.isDisconnected)).toEqual([true, true]);
         });
     });
 });

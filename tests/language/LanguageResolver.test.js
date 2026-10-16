@@ -400,8 +400,8 @@ describe('LanguageResolver', () => {
             expect(() => resolve('@panel matches ":hover"', { panel }, { watch: true, acceptPartialObservation: true })).not.toThrow();
         });
 
-        it('refuses a watch of a client size unless it accepts partial observation, since its border box can keep its size while it changes', () => {
-            expect(failure('@panel.clientSize', { panel }, { watch: true }).message).toContain("'element.clientSize' (which misses a change that leaves its border box as it was");
+        it('refuses a watch of a client size unless it accepts partial observation, since its border box and its content box can keep their sizes while it changes', () => {
+            expect(failure('@panel.clientSize', { panel }, { watch: true }).message).toContain("'element.clientSize' (which misses a change that leaves its border box and its content box as they were, as its border and padding changing by the same amount)");
             expect(() => resolve('@panel.clientSize', { panel }, { watch: true, acceptPartialObservation: true })).not.toThrow();
         });
 

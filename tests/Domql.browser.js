@@ -140,7 +140,7 @@ describe('domql evaluateAsync in a browser', () => {
             ]);
         });
 
-        it('follows a client size through its border box, and misses a change that leaves the border box as it was until a refresh', async () => {
+        it('follows a client size through its border box and its content box, and misses a change that leaves both as they were until a refresh', async () => {
             const box = document.createElement('div');
 
             box.style.cssText = 'box-sizing: border-box; width: 200px; height: 100px; padding: 10px; border: 10px solid';
@@ -155,28 +155,63 @@ describe('domql evaluateAsync in a browser', () => {
 
             expect(snapshots).toEqual([180]);
 
-            // The border box keeps its 200 pixels and the content box its 160, while the padding box grows to 190.
-            box.style.padding = '15px';
-            box.style.borderWidth = '5px';
-            await frame();
-
-            expect(box.clientWidth).toBe(190);
-            expect(snapshots).toEqual([180]);
-
-            await watch.refreshAsync();
-
-            expect(snapshots).toEqual([180, 190]);
-
+            // A border alone narrows the content box, keeping the border box at 200 pixels.
             box.style.borderWidth = '2px';
             await frame();
 
             expect(box.clientWidth).toBe(196);
-            expect(snapshots).toEqual([180, 190]);
+            expect(snapshots).toEqual([180, 196]);
+
+            // From a border of 2 and a padding of 10, a border of 4 and a padding of 8 keep both boxes as they were, and narrow the client box to 192.
+            box.style.borderWidth = '4px';
+            box.style.padding = '8px';
+            await frame();
+
+            expect(box.clientWidth).toBe(192);
+            expect(snapshots).toEqual([180, 196]);
+
+            await watch.refreshAsync();
+
+            expect(snapshots).toEqual([180, 196, 192]);
+
+            // Padding alone changes the content box and leaves the client box as it was, so nothing is delivered.
+            box.style.padding = '20px';
+            await frame();
+
+            expect(snapshots).toEqual([180, 196, 192]);
 
             box.style.width = '220px';
             await frame();
 
-            expect(snapshots).toEqual([180, 190, 216]);
+            expect(snapshots).toEqual([180, 196, 192, 212]);
+        });
+
+        it('evaluates a client size twice under the immediate schedule where both of its boxes report one resize', async () => {
+            // This is how the immediate schedule evaluates now, once for each notification; batching its invalidations, an open decision, may change it.
+            let evaluations = 0;
+
+            domql.registerModule(domql.createModule('clientEvaluations', {
+                members: [{ name: 'clientEvaluations', function: 'count', kind: 'property', on: 'element', parameters: [], result: 'number', changes: 'constant', reads: 'fresh' }],
+            }, { count: () => ++evaluations }));
+
+            const box = document.createElement('div');
+
+            box.style.cssText = 'width: 200px; height: 100px; padding: 10px';
+            document.body.append(box);
+
+            const watch = domql.query('@box { width: self.clientSize?.width, evaluations: self.clientEvaluations }', { box }).watch({ schedule: 'immediate', acceptPartialObservation: true });
+
+            watches.push(watch);
+            await watch.readyAsync();
+            await frame();
+
+            const before = evaluations;
+
+            box.style.width = '240px';
+            await frame();
+
+            expect(evaluations - before).toBe(2);
+            expect(watch.snapshot.width).toBe(260);
         });
 
         it('waits for the browser to report a member it keeps, then follows it', async () => {
