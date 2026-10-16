@@ -56,6 +56,8 @@ Each decision here is answered without building it, with what was found and what
   - **Reopened by** a caller that needs to know when a behavior is ready, beyond its having started, which would justify an `applyAsync`; a behavior that does asynchronous work does not by itself.
 - **Saying which declaration a value means.** Not adopted beyond a cast: only an extension's declarations can make a request ambiguous, since the built-in vocabulary makes none. A cast to a kind of node says which declaration a null receiver means, so `(@thing as "element")?.ping()` takes the element's for a null `thing`, as a test shows. Nothing says it for a null receiver whose declarations are on types that are no nodes, which a cast cannot name, or for an empty list more than one declaration takes, as one on `list<number>` and one on `list<string>` both take a `list<never>`; each is refused as ambiguous.
   - **Reopened by** an extension whose declarations of one name collide in this way in real use. A declared parameter type is the leading candidate, and that use would show whether it covers the case.
+- **A window the viewport decides.** Not adopted: `@rows.where(self intersects { root: @panel })` answers which rendered rows intersect the panel, which settles filtering by the viewport. It is no virtualization: it holds an intersection observation for every candidate, and selects only rows in the document, never one not yet rendered.
+  - **Reopened by** a consumer that needs DOMQL itself to decide which rows are rendered.
 
 ### Open
 
@@ -65,7 +67,6 @@ The open decisions are taken a group at a time, in this order, each group one ki
 
 What a query can say that it cannot yet.
 
-- **Ranges of a list.** A `slice` of a list, a general operation whose indexing, bounds and observation would be specified with it, is decided when a query needs it; a window the viewport decides waits for a need and a measured gain.
 - **A flat-tree parent.** A parent across slots, beside the tree's own `parent` and `root`, waits until its uses and its meaning are clear.
 - **An infix call's receiver null policy.** An infix call propagates a null receiver; a policy declared as a parameter's is, accepting null with a meaning of its own or refusing a nullable receiver when the query is prepared, is designed when a member needs one, since no built-in infix call does.
 
@@ -75,6 +76,12 @@ Work a measured workload would have to ask for.
 
 - **A list's change set by its longest increasing subsequence.** It would send one operation to move the first item to the end, where the current diff sends one for every other item; the current diff takes at most half a millisecond for 1,000 items in any order, and its `indexOf` and `splice` can grow quadratically with a large reorder. It is decided by the total cost of generating, delivering and applying a change set, once a workload measures delivering and applying them, never by generating one alone; it settles which operations are sent, their order, ties and repeated elements, and the key of a call's bindings computed once waits with it.
 - **Incremental evaluation.** Explore incremental evaluation for attribute projections over child elements, including dependency invalidation, retained evaluation state, and fallback to full evaluation. The open question is whether the evaluations that remain valid after a change can be determined reliably: locals, branches and short-circuiting make dependencies conditional, and selectors change membership and order. Measured on 200 rows, five projections and nine changes, re-evaluating an item only where one of its own dependencies fired saves nothing, since `matches`, `all`, `closest` and the ancestry `rect` follows observe a whole tree, so one row's class fires them for every row. Narrowing an observation of a tree to a record on the item, inside it or above it re-evaluates the one row an edit of its own attribute or class changed, and misses a row a selector reads through a sibling, as `tr.selected + tr` does, so it is sound only with each selector analysed for what it reads. Layout reuses no item: a row that grows moves every row after it, none of whose own observations fire, and inserting, removing, moving and scrolling invalidate every row through the structure and the scrolling they observe. What remains is a large saving for edits of a row's own attributes and class, and none for the changes lists most often see, so incremental evaluation waits for a workload that needs that saving.
+
+#### 3. Collections
+
+What a collection is, designed as a task of its own on the conversions built.
+
+- **A collection model.** DOMQL has one collection, `list<T>`, an array, where hosts hand over arrays, DOM collections, sets, maps and plain objects, and the C# half will hand over its own. One native model and representation is designed, with host collections adapted into it, before any operation that depends on what a collection is: ranges of a list, as `slice`, `take` and `drop`, and conversions to and from collections, as to `"array"`, `"object"` or `"entries"`, wait on it. Until then a conversion from or to a list is refused at registration, a deferral and no consequence of what a conversion is, since a conversion of a list can be as pure as any other; a structured type with a list among its fields converts as any other structured type of data does.
 
 ### D14. A syntax tree for tooling
 
