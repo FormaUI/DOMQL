@@ -249,6 +249,22 @@ describe('Watch', () => {
         });
     });
 
+    describe('the class indexer', () => {
+        it('follows the class attribute, reporting where the class comes and goes', async () => {
+            watch('@panel:class["open"]', { panel });
+            await settle();
+
+            panel.classList.add('open');
+            await settle();
+            panel.classList.add('card');
+            await settle();
+            panel.className = 'card';
+            await settle();
+
+            expect(snapshots).toEqual([false, true, false]);
+        });
+    });
+
     describe('a named indexer', () => {
         it('follows the key it is given, observing what that key names and letting go of what it named before', async () => {
             panel.setAttribute('data-which', 'data-a');

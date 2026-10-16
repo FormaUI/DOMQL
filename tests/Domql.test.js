@@ -2620,6 +2620,39 @@ describe('domql named indexers', () => {
         });
     });
 
+    describe('the class indexer', () => {
+        it('tests whether the element has one class, by a key an expression or a binding gives', () => {
+            panel.className = 'open  card';
+
+            expect(evaluate('@panel:class["open"]')).toBe(true);
+            expect(evaluate('@panel:class["card"]')).toBe(true);
+            expect(evaluate('@panel:class["closed"]')).toBe(false);
+            expect(evaluate('@panel:class[@name]', { name: 'card' })).toBe(true);
+            expect(evaluate('@panel:class["open"] and not @panel:class["closed"]')).toBe(true);
+            expect(evaluate('@missing?:class["open"]', { missing: null })).toBeNull();
+        });
+
+        it.each([
+            ['empty', ''],
+            ['holding a space', 'open card'],
+            ['holding a tab', 'open\tcard'],
+            ['holding a line feed', 'open\ncard'],
+            ['holding a form feed', 'open\fcard'],
+            ['holding a carriage return', 'open\rcard'],
+        ])('refuses a key that is no token, %s, as an evaluation error', (_, name) => {
+            const error = getError(() => evaluate('@panel:class[@name]', { name }));
+
+            expect(error.kind).toBe('evaluation');
+            expect(error.message).toContain(`${JSON.stringify(name)} is no class, which is one token: never empty, and holding no tab, line feed, form feed, carriage return or space`);
+        });
+
+        it('takes any other character a token holds, as a class list does', () => {
+            panel.className = 'a\u00a0b';
+
+            expect(evaluate('@panel:class[@name]', { name: 'a\u00a0b' })).toBe(true);
+        });
+    });
+
     describe('an indexer a module declares', () => {
         it('takes a key of the type its parameter declares, and answers structured data that a chain reads on', () => {
             registerEntries();

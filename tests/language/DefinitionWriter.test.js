@@ -140,6 +140,8 @@ describe('DefinitionWriter', () => {
         '{ convertible: @a is convertible to "number" }',
         '@panel:attribute["data-key"]',
         '@panel:["data-key"]',
+        '@panel:class["open"]',
+        '@panel?:class[@name]',
         '@panel?:[@name]',
         '@panel.first(".row")?:["id"] is null',
         '@panel:attribute[@name]',

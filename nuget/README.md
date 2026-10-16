@@ -342,11 +342,12 @@ Members that take input use the form declared by the vocabulary. `all` is a call
 @panel matches ".open"
 ```
 
-A named indexer reads a value of its receiver by a key, written after a colon with the key in brackets. `attribute` reads an attribute and `style` a computed style:
+A named indexer reads a value of its receiver by a key, written after a colon with the key in brackets. `attribute` reads an attribute, `style` a computed style, and `class` whether the element has a class:
 
 ```text
 @panel:attribute["data-key"]
 @panel:style["display"]
+@panel:class["open"]
 ```
 
 The key can be any expression of the type the indexer takes, such as a binding, `@panel:attribute[@name]`. An element's default indexer is `attribute`, so `@panel:["data-key"]` reads the attribute too. Use `?:` when the receiver can be null: `@panel.first(".row")?:["data-key"]` is null when there is no row, and its key is not evaluated.

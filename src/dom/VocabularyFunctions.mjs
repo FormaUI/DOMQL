@@ -80,6 +80,14 @@ export class VocabularyFunctions {
             matchesMedia: (window, { query }) => window.matchMedia(query).matches,
             supports: (window, { feature }) => VocabularyFunctions.#supports(window, feature),
             attribute: (element, { name }) => element.getAttribute(name),
+            // A class is one token, as a class list takes one: never empty, and holding none of the ASCII whitespace that separates its tokens.
+            class: (element, { name }) => {
+                if (name === '' || /[\t\n\f\r ]/.test(name)) {
+                    throw new Error(`${JSON.stringify(name)} is no class, which is one token: never empty, and holding no tab, line feed, form feed, carriage return or space`);
+                }
+
+                return element.classList.contains(name);
+            },
             style: (element, { property }) => {
                 if (!element.isConnected) {
                     return null;
