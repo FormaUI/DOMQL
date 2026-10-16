@@ -569,7 +569,9 @@ export class QueryEvaluator {
             };
         }
 
-        const { declaration, type } = resolution;
+        const { type } = resolution;
+        // A state the request selects carries it out as it declares itself.
+        const declaration = resolution.contract ?? resolution.declaration;
         const implementation = this.#moduleRegistry.getFunction(declaration);
         const conforms = QueryEvaluator.#compileTypeCheck(type, this.#moduleRegistry);
         const copyStructures = QueryEvaluator.#compileStructureCopy(type, this.#moduleRegistry);
@@ -891,7 +893,7 @@ export class QueryEvaluator {
 
         const args = this.#evaluateArguments(resolution, currentValue);
 
-        return args === null ? null : this.#invokeMember(resolution.declaration, receiver, args, resolution.type, node);
+        return args === null ? null : this.#invokeMember(resolution.contract ?? resolution.declaration, receiver, args, resolution.type, node);
     }
 
     /** The arguments by parameter name, or null where a null argument makes the call answer null. */
@@ -927,7 +929,7 @@ export class QueryEvaluator {
     /** Carries out the function of a declaration whose function, check of its result and copy of the structures it holds are found already. */
     #invokeImplementation(declaration, implementation, conforms, copyStructures, receiver, args, type, node) {
         if (implementation === undefined) {
-            this.#fail(`The module '${this.#moduleRegistry.getOwner(declaration)}' supplies no function for '${declaration.name}'`, this.#pointerOf(node));
+            this.#fail(`The module '${this.#moduleRegistry.getOwner(declaration)}' supplies no function for ${QueryEvaluator.#isState(declaration) ? `the state '${declaration.name}'` : `'${declaration.name}'`}`, this.#pointerOf(node));
         }
 
         const samples = this.#observe(declaration, receiver, args, node);
@@ -941,16 +943,28 @@ export class QueryEvaluator {
         try {
             value = implementation(receiver, args, this.#environment, samples);
         } catch (error) {
-            throw DomqlError.evaluation(`The member '${declaration.name}' failed: ${error?.message ?? String(error)}`, this.#locate(this.#pointerOf(node)), { cause: error });
+            throw DomqlError.evaluation(`${this.#subjectOf(declaration, node)} failed: ${error?.message ?? String(error)}`, this.#locate(this.#pointerOf(node)), { cause: error });
         }
 
         if (!conforms(value)) {
-            this.#fail(`The member '${declaration.name}' answered ${QueryEvaluator.#describe(value)}, and it declares ${type}`, this.#pointerOf(node));
+            this.#fail(`${this.#subjectOf(declaration, node)} answered ${QueryEvaluator.#describe(value)}, and ${QueryEvaluator.#isState(declaration) ? 'a state answers' : 'it declares'} ${type}`, this.#pointerOf(node));
         }
 
         this.#followDetachedReceiver(declaration, receiver, value, node);
 
         return copyStructures === null ? value : copyStructures(value);
+    }
+
+    /** Whether the declaration carrying a request out is a state, which an indexer selects, rather than a member. */
+    static #isState(declaration) {
+        return declaration.kind === undefined;
+    }
+
+    /** What a message names as carrying the request out: the member, or the state the indexer selects, with the module that declares it. */
+    #subjectOf(declaration, node) {
+        return QueryEvaluator.#isState(declaration)
+            ? `The state '${declaration.name}' that ':${node.name}' selects, declared by the module '${this.#moduleRegistry.getOwner(declaration)}',`
+            : `The member '${declaration.name}'`;
     }
 
     /**
@@ -960,7 +974,7 @@ export class QueryEvaluator {
     #observe(declaration, receiver, args, node) {
         if (this.#observationContext === null) {
             if (declaration.reads === 'maintained') {
-                this.#fail(`The member '${declaration.name}' is maintained by an observation, and reading it waits for the first sample, which a synchronous evaluation cannot`, this.#pointerOf(node));
+                this.#fail(`${this.#subjectOf(declaration, node)} is maintained by an observation, and reading it waits for the first sample, which a synchronous evaluation cannot`, this.#pointerOf(node));
             }
 
             return NO_SAMPLES;

@@ -2653,6 +2653,88 @@ describe('domql named indexers', () => {
         });
     });
 
+    describe('the state indexer', () => {
+        /** A module of a state on elements, named for it, and of states on a view type of its own, one partly observable, one whose function the test supplies. */
+        const registerLit = ({ glow = view => view.on } = {}) => {
+            isolated.registerModule(isolated.createModule('lit', {
+                types: [{ name: 'litView', fields: { on: 'boolean' } }],
+                members: [{ name: 'lit', function: 'view', kind: 'property', on: 'element', parameters: [], result: 'litView', changes: 'constant', reads: 'fresh' }],
+                states: [
+                    { name: 'lit', function: 'isLit', on: 'element', changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: ['data-lit'] }] },
+                    { name: 'glowing', function: 'isGlowing', on: 'litView', changes: 'partly-observable', misses: 'a glow its source sets alone', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: true }] },
+                    { name: 'steady', function: 'isSteady', on: 'litView', changes: 'constant', reads: 'fresh' },
+                ],
+            }, { view: () => ({ on: true }), isLit: element => element.hasAttribute('data-lit'), isGlowing: glow, isSteady: () => true }));
+        };
+
+        it('tests the condition the state of its name declares for the receiver, through that state\'s function', () => {
+            registerLit();
+            panel.setAttribute('data-lit', '');
+
+            expect(evaluate('@panel:state["lit"]')).toBe(true);
+            expect(evaluate('@panel.lit:state["glowing"]')).toBe(true);
+            expect(evaluate('@panel:state["lit"] and @panel.lit:state["steady"]')).toBe(true);
+            expect(String(isolated.query('@panel:state["lit"]', { panel }).resolve().type)).toBe('boolean');
+        });
+
+        it('takes a key settled when the query is prepared, a literal, a bound parameter or a local holding one, so the state it selects is known', () => {
+            registerLit();
+
+            expect(evaluate('@panel:state[@name]', { name: 'lit' })).toBe(false);
+            expect(evaluate('@panel { let name: "lit", lit: self:state[name] }')).toEqual({ lit: false });
+
+            const error = getError(() => isolated.query('@panel:state[@panel:["data-state"]]', { panel }).resolve());
+
+            expect(error.kind).toBe('validation');
+            expect(error.message).toContain("The argument 'name' of 'state' selects from the vocabulary, so it is a string literal, a parameter bound to a string or a local holding one, never null");
+        });
+
+        it('refuses a name no state has, and a state of other receivers, naming those the vocabulary or the receiver has', () => {
+            registerLit();
+
+            const messageOf = text => getError(() => isolated.query(text, { panel }).resolve()).message;
+
+            expect(messageOf('@panel:state["dim"]')).toContain("'dim' is no state the vocabulary declares; it declares lit, glowing, steady");
+            expect(messageOf('@panel:state["glowing"]')).toContain("'glowing' is a state of litView, not of element, whose states are lit");
+            expect(messageOf('@window:state["lit"]')).toContain("'lit' is a state of element, not of window, which has no state 'state' tests");
+        });
+
+        it('skips its key and its state for a null receiver read with ?:, after checking its name', () => {
+            let tests = 0;
+
+            registerLit({ glow: () => { tests++; return true; } });
+
+            expect(evaluate('@missing?:state["glowing"]', { missing: null })).toBeNull();
+            expect(evaluate('@panel.lit?:state["glowing"]')).toBe(true);
+            expect(tests).toBe(1);
+            expect(getError(() => evaluate('@missing?:state["dim"]', { missing: null })).message).toContain("'dim' is no state the vocabulary declares");
+        });
+
+        it('gives each state its own contract, so a partly observable one leaves the others as they are', () => {
+            registerLit();
+
+            expect(() => isolated.query('{ lit: @panel:state["lit"], steady: @panel.lit:state["steady"] }', { panel }).resolve({ watch: true })).not.toThrow();
+
+            const error = getError(() => isolated.query('{ lit: @panel:state["lit"], glowing: @panel.lit:state["glowing"] }', { panel }).resolve({ watch: true }));
+
+            expect(error.message).toContain(`A watch over ':state["glowing"]' (which misses a glow its source sets alone) is refused unless the watch accepts partial observation`);
+            expect(error.location.pointer).toBe('/query/fields/1/value');
+            expect(() => isolated.query('@panel.lit:state["glowing"]', { panel }).resolve({ watch: true, acceptPartialObservation: true })).not.toThrow();
+        });
+
+        it.each([
+            ['throws', () => { throw new Error('the lamp is gone'); }, "The state 'glowing' that ':state' selects, declared by the module 'lit', failed: the lamp is gone"],
+            ['answers what is no Boolean', () => 'yes', "The state 'glowing' that ':state' selects, declared by the module 'lit', answered \"yes\", and a state answers boolean"],
+        ])('fails with an evaluation error naming the state, the indexer and its module where its function %s', (_, glow, message) => {
+            registerLit({ glow });
+
+            const error = getError(() => evaluate('@panel.lit:state["glowing"]'));
+
+            expect(error.kind).toBe('evaluation');
+            expect(error.message).toContain(message);
+        });
+    });
+
     describe('an indexer a module declares', () => {
         it('takes a key of the type its parameter declares, and answers structured data that a chain reads on', () => {
             registerEntries();

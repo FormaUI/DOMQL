@@ -186,7 +186,7 @@ Every parameter of a member is declared as one of two kinds, and the evaluator t
 - A **value argument** is evaluated once, where the call is written, against the same current value as the chain it appears in, so its `self` is that current value. In `@viewport { intersects: self.first(".item") intersects { root: self.parent as "element" } }`, `self.parent` is the viewport's parent, not the item's. At the top level, where there is no current value, a value argument starts with a parameter, a literal or an object expression: `@target intersects { root: @target.parent as "element" }`.
 - An **expression argument** is evaluated by the member against a context the member's signature declares, such as each item of a list, which is its `self`. In `@table.all("tbody tr").max(self.rect?.height)`, `self` is each row. The built-in vocabulary's expression parameters are those of `where`, `max`, `min` and `sum`.
 
-A value argument can be declared **fixed**, where it selects something validation needs before evaluation, such as the event type whose members `on` offers or the feature `supports` names. A fixed argument is a literal, a bound parameter, or a local whose value is one of them, `@window { let feature: "share", canShare: self supports feature }`, each settled when the query is prepared; any other value, a conditional among them, is a validation error.
+A value argument can be declared **fixed**, where it selects something validation needs before evaluation, such as the event type whose members `on` offers, the feature `supports` names or the state `:state` tests. A fixed argument is a literal, a bound parameter, or a local whose value is one of them, `@window { let feature: "share", canShare: self supports feature }`, each settled when the query is prepared; any other value, a conditional among them, is a validation error.
 
 Because the kind is part of the signature, the evaluator validates every kind before evaluation and records the dependencies of value and expression arguments while it evaluates.
 
@@ -630,6 +630,7 @@ An operation performs a lookup, a calculation or a selection with the argument i
 | Window | `supports feature` | `feature`: `string` → `boolean` | Whether the browser offers a feature from the vocabulary's registered list, such as `"share"`; a name not on the list is a validation error | Constant | Fresh | `feature` |
 | Element | `:attribute[name]`, the default indexer, `:[name]` | `name`: `string` → `string?` | The attribute's value | Observable | Fresh |  |
 | Element | `:class[name]` | `name`: `string` → `boolean` | Whether its class list holds the class, one token: an empty name, or one holding a tab, a line feed, a form feed, a carriage return or a space, is an evaluation error | Observable: its `class` attribute | Fresh |  |
+| Any | `:state[name]` | `name`: `string` → `boolean` | Whether the state of the name holds for the receiver, as [states](#states) set out | As the state | As the state | `name` |
 | Element | `:style[property]` | `property`: `string` → `string?` | The property's computed value, custom properties included | Partly observable: its own size and attributes are observed, rules matching from elsewhere are not | Fresh |  |
 | Element | `intersects { root, margin }` | optional `root`: `element?`, the window when omitted or null; optional `margin`: `number`, 0 when omitted → `boolean?` | Whether the browser's intersection observation reports it intersecting the root, or the window without a root, grown by the margin, with its ancestors' clipping applied as the browser applies it | Observable | Maintained |  |
 | Element | `overlaps { other, margin }` | required `other`: `element`; optional `margin`: `number`, 0 when omitted → `boolean?` | Whether its border box overlaps the other's, grown by the margin, compared as rectangles | Partly observable, as `rect` | Fresh |  |
@@ -640,6 +641,15 @@ An operation performs a lookup, a calculation or a selection with the argument i
 | List | `at(index)` | `index`: `number` → `T?` | The item at the index, null where there is none | As its items | As its items |  |
 | List | `max(expression)`, `min(expression)`, `sum(expression)` | `expression`: `T` → `number?`; answers `number?`, `number?`, `number` | An aggregate over a number expression, as the section on lists defines | As their items and expressions | As their items |  |
 | List | `where(expression)` | `expression`: `T` → `boolean?`; answers `list<T>` | The items for which a Boolean expression holds | As its items and expression | As its items |  |
+
+### States
+
+A state is a Boolean condition of its receiver that the user, the browser or the page sets and clears over time, under a name of its own, and `:state["name"]` tests it: `self:state["checked"]` is whether the element is checked. A Boolean that follows from the receiver's structure, or from another member's value, is a property of it, as `attached`, `hasChildren` and `hasSelection` are.
+
+- **Each state is a declaration of its own,** with the receivers it applies to, the function that tests it, how it changes, how it reads, the changes it misses where it is partly observable, and the observations that cover it. A test of a state follows the state's contract alone, so a watch of one partly observable state needs partial observation accepted, and a watch of others does not.
+- **The name is fixed:** it selects the state's declaration when the query is prepared, so it is a literal, a bound parameter or a local holding one. A name no state has is a validation error naming the states the vocabulary declares, and a state of other receivers is one naming the states the receiver has. A null receiver read with `?:` answers null without testing its state, its name still checked.
+- **Its type is a Boolean that cannot be null,** made nullable where the receiver can be null. A state whose function answers anything else, or throws, fails the evaluation with an evaluation error that names the state, `:state` and the module that declares it.
+- **States compose as Booleans do:** `self:class["open"] and self:state["focus-within"]`.
 
 ### Built-in conversions
 
@@ -706,11 +716,11 @@ An access by name reads the property a name names, the name written as an expres
 
 ## Extensions
 
-An extension adds members under one name of its own, a member of a built-in type whose value carries the extension's members: `@viewport.scroll({ axis: "inline" })` is a scroll extension's view of an element along an axis, and `canScrollForward` is one of its members. The name is the extension's namespace: a member it declares on a type it does not own is named for the extension, so extensions never collide with each other or with the built-in vocabulary, and on a type of its own it names its members freely, a name another member already answers on the same receiver being refused.
+An extension adds members under one name of its own, a member of a built-in type whose value carries the extension's members: `@viewport.scroll({ axis: "inline" })` is a scroll extension's view of an element along an axis, and `canScrollForward` is one of its members. The name is the extension's namespace: a member it declares on a type it does not own is named for the extension, so extensions never collide with each other or with the built-in vocabulary, and on a type of its own it names its members freely, a name another member already answers on the same receiver being refused. Its states follow the same rule: on a type it does not own it declares a single state named for itself, and on its own types it names them freely, a name another state already has for the same receivers being refused.
 
 The built-in vocabulary declares the native event types its callers need, and an extension can declare more. A subscription observes an event as it reaches its target and leaves its course to the page.
 
-An extension can define types of its own, named indexers, event sources, actions and behaviors, and conversions to and from its own types, one for each source type and target, and follows the built-in vocabulary's contract throughout: every member declares its signature, its argument kinds, its result type and how it changes, and evaluating a query stays read-only and synchronous.
+An extension can define types of its own, named indexers, states, event sources, actions and behaviors, and conversions to and from its own types, one for each source type and target, and follows the built-in vocabulary's contract throughout: every member declares its signature, its argument kinds, its result type and how it changes, and evaluating a query stays read-only and synchronous.
 
 ## Definition
 

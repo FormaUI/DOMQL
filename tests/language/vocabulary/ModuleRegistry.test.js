@@ -170,3 +170,39 @@ describe('conversions', () => {
         expect(registry.isConvertible('list<number>')).toBe(false);
     });
 });
+
+describe('states', () => {
+    const lit = (overrides = {}) => ({ name: 'lit', function: 'isLit', on: 'element', changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: ['data-lit'] }], ...overrides });
+    const registering = (...modules) => () => new ModuleRegistry([Vocabulary.module, ...modules]);
+
+    it('are found by their name, with the module that declares each', () => {
+        const registry = registering(new DomqlModule('lit', { states: [lit()] }))();
+
+        expect(registry.getStates('lit')).toEqual([lit()]);
+        expect(registry.getStates('dim')).toEqual([]);
+        expect(registry.stateNames).toContain('lit');
+        expect(registry.getOwner(registry.getStates('lit')[0])).toBe('lit');
+    });
+
+    it('take any name on the module\'s own types, and a single one named for the module on any other, as members do', () => {
+        const own = new DomqlModule('glow', { types: [{ name: 'glowView', fields: { level: 'number' } }], states: [lit({ name: 'bright', on: 'glowView' }), lit({ name: 'dim', on: 'glowView' })] });
+
+        expect(registering(own)().getStates('dim')).toHaveLength(1);
+        expect(messageOf(registering(new DomqlModule('glow', { states: [lit({ name: 'bright' })] })))).toContain("A state outside its module's own types is named for the module, 'glow'");
+        expect(registering(new DomqlModule('glow', { states: [lit({ name: 'glow' })] }))().getStates('glow')).toHaveLength(1);
+    });
+
+    it('are declared once for any receiver, and once for each of receivers that do not overlap', () => {
+        expect(messageOf(registering(new DomqlModule('lit', { states: [lit(), lit({ function: 'other' })] })))).toContain("The state 'lit' is declared already for element");
+
+        const views = new DomqlModule('views', { types: [{ name: 'panelView', fields: { a: 'number' } }, { name: 'rowView', fields: { a: 'number' } }], states: [lit({ name: 'lit', on: 'panelView' }), lit({ name: 'lit', on: 'rowView' })] });
+
+        expect(registering(views)().getStates('lit')).toHaveLength(2);
+        expect(messageOf(registering(new DomqlModule('lit', { states: [lit(), lit({ on: 'node', function: 'other' })] })))).toContain("The state 'lit' is declared already for element");
+    });
+
+    it('apply to types DOMQL or a module declares, through observations a module declares', () => {
+        expect(messageOf(registering(new DomqlModule('lit', { states: [lit({ on: 'lamp' })] })))).toContain("'lamp' names the type 'lamp', which neither DOMQL nor a module registered with it declares");
+        expect(messageOf(registering(new DomqlModule('lit', { states: [lit({ observations: [{ type: 'glow', of: 'receiver' }] })] })))).toContain("The observation type 'glow' is declared by no module");
+    });
+});

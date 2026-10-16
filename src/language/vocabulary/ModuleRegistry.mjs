@@ -26,6 +26,9 @@ export class ModuleRegistry {
     /** @type {Map<string, object>} */
     #observationTypes = new Map();
 
+    /** Each state, by its name, a name naming one for each of the receivers it applies to. @type {Map<string, object[]>} */
+    #states = new Map();
+
     /** Each conversion, by its source type and then its target. @type {Map<string, Map<string, object>>} */
     #conversions = new Map();
 
@@ -86,9 +89,18 @@ export class ModuleRegistry {
 
         ModuleRegistry.#checkTypeNames(module, types, fail);
 
-        for (const declaration of module.members) {
+        for (const declaration of [...module.members, ...module.states]) {
             ModuleRegistry.#validateObservations(declaration, observationTypes, fail);
         }
+
+        module.states.forEach((state, index) => {
+            // A module adds states to its own types, and a single state named for itself to any other, as it does members.
+            if (!module.isBuiltIn && ![state.on].flat().every(text => ownTypes.has(ModuleRegistry.#outerTypeNameOf(text))) && state.name !== module.name) {
+                fail(`A state outside its module's own types is named for the module, '${module.name}'`, state.name);
+            }
+
+            this.#checkCollision(state, [...this.getStates(state.name), ...module.states.slice(0, index).filter(other => other.name === state.name)], fail, 'state');
+        });
 
         module.members.forEach((declaration, index) => {
             this.#checkNamespace(module, declaration, ownTypes, fail);
@@ -148,6 +160,11 @@ export class ModuleRegistry {
             this.#owners.set(declaration, module.name);
         }
 
+        for (const state of module.states) {
+            this.#states.set(state.name, [...this.getStates(state.name), state]);
+            this.#owners.set(state, module.name);
+        }
+
         for (const conversion of module.conversions) {
             if (!this.#conversions.has(conversion.from)) {
                 this.#conversions.set(conversion.from, new Map());
@@ -163,6 +180,16 @@ export class ModuleRegistry {
     /** The declarations named so, across every module. */
     getMembers(name) {
         return this.#members.get(name) ?? [];
+    }
+
+    /** The states named so, across every module, each for the receivers it applies to. */
+    getStates(name) {
+        return this.#states.get(name) ?? [];
+    }
+
+    /** The names of every state declared, across every module. */
+    get stateNames() {
+        return [...this.#states.keys()];
     }
 
     /** The indexers declared the default of their receivers, across every module. */
@@ -249,6 +276,10 @@ export class ModuleRegistry {
         }
 
         module.eventTypes.forEach(eventType => check(eventType.payload, eventType.name));
+
+        for (const state of module.states) {
+            [state.on].flat().filter(notation => notation !== 'any').forEach(notation => check(notation, state.name));
+        }
 
         for (const declaration of module.members) {
             (Array.isArray(declaration.on) ? declaration.on : [declaration.on]).filter(notation => notation !== 'any').forEach(notation => check(notation, declaration.name));
@@ -354,13 +385,13 @@ export class ModuleRegistry {
         }
     }
 
-    /** Refuses a member a registered member of its name already answers on one of the same receivers. */
-    #checkCollision(declaration, others, fail) {
+    /** Refuses a member, or a state, that a registered one of its name already answers on one of the same receivers. */
+    #checkCollision(declaration, others, fail, what = 'member') {
         for (const other of others) {
             for (const mine of Array.isArray(declaration.on) ? declaration.on : [declaration.on]) {
                 for (const theirs of Array.isArray(other.on) ? other.on : [other.on]) {
                     if (ModuleRegistry.#overlap(mine, theirs)) {
-                        fail(`'${declaration.name}' is declared already for ${theirs}`, declaration.name);
+                        fail(`${what === 'state' ? 'The state ' : ''}'${declaration.name}' is declared already for ${theirs}`, declaration.name);
                     }
                 }
             }

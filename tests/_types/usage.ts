@@ -228,6 +228,13 @@ const convertibility: DomqlDefinitionNode = { kind: 'convertibility', type: 'num
 
 // A named indexer is a form a member declares, and a node of a definition that names its key.
 const keyed: DomqlDefinitionNode = { kind: 'indexer', target: { kind: 'parameter', name: 'panel' }, name: 'attribute', argument: { kind: 'literal', value: 'id' } };
+const states: DomqlModuleContents = {
+    states: [{ name: 'lit', function: 'isLit', on: 'element', changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: ['data-lit'] }] }],
+};
+
+// @ts-expect-error A state changes as a condition does, never derived from items it selects.
+const derivedState: DomqlModuleContents = { states: [{ name: 'lit', function: 'isLit', on: 'element', changes: 'derived', reads: 'fresh' }] };
+
 const indexers: DomqlModuleContents = {
     members: [{ name: 'token', function: 'readToken', kind: 'operation', form: 'indexer', on: 'element', parameters: [{ name: 'name', kind: 'value', type: 'string', required: true, nulls: 'propagate' }], result: 'string?', changes: 'constant', reads: 'fresh' }],
 };

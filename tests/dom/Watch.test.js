@@ -265,6 +265,25 @@ describe('Watch', () => {
         });
     });
 
+    describe('a state', () => {
+        it('follows the observations its own declaration names', async () => {
+            isolated.registerModule(isolated.createModule('lit', {
+                states: [{ name: 'lit', function: 'isLit', on: 'element', changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: ['data-lit'] }] }],
+            }, { isLit: element => element.hasAttribute('data-lit') }));
+            watch('@panel:state["lit"]', { panel });
+            await settle();
+
+            panel.setAttribute('data-lit', '');
+            await settle();
+            panel.setAttribute('data-other', '');
+            await settle();
+            panel.removeAttribute('data-lit');
+            await settle();
+
+            expect(snapshots).toEqual([false, true, false]);
+        });
+    });
+
     describe('a named indexer', () => {
         it('follows the key it is given, observing what that key names and letting go of what it named before', async () => {
             panel.setAttribute('data-which', 'data-a');

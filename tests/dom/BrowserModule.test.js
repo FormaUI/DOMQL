@@ -4,14 +4,14 @@ import { Vocabulary } from '#domql/language/vocabulary/Vocabulary.mjs';
 
 describe('BrowserModule', () => {
     const module = BrowserModule.create();
-    const declared = [...module.members, ...module.observationTypes, ...module.conversions].map(declaration => declaration.function).filter(key => key !== undefined);
+    const declared = [...module.members, ...module.observationTypes, ...module.conversions, ...module.states].map(declaration => declaration.function).filter(key => key !== undefined);
 
     it('is the built-in vocabulary', () => {
         expect(module.isBuiltIn).toBe(true);
         expect(module.members.map(member => member.name)).toEqual(Vocabulary.module.members.map(member => member.name));
     });
 
-    it('carries out every member and conversion and starts every observation type the vocabulary declares', () => {
+    it('carries out every member, conversion and state and starts every observation type the vocabulary declares', () => {
         for (const key of declared) {
             expect(module.functions[key], key).toBeTypeOf('function');
         }

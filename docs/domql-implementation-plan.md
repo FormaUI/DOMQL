@@ -99,7 +99,19 @@ Accepted; built by step 14. One error-tolerant parser builds a lossless syntax t
 
 A step is done when its tests pass in the gate, its documents say what it built, and its state here says so. Completed steps leave the plan. Built describes the capabilities they delivered.
 
-The remaining work is the beta, then editor tooling and the C# half, which follow it.
+The remaining work is classes and states, then the beta, then editor tooling and the C# half, which follow it.
+
+### 24. Classes and states
+
+Element conditions read by the forms that say what they are: `:class["open"]` for a class, `:state["checked"]` for a state a module registers, under the contract the state declares, and `matches` replaced by them, attribute access and DOMQL composition.
+
+- **Needs:** named and default indexers, which are built.
+- **Done when:**
+  - modules declare states, each with its receivers, its function and its own contract, under the namespace and collision rules members follow; `:state[name]` takes a fixed name and carries the state out under its contract; and `:class[name]` tests one class token;
+  - the built-in states are declared, each with an observability classification that accounts for every input to its condition, the specification's known gaps included, and is shown in Chromium: `focus` and `disabled` from `focused` and `disabled`, `readonly` and `text-editable` from `readOnly` and `textEditable`, `focus-within`, `hover`, `popover-open` and `checked`, and the document's `visible` and `focus` from `visible` and `hasFocus`;
+  - `@window:media[…]` and `@window:supports[…]` replace `matchesMedia` and `supports`, and `at` is a list's default indexer;
+  - the examples, the documents and the tests use the new forms, `matches` and the members they supersede are removed, and the capability `matches` gave that nothing replaces is decided for each gap: type selectors, attribute operators, sibling combinators, `:nth-child` and the states not registered.
+- **State:** modules declare states, `:state` and `:class` are built, and indexers take a fixed key; no built-in state is declared yet.
 
 ### 22. Beta
 
