@@ -2,7 +2,7 @@ const activations = domql.query(`
     (@panel on "click") {
         let item: self.target?.closest("[data-key]"),
 
-        key: item attributeOf "data-key",
+        key: item?:attribute["data-key"],
         wasSelected: item matches "[aria-selected=true]" ?? false,
         selectedCount: @panel.all("[aria-selected=true]").count
     }

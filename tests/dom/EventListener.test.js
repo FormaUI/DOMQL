@@ -103,7 +103,7 @@ describe('EventListener', () => {
 
     describe('subscribing', () => {
         it('starts in the call, so an event that follows it is heard in the task it is dispatched in', () => {
-            const listener = subscribe('(@panel on "input") { id: self.target attributeOf "id" }', { panel });
+            const listener = subscribe('(@panel on "input") { id: self.target?:attribute["id"] }', { panel });
 
             expect(listener.status).toBe('ready');
 
@@ -115,7 +115,7 @@ describe('EventListener', () => {
         });
 
         it('hears the events that reach its receiver alone', () => {
-            subscribe('(@first on "input") { id: self.target attributeOf "id" }', { first: panel.children[0] });
+            subscribe('(@first on "input") { id: self.target?:attribute["id"] }', { first: panel.children[0] });
 
             input(panel.children[1]);
             input(panel.children[0]);
@@ -132,7 +132,7 @@ describe('EventListener', () => {
         });
 
         it('takes a subscription made from its definition, and calls the handler with the event listener', () => {
-            const { definition } = isolated.query('(@panel on "input") { id: self.target attributeOf "id" }');
+            const { definition } = isolated.query('(@panel on "input") { id: self.target?:attribute["id"] }');
             const senders = [];
             const listener = isolated.query(definition, { panel }).subscribe((sender, args) => {
                 senders.push(sender);
@@ -247,7 +247,7 @@ describe('EventListener', () => {
         });
 
         it('listens to nothing where the receiver of its source is null', () => {
-            const listener = subscribe('(@panel.first(".none") on "input") { id: self.target attributeOf "id" }', { panel });
+            const listener = subscribe('(@panel.first(".none") on "input") { id: self.target?:attribute["id"] }', { panel });
 
             input(panel);
 
@@ -256,7 +256,7 @@ describe('EventListener', () => {
         });
 
         it('refuses a request that is not a subscription, and a handler that is not a function', () => {
-            const subscription = isolated.query('(@panel on "input") { id: self.target attributeOf "id" }', { panel });
+            const subscription = isolated.query('(@panel on "input") { id: self.target?:attribute["id"] }', { panel });
 
             expect(() => isolated.query('@panel.children.count', { panel }).subscribe(() => {})).toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringContaining("Cannot subscribe to '@panel.children.count': it produces a value.\nUse evaluate(), evaluateAsync() or watch().") }));
             expect(() => subscription.subscribe()).toThrow(expect.objectContaining({ kind: 'structure' }));
@@ -338,7 +338,7 @@ describe('EventListener', () => {
         it('reports a handler that throws or rejects to the window\'s error reporting, and keeps listening', async () => {
             let calls = 0;
 
-            subscribe('(@panel on "input") { id: self.target attributeOf "id" }', { panel }, () => {
+            subscribe('(@panel on "input") { id: self.target?:attribute["id"] }', { panel }, () => {
                 calls++;
 
                 if (calls === 1) {
@@ -432,8 +432,8 @@ describe('EventListener', () => {
             const [first] = panel.children;
 
             subscribe('(@panel on "input") { n: self.target?.flaky }', { panel });
-            subscribe('(@panel on "input") { id: self.target attributeOf "id" }', { panel }, () => { throw new Error('consumer'); });
-            subscribe('(@panel on "input") { id: self.target attributeOf "id" }', { panel });
+            subscribe('(@panel on "input") { id: self.target?:attribute["id"] }', { panel }, () => { throw new Error('consumer'); });
+            subscribe('(@panel on "input") { id: self.target?:attribute["id"] }', { panel });
 
             broken = true;
             input(first);

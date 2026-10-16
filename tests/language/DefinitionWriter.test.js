@@ -34,7 +34,7 @@ const panel = document.createElement('div');
 describe('DefinitionWriter', () => {
     it.each([
         '@panel.size',
-        '@panel attributeOf "data-key"',
+        '@panel:attribute["data-key"]',
         '@panel intersects { root: @panel, margin: 10 }',
         '@panel { size: self.size, box: { width: self.size?.width }, kind: "panel", rank: 3, none: null }',
         '@panel.children.where(self.attached).max(self.size?.width)',
@@ -46,7 +46,7 @@ describe('DefinitionWriter', () => {
         '@a is @b',
         '@a is not @b',
         '(@a is @b) is true',
-        '@left attributeOf "name" is @right attributeOf "name"',
+        '@left:attribute["name"] is @right:attribute["name"]',
         '(@count ?? 0) is 0',
         '@a is @b and @c',
         'not (@a is @b) and @c',
@@ -54,12 +54,12 @@ describe('DefinitionWriter', () => {
         '@panel.children.count',
         '@panel.hasChildren',
         '@window { ratio: self.devicePixelRatio, visible: @document.visible }',
-        '@panel.closest(".row") attributeOf "data-key"',
+        '@panel.closest(".row")?:attribute["data-key"]',
         '(@panel on "click") { x: self.clientX }',
-        '(@panel attributeOf "role").length',
-        '@panel attributeOf "role" is null',
+        '(@panel:attribute["role"]).length',
+        '@panel:attribute["role"] is null',
         '@sentinel intersects',
-        '@panel attributeOf (@panel attributeOf "for")',
+        '@panel matches (@panel:attribute["for"])',
         '@panel.rectRelativeTo(@panel.parent)?.top',
         'if @panel.attached then "here" elseif @panel is null then "gone" else "away"',
         '(if @a then @panel else @other).size',
@@ -68,17 +68,17 @@ describe('DefinitionWriter', () => {
         'if @a then (if @b then 1 else 2) else 3',
         '@panel { state: if self.disabled then "locked" else "open" }',
         '@panel.parent is null',
-        '@panel { let items: self.children, count: items.count, rows: items { key: self attributeOf "data-key" } }',
-        '@panel { let key: "data-key", let first: self.children.at(0), value: first attributeOf key }',
+        '@panel { let items: self.children, count: items.count, rows: items { key: self:attribute["data-key"] } }',
+        '@panel { let key: "data-key", let first: self.children.at(0), value: first?:attribute[key] }',
         '@panel { let a: 1, inner: self { let b: a, value: b } }',
-        '@panel attributeOf "a \\"quoted\\" name, a \\\\ backslash"',
-        '@panel attributeOf "two\nlines"',
+        '@panel:attribute["a \\"quoted\\" name, a \\\\ backslash"]',
+        '@panel:attribute["two\nlines"]',
         '@panel.parent?.children.count',
         '(@panel.parent?.children).count',
         '@panel.parent?.rect { top: self.top }',
         '(@panel.parent?.rect) { top: self.top }',
-        '@panel.parent?.closest(".row") attributeOf "id"',
-        '@panel attributeOf (@row?.key)',
+        '@panel.parent?.closest(".row")?:attribute["id"]',
+        '@panel matches (@row?.key)',
         '@panel.closest(@row?.key)?.parent',
         '(?@x.y.z)?.a',
         '(?@x.y.z)?.a.b',
@@ -91,7 +91,7 @@ describe('DefinitionWriter', () => {
         '(@a ?? @b).attached',
         '@a ?? (@b.attached)',
         'if @on ?? false then 1 else 2',
-        '@panel attributeOf (@name ?? "id")',
+        '@panel matches (@name ?? ".row")',
         '(@a ?? @b).size',
         '@panel[@name]',
         '@panel.parent?[@name]?.width',
@@ -100,7 +100,7 @@ describe('DefinitionWriter', () => {
         '(?@panel.parent[@name].width)',
         '@panel.parent as "element"',
         '(@panel.parent as "element")?.rect',
-        '@panel.parent as "element" attributeOf "id"',
+        '@panel.parent as "element" matches ".row"',
         '(@a ?? @b) as "element"',
         '(?@a.b) as "element"',
         '(@a as "node") as "element"',
@@ -113,14 +113,14 @@ describe('DefinitionWriter', () => {
         'not (@a ?? false)',
         '(not @a) ?? false',
         'if not @a then 1 else 2',
-        '@panel attributeOf "data-count" to "number"',
-        '@panel attributeOf "data-count" to "number" is 5',
+        '@panel:attribute["data-count"] to "number"',
+        '@panel:attribute["data-count"] to "number" is 5',
         '@a to "string" to "number"',
         '(@a ?? @b) to "number"',
         '@a to "number" ?? 0',
         '@a ?? @b to "number"',
         'not @a to "boolean"',
-        '(@a to "string") attributeOf "id"',
+        '(@a to "string"):attribute["id"]',
         '(@a to "string").length',
         '@panel.parent as "element" to "string"',
         '{ from: 1, to: 2 }',
@@ -128,10 +128,10 @@ describe('DefinitionWriter', () => {
         '@range.to to "string"',
         '@range.to() to "string"',
         '@sentinel intersects to "string"',
-        '@panel attributeOf to to "number"',
+        '@panel:attribute[to] to "number"',
         '@a is convertible to "number"',
         '@a is not convertible to "number"',
-        '@panel attributeOf "data-n" is convertible to "number" and @b',
+        '@panel:attribute["data-n"] is convertible to "number" and @b',
         '@a to "string" is convertible to "number"',
         '(@a is convertible to "number") is true',
         '@a is convertible',
@@ -148,8 +148,8 @@ describe('DefinitionWriter', () => {
         '{ key: @panel:attribute["data-key"], n: 1 }',
         '@panel { key: self:attribute["data-key"] }',
         '(?@panel.first(".row"):attribute["id"])',
-        '(@panel:attribute["n"]) attributeOf "id"',
-        '@panel attributeOf (@row:attribute["key"])',
+        '(@panel:attribute["n"]):attribute["id"]',
+        '@panel matches (@row:attribute["key"])',
         '@panel:attribute["n"] to "number"',
         '@panel:attribute["n"] is convertible to "number"',
         '@panel:lookup["a"] as "element"',
@@ -166,12 +166,13 @@ describe('DefinitionWriter', () => {
         expect(write('(@first and @second) or @third')).toBe('@first and @second or @third');
         expect(write('(@panel is null).size')).toBe('(@panel is null).size');
         expect(write('@panel.size')).toBe('@panel.size');
-        expect(write('((@panel attributeOf "role")).length')).toBe('(@panel attributeOf "role").length');
-        expect(write('(@panel attributeOf "role") is null')).toBe('@panel attributeOf "role" is null');
+        expect(write('((@panel matches ".x")).length')).toBe('(@panel matches ".x").length');
+        expect(write('(@panel matches ".x") is null')).toBe('@panel matches ".x" is null');
+        expect(write('(@panel:attribute["role"]).length')).toBe('@panel:attribute["role"].length');
         expect(write('if @a then 1 else if @b then 2 else 3')).toBe('if @a then 1 elseif @b then 2 else 3');
         expect(write('if @a then 1 else (if @b then 2 else 3)')).toBe('if @a then 1 elseif @b then 2 else 3');
         expect(write('(if @a then @b else @c).attached')).toBe('(if @a then @b else @c).attached');
-        expect(write('(@panel attributeOf "n") to "number"')).toBe('@panel attributeOf "n" to "number"');
+        expect(write('(@panel:attribute["n"]) to "number"')).toBe('@panel:attribute["n"] to "number"');
         expect(write('(@a to "string") to "number"')).toBe('@a to "string" to "number"');
         expect(write('(@a to "number") is 5')).toBe('@a to "number" is 5');
         expect(write('(@a is @b) to "string"')).toBe('(@a is @b) to "string"');
@@ -183,11 +184,11 @@ describe('DefinitionWriter', () => {
 
     it('writes the argument of an infix call as an input, grouping any other', () => {
         const target = { kind: 'parameter', name: 'panel' };
-        const named = argument => ({ kind: 'infixCall', target, name: 'attributeOf', argument });
+        const named = argument => ({ kind: 'infixCall', target, name: 'matches', argument });
 
-        expect(DefinitionWriter.write(named({ kind: 'member', target, name: 'size' }))).toBe('@panel attributeOf (@panel.size)');
-        expect(DefinitionWriter.write(named({ kind: 'object', fields: [{ name: 'a', value: { kind: 'literal', value: 1 } }] }))).toBe('@panel attributeOf { a: 1 }');
-        expect(DefinitionWriter.write({ kind: 'member', target: named({ kind: 'literal', value: 'role' }), name: 'length' })).toBe('(@panel attributeOf "role").length');
+        expect(DefinitionWriter.write(named({ kind: 'member', target, name: 'size' }))).toBe('@panel matches (@panel.size)');
+        expect(DefinitionWriter.write(named({ kind: 'object', fields: [{ name: 'a', value: { kind: 'literal', value: 1 } }] }))).toBe('@panel matches { a: 1 }');
+        expect(DefinitionWriter.write({ kind: 'member', target: named({ kind: 'literal', value: 'role' }), name: 'length' })).toBe('(@panel matches "role").length');
     });
 
     it('writes an options object as the fields it is written with', () => {
@@ -201,13 +202,14 @@ describe('DefinitionWriter', () => {
 
         it.each([
             ['an object expression of one field', '@panel {size:self.size}', '@panel { size: self.size }'],
-            ['an object expression of more fields, a line for each', '@panel { size: self.size, key: self attributeOf "data-key" }', '@panel {\n    size: self.size,\n    key: self attributeOf "data-key"\n}'],
+            ['an object expression of more fields, a line for each', '@panel { size: self.size, key: self:attribute["data-key"] }', '@panel {\n    size: self.size,\n    key: self:attribute["data-key"]\n}'],
             ['an object expression of one field whose value takes lines', '@panel { box: { width: self.size?.width, height: self.size?.height } }', '@panel {\n    box: {\n        width: self.size?.width,\n        height: self.size?.height\n    }\n}'],
             ['an object expression of one field and a local', '@panel { let s: self.size, width: s.width }', '@panel {\n    let s: self.size,\n    width: s.width\n}'],
             ['a conditional with no elseif, on one line', 'if @a then 1 else 2', 'if @a then 1 else 2'],
             ['a conditional with an elseif, a line for each clause', '@panel { state: if self.disabled then "locked" elseif self.readOnly then "read" else "open" }', '@panel {\n    state: if self.disabled then "locked"\n    elseif self.readOnly then "read"\n    else "open"\n}'],
             ['one space around and and or', '@a   and(@b or   @c)', '@a and (@b or @c)'],
-            ['one space around an infix call and is', '@panel   attributeOf    "role"   is   null', '@panel attributeOf "role" is null'],
+            ['one space around an infix call and is', '@panel   matches    ".x"   is   null', '@panel matches ".x" is null'],
+            ['no space around an indexer', '@panel  :  attribute  [ "role" ]   is   null', '@panel:attribute["role"] is null'],
             ['no trailing comma', '@panel { size: self.size, key: 1, }', '@panel {\n    size: self.size,\n    key: 1\n}'],
             ['no comment and no original layout', '@panel // the panel\n    /* its size */ .size', '@panel.size'],
             ['an optional access as one token, with the group that ends its chain', '(@panel.parent  ?.children) . count', '(@panel.parent?.children).count'],
@@ -220,18 +222,18 @@ describe('DefinitionWriter', () => {
             ['an optional-access group as the accesses it makes optional', '(?@panel.parent.rect.width)', '@panel?.parent?.rect?.width'],
             ['an optional-access group followed by more of a chain, with the parentheses its boundary needs', '(?@x.y.z)?.a.b', '(@x?.y?.z)?.a.b'],
             ['the grouping a meaning needs, and none other', '((@first and @second)) or (@third)', '@first and @second or @third'],
-            ['a string escaping only a double quote and a backslash', '@panel attributeOf "say \\"hi\\" \\\\ there"', '@panel attributeOf "say \\"hi\\" \\\\ there"'],
+            ['a string escaping only a double quote and a backslash', '@panel:attribute["say \\"hi\\" \\\\ there"]', '@panel:attribute["say \\"hi\\" \\\\ there"]'],
         ])('lays out %s', (_, text, formatted) => {
             expect(format(text)).toBe(formatted);
         });
 
         it.each([
-            '@panel { size: self.size, rows: self.children { key: self attributeOf "data-key", open: self matches ".open" } }',
+            '@panel { size: self.size, rows: self.children { key: self:attribute["data-key"], open: self matches ".open" } }',
             'if @a then { x: 1, y: 2 } elseif @b then (if @c then 3 else 4) else @d { z: self.size }',
-            '@panel { let items: self.children, count: items.count, first: items.at(0) { key: self attributeOf "data-key" } }',
+            '@panel { let items: self.children, count: items.count, first: items.at(0) { key: self:attribute["data-key"] } }',
             '(@panel on "click") { x: self.clientX, inside: self.target?.closest(".row") is null }',
             '@panel.children.where(self.attached and (self.hasChildren or self matches ".x")).max(self.size?.width)',
-            '@panel attributeOf "line\nbreak and \\"quote\\""',
+            '@panel:attribute["line\nbreak and \\"quote\\""]',
         ])('gives text that formats to itself, and parses back to the same definition: %s', text => {
             const formatted = format(text);
 
@@ -249,7 +251,7 @@ describe('DefinitionWriter', () => {
         });
 
         it('gives the same text for a request\'s text, its definition and a query object', () => {
-            const text = '@panel { size: self.size, key: self attributeOf "data-key" }';
+            const text = '@panel { size: self.size, key: self:attribute["data-key"] }';
             const query = domql.query(text, { panel });
 
             expect(domql.format(query.definition)).toBe(format(text));

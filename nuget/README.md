@@ -92,7 +92,7 @@ const query = domql.query(`
     @panel {
         count: self.children.count,
         items: self.all("[data-key]") {
-            key: self attributeOf "data-key",
+            key: self:attribute["data-key"],
             selected: self matches "[aria-selected=true]"
         }
     }
@@ -180,8 +180,8 @@ Keep a toolbar in step with the panel's selection, whichever code selects an ite
 ```js
 const selection = domql.query(`
     @panel.children
-        .where(self attributeOf "aria-selected" is "true") {
-            key: self attributeOf "data-key"
+        .where(self:attribute["aria-selected"] is "true") {
+            key: self:attribute["data-key"]
         }
 `, { panel }).watch();
 
@@ -247,8 +247,8 @@ list.innerHTML = '<li data-key="b1">Apples</li><li data-key="b2">Pears</li>';
 
 const live = domql.query(`
     @list.children {
-        key: self attributeOf "data-key",
-        selected: self attributeOf "aria-selected" is "true"
+        key: self:attribute["data-key"],
+        selected: self:attribute["aria-selected"] is "true"
     }
 `, { list }).watch({ updateStrategy: 'liveState' });
 
@@ -291,7 +291,7 @@ const activations = domql.query(`
     (@panel on "click") {
         let item: self.target?.closest("[data-key]"),
 
-        key: item attributeOf "data-key",
+        key: item?:attribute["data-key"],
         wasSelected: item matches "[aria-selected=true]" ?? false,
         selectedCount: @panel.all("[aria-selected=true]").count
     }
@@ -336,10 +336,10 @@ Members that take input use the form declared by the vocabulary. `all` is a call
 @panel.all("[data-key]").count
 ```
 
-`attributeOf` is an infix call, written after its receiver with a space:
+`matches` is an infix call, written after its receiver with a space:
 
 ```text
-@panel attributeOf "data-key"
+@panel matches ".open"
 ```
 
 A named indexer reads a value of its receiver by a key, written after a colon with the key in brackets. `attribute` reads an attribute and `style` a computed style:
@@ -351,7 +351,7 @@ A named indexer reads a value of its receiver by a key, written after a colon wi
 
 The key can be any expression of the type the indexer takes, such as a binding, `@panel:attribute[@name]`. Use `?:` when the receiver can be null: `@panel.first(".row")?:attribute["data-key"]` is null when there is no row, and its key is not evaluated.
 
-All DOMQL names are case-sensitive and use names such as `clientSize`, `attributeOf` and `matchesMedia`. Strings passed to browser APIs, including selectors and attribute names, follow the browser's rules.
+All DOMQL names are case-sensitive and use names such as `clientSize`, `rectRelativeTo` and `matchesMedia`. Strings passed to browser APIs, including selectors and attribute names, follow the browser's rules.
 
 Calls take one argument. When a member takes options, pass an object whose fields supply its parameters. This query checks for an intersection with a margin around the panel and needs `evaluateAsync()`:
 
@@ -362,7 +362,7 @@ Calls take one argument. When a member takes options, pass an object whose field
 An infix argument can be a literal, parameter, `self`, local, object or grouped expression. An infix call ends its chain; group its result to use it in a larger expression:
 
 ```text
-(self.closest("[data-group]") attributeOf "data-group") is null
+(self.closest("[data-group]") matches ".open") is null
 ```
 
 Using the wrong call form produces an error that shows the expected form.
@@ -393,7 +393,7 @@ An object expression after a list runs for each item, with `self` referring to t
 ```js
 domql.query(`
     @panel.all("[data-key]") {
-        key: self attributeOf "data-key",
+        key: self:attribute["data-key"],
         selected: self matches "[aria-selected=true]"
     }
 `, { panel }).evaluate();
@@ -479,7 +479,7 @@ An infix call or targeted object expression returns null when its receiver is nu
 
 ```js
 domql.query(
-    '@panel.first(".missing") attributeOf "data-key"',
+    '@panel.first(".missing")?:attribute["data-key"]',
     { panel }
 ).evaluate();
 // null
@@ -541,7 +541,7 @@ Attributes hold text. Use `to` to convert a value to another type, such as the u
 
 ```js
 domql.query(
-    '@panel.all("[data-key]").sum(self attributeOf "data-unread" to "number" ?? 0)',
+    '@panel.all("[data-key]").sum(self:attribute["data-unread"] to "number" ?? 0)',
     { panel }
 ).evaluate();
 // 7
@@ -553,7 +553,7 @@ To handle text that does not convert yourself, test it first with `is convertibl
 
 ```text
 @panel {
-    let count: self attributeOf "data-count",
+    let count: self:attribute["data-count"],
     value: if count is convertible to "number" then count to "number" ?? 0 else 0
 }
 ```
@@ -663,7 +663,7 @@ DOMQL reports failures as a `DomqlError` with `kind`, `message` and a structured
 
 ```js
 try {
-    domql.query('@panel attributeOf 200', { panel }).evaluate();
+    domql.query('@panel:attribute[200]', { panel }).evaluate();
 } catch (error) {
     if (error?.name !== 'DomqlError') {
         throw error;
@@ -671,8 +671,8 @@ try {
 
     console.error(error.kind, error.message, error.location);
     // validation
-    // The argument 'name' of 'attributeOf' expects string and finds number
-    // (line 1, column 20, at /query/argument)
+    // The argument 'name' of 'attribute' expects string and finds number
+    // (line 1, column 18, at /query/argument)
 }
 ```
 

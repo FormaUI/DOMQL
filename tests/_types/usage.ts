@@ -39,7 +39,7 @@ const selection: DomqlSelection<number> = query.select<number>('count');
 const selected: number = selection.evaluate({ window });
 const selectedAsync: Promise<number> = selection.evaluateAsync(evaluating);
 const selectedWatch: DomqlWatch<number> = selection.watch({ schedule: 'immediate' });
-const key: DomqlSelection<string> = domql.query('@panel.children { key: self attributeOf "data-key" }', { panel }).select('items').select<string>(0, 'key');
+const key: DomqlSelection<string> = domql.query('@panel.children { key: self:attribute["data-key"] }', { panel }).select('items').select<string>(0, 'key');
 
 // @ts-expect-error A path item is a field's name or a list index.
 query.select(true);
@@ -109,7 +109,7 @@ query.watch({ updateStrategy: 'changeSet' });
 query.watch({ onChange: () => {} });
 
 // Live state is one object the watch keeps current, which the caller reads and never writes.
-const living: DomqlLiveStateWatch<{ rows: { key: string }[] }> = domql.query<{ rows: { key: string }[] }>('{ rows: @panel.children { key: self attributeOf "data-key" } }', { panel }).watch({
+const living: DomqlLiveStateWatch<{ rows: { key: string }[] }> = domql.query<{ rows: { key: string }[] }>('{ rows: @panel.children { key: self:attribute["data-key"] } }', { panel }).watch({
     updateStrategy: 'liveState',
     signal,
 });
@@ -276,7 +276,7 @@ const misread: DomqlDefinitionNode = { kind: 'predicate', verb: 'is', target: { 
 const named: DomqlDefinitionNode = { kind: 'object', target: { kind: 'parameter', name: 'panel' }, locals: [{ name: 'size', value: { kind: 'member', target: { kind: 'self' }, name: 'size' } }], fields: [{ name: 'width', value: { kind: 'optionalChain', target: { kind: 'member', target: { kind: 'local', name: 'size' }, name: 'width', optional: true } } }] };
 
 // @ts-expect-error An infix call propagates a null receiver, and is never optional.
-const optionalOperation: DomqlDefinitionNode = { kind: 'infixCall', target: { kind: 'self' }, name: 'attributeOf', optional: true };
+const optionalOperation: DomqlDefinitionNode = { kind: 'infixCall', target: { kind: 'self' }, name: 'matches', optional: true };
 
 // @ts-expect-error A local is named, as a field is.
 const unnamed: DomqlDefinitionNode = { kind: 'object', locals: [{ value: { kind: 'self' } }], fields: [] };

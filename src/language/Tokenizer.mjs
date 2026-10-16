@@ -101,7 +101,7 @@ export class Tokenizer {
 
             // A hyphen right after a name is never a negative number, which whitespace or a parenthesis comes before.
             if (this.#text[this.#offset] === '-') {
-                throw DomqlError.syntax(`A name holds no hyphen: '${name}-…' is written in camelCase, as attributeOf is`, this.#text, this.#offset);
+                throw DomqlError.syntax(`A name holds no hyphen: '${name}-…' is written in camelCase, as clientSize is`, this.#text, this.#offset);
             }
 
             if (Names.isLiteral(name)) {
@@ -155,7 +155,7 @@ export class Tokenizer {
         const name = this.#text.slice(start + 1, this.#offset);
 
         if (this.#text[this.#offset] === '-') {
-            throw DomqlError.syntax(`A name holds no hyphen: '${name}-…' is written in camelCase, as attributeOf is`, this.#text, this.#offset);
+            throw DomqlError.syntax(`A name holds no hyphen: '${name}-…' is written in camelCase, as clientSize is`, this.#text, this.#offset);
         }
 
         if (!Names.isName(name)) {

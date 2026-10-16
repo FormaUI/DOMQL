@@ -248,7 +248,7 @@ DOMQL owns the semantics every host shares: evaluation, dependency recording, ob
 
 ## Modules
 
-An extension is registered as a module, which declares under its name the state members, event sources, actions and behaviors it contributes and supplies the implementation that carries each out; requests resolve against those declarations. The declarations are data, each member's DOMQL name, signature, result type, argument types and kinds and the request kinds it supports, so they can be read without running the implementations. A module associates two things explicitly, and neither is derived from the other: an operation's DOMQL name, `computedStyleOf`, and the function that carries it out, whatever that function is called. A module registers under a name of its own, and registering a name twice is an error.
+An extension is registered as a module, which declares under its name the state members, event sources, actions and behaviors it contributes and supplies the implementation that carries each out; requests resolve against those declarations. The declarations are data, each member's DOMQL name, signature, result type, argument types and kinds and the request kinds it supports, so they can be read without running the implementations. A module associates two things explicitly, and neither is derived from the other: an operation's DOMQL name, `style`, and the function that carries it out, whatever that function is called. A module registers under a name of its own, and registering a name twice is an error.
 
 ```js
 const virtualizer = domql.createModule('virtualizer', declarations, functions);

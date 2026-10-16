@@ -6,7 +6,7 @@ describe('Vocabulary', () => {
     const registry = new ModuleRegistry([Vocabulary.module]);
     const names = [
         'size', 'devicePixelRatio', 'rect', 'clientSize', 'grid', 'selection', 'children', 'parent', 'count', 'first', 'last',
-        'matchesMedia', 'supports', 'attributeOf', 'computedStyleOf', 'intersects', 'overlaps', 'matches', 'closest',
+        'matchesMedia', 'supports', 'attribute', 'style', 'intersects', 'overlaps', 'matches', 'closest',
         'all', 'at', 'max', 'min', 'sum', 'where', 'on',
     ];
 

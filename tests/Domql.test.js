@@ -19,6 +19,7 @@ const self = { kind: 'self' };
 const member = (name, target = self) => ({ kind: 'member', target, name });
 const call = (name, argument, target = self) => (argument === undefined ? { kind: 'call', target, name } : { kind: 'call', target, name, argument });
 const infixCall = (name, argument, target = self) => (argument === undefined ? { kind: 'infixCall', target, name } : { kind: 'infixCall', target, name, argument });
+const indexer = (name, argument, target = self, optional = false) => (optional ? { kind: 'indexer', target, name, argument, optional } : { kind: 'indexer', target, name, argument });
 
 const literal = value => ({ kind: 'literal', value });
 const parameter = name => ({ kind: 'parameter', name });
@@ -49,11 +50,12 @@ describe('domql', () => {
             expect(definition.query).toEqual(member('count', call('all', literal('li'), parameter('panel'))));
         });
 
-        it('reads a member access, a call and an infix call as nodes of their own, each holding its receiver', () => {
+        it('reads a member access, a call, a named indexer and an infix call as nodes of their own, each holding its receiver', () => {
             expect(domql.query('@panel.size').definition.query).toEqual(member('size', parameter('panel')));
             expect(domql.query('@panel.closest(".row")').definition.query).toEqual(call('closest', literal('.row'), parameter('panel')));
             expect(domql.query('@panel.parent.closest()').definition.query).toEqual(call('closest', undefined, member('parent', parameter('panel'))));
-            expect(domql.query('@panel attributeOf "id"').definition.query).toEqual(infixCall('attributeOf', literal('id'), parameter('panel')));
+            expect(domql.query('@panel:attribute["id"]').definition.query).toEqual(indexer('attribute', literal('id'), parameter('panel')));
+            expect(domql.query('@panel matches ".row"').definition.query).toEqual(infixCall('matches', literal('.row'), parameter('panel')));
             expect(domql.query('@sentinel intersects').definition.query).toEqual(infixCall('intersects', undefined, parameter('sentinel')));
         });
 
@@ -67,25 +69,25 @@ describe('domql', () => {
 
         it('takes a chain input as an infix call\'s argument, an options object among them', () => {
             expect(domql.query('@sentinel intersects { root: @panel, margin: 200, }').definition.query.argument).toEqual({ kind: 'object', fields: [{ name: 'root', value: parameter('panel') }, { name: 'margin', value: literal(200) }] });
-            expect(domql.query('@panel attributeOf @name').definition.query.argument).toEqual(parameter('name'));
-            expect(domql.query('@panel attributeOf ("data-" )').definition.query.argument).toEqual(literal('data-'));
+            expect(domql.query('@panel matches @selector').definition.query.argument).toEqual(parameter('selector'));
+            expect(domql.query('@panel matches (".row" )').definition.query.argument).toEqual(literal('.row'));
         });
 
         it('ends a chain at an infix call, which a group continues from', () => {
-            const { definition } = domql.query('(@panel.closest("[data-group]") attributeOf "data-group") is null');
+            const { definition } = domql.query('(@panel.closest("[data-group]") matches ".open") is null');
 
-            expect(definition.query.left).toEqual(infixCall('attributeOf', literal('data-group'), call('closest', literal('[data-group]'), parameter('panel'))));
+            expect(definition.query.left).toEqual(infixCall('matches', literal('.open'), call('closest', literal('[data-group]'), parameter('panel'))));
         });
 
         it('ends an infix call\'s argument at a comma, so each field keeps its own', () => {
-            const { definition } = domql.query('@target { key: self attributeOf "data-key", selected: self matches ".x" }');
+            const { definition } = domql.query('@target { open: self matches ".open", selected: self matches ".x" }');
 
-            expect(definition.query.fields.map(field => field.name)).toEqual(['key', 'selected']);
-            expect(definition.query.fields[0].value.argument).toEqual(literal('data-key'));
+            expect(definition.query.fields.map(field => field.name)).toEqual(['open', 'selected']);
+            expect(definition.query.fields[0].value.argument).toEqual(literal('.open'));
         });
 
         it('takes an infix call and its argument across a line break', () => {
-            expect(domql.query('@target {\n    id: self\n    attributeOf\n    "id"\n}').definition).toEqual(domql.query('@target { id: self attributeOf "id" }').definition);
+            expect(domql.query('@target {\n    open: self\n    matches\n    ".open"\n}').definition).toEqual(domql.query('@target { open: self matches ".open" }').definition);
         });
 
         it('takes an object expression after a call', () => {
@@ -102,13 +104,13 @@ describe('domql', () => {
         });
 
         it('skips line and block comments, which separate as whitespace does', () => {
-            const { definition } = domql.query('// A panel.\n@panel { /* its\nfirst item */ id: self.first(".item") /* inline */attributeOf/**/"id" // the id\n}');
+            const { definition } = domql.query('// A panel.\n@panel { /* its\nfirst item */ open: self.first(".item") /* inline */matches/**/".open" // whether it is open\n}');
 
-            expect(definition.query.fields[0].value).toEqual(infixCall('attributeOf', literal('id'), call('first', literal('.item'))));
+            expect(definition.query.fields[0].value).toEqual(infixCall('matches', literal('.open'), call('first', literal('.item'))));
         });
 
         it('keeps comment markers inside a string as text', () => {
-            const { definition } = domql.query('@target attributeOf "https://example.com/* not a comment */"');
+            const { definition } = domql.query('@target:attribute["https://example.com/* not a comment */"]');
 
             expect(definition.query.argument).toEqual(literal('https://example.com/* not a comment */'));
         });
@@ -135,11 +137,11 @@ describe('domql', () => {
             ]);
         });
 
-        it('reads a camelCase name as one name and an infix call\'s literal as its argument', () => {
-            const { definition } = domql.query('@target { tier: self computedStyleOf "--layout-tier", dark: self matchesMedia "(prefers-color-scheme: dark)" }');
+        it('reads a camelCase name as one name and the literal an indexer or an infix call takes as its argument', () => {
+            const { definition } = domql.query('@target { tier: self:style["--layout-tier"], dark: self matchesMedia "(prefers-color-scheme: dark)" }');
 
             expect(definition.query.fields).toEqual([
-                { name: 'tier', value: infixCall('computedStyleOf', literal('--layout-tier')) },
+                { name: 'tier', value: indexer('style', literal('--layout-tier')) },
                 { name: 'dark', value: infixCall('matchesMedia', literal('(prefers-color-scheme: dark)')) },
             ]);
         });
@@ -187,7 +189,7 @@ describe('domql', () => {
             expect(domql.query('@panel.parent is null').definition.query).toEqual(equality(member('parent', parameter('panel')), literal(null)));
             expect(domql.query('@action is "save"').definition.query).toEqual(equality(parameter('action'), literal('save')));
             expect(domql.query('@a is not @b').definition.query).toEqual(not(equality(parameter('a'), parameter('b'))));
-            expect(domql.query('@left attributeOf "name" is @right attributeOf "name"').definition.query).toEqual(equality(infixCall('attributeOf', literal('name'), parameter('left')), infixCall('attributeOf', literal('name'), parameter('right'))));
+            expect(domql.query('@left:attribute["name"] is @right:attribute["name"]').definition.query).toEqual(equality(indexer('attribute', literal('name'), parameter('left')), indexer('attribute', literal('name'), parameter('right'))));
             expect(domql.query('@node as "element" is @panel').definition.query).toEqual(equality({ kind: 'cast', type: 'element', target: parameter('node') }, parameter('panel')));
         });
 
@@ -319,7 +321,7 @@ describe('domql', () => {
 
         it('carry an object expression in the chain, and end before an infix call, which receives its value', () => {
             expect(domql.query('@panel.parent?.rect { top: self.top }').definition.query).toEqual(chain({ kind: 'object', target: optional(member('rect', member('parent', parameter('panel')))), fields: [{ name: 'top', value: member('top') }] }));
-            expect(domql.query('@panel.parent?.closest(".row") attributeOf "id"').definition.query).toEqual(infixCall('attributeOf', literal('id'), chain(optional(call('closest', literal('.row'), member('parent', parameter('panel')))))));
+            expect(domql.query('@panel.parent?.closest(".row") matches ".open"').definition.query).toEqual(infixCall('matches', literal('.open'), chain(optional(call('closest', literal('.row'), member('parent', parameter('panel')))))));
         });
 
         it('keep the chain of an argument its own', () => {
@@ -337,10 +339,10 @@ describe('domql', () => {
             ['an optional chain holding no optional access', chain(member('size', parameter('panel'))), '/query'],
             ['an optional chain directly holding another', chain(chain(optional(member('size', parameter('panel'))))), '/query'],
             ['an optional access that is not true', { ...member('size', parameter('panel')), optional: false }, '/query/optional'],
-            ['an optional infix call', optional(infixCall('attributeOf', literal('id'), parameter('panel'))), '/query'],
+            ['an optional infix call', optional(infixCall('matches', literal('.row'), parameter('panel'))), '/query'],
             ['a call named by an expression, which only an access by name is', { kind: 'call', target: parameter('panel'), name: literal('closest') }, '/query/name'],
             ['an optional access of an argument the chain it is passed to holds', chain(optional(call('closest', optional(member('key', parameter('row'))), parameter('panel')))), '/query/target/argument'],
-            ['an optional access beyond an infix call in the chain', chain(member('length', infixCall('attributeOf', literal('id'), optional(member('parent', parameter('panel')))))), '/query/target/target/target'],
+            ['an optional access beyond an infix call in the chain', chain(member('length', infixCall('matches', literal('.row'), optional(member('parent', parameter('panel')))))), '/query/target/target/target'],
         ])('refuse a definition with %s', (_, query, pointer) => {
             const error = getError(() => domql.query({ version: 14, query }));
 
@@ -362,7 +364,7 @@ describe('domql', () => {
         });
 
         it('take an optional-access group as a chain input, an infix call\'s argument among them, keeping its arguments their own', () => {
-            expect(domql.query('@panel attributeOf (?@row.key)').definition.query).toEqual(infixCall('attributeOf', chain(optional(member('key', parameter('row')))), parameter('panel')));
+            expect(domql.query('@panel matches (?@row.key)').definition.query).toEqual(infixCall('matches', chain(optional(member('key', parameter('row')))), parameter('panel')));
             expect(domql.query('(?@panel.closest(@row.key))').definition.query).toEqual(chain(optional(call('closest', member('key', parameter('row')), parameter('panel')))));
         });
 
@@ -371,7 +373,7 @@ describe('domql', () => {
             ['an optional-access group with no access', '(?@panel)', 1, 9],
             ['an optional-access group whose receiver is a group holding no cast', '(?(@panel).size)', 1, 10],
             ['an optional-access group holding an object expression', '(?@panel.rect { top: self.top })', 1, 15],
-            ['an optional-access group holding an infix call', '(?@panel.parent attributeOf "id")', 1, 17],
+            ['an optional-access group holding an infix call', '(?@panel.parent matches ".row")', 1, 17],
             ['a call whose parenthesis opens the optional-access group that is its argument', '@panel.closest(?@row.key)', 1, 15],
         ])('refuse %s', (_, text, line, column) => {
             const error = getError(() => domql.query(text));
@@ -420,7 +422,7 @@ describe('domql', () => {
             ['a dot before a bracket', '@panel.[@name]', 1, 7],
             ['a dot before an optional bracket', '@panel?.[@name]', 1, 7],
             ['a dot before a bracket in an optional-access group', '(?@panel.[@name])', 1, 9],
-            ['a bracket after an infix call, which ends its chain', '@panel attributeOf @row[@name]', 1, 24],
+            ['a bracket after an infix call, which ends its chain', '@panel matches @row[@name]', 1, 20],
         ])('refuse %s', (_, text, line, column) => {
             const error = getError(() => domql.query(text));
 
@@ -437,7 +439,7 @@ describe('domql', () => {
         it('read a target, as and the quoted type it casts to, which a chain continues from only in a group', () => {
             expect(domql.query('@panel.parent as "element"').definition.query).toEqual(cast('element', member('parent', parameter('panel'))));
             expect(domql.query('(@panel.parent as "element")?.rect').definition.query).toEqual(chain(optional(member('rect', cast('element', member('parent', parameter('panel')))))));
-            expect(domql.query('@panel.parent as "element" attributeOf "id"').definition.query).toEqual(infixCall('attributeOf', literal('id'), cast('element', member('parent', parameter('panel')))));
+            expect(domql.query('@panel.parent as "element" matches ".row"').definition.query).toEqual(infixCall('matches', literal('.row'), cast('element', member('parent', parameter('panel')))));
         });
 
         it('take a coalescing operator in parentheses, an optional-access group and another cast in a group as targets', () => {
@@ -492,7 +494,7 @@ describe('domql', () => {
 
         it.each([
             ['a type that is no string', cast(5, parameter('a')), '/query/type'],
-            ['a target that is an infix call', cast('element', infixCall('attributeOf', literal('id'), parameter('a'))), '/query/target'],
+            ['a target that is an infix call', cast('element', infixCall('matches', literal('.row'), parameter('a'))), '/query/target'],
         ])('refuse a definition of a cast with %s', (_, query, pointer) => {
             const error = getError(() => domql.query({ version: 14, query }));
 
@@ -507,15 +509,16 @@ describe('domql', () => {
 
         it('read a value, to and the quoted type it converts to, binding looser than an infix call and tighter than an equality, and chaining left to right', () => {
             expect(domql.query('@a to "number"').definition.query).toEqual(conversion('number', parameter('a')));
-            expect(domql.query('@panel attributeOf "data-count" to "number"').definition.query).toEqual(conversion('number', infixCall('attributeOf', literal('data-count'), parameter('panel'))));
+            expect(domql.query('@panel:attribute["data-count"] to "number"').definition.query).toEqual(conversion('number', indexer('attribute', literal('data-count'), parameter('panel'))));
+            expect(domql.query('@panel matches ".open" to "string"').definition.query).toEqual(conversion('string', infixCall('matches', literal('.open'), parameter('panel'))));
             expect(domql.query('@a to "string" to "number"').definition.query).toEqual(conversion('number', conversion('string', parameter('a'))));
-            expect(domql.query('@panel attributeOf "data-count" to "number" is 5').definition.query).toEqual(equality(conversion('number', infixCall('attributeOf', literal('data-count'), parameter('panel'))), literal(5)));
+            expect(domql.query('@panel:attribute["data-count"] to "number" is 5').definition.query).toEqual(equality(conversion('number', indexer('attribute', literal('data-count'), parameter('panel'))), literal(5)));
             expect(domql.query('@a to "number" ?? 0').definition.query).toEqual(coalescing(conversion('number', parameter('a')), literal(0)));
             expect(domql.query('@a ?? @b to "number"').definition.query).toEqual(coalescing(parameter('a'), conversion('number', parameter('b'))));
             expect(domql.query('not @a to "boolean"').definition.query).toEqual(not(conversion('boolean', parameter('a'))));
             expect(domql.query('@a as "element" to "string"').definition.query).toEqual(conversion('string', { kind: 'cast', type: 'element', target: parameter('a') }));
             expect(domql.query('@sentinel intersects to "string"').definition.query).toEqual(conversion('string', infixCall('intersects', undefined, parameter('sentinel'))));
-            expect(domql.query('@panel attributeOf to to "number"').definition.query).toEqual(conversion('number', infixCall('attributeOf', { kind: 'local', name: 'to' }, parameter('panel'))));
+            expect(domql.query('@panel matches to to "string"').definition.query).toEqual(conversion('string', infixCall('matches', { kind: 'local', name: 'to' }, parameter('panel'))));
         });
 
         it('leave to a name wherever no infix call stands: a field, a local, a property and a call', () => {
@@ -530,7 +533,7 @@ describe('domql', () => {
             ['to a type that is not quoted', '@a to number', 1, 7],
             ['continued without a group', '@a to "number".x', 1, 15],
             ['followed by an object expression', '@a to "number" { x: 1 }', 1, 16],
-            ['followed by an infix call', '@a to "number" attributeOf "id"', 1, 16],
+            ['followed by an infix call', '@a to "number" matches ".row"', 1, 16],
             ['cast without a group', '@a to "string" as "element"', 1, 16],
             ['written without the value it converts', 'to "number"', 1, 1],
         ])('refuse a conversion %s', (_, text, line, column) => {
@@ -559,7 +562,7 @@ describe('domql', () => {
         it('read a value, is convertible to and the quoted type, standing as an equality does and negated with is not', () => {
             expect(domql.query('@a is convertible to "number"').definition.query).toEqual(convertibility('number', parameter('a')));
             expect(domql.query('@a is not convertible to "number"').definition.query).toEqual(not(convertibility('number', parameter('a'))));
-            expect(domql.query('@panel attributeOf "data-n" is convertible to "number"').definition.query).toEqual(convertibility('number', infixCall('attributeOf', literal('data-n'), parameter('panel'))));
+            expect(domql.query('@panel:attribute["data-n"] is convertible to "number"').definition.query).toEqual(convertibility('number', indexer('attribute', literal('data-n'), parameter('panel'))));
             expect(domql.query('@a to "string" is convertible to "number"').definition.query).toEqual(convertibility('number', conversion('string', parameter('a'))));
             expect(domql.query('@a is convertible to "number" and @b').definition.query).toEqual({ kind: 'and', operands: [convertibility('number', parameter('a')), parameter('b')] });
             expect(domql.query('not @a is convertible to "number"').definition.query).toEqual(not(convertibility('number', parameter('a'))));
@@ -598,7 +601,6 @@ describe('domql', () => {
     });
 
     describe('named indexers', () => {
-        const indexer = (name, argument, target, optional = false) => (optional ? { kind: 'indexer', target, name, argument, optional } : { kind: 'indexer', target, name, argument });
         const chain = target => ({ kind: 'optionalChain', target });
 
         it('read a receiver, a colon, the indexer\'s name and its one key in brackets, as one node of a chain', () => {
@@ -692,7 +694,8 @@ describe('domql', () => {
         });
 
         it('take an infix call on either side, and stand as a condition, a field and an argument', () => {
-            expect(domql.query('@a attributeOf "x" ?? @b attributeOf "x"').definition.query).toEqual(coalescing(infixCall('attributeOf', literal('x'), parameter('a')), infixCall('attributeOf', literal('x'), parameter('b'))));
+            expect(domql.query('@a matches ".x" ?? @b matches ".y"').definition.query).toEqual(coalescing(infixCall('matches', literal('.x'), parameter('a')), infixCall('matches', literal('.y'), parameter('b'))));
+            expect(domql.query('@a:attribute["x"] ?? @b:attribute["x"]').definition.query).toEqual(coalescing(indexer('attribute', literal('x'), parameter('a')), indexer('attribute', literal('x'), parameter('b'))));
             expect(domql.query('if @on ?? false then 1 else 2').definition.query.condition).toEqual(coalescing(parameter('on'), literal(false)));
             expect(domql.query('@panel.closest(@a ?? ".row")').definition.query.argument).toEqual(coalescing(parameter('a'), literal('.row')));
         });
@@ -746,14 +749,14 @@ describe('domql', () => {
             });
         });
 
-        it('stand where a chain input stands, an object expression following one and an infix call taking one', () => {
-            const { query } = domql.query('@panel { let key: "data-key", let items: self.children, rows: items { key: self attributeOf key } }').definition;
+        it('stand where a chain input stands, an object expression following one and an indexer taking one', () => {
+            const { query } = domql.query('@panel { let key: "data-key", let items: self.children, rows: items { key: self:attribute[key] } }').definition;
 
-            expect(query.fields[0].value).toEqual({ kind: 'object', target: local('items'), fields: [{ name: 'key', value: infixCall('attributeOf', local('key')) }] });
+            expect(query.fields[0].value).toEqual({ kind: 'object', target: local('items'), fields: [{ name: 'key', value: indexer('attribute', local('key')) }] });
         });
 
         it('are created from a definition as they are parsed from text', () => {
-            const parsed = domql.query('@panel { let items: self.children, count: items.count, inner: self { let first: items.at(0), key: first attributeOf "data-key" } }', { panel: document.body });
+            const parsed = domql.query('@panel { let items: self.children, count: items.count, inner: self { let first: items.at(0), key: first?:attribute["data-key"] } }', { panel: document.body });
 
             expect(domql.query(parsed.definition, { panel: document.body }).definition).toEqual(parsed.definition);
         });
@@ -792,12 +795,13 @@ describe('domql', () => {
 
         it.each([
             ['a member written without its receiver', '@panel { width: rect.width }', "No local named 'rect' is in scope; write 'self.rect' for the member of the current value", 17],
-            ['an infix call written without its receiver or argument', '@panel { key: attributeOf }', "No local named 'attributeOf' is in scope; write 'self attributeOf …'", 15],
+            ['an infix call written without its receiver or argument', '@panel { open: matches }', "No local named 'matches' is in scope; write 'self matches …'", 16],
+            ['an indexer written without its receiver or key', '@panel { key: attribute }', "No local named 'attribute' is in scope; write 'self:attribute[…]'", 15],
             ['a call written without its receiver or argument', '@panel { row: closest }', "No local named 'closest' is in scope; write 'self.closest(…)'", 15],
             ['a name that is no member of the current value', '@panel { a: nothing }', "No local named 'nothing' is in scope", 13],
             ['a local used before it is written', '@panel { let a: b, let b: 1, c: a }', "No local named 'b' is in scope", 17],
             ['a local that uses itself', '@panel { let n: n, a: 1 }', "No local named 'n' is in scope", 17],
-            ['a local read from the document where an access by name stands', '@panel { let path: self attributeOf "data-path", width: self[path] }', "An access by name reads a name determined when the query is prepared", 62],
+            ['a local read from the document where an access by name stands', '@panel { let path: self:attribute["data-path"], width: self[path] }', "An access by name reads a name determined when the query is prepared", 61],
             ['a local of an object expression used beside it', '@panel { a: self { let n: 1, v: n }, b: n }', "No local named 'n' is in scope", 41],
             ['a name at the top level', 'items.count', "No local named 'items' is in scope", 1],
             ['an options object holding a local', '@sentinel intersects { let m: 200, root: @panel, margin: m }', "'intersects' takes its arguments as the fields of an object, whose fields are its parameters, so it holds no locals", 24],
@@ -818,15 +822,15 @@ describe('domql', () => {
         it.each([
             ['two fields with no comma between them', '@panel {\n    size: self.size\n    clientSize: self.clientSize\n}', 3, 5],
             ['a call with no receiver', '@panel { row: first(".row") }', 1, 15],
-            ['an infix call with no receiver', '@panel { id: attributeOf "id" }', 1, 14],
+            ['an infix call with no receiver', '@panel { open: matches ".open" }', 1, 16],
             ['a null test with no subject', '@panel { open: is null }', 1, 16],
             ['a null test with no subject at the top level', 'is null', 1, 1],
             ['arguments after a dot without parentheses', '@sentinel.intersects @panel', 1, 22],
             ['a call given two arguments', '@panel.closest(".a", ".b")', 1, 20],
             ['a call given a named argument', '@panel.rectRelativeTo(relativeTo: @other)', 1, 23],
-            ['an infix call with no separator before its argument', '@panel attributeOf"id"', 1, 19],
-            ['an infix call with no separator after its receiver', '@panel.first(".row")attributeOf "id"', 1, 21],
-            ['an infix call continued by a dot', '@panel attributeOf "id" .length', 1, 25],
+            ['an infix call with no separator before its argument', '@panel matches".open"', 1, 15],
+            ['an infix call with no separator after its receiver', '@panel.first(".row")matches ".open"', 1, 21],
+            ['an infix call continued by a dot', '@panel matches ".open" .length', 1, 24],
             ['an infix call followed by an object expression', '@panel on "click" { x: self.clientX }', 1, 19],
             ['an infix call given two arguments', '@panel intersects @container 200', 1, 30],
             ['self named as a field', '@panel { self: self.size }', 1, 10],
@@ -843,8 +847,8 @@ describe('domql', () => {
             ['a hyphen in a field\'s name', '@panel { is-open: self.size }', 1, 12],
             ['a hyphen before a digit in a name', '@panel.size-1', 1, 12],
             ['a hyphen ending a name', '@panel.size- ', 1, 12],
-            ['an escape other than \\" or \\\\', '@target attributeOf "a\\n"', 1, 23],
-            ['a string never closed', '@target attributeOf "id', 1, 21],
+            ['an escape other than \\" or \\\\', '@target:attribute["a\\n"]', 1, 21],
+            ['a string never closed', '@target:attribute["id', 1, 19],
             ['a character outside the language', '@target.size + 1', 1, 14],
             ['a parameter with no name', '@ { size: self.size }', 1, 2],
             ['a space between a parameter\'s @ and its name', '@ panel', 1, 2],
@@ -858,7 +862,7 @@ describe('domql', () => {
             ['a single slash', '@panel.size / 2', 1, 13],
             ['a # comment, which DOMQL has none of', '# A panel.\n@panel { size: self.size }', 1, 1],
             ['a reserved literal naming a parameter', '@false { size: self.size }', 1, 2],
-            ['a conditional without then', 'if @wide "a" else "b"', 1, 10],
+            ['a conditional without then', 'if @wide "]a" else "b"', 1, 10],
             ['a conditional without else', 'if @wide then "a"', 1, 18],
             ['a conditional that is an operand without parentheses', '@a and if @b then true else false', 1, 8],
             ['a keyword of the conditional naming a field', '@panel { then: self.size }', 1, 10],
@@ -894,7 +898,7 @@ describe('domql', () => {
         });
 
         it('keeps a reserved word inside a string as an ordinary string', () => {
-            expect(domql.query('@target attributeOf "null"').definition.query.argument).toEqual(literal('null'));
+            expect(domql.query('@target:attribute["null"]').definition.query.argument).toEqual(literal('null'));
         });
 
         it('accepts a field continuing past an access by a bound name', () => {
@@ -1002,7 +1006,7 @@ describe('domql', () => {
 
             const panel = document.getElementById('panel');
             const row = JSON.parse('{ "__proto__": { "polluted": true }, "id": "a" }');
-            const watch = domql.query('{ row: @row, title: @panel attributeOf "title" }', { row, panel }).watch({ updateStrategy, schedule: 'immediate' });
+            const watch = domql.query('{ row: @row, title: @panel:attribute["title"] }', { row, panel }).watch({ updateStrategy, schedule: 'immediate' });
             const values = [];
 
             // A watch of live state delivers its snapshot beside the state it keeps current, and both hold the row.
@@ -1023,8 +1027,8 @@ describe('domql', () => {
         });
 
         it.each([
-            ['a field', '@panel { a: self attributeOf "id" }', /"name":"a"/g],
-            ['a local', '@panel { let k: self attributeOf "id", a: k }', /"name":"k"/g],
+            ['a field', '@panel { a: self:attribute["id"] }', /"name":"a"/g],
+            ['a local', '@panel { let k: self:attribute["id"], a: k }', /"name":"k"/g],
         ])('refuses __proto__ as the name of %s a definition declares, as it refuses every name that is no letter followed by letters and digits', (_, text, name) => {
             const definition = JSON.parse(JSON.stringify(domql.query(text).definition).replace(name, '"name":"__proto__"'));
             const error = getError(() => domql.query(definition, { panel: document.body }));
@@ -1225,7 +1229,7 @@ describe('domql evaluates', () => {
         });
 
         it('evaluates each query that shares it against its own bindings, interleaved, its locals and branches its own', () => {
-            const text = '@panel { let id: self attributeOf "id", id: id, kind: if id is "first" then "one" else "other", count: self.children.count }';
+            const text = '@panel { let id: self:attribute["id"], id: id, kind: if id is "first" then "one" else "other", count: self.children.count }';
             const first = document.createElement('div');
             const second = document.createElement('div');
 
@@ -1512,10 +1516,10 @@ describe('domql modules', () => {
         }));
         document.body.innerHTML = '<div id="panel"><div data-key="a1"></div><div data-key="a2" aria-selected="true"></div></div>';
 
-        const error = getError(() => isolated.query('@panel.all("[data-key]") {\n    key: self attributeOf "data-key",\n    weight: self.weight\n}', { panel: document.getElementById('panel') }).evaluate());
+        const error = getError(() => isolated.query('@panel.all("[data-key]") {\n    key: self:attribute["data-key"],\n    weight: self.weight\n}', { panel: document.getElementById('panel') }).evaluate());
 
         expect(error.kind).toBe('evaluation');
-        expect(error.location).toEqual({ pointer: '/query/fields/1/value', offset: 77, line: 3, column: 13 });
+        expect(error.location).toEqual({ pointer: '/query/fields/1/value', offset: 76, line: 3, column: 13 });
         document.body.innerHTML = '';
     });
 
@@ -1650,7 +1654,7 @@ describe('domql evaluateAsync', () => {
     };
 
     it('answers what evaluate answers for a query that reads nothing maintained', async () => {
-        const query = isolated.query('@panel { count: self.children.count, id: self attributeOf "id" }', { panel });
+        const query = isolated.query('@panel { count: self.children.count, id: self:attribute["id"] }', { panel });
 
         expect(await query.evaluateAsync()).toEqual(query.evaluate());
         expect(Object.isFrozen(await query.evaluateAsync())).toBe(true);
@@ -1868,7 +1872,7 @@ describe('domql executeAsync', () => {
     });
 
     it('shapes the result by the object expression that follows the action, as immutable data', async () => {
-        const result = await isolated.query('@panel.pick() { id: self attributeOf "id" }', { panel }).executeAsync();
+        const result = await isolated.query('@panel.pick() { id: self:attribute["id"] }', { panel }).executeAsync();
 
         expect(result).toEqual({ id: 'first' });
         expect(Object.isFrozen(result)).toBe(true);
@@ -1975,14 +1979,14 @@ describe('domql receivers of unknown type', () => {
     });
 
     it('answer null for an object expression following a null binding, its fields resolved against no value', () => {
-        expect(isolated.query('{ panel: @panel { size: self.size, key: self attributeOf "data-key" }, ids: @ids }', { panel: null, ids: [] }).evaluate()).toEqual({ panel: null, ids: [] });
+        expect(isolated.query('{ panel: @panel { size: self.size, key: self:attribute["data-key"] }, ids: @ids }', { panel: null, ids: [] }).evaluate()).toEqual({ panel: null, ids: [] });
         expect(isolated.query('@panel { size: self.size }', { panel: null }).resolve().type.toString()).toBe('{ size: size? }?');
     });
 
     it.each([
         ['a call no declaration has', '@panel?.sise()', 'no member of the vocabulary'],
         ['a name in a form none of its declarations takes', '@panel?.size()', 'is a property'],
-        ['an argument none of its declarations takes', '@panel attributeOf 5', "expects string and finds number"],
+        ['an argument none of its declarations takes', '@panel?:attribute[5]', "expects string and finds number"],
         ['a misspelled call in the object expression that follows', '@panel { size: self.sise() }', 'no member of the vocabulary'],
         ['an infix call no declaration has, as has is', '@panel has "selection"', 'no member of the vocabulary'],
     ])('refuse %s', (_, text, message) => {
@@ -2275,18 +2279,18 @@ describe('domql conversions', () => {
         it('answers null for null without converting, nullable where the value is', () => {
             panel.setAttribute('data-count', '3');
 
-            const query = isolated.query('@panel attributeOf "data-missing" to "number"', { panel });
+            const query = isolated.query('@panel:attribute["data-missing"] to "number"', { panel });
 
             expect(String(query.resolve().type)).toBe('number?');
             expect(query.evaluate()).toBeNull();
-            expect(evaluate('@panel attributeOf "data-count" to "number"')).toBe(3);
+            expect(evaluate('@panel:attribute["data-count"] to "number"')).toBe(3);
         });
 
         it('lets ?? say what a missing value means, and leaves a malformed one an error', () => {
             panel.setAttribute('data-count', 'three');
 
-            expect(evaluate('@panel attributeOf "data-missing" to "number" ?? 0')).toBe(0);
-            expect(getError(() => evaluate('@panel attributeOf "data-count" to "number" ?? 0')).kind).toBe('evaluation');
+            expect(evaluate('@panel:attribute["data-missing"] to "number" ?? 0')).toBe(0);
+            expect(getError(() => evaluate('@panel:attribute["data-count"] to "number" ?? 0')).kind).toBe('evaluation');
         });
 
         it('answers null for a null of unknown type once its target is a type it converts to, however many conversions reach that type', () => {
@@ -2355,8 +2359,8 @@ describe('domql conversions', () => {
         it('is true for a value already of the type and for null, as to answers them without failing', () => {
             expect(evaluate('5 is convertible to "number"')).toBe(true);
             expect(evaluate('@value is convertible to "number"', { value: null })).toBe(true);
-            expect(evaluate('@panel attributeOf "data-missing" is convertible to "number"')).toBe(true);
-            expect(String(isolated.query('@panel attributeOf "data-missing" is convertible to "number"', { panel }).resolve().type)).toBe('boolean');
+            expect(evaluate('@panel:attribute["data-missing"] is convertible to "number"')).toBe(true);
+            expect(String(isolated.query('@panel:attribute["data-missing"] is convertible to "number"', { panel }).resolve().type)).toBe('boolean');
         });
 
         it.each([
@@ -2424,9 +2428,9 @@ describe('domql conversions', () => {
             registerTemperature();
             panel.setAttribute('data-temperature', '21C');
 
-            expect(evaluate('@panel attributeOf "data-temperature" to "celsius"')).toEqual({ degrees: 21 });
-            expect(evaluate('(@panel attributeOf "data-temperature" to "celsius")?.degrees')).toBe(21);
-            expect(evaluate('@panel attributeOf "data-temperature" to "celsius" to "string"')).toBe('21C');
+            expect(evaluate('@panel:attribute["data-temperature"] to "celsius"')).toEqual({ degrees: 21 });
+            expect(evaluate('(@panel:attribute["data-temperature"] to "celsius")?.degrees')).toBe(21);
+            expect(evaluate('@panel:attribute["data-temperature"] to "celsius" to "string"')).toBe('21C');
         });
 
         it('takes one conversion, never a chain of them, so a value reaches a type through another only where the query writes both', () => {

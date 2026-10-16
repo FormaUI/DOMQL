@@ -79,8 +79,8 @@ export class VocabularyFunctions {
 
             matchesMedia: (window, { query }) => window.matchMedia(query).matches,
             supports: (window, { feature }) => VocabularyFunctions.#supports(window, feature),
-            attributeOf: (element, { name }) => element.getAttribute(name),
-            computedStyleOf: (element, { property }) => {
+            attribute: (element, { name }) => element.getAttribute(name),
+            style: (element, { property }) => {
                 if (!element.isConnected) {
                     return null;
                 }

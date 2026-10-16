@@ -134,7 +134,7 @@ describe('LanguageResolver', () => {
         });
 
         it('shapes the result of an action by the object expression that follows it, which stays an action request', () => {
-            const resolved = resolveWith('@panel.pick() { id: self attributeOf "id" }');
+            const resolved = resolveWith('@panel.pick() { id: self:attribute["id"] }');
 
             expect(resolved.kind).toBe('action');
             expect(resolved.type.toString()).toBe('{ id: string? }');
@@ -146,7 +146,7 @@ describe('LanguageResolver', () => {
 
         it('resolves a behavior as a behavior request, which takes no object expression', () => {
             expect(resolveWith('@panel.focusTrap()').kind).toBe('behavior');
-            expect(failureWith('@panel.focusTrap() { id: self attributeOf "id" }').message).toContain('A behavior request ends its chain and takes no object expression');
+            expect(failureWith('@panel.focusTrap() { id: self:attribute["id"] }').message).toContain('A behavior request ends its chain and takes no object expression');
         });
 
         it('refuses a member after an action, and an action or a behavior inside a query', () => {
@@ -282,11 +282,12 @@ describe('LanguageResolver', () => {
         });
 
         it('lets an infix call propagate a null receiver', () => {
-            expect(resolve('(@panel.parent as "element") attributeOf "id"').type.toString()).toBe('string?');
+            expect(resolve('(@panel.parent as "element") matches ".row"').type.toString()).toBe('boolean?');
         });
 
         it('refuses a member written in a form its declaration does not take, giving the form it does', () => {
-            expect(failure('@panel.attributeOf("id")').message).toContain(`'attributeOf' uses infix-call syntax: write '@panel attributeOf "id"'`);
+            expect(failure('@panel.matches(".row")').message).toContain(`'matches' uses infix-call syntax: write '@panel matches ".row"'`);
+            expect(failure('@panel.attribute("id")').message).toContain(`'attribute' is an indexer: write '@panel:attribute["id"]'`);
             expect(failure('@panel closest ".row"').message).toContain(`'closest' uses call syntax: write '@panel.closest(".row")'`);
             expect(failure('@panel.parent()').message).toContain("'parent' is a property: write '@panel.parent'");
             expect(failure('@panel.size?.width()').message).toContain("write '@panel.size?.width'");
@@ -323,7 +324,7 @@ describe('LanguageResolver', () => {
         });
 
         it('refuses an aggregate expression of another type', () => {
-            expect(failure('@panel.children.sum(self attributeOf "id")').message).toContain('must produce number?');
+            expect(failure('@panel.children.sum(self:attribute["id"])').message).toContain('must produce number?');
         });
     });
 
@@ -336,7 +337,7 @@ describe('LanguageResolver', () => {
         });
 
         it('refuses an access by name whose names cannot be determined, can be null, name no property or are of different types', () => {
-            expect(failure('@panel[@panel attributeOf "data-name"]').message).toContain('An access by name reads a name determined when the query is prepared');
+            expect(failure('@panel[@panel:attribute["data-name"]]').message).toContain('An access by name reads a name determined when the query is prepared');
             expect(failure('@panel[@name]', { panel, name: null }).message).toContain("An access by name reads a string, and '@name' can be null");
             expect(failure('@panel["depth"]').message).toContain("'depth' is no member of the vocabulary");
             expect(failure('@panel[if @wide then "size" else "children"]', { panel, wide: true }).message).toContain('are of one type, and these are size?, list<element>');
@@ -575,7 +576,7 @@ describe('LanguageResolver', () => {
     describe('locals', () => {
         it('type a use of a local as the value it names', () => {
             expect(resolve('@panel { let size: self.size, width: size?.width }').type.toString()).toBe('{ width: number? }');
-            expect(resolve('@panel { let rows: self.children, rows: rows { key: self attributeOf "data-key" } }').type.toString()).toBe('{ rows: list<{ key: string? }> }');
+            expect(resolve('@panel { let rows: self.children, rows: rows { key: self:attribute["data-key"] } }').type.toString()).toBe('{ rows: list<{ key: string? }> }');
         });
 
         it('resolve a local where it is written, whatever current value its use has', () => {
@@ -583,7 +584,7 @@ describe('LanguageResolver', () => {
         });
 
         it('let a local hold what is no data, which no field can', () => {
-            expect(resolve('@panel { let first: self.children.at(0), key: first attributeOf "data-key" }').type.toString()).toBe('{ key: string? }');
+            expect(resolve('@panel { let first: self.children.at(0), key: first?:attribute["data-key"] }').type.toString()).toBe('{ key: string? }');
         });
 
         it('validate a local no field uses', () => {
@@ -636,7 +637,7 @@ describe('LanguageResolver', () => {
 
     describe('the resolved definition', () => {
         it('names each field of each object expression once, as it is written', () => {
-            const resolved = resolve('@panel { size: self.size, kind: self attributeOf "role", attached: self.attached, clientSize: self["clientSize"], rows: self.all("i") { rect: self.rect } }');
+            const resolved = resolve('@panel { size: self.size, kind: self:attribute["role"], attached: self.attached, clientSize: self["clientSize"], rows: self.all("i") { rect: self.rect } }');
             const { query } = resolved.definition;
 
             expect(resolved.fieldNamesOf(query)).toEqual(['size', 'kind', 'attached', 'clientSize', 'rows']);

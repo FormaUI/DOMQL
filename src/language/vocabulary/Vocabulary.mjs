@@ -147,10 +147,8 @@ export class Vocabulary {
 
                 operation('matchesMedia', 'window', 'boolean', { form: 'infix', parameters: [valueParameter('query', 'string')], observations: [{ type: 'media', of: 'window', query: { argument: 'query' } }] }),
                 operation('supports', 'window', 'boolean', { form: 'infix', changes: 'constant', parameters: [valueParameter('feature', 'string', { fixed: true, selects: 'feature' })] }),
-                operation('attributeOf', 'element', 'string?', { form: 'infix', parameters: [valueParameter('name', 'string')], observations: [{ type: 'mutation', of: 'receiver', attributes: [{ argument: 'name' }] }] }),
-                operation('computedStyleOf', 'element', 'string?', { ...STYLE, form: 'infix', parameters: [valueParameter('property', 'string')], observations: [RESIZE, ATTRIBUTES] }),
-                operation('attribute', 'element', 'string?', { function: 'attributeOf', form: 'indexer', parameters: [valueParameter('name', 'string')], observations: [{ type: 'mutation', of: 'receiver', attributes: [{ argument: 'name' }] }] }),
-                operation('style', 'element', 'string?', { ...STYLE, function: 'computedStyleOf', form: 'indexer', parameters: [valueParameter('property', 'string')], observations: [RESIZE, ATTRIBUTES] }),
+                operation('attribute', 'element', 'string?', { form: 'indexer', parameters: [valueParameter('name', 'string')], observations: [{ type: 'mutation', of: 'receiver', attributes: [{ argument: 'name' }] }] }),
+                operation('style', 'element', 'string?', { ...STYLE, form: 'indexer', parameters: [valueParameter('property', 'string')], observations: [RESIZE, ATTRIBUTES] }),
                 operation('intersects', 'element', 'boolean?', { reads: 'maintained', form: 'infix', input: 'options', parameters: [valueParameter('root', 'element?', { default: null, nulls: 'accept', omitted: 'the window' }), valueParameter('margin', 'number', { default: 0 })], observations: [{ type: 'intersection', of: 'receiver', root: { argument: 'root' }, margin: { argument: 'margin' } }] }),
                 operation('overlaps', 'element', 'boolean?', { ...GEOMETRY, form: 'infix', input: 'options', parameters: [valueParameter('other', 'element'), valueParameter('margin', 'number', { default: 0 })], observations: [RESIZE, { type: 'resize', of: { argument: 'other' } }, SCROLLING, WINDOW_RESIZE] }),
                 operation('matches', 'element', 'boolean?', { ...MATCHING, form: 'infix', parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS, POPOVERS] }),

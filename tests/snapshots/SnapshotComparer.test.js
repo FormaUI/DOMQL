@@ -30,14 +30,14 @@ describe('SnapshotComparer', () => {
 
     describe('reconcile', () => {
         it('gives the previous snapshot itself where nothing changed', () => {
-            const snapshotComparer = snapshotComparerOf('@element { a: self attributeOf "a", b: self attributeOf "b" }', { element });
+            const snapshotComparer = snapshotComparerOf('@element { a: self:attribute["a"], b: self:attribute["b"] }', { element });
             const previous = freeze({ a: '1', b: '2' });
 
             expect(snapshotComparer.reconcile(previous, null, freeze({ a: '1', b: '2' }), null)).toBe(previous);
         });
 
         it('shares every branch that did not change and builds new ones along the paths that did', () => {
-            const snapshotComparer = snapshotComparerOf('@element { id: self attributeOf "id", items: self.children { key: self attributeOf "key" } }', { element });
+            const snapshotComparer = snapshotComparerOf('@element { id: self:attribute["id"], items: self.children { key: self:attribute["key"] } }', { element });
             const previous = freeze({ id: 'x', items: [{ key: 'a' }, { key: 'b' }] });
             const next = snapshotComparer.reconcile(previous, null, freeze({ id: 'x', items: [{ key: 'a' }, { key: 'c' }] }), null);
 
@@ -49,7 +49,7 @@ describe('SnapshotComparer', () => {
         });
 
         it('builds an object anew from the first field that changed, sharing the fields before and after it that did not', () => {
-            const snapshotComparer = snapshotComparerOf('@element { size: self.wobble, key: self attributeOf "key", box: self.wobble }', { element }, { tolerance: 0.5 });
+            const snapshotComparer = snapshotComparerOf('@element { size: self.wobble, key: self:attribute["key"], box: self.wobble }', { element }, { tolerance: 0.5 });
             const previous = freeze({ size: { width: 10, height: 20 }, key: 'a', box: { width: 30, height: 40 } });
             const next = snapshotComparer.reconcile(previous, null, freeze({ size: { width: 10.2, height: 20 }, key: 'b', box: { width: 30, height: 40 } }), null);
 
@@ -62,7 +62,7 @@ describe('SnapshotComparer', () => {
         });
 
         it('gives a new object where the previous one has fields the expression does not name, even where every named field is the same', () => {
-            const snapshotComparer = snapshotComparerOf('@element { a: self attributeOf "a", b: self attributeOf "b" }', { element });
+            const snapshotComparer = snapshotComparerOf('@element { a: self:attribute["a"], b: self:attribute["b"] }', { element });
             const previous = freeze({ a: '1', b: '2', c: '3' });
             const next = snapshotComparer.reconcile(previous, null, freeze({ a: '1', b: '2' }), null);
 
@@ -71,7 +71,7 @@ describe('SnapshotComparer', () => {
         });
 
         it('gives a new object where the previous one lacks a field the expression names, though it has as many fields and reading the missing one compares equal', () => {
-            const snapshotComparer = snapshotComparerOf('@element { a: self attributeOf "a", b: self attributeOf "b" }', { element });
+            const snapshotComparer = snapshotComparerOf('@element { a: self:attribute["a"], b: self:attribute["b"] }', { element });
             const previous = freeze({ a: '1', x: '2' });
             const next = snapshotComparer.reconcile(previous, null, freeze({ a: '1' }), null);
 
@@ -97,7 +97,7 @@ describe('SnapshotComparer', () => {
         });
 
         it('compares a list by position, and gives a new one where its length changed', () => {
-            const snapshotComparer = snapshotComparerOf('@element { items: self.children { key: self attributeOf "key" } }', { element });
+            const snapshotComparer = snapshotComparerOf('@element { items: self.children { key: self:attribute["key"] } }', { element });
             const previous = freeze({ items: [{ key: 'a' }, { key: 'b' }] });
             const next = snapshotComparer.reconcile(previous, null, freeze({ items: [{ key: 'a' }] }), null);
 
@@ -106,7 +106,7 @@ describe('SnapshotComparer', () => {
         });
 
         it('compares strings, Booleans and null exactly', () => {
-            const snapshotComparer = snapshotComparerOf('@element { s: self attributeOf "s", b: self matches ".x", n: self attributeOf "none" }', { element });
+            const snapshotComparer = snapshotComparerOf('@element { s: self:attribute["s"], b: self matches ".x", n: self:attribute["none"] }', { element });
             const previous = freeze({ s: 'a', b: true, n: null });
 
             expect(snapshotComparer.reconcile(previous, null, freeze({ s: 'a', b: true, n: null }), null)).toBe(previous);
@@ -239,7 +239,7 @@ describe('SnapshotComparer', () => {
         });
 
         it('matches the items of a list projected from elements by element, so a reorder shares every item that did not change', () => {
-            const snapshotComparer = snapshotComparerOf('@element.children { key: self attributeOf "key", n: self attributeOf "n" }', { element });
+            const snapshotComparer = snapshotComparerOf('@element.children { key: self:attribute["key"], n: self:attribute["n"] }', { element });
             const [a, b, c] = [{ nodeType: 1 }, { nodeType: 1 }, { nodeType: 1 }];
             const identities = list => ({ elements: list, items: list.map(() => null) });
             const previous = freeze([{ key: 'a', n: '1' }, { key: 'b', n: '2' }, { key: 'c', n: '3' }]);
@@ -252,7 +252,7 @@ describe('SnapshotComparer', () => {
         });
 
         it('matches by element a list a conditional chose, following the identities of the value it gave', () => {
-            const snapshotComparer = snapshotComparerOf('if @wide then @element.children { key: self attributeOf "key" } else null', { element, wide: true });
+            const snapshotComparer = snapshotComparerOf('if @wide then @element.children { key: self:attribute["key"] } else null', { element, wide: true });
             const [a, b] = [{ nodeType: 1 }, { nodeType: 1 }];
             const identities = list => ({ elements: list, items: list.map(() => null) });
             const previous = freeze([{ key: 'a' }, { key: 'b' }]);
@@ -263,7 +263,7 @@ describe('SnapshotComparer', () => {
         });
 
         it('compares the items of an object expression over a list', () => {
-            const snapshotComparer = snapshotComparerOf('@element.children { key: self attributeOf "key" }', { element });
+            const snapshotComparer = snapshotComparerOf('@element.children { key: self:attribute["key"] }', { element });
             const previous = freeze([{ key: 'a' }, null]);
 
             expect(snapshotComparer.reconcile(previous, null, freeze([{ key: 'a' }, null]), null)).toBe(previous);

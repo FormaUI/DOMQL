@@ -146,9 +146,9 @@ describe('Geometry in a browser', () => {
         it('read a custom property and a computed value, and answer null for one that is not set', () => {
             const box = add('--tier: medium; width: 120px');
 
-            expect(read('@box computedStyleOf "--tier"', { box })).toBe('medium');
-            expect(read('@box computedStyleOf "width"', { box })).toBe('120px');
-            expect(read('@box computedStyleOf "--none"', { box })).toBeNull();
+            expect(read('@box:style["--tier"]', { box })).toBe('medium');
+            expect(read('@box:style["width"]', { box })).toBe('120px');
+            expect(read('@box:style["--none"]', { box })).toBeNull();
         });
 
         it('read the sizes of the column tracks of a grid, and none for an element that is no grid', () => {
@@ -203,7 +203,7 @@ describe('Geometry in a browser', () => {
 
             expect(read('@input.selection { start: self.start, end: self.end }', { input })).toEqual({ start: 2, end: 7 });
             expect(read('@input.hasSelection', { input })).toBe(true);
-            expect(read('@input attributeOf "value"', { input })).toBeNull();
+            expect(read('@input:attribute["value"]', { input })).toBeNull();
         });
 
         it('answers the window around the document', () => {

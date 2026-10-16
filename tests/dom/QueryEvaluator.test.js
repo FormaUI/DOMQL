@@ -98,26 +98,26 @@ describe('QueryEvaluator', () => {
         it('reads children, counts and selects', () => {
             expect(read('@panel.children.count', { panel })).toBe(3);
             expect(read('@panel.all("[data-key]").count', { panel })).toBe(3);
-            expect(read('@panel.first("[aria-selected=true]") attributeOf "data-key"', { panel })).toBe('a2');
-            expect(read('@item.closest("#panel") attributeOf "id"', { item: items[0] })).toBe('panel');
+            expect(read('@panel.first("[aria-selected=true]")?:attribute["data-key"]', { panel })).toBe('a2');
+            expect(read('@item.closest("#panel")?:attribute["id"]', { item: items[0] })).toBe('panel');
         });
 
         it('answers an empty list where nothing matches and null where an element is expected', () => {
             expect(read('@panel.all(".none").count', { panel })).toBe(0);
-            expect(read('@panel.first(".none") attributeOf "id"', { panel })).toBeNull();
-            expect(read('@panel.closest(".none") { id: self attributeOf "id" }', { panel })).toBeNull();
+            expect(read('@panel.first(".none")?:attribute["id"]', { panel })).toBeNull();
+            expect(read('@panel.closest(".none") { id: self:attribute["id"] }', { panel })).toBeNull();
         });
 
         it('reads list items by position', () => {
-            expect(read('@panel.children.first { key: self attributeOf "data-key" }', { panel })).toEqual({ key: 'a1' });
-            expect(read('@panel.children.last { key: self attributeOf "data-key" }', { panel })).toEqual({ key: 'a3' });
-            expect(read('@panel.children.at(1) { key: self attributeOf "data-key" }', { panel })).toEqual({ key: 'a2' });
-            expect(read('@panel.children.at(3) { key: self attributeOf "data-key" }', { panel })).toBeNull();
-            expect(read('@panel.children.at(-1) { key: self attributeOf "data-key" }', { panel })).toBeNull();
+            expect(read('@panel.children.first { key: self:attribute["data-key"] }', { panel })).toEqual({ key: 'a1' });
+            expect(read('@panel.children.last { key: self:attribute["data-key"] }', { panel })).toEqual({ key: 'a3' });
+            expect(read('@panel.children.at(1) { key: self:attribute["data-key"] }', { panel })).toEqual({ key: 'a2' });
+            expect(read('@panel.children.at(3) { key: self:attribute["data-key"] }', { panel })).toBeNull();
+            expect(read('@panel.children.at(-1) { key: self:attribute["data-key"] }', { panel })).toBeNull();
         });
 
         it('reads the parent', () => {
-            expect(read('(@item.parent as "element") { id: self attributeOf "id" }', { item: items[0] })).toEqual({ id: 'panel' });
+            expect(read('(@item.parent as "element") { id: self:attribute["id"] }', { item: items[0] })).toEqual({ id: 'panel' });
         });
     });
 
@@ -136,21 +136,21 @@ describe('QueryEvaluator', () => {
         it('reads the immediate parent, the root of the tree and a shadow root\'s host', () => {
             const { host, root, inner } = shadowHost();
 
-            expect(read('(@inner.parent as "shadowRoot")?.host attributeOf "id"', { inner })).toBe('host');
-            expect(read('@inner.root.host attributeOf "id"', { inner })).toBe('host');
+            expect(read('(@inner.parent as "shadowRoot")?.host?:attribute["id"]', { inner })).toBe('host');
+            expect(read('@inner.root.host?:attribute["id"]', { inner })).toBe('host');
             expect(read('@inner.root.children.count', { inner })).toBe(1);
             expect(read('(@host.root as "document")?.children.count', { host })).toBe(1);
-            expect(read('@host.root.host attributeOf "id"', { host })).toBeNull();
+            expect(read('@host.root.host?:attribute["id"]', { host })).toBeNull();
             expect(read('@root.parent?.children.count', { root })).toBeNull();
             expect(read('@root.all("p").count', { root })).toBe(1);
-            expect(read('@root.first("#inner") attributeOf "id"', { root })).toBe('inner');
+            expect(read('@root.first("#inner")?:attribute["id"]', { root })).toBe('inner');
         });
 
         it('casts a node to its kind, and answers null for one of another kind', () => {
             const { inner } = shadowHost();
 
-            expect(read('(@inner.parent as "element") attributeOf "id"', { inner })).toBeNull();
-            expect(read('(@item.parent as "element") attributeOf "id"', { item: items[0] })).toBe('panel');
+            expect(read('(@inner.parent as "element")?:attribute["id"]', { inner })).toBeNull();
+            expect(read('(@item.parent as "element")?:attribute["id"]', { item: items[0] })).toBe('panel');
             expect(read('(@item.root as "document")?.children.count', { item: items[0] })).toBe(1);
             expect(read('(@item.root as "shadowRoot")?.children.count', { item: items[0] })).toBeNull();
         });
@@ -161,7 +161,7 @@ describe('QueryEvaluator', () => {
             detached.id = 'top';
             detached.innerHTML = '<b></b>';
 
-            expect(read('(@b.root as "element") attributeOf "id"', { b: detached.firstChild })).toBe('top');
+            expect(read('(@b.root as "element")?:attribute["id"]', { b: detached.firstChild })).toBe('top');
             expect(read('@top.parent?.children.count', { top: detached })).toBeNull();
         });
     });
@@ -172,7 +172,7 @@ describe('QueryEvaluator', () => {
 
             expect(read('(@detached.parent as "element")?.size', { detached })).toBeNull();
             expect(read('@detached.parent?.children.count', { detached })).toBeNull();
-            expect(read('@detached { parent: (self.parent as "element")?.size, tag: self attributeOf "id" }', { detached })).toEqual({ parent: null, tag: null });
+            expect(read('@detached { parent: (self.parent as "element")?.size, tag: self:attribute["id"] }', { detached })).toEqual({ parent: null, tag: null });
         });
 
         it('skips the rest of an optional chain where a receiver is null, reading it where the receiver is present', () => {
@@ -210,28 +210,28 @@ describe('QueryEvaluator', () => {
             expect(reads).toEqual([]);
             expect(readProbe('null ?? @item.probe')).toBe(7);
             expect(reads).toEqual([items[0]]);
-            expect(read('@item attributeOf "missing" ?? "first" ?? "second"', { item: items[0] })).toBe('first');
+            expect(read('@item:attribute["missing"] ?? "first" ?? "second"', { item: items[0] })).toBe('first');
         });
 
         it('answers null for an attribute the element does not have', () => {
-            expect(read('@panel attributeOf "nothing"', { panel })).toBeNull();
+            expect(read('@panel:attribute["nothing"]', { panel })).toBeNull();
         });
 
         it('answers null for a null argument of a propagating parameter without calling the member', () => {
-            expect(read('@panel attributeOf @name', { panel, name: null })).toBeNull();
+            expect(read('@panel:attribute[@name]', { panel, name: null })).toBeNull();
         });
     });
 
     describe('object expressions', () => {
         it('names each field as it is written, and keeps their order', () => {
-            const answer = read('@panel { count: self.children.count, id: self attributeOf "id", attached: self.attached, children: self.hasChildren }', { panel });
+            const answer = read('@panel { count: self.children.count, id: self:attribute["id"], attached: self.attached, children: self.hasChildren }', { panel });
 
             expect(answer).toEqual({ count: 3, id: 'panel', attached: true, children: true });
             expect(Object.keys(answer)).toEqual(['count', 'id', 'attached', 'children']);
         });
 
         it('applies an object expression to each item of a list, in order', () => {
-            expect(read('@panel.children { key: self attributeOf "data-key", selected: self matches "[aria-selected=true]" }', { panel })).toEqual([
+            expect(read('@panel.children { key: self:attribute["data-key"], selected: self matches "[aria-selected=true]" }', { panel })).toEqual([
                 { key: 'a1', selected: false },
                 { key: 'a2', selected: true },
                 { key: 'a3', selected: false },
@@ -463,7 +463,7 @@ describe('QueryEvaluator', () => {
         });
 
         it('start a chain from a group, reading from the element the condition selects', () => {
-            expect(read('(if @first then @panel else @other) attributeOf "id"', { first: false, panel, other: items[0] })).toBe(items[0].getAttribute('id'));
+            expect(read('(if @first then @panel else @other):attribute["id"]', { first: false, panel, other: items[0] })).toBe(items[0].getAttribute('id'));
         });
     });
 
@@ -506,18 +506,18 @@ describe('QueryEvaluator', () => {
         });
 
         it('keep the self of where a local is written, used inside a nested projection', () => {
-            const result = read('@panel { let owner: self attributeOf "id", rows: self.children { owner: owner, key: self attributeOf "data-key" } }', { panel });
+            const result = read('@panel { let owner: self:attribute["id"], rows: self.children { owner: owner, key: self:attribute["data-key"] } }', { panel });
 
             expect(result.rows).toEqual([{ owner: 'panel', key: 'a1' }, { owner: 'panel', key: 'a2' }, { owner: 'panel', key: 'a3' }]);
         });
 
         it('give a local to the expression an argument evaluates for each item', () => {
-            expect(read('@panel { let selector: "[aria-selected=true]", selected: self.children.where(self matches selector) { key: self attributeOf "data-key" } }', { panel }))
+            expect(read('@panel { let selector: "[aria-selected=true]", selected: self.children.where(self matches selector) { key: self:attribute["data-key"] } }', { panel }))
                 .toEqual({ selected: [{ key: 'a2' }] });
         });
 
         it('use the locals before it, and those of an enclosing object expression', () => {
-            expect(read('@panel { let rows: self.children, let first: rows.at(0), key: first attributeOf "data-key", inner: self { last: rows.at(2) attributeOf "data-key" } }', { panel }))
+            expect(read('@panel { let rows: self.children, let first: rows.at(0), key: first?:attribute["data-key"], inner: self { last: rows.at(2)?:attribute["data-key"] } }', { panel }))
                 .toEqual({ key: 'a1', inner: { last: 'a3' } });
         });
 
@@ -587,14 +587,14 @@ describe('QueryEvaluator', () => {
         it('reads a custom property and answers null for one that is not set', () => {
             panel.style.setProperty('--tier', 'medium');
 
-            expect(read('@panel computedStyleOf "--tier"', { panel })).toBe('medium');
-            expect(read('@panel computedStyleOf "--none"', { panel })).toBeNull();
+            expect(read('@panel:style["--tier"]', { panel })).toBe('medium');
+            expect(read('@panel:style["--none"]', { panel })).toBeNull();
         });
     });
 
     describe('answers', () => {
         it('are the same for a parsed query and one created from its definition', () => {
-            const parsed = domql.query('@panel { count: self.children.count, keys: self.children { key: self attributeOf "data-key" } }', { panel });
+            const parsed = domql.query('@panel { count: self.children.count, keys: self.children { key: self:attribute["data-key"] } }', { panel });
             const created = domql.query(parsed.definition, { panel });
 
             expect(created.evaluate()).toEqual(parsed.evaluate());
@@ -720,7 +720,7 @@ describe('QueryEvaluator evaluation', () => {
         it('are recorded for each item, which can select a different branch', () => {
             rows[1].setAttribute('data-on', '');
 
-            const { items } = evaluate('@panel.children { pick: if (self attributeOf "data-on") is null then 2 else 1 }', { panel }).identities;
+            const { items } = evaluate('@panel.children { pick: if (self:attribute["data-on"]) is null then 2 else 1 }', { panel }).identities;
 
             expect(items.map(item => consequents(item.fields.pick))).toEqual([[true], [false], [true]]);
         });
@@ -739,11 +739,11 @@ describe('QueryEvaluator evaluation', () => {
 
     describe('dependencies', () => {
         it('are each member applied to its receiver and arguments, with the observations that cover it', () => {
-            const evaluation = evaluate('@panel attributeOf "id"', { panel });
+            const evaluation = evaluate('@panel:attribute["id"]', { panel });
 
             expect(evaluation.value).toBe('panel');
             expect(evaluation.dependencies).toEqual([{
-                member: 'attributeOf',
+                member: 'attribute',
                 pointer: '/query',
                 observations: [{ type: 'mutation', target: panel, arguments: { attributes: ['id'] } }],
             }]);
@@ -768,7 +768,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('stand where each operand of an equality is written, both evaluated', () => {
-            expect(membersOf(evaluate('@panel attributeOf "id" is @panel.first("i") attributeOf "id"', { panel }))).toEqual(['attributeOf', 'first', 'attributeOf']);
+            expect(membersOf(evaluate('@panel:attribute["id"] is @panel.first("i")?:attribute["id"]', { panel }))).toEqual(['attribute', 'first', 'attribute']);
         });
 
         it('stop where an optional chain meets null, and reach as far as its receivers are present', () => {
@@ -785,7 +785,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('include what a chain read before it met null, and nothing after', () => {
-            const evaluation = evaluate('@panel.closest(".none") attributeOf "id"', { panel });
+            const evaluation = evaluate('@panel.closest(".none")?:attribute["id"]', { panel });
 
             expect(evaluation.value).toBeNull();
             expect(membersOf(evaluation)).toEqual(['closest']);
@@ -802,7 +802,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('leave the attachment out for an element that is attached', () => {
-            const evaluation = evaluate('@element attributeOf "id"', { element: panel });
+            const evaluation = evaluate('@element:attribute["id"]', { element: panel });
 
             expect(evaluation.dependencies.flatMap(dependency => dependency.observations).some(observation => observation.type === 'attachment')).toBe(false);
         });
@@ -825,12 +825,12 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are kept with the failure of an evaluation that recorded them before it failed', () => {
-            const evaluation = evaluate('{ id: @panel attributeOf "id", boom: @panel.boom }', { panel }, [propertyModule('boom', () => { throw new Error('no'); })]);
+            const evaluation = evaluate('{ id: @panel:attribute["id"], boom: @panel.boom }', { panel }, [propertyModule('boom', () => { throw new Error('no'); })]);
 
             expect(evaluation.error).toBeInstanceOf(DomqlError);
             expect(evaluation.error.message).toContain("The member 'boom' failed");
             expect(evaluation.value).toBeUndefined();
-            expect(membersOf(evaluation)).toEqual(['attributeOf', 'boom']);
+            expect(membersOf(evaluation)).toEqual(['attribute', 'boom']);
         });
     });
 
@@ -848,7 +848,7 @@ describe('QueryEvaluator evaluation', () => {
 
     describe('observations', () => {
         it('are not held for an answer that is complete, which needs nothing more observed', () => {
-            const evaluation = evaluate('@panel attributeOf "id"', { panel });
+            const evaluation = evaluate('@panel:attribute["id"]', { panel });
 
             expect(evaluation.isPending).toBe(false);
             expect(evaluation.dependencies.length).toBe(1);
@@ -856,7 +856,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are all held for a pending answer, which waits on any of them changing', () => {
-            const evaluation = evaluate('{ id: @panel attributeOf "id", level: @panel.level }', { panel }, [waitingModule()]);
+            const evaluation = evaluate('{ id: @panel:attribute["id"], level: @panel.level }', { panel }, [waitingModule()]);
 
             expect(evaluation.isPending).toBe(true);
             expect(evaluation.value).toEqual({ id: 'panel', level: null });
@@ -864,13 +864,13 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are all held where the caller keeps the answer current', () => {
-            evaluate('@panel attributeOf "id"', { panel }, [], true);
+            evaluate('@panel:attribute["id"]', { panel }, [], true);
 
             expect(observations.runningCount).toBe(1);
         });
 
         it('are held while the evaluation is, and let go when it is disposed', () => {
-            const evaluation = evaluate('@panel attributeOf "id"', { panel }, [], true);
+            const evaluation = evaluate('@panel:attribute["id"]', { panel }, [], true);
 
             expect(observations.runningCount).toBe(1);
 
@@ -881,7 +881,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are followed without a record of each call where the caller asks for none', async () => {
-            const evaluation = evaluate('@panel attributeOf "id"', { panel }, [], true, false);
+            const evaluation = evaluate('@panel:attribute["id"]', { panel }, [], true, false);
 
             expect(evaluation.dependencies).toBeNull();
             expect(observations.runningCount).toBe(1);
@@ -894,7 +894,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('call the evaluation back when something it depends on changes', async () => {
-            evaluate('@panel attributeOf "id"', { panel }, [], true);
+            evaluate('@panel:attribute["id"]', { panel }, [], true);
             panel.setAttribute('id', 'renamed');
 
             await new Promise(resolve => setTimeout(resolve));
@@ -1205,7 +1205,7 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('captures a native event with its target, and null for a target that is no element', () => {
-            const { capture } = evaluatorOf('(@document on "scroll") { id: self.target attributeOf "id" }').resolveSource();
+            const { capture } = evaluatorOf('(@document on "scroll") { id: self.target?:attribute["id"] }').resolveSource();
 
             expect(capture(new window.Event('scroll'))).toEqual({ target: null });
             expect(capture({ target: panel })).toEqual({ target: panel });
@@ -1224,7 +1224,7 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('reads what it captured, and the document as it is', () => {
-            const evaluator = evaluatorOf('(@document on "scroll") { id: self.target attributeOf "id" }');
+            const evaluator = evaluatorOf('(@document on "scroll") { id: self.target?:attribute["id"] }');
 
             expect(projectionOf(evaluator, { target: panel }).value).toEqual({ id: 'panel' });
             expect(projectionOf(evaluator, { target: document }).value).toEqual({ id: null });
