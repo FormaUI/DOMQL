@@ -206,7 +206,7 @@ export class Parser {
         return node;
     }
 
-    /** Reads an equality operand: a chain, held by an optional chain where one of its accesses is optional, and the infix call that may end it. */
+    /** Reads an equality operand: a chain, held by an optional chain where one of its accesses is optional, the infix call that may end it, and the conversions that follow, each converting what is before it. */
     #parseEqualityOperand() {
         const start = this.#token.start;
         const chain = this.#parseChain();
@@ -216,11 +216,29 @@ export class Parser {
             value = this.#parseCast(value, chain, start);
         }
 
-        if (this.#token.type !== 'name') {
-            return value;
+        if (this.#isInfixName() && !this.#isConversion()) {
+            value = this.#parseInfixCall(value, start);
         }
 
-        // A name a colon follows names the next field, which a comma comes before.
+        while (this.#isInfixName()) {
+            if (!this.#isConversion()) {
+                const written = value.kind === 'conversion' ? `'(… to "${value.type}") ${this.#token.value} …'` : `'(… ${value.name} …) ${this.#token.value} …'`;
+
+                throw DomqlError.syntax(`${value.kind === 'conversion' ? 'A conversion' : 'An infix call'} ends its chain; group it to continue from its result, as in ${written}`, this.#text, this.#token.start);
+            }
+
+            value = this.#parseConversion(value, start);
+        }
+
+        return value;
+    }
+
+    /** Whether a name stands where an infix call's is written, after its receiver and a space: one a colon follows names the next field, which a comma comes before. */
+    #isInfixName() {
+        if (this.#token.type !== 'name') {
+            return false;
+        }
+
         if (this.#tokens[this.#index + 1].type === ':') {
             throw this.#unexpected("',' before the next field");
         }
@@ -229,7 +247,48 @@ export class Parser {
             throw DomqlError.syntax(`'${this.#token.value}' follows its receiver after a space or a comment, as an infix call does`, this.#text, this.#token.start);
         }
 
-        return this.#parseInfixCall(value, start);
+        return true;
+    }
+
+    /** Whether the name where an infix call's would stand is `to`, which converts what is before it there, since no infix call is named so. */
+    #isConversion() {
+        return this.#token.value === 'to';
+    }
+
+    /** Whether the current name is `to` with a quoted type after it, which only a conversion writes, so no local an argument or a chain starts with. */
+    #startsConversion() {
+        const next = this.#tokens[this.#index + 1];
+
+        return this.#token.type === 'name' && this.#token.value === 'to' && next.type === 'literal' && typeof next.value === 'string';
+    }
+
+    /** Reads a conversion after the value it converts: `to` and the quoted name of the type it converts to. It ends its chain, as an infix call does, and another conversion may follow it. */
+    #parseConversion(target, start) {
+        this.#advance();
+
+        const token = this.#token;
+
+        if (token.type !== 'literal' || typeof token.value !== 'string') {
+            throw this.#unexpected('the quoted name of the type it converts to, as in to "number"');
+        }
+
+        if (!token.spaced) {
+            throw DomqlError.syntax("The type a conversion converts to follows 'to' after a space or a comment", this.#text, token.start);
+        }
+
+        this.#advance();
+
+        const node = this.#recordSpan({ kind: 'conversion', type: token.value, target }, start);
+
+        if (this.#token.type === '.' || this.#token.type === '?.' || this.#token.type === '[' || this.#token.type === '{') {
+            throw DomqlError.syntax(`A conversion ends its chain; group it to continue from its result, as in '(… to "${token.value}").value'`, this.#text, this.#token.start);
+        }
+
+        if (this.#isKeyword('as')) {
+            throw DomqlError.syntax(`A conversion's result is cast only in a group: write '(… to "${token.value}") as …'`, this.#text, this.#token.start);
+        }
+
+        return node;
     }
 
     /** Reads a chain: a chain input and the member-access expressions and object expressions that continue it, and whether an access of it is optional, which a group within it leaves to its own chain. */
@@ -483,6 +542,10 @@ export class Parser {
         if (token.type === 'name') {
             const next = this.#tokens[this.#index + 1];
 
+            if (this.#startsConversion()) {
+                throw DomqlError.syntax(`'to' converts the value written before it: write 'self to ${this.#text.slice(next.start, next.end)}' to convert the current value`, this.#text, token.start);
+            }
+
             if (next.type === '(' || (next.spaced && ARGUMENT_STARTS.has(next.type))) {
                 throw DomqlError.syntax(`'${token.value}' follows no receiver: write ${this.#memberForm(token.value)} for a member of the current value`, this.#text, token.start);
             }
@@ -581,7 +644,8 @@ export class Parser {
             throw this.#unexpected("',' before the next field");
         }
 
-        if (CHAIN_INPUT_STARTS.has(this.#token.type)) {
+        // An argument that can be left out is, where a conversion follows the infix call.
+        if (CHAIN_INPUT_STARTS.has(this.#token.type) && !this.#startsConversion()) {
             if (!this.#token.spaced) {
                 throw DomqlError.syntax(`The argument of '${name}' follows it after a space or a comment`, this.#text, this.#token.start);
             }
@@ -591,7 +655,7 @@ export class Parser {
 
         this.#recordSpan(node, start);
 
-        if (this.#token.type === '.' || this.#token.type === '?.' || this.#token.type === '[' || this.#token.type === '{' || this.#token.type === 'name') {
+        if (this.#token.type === '.' || this.#token.type === '?.' || this.#token.type === '[' || this.#token.type === '{') {
             throw DomqlError.syntax(`An infix call ends its chain; group it to continue from its result, as in '(… ${name} …).value'`, this.#text, this.#token.start);
         }
 

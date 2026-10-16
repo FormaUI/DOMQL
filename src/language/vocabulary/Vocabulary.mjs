@@ -164,6 +164,13 @@ export class Vocabulary {
 
                 { ...operation('on', ['element', 'document', 'window'], 'event<@selected>', { form: 'infix', changes: 'constant', reads: 'captured', parameters: [valueParameter('type', 'string', { fixed: true, selects: 'eventType' })] }), kind: 'source' },
             ],
+
+            conversions: [
+                { from: 'string', to: 'number', function: 'stringToNumber' },
+                { from: 'number', to: 'string', function: 'numberToString' },
+                { from: 'boolean', to: 'string', function: 'booleanToString' },
+                { from: 'string', to: 'boolean', function: 'stringToBoolean' },
+            ],
         }, functions);
     }
 

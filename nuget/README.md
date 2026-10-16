@@ -12,6 +12,7 @@ DOMQL is a FormaUI product, developed alongside [Forma](https://github.com/Forma
 
 - Shape DOM and browser state into immutable snapshots.
 - Filter and summarize collections; handle missing values and choose results with conditionals.
+- Convert values explicitly, such as attribute text to numbers, with errors for text that does not convert.
 - Reuse queries with new bindings, or create them from JSON definitions.
 - Validate query structure, names and types before evaluation.
 - Evaluate once, wait for browser observations, or watch for changed results.
@@ -76,8 +77,8 @@ The examples use this panel. Run them after its elements exist, with the markup 
 
 ```html
 <div id="panel">
-    <div data-key="a1" style="height: 48px"></div>
-    <div data-key="a2" style="height: 64px" aria-selected="true"></div>
+    <div data-key="a1" data-unread="2" style="height: 48px"></div>
+    <div data-key="a2" data-unread="5" style="height: 64px" aria-selected="true"></div>
     <div data-key="a3" style="height: 48px"></div>
 </div>
 ```
@@ -525,6 +526,24 @@ Conditions are tested in order, and only the selected branch is evaluated. Branc
 
 The cast returns null if the parent is not an element. The optional accesses account for that and for an element without a layout box.
 
+### Convert a value
+
+Attributes hold text. Use `to` to convert a value to another type, such as the unread counts the items carry:
+
+```js
+domql.query(
+    '@panel.all("[data-key]").sum(self attributeOf "data-unread" to "number" ?? 0)',
+    { panel }
+).evaluate();
+// 7
+```
+
+`to` converts what comes before it, here the attribute. An item without the attribute gives null, which `?? 0` counts as zero. Text that is no number, such as `"5 new"`, fails the evaluation with an error rather than becoming null or zero.
+
+The built-in conversions are from a string to a number or a Boolean, and from a number or a Boolean to a string. A string converts to a number when it is written as HTML writes a number, such as `"-12"`, `" 3.5 "` or `"1e3"`, and to a Boolean when it is exactly `"true"` or `"false"`. A value already of the type converts to itself.
+
+`to` is not `as`: a cast narrows a node to one of its kinds and converts nothing.
+
 ### Cross a shadow boundary
 
 Selectors do not enter shadow roots automatically. Access the open shadow root explicitly:
@@ -685,7 +704,7 @@ domql.query('@panel.metrics { childCount: self.childCount }', { panel }).evaluat
 
 Register modules once during setup, rather than on every evaluation.
 
-Modules can also declare Boolean members, event types, supported feature names and event sources. An event source receives the receiver, arguments, environment and an event-delivery callback. It returns an object with a `stop` method to end listening. Each event is captured using the fields declared by its event type.
+Modules can also declare Boolean members, event types, supported feature names, event sources, and conversions to and from their own types, each naming the type it converts from, the type it converts to and the function that converts a value. An event source receives the receiver, arguments, environment and an event-delivery callback. It returns an object with a `stop` method to end listening. Each event is captured using the fields declared by its event type.
 
 The [runtime design](https://github.com/FormaUI/Forma.DOMQL/blob/main/docs/domql-design.md) describes the full extension contracts. The next section shows action and behavior modules.
 

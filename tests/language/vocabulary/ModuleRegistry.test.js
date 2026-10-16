@@ -126,3 +126,47 @@ describe('observation types', () => {
         });
     });
 });
+
+describe('conversions', () => {
+    const chart = { name: 'chart', fields: { points: 'number' } };
+    const charts = (conversions, types = [chart]) => new DomqlModule('charts', { types, conversions });
+    const registering = (...modules) => () => new ModuleRegistry([Vocabulary.module, ...modules]);
+
+    it('are found by their source type and their target, and listed by their source', () => {
+        const registry = registering(charts([{ from: 'string', to: 'chart', function: 'parse' }, { from: 'chart', to: 'string', function: 'write' }]))();
+
+        expect(registry.getConversion('string', 'chart')).toEqual({ from: 'string', to: 'chart', function: 'parse' });
+        expect(registry.getConversion('chart', 'number')).toBeUndefined();
+        expect(registry.getConversionTargets('string')).toEqual(['number', 'boolean', 'chart']);
+        expect(registry.getOwner(registry.getConversion('string', 'chart'))).toBe('charts');
+    });
+
+    it('are declared once for each source and target', () => {
+        expect(messageOf(registering(charts([{ from: 'string', to: 'chart', function: 'parse' }, { from: 'string', to: 'chart', function: 'read' }])))).toContain('The conversion from string to chart is declared already');
+    });
+
+    it('take disjoint sources to one target', () => {
+        const registry = registering(new DomqlModule('charts', { types: [chart, { name: 'other', fields: { a: 'number' } }], conversions: [{ from: 'string', to: 'chart', function: 'parse' }, { from: 'other', to: 'chart', function: 'convert' }, { from: 'number', to: 'chart', function: 'count' }] }))();
+
+        expect(['string', 'other', 'number'].map(from => registry.getConversion(from, 'chart')?.function)).toEqual(['parse', 'convert', 'count']);
+    });
+
+    it('convert to or from a type of their own module, outside the built-in one', () => {
+        expect(messageOf(registering(charts([{ from: 'string', to: 'number', function: 'parse' }])))).toContain("A conversion outside the built-in module converts to or from one of its module's own types");
+        expect(messageOf(registering(charts([{ from: 'number', to: 'boolean', function: 'parse' }])))).toContain("converts to or from one of its module's own types");
+    });
+
+    it('convert between types of data a module declares, never one that holds a node or that no module declares', () => {
+        expect(messageOf(registering(charts([{ from: 'string', to: 'chart', function: 'parse' }, { from: 'pointerEvent', to: 'chart', function: 'read' }])))).toContain("'pointerEvent' is no type of data");
+        expect(messageOf(registering(charts([{ from: 'axis', to: 'chart', function: 'read' }])))).toContain("'axis' is no type of data");
+        expect(messageOf(registering(charts([{ from: 'string', to: 'chart', function: 'parse' }], [{ name: 'chart', fields: { anchor: 'element' } }])))).toContain("'chart' is no type of data");
+    });
+
+    it('convert a structured type that holds a list of data as any other, a list itself waiting for the collection model', () => {
+        const registry = registering(charts([{ from: 'string', to: 'chart', function: 'parse' }], [{ name: 'chart', fields: { points: 'list<number>' } }]))();
+
+        expect(registry.getConversion('string', 'chart')?.function).toBe('parse');
+        expect(registry.isConvertible('chart')).toBe(true);
+        expect(registry.isConvertible('list<number>')).toBe(false);
+    });
+});

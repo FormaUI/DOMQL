@@ -14,6 +14,7 @@ DOMQL is a FormaUI product, developed alongside [Forma](https://github.com/Forma
 - **Work with collections.** Project items, filter them, count them and calculate summaries.
 - **Keep results current.** Watch for changes and receive immutable snapshots or an object updated in place.
 - **Handle missing values.** Use optional access, fallbacks and conditionals directly in your query.
+- **Convert values explicitly.** Read attribute text as a number or a Boolean with `to`; text that does not convert is an error, never a silent default.
 - **Reuse queries.** Evaluate again, bind different targets, or store and exchange definitions as JSON.
 - **Catch invalid requests early.** DOMQL checks bindings, member names, arguments and types before evaluation.
 - **Read events as data.** Subscribe to an event source and choose the fields each event delivers.
@@ -130,7 +131,7 @@ const selectedCount = domql.query(`
 
 `where` evaluates its expression for each item. Collections also support `first`, `last`, `at`, `min`, `max` and `sum`. Locals let you reuse a value within a query, while conditionals and null handling let you choose what the result should contain.
 
-See [The language](nuget/README.md#the-language) for focused examples of each feature, including casts, shadow trees and access by property name.
+See [The language](nuget/README.md#the-language) for focused examples of each feature, including casts, conversions, shadow trees and access by property name.
 
 ## Choose how to use a request
 

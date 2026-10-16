@@ -26,6 +26,9 @@ export class ModuleRegistry {
     /** @type {Map<string, object>} */
     #observationTypes = new Map();
 
+    /** Each conversion, by its source type and then its target. @type {Map<string, Map<string, object>>} */
+    #conversions = new Map();
+
     /** @type {Map<object, string>} */
     #owners = new Map();
 
@@ -92,6 +95,26 @@ export class ModuleRegistry {
             this.#checkCollision(declaration, [...this.getMembers(declaration.name), ...module.members.slice(0, index).filter(other => other.name === declaration.name)], fail);
         });
 
+        module.conversions.forEach((conversion, index) => {
+            const name = DomqlModule.conversionNameOf(conversion);
+
+            for (const typeName of [conversion.from, conversion.to]) {
+                if (!ModuleRegistry.#isData(Type.createNamedType(typeName), types, new Set())) {
+                    fail(`'${typeName}' is no type of data DOMQL or a module registered with it declares, which a conversion converts between`, name);
+                }
+            }
+
+            // A module outside the built-in one converts to or from a type of its own.
+            if (!module.isBuiltIn && !ownTypes.has(conversion.from) && !ownTypes.has(conversion.to)) {
+                fail("A conversion outside the built-in module converts to or from one of its module's own types", name);
+            }
+
+            // A conversion is declared once across the registry, whatever its module owns; types of data have no subtypes, so two sources overlap where they are one type.
+            if (this.getConversion(conversion.from, conversion.to) !== undefined || module.conversions.slice(0, index).some(other => other.from === conversion.from && other.to === conversion.to)) {
+                fail(`The conversion from ${conversion.from} to ${conversion.to} is declared already`, name);
+            }
+        });
+
         this.#modules.set(module.name, module);
 
         for (const type of module.types) {
@@ -112,6 +135,15 @@ export class ModuleRegistry {
         for (const declaration of module.members) {
             this.#members.set(declaration.name, [...(this.#members.get(declaration.name) ?? []), declaration]);
             this.#owners.set(declaration, module.name);
+        }
+
+        for (const conversion of module.conversions) {
+            if (!this.#conversions.has(conversion.from)) {
+                this.#conversions.set(conversion.from, new Map());
+            }
+
+            this.#conversions.get(conversion.from).set(conversion.to, conversion);
+            this.#owners.set(conversion, module.name);
         }
 
         return this;
@@ -147,12 +179,27 @@ export class ModuleRegistry {
         return this.#observationTypes.get(name);
     }
 
+    /** The conversion declared from the one type to the other, or undefined. */
+    getConversion(from, to) {
+        return this.#conversions.get(from)?.get(to);
+    }
+
+    /** The types a value of the type converts to through a declared conversion. */
+    getConversionTargets(from) {
+        return [...(this.#conversions.get(from)?.keys() ?? [])];
+    }
+
+    /** Whether the type is one a conversion converts between: a type of data DOMQL defines, or a structured type that holds data alone. */
+    isConvertible(typeName) {
+        return ModuleRegistry.#isData(Type.createNamedType(typeName), this.#types, new Set());
+    }
+
     /** The name of the module that declared the member. */
     getOwner(declaration) {
         return this.#owners.get(declaration);
     }
 
-    /** The function that carries out the member, or undefined where its module supplies none. */
+    /** The function that carries out the member or the conversion, or undefined where its module supplies none. */
     getFunction(declaration) {
         return this.#modules.get(this.#owners.get(declaration))?.functions?.[declaration.function];
     }
@@ -213,6 +260,31 @@ export class ModuleRegistry {
                 return [...type.fieldTypes.values()].flatMap(fieldType => ModuleRegistry.#namedTypesOf(fieldType));
             default:
                 return [];
+        }
+    }
+
+    /** Whether values of the type are data, a structured type's fields included; a structure already being checked counts as data where it holds itself, since its other fields are checked where it is first met. */
+    static #isData(type, types, checking) {
+        switch (type.kind) {
+            case 'list':
+                return ModuleRegistry.#isData(type.itemType, types, checking);
+            case 'named': {
+                if (DomqlModule.dataTypeNames.includes(type.name) || checking.has(type.name)) {
+                    return true;
+                }
+
+                const structure = types.get(type.name);
+
+                if (structure === undefined) {
+                    return false;
+                }
+
+                checking.add(type.name);
+
+                return Object.values(structure.fields).every(notation => ModuleRegistry.#isData(Type.parse(notation), types, checking));
+            }
+            default:
+                return false;
         }
     }
 

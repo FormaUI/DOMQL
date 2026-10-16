@@ -113,6 +113,22 @@ describe('DefinitionWriter', () => {
         'not (@a ?? false)',
         '(not @a) ?? false',
         'if not @a then 1 else 2',
+        '@panel attributeOf "data-count" to "number"',
+        '@panel attributeOf "data-count" to "number" is 5',
+        '@a to "string" to "number"',
+        '(@a ?? @b) to "number"',
+        '@a to "number" ?? 0',
+        '@a ?? @b to "number"',
+        'not @a to "boolean"',
+        '(@a to "string") attributeOf "id"',
+        '(@a to "string").length',
+        '@panel.parent as "element" to "string"',
+        '{ from: 1, to: 2 }',
+        '@panel { let to: self.size, width: to.width }',
+        '@range.to to "string"',
+        '@range.to() to "string"',
+        '@sentinel intersects to "string"',
+        '@panel attributeOf to to "number"',
     ])('writes text that parses back to the same definition: %s', text => {
         const { definition } = domql.query(text, { panel });
 
@@ -131,6 +147,11 @@ describe('DefinitionWriter', () => {
         expect(write('if @a then 1 else if @b then 2 else 3')).toBe('if @a then 1 elseif @b then 2 else 3');
         expect(write('if @a then 1 else (if @b then 2 else 3)')).toBe('if @a then 1 elseif @b then 2 else 3');
         expect(write('(if @a then @b else @c).attached')).toBe('(if @a then @b else @c).attached');
+        expect(write('(@panel attributeOf "n") to "number"')).toBe('@panel attributeOf "n" to "number"');
+        expect(write('(@a to "string") to "number"')).toBe('@a to "string" to "number"');
+        expect(write('(@a to "number") is 5')).toBe('@a to "number" is 5');
+        expect(write('(@a is @b) to "string"')).toBe('(@a is @b) to "string"');
+        expect(write('(@a ?? @b) to "number"')).toBe('(@a ?? @b) to "number"');
     });
 
     it('writes the argument of an infix call as an input, grouping any other', () => {
@@ -219,7 +240,7 @@ describe('DefinitionWriter', () => {
             const { domql: other } = await import('#domql/domql.js');
 
             expect(() => format('@panel {')).toThrow(expect.objectContaining({ kind: 'syntax' }));
-            expect(() => domql.format({ version: 11, query: { kind: 'nonsense' } })).toThrow(expect.objectContaining({ kind: 'structure' }));
+            expect(() => domql.format({ version: 12, query: { kind: 'nonsense' } })).toThrow(expect.objectContaining({ kind: 'structure' }));
             expect(() => domql.format(other.query('@panel'))).toThrow(expect.objectContaining({ kind: 'structure', message: expect.stringContaining('query.definition') }));
         });
 

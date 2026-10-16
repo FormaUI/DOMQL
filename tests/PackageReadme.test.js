@@ -54,17 +54,18 @@ const examples = [
     { file: '13-locals.js', observed: 'reads', answers: [['{ count: 3, tallest: 64 }']] },
     { file: '14-fallback.js', observed: 'reads', answers: [['false']] },
     { file: '15-null.js', observed: 'reads', answers: [['null']] },
-    { file: '16-access-by-name.js', observed: 'reads', answers: [['3']] },
-    { file: '17-bindings.js', observed: 'reads', answers: [['{ panel: null, ids: [] }']] },
-    { file: '18-resolve.js', observed: 'inspected', inspect: '[resolved.kind, resolved.type.toString()]', answers: [["'query'"], ["'number?'"]] },
+    { file: '16-convert.js', observed: 'reads', answers: [['7']] },
+    { file: '17-access-by-name.js', observed: 'reads', answers: [['3']] },
+    { file: '18-bindings.js', observed: 'reads', answers: [['{ panel: null, ids: [] }']] },
+    { file: '19-resolve.js', observed: 'inspected', inspect: '[resolved.kind, resolved.type.toString()]', answers: [["'query'"], ["'number?'"]] },
     {
-        file: '19-errors.js',
+        file: '20-errors.js',
         observed: 'logged',
         answers: [['validation'], ["The argument 'name' of 'attributeOf' expects string and finds number", '(line 1, column 20, at /query/argument)']],
     },
-    { file: '20-module.js', observed: 'reads', answers: [['{ childCount: 3 }']] },
-    { file: '21-execute-action.js', observed: 'reads', answers: [['true']] },
-    { file: '22-apply-behavior.js', observed: 'printed', answers: [["'gold'"], ["'teal'"], ['undefined']] },
+    { file: '21-module.js', observed: 'reads', answers: [['{ childCount: 3 }']] },
+    { file: '22-execute-action.js', observed: 'reads', answers: [['true']] },
+    { file: '23-apply-behavior.js', observed: 'printed', answers: [["'gold'"], ["'teal'"], ['undefined']] },
 ];
 
 /** What an example gives: the values its comments show, those it names, or the result in the JSON block it names. */

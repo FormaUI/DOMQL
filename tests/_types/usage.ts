@@ -205,9 +205,12 @@ const contents: DomqlModuleContents = {
     eventTypes: [{ name: 'chart-selected', payload: 'number' }],
     features: ['share'],
     observationTypes: [{ name: 'chartsChanged', contract: 'maintained', identity: ['root'], shared: true, function: 'observeCharts' }],
+    conversions: [{ from: 'string', to: 'childMetrics', function: 'parseMetrics' }],
 };
 const functions: DomqlModuleFunctions = {
     readMetrics: (element: Element) => ({ childCount: element.children.length }),
+    // A conversion takes the value alone.
+    parseMetrics: (text: string) => ({ childCount: Number(text) }),
 };
 const module: DomqlModule = domql.createModule('metrics', contents, functions);
 
@@ -215,6 +218,12 @@ domql.registerModule(module);
 
 // @ts-expect-error A module declares a test as a member that answers a Boolean, and no predicates.
 domql.createModule('tests', { predicates: [] });
+
+// @ts-expect-error A conversion names the type it converts to.
+domql.createModule('partial', { conversions: [{ from: 'string', function: 'parse' }] });
+
+// A conversion is a node of a definition, which names the type it converts to and what it converts.
+const converted: DomqlDefinitionNode = { kind: 'conversion', type: 'number', target: { kind: 'parameter', name: 'count' } };
 
 // @ts-expect-error A member is one of the kinds the language has.
 domql.createModule('bad', { members: [{ name: 'bad', function: 'bad', kind: 'method', on: 'element', result: 'number', changes: 'constant', reads: 'fresh' }] });

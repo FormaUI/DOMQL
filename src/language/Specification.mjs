@@ -7,5 +7,5 @@ export class Specification {
     static version = '1.0.0-alpha';
 
     /** The version of a definition's format, which a definition records. */
-    static definitionVersion = 11;
+    static definitionVersion = 12;
 }

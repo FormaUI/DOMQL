@@ -249,6 +249,36 @@ describe('Watch', () => {
         });
     });
 
+    describe('a conversion', () => {
+        it('follows the value it converts, fails while that value has no conversion, and recovers once it has', async () => {
+            const watched = watch('@panel attributeOf "data-n" to "number"', { panel });
+
+            await settle();
+            await change(panel, 2);
+            await change(panel, 'two');
+
+            expect(watched.status).toBe('failed');
+            expect(failures.map(failure => failure.message)).toEqual([expect.stringContaining('The conversion from string to number failed: "two" is no number')]);
+
+            await change(panel, 3);
+
+            expect(watched.status).toBe('ready');
+            expect(snapshots).toEqual([1, 2, 3]);
+        });
+
+        it('lets ?? say what a missing value means, which it follows as the value comes and goes', async () => {
+            watch('@panel attributeOf "data-n" to "number" ?? 0', { panel });
+            await settle();
+
+            panel.removeAttribute('data-n');
+            await settle();
+            await change(panel, 4);
+
+            expect(snapshots).toEqual([1, 0, 4]);
+            expect(failures).toEqual([]);
+        });
+    });
+
     describe('under the immediate schedule', () => {
         /** Starts an immediate watch of the first child's gauge and tally, its first sample delivered, and answers the watch and the gauge. */
         const watchGauge = async (text = '{ level: @first.level, tally: @first.tally }') => {

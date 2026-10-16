@@ -175,6 +175,7 @@ export type DomqlDefinitionNode =
     | { readonly kind: 'coalescing'; readonly value: DomqlDefinitionNode; readonly fallback: DomqlDefinitionNode }
     | { readonly kind: 'not'; readonly operand: DomqlDefinitionNode }
     | { readonly kind: 'cast'; readonly type: string; readonly target: DomqlDefinitionNode }
+    | { readonly kind: 'conversion'; readonly type: string; readonly target: DomqlDefinitionNode }
     | { readonly kind: 'equality'; readonly left: DomqlDefinitionNode; readonly right: DomqlDefinitionNode }
     | { readonly kind: 'conditional'; readonly condition: DomqlDefinitionNode; readonly consequent: DomqlDefinitionNode; readonly alternative: DomqlDefinitionNode }
     | { readonly kind: 'and' | 'or'; readonly operands: readonly DomqlDefinitionNode[] };
@@ -320,6 +321,16 @@ export interface DomqlObservationTypeDeclaration {
     function: string;
 }
 
+/** A conversion from one type of data to another, which `to` asks for: a value already of a type converts to itself, so none is declared from a type to itself. */
+export interface DomqlConversionDeclaration {
+    /** The type it converts from: `number`, `string`, `boolean` or a structured type. */
+    from: string;
+    /** The type it converts to: `number`, `string`, `boolean` or a structured type. */
+    to: string;
+    /** The key of the function that converts, among the module's functions. */
+    function: string;
+}
+
 /** A parameter of a member. */
 export interface DomqlParameterDeclaration {
     name: string;
@@ -377,16 +388,19 @@ export interface DomqlModuleContents {
     features?: string[];
     /** The types of observation it declares. */
     observationTypes?: DomqlObservationTypeDeclaration[];
+    /** The conversions it declares, each to or from one of its own types outside the built-in module, and one for each source and target. */
+    conversions?: DomqlConversionDeclaration[];
 }
 
 /**
- * The functions that carry a module's members and observation types out, by the key each declaration names.
+ * The functions that carry a module's members, observation types and conversions out, by the key each declaration names.
  * A member takes its receiver, its arguments by name and the environment, and a member that reads maintained values also their values, in the order its declaration names the observations; it is not called while one of them is pending.
  * A structure a member or an action answers is taken by its declared fields alone, read as the value offers them, getters included.
  * A source takes its receiver, its arguments and the environment, and the function it delivers each event to, and returns an object whose `stop` ends the listening.
  * An action takes its receiver, its arguments, the environment and `{ signal }`, and returns its result or a promise of it.
  * A behavior takes its receiver, its arguments, the environment and `{ reportError }`, starts before it returns, and returns an object whose `update(receiver, args)` applies new arguments and whose `dispose` ends it.
  * An observation type takes the request, the function it calls when something may have changed and the environment, and returns an object whose `stop` ends the observation and, for a maintained one, whose `sample` returns its latest sample as `{ pending, value }`, pending until the first arrives.
+ * A conversion takes the value alone, never null, reads nothing else, and returns the converted value, of the type it converts to, or throws where the value has none.
  */
 export type DomqlModuleFunctions = Record<string, (...args: any[]) => unknown>;
 
@@ -398,6 +412,7 @@ export interface DomqlModule {
     readonly eventTypes: readonly { readonly name: string; readonly payload: string }[];
     readonly features: readonly string[];
     readonly observationTypes: readonly DomqlObservationTypeDeclaration[];
+    readonly conversions: readonly DomqlConversionDeclaration[];
     readonly functions: DomqlModuleFunctions | null;
 }
 

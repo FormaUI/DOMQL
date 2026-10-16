@@ -11,6 +11,12 @@ const TEXT_INPUT_TYPES = new Set(['text', 'search', 'url', 'tel', 'email', 'pass
 /** The values of `contenteditable` that make content editable. */
 const EDITABLE_VALUES = new Set(['', 'true', 'plaintext-only']);
 
+/** The ASCII whitespace a text converted to a number is trimmed of at either end: tab, line feed, form feed, carriage return and space. */
+const SURROUNDING_ASCII_WHITESPACE = /^[\t\n\f\r ]+|[\t\n\f\r ]+$/g;
+
+/** HTML's valid floating-point number: an optional minus, digits with an optional fraction or a fraction alone, and an optional exponent whose sign is optional. */
+const VALID_FLOATING_POINT_NUMBER = /^-?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$/;
+
 export class VocabularyFunctions {
     /**
      * Each function takes the receiver, the arguments by parameter name, and the environment the request is read in; a source also takes the function it delivers each event to, and answers what stops it.
@@ -18,6 +24,32 @@ export class VocabularyFunctions {
      */
     static get functions() {
         return {
+            // A conversion takes the value alone, never null, and answers the converted value or throws where the value has none.
+            stringToNumber: text => {
+                const trimmed = text.replace(SURROUNDING_ASCII_WHITESPACE, '');
+
+                if (!VALID_FLOATING_POINT_NUMBER.test(trimmed)) {
+                    throw new Error(`${JSON.stringify(text)} is no number, which is written as HTML's valid floating-point number, as -12, 3.5, .5 or 1e3 are`);
+                }
+
+                const number = Number(trimmed);
+
+                if (!Number.isFinite(number)) {
+                    throw new Error(`${JSON.stringify(text)} is too large a number to be finite`);
+                }
+
+                return number;
+            },
+            // The shortest text that reads back as the same number, as ECMAScript writes it, and negative zero as "0".
+            numberToString: number => String(number),
+            booleanToString: value => String(value),
+            stringToBoolean: text => {
+                if (text !== 'true' && text !== 'false') {
+                    throw new Error(`${JSON.stringify(text)} is no Boolean, which is written "true" or "false"`);
+                }
+
+                return text === 'true';
+            },
             windowSize: window => {
                 const documentElement = window.document.documentElement;
 

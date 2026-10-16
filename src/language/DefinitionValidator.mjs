@@ -25,6 +25,7 @@ const NODE_PROPERTIES = {
     coalescing: { properties: ['kind', 'value', 'fallback'], required: ['value', 'fallback'] },
     not: { properties: ['kind', 'operand'], required: ['operand'] },
     cast: { properties: ['kind', 'type', 'target'], required: ['type', 'target'] },
+    conversion: { properties: ['kind', 'type', 'target'], required: ['type', 'target'] },
     and: { properties: ['kind', 'operands'], required: ['operands'] },
     or: { properties: ['kind', 'operands'], required: ['operands'] },
 };
@@ -68,7 +69,7 @@ export class DefinitionValidator {
 
     #validateNode(node, pointer, currentValueAvailability) {
         if (!ObjectUtils.isNonArrayObject(node) || !Object.hasOwn(NODE_PROPERTIES, node.kind)) {
-            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, infixCall, object, optionalChain, equality, conditional, coalescing, not, cast, and or or');
+            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, infixCall, object, optionalChain, equality, conditional, coalescing, not, cast, conversion, and or or');
         }
 
         this.#requireProperties(node, pointer, NODE_PROPERTIES[node.kind]);
@@ -131,6 +132,12 @@ export class DefinitionValidator {
                 return Object.freeze({ kind: 'not', operand: this.#validateNode(node.operand, `${pointer}/operand`, currentValueAvailability) });
             case 'cast':
                 return this.#validateCast(node, pointer, currentValueAvailability);
+            case 'conversion':
+                if (typeof node.type !== 'string') {
+                    this.#fail(`${pointer}/type`, 'A conversion names the type it converts to by a string');
+                }
+
+                return Object.freeze({ kind: 'conversion', type: node.type, target: this.#validateNode(node.target, `${pointer}/target`, currentValueAvailability) });
             case 'coalescing':
                 return Object.freeze({
                     kind: 'coalescing',
@@ -200,6 +207,11 @@ export class DefinitionValidator {
         // A name an access by name's expression gave is checked as that expression; any other is a name, a call's and an infix call's always.
         if (name === node.name) {
             this.#requireName(name, `${pointer}/name`);
+        }
+
+        // Where an infix call's name stands, `to` converts, so no infix call is named so.
+        if (node.kind === 'infixCall' && name === 'to') {
+            this.#fail(`${pointer}/name`, "'to' converts the value before it, and names no infix call");
         }
 
         if (node.optional !== undefined) {

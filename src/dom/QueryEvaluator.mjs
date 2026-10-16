@@ -6,6 +6,7 @@ import { ArrayUtils } from '../common/ArrayUtils.mjs';
 import { ObjectUtils } from '../common/ObjectUtils.mjs';
 import { DomqlError } from '../language/DomqlError.mjs';
 import { Type } from '../language/Type.mjs';
+import { DomqlModule } from '../language/vocabulary/DomqlModule.mjs';
 import { SessionCache } from './SessionCache.mjs';
 import { Observations } from './Observations.mjs';
 import { QueryEvaluation } from './QueryEvaluation.mjs';
@@ -434,11 +435,57 @@ export class QueryEvaluator {
                     return value !== null && evaluator.#conformsNamed(value, type) ? value : null;
                 };
             }
+            case 'conversion':
+                return this.#compileConversion(node);
             case 'object':
                 return this.#compileObject(node);
             default:
                 this.#fail(`A '${node.kind}' node has no evaluation`, this.#pointerOf(node));
         }
+    }
+
+    /**
+     * A conversion, with its function, the check of its result and the copy of the structure it answers found once. Its target is evaluated once; null answers null without converting, as a value already of the type answers itself,
+     * and a conversion that throws or answers a value not of its type fails the evaluation, never answering null instead.
+     */
+    #compileConversion(node) {
+        const target = this.#getCompiledFunction(node.target);
+        const { declaration, type } = this.#resolvedDefinition.resolutionOf(node);
+
+        if (declaration === null) {
+            return target;
+        }
+
+        const name = DomqlModule.conversionNameOf(declaration);
+        const convert = this.#moduleRegistry.getFunction(declaration);
+        const conforms = QueryEvaluator.#compileTypeCheck(type, this.#moduleRegistry);
+        const copyStructure = QueryEvaluator.#compileStructureCopy(type, this.#moduleRegistry);
+
+        return (evaluator, currentValue) => {
+            const value = target(evaluator, currentValue);
+
+            if (value === null) {
+                return null;
+            }
+
+            if (convert === undefined) {
+                evaluator.#fail(`The module '${evaluator.#moduleRegistry.getOwner(declaration)}' supplies no function for the conversion from ${name}`, evaluator.#pointerOf(node));
+            }
+
+            let converted;
+
+            try {
+                converted = convert(value);
+            } catch (error) {
+                throw DomqlError.evaluation(`The conversion from ${name} failed: ${error?.message ?? String(error)}`, evaluator.#locate(evaluator.#pointerOf(node)), { cause: error });
+            }
+
+            if (!conforms(converted)) {
+                evaluator.#fail(`The conversion from ${name} answered ${QueryEvaluator.#describe(converted)}, and it converts to ${type}`, evaluator.#pointerOf(node));
+            }
+
+            return copyStructure === null ? converted : copyStructure(converted);
+        };
     }
 
     /**

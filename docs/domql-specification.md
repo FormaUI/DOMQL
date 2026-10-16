@@ -8,7 +8,7 @@ This specification describes the whole language. An implementation may cover par
 
 ## Terms
 
-A **query** is a value expression whose evaluation produces a **result**. A **chain input** is `self`, a parameter, a local, a literal, an object expression or a group, and a **chain** follows **members** from one, each of the value before it, its **receiver**: a **member access** reads a property, `self.rect`, or one its name names in brackets, an **access by name**, `self[@name]`, a **call** invokes an operation with parentheses, `self.closest(".row")`, and an **infix call** writes the member's name after its receiver, `self attributeOf "data-key"`, followed by an optional argument, which may be omitted where the member's declaration permits it. An access or a call written with `.` requires a receiver that cannot be null, and an **optional** one, written with `?.`, reads its receiver where it is not null and ends its chain with null where it is; the chain it ends is an **optional chain**. A member belongs to a **type**, such as an element, a list or a rectangle, and a call or an infix call can take an **argument**. A **node** is a value of the DOM tree, an element, a document, a document fragment or a shadow root, each a **kind** of node, and a **cast**, `as`, answers a node as one of its kinds where it is one. `self` is the **current value**, the value an object expression or an argument is evaluated against. An **object expression** names the **fields** of the **object** it produces, each with a value, and the object's **object type** describes those fields and their types. A **local** names a value in an object expression, written once with `let` and used by its name in the entries after it. A **test** is a member that answers a Boolean, such as `self.disabled`, and an **equality**, `is`, compares two values, with `is not` its negation. A **logical expression** combines Boolean expressions with `and` and `or`, a **negation** negates one with `not`, a **conditional** chooses between two values by a Boolean condition, a **coalescing operator**, `??`, answers a value where it is not null and its fallback where it is, an **expression group** is an expression in parentheses, and an **optional-access group**, `(? … )`, holds a **member-access chain**, a receiver and the accesses after it, every one of them optional. A **parameter** is a name a query reads a value through, such as `@panel`, and a **binding** is the value the caller supplies for it, such as an element. A **vocabulary** is a set of types and their members; the **built-in vocabulary** comes with DOMQL, and an **extension** is a vocabulary registered under a name of its own. An **event source** is a member whose value is a stream of **events**, things that happened, rather than state; an event belongs to an **event type**, such as `click`, and what its source captured of it is its **event data**. An **action** is an operation the browser carries out once, and a **behavior** one that runs on until it is updated or disposed; a **request** is a query, a subscription, an action or a behavior request. A query's **definition** is the JSON document recording its meaning, and every request has one.
+A **query** is a value expression whose evaluation produces a **result**. A **chain input** is `self`, a parameter, a local, a literal, an object expression or a group, and a **chain** follows **members** from one, each of the value before it, its **receiver**: a **member access** reads a property, `self.rect`, or one its name names in brackets, an **access by name**, `self[@name]`, a **call** invokes an operation with parentheses, `self.closest(".row")`, and an **infix call** writes the member's name after its receiver, `self attributeOf "data-key"`, followed by an optional argument, which may be omitted where the member's declaration permits it. An access or a call written with `.` requires a receiver that cannot be null, and an **optional** one, written with `?.`, reads its receiver where it is not null and ends its chain with null where it is; the chain it ends is an **optional chain**. A member belongs to a **type**, such as an element, a list or a rectangle, and a call or an infix call can take an **argument**. A **node** is a value of the DOM tree, an element, a document, a document fragment or a shadow root, each a **kind** of node, a **cast**, `as`, answers a node as one of its kinds where it is one, and a **conversion**, `to`, answers a value converted to another type of data. `self` is the **current value**, the value an object expression or an argument is evaluated against. An **object expression** names the **fields** of the **object** it produces, each with a value, and the object's **object type** describes those fields and their types. A **local** names a value in an object expression, written once with `let` and used by its name in the entries after it. A **test** is a member that answers a Boolean, such as `self.disabled`, and an **equality**, `is`, compares two values, with `is not` its negation. A **logical expression** combines Boolean expressions with `and` and `or`, a **negation** negates one with `not`, a **conditional** chooses between two values by a Boolean condition, a **coalescing operator**, `??`, answers a value where it is not null and its fallback where it is, an **expression group** is an expression in parentheses, and an **optional-access group**, `(? … )`, holds a **member-access chain**, a receiver and the accesses after it, every one of them optional. A **parameter** is a name a query reads a value through, such as `@panel`, and a **binding** is the value the caller supplies for it, such as an element. A **vocabulary** is a set of types and their members; the **built-in vocabulary** comes with DOMQL, and an **extension** is a vocabulary registered under a name of its own. An **event source** is a member whose value is a stream of **events**, things that happened, rather than state; an event belongs to an **event type**, such as `click`, and what its source captured of it is its **event data**. An **action** is an operation the browser carries out once, and a **behavior** one that runs on until it is updated or disposed; a **request** is a query, a subscription, an action or a behavior request. A query's **definition** is the JSON document recording its meaning, and every request has one.
 
 ## Syntax
 
@@ -44,9 +44,13 @@ equality                  = equality-operand
                             "is" [ "not" ]
                             equality-operand
 
-equality-operand          = chain | cast | infix-call-expression
+equality-operand          = chain | cast | infix-call-expression | conversion
 infix-call-expression     = ( chain | cast ) separator infix-call
-infix-call                = identifier [ separator chain-input ]
+infix-call                = infix-name [ separator chain-input ]
+infix-name                = identifier - "to"
+
+conversion                = conversion-target separator "to" separator string
+conversion-target         = chain | cast | infix-call-expression | conversion
 
 cast                      = cast-target "as" string
 cast-target               = receiver { member-access-expression } | cast-target-group
@@ -112,7 +116,7 @@ end-of-input              = ? end of input ?
 
 An identifier is a name that is no reserved word, as `matchesMedia` is; it holds no hyphen, so every identifier is also a JavaScript identifier. No reserved word, a literal's or a keyword, can be used as a name, even where its position would tell it apart, as in `self.null` or `{ null: 1 }`, so one naming rule holds everywhere; the restriction applies equally to text queries and to definitions created directly, wherever a name is declared or supplied: a member, a parameter, a field's or a local's name, and an extension's declaration. A string holding a reserved word stays an ordinary string, so `self attributeOf "null"` reads the attribute named `null`. The rule is for the names a query declares; supplied data keeps its own keys: a bound object, and one a member answers, keeps every field it has, whatever its key, `__proto__` included, as an ordinary field of its own, in a result, its snapshots and live state alike. `document` and `window` name the roots, and no binding can take either. They are ordinary names everywhere else, so `window: @window { size: self.size }` names a field `window`. The tokens are names, numbers, strings and the punctuation the rules quote, `?.`, `??` and `(?` each being one token, so `? .`, `? ?` and `( ?` are syntax errors. Trivia, which is whitespace, line breaks included, and comments, may stand between any two tokens and never inside one, and is required where the grammar writes `separator`: between an infix call's receiver and its name, and between its name and its argument, so `self attributeOf"id"` is a syntax error. A parameter is one token, its `@` and its name together, so `@ panel` and `@/* the panel */panel` are syntax errors, as `- 5` is no number. Tokens are read by the longest match, and a reserved word matches a whole name alone, so `isVisible` and `nullable` are identifiers; every match is exact, so `IS` is no keyword. A string takes `\"` and `\\` as its only escapes, and may hold a line break. A block comment does not nest, so the first `*/` closes it, and one never closed is a syntax error. Inside a string, `//` and `/*` are text, so `"https://example.com"` and `"/* */"` read as written.
 
-A conjunction exists only where `and` is written, a disjunction only where `or` is, a negation only where `not` is and an equality only where `is` is, so an expression with none of them is an equality operand. An equality takes an equality operand on either side, so it does not chain, and `a is b is c` is a syntax error. A cast exists only where `as` is written, and holds another cast only inside parentheses, so casts do not chain, and a chain continues from one only through a group. A chain is its chain input and the member-access expressions and object expressions that continue it, so `42` and `@panel` are chains of their input alone. The grammar's `value` rule names `self`, a parameter and a literal, the forms that stand for a value by themselves, while a value in this specification's prose is any value a query has, whose type resolution decides. The grammar's `input` rule names what a chain starts from, and its `receiver` rule what a member-access chain and a cast target start from, an input or a cast in parentheses, while a member's input declaration, which the section on arguments sets out, says how its argument is supplied. A condition and an operand of `not`, `and` or `or` are Booleans that cannot be null by type, which validation checks, so a Boolean parameter, `if @wide then …`, and a property answering one, `self.focused and @enabled`, are written as they read, and one that can be null says what its absence means, `(self matches ":focus" ?? false) and @enabled`.
+A conjunction exists only where `and` is written, a disjunction only where `or` is, a negation only where `not` is and an equality only where `is` is, so an expression with none of them is an equality operand. An equality takes an equality operand on either side, so it does not chain, and `a is b is c` is a syntax error. A cast exists only where `as` is written, and holds another cast only inside parentheses, so casts do not chain, and a chain continues from one only through a group. A conversion exists only where `to` is written where an infix call's name would stand: it converts what is before it, an infix call's result included, so `self attributeOf "data-count" to "number"` converts the attribute, and an infix call whose argument can be left out takes none where `to` and a quoted type follow it, so `@sentinel intersects to "string"` converts the intersection; conversions chain from left to right, and a chain continues from one only through a group. `to` is a keyword in that position alone, so no infix call is named `to`, and it stays a name everywhere else, as a field in `{ from: 1, to: 2 }`, a local and a property in `@range.to` are. A chain is its chain input and the member-access expressions and object expressions that continue it, so `42` and `@panel` are chains of their input alone. The grammar's `value` rule names `self`, a parameter and a literal, the forms that stand for a value by themselves, while a value in this specification's prose is any value a query has, whose type resolution decides. The grammar's `input` rule names what a chain starts from, and its `receiver` rule what a member-access chain and a cast target start from, an input or a cast in parentheses, while a member's input declaration, which the section on arguments sets out, says how its argument is supplied. A condition and an operand of `not`, `and` or `or` are Booleans that cannot be null by type, which validation checks, so a Boolean parameter, `if @wide then …`, and a property answering one, `self.focused and @enabled`, are written as they read, and one that can be null says what its absence means, `(self matches ":focus" ?? false) and @enabled`.
 
 ```
 @viewport {
@@ -287,6 +291,24 @@ A cast answers a node as one of its kinds: `target as "type"` answers its target
 - **In an optional-access group**, a cast in parentheses is a receiver, and the accesses of its own target become optional with the group's: `(?(@panel.parent as "element").rect.width)` is `(@panel?.parent as "element")?.rect?.width`. A target that is a coalescing operator in parentheses or an optional-access group is cast as it is and keeps its own rules: `(?((@preferred ?? @fallback) as "element").rect)` is `((@preferred ?? @fallback) as "element")?.rect`.
 - **Evaluation.** The target is evaluated once, and the cast answers it unchanged where it is of the type.
 
+### Conversions
+
+A conversion answers a value converted to another type of data: `value to "type"` evaluates its value, carries out the conversion the vocabulary declares from the value's type to the type it names, and answers the converted value. A cast converts nothing, and a conversion narrows nothing.
+
+```
+@panel attributeOf "data-count" to "number"
+@panel attributeOf "data-count" to "number" ?? 0
+@panel attributeOf "aria-expanded" to "boolean"
+@panel.children.count to "string"
+```
+
+- **The type** is a quoted type name: `number`, `string`, `boolean`, or a structured type that holds data alone, whatever its fields hold, lists of data among them, as `grid` holds its columns. A conversion converts data, so a node, a structured type that holds one, and an event source are no type it converts between, and what reads the document stays a member's, which declares how it changes; a node is narrowed to one of its kinds with `as`. A list itself is no type a conversion converts between, and neither is a type that can be null. A name no type has is a validation error, as is any other target.
+- **One declared conversion.** A value converts to another type only through the one conversion the vocabulary declares from its type to that type. Conversions never chain on their own: a Boolean converts to a string and a string to a number, and `@enabled to "number"` is still a validation error, whose message names the types a Boolean converts to. A query that means both conversions writes both.
+- **A value already of the type** answers itself, so `5 to "number"` is 5. This is the language's rule, and no conversion is declared from a type to itself.
+- **Null.** A conversion of null answers null without converting, and its type is the type it converts to, made nullable where its value can be null. A value of the type null, a null binding, converts to any type a conversion can name, however many conversions reach it, since nothing is converted; a value whose type is known is checked by that type without null, so `@panel.closest(".row") to "string"` is a validation error, as a conversion from an element is declared nowhere.
+- **What fails.** A value its conversion has no answer for, as `"12px" to "number"`, fails the evaluation with an evaluation error naming the conversion and where it stands, and so does a conversion that answers a value not of its type. A failure never answers null or a default: `?? 0` gives a missing attribute a value, and leaves a malformed one an error. A watch whose conversion fails is failed until its value converts again.
+- **Evaluation.** The value is evaluated once, and a conversion reads nothing but that value, so what a watch of a conversion depends on is what its value depends on.
+
 ### Locals
 
 An object expression can name a value once, as a **local**, and use it by its name in the entries after it, so a value read in several places is written and evaluated once.
@@ -392,9 +414,9 @@ Every crossing of a shadow boundary is written, so a query shows the relationshi
 - **`shadow.root`** is the open shadow root the element hosts, and null where it hosts none or a closed one.
 - **`shadow.elements`** is a slot's assigned elements, flattened, as `assignedElements({ flatten: true })` answers them: it follows assignment through forwarded slots, takes the slot's fallback where nothing is assigned to it, answers elements alone, filters nothing by visibility and enters no assigned element's own shadow tree. A slot that yields no element answers the empty list, as one does whose assigned nodes are text alone, since assigned text suppresses the fallback, and one outside a shadow tree, whatever its fallback. An element that is no slot answers null, so null tells an element that is no slot from a slot that shows nothing.
 
-### No conversion
+### No implicit conversion
 
-DOMQL converts nothing implicitly: a `number` is not a `boolean`, a `string` is not a `number`, and an `element` is not a `string`. `self attributeOf 200`, `self intersects { root: 5 }` and a `where` whose expression produces a `number` are each validation errors, as is an `element` where a `list` is required.
+DOMQL converts nothing implicitly, and a value converts only where a query writes `to`, as [conversions](#conversions) set out: a `number` is not a `boolean`, a `string` is not a `number`, and an `element` is not a `string`. `self attributeOf 200`, `self intersects { root: 5 }` and a `where` whose expression produces a `number` are each validation errors, as is an `element` where a `list` is required.
 
 ### Nullability
 
@@ -593,6 +615,17 @@ An operation performs a lookup, a calculation or a selection with the argument i
 | List | `max(expression)`, `min(expression)`, `sum(expression)` | `expression`: `T` → `number?`; answers `number?`, `number?`, `number` | An aggregate over a number expression, as the section on lists defines | As their items and expressions | As their items |  |
 | List | `where(expression)` | `expression`: `T` → `boolean?`; answers `list<T>` | The items for which a Boolean expression holds | As its items and expression | As its items |  |
 
+### Built-in conversions
+
+The built-in vocabulary declares four conversions, each refusing what it cannot convert as an evaluation error:
+
+| From | To | Converts |
+| --- | --- | --- |
+| `string` | `number` | HTML's valid floating-point syntax after trimming: the ASCII whitespace at either end, tab, line feed, form feed, carriage return and space, is removed, and the whole of what remains is an optional `-`, digits with an optional fraction, or a fraction alone, and an optional exponent, `e` or `E` with an optional sign, so `"-12"`, `" 3.5 "`, `".5"` and `"1e3"` convert; empty text, `"+1"`, `"1."`, `"0x10"`, `"Infinity"` and `"12px"` fail, as does a number too large to be finite, `"1e999"` |
+| `number` | `string` | The shortest decimal text that reads back as the same number, as ECMAScript's `Number::toString` writes it, in exponent form from `1e21` up and below `1e-6`, as `"1e+21"` and `"1e-7"`; negative zero is written `"0"`, the one number that does not read back as itself. Every number of DOMQL is finite |
+| `boolean` | `string` | `"true"` or `"false"` |
+| `string` | `boolean` | `"true"` and `"false"`, exactly; any other text fails, `"TRUE"`, `"1"` and `" true"` among them |
+
 ### Event sources
 
 An event source delivers things that happened. It is subscribed to, never read or watched, and the object expression following it is evaluated against each event.
@@ -651,7 +684,7 @@ An extension adds members under one name of its own, a member of a built-in type
 
 The built-in vocabulary declares the native event types its callers need, and an extension can declare more. A subscription observes an event as it reaches its target and leaves its course to the page.
 
-An extension can define types of its own, event sources, actions and behaviors, and follows the built-in vocabulary's contract throughout: every member declares its signature, its argument kinds, its result type and how it changes, and evaluating a query stays read-only and synchronous.
+An extension can define types of its own, event sources, actions and behaviors, and conversions to and from its own types, one for each source type and target, and follows the built-in vocabulary's contract throughout: every member declares its signature, its argument kinds, its result type and how it changes, and evaluating a query stays read-only and synchronous.
 
 ## Definition
 
@@ -673,6 +706,7 @@ A document holds the definition's `version` and the `query` node. The version ch
 | `conditional` | `condition`, `consequent` and `alternative`, three expressions | A conditional; an `elseif` is a conditional nested in the alternative before it |
 | `coalescing` | `value` and `fallback`, two expressions | A coalescing operator |
 | `cast` | `type`, the name of the type it casts to, and `target`, the expression it casts | A cast |
+| `conversion` | `type`, the name of the type it converts to, and `target`, the expression it converts | A conversion |
 | `optionalChain` | `target`, the chain it holds | An optional chain: the chain of member accesses, calls and object expressions whose optional accesses end at it, holding at least one |
 | `and`, `or` | `operands`, two or more expressions | A logical expression |
 | `not` | `operand`, the expression it negates | A negation |
@@ -695,7 +729,7 @@ Every member access, call and infix call holds its receiver as its `target`, and
 
 ```json
 {
-  "version": 11,
+  "version": 12,
   "query": {
     "kind": "object",
     "target": { "kind": "parameter", "name": "panel" },

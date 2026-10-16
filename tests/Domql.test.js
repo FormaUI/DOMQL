@@ -31,7 +31,7 @@ describe('domql', () => {
             const query = domql.query('@panel { size: self.size, hasFocus: self matches ":focus-within" }');
 
             expect(query.definition).toEqual({
-                version: 11,
+                version: 12,
                 query: {
                     kind: 'object',
                     target: parameter('panel'),
@@ -210,7 +210,7 @@ describe('domql', () => {
             ['an equality of the current value at the top level', equality(self, literal(null)), '/query/left'],
             ['a predicate, which an equality and a member replace', { kind: 'predicate', verb: 'is', target: parameter('panel'), name: literal(null) }, '/query'],
         ])('refuse a definition with %s', (_, query, pointer) => {
-            const error = getError(() => domql.query({ version: 11, query }, { panel: document.body }));
+            const error = getError(() => domql.query({ version: 12, query }, { panel: document.body }));
 
             expect(error.kind).toBe('structure');
             expect(error.location.pointer).toBe(pointer);
@@ -259,7 +259,7 @@ describe('domql', () => {
             ['an or whose operands are no array', { kind: 'or', operands: parameter('panel') }, '/query/operands'],
             ['an operand that tests the current value at the top level', { kind: 'or', operands: [member('visible'), parameter('panel')] }, '/query/operands/0/target'],
         ])('refuse a definition with %s', (_, query, pointer) => {
-            const error = getError(() => domql.query({ version: 11, query }, { panel: document.body }));
+            const error = getError(() => domql.query({ version: 12, query }, { panel: document.body }));
 
             expect(error.kind).toBe('structure');
             expect(error.location.pointer).toBe(pointer);
@@ -297,7 +297,7 @@ describe('domql', () => {
             ['a conditional without its alternative', { kind: 'conditional', condition: parameter('a'), consequent: literal(1) }, '/query'],
             ['a conditional whose branch is no node', conditional(parameter('a'), literal(1), 'else'), '/query/alternative'],
         ])('refuse a definition with %s', (_, query, pointer) => {
-            const error = getError(() => domql.query({ version: 11, query }, { panel: document.body }));
+            const error = getError(() => domql.query({ version: 12, query }, { panel: document.body }));
 
             expect(error.kind).toBe('structure');
             expect(error.location.pointer).toBe(pointer);
@@ -342,7 +342,7 @@ describe('domql', () => {
             ['an optional access of an argument the chain it is passed to holds', chain(optional(call('closest', optional(member('key', parameter('row'))), parameter('panel')))), '/query/target/argument'],
             ['an optional access beyond an infix call in the chain', chain(member('length', infixCall('attributeOf', literal('id'), optional(member('parent', parameter('panel')))))), '/query/target/target/target'],
         ])('refuse a definition with %s', (_, query, pointer) => {
-            const error = getError(() => domql.query({ version: 11, query }));
+            const error = getError(() => domql.query({ version: 12, query }));
 
             expect(error.kind).toBe('structure');
             expect(error.location.pointer).toBe(pointer);
@@ -411,7 +411,7 @@ describe('domql', () => {
             const parsed = domql.query('@panel[if @wide then "size" else "clientSize"]?.width');
 
             expect(domql.query(parsed.definition).definition).toEqual(parsed.definition);
-            expect(domql.query({ version: 11, query: member(literal('size'), parameter('panel')) }).definition.query).toEqual(member('size', parameter('panel')));
+            expect(domql.query({ version: 12, query: member(literal('size'), parameter('panel')) }).definition.query).toEqual(member('size', parameter('panel')));
         });
 
         it.each([
@@ -492,7 +492,58 @@ describe('domql', () => {
             ['a type that is no string', cast(5, parameter('a')), '/query/type'],
             ['a target that is an infix call', cast('element', infixCall('attributeOf', literal('id'), parameter('a'))), '/query/target'],
         ])('refuse a definition of a cast with %s', (_, query, pointer) => {
-            const error = getError(() => domql.query({ version: 11, query }));
+            const error = getError(() => domql.query({ version: 12, query }));
+
+            expect(error.kind).toBe('structure');
+            expect(error.location.pointer).toBe(pointer);
+        });
+    });
+
+    describe('conversions', () => {
+        const conversion = (type, target) => ({ kind: 'conversion', type, target });
+        const coalescing = (value, fallback) => ({ kind: 'coalescing', value, fallback });
+
+        it('read a value, to and the quoted type it converts to, binding looser than an infix call and tighter than an equality, and chaining left to right', () => {
+            expect(domql.query('@a to "number"').definition.query).toEqual(conversion('number', parameter('a')));
+            expect(domql.query('@panel attributeOf "data-count" to "number"').definition.query).toEqual(conversion('number', infixCall('attributeOf', literal('data-count'), parameter('panel'))));
+            expect(domql.query('@a to "string" to "number"').definition.query).toEqual(conversion('number', conversion('string', parameter('a'))));
+            expect(domql.query('@panel attributeOf "data-count" to "number" is 5').definition.query).toEqual(equality(conversion('number', infixCall('attributeOf', literal('data-count'), parameter('panel'))), literal(5)));
+            expect(domql.query('@a to "number" ?? 0').definition.query).toEqual(coalescing(conversion('number', parameter('a')), literal(0)));
+            expect(domql.query('@a ?? @b to "number"').definition.query).toEqual(coalescing(parameter('a'), conversion('number', parameter('b'))));
+            expect(domql.query('not @a to "boolean"').definition.query).toEqual(not(conversion('boolean', parameter('a'))));
+            expect(domql.query('@a as "element" to "string"').definition.query).toEqual(conversion('string', { kind: 'cast', type: 'element', target: parameter('a') }));
+            expect(domql.query('@sentinel intersects to "string"').definition.query).toEqual(conversion('string', infixCall('intersects', undefined, parameter('sentinel'))));
+            expect(domql.query('@panel attributeOf to to "number"').definition.query).toEqual(conversion('number', infixCall('attributeOf', { kind: 'local', name: 'to' }, parameter('panel'))));
+        });
+
+        it('leave to a name wherever no infix call stands: a field, a local, a property and a call', () => {
+            expect(domql.query('{ from: 1, to: 2 }').definition.query.fields.map(field => field.name)).toEqual(['from', 'to']);
+            expect(domql.query('@panel { let to: self.size, width: to.width }').definition.query.fields[0].value).toEqual(member('width', { kind: 'local', name: 'to' }));
+            expect(domql.query('@range.to').definition.query).toEqual(member('to', parameter('range')));
+            expect(domql.query('@range.to()').definition.query).toEqual(call('to', undefined, parameter('range')));
+            expect(domql.query('@range { let to: "3", value: to to "number" }').definition.query.fields[0].value).toEqual(conversion('number', { kind: 'local', name: 'to' }));
+        });
+
+        it.each([
+            ['to a type that is not quoted', '@a to number', 1, 7],
+            ['continued without a group', '@a to "number".x', 1, 15],
+            ['followed by an object expression', '@a to "number" { x: 1 }', 1, 16],
+            ['followed by an infix call', '@a to "number" attributeOf "id"', 1, 16],
+            ['cast without a group', '@a to "string" as "element"', 1, 16],
+            ['written without the value it converts', 'to "number"', 1, 1],
+        ])('refuse a conversion %s', (_, text, line, column) => {
+            const error = getError(() => domql.query(text));
+
+            expect(error.kind).toBe('syntax');
+            expect(error.location).toMatchObject({ line, column });
+        });
+
+        it.each([
+            ['a type that is no string', conversion(5, parameter('a')), '/query/type'],
+            ['no target', { kind: 'conversion', type: 'number' }, '/query'],
+            ['an infix call named to', infixCall('to', literal('number'), parameter('a')), '/query/name'],
+        ])('refuse a definition of a conversion with %s', (_, query, pointer) => {
+            const error = getError(() => domql.query({ version: 12, query }));
 
             expect(error.kind).toBe('structure');
             expect(error.location.pointer).toBe(pointer);
@@ -576,7 +627,7 @@ describe('domql', () => {
             ['a coalescing without its fallback', { kind: 'coalescing', value: parameter('a') }, '/query'],
             ['a coalescing whose fallback is no node', coalescing(parameter('a'), 0), '/query/fallback'],
         ])('refuse a definition with %s', (_, query, pointer) => {
-            const error = getError(() => domql.query({ version: 11, query }));
+            const error = getError(() => domql.query({ version: 12, query }));
 
             expect(error.kind).toBe('structure');
             expect(error.location.pointer).toBe(pointer);
@@ -608,7 +659,7 @@ describe('domql', () => {
         });
 
         it('leave out of a definition the locals an object expression has none of', () => {
-            const definition = { version: 11, query: { kind: 'object', target: parameter('panel'), locals: [], fields: [{ name: 'size', value: member('size') }] } };
+            const definition = { version: 12, query: { kind: 'object', target: parameter('panel'), locals: [], fields: [{ name: 'size', value: member('size') }] } };
 
             expect(domql.query('@panel { size: self.size }').definition.query).not.toHaveProperty('locals');
             expect(domql.query(definition, { panel: document.body }).definition.query).not.toHaveProperty('locals');
@@ -633,7 +684,7 @@ describe('domql', () => {
             ['a local without its value', { kind: 'object', target: parameter('panel'), locals: [{ name: 'n' }], fields: [{ name: 'a', value: literal(1) }] }, '/query/locals/0'],
             ['a use of a local named by no name', { kind: 'local', name: 'if' }, '/query/name'],
         ])('refuse a definition with %s', (_, query, pointer) => {
-            const error = getError(() => domql.query({ version: 11, query }, { panel: document.body }));
+            const error = getError(() => domql.query({ version: 12, query }, { panel: document.body }));
 
             expect(error.kind).toBe('structure');
             expect(error.location.pointer).toBe(pointer);
@@ -771,7 +822,7 @@ describe('domql', () => {
         });
 
         it('copies and freezes the definition it is given', () => {
-            const definition = { version: 11, query: { kind: 'object', target: parameter('panel'), fields: [{ name: 'size', value: member('size') }] } };
+            const definition = { version: 12, query: { kind: 'object', target: parameter('panel'), fields: [{ name: 'size', value: member('size') }] } };
             const query = domql.query(definition);
 
             definition.query.fields.push({ name: 'clientSize', value: member('clientSize') });
@@ -782,23 +833,23 @@ describe('domql', () => {
 
         it.each([
             ['a version other than 11', { version: 10, query: parameter('panel') }, '/version'],
-            ['a field without a name', { version: 11, query: { kind: 'object', target: parameter('panel'), fields: [{ value: member('size') }] } }, '/query/fields/0'],
-            ['an object expression without a field', { version: 11, query: { kind: 'object', target: parameter('panel'), fields: [] } }, '/query'],
-            ['a property no part has', { version: 11, query: { ...parameter('panel'), extra: true } }, '/query'],
-            ['an unknown kind', { version: 11, query: { kind: 'phrase', name: 'size' } }, '/query'],
-            ['a member without a receiver', { version: 11, query: { kind: 'member', name: 'size' } }, '/query'],
-            ['a call without a receiver', { version: 11, query: { kind: 'call', name: 'closest' } }, '/query'],
-            ['a member access holding an argument', { version: 11, query: { kind: 'member', target: parameter('panel'), name: 'size', argument: literal(1) } }, '/query'],
-            ['a member holding the arguments of an earlier version', { version: 11, query: { kind: 'member', target: parameter('panel'), name: 'size', arguments: [] } }, '/query'],
-            ['self at the top level', { version: 11, query: member('size', self) }, '/query/target'],
-            ['a name that is no name', { version: 11, query: parameter('2panel') }, '/query/name'],
-            ['a name ending in a hyphen', { version: 11, query: parameter('panel-') }, '/query/name'],
-            ['a reserved literal naming a parameter', { version: 11, query: parameter('null') }, '/query/name'],
-            ['a reserved literal naming a member', { version: 11, query: member('true', parameter('panel')) }, '/query/name'],
-            ['self naming a member', { version: 11, query: member('self', parameter('panel')) }, '/query/name'],
-            ['a reserved literal naming a field', { version: 11, query: { kind: 'object', target: parameter('panel'), fields: [{ name: 'false', value: member('size') }] } }, '/query/fields/0/name'],
-            ['a literal that is no JSON scalar', { version: 11, query: literal(Number.NaN) }, '/query/value'],
-            ['an object expression whose fields are no array', { version: 11, query: { kind: 'object', target: parameter('panel'), fields: {} } }, '/query/fields'],
+            ['a field without a name', { version: 12, query: { kind: 'object', target: parameter('panel'), fields: [{ value: member('size') }] } }, '/query/fields/0'],
+            ['an object expression without a field', { version: 12, query: { kind: 'object', target: parameter('panel'), fields: [] } }, '/query'],
+            ['a property no part has', { version: 12, query: { ...parameter('panel'), extra: true } }, '/query'],
+            ['an unknown kind', { version: 12, query: { kind: 'phrase', name: 'size' } }, '/query'],
+            ['a member without a receiver', { version: 12, query: { kind: 'member', name: 'size' } }, '/query'],
+            ['a call without a receiver', { version: 12, query: { kind: 'call', name: 'closest' } }, '/query'],
+            ['a member access holding an argument', { version: 12, query: { kind: 'member', target: parameter('panel'), name: 'size', argument: literal(1) } }, '/query'],
+            ['a member holding the arguments of an earlier version', { version: 12, query: { kind: 'member', target: parameter('panel'), name: 'size', arguments: [] } }, '/query'],
+            ['self at the top level', { version: 12, query: member('size', self) }, '/query/target'],
+            ['a name that is no name', { version: 12, query: parameter('2panel') }, '/query/name'],
+            ['a name ending in a hyphen', { version: 12, query: parameter('panel-') }, '/query/name'],
+            ['a reserved literal naming a parameter', { version: 12, query: parameter('null') }, '/query/name'],
+            ['a reserved literal naming a member', { version: 12, query: member('true', parameter('panel')) }, '/query/name'],
+            ['self naming a member', { version: 12, query: member('self', parameter('panel')) }, '/query/name'],
+            ['a reserved literal naming a field', { version: 12, query: { kind: 'object', target: parameter('panel'), fields: [{ name: 'false', value: member('size') }] } }, '/query/fields/0/name'],
+            ['a literal that is no JSON scalar', { version: 12, query: literal(Number.NaN) }, '/query/value'],
+            ['an object expression whose fields are no array', { version: 12, query: { kind: 'object', target: parameter('panel'), fields: {} } }, '/query/fields'],
         ])('rejects %s, naming its node', (_, definition, pointer) => {
             const error = getError(() => domql.query(definition));
 
@@ -1997,5 +2048,250 @@ describe('domql receivers of unknown type', () => {
 
         expect(error.kind).toBe('validation');
         expect(error.message).toContain('ambiguous');
+    });
+});
+
+describe('domql conversions', () => {
+    // Each test loads its own copy of domql, with a registry of its own.
+    let isolated;
+    let panel;
+
+    beforeEach(async () => {
+        vi.resetModules();
+        ({ domql: isolated } = await import('#domql/domql.js'));
+        document.body.innerHTML = '<div id="panel"></div>';
+        panel = document.getElementById('panel');
+    });
+
+    const evaluate = (text, bindings = {}) => isolated.query(text, { panel, ...bindings }).evaluate();
+
+    /** A module of a structured type of its own, `celsius`, converted from a text such as "21C" or "21" and to one such as "21C"; a test can give the conversion from text what it answers instead. */
+    const registerTemperature = ({ answer = null } = {}) => {
+        isolated.registerModule(isolated.createModule('temperature', {
+            types: [{ name: 'celsius', fields: { degrees: 'number' } }],
+            conversions: [
+                { from: 'string', to: 'celsius', function: 'parse' },
+                { from: 'celsius', to: 'string', function: 'write' },
+            ],
+        }, {
+            parse: text => {
+                if (answer !== null) {
+                    return answer(text);
+                }
+
+                if (!/^-?[0-9]+C?$/.test(text)) {
+                    throw new Error(`${JSON.stringify(text)} is no temperature`);
+                }
+
+                return { degrees: Number(text.replace('C', '')), unit: 'C' };
+            },
+            write: ({ degrees }) => `${degrees}C`,
+        }));
+    };
+
+    describe('from a string to a number', () => {
+        it.each([
+            ['12', 12],
+            ['-12', -12],
+            ['3.5', 3.5],
+            ['.5', 0.5],
+            ['-.5', -0.5],
+            ['1e3', 1000],
+            ['1E-3', 0.001],
+            ['2.5e+2', 250],
+            ['007', 7],
+            ['-0', -0],
+            [' 12 ', 12],
+            ['\t\n\f\r 12 \r\n', 12],
+            ['1e-400', 0],
+        ])('take HTML\'s valid floating-point syntax after trimming ASCII whitespace: %j', (text, number) => {
+            expect(Object.is(evaluate('@text to "number"', { text }), number)).toBe(true);
+        });
+
+        it.each([
+            ['empty text', ''],
+            ['whitespace alone', '  '],
+            ['a plus sign', '+1'],
+            ['a fraction without digits', '1.'],
+            ['two points', '1..5'],
+            ['a hexadecimal number', '0x10'],
+            ['Infinity', 'Infinity'],
+            ['a separator', '1_000'],
+            ['a trailing unit', '12px'],
+            ['digits of another script', '١٢'],
+            ['whitespace that is not ASCII', ' 12'],
+        ])('refuse %s as an evaluation error, never null', (_, text) => {
+            const error = getError(() => evaluate('@text to "number"', { text }));
+
+            expect(error.kind).toBe('evaluation');
+            expect(error.message).toContain(`The conversion from string to number failed: ${JSON.stringify(text)} is no number`);
+        });
+
+        it('refuses a number too large to be finite', () => {
+            const error = getError(() => evaluate('"1e999" to "number"'));
+
+            expect(error.kind).toBe('evaluation');
+            expect(error.message).toContain('"1e999" is too large a number to be finite');
+        });
+    });
+
+    describe('from a number to a string', () => {
+        it.each([
+            [123, '123'],
+            [0.1, '0.1'],
+            [-12.5, '-12.5'],
+            [1e21, '1e+21'],
+            [1e-7, '1e-7'],
+            [-0, '0'],
+        ])('write the shortest text that reads back as the same number, negative zero as 0: %d', (number, text) => {
+            expect(evaluate('@number to "string"', { number })).toBe(text);
+        });
+
+        it.each([0.1, 1 / 3, 1e21, 1e-7, 123456789.125, Number.MAX_VALUE, Number.MIN_VALUE])('read back as the same number: %d', number => {
+            expect(evaluate('@number to "string" to "number"', { number })).toBe(number);
+        });
+    });
+
+    describe('Booleans', () => {
+        it('are written true and false', () => {
+            expect(evaluate('true to "string"')).toBe('true');
+            expect(evaluate('false to "string"')).toBe('false');
+        });
+
+        it('are read from true and false alone', () => {
+            expect(evaluate('"true" to "boolean"')).toBe(true);
+            expect(evaluate('"false" to "boolean"')).toBe(false);
+
+            for (const text of ['TRUE', 'True', '1', '', ' true', 'yes']) {
+                const error = getError(() => evaluate('@text to "boolean"', { text }));
+
+                expect(error.kind, text).toBe('evaluation');
+                expect(error.message).toContain(`${JSON.stringify(text)} is no Boolean, which is written "true" or "false"`);
+            }
+        });
+    });
+
+    describe('null', () => {
+        it('answers null for null without converting, nullable where the value is', () => {
+            panel.setAttribute('data-count', '3');
+
+            const query = isolated.query('@panel attributeOf "data-missing" to "number"', { panel });
+
+            expect(String(query.resolve().type)).toBe('number?');
+            expect(query.evaluate()).toBeNull();
+            expect(evaluate('@panel attributeOf "data-count" to "number"')).toBe(3);
+        });
+
+        it('lets ?? say what a missing value means, and leaves a malformed one an error', () => {
+            panel.setAttribute('data-count', 'three');
+
+            expect(evaluate('@panel attributeOf "data-missing" to "number" ?? 0')).toBe(0);
+            expect(getError(() => evaluate('@panel attributeOf "data-count" to "number" ?? 0')).kind).toBe('evaluation');
+        });
+
+        it('answers null for a null of unknown type once its target is a type it converts to, however many conversions reach that type', () => {
+            registerTemperature();
+            isolated.registerModule(isolated.createModule('kelvin', {
+                types: [{ name: 'kelvin', fields: { degrees: 'number' } }],
+                conversions: [{ from: 'kelvin', to: 'number', function: 'degrees' }],
+            }, { degrees: ({ degrees }) => degrees }));
+
+            const query = isolated.query('@value to "number"', { value: null });
+
+            expect(String(query.resolve().type)).toBe('number?');
+            expect(query.evaluate()).toBeNull();
+            expect(evaluate('@value to "celsius"', { value: null })).toBeNull();
+            expect(getError(() => evaluate('@value to "element"', { value: null })).kind).toBe('validation');
+        });
+
+        it('leaves a nullable value checked by its type without null', () => {
+            const error = getError(() => evaluate('@panel.closest(".row") to "string"'));
+
+            expect(error.kind).toBe('validation');
+            expect(error.message).toContain('No conversion from element to string is declared, and element converts to nothing');
+        });
+    });
+
+    describe('a value already of the type', () => {
+        it('answers itself, whatever conversions a module declares', () => {
+            registerTemperature();
+
+            expect(evaluate('5 to "number"')).toBe(5);
+            expect(evaluate('"21C" to "string"')).toBe('21C');
+            expect(evaluate('("21C" to "celsius") to "celsius"')).toEqual({ degrees: 21 });
+        });
+    });
+
+    describe('a conversion that is not declared', () => {
+        it.each([
+            ['a structured type that converts to nothing', '@panel.size to "string"', 'No conversion from size to string is declared, and size converts to nothing'],
+            ['a type reached only through another', '5 to "boolean"', 'No conversion from number to boolean is declared, and number converts to string'],
+            ['a list', '@panel.children to "string"', 'No conversion from list<element> to string is declared'],
+            ['a node, which a cast narrows', '"a" to "element"', "a node is narrowed to one of its kinds with 'as'"],
+            ['a type no module declares', '"a" to "nope"', "and 'nope' is none of them"],
+            ['a list type', '"a" to "list<number>"', "and 'list<number>' is none of them"],
+            ['a nullable type', '"a" to "number?"', "and 'number?' is none of them"],
+            ['a structured type that holds an element', '"a" to "pointerEvent"', "and 'pointerEvent' is none of them"],
+            ['an event source', '(@panel on "click") to "string"', "What 'to' converts is a value, and this one is an event source"],
+        ])('is refused before anything is evaluated for %s', (_, text, message) => {
+            const error = getError(() => isolated.query(text, { panel }).resolve());
+
+            expect(error.kind).toBe('validation');
+            expect(error.message).toContain(message);
+        });
+    });
+
+    describe('a conversion a module declares', () => {
+        it('converts to and from a structured type of its own, its result taken by the type\'s declared fields', () => {
+            registerTemperature();
+            panel.setAttribute('data-temperature', '21C');
+
+            expect(evaluate('@panel attributeOf "data-temperature" to "celsius"')).toEqual({ degrees: 21 });
+            expect(evaluate('(@panel attributeOf "data-temperature" to "celsius")?.degrees')).toBe(21);
+            expect(evaluate('@panel attributeOf "data-temperature" to "celsius" to "string"')).toBe('21C');
+        });
+
+        it('takes one conversion, never a chain of them, so a value reaches a type through another only where the query writes both', () => {
+            registerTemperature();
+
+            expect(getError(() => evaluate('5 to "celsius"')).message).toContain('No conversion from number to celsius is declared');
+            expect(evaluate('5 to "string" to "celsius"')).toEqual({ degrees: 5 });
+        });
+
+        it('fails with an evaluation error where it throws, with what it threw as the cause', () => {
+            registerTemperature();
+
+            const error = getError(() => evaluate('"warm" to "celsius"'));
+
+            expect(error.kind).toBe('evaluation');
+            expect(error.message).toContain('The conversion from string to celsius failed: "warm" is no temperature');
+            expect(error.cause.message).toBe('"warm" is no temperature');
+        });
+
+        it.each([
+            ['a value of another type', () => '21'],
+            ['null', () => null],
+            ['a structure missing a field', () => ({})],
+        ])('fails with an evaluation error where it answers %s', (_, answer) => {
+            registerTemperature({ answer });
+
+            const error = getError(() => evaluate('"21C" to "celsius"'));
+
+            expect(error.kind).toBe('evaluation');
+            expect(error.message).toContain('The conversion from string to celsius answered');
+            expect(error.message).toContain('and it converts to celsius');
+        });
+
+        it('evaluates the value it converts once', () => {
+            let reads = 0;
+
+            registerTemperature();
+            isolated.registerModule(isolated.createModule('reading', {
+                members: [{ name: 'reading', function: 'read', kind: 'property', on: 'element', parameters: [], result: 'string', changes: 'constant', reads: 'fresh' }],
+            }, { read: () => `${++reads}C` }));
+
+            expect(evaluate('@panel.reading to "celsius"')).toEqual({ degrees: 1 });
+            expect(reads).toBe(1);
+        });
     });
 });

@@ -39,8 +39,11 @@ const BUILT_IN_TYPE_NAMES = ['number', 'string', 'boolean', 'node', 'element', '
 /** The names no module declares a type by: those DOMQL defines, and the words of the type notation. */
 const RESERVED_TYPE_NAMES = new Set([...BUILT_IN_TYPE_NAMES, 'list', 'event', 'null', 'never']);
 
+/** The types of data DOMQL defines, which a conversion converts between, as it does between them and the structured types modules declare. */
+const DATA_TYPE_NAMES = ['number', 'string', 'boolean'];
+
 /** What a module can declare. */
-const CONTENTS = ['members', 'types', 'eventTypes', 'features', 'observationTypes'];
+const CONTENTS = ['members', 'types', 'eventTypes', 'features', 'observationTypes', 'conversions'];
 
 /** The keys each kind of declaration takes, so one misspelled is refused rather than ignored. */
 const MEMBER_KEYS = ['name', 'function', 'kind', 'form', 'input', 'on', 'parameters', 'result', 'changes', 'reads', 'misses', 'tolerance', 'observations'];
@@ -48,6 +51,7 @@ const PARAMETER_KEYS = ['name', 'kind', 'type', 'required', 'default', 'fixed', 
 const TYPE_KEYS = ['name', 'fields'];
 const EVENT_TYPE_KEYS = ['name', 'payload'];
 const OBSERVATION_TYPE_KEYS = ['name', 'contract', 'identity', 'shared', 'function'];
+const CONVERSION_KEYS = ['from', 'to', 'function'];
 
 /** The name that identifies the built-in module, whose members stand without a namespace. */
 const BUILTIN_MODULE_NAME = 'builtIn';
@@ -59,6 +63,7 @@ export class DomqlModule {
     #eventTypes;
     #features;
     #observationTypes;
+    #conversions;
     #functions;
 
     /** Proves a module is the built-in one, which only its own factory can. */
@@ -72,6 +77,7 @@ export class DomqlModule {
      * @param {object[]} [contents.eventTypes] The event types it declares, each with the type of its event data.
      * @param {string[]} [contents.features] The features `supports` names.
      * @param {object[]} [contents.observationTypes] The types of observation it declares, each with the function that starts one.
+     * @param {object[]} [contents.conversions] The conversions it declares, each from a type of data to another, with the function that converts.
      * @param {Record<string, Function> | null} [functions] The functions that carry the members out, by the key each member names.
      * @param {symbol} [builtInToken] Held by the built-in module alone.
      */
@@ -94,9 +100,9 @@ export class DomqlModule {
             fail("A module's functions are an object holding each function by its key");
         }
 
-        const { members = [], types = [], eventTypes = [], features = [], observationTypes = [] } = contents;
+        const { members = [], types = [], eventTypes = [], features = [], observationTypes = [], conversions = [] } = contents;
 
-        for (const [key, list] of Object.entries({ members, types, eventTypes, features, observationTypes })) {
+        for (const [key, list] of Object.entries({ members, types, eventTypes, features, observationTypes, conversions })) {
             if (!Array.isArray(list)) {
                 fail(`A module's ${key} are a list`);
             }
@@ -115,11 +121,12 @@ export class DomqlModule {
         this.#eventTypes = DomqlModule.#freezeItems(eventTypes.map(eventType => DomqlModule.#validateEventType(eventType, fail)));
         this.#features = DomqlModule.#freezeItems(features.map(feature => DomqlModule.#validateFeatureName(feature, fail)));
         this.#observationTypes = DomqlModule.#freezeItems(observationTypes.map(type => DomqlModule.#validateObservationType(type, fail)));
+        this.#conversions = DomqlModule.#freezeItems(conversions.map(conversion => DomqlModule.#validateConversion(conversion, fail)));
 
         if (functions !== null) {
-            for (const declaration of [...this.#members, ...this.#observationTypes]) {
+            for (const declaration of [...this.#members, ...this.#observationTypes, ...this.#conversions]) {
                 if (declaration.function !== undefined && typeof functions[declaration.function] !== 'function') {
-                    fail(`The function '${declaration.function}' it names is not among the module's functions`, declaration.name);
+                    fail(`The function '${declaration.function}' it names is not among the module's functions`, declaration.name ?? DomqlModule.conversionNameOf(declaration));
                 }
             }
         }
@@ -167,6 +174,11 @@ export class DomqlModule {
         return this.#observationTypes;
     }
 
+    /** The conversions the module declares. */
+    get conversions() {
+        return this.#conversions;
+    }
+
     /** The functions that carry the members out, or null for a module that declares and does not yet implement. */
     get functions() {
         return this.#functions;
@@ -175,6 +187,16 @@ export class DomqlModule {
     /** The names of the types DOMQL defines, which a declaration names without any module declaring them. */
     static get builtInTypeNames() {
         return BUILT_IN_TYPE_NAMES;
+    }
+
+    /** The names of the types of data DOMQL defines, which a conversion converts between. */
+    static get dataTypeNames() {
+        return DATA_TYPE_NAMES;
+    }
+
+    /** How a conversion is named where a message names it: its source type and its target, as `string to number`. */
+    static conversionNameOf(conversion) {
+        return `${conversion.from} to ${conversion.to}`;
     }
 
     /** Whether the value is a module `createModule` made. */
@@ -346,6 +368,34 @@ export class DomqlModule {
         return structuredClone({ identity: [], shared: true, ...type });
     }
 
+    /**
+     * Validates a conversion: the type of data it converts from, the one it converts to, each a name, and the function that converts.
+     * A value already of a type converts to itself, as the language says, so no conversion is declared from a type to itself.
+     */
+    static #validateConversion(conversion, fail) {
+        DomqlModule.#validateKeys(conversion, CONVERSION_KEYS, 'A conversion', fail, ObjectUtils.isNonArrayObject(conversion) ? DomqlModule.conversionNameOf(conversion) : undefined);
+
+        const name = DomqlModule.conversionNameOf(conversion);
+
+        for (const key of ['from', 'to']) {
+            const typeName = conversion[key];
+
+            if (!Names.isName(typeName) || (RESERVED_TYPE_NAMES.has(typeName) && !DATA_TYPE_NAMES.includes(typeName))) {
+                fail(`A conversion is from a type of data to another, each named as it is declared: ${DATA_TYPE_NAMES.join(', ')} or a structured type, and its '${key}' is none of them`, name);
+            }
+        }
+
+        if (conversion.from === conversion.to) {
+            fail('A value already of a type converts to itself, so no conversion is declared from a type to itself', name);
+        }
+
+        if (!DomqlModule.#isIdentifier(conversion.function)) {
+            fail('It names its function as an identifier', name);
+        }
+
+        return structuredClone(conversion);
+    }
+
     static #validateMember(member, fail) {
         DomqlModule.#validateKeys(member, MEMBER_KEYS, 'A member', fail);
 
@@ -402,6 +452,11 @@ export class DomqlModule {
 
         if (member.form !== undefined && !FORMS.includes(member.form)) {
             fail(`It is written as ${FORMS.join(' or ')}`, name);
+        }
+
+        // Where an infix call's name stands, `to` converts the value before it.
+        if (member.form === 'infix' && name === 'to') {
+            fail("'to' converts the value before it where an infix call's name stands, so no infix call is named 'to'", name);
         }
 
         if (parameters.length === 0) {

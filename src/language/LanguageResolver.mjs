@@ -87,6 +87,8 @@ export class LanguageResolver {
                 return this.#resolveNot(node, pointer, scope);
             case 'cast':
                 return this.#resolveCast(node, pointer, scope);
+            case 'conversion':
+                return this.#resolveConversion(node, pointer, scope);
             case 'and':
             case 'or':
                 return this.#resolveLogical(node, pointer, scope);
@@ -246,6 +248,50 @@ export class LanguageResolver {
         }
 
         return { type: type.toNullable(), kind: 'query', isFixed: false };
+    }
+
+    /**
+     * Resolves a conversion: its target, a value, and the type of data it converts to, its result of that type, nullable where the target is.
+     * A value already of the type answers itself, which no declaration overrides; any other takes the one conversion declared from its type to that one, never a chain of them.
+     * A target of unknown type chooses none: null answers null, and a never is never evaluated.
+     */
+    #resolveConversion(node, pointer, scope) {
+        const target = this.#resolveNode(node.target, `${pointer}/target`, scope);
+
+        if (target.kind !== 'query') {
+            this.#fail(`What 'to' converts is a value, and this one is ${LanguageResolver.#descriptionOf(target.kind)}`, `${pointer}/target`);
+        }
+
+        const to = Type.parse(node.type);
+
+        if (to === null || to.kind !== 'named' || to.isNullable || !this.#moduleRegistry.isConvertible(to.name)) {
+            const cast = to?.kind === 'named' && to.isNode ? `; a node is narrowed to one of its kinds with 'as', as in … as "${node.type}"` : '';
+
+            this.#fail(`'to' converts to a type of data named as it is declared, number, string, boolean or a structured type the vocabulary declares, and '${node.type}' is none of them${cast}`, pointer);
+        }
+
+        const from = target.type;
+
+        if (from.kind === 'null' || from.kind === 'never') {
+            this.#resolutions.set(pointer, { kind: 'conversion', declaration: null });
+
+            return { type: from.kind === 'null' ? to.toNullable() : to, kind: 'query', isFixed: false };
+        }
+
+        const source = from.toNonNullable();
+        const isIdentity = source.kind === 'named' && source.name === to.name;
+        const declaration = isIdentity || source.kind !== 'named' ? undefined : this.#moduleRegistry.getConversion(source.name, to.name);
+
+        if (!isIdentity && declaration === undefined) {
+            const targets = source.kind === 'named' ? this.#moduleRegistry.getConversionTargets(source.name) : [];
+            const available = targets.length === 0 ? `${source} converts to nothing` : `${source} converts to ${targets.join(', ')}`;
+
+            this.#fail(`No conversion from ${source} to ${to.name} is declared, and ${available}`, pointer);
+        }
+
+        this.#resolutions.set(pointer, { kind: 'conversion', declaration: declaration ?? null, type: to });
+
+        return { type: from.isNullable ? to.toNullable() : to, kind: 'query', isFixed: false };
     }
 
     /** Resolves a negation: what it negates, a Boolean that cannot be null, and answers a Boolean. */

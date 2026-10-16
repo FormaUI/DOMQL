@@ -88,7 +88,7 @@ describe('DomqlModule', () => {
 
     it('refuses what a module does not declare, predicates among them, a test being a member that answers a Boolean', () => {
         expect(messageOf(() => new DomqlModule('charts', { predicates: [] }))).toContain("'predicates' is none of them; a test is a member that answers a Boolean");
-        expect(messageOf(() => new DomqlModule('charts', { member: [] }))).toContain("A module declares members, types, eventTypes, features, observationTypes, and 'member' is none of them");
+        expect(messageOf(() => new DomqlModule('charts', { member: [] }))).toContain("A module declares members, types, eventTypes, features, observationTypes, conversions, and 'member' is none of them");
         expect(() => new DomqlModule('charts', { members: [declaration({ name: 'charts', result: 'boolean' })] })).not.toThrow();
     });
 
@@ -191,5 +191,43 @@ describe('observations', () => {
         it('need the function they name among the functions of the module', () => {
             expect(fails(type(), {})).toContain("'startTicks'");
         });
+    });
+});
+
+describe('conversions', () => {
+    const conversion = (overrides = {}) => ({ from: 'string', to: 'chart', function: 'parse', ...overrides });
+    const declaring = (conversions, functions = null) => new DomqlModule('charts', { types: [{ name: 'chart', fields: { points: 'number' } }], conversions }, functions);
+
+    it('are kept as data, each from a type to another with the function that converts', () => {
+        expect(declaring([conversion()]).conversions).toEqual([conversion()]);
+    });
+
+    it.each([
+        ['a node', { from: 'element' }],
+        ['the window', { to: 'window' }],
+        ['a shadow view', { from: 'shadow' }],
+        ['a list', { to: 'list<number>' }],
+        ['a nullable type', { from: 'string?' }],
+        ['null', { to: 'null' }],
+    ])('convert between types of data alone, never %s', (_, overrides) => {
+        expect(messageOf(() => declaring([conversion(overrides)]))).toContain('A conversion is from a type of data to another');
+    });
+
+    it('are never declared from a type to itself, which a value already of it converts to', () => {
+        expect(messageOf(() => declaring([conversion({ from: 'chart', to: 'chart' })]))).toContain('A value already of a type converts to itself');
+    });
+
+    it('name their function as an identifier, and need it among the functions of the module', () => {
+        expect(messageOf(() => declaring([conversion({ function: 'to-chart' })]))).toContain('It names its function as an identifier');
+        expect(messageOf(() => declaring([conversion()], {}))).toContain("The function 'parse' it names is not among the module's functions (in the module 'charts', in the declaration 'string to chart')");
+    });
+
+    it('take from, to and function alone', () => {
+        expect(messageOf(() => declaring([conversion({ name: 'parse' })]))).toContain("A conversion declares from, to, function, and 'name' is none of them");
+    });
+
+    it('leave no infix call named to, which converts where an infix call is written', () => {
+        expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ name: 'to', kind: 'operation', form: 'infix', input: 'direct', parameters: [parameter()] })] }))).toContain("no infix call is named 'to'");
+        expect(new DomqlModule('charts', { members: [declaration({ name: 'to', kind: 'operation', input: 'direct', parameters: [parameter()] })] }).members[0].form).toBe('call');
     });
 });
