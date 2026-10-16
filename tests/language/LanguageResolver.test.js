@@ -343,9 +343,9 @@ describe('LanguageResolver', () => {
         });
 
         it('refuses an access by name of a receiver that can be null, giving the optional form', () => {
-            expect(failure('@panel.first(".a")[@name]', { panel, name: 'size' }).message).toContain(`write '@panel.first(".a")?.[@name]'`);
-            expect(resolve('@panel.first(".a")?.[@name]', { panel, name: 'size' }).type.toString()).toBe('size?');
-            expect(resolve('@row?.[@name]', { row: null, name: 'id' }).type.toString()).toBe('null');
+            expect(failure('@panel.first(".a")[@name]', { panel, name: 'size' }).message).toContain(`write '@panel.first(".a")?[@name]'`);
+            expect(resolve('@panel.first(".a")?[@name]', { panel, name: 'size' }).type.toString()).toBe('size?');
+            expect(resolve('@row?[@name]', { row: null, name: 'id' }).type.toString()).toBe('null');
         });
 
         it('resolves an event type and a feature', () => {

@@ -94,7 +94,7 @@ describe('DefinitionWriter', () => {
         '@panel attributeOf (@name ?? "id")',
         '(@a ?? @b).size',
         '@panel[@name]',
-        '@panel.parent?.[@name]?.width',
+        '@panel.parent?[@name]?.width',
         '@panel["data-key"]',
         '@panel[if @wide then "size" else "clientSize"]',
         '(?@panel.parent[@name].width)',

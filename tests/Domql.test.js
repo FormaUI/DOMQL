@@ -402,8 +402,8 @@ describe('domql', () => {
             expect(domql.query('@panel [ @name ]').definition).toEqual(domql.query('@panel[@name]').definition);
         });
 
-        it('read ?.[…] as an optional access by name, and every access by name of an optional-access group as optional', () => {
-            expect(domql.query('@panel.parent?.[@name]').definition.query).toEqual(chain(optional(member(parameter('name'), member('parent', parameter('panel'))))));
+        it('read ?[…] as an optional access by name, and every access by name of an optional-access group as optional', () => {
+            expect(domql.query('@panel.parent?[@name]').definition.query).toEqual(chain(optional(member(parameter('name'), member('parent', parameter('panel'))))));
             expect(domql.query('(?@panel.parent[@name].width)').definition.query).toEqual(chain(optional(member('width', optional(member(parameter('name'), optional(member('parent', parameter('panel')))))))));
         });
 
@@ -417,7 +417,9 @@ describe('domql', () => {
         it.each([
             ['empty brackets', '@panel[]', 1, 8],
             ['an unclosed bracket', '@panel[@name', 1, 13],
-            ['a dot before a bracket', '@panel.[@name]', 1, 8],
+            ['a dot before a bracket', '@panel.[@name]', 1, 7],
+            ['a dot before an optional bracket', '@panel?.[@name]', 1, 7],
+            ['a dot before a bracket in an optional-access group', '(?@panel.[@name])', 1, 9],
             ['a bracket after an infix call, which ends its chain', '@panel attributeOf @row[@name]', 1, 24],
         ])('refuse %s', (_, text, line, column) => {
             const error = getError(() => domql.query(text));
@@ -1939,8 +1941,8 @@ describe('domql receivers of unknown type', () => {
 
     it('read a Boolean member of a null binding as null, as any access by name of one is', () => {
         expect(isolated.query('@panel?.attached', { panel: null }).evaluate()).toBeNull();
-        expect(isolated.query('@panel?.[@name]', { panel: null, name: 'size' }).evaluate()).toBeNull();
-        expect(isolated.query('@row?.["id"]', { row: null }).evaluate()).toBeNull();
+        expect(isolated.query('@panel?[@name]', { panel: null, name: 'size' }).evaluate()).toBeNull();
+        expect(isolated.query('@row?["id"]', { row: null }).evaluate()).toBeNull();
     });
 
     it('accept a member of the items of an empty list where a Boolean that cannot be null stands, checked once the items are known', () => {

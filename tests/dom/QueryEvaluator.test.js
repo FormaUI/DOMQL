@@ -288,7 +288,7 @@ describe('QueryEvaluator', () => {
             const detached = document.createElement('div');
 
             expect(read('@detached[@name]?.width', { detached, name: 'size' })).toBeNull();
-            expect(read('(@detached.parent as "element")?.[@name]', { detached, name: 'size' })).toBeNull();
+            expect(read('(@detached.parent as "element")?[@name]', { detached, name: 'size' })).toBeNull();
         });
     });
 

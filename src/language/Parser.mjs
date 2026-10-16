@@ -301,7 +301,7 @@ export class Parser {
 
         const node = this.#recordSpan({ kind: 'conversion', type: token.value, target }, start);
 
-        if (this.#token.type === '.' || this.#token.type === '?.' || this.#token.type === '[' || this.#token.type === '{') {
+        if (this.#token.type === '.' || this.#token.type === '?.' || this.#token.type === '[' || this.#token.type === '?[' || this.#token.type === '{') {
             throw DomqlError.syntax(`A conversion ends its chain; group it to continue from its result, as in '(… to "${token.value}").value'`, this.#text, this.#token.start);
         }
 
@@ -323,18 +323,16 @@ export class Parser {
         let hasObject = false;
 
         for (;; isContinued = true) {
-            if (this.#token.type === '[') {
-                node = this.#parseAccessByName(node, start, false);
+            if (this.#token.type === '[' || this.#token.type === '?[') {
+                const optional = this.#token.type === '?[';
+
+                node = this.#parseAccessByName(node, start, optional);
+                isOptional ||= optional;
             } else if (this.#token.type === '.' || this.#token.type === '?.') {
                 const optional = this.#token.type === '?.';
 
                 this.#advance();
-
-                if (optional && this.#token.type === '[') {
-                    node = this.#parseAccessByName(node, start, true);
-                    isOptional = true;
-                    continue;
-                }
+                this.#refuseDotBeforeBrackets(optional);
 
                 if (this.#isKeyword('is')) {
                     throw DomqlError.syntax("'is' compares a value and is no member: write 'is' after the value, without a dot", this.#text, this.#token.start);
@@ -380,7 +378,7 @@ export class Parser {
 
         const node = this.#recordSpan({ kind: 'cast', type: token.value, target }, start);
 
-        if (this.#token.type === '.' || this.#token.type === '?.' || this.#token.type === '[' || this.#token.type === '{') {
+        if (this.#token.type === '.' || this.#token.type === '?.' || this.#token.type === '[' || this.#token.type === '?[' || this.#token.type === '{') {
             throw DomqlError.syntax(`A cast continues a chain only from a group: write '(… as "${token.value}")…'`, this.#text, this.#token.start);
         }
 
@@ -477,7 +475,7 @@ export class Parser {
                 throw DomqlError.syntax(`A cast's target is a receiver and the member-access expressions after it, a coalescing operator in parentheses, or an optional-access group, and this is none of them`, this.#text, start);
             }
 
-            if (this.#token.type === '.' || this.#token.type === '?.' || this.#token.type === '[') {
+            if (this.#token.type === '.' || this.#token.type === '?.' || this.#token.type === '[' || this.#token.type === '?[') {
                 throw DomqlError.syntax('A grouped target is cast as it is, with nothing after it but its cast, as in ((@a ?? @b) as "element")', this.#text, this.#token.start);
             }
 
@@ -500,7 +498,7 @@ export class Parser {
         for (let index = this.#index; index < this.#tokens.length; index++) {
             const token = this.#tokens[index];
 
-            if (token.type === '(' || token.type === '(?' || token.type === '[' || token.type === '{') {
+            if (token.type === '(' || token.type === '(?' || token.type === '[' || token.type === '?[' || token.type === '{') {
                 depth++;
             } else if (token.type === ')' || token.type === ']' || token.type === '}') {
                 depth--;
@@ -529,20 +527,17 @@ export class Parser {
         let node = receiver;
         let accesses = 0;
 
-        while (this.#token.type === '.' || this.#token.type === '?.' || this.#token.type === '[') {
-            if (this.#token.type === '[') {
+        while (this.#token.type === '.' || this.#token.type === '?.' || this.#token.type === '[' || this.#token.type === '?[') {
+            if (this.#token.type === '[' || this.#token.type === '?[') {
                 node = this.#parseAccessByName(node, start, true);
                 accesses++;
                 continue;
             }
+
+            const optional = this.#token.type === '?.';
 
             this.#advance();
-
-            if (this.#token.type === '[') {
-                node = this.#parseAccessByName(node, start, true);
-                accesses++;
-                continue;
-            }
+            this.#refuseDotBeforeBrackets(optional);
 
             if (this.#isKeyword('is')) {
                 throw DomqlError.syntax("'is' compares a value and is no member: write 'is' after the optional-access group", this.#text, this.#token.start);
@@ -596,8 +591,17 @@ export class Parser {
         }
     }
 
+    /** Refuses brackets after the dot just read: an access by name follows its receiver with no dot, as `[…]`, or `?[…]` where it is optional. */
+    #refuseDotBeforeBrackets(optional) {
+        if (this.#token.type === '[' || this.#token.type === '?[') {
+            const message = optional ? "An optional access by name is written '?[…]', with no dot before it" : "An access by name is written '[…]' after its receiver, with no dot before it";
+
+            throw DomqlError.syntax(message, this.#text, this.#tokens[this.#index - 1].start);
+        }
+    }
+
     /**
-     * Reads an access by name, its expression in brackets, which `?.` makes optional: a member access whose name is that expression's node, or the name itself where the expression is a string literal that is a name, as `.` writes it.
+     * Reads an access by name, its expression in brackets, which `?[` makes optional: a member access whose name is that expression's node, or the name itself where the expression is a string literal that is a name, as `.` writes it.
      */
     #parseAccessByName(target, start, optional) {
         this.#advance();
@@ -676,7 +680,7 @@ export class Parser {
 
         this.#recordSpan(node, start);
 
-        if (this.#token.type === '.' || this.#token.type === '?.' || this.#token.type === '[' || this.#token.type === '{') {
+        if (this.#token.type === '.' || this.#token.type === '?.' || this.#token.type === '[' || this.#token.type === '?[' || this.#token.type === '{') {
             throw DomqlError.syntax(`An infix call ends its chain; group it to continue from its result, as in '(… ${name} …).value'`, this.#text, this.#token.start);
         }
 
