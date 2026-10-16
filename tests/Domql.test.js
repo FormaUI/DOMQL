@@ -1954,6 +1954,32 @@ describe('domql receivers of unknown type', () => {
         expect(isolated.query('@thing.ping()', { thing: panel }).resolve().kind).toBe('action');
     });
 
+    it('take the declaration a cast names for a null binding, where the name\'s declarations make requests of different kinds', async () => {
+        const pings = [];
+
+        isolated.registerModule(isolated.createModule('ping', {
+            members: [{ name: 'ping', function: 'ping', kind: 'action', on: 'element', parameters: [], result: 'boolean', changes: 'unobserved', reads: 'fresh' }],
+        }, {
+            ping: element => {
+                pings.push(element);
+
+                return true;
+            },
+        }));
+        isolated.registerModule(isolated.createModule('radar', {
+            types: [{ name: 'radar', fields: { level: 'number' } }],
+            members: [{ name: 'ping', function: 'ping', kind: 'operation', on: 'radar', parameters: [], result: 'number', changes: 'constant', reads: 'fresh' }],
+        }, { ping: () => 1 }));
+
+        const query = isolated.query('(@thing as "element")?.ping()', { thing: null });
+
+        expect(query.resolve().kind).toBe('action');
+        expect(await query.executeAsync()).toBeNull();
+        expect(pings).toEqual([]);
+        expect(await query.with({ thing: panel }).executeAsync()).toBe(true);
+        expect(pings).toEqual([panel]);
+    });
+
     it('run an operation on the empty list, refusing one that more than one declaration takes', () => {
         isolated.registerModule(isolated.createModule('total', {
             members: [

@@ -53,6 +53,8 @@ Each decision here is answered without building it, with what was found and what
   - **Reopened by** a behavior with events its caller would subscribe to.
 - **A behavior that waits.** Not adopted: `apply` answers synchronously, and the behavior has started when it returns, though work it began, asynchronous work among it, may still be under way.
   - **Reopened by** a caller that needs to know when a behavior is ready, beyond its having started, which would justify an `applyAsync`; a behavior that does asynchronous work does not by itself.
+- **Saying which declaration a value means.** Not adopted beyond a cast: only an extension's declarations can make a request ambiguous, since the built-in vocabulary makes none. A cast to a kind of node says which declaration a null receiver means, so `(@thing as "element")?.ping()` takes the element's for a null `thing`, as a test shows. Nothing says it for a null receiver whose declarations are on types that are no nodes, which a cast cannot name, or for an empty list more than one declaration takes, as one on `list<number>` and one on `list<string>` both take a `list<never>`; each is refused as ambiguous.
+  - **Reopened by** an extension whose declarations of one name collide in this way in real use. A declared parameter type is the leading candidate, and that use would show whether it covers the case.
 
 ### Open
 
@@ -62,7 +64,6 @@ The open decisions are taken a group at a time, in this order, each group one ki
 
 What a query can say that it cannot yet.
 
-- **Saying which declaration a value means.** Where a null receiver or an empty list fits declarations that the specification refuses as ambiguous, a caller has no way to say which it means. A way is designed for the first case that needs one, from that case.
 - **Ranges of a list.** A `slice` of a list, a general operation whose indexing, bounds and observation would be specified with it, is decided when a query needs it; a window the viewport decides waits for a need and a measured gain.
 - **A flat-tree parent.** A parent across slots, beside the tree's own `parent` and `root`, waits until its uses and its meaning are clear.
 - **An infix call's receiver null policy.** An infix call propagates a null receiver; a policy declared as a parameter's is, accepting null with a meaning of its own or refusing a nullable receiver when the query is prepared, is designed when a member needs one, since no built-in infix call does.
