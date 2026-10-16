@@ -1222,6 +1222,57 @@ describe('domql modules', () => {
         });
     });
 
+    describe('a sample a maintained observation answers', () => {
+        /** Registers `level`, maintained by an observation whose samples `samples` gives, one at each read. */
+        const registerLevel = samples => {
+            isolated.registerModule(isolated.createModule('level', {
+                observationTypes: [{ name: 'level', contract: 'maintained', function: 'observeLevel' }],
+                members: [{ name: 'level', function: 'level', kind: 'property', on: 'element', parameters: [], result: 'number?', changes: 'observable', reads: 'maintained', observations: [{ type: 'level', of: 'receiver' }] }],
+            }, {
+                observeLevel: (_request, notify) => {
+                    queueMicrotask(notify);
+
+                    return { stop: () => {}, sample: () => samples.shift() ?? { pending: false, value: 9 } };
+                },
+                level: (_receiver, _args, _environment, [value]) => value,
+            }));
+        };
+
+        it('is pending with no value, and has a value once it is not', async () => {
+            registerLevel([{ pending: true }]);
+
+            await expect(isolated.query('@panel.level', { panel: document.createElement('div') }).evaluateAsync()).resolves.toBe(9);
+        });
+
+        it('fails the evaluation, naming its observation type, where it is no { pending, value }', async () => {
+            registerLevel([4]);
+
+            await expect(isolated.query('@panel.level', { panel: document.createElement('div') }).evaluateAsync()).rejects.toThrow("The observation type 'level' answered the sample 4, which is no { pending, value }");
+        });
+
+        it('fails the evaluation where it is not pending and holds no value', async () => {
+            registerLevel([{ pending: false }]);
+
+            await expect(isolated.query('@panel.level', { panel: document.createElement('div') }).evaluateAsync()).rejects.toThrow('which is no { pending, value } with a value once it is not pending');
+        });
+    });
+
+    it('name a promise and an instance of a class that a member answers for a type that admits neither', () => {
+        class Reading {}
+
+        const constant = (name, implementation) => isolated.createModule(name, {
+            members: [{ name, function: name, kind: 'property', on: 'element', parameters: [], result: 'number', changes: 'constant', reads: 'fresh' }],
+        }, { [name]: implementation });
+
+        isolated.registerModule(constant('reading', () => new Reading()));
+        isolated.registerModule(constant('later', () => Promise.resolve(1)));
+
+        const panel = document.createElement('div');
+
+        expect(getError(() => isolated.query('@panel.reading', { panel }).evaluate()).message).toContain("The member 'reading' answered an instance of Reading, and it declares number");
+        expect(getError(() => isolated.query('@panel.later', { panel }).evaluate()).message).toContain("The member 'later' answered a promise, and it declares number");
+    });
+
     it('take the one parameter of an options input as the field of an object', () => {
         isolated.registerModule(isolated.createModule('zoom', {
             members: [{ name: 'zoom', function: 'zoom', kind: 'operation', on: 'element', input: 'options', parameters: [{ name: 'factor', kind: 'value', type: 'number', required: true, fixed: false, nulls: 'propagate' }], result: 'number', changes: 'constant', reads: 'fresh' }],

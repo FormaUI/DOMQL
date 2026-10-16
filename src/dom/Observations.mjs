@@ -452,7 +452,29 @@ export class Observations {
             throw DomqlError.evaluation(`The observation type '${type.name}' started an observation that offers ${type.contract === 'maintained' ? 'no stop or no sample' : 'no stop'}`, {});
         }
 
-        return observation;
+        if (type.contract !== 'maintained') {
+            return observation;
+        }
+
+        // A sample a member reads is checked where the observation answers it, so a broken one names its type rather than the member.
+        return { stop: () => observation.stop(), sample: () => Observations.#checkSample(type, observation.sample()) };
+    }
+
+    /** The sample a maintained observation answered: `{ pending, value }`, pending a Boolean, and a value beside it once it is no longer pending. */
+    static #checkSample(type, sample) {
+        if (sample !== null && typeof sample === 'object' && typeof sample.pending === 'boolean' && (sample.pending || 'value' in sample)) {
+            return sample;
+        }
+
+        let described;
+
+        try {
+            described = JSON.stringify(sample) ?? String(sample);
+        } catch {
+            described = String(sample);
+        }
+
+        throw DomqlError.evaluation(`The observation type '${type.name}' answered the sample ${described}, which is no { pending, value } with a value once it is not pending`, {});
     }
 
     #end(entry, session) {

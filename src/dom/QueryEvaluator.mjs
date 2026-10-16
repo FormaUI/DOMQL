@@ -1117,6 +1117,15 @@ export class QueryEvaluator {
             return `a list with a hole at index ${hole}`;
         }
 
+        // A promise and an instance of a class are named as they are, since what they would be written as says nothing of them.
+        if (typeof value?.then === 'function') {
+            return 'a promise';
+        }
+
+        if (value !== null && typeof value === 'object' && !Array.isArray(value) && !ObjectUtils.isPlainObject(value)) {
+            return `an instance of ${value.constructor?.name || 'a class'}`;
+        }
+
         try {
             return JSON.stringify(value) ?? String(value);
         } catch {
