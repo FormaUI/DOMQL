@@ -445,8 +445,7 @@ export class QueryEvaluator {
     }
 
     /**
-     * A conversion, with its function, the check of its result and the copy of the structure it answers found once. Its target is evaluated once; null answers null without converting, as a value already of the type answers itself,
-     * and a conversion that throws or answers a value not of its type fails the evaluation, never answering null instead.
+     * A conversion, with its target evaluated once. Null converts to null, and a value already of the type to itself, without a conversion; a conversion that rejects its value fails the evaluation.
      */
     #compileConversion(node) {
         const target = this.#getCompiledFunction(node.target);
@@ -457,9 +456,7 @@ export class QueryEvaluator {
         }
 
         const name = DomqlModule.conversionNameOf(declaration);
-        const convert = this.#moduleRegistry.getFunction(declaration);
-        const conforms = QueryEvaluator.#compileTypeCheck(type, this.#moduleRegistry);
-        const copyStructure = QueryEvaluator.#compileStructureCopy(type, this.#moduleRegistry);
+        const attempt = QueryEvaluator.#compileConversionAttempt(declaration, type, this.#moduleRegistry);
 
         return (evaluator, currentValue) => {
             const value = target(evaluator, currentValue);
@@ -468,23 +465,63 @@ export class QueryEvaluator {
                 return null;
             }
 
-            if (convert === undefined) {
-                evaluator.#fail(`The module '${evaluator.#moduleRegistry.getOwner(declaration)}' supplies no function for the conversion from ${name}`, evaluator.#pointerOf(node));
+            const outcome = attempt(evaluator, value, node);
+
+            if (!outcome.isAccepted) {
+                evaluator.#fail(`The conversion from ${name} rejected its value: ${outcome.reason}`, evaluator.#pointerOf(node));
             }
 
+            return outcome.value;
+        };
+    }
+
+    /**
+     * The conversion of a value that is not null: its converted value where it accepts the value, or the reason it rejected it with.
+     * A rejection is the signal `reject` throws for this attempt alone; any other exception, a reason that is no string, a rejection the conversion caught and answered past, and a value not of the type are faults, which fail the evaluation.
+     */
+    static #compileConversionAttempt(declaration, type, moduleRegistry) {
+        const name = DomqlModule.conversionNameOf(declaration);
+        const convert = moduleRegistry.getFunction(declaration);
+        const conforms = QueryEvaluator.#compileTypeCheck(type, moduleRegistry);
+        const copyStructure = QueryEvaluator.#compileStructureCopy(type, moduleRegistry);
+
+        return (evaluator, value, node) => {
+            if (convert === undefined) {
+                evaluator.#fail(`The module '${moduleRegistry.getOwner(declaration)}' supplies no function for the conversion from ${name}`, evaluator.#pointerOf(node));
+            }
+
+            const rejection = { isRejected: false, reason: null };
+            const reject = reason => {
+                rejection.isRejected = true;
+                rejection.reason = reason;
+
+                throw rejection;
+            };
             let converted;
 
             try {
-                converted = convert(value);
+                converted = convert(value, { reject });
             } catch (error) {
-                throw DomqlError.evaluation(`The conversion from ${name} failed: ${error?.message ?? String(error)}`, evaluator.#locate(evaluator.#pointerOf(node)), { cause: error });
+                if (error !== rejection) {
+                    throw DomqlError.evaluation(`The conversion from ${name} failed: ${error?.message ?? String(error)}`, evaluator.#locate(evaluator.#pointerOf(node)), { cause: error });
+                }
+
+                if (typeof rejection.reason !== 'string') {
+                    evaluator.#fail(`The conversion from ${name} rejected its value with a reason that is no string`, evaluator.#pointerOf(node));
+                }
+
+                return { isAccepted: false, reason: rejection.reason };
+            }
+
+            if (rejection.isRejected) {
+                evaluator.#fail(`The conversion from ${name} rejected its value and then answered one`, evaluator.#pointerOf(node));
             }
 
             if (!conforms(converted)) {
                 evaluator.#fail(`The conversion from ${name} answered ${QueryEvaluator.#describe(converted)}, and it converts to ${type}`, evaluator.#pointerOf(node));
             }
 
-            return copyStructure === null ? converted : copyStructure(converted);
+            return { isAccepted: true, value: copyStructure === null ? converted : copyStructure(converted) };
         };
     }
 

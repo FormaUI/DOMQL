@@ -1,6 +1,6 @@
 // How a TypeScript caller uses DOMQL, which the declarations must accept; the test compiles this file.
 import { domql, DomqlError } from '../../src/domql.js';
-import type { DomqlBehavior, DomqlChangeOperation, DomqlDefinition, DomqlDefinitionNode, DomqlEvaluateAsyncOptions, DomqlEventListener, DomqlLiveStateWatch, DomqlLiveStateWatchOptions, DomqlModule, DomqlModuleContents, DomqlModuleFunctions, DomqlOperationOptions, DomqlQuery, DomqlReadOnly, DomqlResolvedDefinition, DomqlResultArgs, DomqlSelectedView, DomqlSelection, DomqlWatch, DomqlWatchOptions } from '../../src/domql.js';
+import type { DomqlBehavior, DomqlChangeOperation, DomqlConversionContext, DomqlDefinition, DomqlDefinitionNode, DomqlEvaluateAsyncOptions, DomqlEventListener, DomqlLiveStateWatch, DomqlLiveStateWatchOptions, DomqlModule, DomqlModuleContents, DomqlModuleFunctions, DomqlOperationOptions, DomqlQuery, DomqlReadOnly, DomqlResolvedDefinition, DomqlResultArgs, DomqlSelectedView, DomqlSelection, DomqlWatch, DomqlWatchOptions } from '../../src/domql.js';
 
 const panel = document.createElement('div');
 const controller = new AbortController();
@@ -209,8 +209,8 @@ const contents: DomqlModuleContents = {
 };
 const functions: DomqlModuleFunctions = {
     readMetrics: (element: Element) => ({ childCount: element.children.length }),
-    // A conversion takes the value alone.
-    parseMetrics: (text: string) => ({ childCount: Number(text) }),
+    // A conversion takes the value and the context whose reject stops it.
+    parseMetrics: (text: string, { reject }: DomqlConversionContext) => (/^[0-9]+$/.test(text) ? { childCount: Number(text) } : reject(`${text} is no count`)),
 };
 const module: DomqlModule = domql.createModule('metrics', contents, functions);
 
@@ -224,6 +224,9 @@ domql.createModule('partial', { conversions: [{ from: 'string', function: 'parse
 
 // A conversion is a node of a definition, which names the type it converts to and what it converts.
 const converted: DomqlDefinitionNode = { kind: 'conversion', type: 'number', target: { kind: 'parameter', name: 'count' } };
+
+// A rejection never returns, so nothing follows it.
+const rejected: never = ({} as DomqlConversionContext).reject('no count');
 
 // @ts-expect-error A member is one of the kinds the language has.
 domql.createModule('bad', { members: [{ name: 'bad', function: 'bad', kind: 'method', on: 'element', result: 'number', changes: 'constant', reads: 'fresh' }] });

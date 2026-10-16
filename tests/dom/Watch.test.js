@@ -258,7 +258,7 @@ describe('Watch', () => {
             await change(panel, 'two');
 
             expect(watched.status).toBe('failed');
-            expect(failures.map(failure => failure.message)).toEqual([expect.stringContaining('The conversion from string to number failed: "two" is no number')]);
+            expect(failures.map(failure => failure.message)).toEqual([expect.stringContaining('The conversion from string to number rejected its value: "two" is no number')]);
 
             await change(panel, 3);
 

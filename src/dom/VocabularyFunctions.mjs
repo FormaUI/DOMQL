@@ -24,18 +24,18 @@ export class VocabularyFunctions {
      */
     static get functions() {
         return {
-            // A conversion takes the value alone, never null, and answers the converted value or throws where the value has none.
-            stringToNumber: text => {
+            // A conversion takes the value, never null, and `reject`, which stops it for a value that has no conversion; it answers the converted value.
+            stringToNumber: (text, { reject }) => {
                 const trimmed = text.replace(SURROUNDING_ASCII_WHITESPACE, '');
 
                 if (!VALID_FLOATING_POINT_NUMBER.test(trimmed)) {
-                    throw new Error(`${JSON.stringify(text)} is no number, which is written as HTML's valid floating-point number, as -12, 3.5, .5 or 1e3 are`);
+                    reject(`${JSON.stringify(text)} is no number, which is written as HTML's valid floating-point number, as -12, 3.5, .5 or 1e3 are`);
                 }
 
                 const number = Number(trimmed);
 
                 if (!Number.isFinite(number)) {
-                    throw new Error(`${JSON.stringify(text)} is too large a number to be finite`);
+                    reject(`${JSON.stringify(text)} is too large a number to be finite`);
                 }
 
                 return number;
@@ -43,9 +43,9 @@ export class VocabularyFunctions {
             // The shortest text that reads back as the same number, as ECMAScript writes it, and negative zero as "0".
             numberToString: number => String(number),
             booleanToString: value => String(value),
-            stringToBoolean: text => {
+            stringToBoolean: (text, { reject }) => {
                 if (text !== 'true' && text !== 'false') {
-                    throw new Error(`${JSON.stringify(text)} is no Boolean, which is written "true" or "false"`);
+                    reject(`${JSON.stringify(text)} is no Boolean, which is written "true" or "false"`);
                 }
 
                 return text === 'true';

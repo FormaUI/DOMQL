@@ -306,7 +306,7 @@ A conversion answers a value converted to another type of data: `value to "type"
 - **One declared conversion.** A value converts to another type only through the one conversion the vocabulary declares from its type to that type. Conversions never chain on their own: a Boolean converts to a string and a string to a number, and `@enabled to "number"` is still a validation error, whose message names the types a Boolean converts to. A query that means both conversions writes both.
 - **A value already of the type** answers itself, so `5 to "number"` is 5. This is the language's rule, and no conversion is declared from a type to itself.
 - **Null.** A conversion of null answers null without converting, and its type is the type it converts to, made nullable where its value can be null. A value of the type null, a null binding, converts to any type a conversion can name, however many conversions reach it, since nothing is converted; a value whose type is known is checked by that type without null, so `@panel.closest(".row") to "string"` is a validation error, as a conversion from an element is declared nowhere.
-- **What fails.** A value its conversion has no answer for, as `"12px" to "number"`, fails the evaluation with an evaluation error naming the conversion and where it stands, and so does a conversion that answers a value not of its type. A failure never answers null or a default: `?? 0` gives a missing attribute a value, and leaves a malformed one an error. A watch whose conversion fails is failed until its value converts again.
+- **What fails.** A value its conversion rejects, as `"12px" to "number"`, fails the evaluation with an evaluation error naming the conversion, the reason it gave and where it stands. A conversion that fails otherwise, by throwing or by answering a value not of its type, has a fault, which fails the evaluation too. A failure never answers null or a default: `?? 0` gives a missing attribute a value, and leaves a malformed one an error. A watch whose conversion fails is failed until its value converts again.
 - **Evaluation.** The value is evaluated once, and a conversion reads nothing but that value, so what a watch of a conversion depends on is what its value depends on.
 
 ### Locals
@@ -617,7 +617,7 @@ An operation performs a lookup, a calculation or a selection with the argument i
 
 ### Built-in conversions
 
-The built-in vocabulary declares four conversions, each refusing what it cannot convert as an evaluation error:
+The built-in vocabulary declares four conversions, each rejecting a value it cannot convert:
 
 | From | To | Converts |
 | --- | --- | --- |

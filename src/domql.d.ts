@@ -331,6 +331,15 @@ export interface DomqlConversionDeclaration {
     function: string;
 }
 
+/** What the function of a conversion is given beside the value it converts. */
+export interface DomqlConversionContext {
+    /**
+     * Rejects the value, which has no conversion, with a reason that is a diagnostic string. It throws a signal private to DOMQL and to this attempt at the conversion,
+     * so it never returns and the function stops where it calls it, unlike a promise's `reject`. Any other exception the function throws, and a value not of the type it converts to, is a fault.
+     */
+    reject(reason: string): never;
+}
+
 /** A parameter of a member. */
 export interface DomqlParameterDeclaration {
     name: string;
@@ -400,7 +409,7 @@ export interface DomqlModuleContents {
  * An action takes its receiver, its arguments, the environment and `{ signal }`, and returns its result or a promise of it.
  * A behavior takes its receiver, its arguments, the environment and `{ reportError }`, starts before it returns, and returns an object whose `update(receiver, args)` applies new arguments and whose `dispose` ends it.
  * An observation type takes the request, the function it calls when something may have changed and the environment, and returns an object whose `stop` ends the observation and, for a maintained one, whose `sample` returns its latest sample as `{ pending, value }`, pending until the first arrives.
- * A conversion takes the value alone, never null, reads nothing else, and returns the converted value, of the type it converts to, or throws where the value has none.
+ * A conversion takes the value, never null, and a `DomqlConversionContext`, reads nothing else, and returns the converted value, of the type it converts to, or calls `reject` where the value has none, for which `to` fails.
  */
 export type DomqlModuleFunctions = Record<string, (...args: any[]) => unknown>;
 

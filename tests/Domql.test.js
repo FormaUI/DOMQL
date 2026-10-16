@@ -2065,7 +2065,7 @@ describe('domql conversions', () => {
 
     const evaluate = (text, bindings = {}) => isolated.query(text, { panel, ...bindings }).evaluate();
 
-    /** A module of a structured type of its own, `celsius`, converted from a text such as "21C" or "21" and to one such as "21C"; a test can give the conversion from text what it answers instead. */
+    /** A module of a structured type of its own, `celsius`, converted from a text such as "21C" or "21", rejecting any other, and to one such as "21C"; a test can give the conversion from text what it does instead. */
     const registerTemperature = ({ answer = null } = {}) => {
         isolated.registerModule(isolated.createModule('temperature', {
             types: [{ name: 'celsius', fields: { degrees: 'number' } }],
@@ -2074,13 +2074,13 @@ describe('domql conversions', () => {
                 { from: 'celsius', to: 'string', function: 'write' },
             ],
         }, {
-            parse: text => {
+            parse: (text, { reject }) => {
                 if (answer !== null) {
-                    return answer(text);
+                    return answer(text, reject);
                 }
 
                 if (!/^-?[0-9]+C?$/.test(text)) {
-                    throw new Error(`${JSON.stringify(text)} is no temperature`);
+                    reject(`${JSON.stringify(text)} is no temperature`);
                 }
 
                 return { degrees: Number(text.replace('C', '')), unit: 'C' };
@@ -2124,7 +2124,7 @@ describe('domql conversions', () => {
             const error = getError(() => evaluate('@text to "number"', { text }));
 
             expect(error.kind).toBe('evaluation');
-            expect(error.message).toContain(`The conversion from string to number failed: ${JSON.stringify(text)} is no number`);
+            expect(error.message).toContain(`The conversion from string to number rejected its value: ${JSON.stringify(text)} is no number`);
         });
 
         it('refuses a number too large to be finite', () => {
@@ -2241,6 +2241,7 @@ describe('domql conversions', () => {
         });
     });
 
+
     describe('a conversion a module declares', () => {
         it('converts to and from a structured type of its own, its result taken by the type\'s declared fields', () => {
             registerTemperature();
@@ -2258,14 +2259,25 @@ describe('domql conversions', () => {
             expect(evaluate('5 to "string" to "celsius"')).toEqual({ degrees: 5 });
         });
 
-        it('fails with an evaluation error where it throws, with what it threw as the cause', () => {
+        it('fails with an evaluation error where it rejects its value, giving the reason', () => {
             registerTemperature();
 
             const error = getError(() => evaluate('"warm" to "celsius"'));
 
             expect(error.kind).toBe('evaluation');
-            expect(error.message).toContain('The conversion from string to celsius failed: "warm" is no temperature');
-            expect(error.cause.message).toBe('"warm" is no temperature');
+            expect(error.message).toContain('The conversion from string to celsius rejected its value: "warm" is no temperature');
+        });
+
+        it('fails with an evaluation error where it throws, a fault, with what it threw as the cause', () => {
+            const fault = new Error('the table of units is missing');
+
+            registerTemperature({ answer: () => { throw fault; } });
+
+            const error = getError(() => evaluate('"21C" to "celsius"'));
+
+            expect(error.kind).toBe('evaluation');
+            expect(error.message).toContain('The conversion from string to celsius failed: the table of units is missing');
+            expect(error.cause).toBe(fault);
         });
 
         it.each([
