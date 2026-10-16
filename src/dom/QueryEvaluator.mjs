@@ -436,6 +436,7 @@ export class QueryEvaluator {
                 };
             }
             case 'conversion':
+            case 'convertibility':
                 return this.#compileConversion(node);
             case 'object':
                 return this.#compileObject(node);
@@ -445,14 +446,25 @@ export class QueryEvaluator {
     }
 
     /**
-     * A conversion, with its target evaluated once. Null converts to null, and a value already of the type to itself, without a conversion; a conversion that rejects its value fails the evaluation.
+     * A conversion, or a convertibility, which carries the same conversion out and answers whether the conversion accepted its value, with its target evaluated once.
+     * Null converts to null, and a value already of the type to itself, without a conversion; a conversion that rejects its value fails a conversion's evaluation and makes a convertibility false.
      */
     #compileConversion(node) {
         const target = this.#getCompiledFunction(node.target);
         const { declaration, type } = this.#resolvedDefinition.resolutionOf(node);
+        const isTest = node.kind === 'convertibility';
 
-        if (declaration === null) {
+        if (declaration === null && !isTest) {
             return target;
+        }
+
+        // The value is evaluated for what it depends on, and converts whatever it is.
+        if (declaration === null) {
+            return (evaluator, currentValue) => {
+                target(evaluator, currentValue);
+
+                return true;
+            };
         }
 
         const name = DomqlModule.conversionNameOf(declaration);
@@ -462,10 +474,14 @@ export class QueryEvaluator {
             const value = target(evaluator, currentValue);
 
             if (value === null) {
-                return null;
+                return isTest ? true : null;
             }
 
             const outcome = attempt(evaluator, value, node);
+
+            if (isTest) {
+                return outcome.isAccepted;
+            }
 
             if (!outcome.isAccepted) {
                 evaluator.#fail(`The conversion from ${name} rejected its value: ${outcome.reason}`, evaluator.#pointerOf(node));
@@ -476,8 +492,8 @@ export class QueryEvaluator {
     }
 
     /**
-     * The conversion of a value that is not null: its converted value where it accepts the value, or the reason it rejected it with.
-     * A rejection is the signal `reject` throws for this attempt alone; any other exception, a reason that is no string, a rejection the conversion caught and answered past, and a value not of the type are faults, which fail the evaluation.
+     * The conversion of a value that is not null, as both forms carry it out: its converted value where it accepts the value, or the reason it rejected it with.
+     * A rejection is the signal `reject` throws for this attempt alone; any other exception, a reason that is no string, a rejection the conversion caught and answered past, and a value not of the type are faults, which fail the evaluation whichever form asked.
      */
     static #compileConversionAttempt(declaration, type, moduleRegistry) {
         const name = DomqlModule.conversionNameOf(declaration);

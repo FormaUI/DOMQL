@@ -12,7 +12,7 @@ DOMQL is a FormaUI product, developed alongside [Forma](https://github.com/Forma
 
 - Shape DOM and browser state into immutable snapshots.
 - Filter and summarize collections; handle missing values and choose results with conditionals.
-- Convert values explicitly, such as attribute text to numbers, with errors for text that does not convert.
+- Convert values explicitly, such as attribute text to numbers, with errors for text that does not convert, or test first whether it converts.
 - Reuse queries with new bindings, or create them from JSON definitions.
 - Validate query structure, names and types before evaluation.
 - Evaluate once, wait for browser observations, or watch for changed results.
@@ -539,6 +539,17 @@ domql.query(
 ```
 
 `to` converts what comes before it, here the attribute. An item without the attribute gives null, which `?? 0` counts as zero. Text that is no number, such as `"5 new"`, fails the evaluation with an error rather than becoming null or zero.
+
+To handle text that does not convert yourself, test it first with `is convertible to`, which answers whether the conversion accepts the value:
+
+```text
+@panel {
+    let count: self attributeOf "data-count",
+    value: if count is convertible to "number" then count to "number" ?? 0 else 0
+}
+```
+
+A missing attribute gives null, so `?? 0` supplies zero; malformed text makes the test false, so the `else` branch supplies zero; and valid text converts to its number. Testing and then converting carries the conversion out twice.
 
 The built-in conversions are from a string to a number or a Boolean, and from a number or a Boolean to a string. A string converts to a number when it is written as HTML writes a number, such as `"-12"`, `" 3.5 "` or `"1e3"`, and to a Boolean when it is exactly `"true"` or `"false"`. A value already of the type converts to itself.
 

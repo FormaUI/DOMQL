@@ -266,6 +266,22 @@ describe('Watch', () => {
             expect(snapshots).toEqual([1, 2, 3]);
         });
 
+        it('lets a convertibility choose a fallback for malformed text without failing, and the converted value once the text converts', async () => {
+            const watched = watch('@panel { let n: self attributeOf "data-n", value: if n is convertible to "number" then n to "number" ?? 0 else 0 }', { panel });
+
+            await settle();
+            await change(panel, 'two');
+
+            expect(watched.status).toBe('ready');
+
+            panel.removeAttribute('data-n');
+            await settle();
+            await change(panel, 3);
+
+            expect(snapshots).toEqual([{ value: 1 }, { value: 0 }, { value: 3 }]);
+            expect(failures).toEqual([]);
+        });
+
         it('lets ?? say what a missing value means, which it follows as the value comes and goes', async () => {
             watch('@panel attributeOf "data-n" to "number" ?? 0', { panel });
             await settle();

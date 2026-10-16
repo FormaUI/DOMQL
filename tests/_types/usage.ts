@@ -224,6 +224,7 @@ domql.createModule('partial', { conversions: [{ from: 'string', function: 'parse
 
 // A conversion is a node of a definition, which names the type it converts to and what it converts.
 const converted: DomqlDefinitionNode = { kind: 'conversion', type: 'number', target: { kind: 'parameter', name: 'count' } };
+const convertibility: DomqlDefinitionNode = { kind: 'convertibility', type: 'number', target: { kind: 'parameter', name: 'count' } };
 
 // A rejection never returns, so nothing follows it.
 const rejected: never = ({} as DomqlConversionContext).reject('no count');

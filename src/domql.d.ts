@@ -176,6 +176,7 @@ export type DomqlDefinitionNode =
     | { readonly kind: 'not'; readonly operand: DomqlDefinitionNode }
     | { readonly kind: 'cast'; readonly type: string; readonly target: DomqlDefinitionNode }
     | { readonly kind: 'conversion'; readonly type: string; readonly target: DomqlDefinitionNode }
+    | { readonly kind: 'convertibility'; readonly type: string; readonly target: DomqlDefinitionNode }
     | { readonly kind: 'equality'; readonly left: DomqlDefinitionNode; readonly right: DomqlDefinitionNode }
     | { readonly kind: 'conditional'; readonly condition: DomqlDefinitionNode; readonly consequent: DomqlDefinitionNode; readonly alternative: DomqlDefinitionNode }
     | { readonly kind: 'and' | 'or'; readonly operands: readonly DomqlDefinitionNode[] };
@@ -409,7 +410,7 @@ export interface DomqlModuleContents {
  * An action takes its receiver, its arguments, the environment and `{ signal }`, and returns its result or a promise of it.
  * A behavior takes its receiver, its arguments, the environment and `{ reportError }`, starts before it returns, and returns an object whose `update(receiver, args)` applies new arguments and whose `dispose` ends it.
  * An observation type takes the request, the function it calls when something may have changed and the environment, and returns an object whose `stop` ends the observation and, for a maintained one, whose `sample` returns its latest sample as `{ pending, value }`, pending until the first arrives.
- * A conversion takes the value, never null, and a `DomqlConversionContext`, reads nothing else, and returns the converted value, of the type it converts to, or calls `reject` where the value has none, for which `to` fails.
+ * A conversion takes the value, never null, and a `DomqlConversionContext`, reads nothing else, and returns the converted value, of the type it converts to, or calls `reject` where the value has none; `to` fails for a rejected value, and `is convertible to` answers false.
  */
 export type DomqlModuleFunctions = Record<string, (...args: any[]) => unknown>;
 

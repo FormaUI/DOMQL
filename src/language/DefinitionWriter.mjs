@@ -3,7 +3,7 @@
  */
 
 /** How tightly each kind of expression binds, the loosest lowest: one written where a tighter one stands is parenthesized. An optional chain is an infix call's receiver as it is, and is grouped where a chain continues from it, since its short-circuit ends where it does. */
-const PRECEDENCE = { conditional: 0, coalescing: 1, or: 2, and: 3, not: 4, equality: 5, conversion: 6, infixCall: 7, cast: 8, optionalChain: 9 };
+const PRECEDENCE = { conditional: 0, coalescing: 1, or: 2, and: 3, not: 4, equality: 5, convertibility: 5, conversion: 6, infixCall: 7, cast: 8, optionalChain: 9 };
 
 /** How tightly a chain binds that no infix call ends and no optional chain holds: a member access, a call, an object expression, `self`, a local, a literal or a parameter. */
 const CHAIN_PRECEDENCE = 10;
@@ -61,14 +61,20 @@ export class DefinitionWriter {
             }
             case 'equality':
                 return DefinitionWriter.#equality(node, 'is', level);
+            case 'convertibility':
+                return DefinitionWriter.#convertibility(node, 'is', level);
             case 'conditional':
                 return DefinitionWriter.#conditional(node, level);
             case 'coalescing':
                 // A coalescing operator associates to the right, so a fallback that is one is written as it is.
                 return `${DefinitionWriter.#within(node.value, PRECEDENCE.conversion, level)} ?? ${node.fallback.kind === 'coalescing' ? DefinitionWriter.#write(node.fallback, level) : DefinitionWriter.#within(node.fallback, PRECEDENCE.conversion, level)}`;
             case 'not':
-                // The negation of an equality is written as `is not`, which is its canonical text.
-                return node.operand.kind === 'equality' ? DefinitionWriter.#equality(node.operand, 'is not', level) : `not ${DefinitionWriter.#within(node.operand, PRECEDENCE.not, level)}`;
+                // The negation of an equality or a convertibility is written as `is not`, which is its canonical text.
+                if (node.operand.kind === 'equality') {
+                    return DefinitionWriter.#equality(node.operand, 'is not', level);
+                }
+
+                return node.operand.kind === 'convertibility' ? DefinitionWriter.#convertibility(node.operand, 'is not', level) : `not ${DefinitionWriter.#within(node.operand, PRECEDENCE.not, level)}`;
             case 'cast':
                 return `${DefinitionWriter.#within(node.target, PRECEDENCE.optionalChain, level)} as ${DefinitionWriter.#literal(node.type)}`;
             case 'conversion':
@@ -116,9 +122,30 @@ export class DefinitionWriter {
         return `{\n${entries.map(entry => `${indentation}${entry}`).join(',\n')}\n${INDENTATION.repeat(level)}}`;
     }
 
-    /** An equality, or its negation, as its operator writes it: two equality operands, each grouped where it binds more loosely than a conversion. */
+    /**
+     * An equality, or its negation, as its operator writes it: two equality operands, each grouped where it binds more loosely than a conversion,
+     * and a right operand that converts a local named `convertible` grouped too, since `is convertible to` reads a convertibility.
+     */
     static #equality(node, operator, level) {
-        return `${DefinitionWriter.#within(node.left, PRECEDENCE.conversion, level)} ${operator} ${DefinitionWriter.#within(node.right, PRECEDENCE.conversion, level)}`;
+        const right = DefinitionWriter.#within(node.right, PRECEDENCE.conversion, level);
+
+        return `${DefinitionWriter.#within(node.left, PRECEDENCE.conversion, level)} ${operator} ${DefinitionWriter.#convertsConvertible(node.right) ? `(${right})` : right}`;
+    }
+
+    /** Whether the node is a conversion whose value, through the conversions it converts, is a local named `convertible`. */
+    static #convertsConvertible(node) {
+        let current = node;
+
+        while (current.kind === 'conversion') {
+            current = current.target;
+        }
+
+        return current !== node && current.kind === 'local' && current.name === 'convertible';
+    }
+
+    /** A convertibility, or its negation, as its operator writes it: an equality operand, grouped where it binds more loosely than a conversion, `convertible to` and the quoted type. */
+    static #convertibility(node, operator, level) {
+        return `${DefinitionWriter.#within(node.target, PRECEDENCE.conversion, level)} ${operator} convertible to ${DefinitionWriter.#literal(node.type)}`;
     }
 
     /** A conditional's clauses: a conditional nested in its alternative is written as an `elseif`, and one in its condition or consequent in parentheses; laid out on lines, one with an `elseif` has a line for each clause. */

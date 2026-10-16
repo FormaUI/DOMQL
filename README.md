@@ -14,7 +14,7 @@ DOMQL is a FormaUI product, developed alongside [Forma](https://github.com/Forma
 - **Work with collections.** Project items, filter them, count them and calculate summaries.
 - **Keep results current.** Watch for changes and receive immutable snapshots or an object updated in place.
 - **Handle missing values.** Use optional access, fallbacks and conditionals directly in your query.
-- **Convert values explicitly.** Read attribute text as a number or a Boolean with `to`; text that does not convert is an error, never a silent default.
+- **Convert values explicitly.** Read attribute text as a number or a Boolean with `to`, or test whether it converts with `is convertible to`; text that does not convert is an error, never a silent default.
 - **Reuse queries.** Evaluate again, bind different targets, or store and exchange definitions as JSON.
 - **Catch invalid requests early.** DOMQL checks bindings, member names, arguments and types before evaluation.
 - **Read events as data.** Subscribe to an event source and choose the fields each event delivers.

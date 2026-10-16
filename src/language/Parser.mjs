@@ -125,7 +125,8 @@ export class Parser {
 
     /**
      * Reads an equality: an equality operand, `is` or `is not`, and the equality operand it compares with, `is not` recorded as the negation of `is`; an equality operand alone where no `is` follows it, or the coalescing operator that takes it where `??` follows it.
-     * An equality does not chain, and stands beside a coalescing operator only where a group holds one of them.
+     * `convertible to` after `is` or `is not` reads a convertibility in its place, which a quoted type ends, so a local named `convertible` that is converted is grouped where it is compared.
+     * An equality and a convertibility do not chain, and stand beside a coalescing operator only where a group holds one of them.
      */
     #parseEquality() {
         const start = this.#token.start;
@@ -151,10 +152,13 @@ export class Parser {
         }
 
         const rightStart = this.#token.start;
+        const isConvertibility = this.#token.type === 'name' && this.#token.value === 'convertible' && this.#tokens[this.#index + 1].type === 'name' && this.#tokens[this.#index + 1].value === 'to';
 
-        this.#refuseOperandStart(rightStart);
+        if (!isConvertibility) {
+            this.#refuseOperandStart(rightStart);
+        }
 
-        const right = this.#parseEqualityOperand();
+        const comparison = isConvertibility ? this.#parseConvertibility(left, start) : this.#recordSpan({ kind: 'equality', left, right: this.#parseEqualityOperand() }, start);
 
         if (this.#token.type === '??') {
             throw DomqlError.syntax("'??' and 'is' stand apart, one of them grouped: write '(… is …) ?? …' or '… is (… ?? …)'", this.#text, this.#token.start);
@@ -164,9 +168,26 @@ export class Parser {
             throw DomqlError.syntax("An equality compares two values and does not chain: write '(… is …) is …' to compare its result", this.#text, this.#token.start);
         }
 
-        const equality = this.#recordSpan({ kind: 'equality', left, right }, start);
+        return isNegated ? this.#recordSpan({ kind: 'not', operand: comparison }, start) : comparison;
+    }
 
-        return isNegated ? this.#recordSpan({ kind: 'not', operand: equality }, start) : equality;
+    /** Reads a convertibility after its `is`: `convertible to` and the quoted name of the type it tests the value against, which follows `to` after a space or a comment, as a conversion's does. */
+    #parseConvertibility(target, start) {
+        this.#index += 2;
+
+        const token = this.#token;
+
+        if (token.type !== 'literal' || typeof token.value !== 'string') {
+            throw this.#unexpected('the quoted name of the type it tests the value against, as in is convertible to "number"');
+        }
+
+        if (!token.spaced) {
+            throw DomqlError.syntax("The type a convertibility tests follows 'to' after a space or a comment", this.#text, token.start);
+        }
+
+        this.#advance();
+
+        return this.#recordSpan({ kind: 'convertibility', type: token.value, target }, start);
     }
 
     /** Refuses what an equality operand cannot start with: `is`, which compares the value written before it, and a conditional, which is grouped where it is an operand. */

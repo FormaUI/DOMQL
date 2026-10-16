@@ -129,6 +129,15 @@ describe('DefinitionWriter', () => {
         '@range.to() to "string"',
         '@sentinel intersects to "string"',
         '@panel attributeOf to to "number"',
+        '@a is convertible to "number"',
+        '@a is not convertible to "number"',
+        '@panel attributeOf "data-n" is convertible to "number" and @b',
+        '@a to "string" is convertible to "number"',
+        '(@a is convertible to "number") is true',
+        '@a is convertible',
+        '@a is (convertible to "number")',
+        '@a is not (convertible to "string" to "number")',
+        '{ convertible: @a is convertible to "number" }',
     ])('writes text that parses back to the same definition: %s', text => {
         const { definition } = domql.query(text, { panel });
 
@@ -152,6 +161,9 @@ describe('DefinitionWriter', () => {
         expect(write('(@a to "number") is 5')).toBe('@a to "number" is 5');
         expect(write('(@a is @b) to "string"')).toBe('(@a is @b) to "string"');
         expect(write('(@a ?? @b) to "number"')).toBe('(@a ?? @b) to "number"');
+        expect(write('not (@a is convertible to "number")')).toBe('@a is not convertible to "number"');
+        expect(write('(@a is convertible to "number") and @b')).toBe('@a is convertible to "number" and @b');
+        expect(write('(@a is convertible to "number") ?? false')).toBe('(@a is convertible to "number") ?? false');
     });
 
     it('writes the argument of an infix call as an input, grouping any other', () => {
@@ -240,7 +252,7 @@ describe('DefinitionWriter', () => {
             const { domql: other } = await import('#domql/domql.js');
 
             expect(() => format('@panel {')).toThrow(expect.objectContaining({ kind: 'syntax' }));
-            expect(() => domql.format({ version: 12, query: { kind: 'nonsense' } })).toThrow(expect.objectContaining({ kind: 'structure' }));
+            expect(() => domql.format({ version: 13, query: { kind: 'nonsense' } })).toThrow(expect.objectContaining({ kind: 'structure' }));
             expect(() => domql.format(other.query('@panel'))).toThrow(expect.objectContaining({ kind: 'structure', message: expect.stringContaining('query.definition') }));
         });
 

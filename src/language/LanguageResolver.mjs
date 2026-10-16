@@ -89,6 +89,10 @@ export class LanguageResolver {
                 return this.#resolveCast(node, pointer, scope);
             case 'conversion':
                 return this.#resolveConversion(node, pointer, scope);
+            case 'convertibility':
+                this.#resolveConversion(node, pointer, scope);
+
+                return { type: Type.createNamedType('boolean'), kind: 'query', isFixed: false };
             case 'and':
             case 'or':
                 return this.#resolveLogical(node, pointer, scope);
@@ -251,7 +255,7 @@ export class LanguageResolver {
     }
 
     /**
-     * Resolves a conversion: its target, a value, and the type of data it converts to, its result of that type, nullable where the target is.
+     * Resolves a conversion, or the conversion a convertibility tests: its target, a value, and the type of data it converts to, its result of that type, nullable where the target is.
      * A value already of the type answers itself, which no declaration overrides; any other takes the one conversion declared from its type to that one, never a chain of them.
      * A target of unknown type chooses none: null answers null, and a never is never evaluated.
      */
@@ -259,7 +263,7 @@ export class LanguageResolver {
         const target = this.#resolveNode(node.target, `${pointer}/target`, scope);
 
         if (target.kind !== 'query') {
-            this.#fail(`What 'to' converts is a value, and this one is ${LanguageResolver.#descriptionOf(target.kind)}`, `${pointer}/target`);
+            this.#fail(`${node.kind === 'conversion' ? "What 'to' converts" : "What 'is convertible to' tests"} is a value, and this one is ${LanguageResolver.#descriptionOf(target.kind)}`, `${pointer}/target`);
         }
 
         const to = Type.parse(node.type);

@@ -26,6 +26,7 @@ const NODE_PROPERTIES = {
     not: { properties: ['kind', 'operand'], required: ['operand'] },
     cast: { properties: ['kind', 'type', 'target'], required: ['type', 'target'] },
     conversion: { properties: ['kind', 'type', 'target'], required: ['type', 'target'] },
+    convertibility: { properties: ['kind', 'type', 'target'], required: ['type', 'target'] },
     and: { properties: ['kind', 'operands'], required: ['operands'] },
     or: { properties: ['kind', 'operands'], required: ['operands'] },
 };
@@ -69,7 +70,7 @@ export class DefinitionValidator {
 
     #validateNode(node, pointer, currentValueAvailability) {
         if (!ObjectUtils.isNonArrayObject(node) || !Object.hasOwn(NODE_PROPERTIES, node.kind)) {
-            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, infixCall, object, optionalChain, equality, conditional, coalescing, not, cast, conversion, and or or');
+            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, infixCall, object, optionalChain, equality, conditional, coalescing, not, cast, conversion, convertibility, and or or');
         }
 
         this.#requireProperties(node, pointer, NODE_PROPERTIES[node.kind]);
@@ -133,11 +134,12 @@ export class DefinitionValidator {
             case 'cast':
                 return this.#validateCast(node, pointer, currentValueAvailability);
             case 'conversion':
+            case 'convertibility':
                 if (typeof node.type !== 'string') {
-                    this.#fail(`${pointer}/type`, 'A conversion names the type it converts to by a string');
+                    this.#fail(`${pointer}/type`, `A ${node.kind} names the type it ${node.kind === 'conversion' ? 'converts to' : 'tests its value against'} by a string`);
                 }
 
-                return Object.freeze({ kind: 'conversion', type: node.type, target: this.#validateNode(node.target, `${pointer}/target`, currentValueAvailability) });
+                return Object.freeze({ kind: node.kind, type: node.type, target: this.#validateNode(node.target, `${pointer}/target`, currentValueAvailability) });
             case 'coalescing':
                 return Object.freeze({
                     kind: 'coalescing',
