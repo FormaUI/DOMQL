@@ -611,39 +611,44 @@ export class Parser {
     }
 
     /**
-     * Reads a named indexer after its receiver: `:`, or `?:` where it is optional, the indexer's name, and its one key in brackets, an expression.
-     * The parser knows no indexer: the vocabulary says which a name is, and a bracket after the indexer's own is an access by name of what it answers.
+     * Reads an indexer after its receiver: `:`, or `?:` where it is optional, the indexer's name, or none for the receiver's default indexer, and its one key in brackets, an expression.
+     * The parser knows no indexer: the vocabulary says which a name is and which is a receiver's default, and a bracket after the indexer's own is an access by name of what it answers.
      */
     #parseIndexer(target, start, optional) {
         this.#advance();
 
-        if (this.#token.type !== 'name') {
-            throw this.#unexpected('the name of an indexer, as in :attribute["id"]');
+        if (this.#token.type !== 'name' && this.#token.type !== '[') {
+            throw this.#unexpected('the name of an indexer, or its key in brackets for the default one, as in :attribute["id"] or :["id"]');
         }
 
-        const name = this.#token.value;
+        const name = this.#token.type === 'name' ? this.#token.value : null;
+        const written = name === null ? 'The default indexer' : `The indexer '${name}'`;
 
-        this.#advance();
+        if (name !== null) {
+            this.#advance();
+        }
 
         if (this.#token.type !== '[') {
-            throw DomqlError.syntax(`The indexer '${name}' takes its key in brackets, as in :${name}[…]`, this.#text, this.#token.start);
+            throw DomqlError.syntax(`${written} takes its key in brackets, as in :${name}[…]`, this.#text, this.#token.start);
         }
 
         this.#advance();
 
         if (this.#token.type === ']') {
-            throw DomqlError.syntax(`The indexer '${name}' takes one key in its brackets`, this.#text, this.#token.start);
+            throw DomqlError.syntax(`${written} takes one key in its brackets`, this.#text, this.#token.start);
         }
 
         const argument = this.#parseExpression();
 
         if (this.#token.type === ',') {
-            throw DomqlError.syntax(`The indexer '${name}' takes one key`, this.#text, this.#token.start);
+            throw DomqlError.syntax(`${written} takes one key`, this.#text, this.#token.start);
         }
 
         this.#expect(']');
 
-        return this.#recordSpan(optional ? { kind: 'indexer', target, name, argument, optional } : { kind: 'indexer', target, name, argument }, start);
+        const node = name === null ? { kind: 'indexer', target, argument } : { kind: 'indexer', target, name, argument };
+
+        return this.#recordSpan(optional ? { ...node, optional } : node, start);
     }
 
     /** Refuses brackets after the dot just read: an access by name follows its receiver with no dot, as `[…]`, or `?[…]` where it is optional. */

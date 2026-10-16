@@ -93,6 +93,17 @@ export class ModuleRegistry {
         module.members.forEach((declaration, index) => {
             this.#checkNamespace(module, declaration, ownTypes, fail);
             this.#checkCollision(declaration, [...this.getMembers(declaration.name), ...module.members.slice(0, index).filter(other => other.name === declaration.name)], fail);
+
+            // A receiver has one default indexer at most, so `:[…]` names one indexer for it.
+            if (declaration.default === true) {
+                for (const other of [...this.getDefaultIndexers(), ...module.members.slice(0, index).filter(earlier => earlier.default === true)]) {
+                    const overlapping = [declaration.on].flat().find(mine => [other.on].flat().some(theirs => ModuleRegistry.#overlap(mine, theirs)));
+
+                    if (overlapping !== undefined) {
+                        fail(`'${other.name}' is the default indexer of ${overlapping} already`, declaration.name);
+                    }
+                }
+            }
         });
 
         module.conversions.forEach((conversion, index) => {
@@ -152,6 +163,11 @@ export class ModuleRegistry {
     /** The declarations named so, across every module. */
     getMembers(name) {
         return this.#members.get(name) ?? [];
+    }
+
+    /** The indexers declared the default of their receivers, across every module. */
+    getDefaultIndexers() {
+        return [...this.#members.values()].flat().filter(declaration => declaration.default === true);
     }
 
     /** The structured type declared so, or undefined. */

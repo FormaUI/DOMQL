@@ -46,7 +46,7 @@ const DATA_TYPE_NAMES = ['number', 'string', 'boolean'];
 const CONTENTS = ['members', 'types', 'eventTypes', 'features', 'observationTypes', 'conversions'];
 
 /** The keys each kind of declaration takes, so one misspelled is refused rather than ignored. */
-const MEMBER_KEYS = ['name', 'function', 'kind', 'form', 'input', 'on', 'parameters', 'result', 'changes', 'reads', 'misses', 'tolerance', 'observations'];
+const MEMBER_KEYS = ['name', 'function', 'kind', 'form', 'input', 'default', 'on', 'parameters', 'result', 'changes', 'reads', 'misses', 'tolerance', 'observations'];
 const PARAMETER_KEYS = ['name', 'kind', 'type', 'required', 'default', 'fixed', 'selects', 'nulls', 'context', 'omitted'];
 const TYPE_KEYS = ['name', 'fields'];
 const EVENT_TYPE_KEYS = ['name', 'payload'];
@@ -446,6 +446,10 @@ export class DomqlModule {
      * or an indexer, an operation whose one key is its one parameter, a required value parameter, so its input is direct.
      */
     static #validateForm(member, parameters, name, fail) {
+        if (member.default !== undefined && member.form !== 'indexer') {
+            fail('Only an indexer is the default of its receivers, which `:[…]` invokes', name);
+        }
+
         if (member.kind === 'property') {
             if (member.form !== undefined || member.input !== undefined || parameters.length > 0) {
                 fail('A property is accessed, and declares no form, no input and no parameters', name);
@@ -472,6 +476,10 @@ export class DomqlModule {
 
             if (member.input !== undefined && member.input !== 'direct') {
                 fail("An indexer's key supplies its one parameter, so its input is direct", name);
+            }
+
+            if (member.default !== undefined && typeof member.default !== 'boolean') {
+                fail('It declares whether it is the default indexer of its receivers as a Boolean', name);
             }
 
             return;

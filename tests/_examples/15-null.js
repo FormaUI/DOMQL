@@ -1,5 +1,5 @@
 domql.query(
-    '@panel.first(".missing")?:attribute["data-key"]',
+    '@panel.first(".missing")?:["data-key"]',
     { panel }
 ).evaluate();
 // null

@@ -18,7 +18,7 @@ const NODE_PROPERTIES = {
     member: { properties: ['kind', 'target', 'name', 'optional'], required: ['target', 'name'] },
     call: { properties: ['kind', 'target', 'name', 'optional', 'argument'], required: ['target', 'name'] },
     infixCall: { properties: ['kind', 'target', 'name', 'argument'], required: ['target', 'name'] },
-    indexer: { properties: ['kind', 'target', 'name', 'optional', 'argument'], required: ['target', 'name', 'argument'] },
+    indexer: { properties: ['kind', 'target', 'name', 'optional', 'argument'], required: ['target', 'argument'] },
     object: { properties: ['kind', 'target', 'locals', 'fields'], required: ['fields'] },
     optionalChain: { properties: ['kind', 'target'], required: ['target'] },
     equality: { properties: ['kind', 'left', 'right'], required: ['left', 'right'] },
@@ -208,8 +208,8 @@ export class DefinitionValidator {
     #validateMember(node, pointer, currentValueAvailability) {
         const name = node.kind === 'member' && ObjectUtils.isNonArrayObject(node.name) ? this.#validateNameExpression(node.name, `${pointer}/name`, currentValueAvailability) : node.name;
 
-        // A name an access by name's expression gave is checked as that expression; any other is a name, a call's and an infix call's always.
-        if (name === node.name) {
+        // A name an access by name's expression gave is checked as that expression, and a default indexer has none; any other is a name, a call's and an infix call's always.
+        if (name === node.name && !(node.kind === 'indexer' && name === undefined)) {
             this.#requireName(name, `${pointer}/name`);
         }
 
@@ -231,7 +231,7 @@ export class DefinitionValidator {
         }
 
         const target = this.#validateNode(node.target, `${pointer}/target`, currentValueAvailability);
-        const access = Object.freeze({ kind: node.kind, target, name, ...(node.optional === true ? { optional: true } : {}) });
+        const access = Object.freeze({ kind: node.kind, target, ...(name === undefined ? {} : { name }), ...(node.optional === true ? { optional: true } : {}) });
 
         if (node.kind === 'member' || node.argument === undefined) {
             return access;

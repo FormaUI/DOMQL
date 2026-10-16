@@ -1,7 +1,7 @@
 const selection = domql.query(`
     @panel.children
-        .where(self:attribute["aria-selected"] is "true") {
-            key: self:attribute["data-key"]
+        .where(self:["aria-selected"] is "true") {
+            key: self:["data-key"]
         }
 `, { panel }).watch();
 

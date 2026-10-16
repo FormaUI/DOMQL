@@ -386,7 +386,8 @@ export class LanguageResolver {
 
     #resolveMember(node, pointer, scope) {
         const receiver = this.#resolveNode(node.target, `${pointer}/target`, scope);
-        const written = typeof node.name === 'string' ? node.name : `[${DefinitionWriter.write(node.name)}]`;
+        const isDefaultIndexer = node.kind === 'indexer' && node.name === undefined;
+        const written = isDefaultIndexer ? ':[…]' : typeof node.name === 'string' ? node.name : `[${DefinitionWriter.write(node.name)}]`;
 
         if (receiver.kind !== 'query') {
             this.#fail(`'${written}' follows ${LanguageResolver.#descriptionOf(receiver.kind)}, which takes no members`, pointer);
@@ -405,11 +406,40 @@ export class LanguageResolver {
 
         const receiverType = node.optional === true ? receiver.type.toNonNullable() : receiver.type;
 
+        if (isDefaultIndexer) {
+            return this.#resolveDefaultIndexer(node, pointer, scope, receiverType);
+        }
+
         if (typeof node.name !== 'string') {
             return this.#resolveByName(node, pointer, scope, receiverType);
         }
 
         return this.#resolveMemberOf(node, pointer, scope, receiverType);
+    }
+
+    /**
+     * Resolves a default indexer: the one indexer the vocabulary declares the default for the receiver's type, resolved as the indexer it names would be.
+     * A receiver of unknown type chooses none, and takes the key every default indexer could; a receiver whose type has none is refused.
+     */
+    #resolveDefaultIndexer(node, pointer, scope, receiverType) {
+        const defaults = this.#moduleRegistry.getDefaultIndexers();
+
+        if (LanguageResolver.#isOfUnknownType(receiverType)) {
+            return this.#resolveOnUnknownType(node, pointer, scope, receiverType, defaults);
+        }
+
+        const matching = defaults.filter(declaration => LanguageResolver.#matchesReceiver(declaration, receiverType, new Map()));
+
+        if (matching.length === 0) {
+            this.#fail(`${receiverType.toNonNullable()} has no default indexer: name the indexer, as in ':name[…]'`, pointer);
+        }
+
+        // The vocabulary declares one default indexer for any receiver, so only a type holding never fits more than one.
+        if (matching.length > 1) {
+            this.#fail(`Default indexers are declared for ${matching.flatMap(declaration => [declaration.on].flat()).join(' and ')}, and ${receiverType.toNonNullable()} fits more than one, so which applies is ambiguous`, pointer);
+        }
+
+        return this.#resolveMemberOf({ ...node, name: matching[0].name }, pointer, scope, receiverType);
     }
 
     /**
@@ -553,12 +583,11 @@ export class LanguageResolver {
     }
 
     /**
-     * Resolves a name applied to a receiver of unknown type, which chooses no declaration. A property is accepted whatever its name, since a bound object's fields are named by its data; a call or an infix call must be a member's, written in the form and given the arguments one of its declarations takes. The declarations that take it agree on the kind of request they make.
+     * Resolves a name applied to a receiver of unknown type, which chooses no declaration among the candidates, those of its name or, for a default indexer, every default indexer. A property is accepted whatever its name, since a bound object's fields are named by its data; a call or an infix call must be a member's, written in the form and given the arguments one of its declarations takes. The declarations that take it agree on the kind of request they make.
      * Its type is the result type they share, made nullable, or left to the optional chain an optional access of null ends, and null where they share none or the name is no member's. Nothing applied to such a receiver is evaluated, so its arguments leave no resolution behind.
      */
-    #resolveOnUnknownType(node, pointer, scope, receiverType) {
+    #resolveOnUnknownType(node, pointer, scope, receiverType, candidates = this.#moduleRegistry.getMembers(node.name)) {
         const isAccess = node.kind === 'member';
-        const candidates = this.#moduleRegistry.getMembers(node.name);
         const fields = isAccess ? this.#moduleRegistry.getFieldTypes(node.name) : [];
         const written = candidates.filter(candidate => FORM_NODE_KINDS[candidate.kind === 'property' ? 'access' : candidate.form] === node.kind);
 

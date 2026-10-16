@@ -93,7 +93,7 @@ describe('DomqlModule', () => {
     });
 
     it('refuses a key a declaration does not take, so a misspelled one is never ignored', () => {
-        expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ name: 'charts', tolerence: 1 })] }))).toContain("A member declares name, function, kind, form, input, on, parameters, result, changes, reads, misses, tolerance, observations, and 'tolerence' is none of them");
+        expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ name: 'charts', tolerence: 1 })] }))).toContain("A member declares name, function, kind, form, input, default, on, parameters, result, changes, reads, misses, tolerance, observations, and 'tolerence' is none of them");
         expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ name: 'charts', kind: 'operation', input: 'direct', parameters: [parameter({ defualt: 1 })] })] }))).toContain("'defualt' is none of them");
         expect(messageOf(() => new DomqlModule('charts', { types: [{ name: 'chart', fields: { size: 'number' }, field: {} }] }))).toContain("'field' is none of them");
         expect(messageOf(() => new DomqlModule('charts', { eventTypes: [{ name: 'chartclick', payload: 'domEvent', data: 'domEvent' }] }))).toContain("'data' is none of them");

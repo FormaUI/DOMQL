@@ -612,6 +612,13 @@ describe('domql', () => {
             expect(domql.query('@panel : attribute [ "data-key" ]').definition).toEqual(domql.query('@panel:attribute["data-key"]').definition);
         });
 
+        it('read a colon and a key in brackets as the receiver\'s default indexer, which names none', () => {
+            expect(domql.query('@panel:["data-key"]').definition.query).toEqual({ kind: 'indexer', target: parameter('panel'), argument: literal('data-key') });
+            expect(domql.query('@panel?:[@name]').definition.query).toEqual(chain({ kind: 'indexer', target: parameter('panel'), argument: parameter('name'), optional: true }));
+            expect(domql.query('(?@panel.first(".row"):["id"])').definition).toEqual(domql.query('@panel?.first(".row")?:["id"]').definition);
+            expect(domql.query({ version: 14, query: { kind: 'indexer', target: parameter('panel'), argument: literal('id') } }).definition.query).toEqual({ kind: 'indexer', target: parameter('panel'), argument: literal('id') });
+        });
+
         it('leave a bracket after a member an access by name of what it answers', () => {
             expect(domql.query('@panel.size["width"]').definition.query).toEqual(member('width', member('size', parameter('panel'))));
             expect(domql.query('@panel.attribute["data-key"]').definition.query).toEqual(member(literal('data-key'), member('attribute', parameter('panel'))));
@@ -631,8 +638,10 @@ describe('domql', () => {
         it.each([
             ['without brackets', '@panel:attribute', 1, 17],
             ['with empty brackets', '@panel:attribute[]', 1, 18],
+            ['as a default indexer with empty brackets', '@panel:[]', 1, 9],
+            ['as a default indexer with two keys', '@panel:["a", "b"]', 1, 12],
             ['with two keys', '@panel:attribute["a", "b"]', 1, 21],
-            ['without a name', '@panel:["a"]', 1, 8],
+            ['without a name or a key', '@panel:5', 1, 8],
             ['with an unclosed bracket', '@panel:attribute["a"', 1, 21],
         ])('refuse an indexer %s', (_, text, line, column) => {
             const error = getError(() => domql.query(text));
@@ -2552,6 +2561,62 @@ describe('domql named indexers', () => {
 
         it('require ?: for a receiver that can be null, giving the form', () => {
             expect(getError(() => isolated.query('@panel.first(".row"):attribute["data-key"]', { panel }).resolve()).message).toContain(`write '@panel.first(".row")?:attribute["data-key"]'`);
+        });
+    });
+
+    describe('the default indexer', () => {
+        it('of an element is its attribute', () => {
+            expect(evaluate('@panel:["data-key"]')).toBe('k1');
+            expect(evaluate('@panel:[@name]', { name: 'data-key' })).toBe('k1');
+            expect(evaluate('@panel.first(".row")?:["data-key"]')).toBe('k2');
+            expect(evaluate('@missing?:["data-key"]', { missing: null })).toBeNull();
+            expect(isolated.query('@panel:["data-key"]', { panel }).resolve().getResolution('/query').declaration.name).toBe('attribute');
+        });
+
+        it('takes the key its indexer takes, and is refused for a receiver whose type has none', () => {
+            const messageOf = text => getError(() => isolated.query(text, { panel }).resolve()).message;
+
+            expect(messageOf('@panel:[5]')).toContain("The argument 'name' of 'attribute' expects string and finds number");
+            expect(messageOf('@window:["x"]')).toContain("window has no default indexer: name the indexer, as in ':name[…]'");
+            expect(messageOf('@panel.first(".row"):["x"]')).toContain(`write '@panel.first(".row")?:["x"]'`);
+        });
+
+        it('is one a module declares for a type of its own, and one at most for any receiver', () => {
+            const tokens = { name: 'token', function: 'token', kind: 'operation', form: 'indexer', default: true, on: 'palette', parameters: [{ name: 'name', kind: 'value', type: 'string', required: true, nulls: 'propagate' }], result: 'string?', changes: 'constant', reads: 'fresh' };
+
+            isolated.registerModule(isolated.createModule('palette', {
+                types: [{ name: 'palette', fields: { accent: 'string' } }],
+                members: [tokens, { name: 'palette', function: 'palette', kind: 'property', on: 'element', parameters: [], result: 'palette', changes: 'constant', reads: 'fresh' }],
+            }, { token: (palette, { name }) => palette[name] ?? null, palette: () => ({ accent: 'teal' }) }));
+
+            expect(evaluate('@panel.palette:["accent"]')).toBe('teal');
+            expect(evaluate('@panel.palette:token["accent"]')).toBe('teal');
+            expect(evaluate('@panel:["data-key"]')).toBe('k1');
+
+            const competing = getError(() => isolated.registerModule(isolated.createModule('rival', {
+                members: [{ ...tokens, name: 'rival', function: 'rival', on: 'element' }],
+            }, { rival: () => null })));
+
+            expect(competing.kind).toBe('module');
+            expect(competing.message).toContain("'attribute' is the default indexer of element already");
+
+            const twice = getError(() => isolated.registerModule(isolated.createModule('swatch', {
+                types: [{ name: 'swatch', fields: { hue: 'number' } }],
+                members: [{ ...tokens, name: 'hue', function: 'hue', on: 'swatch' }, { ...tokens, name: 'shade', function: 'shade', on: 'swatch' }],
+            }, { hue: () => null, shade: () => null })));
+
+            expect(twice.message).toContain("'hue' is the default indexer of swatch already");
+        });
+
+        it.each([
+            ['that is no Boolean', { form: 'indexer', default: 'yes' }, 'whether it is the default indexer of its receivers as a Boolean'],
+            ['for a member that is no indexer', { form: 'call', default: true }, 'Only an indexer is the default of its receivers'],
+            ['for a property', { kind: 'property', parameters: [], input: undefined, default: true }, 'Only an indexer is the default of its receivers'],
+        ])('is refused where a declaration marks a default %s', (_, overrides, message) => {
+            const declaration = { name: 'entries', function: 'entry', kind: 'operation', on: 'element', input: 'direct', parameters: [{ name: 'index', kind: 'value', type: 'number', required: true, nulls: 'propagate' }], result: 'number', changes: 'constant', reads: 'fresh', ...overrides };
+            const error = getError(() => isolated.createModule('entries', { members: [declaration] }, { entry: () => 1 }));
+
+            expect(error.message).toContain(message);
         });
     });
 

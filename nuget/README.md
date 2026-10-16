@@ -92,7 +92,7 @@ const query = domql.query(`
     @panel {
         count: self.children.count,
         items: self.all("[data-key]") {
-            key: self:attribute["data-key"],
+            key: self:["data-key"],
             selected: self matches "[aria-selected=true]"
         }
     }
@@ -180,8 +180,8 @@ Keep a toolbar in step with the panel's selection, whichever code selects an ite
 ```js
 const selection = domql.query(`
     @panel.children
-        .where(self:attribute["aria-selected"] is "true") {
-            key: self:attribute["data-key"]
+        .where(self:["aria-selected"] is "true") {
+            key: self:["data-key"]
         }
 `, { panel }).watch();
 
@@ -247,8 +247,8 @@ list.innerHTML = '<li data-key="b1">Apples</li><li data-key="b2">Pears</li>';
 
 const live = domql.query(`
     @list.children {
-        key: self:attribute["data-key"],
-        selected: self:attribute["aria-selected"] is "true"
+        key: self:["data-key"],
+        selected: self:["aria-selected"] is "true"
     }
 `, { list }).watch({ updateStrategy: 'liveState' });
 
@@ -291,7 +291,7 @@ const activations = domql.query(`
     (@panel on "click") {
         let item: self.target?.closest("[data-key]"),
 
-        key: item?:attribute["data-key"],
+        key: item?:["data-key"],
         wasSelected: item matches "[aria-selected=true]" ?? false,
         selectedCount: @panel.all("[aria-selected=true]").count
     }
@@ -349,7 +349,7 @@ A named indexer reads a value of its receiver by a key, written after a colon wi
 @panel:style["display"]
 ```
 
-The key can be any expression of the type the indexer takes, such as a binding, `@panel:attribute[@name]`. Use `?:` when the receiver can be null: `@panel.first(".row")?:attribute["data-key"]` is null when there is no row, and its key is not evaluated.
+The key can be any expression of the type the indexer takes, such as a binding, `@panel:attribute[@name]`. An element's default indexer is `attribute`, so `@panel:["data-key"]` reads the attribute too. Use `?:` when the receiver can be null: `@panel.first(".row")?:["data-key"]` is null when there is no row, and its key is not evaluated.
 
 All DOMQL names are case-sensitive and use names such as `clientSize`, `rectRelativeTo` and `matchesMedia`. Strings passed to browser APIs, including selectors and attribute names, follow the browser's rules.
 
@@ -393,7 +393,7 @@ An object expression after a list runs for each item, with `self` referring to t
 ```js
 domql.query(`
     @panel.all("[data-key]") {
-        key: self:attribute["data-key"],
+        key: self:["data-key"],
         selected: self matches "[aria-selected=true]"
     }
 `, { panel }).evaluate();
@@ -479,7 +479,7 @@ An infix call or targeted object expression returns null when its receiver is nu
 
 ```js
 domql.query(
-    '@panel.first(".missing")?:attribute["data-key"]',
+    '@panel.first(".missing")?:["data-key"]',
     { panel }
 ).evaluate();
 // null
@@ -541,7 +541,7 @@ Attributes hold text. Use `to` to convert a value to another type, such as the u
 
 ```js
 domql.query(
-    '@panel.all("[data-key]").sum(self:attribute["data-unread"] to "number" ?? 0)',
+    '@panel.all("[data-key]").sum(self:["data-unread"] to "number" ?? 0)',
     { panel }
 ).evaluate();
 // 7
@@ -553,7 +553,7 @@ To handle text that does not convert yourself, test it first with `is convertibl
 
 ```text
 @panel {
-    let count: self:attribute["data-count"],
+    let count: self:["data-count"],
     value: if count is convertible to "number" then count to "number" ?? 0 else 0
 }
 ```
@@ -663,7 +663,7 @@ DOMQL reports failures as a `DomqlError` with `kind`, `message` and a structured
 
 ```js
 try {
-    domql.query('@panel:attribute[200]', { panel }).evaluate();
+    domql.query('@panel:[200]', { panel }).evaluate();
 } catch (error) {
     if (error?.name !== 'DomqlError') {
         throw error;
@@ -672,7 +672,7 @@ try {
     console.error(error.kind, error.message, error.location);
     // validation
     // The argument 'name' of 'attribute' expects string and finds number
-    // (line 1, column 18, at /query/argument)
+    // (line 1, column 9, at /query/argument)
 }
 ```
 
