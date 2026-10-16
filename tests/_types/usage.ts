@@ -175,7 +175,7 @@ const sourceFunctions: DomqlModuleFunctions = {
     },
 };
 
-// An action is executed once and promises its result; a behavior is in effect until its handle is disposed.
+// An action is executed once and promises its result; a behavior runs until its handle is disposed.
 const moved: Promise<boolean> = domql.query<boolean>('@panel.step("forward")', { panel }).executeAsync({ window, signal });
 const stepped: Promise<boolean> = domql.query<boolean>('@panel.step("back")', { panel }).executeAsync();
 const trap: DomqlBehavior = domql.query('@dialog.focusTrap()', { dialog: panel }).apply({ window, signal });

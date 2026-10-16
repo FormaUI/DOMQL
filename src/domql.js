@@ -376,7 +376,7 @@ class Domql {
     }
 
     /**
-     * Applies the behavior, which is in effect once the call returns, and answers its handle, which belongs to the caller. Disposing the handle ends the behavior and leaves its module registered.
+     * Applies the behavior, which has started once the call returns, and answers its handle, which belongs to the caller. Disposing the handle ends the behavior and leaves its module registered.
      * The receiver and arguments are evaluated now; where one of them is null there is nothing to apply until an update supplies one. A behavior that cannot start fails the call and leaves nothing running.
      */
     static #apply(query, { window = globalThis.window, signal }) {

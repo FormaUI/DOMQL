@@ -43,7 +43,7 @@ describe('Behavior', () => {
         breaks = new Set();
         window.reportError = error => reported.push(error);
 
-        // Marks its element with the color while it is in effect.
+        // Marks its element with the color while it runs.
         isolated.registerModule(behavior('highlight', (element, { color }, environment, context) => {
             calls.push({ call: 'start', element, color, environment, context });
             element.dataset.highlight = color;
@@ -79,7 +79,7 @@ describe('Behavior', () => {
     });
 
     describe('applying', () => {
-        it('puts the behavior into effect in the call, with its receiver, arguments, environment and reporter', () => {
+        it('starts the behavior in the call, with its receiver, arguments, environment and reporter', () => {
             const highlight = apply('@panel.highlight(@color)', { panel, color: 'gold' });
 
             expect(highlight.status).toBe('ready');

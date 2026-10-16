@@ -79,9 +79,9 @@ export interface DomqlErrorArgs {
     readonly error: unknown;
 }
 
-/** A behavior the caller applied: it is in effect from the call that applied it until it is disposed. */
+/** A behavior the caller applied: it runs from the call that applied it until it is disposed. */
 export interface DomqlBehavior {
-    /** `ready` while it is in effect, and `disposed` once it is ended. */
+    /** `ready` while it runs, and `disposed` once it is ended. */
     readonly status: 'ready' | 'disposed';
     /** Replaces the bindings the behavior runs with, whole. A failure throws and leaves the behavior running as it was; bindings that select another behavior are refused. */
     update(bindings: DomqlBindings): void;
@@ -223,7 +223,7 @@ export interface DomqlQuery<T = unknown> {
     subscribe(handler: (sender: DomqlEventListener, args: DomqlResultArgs<T>) => unknown, options?: DomqlOperationOptions): DomqlEventListener;
     /** Executes the action once, and answers a promise of its result. A signal that aborts rejects with its reason; DOMQL never undoes what the action changed. */
     executeAsync(options?: DomqlOperationOptions): Promise<T>;
-    /** Applies the behavior, which is in effect once the call returns, and answers its handle. */
+    /** Applies the behavior, which has started once the call returns, and answers its handle. */
     apply(options?: DomqlOperationOptions): DomqlBehavior;
 }
 

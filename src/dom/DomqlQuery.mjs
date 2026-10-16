@@ -85,7 +85,7 @@ export class DomqlQuery {
         return this.#operations.executeAsync(this, options);
     }
 
-    /** Applies the behavior, which is in effect once the call returns, and answers its handle. */
+    /** Applies the behavior, which has started once the call returns, and answers its handle. */
     apply(options) {
         return this.#operations.apply(this, options);
     }

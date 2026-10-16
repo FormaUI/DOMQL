@@ -1902,7 +1902,7 @@ describe('domql receivers of unknown type', () => {
         listener.dispose();
     });
 
-    it('apply a behavior of a null binding with nothing in effect, until an update supplies its receiver', () => {
+    it('apply a behavior of a null binding with nothing started, until an update supplies its receiver', () => {
         const calls = [];
 
         isolated.registerModule(isolated.createModule('mark', {

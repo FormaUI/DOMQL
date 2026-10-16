@@ -227,7 +227,7 @@ An action is executed and a behavior applied, each through an operation of its o
 
 ### Applying a behavior
 
-`query.apply(options?)` puts a behavior into effect and answers a `DomqlBehavior`, its handle, which belongs to the caller that applied it; its options are `window` and `signal`, which disposes the behavior when it aborts.
+`query.apply(options?)` starts a behavior and answers a `DomqlBehavior`, its handle, which belongs to the caller that applied it; the behavior has started when the call returns, though work it began may still be under way. Its options are `window` and `signal`, which disposes the behavior when it aborts.
 
 ```js
 const behavior = domql.query(`@dialog.focusTrap()`, { dialog }).apply({ signal });

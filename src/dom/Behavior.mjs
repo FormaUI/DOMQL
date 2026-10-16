@@ -24,7 +24,7 @@ export class Behavior {
     #disposeOnAbort = () => this.dispose();
 
     /**
-     * Applies the behavior, which is in effect once the constructor returns; a behavior that cannot start fails it, and leaves nothing running. A signal already aborted answers a behavior that is disposed and starts nothing.
+     * Applies the behavior, which has started once the constructor returns; a behavior that cannot start fails it, and leaves nothing running. A signal already aborted answers a behavior that is disposed and starts nothing.
      * @param {object} dependencies What the behavior applies, and what it works with.
      * @param {BehaviorCall} dependencies.call The behavior resolved against its first bindings.
      * @param {(bindings: unknown) => BehaviorCall} dependencies.prepare Resolves the behavior against other bindings, throwing a validation or an evaluation error where they cannot be used.
