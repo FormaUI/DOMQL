@@ -18,6 +18,47 @@ describe('ModuleRegistry', () => {
         expect(messageOf(() => new ModuleRegistry([own(), own()]))).toContain('name is taken');
     });
 
+    it('refuses what no createModule made, naming it', () => {
+        expect(messageOf(() => new ModuleRegistry([{ name: 'fake', members: [] }]))).toContain('A module is registered as createModule makes it');
+    });
+
+    it('refuses a type a declaration names that neither DOMQL nor a module registered with it declares', () => {
+        const failing = contents => messageOf(() => new ModuleRegistry([Vocabulary.module, new DomqlModule('charts', contents)]));
+
+        expect(failing({ members: [declaration({ name: 'charts', result: 'chart' })] })).toContain("'chart' names the type 'chart', which neither DOMQL nor a module registered with it declares");
+        expect(failing({ members: [declaration({ name: 'charts', result: 'list<chart?>' })] })).toContain("'list<chart?>' names the type 'chart'");
+        expect(failing({ types: [{ name: 'chart', fields: { axis: 'axis' } }] })).toContain("names the type 'axis'");
+        expect(failing({ eventTypes: [{ name: 'chartclick', payload: 'chartEvent' }] })).toContain("names the type 'chartEvent'");
+        expect(failing({ members: [declaration({ name: 'charts', kind: 'operation', input: 'direct', parameters: [{ name: 'range', kind: 'value', type: 'range', required: true, nulls: 'propagate' }] })] })).toContain("names the type 'range'");
+    });
+
+    it('takes a type the module declares wherever it declares it, and one an earlier module declares, whatever the order of the declarations', () => {
+        const axes = new DomqlModule('axes', { types: [{ name: 'axis', fields: { length: 'number' } }] });
+        const charts = new DomqlModule('charts', {
+            members: [declaration({ name: 'charts', result: 'chart' })],
+            types: [{ name: 'chart', fields: { axis: 'axis', domain: 'list<number>' } }],
+        });
+
+        expect(() => new ModuleRegistry([Vocabulary.module, axes, charts])).not.toThrow();
+        expect(messageOf(() => new ModuleRegistry([Vocabulary.module, charts, axes]))).toContain("names the type 'axis'");
+    });
+
+    it('refuses a default its parameter does not admit, by its type, its nullability and a structure\'s fields', () => {
+        const range = new DomqlModule('ranges', { types: [{ name: 'range', fields: { start: 'number', end: 'number?' } }] });
+        const registering = (type, value) => () => new ModuleRegistry([Vocabulary.module, range, new DomqlModule('charts', {
+            members: [declaration({ name: 'charts', kind: 'operation', input: 'direct', parameters: [{ name: 'value', kind: 'value', type, required: false, default: value, nulls: 'propagate' }] })],
+        })]);
+
+        expect(messageOf(registering('number', 'many'))).toContain("The default of 'value' is no number");
+        expect(messageOf(registering('number', null))).toContain('is no number');
+        expect(messageOf(registering('list<string>', ['a', 1]))).toContain('is no list<string>');
+        expect(messageOf(registering('range', { start: 0 }))).toContain('is no range');
+        expect(messageOf(registering('element?', {}))).toContain('is no element?');
+        expect(registering('number?', null)).not.toThrow();
+        expect(registering('list<string>', ['a', 'b'])).not.toThrow();
+        expect(registering('range', { start: 0, end: null })).not.toThrow();
+    });
+
     it('refuses a member outside the module own types unless it is named for the module', () => {
         const module = new DomqlModule('charts', { members: [declaration({ name: 'other' })] });
 

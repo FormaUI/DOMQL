@@ -336,13 +336,15 @@ export interface DomqlParameterDeclaration {
     type: string;
     required: boolean;
     default?: unknown;
-    /** Whether the argument names something the vocabulary resolves before any evaluation. */
+    /** Whether the argument names something the vocabulary resolves before any evaluation; a fixed parameter is a value parameter of type `string`. */
     fixed?: boolean;
+    /** What a fixed parameter names, and only a fixed one. */
     selects?: 'eventType' | 'feature';
     /** Whether a null argument makes the call answer null, or is accepted. */
     nulls: 'propagate' | 'accept';
     /** What an expression argument is evaluated against. */
     context?: 'item';
+    /** What the member does where an optional argument is left out, said in words for its documentation. */
     omitted?: string;
 }
 
@@ -351,7 +353,7 @@ export interface DomqlMemberDeclaration {
     /** The DOMQL name. */
     name: string;
     /** The key of the function that carries it out, among the module's functions. */
-    function?: string;
+    function: string;
     kind: 'property' | 'operation' | 'source' | 'action' | 'behavior';
     /** How a member that is no property is written: called, `self.closest(".row")`, the default, or named, `self attributeOf "data-key"`. A property declares none. */
     form?: 'call' | 'infix';
@@ -399,6 +401,10 @@ export type DomqlModuleFunctions = Record<string, (...args: any[]) => unknown>;
 export interface DomqlModule {
     readonly name: string;
     readonly members: readonly DomqlMemberDeclaration[];
+    readonly types: readonly { readonly name: string; readonly fields: Readonly<Record<string, string>> }[];
+    readonly eventTypes: readonly { readonly name: string; readonly payload: string }[];
+    readonly features: readonly string[];
+    readonly observationTypes: readonly DomqlObservationTypeDeclaration[];
     readonly functions: DomqlModuleFunctions | null;
 }
 

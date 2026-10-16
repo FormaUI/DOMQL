@@ -2,6 +2,7 @@
  * DomqlModule — a vocabulary's members as data, and the functions that carry them out
  */
 
+import { ObjectUtils } from '../../common/ObjectUtils.mjs';
 import { DomqlError } from '../DomqlError.mjs';
 import { Names } from '../Names.mjs';
 import { Type } from '../Type.mjs';
@@ -32,11 +33,21 @@ const OBSERVED_CHANGE_CATEGORIES = ['observable', 'partly-observable'];
 /** What an observation observes, besides a target an argument names. */
 const OBSERVATION_TARGETS = ['receiver', 'root', 'roots', 'window', 'document'];
 
-/** The names of the types DOMQL itself defines, which a module cannot declare again. */
-const RESERVED_TYPE_NAMES = new Set(['number', 'string', 'boolean', 'node', 'element', 'document', 'documentFragment', 'shadowRoot', 'shadow', 'window', 'list', 'event', 'null', 'never']);
+/** The names of the types DOMQL defines, which a declaration names without any module declaring them. */
+const BUILT_IN_TYPE_NAMES = ['number', 'string', 'boolean', 'node', 'element', 'document', 'documentFragment', 'shadowRoot', 'shadow', 'window'];
+
+/** The names no module declares a type by: those DOMQL defines, and the words of the type notation. */
+const RESERVED_TYPE_NAMES = new Set([...BUILT_IN_TYPE_NAMES, 'list', 'event', 'null', 'never']);
 
 /** What a module can declare. */
 const CONTENTS = ['members', 'types', 'eventTypes', 'features', 'observationTypes'];
+
+/** The keys each kind of declaration takes, so one misspelled is refused rather than ignored. */
+const MEMBER_KEYS = ['name', 'function', 'kind', 'form', 'input', 'on', 'parameters', 'result', 'changes', 'reads', 'misses', 'tolerance', 'observations'];
+const PARAMETER_KEYS = ['name', 'kind', 'type', 'required', 'default', 'fixed', 'selects', 'nulls', 'context', 'omitted'];
+const TYPE_KEYS = ['name', 'fields'];
+const EVENT_TYPE_KEYS = ['name', 'payload'];
+const OBSERVATION_TYPE_KEYS = ['name', 'contract', 'identity', 'shared', 'function'];
 
 /** The name that identifies the built-in module, whose members stand without a namespace. */
 const BUILTIN_MODULE_NAME = 'builtIn';
@@ -73,8 +84,23 @@ export class DomqlModule {
             throw DomqlError.module(`'${BUILTIN_MODULE_NAME}' is the built-in module's identity, which no other module takes`, { module: name });
         }
 
-        const { members = [], types = [], eventTypes = [], features = [], observationTypes = [] } = contents;
         const fail = (message, declaration) => { throw DomqlError.module(message, declaration === undefined ? { module: name } : { module: name, declaration }); };
+
+        if (!ObjectUtils.isNonArrayObject(contents)) {
+            fail(`A module's contents are an object declaring ${CONTENTS.join(', ')}`);
+        }
+
+        if (functions !== null && !ObjectUtils.isNonArrayObject(functions)) {
+            fail("A module's functions are an object holding each function by its key");
+        }
+
+        const { members = [], types = [], eventTypes = [], features = [], observationTypes = [] } = contents;
+
+        for (const [key, list] of Object.entries({ members, types, eventTypes, features, observationTypes })) {
+            if (!Array.isArray(list)) {
+                fail(`A module's ${key} are a list`);
+            }
+        }
 
         // A module declares what it lists alone, and one that names predicates is told that a test is a Boolean member.
         for (const key of Object.keys(contents)) {
@@ -146,6 +172,29 @@ export class DomqlModule {
         return this.#functions;
     }
 
+    /** The names of the types DOMQL defines, which a declaration names without any module declaring them. */
+    static get builtInTypeNames() {
+        return BUILT_IN_TYPE_NAMES;
+    }
+
+    /** Whether the value is a module `createModule` made. */
+    static isModule(value) {
+        return value instanceof DomqlModule;
+    }
+
+    /** Refuses a declaration that is no object, or that names a key its kind does not take. */
+    static #validateKeys(declaration, keys, what, fail, name) {
+        if (!ObjectUtils.isNonArrayObject(declaration)) {
+            fail(`${what} is an object declaring ${keys.join(', ')}`, name === undefined ? undefined : String(name));
+        }
+
+        for (const key of Object.keys(declaration)) {
+            if (!keys.includes(key)) {
+                fail(`${what} declares ${keys.join(', ')}, and '${key}' is none of them`, String(name ?? declaration.name));
+            }
+        }
+    }
+
     static #freezeItems(items) {
         return Object.freeze(items.map(item => DomqlModule.#deepFreeze(item)));
     }
@@ -168,6 +217,8 @@ export class DomqlModule {
     }
 
     static #validateTypeDeclaration(type, fail) {
+        DomqlModule.#validateKeys(type, TYPE_KEYS, 'A type', fail);
+
         if (!Names.isName(type?.name) || RESERVED_TYPE_NAMES.has(type.name)) {
             fail('A type is named as a name is and takes none of the built-in names', type?.name);
         }
@@ -188,6 +239,8 @@ export class DomqlModule {
     }
 
     static #validateEventType(eventType, fail) {
+        DomqlModule.#validateKeys(eventType, EVENT_TYPE_KEYS, 'An event type', fail);
+
         if (typeof eventType?.name !== 'string' || !/^[A-Za-z][A-Za-z0-9:-]*$/.test(eventType.name) || !DomqlModule.#isTypeNotation(eventType.payload)) {
             fail('An event type declares the name of the browser event and the type of its event data', eventType?.name);
         }
@@ -274,6 +327,8 @@ export class DomqlModule {
     }
 
     static #validateObservationType(type, fail) {
+        DomqlModule.#validateKeys(type, OBSERVATION_TYPE_KEYS, 'An observation type', fail);
+
         const identity = type?.identity ?? [];
 
         if (!Names.isName(type?.name) || !OBSERVATION_CONTRACTS.includes(type.contract)) {
@@ -292,7 +347,9 @@ export class DomqlModule {
     }
 
     static #validateMember(member, fail) {
-        const name = member?.name;
+        DomqlModule.#validateKeys(member, MEMBER_KEYS, 'A member', fail);
+
+        const name = member.name;
 
         if (!Names.isName(name) || !MEMBER_KINDS.includes(member.kind)) {
             fail(`A member is named as a name is and is one of ${MEMBER_KINDS.join(', ')}`, String(name));
@@ -311,6 +368,10 @@ export class DomqlModule {
 
         const parameters = member.parameters ?? [];
         const parameterNames = new Set();
+
+        if (!Array.isArray(parameters)) {
+            fail('Its parameters are a list', name);
+        }
 
         DomqlModule.#validateObservations(member, new Set(parameters.map(parameter => parameter?.name)), name, fail);
 
@@ -361,7 +422,9 @@ export class DomqlModule {
     }
 
     static #validateParameter(parameter, memberName, fail) {
-        if (!Names.isName(parameter?.name) || !PARAMETER_KINDS.includes(parameter.kind) || !NULL_POLICIES.includes(parameter.nulls) || typeof parameter.required !== 'boolean') {
+        DomqlModule.#validateKeys(parameter, PARAMETER_KEYS, 'A parameter', fail, memberName);
+
+        if (!Names.isName(parameter.name) || !PARAMETER_KINDS.includes(parameter.kind) || !NULL_POLICIES.includes(parameter.nulls) || typeof parameter.required !== 'boolean') {
             fail('A parameter declares its name, its kind, whether it is required and how it handles null', memberName);
         }
 
@@ -377,8 +440,25 @@ export class DomqlModule {
             fail(`The expression parameter '${parameter.name}' declares its evaluation context, item`, memberName);
         }
 
-        if (parameter.fixed === true && !SELECTION_KINDS.includes(parameter.selects)) {
+        if (parameter.fixed !== undefined && typeof parameter.fixed !== 'boolean') {
+            fail(`The parameter '${parameter.name}' declares whether it is fixed as a Boolean`, memberName);
+        }
+
+        if (parameter.fixed !== true) {
+            if (parameter.selects !== undefined) {
+                fail(`The parameter '${parameter.name}' selects nothing, since it is not fixed`, memberName);
+            }
+
+            return;
+        }
+
+        if (!SELECTION_KINDS.includes(parameter.selects)) {
             fail(`The fixed parameter '${parameter.name}' declares what it selects, one of ${SELECTION_KINDS.join(', ')}`, memberName);
+        }
+
+        // A fixed argument names a declaration, which only a string can.
+        if (parameter.kind !== 'value' || parameter.type !== 'string') {
+            fail(`The fixed parameter '${parameter.name}' is a value parameter of type string, since it names what it selects`, memberName);
         }
     }
 }

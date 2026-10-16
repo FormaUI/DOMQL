@@ -1,9 +1,11 @@
 /**
- * ModuleRegistry — the declarations of every module registered for a document, which requests resolve against
+ * ModuleRegistry — the declarations of every module registered with a DOMQL instance, which requests resolve against
  */
 
+import { ObjectUtils } from '../../common/ObjectUtils.mjs';
 import { DomqlError } from '../DomqlError.mjs';
 import { Type } from '../Type.mjs';
+import { DomqlModule } from './DomqlModule.mjs';
 
 export class ModuleRegistry {
     /** @type {Map<string, import('./DomqlModule.mjs').DomqlModule>} */
@@ -17,8 +19,6 @@ export class ModuleRegistry {
 
     /** @type {Map<string, object>} */
     #eventTypes = new Map();
-
-    /** @type {Map<string, object>} */
 
     /** @type {Set<string>} */
     #features = new Set();
@@ -46,6 +46,10 @@ export class ModuleRegistry {
 
     /** Registers a module's declarations, refusing a module whose names are taken or which declares outside its namespace. */
     registerModule(module) {
+        if (!DomqlModule.isModule(module)) {
+            throw DomqlError.module('A module is registered as createModule makes it', { module: String(module?.name) });
+        }
+
         const fail = (message, declaration) => { throw DomqlError.module(message, declaration === undefined ? { module: module.name } : { module: module.name, declaration }); };
 
         if (this.#modules.has(module.name)) {
@@ -73,6 +77,11 @@ export class ModuleRegistry {
         }
 
         const observationTypes = new Map([...this.#observationTypes, ...module.observationTypes.map(type => [type.name, type])]);
+
+        // Every type a declaration names is one DOMQL defines, one the module declares, wherever it declares it, or one a module registered before it declares.
+        const types = new Map([...this.#types, ...module.types.map(type => [type.name, type])]);
+
+        ModuleRegistry.#checkTypeNames(module, types, fail);
 
         for (const declaration of module.members) {
             ModuleRegistry.#validateObservations(declaration, observationTypes, fail);
@@ -159,6 +168,77 @@ export class ModuleRegistry {
 
         if (!isOwn && declaration.name !== module.name) {
             fail(`A member outside its module's own types is named for the module, '${module.name}'`, declaration.name);
+        }
+    }
+
+    /** Refuses a type notation in the module's declarations that names a type neither DOMQL nor a module declares. */
+    static #checkTypeNames(module, types, fail) {
+        const check = (notation, declarationName) => {
+            for (const name of ModuleRegistry.#namedTypesOf(Type.parse(notation))) {
+                if (!DomqlModule.builtInTypeNames.includes(name) && !types.has(name)) {
+                    fail(`'${notation}' names the type '${name}', which neither DOMQL nor a module registered with it declares`, declarationName);
+                }
+            }
+        };
+
+        for (const type of module.types) {
+            Object.values(type.fields).forEach(notation => check(notation, type.name));
+        }
+
+        module.eventTypes.forEach(eventType => check(eventType.payload, eventType.name));
+
+        for (const declaration of module.members) {
+            (Array.isArray(declaration.on) ? declaration.on : [declaration.on]).filter(notation => notation !== 'any').forEach(notation => check(notation, declaration.name));
+            check(declaration.result, declaration.name);
+
+            for (const parameter of declaration.parameters) {
+                check(parameter.type, declaration.name);
+
+                if (Object.hasOwn(parameter, 'default') && !ModuleRegistry.#admits(parameter.default, Type.parse(parameter.type), types)) {
+                    fail(`The default of '${parameter.name}' is no ${parameter.type}`, declaration.name);
+                }
+            }
+        }
+    }
+
+    /** The names of the named types a type holds, itself, its items and its fields included. */
+    static #namedTypesOf(type) {
+        switch (type.kind) {
+            case 'named':
+                return [type.name];
+            case 'list':
+            case 'event':
+                return ModuleRegistry.#namedTypesOf(type.itemType);
+            case 'object':
+                return [...type.fieldTypes.values()].flatMap(fieldType => ModuleRegistry.#namedTypesOf(fieldType));
+            default:
+                return [];
+        }
+    }
+
+    /** Whether the type admits a default: a value of data, its nullability, its items and a structure's fields as declared, and never a node or an event source. */
+    static #admits(value, type, types) {
+        if (value === null) {
+            return type.isNullable;
+        }
+
+        switch (type.kind) {
+            case 'typeParameter':
+                return value !== undefined;
+            case 'list':
+                return Array.isArray(value) && value.every(item => ModuleRegistry.#admits(item, type.itemType, types));
+            case 'named': {
+                if (['number', 'string', 'boolean'].includes(type.name)) {
+                    return typeof value === type.name;
+                }
+
+                const structure = types.get(type.name);
+
+                return structure !== undefined && ObjectUtils.isNonArrayObject(value)
+                    && Object.entries(structure.fields).every(([field, notation]) => ModuleRegistry.#admits(value[field], Type.parse(notation), types));
+            }
+            default:
+                return false;
         }
     }
 

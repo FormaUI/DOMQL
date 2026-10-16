@@ -92,8 +92,34 @@ describe('DomqlModule', () => {
         expect(() => new DomqlModule('charts', { members: [declaration({ name: 'charts', result: 'boolean' })] })).not.toThrow();
     });
 
+    it('refuses a key a declaration does not take, so a misspelled one is never ignored', () => {
+        expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ name: 'charts', tolerence: 1 })] }))).toContain("A member declares name, function, kind, form, input, on, parameters, result, changes, reads, misses, tolerance, observations, and 'tolerence' is none of them");
+        expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ name: 'charts', kind: 'operation', input: 'direct', parameters: [parameter({ defualt: 1 })] })] }))).toContain("'defualt' is none of them");
+        expect(messageOf(() => new DomqlModule('charts', { types: [{ name: 'chart', fields: { size: 'number' }, field: {} }] }))).toContain("'field' is none of them");
+        expect(messageOf(() => new DomqlModule('charts', { eventTypes: [{ name: 'chartclick', payload: 'domEvent', data: 'domEvent' }] }))).toContain("'data' is none of them");
+        expect(messageOf(() => new DomqlModule('charts', { observationTypes: [{ name: 'chartWatch', contract: 'invalidation', function: 'watch', share: false }] }))).toContain("'share' is none of them");
+    });
+
+    it('refuses contents, lists and functions of the wrong shape with an error that names them', () => {
+        expect(messageOf(() => new DomqlModule('charts', null))).toContain("A module's contents are an object declaring members, types, eventTypes, features, observationTypes");
+        expect(messageOf(() => new DomqlModule('charts', { members: {} }))).toContain("A module's members are a list");
+        expect(messageOf(() => new DomqlModule('charts', { types: 'chart' }))).toContain("A module's types are a list");
+        expect(messageOf(() => new DomqlModule('charts', { members: [null] }))).toContain('A member is an object declaring');
+        expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ name: 'charts', kind: 'operation', input: 'direct', parameters: {} })] }))).toContain('Its parameters are a list');
+        expect(messageOf(() => new DomqlModule('charts', {}, [() => 1]))).toContain("A module's functions are an object holding each function by its key");
+    });
+
+    it('refuses a fixed parameter that is no Boolean, selects without being fixed, or is anything but a value parameter of type string', () => {
+        const member = overrides => declaration({ name: 'charts', kind: 'operation', input: 'direct', parameters: [parameter({ type: 'string', ...overrides })] });
+
+        expect(messageOf(() => new DomqlModule('charts', { members: [member({ fixed: 'yes' })] }))).toContain('declares whether it is fixed as a Boolean');
+        expect(messageOf(() => new DomqlModule('charts', { members: [member({ selects: 'feature' })] }))).toContain('selects nothing, since it is not fixed');
+        expect(messageOf(() => new DomqlModule('charts', { members: [member({ type: 'number', fixed: true, selects: 'feature' })] }))).toContain('is a value parameter of type string');
+        expect(() => new DomqlModule('charts', { members: [member({ fixed: true, selects: 'feature' })] })).not.toThrow();
+    });
+
     it('refuses a member that selects a member, which an access by name reads', () => {
-        const selecting = selects => declaration({ name: 'charts', kind: 'operation', input: 'direct', parameters: [parameter({ fixed: true, selects })] });
+        const selecting = selects => declaration({ name: 'charts', kind: 'operation', input: 'direct', parameters: [parameter({ type: 'string', fixed: true, selects })] });
 
         expect(messageOf(() => new DomqlModule('charts', { members: [selecting('member')] }))).toContain('declares what it selects, one of eventType, feature');
         expect(() => new DomqlModule('charts', { members: [selecting('feature')] })).not.toThrow();
