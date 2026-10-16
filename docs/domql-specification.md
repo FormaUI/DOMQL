@@ -339,6 +339,7 @@ A result is data: numbers, strings, Booleans, null, lists and objects. A node, a
 
 ### Lists
 
+- A list keeps the order of its source: a member that makes a list says where its order comes from, as `all` takes document order, and a bound list keeps the caller's; `where`, and an object expression following a list, keep its items in that order.
 - An object expression following a list applies to each item and answers a list of the same length, in the same order; an item that is null answers null at its position.
 - A member following a list is a member of the list itself: `self.all("tr").count` counts rows.
 - `count` of an empty list is 0, and `sum` is 0. `max` and `min` of an empty list are null.

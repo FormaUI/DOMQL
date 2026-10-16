@@ -394,6 +394,8 @@ domql.query(`
 // ]
 ```
 
+A list keeps the order of its source, here the document's, and neither projecting nor filtering it reorders it.
+
 A member after a list operates on the list itself. Use `count`, `first`, `last` and `at(index)` to inspect it. Use `where` to keep items that satisfy a Boolean expression:
 
 ```js
