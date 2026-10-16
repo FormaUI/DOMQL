@@ -45,21 +45,20 @@ Each decision here is answered without building it, with what was found and what
 - **Sharing native observers.** Not adopted with the implementation measured: one `ResizeObserver` for each box and one `MutationObserver` of a window serving every element, each record routed through the registrations of its target and the nodes above it, a node's mutation options the union of its registrations', and the registrations that end let go of together at the next microtask. It routed correctly and disposed independently in Chromium: disposing one of two watches of an element left the other updating, a watch of one attribute was not evaluated for another, and the last watch let every element go. Against one observer for each element, a watch of shaped rows started 2 to 9 percent faster at 1,000 to 100,000 rows and refreshed and read alike, disposed 55 to 111 percent slower and held 13 percent more script memory a row, the routing's own; a resize of 1,000 watched rows reached it as one native callback rather than 1,000 and evaluated the watch as often; and the renderer processes' private memory a watch of 50,000 rows added was about 28 MB smaller, 145 MB against 173 to 175, a process total whose source is not isolated.
   - With a watch under `immediate` evaluating at the next microtask, shared resize observers were measured again, the resize ones alone: one layout change resizing 1,000 watched rows evaluated a watch twice in Chromium, in 9.9 ms, once for the panel's style attribute and once for every row's resize, where one observer for each element evaluated it 1,001 times, in 2.7 s, since each element's callback reaches a microtask of its own; against one observer for each element, a watch of shaped rows disposed 17 to 66 percent slower and held 13 to 14 percent more script memory a row, at 1,000 to 100,000 rows, its start, refresh and read alike, a cost every watch of a box would pay, the frame-scheduled ones that batch resizes already among them.
   - **Reopened by** an implementation whose disposal and script memory both cost less, which would also bring a resize under `immediate` to one evaluation, or a workload in which the renderer's memory at that scale matters.
+- **Rebinding a watch.** Not adopted: a caller rebinds a watch by starting one of the new bindings, `query.with(bindings).watch()`, and disposing the old one once the new one is ready. Every observation of a shared type that both read of the same target, with the same identifying arguments, runs on throughout the replacement, and only what the old bindings read alone stops and what the new ones read alone starts, as a test of two watches that read observations A and B, then B and C, shows; the caller subscribes its listeners to the new watch, and under `liveState` the new watch keeps an object of its own.
+  - **Reopened by** a consumer that needs its listeners or its live state's identity kept through new bindings, which would justify a `watch.update` and settle whether bindings replace the set, what a failed resolution leaves running, how an update meets an evaluation in progress and which observations and live state survive.
+- **A subscription delivered by frame.** Not adopted: a subscription projects every event in the task it is dispatched in. Delivering an event later and dropping events are separate features, and a frame schedule would have to say which it does with a frame's events: queue every one, keep the latest, or combine them. Keeping the latest suits events that describe state, as a scroll position does, and loses the occurrences and the deltas others carry; it would also settle whether an event it drops is projected at all, since a projection reads the document as its event is dispatched. Waiting for events to go quiet is the caller's policy, carried out in its handler or an extension.
+  - **Reopened by** a consumer that needs events delivered by frame and says which of those it needs, from a built-in source or a module's.
+- **The event sources a behavior offers.** Not adopted: neither a behavior's declaration nor its implementation can offer an event source, and the specification promises none.
+  - **Reopened by** a behavior with events its caller would subscribe to.
+- **A behavior that waits.** Not adopted: `apply` answers synchronously, and the behavior has started when it returns, though work it began, asynchronous work among it, may still be under way.
+  - **Reopened by** a caller that needs to know when a behavior is ready, beyond its having started, which would justify an `applyAsync`; a behavior that does asynchronous work does not by itself.
 
 ### Open
 
 The open decisions are taken a group at a time, in this order, each group one kind of work, until every one is answered: built, or settled with why it is not and what would reopen it.
 
-#### 1. Watches, subscriptions and behaviors
-
-How a running handle takes new bindings, delivers and waits.
-
-- **Rebinding a watch.** Updating a running watch's bindings would settle whether bindings replace the set, what a failed resolution leaves running, how an update meets an evaluation in progress and which observations and live state survive; it is decided when a query needs it.
-- **A subscription delivered by frame.** A subscription projects every event in the task it is dispatched in, and a watch already evaluates once a frame however many observations fire; a subscription to events that describe state, as a scroll position does, could take a `schedule: 'frame'` of its own, delivering only the latest projection of each frame and saying that the others are dropped; it would settle whether an event it drops is projected at all, since a projection reads the document as its event is dispatched. The built-in scroll and resize events arrive at most once a frame already, as HTML fires them in its rendering steps, and the others are discrete, so it waits for a source or a query that needs it; waiting for events to go quiet is the caller's policy, carried out in its handler or an extension, and no part of it.
-- **The event sources a behavior offers.** The specification subscribes to them as subscriptions of their own; how a behavior offers one is decided once a behavior that offers one exists.
-- **A behavior that waits.** A behavior that needs to wait before it is in effect would be applied by an `applyAsync` of its own; it is a possibility for later, no part of D12's API, and decided when one is needed.
-
-#### 2. The language
+#### 1. The language
 
 What a query can say that it cannot yet.
 
@@ -68,7 +67,7 @@ What a query can say that it cannot yet.
 - **A flat-tree parent.** A parent across slots, beside the tree's own `parent` and `root`, waits until its uses and its meaning are clear.
 - **An infix call's receiver null policy.** An infix call propagates a null receiver; a policy declared as a parameter's is, accepting null with a meaning of its own or refusing a nullable receiver when the query is prepared, is designed when a member needs one, since no built-in infix call does.
 
-#### 3. Evaluation cost
+#### 2. Evaluation cost
 
 Work a measured workload would have to ask for.
 

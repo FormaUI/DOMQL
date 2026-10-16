@@ -443,7 +443,7 @@ A request is one of four kinds, and the member its chain ends in decides which:
 
 An action is an operation the browser carries out once, and a behavior is one that runs on in the browser until it is updated or disposed; both are members an extension declares, with signatures as every member has. An object expression can follow an action to shape its result. An action or a behavior ends its request's chain, so one inside a query, an argument or another request's object expression is a validation error.
 
-Evaluating or watching a query never performs an action or configures a behavior: a query only reads, and an action or a behavior request acts only when its caller executes or applies it. A behavior belongs to the caller that applied it, and the event sources it offers are subscribed to, each as a subscription of its own.
+Evaluating or watching a query never performs an action or configures a behavior: a query only reads, and an action or a behavior request acts only when its caller executes or applies it. A behavior belongs to the caller that applied it.
 
 ```
 // An action: step the viewport forward, answering whether it moved.

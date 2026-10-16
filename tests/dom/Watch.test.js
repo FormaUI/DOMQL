@@ -792,6 +792,42 @@ describe('Watch', () => {
             expect(failing).toEqual([1, 3]);
             expect(other).toEqual(['1', '2', '3']);
         });
+
+        it('keep the observations both read running where a watch of other bindings is ready before the first is disposed', async () => {
+            const started = [];
+            const stopped = [];
+
+            isolated.registerModule(isolated.createModule('reach', {
+                observationTypes: [{ name: 'reach', contract: 'invalidation', function: 'observeReach' }],
+                members: [{ name: 'reach', function: 'reach', kind: 'property', on: 'element', parameters: [], result: 'number', changes: 'observable', reads: 'fresh', observations: [{ type: 'reach', of: 'receiver' }] }],
+            }, {
+                observeReach: ({ target }) => {
+                    started.push(target.id);
+
+                    return { stop: () => stopped.push(target.id) };
+                },
+                reach: () => 1,
+            }));
+            document.body.innerHTML = '<i id="a"></i><i id="b"></i><i id="c"></i>';
+
+            const [a, b, c] = ['a', 'b', 'c'].map(id => document.getElementById(id));
+            const query = isolated.query('{ x: @x.reach, y: @y.reach }', { x: a, y: b });
+            const replaced = query.watch({ schedule: 'immediate' });
+
+            watches.push(replaced);
+            await replaced.readyAsync();
+
+            expect(started).toEqual(['a', 'b']);
+
+            const replacement = query.with({ x: b, y: c }).watch({ schedule: 'immediate' });
+
+            watches.push(replacement);
+            await replacement.readyAsync();
+            replaced.dispose();
+
+            expect(started).toEqual(['a', 'b', 'c']);
+            expect(stopped).toEqual(['a']);
+        });
     });
 
     describe('refreshAsync', () => {
