@@ -390,6 +390,7 @@ export interface DomqlModuleContents {
 /**
  * The functions that carry a module's members and observation types out, by the key each declaration names.
  * A member takes its receiver, its arguments by name and the environment, and a member that reads maintained values also their values, in the order its declaration names the observations; it is not called while one of them is pending.
+ * A structure a member or an action answers is taken by its declared fields alone, read as the value offers them, getters included.
  * A source takes its receiver, its arguments and the environment, and the function it delivers each event to, and returns an object whose `stop` ends the listening.
  * An action takes its receiver, its arguments, the environment and `{ signal }`, and returns its result or a promise of it.
  * A behavior takes its receiver, its arguments, the environment and `{ reportError }`, starts before it returns, and returns an object whose `update(receiver, args)` applies new arguments and whose `dispose` ends it.

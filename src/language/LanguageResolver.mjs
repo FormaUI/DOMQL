@@ -852,23 +852,30 @@ export class LanguageResolver {
         return text === undefined ? null : Type.parse(text);
     }
 
-    #isData(type) {
+    /** Whether values of the type are data; a structure already being checked counts as data where it holds itself, since its other fields are checked where it is first met. */
+    #isData(type, checking = new Set()) {
         switch (type.kind) {
             case 'null':
             case 'never':
                 return true;
             case 'list':
-                return this.#isData(type.itemType);
+                return this.#isData(type.itemType, checking);
             case 'object':
-                return [...type.fieldTypes.values()].every(fieldType => this.#isData(fieldType));
+                return [...type.fieldTypes.values()].every(fieldType => this.#isData(fieldType, checking));
             case 'named': {
-                if (DATA_TYPE_NAMES.has(type.name)) {
+                if (DATA_TYPE_NAMES.has(type.name) || checking.has(type.name)) {
                     return true;
                 }
 
                 const structure = this.#moduleRegistry.getType(type.name);
 
-                return structure !== undefined && Object.values(structure.fields).every(text => this.#isData(Type.parse(text)));
+                if (structure === undefined) {
+                    return false;
+                }
+
+                checking.add(type.name);
+
+                return Object.values(structure.fields).every(text => this.#isData(Type.parse(text), checking));
             }
             default:
                 return false;

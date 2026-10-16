@@ -1257,6 +1257,68 @@ describe('domql modules', () => {
         });
     });
 
+    describe('a structure a member answers', () => {
+        /** Registers `pair`, a member of elements answering what `answer` gives, and the types it is declared with. */
+        const registerPair = (answer, result = 'pair') => {
+            isolated.registerModule(isolated.createModule('pair', {
+                types: [
+                    { name: 'pair', fields: { a: 'number', b: 'number' } },
+                    { name: 'span', fields: { from: 'pair', to: 'pair?', marks: 'list<pair>' } },
+                    { name: 'link', fields: { value: 'number', next: 'link?' } },
+                ],
+                members: [{ name: 'pair', function: 'pair', kind: 'property', on: 'element', parameters: [], result, changes: 'constant', reads: 'fresh' }],
+            }, { pair: answer }));
+        };
+
+        const panel = document.createElement('div');
+
+        it('is copied by its declared fields alone, a field it holds beside them left out', () => {
+            registerPair(() => ({ a: 1, b: 2, cache: { rows: [1, 2, 3] } }));
+
+            expect(isolated.query('@panel.pair', { panel }).evaluate()).toEqual({ a: 1, b: 2 });
+        });
+
+        it('reads its declared fields as an instance of a class offers them, through getters', () => {
+            class Pair {
+                get a() { return 1; }
+
+                get b() { return 2; }
+            }
+
+            registerPair(() => new Pair());
+
+            expect(isolated.query('@panel.pair', { panel }).evaluate()).toEqual({ a: 1, b: 2 });
+            expect(isolated.query('@panel.pair { sum: self.a }', { panel }).evaluate()).toEqual({ sum: 1 });
+        });
+
+        it('is copied as its declared shape at every depth, in its fields and in the items of a list', () => {
+            registerPair(() => ({ from: { a: 1, b: 2, x: 0 }, to: null, marks: [{ a: 3, b: 4, y: 0 }] }), 'span');
+
+            expect(isolated.query('@panel.pair', { panel }).evaluate()).toEqual({ from: { a: 1, b: 2 }, to: null, marks: [{ a: 3, b: 4 }] });
+        });
+
+        it('holds its own type as deep as its value goes', () => {
+            registerPair(() => ({ value: 1, next: { value: 2, next: null, extra: true } }), 'link');
+
+            expect(isolated.query('@panel.pair', { panel }).evaluate()).toEqual({ value: 1, next: { value: 2, next: null } });
+        });
+
+        it('still fails where a declared field is missing or of another type', () => {
+            registerPair(() => ({ a: 1 }));
+
+            expect(getError(() => isolated.query('@panel.pair', { panel }).evaluate()).message).toContain("The member 'pair' answered {\"a\":1}, and it declares pair");
+        });
+    });
+
+    it('copy an action\'s structured result by its declared fields', async () => {
+        isolated.registerModule(isolated.createModule('measure', {
+            types: [{ name: 'measurement', fields: { width: 'number' } }],
+            members: [{ name: 'measure', function: 'measure', kind: 'action', on: 'element', parameters: [], result: 'measurement', changes: 'unobserved', reads: 'fresh' }],
+        }, { measure: async () => ({ width: 5, raw: { internal: true } }) }));
+
+        await expect(isolated.query('@panel.measure()', { panel: document.createElement('div') }).executeAsync()).resolves.toEqual({ width: 5 });
+    });
+
     it('name a promise and an instance of a class that a member answers for a type that admits neither', () => {
         class Reading {}
 

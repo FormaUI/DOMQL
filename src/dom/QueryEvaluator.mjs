@@ -202,7 +202,9 @@ export class QueryEvaluator {
             this.#fail(`The action '${declaration.name}' answered ${QueryEvaluator.#describe(result)}, and it declares ${type}`, pointer);
         }
 
-        this.#projectionContext = { node, value: result };
+        const copyStructures = QueryEvaluator.#compileStructureCopy(type, this.#moduleRegistry);
+
+        this.#projectionContext = { node, value: copyStructures === null ? result : copyStructures(result) };
 
         try {
             return this.#evaluateResult().value;
@@ -468,7 +470,8 @@ export class QueryEvaluator {
 
         const { declaration, type } = resolution;
         const implementation = this.#moduleRegistry.getFunction(declaration);
-        const conforms = this.#compileTypeCheck(type);
+        const conforms = QueryEvaluator.#compileTypeCheck(type, this.#moduleRegistry);
+        const copyStructures = QueryEvaluator.#compileStructureCopy(type, this.#moduleRegistry);
         const evaluateArguments = this.#compileArguments(resolution);
 
         return (evaluator, currentValue) => {
@@ -485,7 +488,7 @@ export class QueryEvaluator {
 
             const args = evaluateArguments(evaluator, currentValue);
 
-            return args === null ? null : evaluator.#invokeImplementation(declaration, implementation, conforms, receiver, args, type, node);
+            return args === null ? null : evaluator.#invokeImplementation(declaration, implementation, conforms, copyStructures, receiver, args, type, node);
         };
     }
 
@@ -596,39 +599,120 @@ export class QueryEvaluator {
         return object;
     }
 
-    /** Whether a value is one the type admits, as `#conforms` answers, with the type's structure, and each declared structure's fields, found once. */
-    #compileTypeCheck(type) {
-        const admits = this.#compileNonNullTypeCheck(type);
+    /**
+     * The copy a type makes of a value it admits: a declared structure as its declared fields alone, each read as the value offers it, a getter's included, so its declaration is the shape a result holds,
+     * and a list item by item; null for a type that holds no declared structure, whose values stand as they are. A structure's fields are found at its first copy, so a structure that holds itself is copied as deep as its value goes.
+     */
+    static #compileStructureCopy(type, moduleRegistry) {
+        switch (type.kind) {
+            case 'list': {
+                const copyItem = QueryEvaluator.#compileStructureCopy(type.itemType, moduleRegistry);
+
+                return copyItem === null ? null : value => (value === null ? null : value.map(item => (item === null ? null : copyItem(item))));
+            }
+            case 'named': {
+                const structure = moduleRegistry.getType(type.name);
+
+                if (structure === undefined) {
+                    return null;
+                }
+
+                // It holds the registry alone, never an evaluator, so it holds nothing an evaluation bound.
+                let fields = null;
+                let isFlat = false;
+
+                return value => {
+                    if (value === null) {
+                        return null;
+                    }
+
+                    if (fields === null) {
+                        fields = QueryEvaluator.#fieldTypesOf(structure).map(([name, fieldType]) => [name, QueryEvaluator.#compileStructureCopy(fieldType, moduleRegistry)]);
+                        isFlat = fields.every(([, copyField]) => copyField === null);
+                    }
+
+                    // An answer that is a plain object of its declared fields alone, none of them a structure, is its declared shape already, as a built-in member's is.
+                    if (isFlat && QueryEvaluator.#holdsExactly(value, structure.fields, fields.length)) {
+                        return value;
+                    }
+
+                    const copy = {};
+
+                    for (const [name, copyField] of fields) {
+                        const field = value[name];
+
+                        // A field's name is a name, so it is assigned as it is.
+                        copy[name] = copyField === null || field === null ? field : copyField(field);
+                    }
+
+                    return copy;
+                };
+            }
+            default:
+                return null;
+        }
+    }
+
+    /** Whether the value is a plain object whose own keys are the declared fields alone. */
+    static #holdsExactly(value, declaredFields, count) {
+        if (Object.getPrototypeOf(value) !== Object.prototype) {
+            return false;
+        }
+
+        let found = 0;
+
+        for (const key in value) {
+            if (!Object.hasOwn(declaredFields, key)) {
+                return false;
+            }
+
+            found++;
+        }
+
+        return found === count;
+    }
+
+    /** Whether a value is one the type admits, as `#conforms` answers, with the type's structure found once and each declared structure's fields at its first check. */
+    static #compileTypeCheck(type, moduleRegistry) {
+        const admits = QueryEvaluator.#compileNonNullTypeCheck(type, moduleRegistry);
 
         return value => (value === undefined ? false : value === null ? type.isNullable : admits(value));
     }
 
-    #compileNonNullTypeCheck(type) {
+    /** A compiled function holds the registry alone, never an evaluator, so it holds nothing an evaluation bound; a structure that holds itself is checked as deep as its value goes. */
+    static #compileNonNullTypeCheck(type, moduleRegistry) {
         switch (type.kind) {
             case 'typeParameter':
                 return () => true;
             case 'list': {
-                const checkItem = this.#compileTypeCheck(type.itemType);
+                const checkItem = QueryEvaluator.#compileTypeCheck(type.itemType, moduleRegistry);
 
                 return value => Array.isArray(value) && ArrayUtils.findMissingIndex(value) === -1 && value.every(checkItem);
             }
             case 'object': {
-                const fields = [...type.fieldTypes].map(([name, fieldType]) => [name, this.#compileTypeCheck(fieldType)]);
+                const fields = [...type.fieldTypes].map(([name, fieldType]) => [name, QueryEvaluator.#compileTypeCheck(fieldType, moduleRegistry)]);
 
                 return value => ObjectUtils.isNonArrayObject(value) && fields.every(([name, conforms]) => conforms(value[name]));
             }
             default: {
                 const { name } = type;
-                const structure = this.#moduleRegistry.getType(name);
+                const structure = moduleRegistry.getType(name);
 
-                // A compiled function holds no evaluator, so it holds nothing an evaluation bound.
                 if (structure === undefined) {
                     return value => QueryEvaluator.#isOfBuiltIn(value, name) ?? false;
                 }
 
-                const fields = QueryEvaluator.#fieldTypesOf(structure).map(([field, fieldType]) => [field, this.#compileTypeCheck(fieldType)]);
+                let fields = null;
 
-                return value => ObjectUtils.isNonArrayObject(value) && fields.every(([field, conforms]) => conforms(value[field]));
+                return value => {
+                    if (!ObjectUtils.isNonArrayObject(value)) {
+                        return false;
+                    }
+
+                    fields ??= QueryEvaluator.#fieldTypesOf(structure).map(([field, fieldType]) => [field, QueryEvaluator.#compileTypeCheck(fieldType, moduleRegistry)]);
+
+                    return fields.every(([field, conforms]) => conforms(value[field]));
+                };
             }
         }
     }
@@ -736,11 +820,11 @@ export class QueryEvaluator {
 
     /** Carries out a declaration's function, checking that its result is of the declared type. */
     #invokeMember(declaration, receiver, args, type, node) {
-        return this.#invokeImplementation(declaration, this.#moduleRegistry.getFunction(declaration), value => this.#conforms(value, type), receiver, args, type, node);
+        return this.#invokeImplementation(declaration, this.#moduleRegistry.getFunction(declaration), value => this.#conforms(value, type), QueryEvaluator.#compileStructureCopy(type, this.#moduleRegistry), receiver, args, type, node);
     }
 
-    /** Carries out the function of a declaration whose function and check of its result are found already. */
-    #invokeImplementation(declaration, implementation, conforms, receiver, args, type, node) {
+    /** Carries out the function of a declaration whose function, check of its result and copy of the structures it holds are found already. */
+    #invokeImplementation(declaration, implementation, conforms, copyStructures, receiver, args, type, node) {
         if (implementation === undefined) {
             this.#fail(`The module '${this.#moduleRegistry.getOwner(declaration)}' supplies no function for '${declaration.name}'`, this.#pointerOf(node));
         }
@@ -765,7 +849,7 @@ export class QueryEvaluator {
 
         this.#followDetachedReceiver(declaration, receiver, value, node);
 
-        return value;
+        return copyStructures === null ? value : copyStructures(value);
     }
 
     /**
@@ -1002,7 +1086,9 @@ export class QueryEvaluator {
             const value = event?.[name];
 
             if (this.#conforms(value, fieldType)) {
-                captured[name] = value;
+                const copyStructures = QueryEvaluator.#compileStructureCopy(fieldType, this.#moduleRegistry);
+
+                captured[name] = copyStructures === null ? value : copyStructures(value);
             } else if (fieldType.isNullable) {
                 captured[name] = null;
             } else {
