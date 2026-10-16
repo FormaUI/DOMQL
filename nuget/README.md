@@ -209,7 +209,7 @@ selection.dispose();
 
 The query says what the toolbar needs, and the watch works out what to observe: the panel's children and the two attributes it reads of each, an item added included. It reads the attribute rather than `matches`, so every change it depends on is observed and the watch needs no option, as [observation limits](#observation-limits) explains. The listener receives an initial snapshot and then a new one when the result changes, never one equal to the last. Handlers receive `(sender, args)`, where `sender` is the watch handle.
 
-A watch responds automatically to observed changes, normally at the next animation frame. The example calls `refreshAsync()` to make each step explicit: it evaluates immediately and resolves after listeners have received the result. Use `schedule: 'immediate'` to evaluate in the task that reports a change instead of batching changes until the next frame.
+A watch responds automatically to observed changes, normally at the next animation frame. The example calls `refreshAsync()` to make each step explicit: it evaluates immediately and resolves after listeners have received the result. Use `schedule: 'immediate'` to evaluate without waiting for the next frame: the first invalidation queues an evaluation in a microtask, and invalidations received before that evaluation begins share it, while resizes the browser reports one element at a time evaluate once for each, which the frame schedule batches.
 
 Call `dispose()` when you no longer need updates. It stops the watch's listeners and releases its observations.
 

@@ -238,7 +238,7 @@ describe('Watch', () => {
             expect(evaluations).toBe(2);
         });
 
-        it('are followed in the task that reported them when the watch is scheduled so', async () => {
+        it('are followed without waiting for an animation frame when the watch is scheduled so', async () => {
             watch('@panel.tally', { panel }, { schedule: 'immediate' });
             await settle();
 
@@ -246,6 +246,100 @@ describe('Watch', () => {
             await settle();
 
             expect(snapshots).toEqual([1, 2]);
+        });
+    });
+
+    describe('under the immediate schedule', () => {
+        /** Starts an immediate watch of the first child's gauge and tally, its first sample delivered, and answers the watch and the gauge. */
+        const watchGauge = async (text = '{ level: @first.level, tally: @first.tally }') => {
+            const [first] = panel.children;
+            const created = watch(text, { first });
+
+            await settle();
+
+            const gauge = gauges.get(first);
+
+            gauge.sample = { pending: false, value: 1 };
+            gauge.notify();
+            await settle();
+
+            return { created, gauge };
+        };
+
+        it('evaluates once, in a microtask, for the invalidations it receives before that evaluation begins', async () => {
+            const { gauge } = await watchGauge();
+            const before = evaluations;
+
+            gauge.notify();
+            gauge.notify();
+            gauge.notify();
+
+            expect(evaluations).toBe(before);
+
+            await settle();
+
+            expect(evaluations).toBe(before + 1);
+        });
+
+        it('evaluates again for an invalidation it receives after its queued evaluation ran', async () => {
+            const { gauge } = await watchGauge();
+            const before = evaluations;
+
+            gauge.notify();
+            await settle();
+            gauge.notify();
+            await settle();
+
+            expect(evaluations).toBe(before + 2);
+        });
+
+        it('lets a queued evaluation go once the watch is disposed', async () => {
+            const { created, gauge } = await watchGauge();
+            const before = evaluations;
+
+            gauge.notify();
+            created.dispose();
+            await settle();
+
+            expect(evaluations).toBe(before);
+            expect(failures).toEqual([]);
+        });
+
+        it('answers a queued evaluation with a refresh that runs before it', async () => {
+            const { created, gauge } = await watchGauge();
+            const before = evaluations;
+
+            gauge.notify();
+            await created.refreshAsync();
+            await settle();
+
+            expect(evaluations).toBe(before + 1);
+        });
+
+        it('evaluates again for an invalidation it receives while it evaluates', async () => {
+            let duringEvaluation = null;
+
+            isolated.registerModule(isolated.createModule('nudge', {
+                members: [{ name: 'nudge', function: 'nudge', kind: 'property', on: 'element', parameters: [], result: 'number', changes: 'constant', reads: 'fresh' }],
+            }, {
+                nudge: () => {
+                    const nudge = duringEvaluation;
+
+                    duringEvaluation = null;
+                    nudge?.();
+
+                    return 0;
+                },
+            }));
+
+            const { gauge } = await watchGauge('{ level: @first.level, tally: @first.tally, nudge: @first.nudge }');
+            const before = evaluations;
+
+            duringEvaluation = () => gauge.notify();
+            gauge.notify();
+            await settle();
+
+            expect(evaluations).toBe(before + 2);
         });
     });
 

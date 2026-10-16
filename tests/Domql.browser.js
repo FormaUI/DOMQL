@@ -187,7 +187,7 @@ describe('domql evaluateAsync in a browser', () => {
         });
 
         it('evaluates a client size twice under the immediate schedule where both of its boxes report one resize', async () => {
-            // This is how the immediate schedule evaluates now, once for each notification; batching its invalidations, an open decision, may change it.
+            // Each box reports through a ResizeObserver callback of its own, and each callback reaches a microtask of its own.
             let evaluations = 0;
 
             domql.registerModule(domql.createModule('clientEvaluations', {

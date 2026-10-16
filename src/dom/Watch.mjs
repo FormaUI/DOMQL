@@ -45,6 +45,8 @@ export class Watch {
 
     /** The animation frame the next evaluation waits for. */
     #frame = null;
+    /** Whether an evaluation under the immediate schedule is queued for the next microtask, which the invalidations received before it share. */
+    #isQueued = false;
     #isRunning = false;
 
     /** Whether an evaluation has run, so the first one scheduled at creation is not repeated by a refresh that came before it. */
@@ -76,7 +78,7 @@ export class Watch {
      * @param {(error: unknown) => void} dependencies.reportError The environment's error reporting, which a failure no listener receives reaches.
      * @param {(path: (string | number)[]) => void} dependencies.checkPath Refuses a path that does not fit the result's type.
      * @param {object} dependencies.options The watch's options.
-     * @param {'frame' | 'immediate'} dependencies.options.schedule When an evaluation follows a change: at the next animation frame, once however many observations fired, or in the task that reported it.
+     * @param {'frame' | 'immediate'} dependencies.options.schedule When an evaluation follows a change: at the next animation frame, once however many observations fired, or, without waiting for an animation frame, in a microtask the first invalidation queues, which the invalidations received before it begins share.
      * @param {'snapshot' | 'liveState'} dependencies.options.updateStrategy What the watch's events carry: each snapshot whole, or one object it keeps current in place.
      * @param {(string | number)[]} [dependencies.options.path] The part of the result the watch reports.
      * @param {AbortSignal} [dependencies.options.signal] Disposes the watch when it aborts.
@@ -318,7 +320,15 @@ export class Watch {
         }
 
         if (this.#schedule === 'immediate') {
-            this.#run();
+            if (!this.#isQueued) {
+                this.#isQueued = true;
+                queueMicrotask(() => {
+                    // Any evaluation since answers the invalidations this one was queued for, a refresh among them.
+                    if (this.#isQueued) {
+                        this.#run();
+                    }
+                });
+            }
         } else if (this.#frame === null) {
             this.#frame = this.#window.requestAnimationFrame(() => {
                 this.#frame = null;
@@ -340,6 +350,7 @@ export class Watch {
         }
 
         this.#hasRun = true;
+        this.#isQueued = false;
         this.#cancelFrame();
 
         // The refreshes waiting now are answered by this evaluation, and one asked for while it runs by the next.

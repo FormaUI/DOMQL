@@ -44,7 +44,7 @@ import { Specification } from './language/Specification.mjs';
 /**
  * How a query is watched.
  * @typedef {object} DomqlWatchOptions
- * @property {'frame' | 'immediate'} [schedule] When an evaluation follows a change: at the next animation frame, once however many observations fired, or in the task that reported it.
+ * @property {'frame' | 'immediate'} [schedule] When an evaluation follows a change: at the next animation frame, once however many observations fired, or, without waiting for an animation frame, in a microtask the first invalidation queues, which the invalidations received before it begins share.
  * @property {'snapshot' | 'liveState'} [updateStrategy] What the watch's events carry: each snapshot whole, or one object the watch keeps current in place, which keeps its identity.
  * @property {boolean} [acceptPartialObservation] Whether the watch accepts a member whose observations only partly cover its changes.
  * @property {AbortSignal} [signal] Disposes the watch when it aborts.

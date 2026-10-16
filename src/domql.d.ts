@@ -24,7 +24,7 @@ export interface DomqlEvaluateAsyncOptions extends DomqlEvaluateOptions {
 
 /** How a query is watched, its events carrying each snapshot whole. */
 export interface DomqlWatchOptions {
-    /** When an evaluation follows a change: at the next animation frame, once however many observations fired (the default), or in the task that reported it. */
+    /** When an evaluation follows a change: at the next animation frame, once however many observations fired (the default), or, without waiting for an animation frame, in a microtask the first invalidation queues, which the invalidations received before it begins share. */
     schedule?: 'frame' | 'immediate';
     /** What the watch's events carry: each snapshot whole, the default. */
     updateStrategy?: 'snapshot';
