@@ -55,6 +55,8 @@ const RESIZE = { type: 'resize', of: 'receiver' };
 const WINDOW_RESIZE = { type: 'resize', of: 'window' };
 const SCROLLING = { type: 'event', of: 'roots', types: ['scroll'], capture: true };
 const FOCUS = { type: 'event', of: 'document', types: ['focusin', 'focusout'] };
+// A popover opening or closing changes no attribute; its toggle event, which does not bubble, is heard as it is captured at the root.
+const POPOVERS = { type: 'event', of: 'root', types: ['toggle'], capture: true };
 const ATTRIBUTES = { type: 'mutation', of: 'receiver', attributes: true };
 const CHILDREN = { type: 'mutation', of: 'receiver', childList: true };
 const STRUCTURE = { type: 'mutation', of: 'root', attributes: true, childList: true, subtree: true };
@@ -64,7 +66,7 @@ const TEXT_SELECTION = [
 ];
 
 const SELECTOR_PARAMETERS = [valueParameter('selector', 'string')];
-const MATCHING = { changes: 'partly-observable', misses: 'pointer state such as :hover, control state such as :checked, and a popover\'s open state' };
+const MATCHING = { changes: 'partly-observable', misses: 'pointer state such as :hover and control state such as :checked' };
 const GEOMETRY = { changes: 'partly-observable', misses: 'a move its own size, the scrolling of its scroll containers, the window\'s size and the structure of its trees do not cause, as a sibling before it growing or a margin or padding around it changing, and transforms and animations' };
 const STYLE = { changes: 'partly-observable', misses: 'rules matching from elsewhere' };
 
@@ -149,11 +151,11 @@ export class Vocabulary {
                 operation('computedStyleOf', 'element', 'string?', { ...STYLE, form: 'infix', parameters: [valueParameter('property', 'string')], observations: [RESIZE, ATTRIBUTES] }),
                 operation('intersects', 'element', 'boolean?', { reads: 'maintained', form: 'infix', input: 'options', parameters: [valueParameter('root', 'element?', { default: null, nulls: 'accept', omitted: 'the window' }), valueParameter('margin', 'number', { default: 0 })], observations: [{ type: 'intersection', of: 'receiver', root: { argument: 'root' }, margin: { argument: 'margin' } }] }),
                 operation('overlaps', 'element', 'boolean?', { ...GEOMETRY, form: 'infix', input: 'options', parameters: [valueParameter('other', 'element'), valueParameter('margin', 'number', { default: 0 })], observations: [RESIZE, { type: 'resize', of: { argument: 'other' } }, SCROLLING, WINDOW_RESIZE] }),
-                operation('matches', 'element', 'boolean?', { ...MATCHING, form: 'infix', parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS] }),
+                operation('matches', 'element', 'boolean?', { ...MATCHING, form: 'infix', parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS, POPOVERS] }),
                 operation('rectRelativeTo', 'element', 'rectangle?', { ...GEOMETRY, function: 'rect', parameters: [valueParameter('relativeTo', 'element')], observations: [RESIZE, { type: 'resize', of: { argument: 'relativeTo' } }, SCROLLING, WINDOW_RESIZE] }),
-                operation('closest', 'element', 'element?', { ...MATCHING, parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS] }),
-                operation('first', 'node', 'element?', { ...MATCHING, function: 'firstMatching', parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS] }),
-                operation('all', 'node', 'list<element>', { ...MATCHING, parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS] }),
+                operation('closest', 'element', 'element?', { ...MATCHING, parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS, POPOVERS] }),
+                operation('first', 'node', 'element?', { ...MATCHING, function: 'firstMatching', parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS, POPOVERS] }),
+                operation('all', 'node', 'list<element>', { ...MATCHING, parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS, POPOVERS] }),
                 operation('at', 'list<T>', 'T?', { changes: 'derived', reads: 'derived', parameters: [valueParameter('index', 'number')] }),
                 operation('max', 'list<T>', 'number?', { changes: 'derived', reads: 'derived', parameters: [expressionParameter('number?')] }),
                 operation('min', 'list<T>', 'number?', { changes: 'derived', reads: 'derived', parameters: [expressionParameter('number?')] }),

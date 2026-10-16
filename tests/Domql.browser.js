@@ -114,6 +114,32 @@ describe('domql evaluateAsync in a browser', () => {
             expect(snapshots).toEqual([440, 490, 510]);
         });
 
+        it('follows a popover opening and closing, by script and by its button, which change no attribute', async () => {
+            panel.insertAdjacentHTML('beforeend', '<button id="opener" popovertarget="tip">Tip</button><div id="tip" popover>A tip</div>');
+
+            const tip = document.getElementById('tip');
+            const snapshots = [];
+            const watch = domql.query('{ open: @tip matches ":popover-open", count: @panel.all(":popover-open").count }', { tip, panel }).watch({ acceptPartialObservation: true });
+
+            watch.subscribe('change', (sender, args) => snapshots.push(args.value));
+            watches.push(watch);
+            await frame();
+
+            tip.showPopover();
+            await frame();
+            tip.hidePopover();
+            await frame();
+            document.getElementById('opener').click();
+            await frame();
+
+            expect(snapshots).toEqual([
+                { open: false, count: 0 },
+                { open: true, count: 1 },
+                { open: false, count: 0 },
+                { open: true, count: 1 },
+            ]);
+        });
+
         it('follows a client size through its border box, and misses a change that leaves the border box as it was until a refresh', async () => {
             const box = document.createElement('div');
 
