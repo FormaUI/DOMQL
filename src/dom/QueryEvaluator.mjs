@@ -70,6 +70,14 @@ const ARITHMETIC = Object.freeze({
     '%': (a, b) => a % b,
 });
 
+/** What each comparison operator answers for its operands. */
+const COMPARISONS = Object.freeze({
+    '<': (a, b) => a < b,
+    '<=': (a, b) => a <= b,
+    '>': (a, b) => a > b,
+    '>=': (a, b) => a >= b,
+});
+
 export class QueryEvaluator {
     /** The fields of each declared structure, each with its type parsed, by the structure: valid for as long as the structure, which is frozen, and released with it. @type {WeakMap<object, [string, Type][]>} */
     static #fieldTypesByStructure = new WeakMap();
@@ -468,6 +476,31 @@ export class QueryEvaluator {
                 const operand = this.#getCompiledFunction(node.operand);
 
                 return (evaluator, currentValue) => !QueryEvaluator.#isTruthy(operand(evaluator, currentValue));
+            }
+            case 'comparison': {
+                const operands = node.operands.map(operand => this.#getCompiledFunction(operand));
+                const compares = node.operators.map(operator => COMPARISONS[operator]);
+
+                // Each operand is evaluated once, left to right, the one between two operators compared with both, and the first comparison that is false answers false without evaluating the operands after it.
+                return (evaluator, currentValue) => {
+                    let left = operands[0](evaluator, currentValue);
+
+                    for (let index = 0; index < compares.length; index++) {
+                        const right = operands[index + 1](evaluator, currentValue);
+
+                        if (typeof left !== 'number' || typeof right !== 'number') {
+                            throw DomqlError.evaluation(`'${node.operators[index]}' compares numbers, and is given ${QueryEvaluator.#describe(typeof left !== 'number' ? left : right)}`, evaluator.#locate(evaluator.#pointerOf(node)));
+                        }
+
+                        if (!compares[index](left, right)) {
+                            return false;
+                        }
+
+                        left = right;
+                    }
+
+                    return true;
+                };
             }
             case 'arithmetic': {
                 // The left operand is evaluated, then the right; arithmetic does not short-circuit, and an operand that fails stops it.

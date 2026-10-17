@@ -72,6 +72,7 @@ describe('SyntaxTree', () => {
             '(?(panel.parent as "element").rect.width) ?? panel.closest(".row")?.rect { top = self.top }',
             'panel { let rows = self.all("i"), first = rows:[0]?:["data-key"], name = self[name], open = self.matches(".x") }',
             '-a * 2 + b % 3 - c / d',
+            '0 < a <= 1 and b > c >= d',
         ];
         const kinds = new Set(texts.flatMap(text => kindsOf(treeOf(text))));
         const types = new Set(texts.flatMap(text => Tokenizer.scan(text).map(token => token.type)).concat(Tokenizer.scan('a = 1').map(token => token.type)));

@@ -91,6 +91,7 @@ const DOCUMENTS = {
         { about: 'tests', each: true },
         { about: 'equalities', each: true },
         { about: 'arithmetic' },
+        { about: 'comparisons' },
         { about: 'logical expressions', each: true, results: { 3: { width: 0 }, 4: 'untitled' } },
         { about: 'conditionals', each: true, context: COMPARED, results: { 2: true } },
         { about: 'coalescing operators', each: true, results: { 2: false } },

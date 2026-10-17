@@ -3,7 +3,7 @@
  */
 
 /** How tightly each kind of expression binds, the loosest lowest: one written where a tighter one stands is parenthesized. An optional chain is a cast's target as it is, and is grouped where a chain continues from it, since its short-circuit ends where it does. */
-const PRECEDENCE = { conditional: 0, coalescing: 1, or: 2, and: 3, not: 4, equality: 5, additive: 6, multiplicative: 7, negate: 8, try: 9, conversion: 10, cast: 11, optionalChain: 12 };
+const PRECEDENCE = { conditional: 0, coalescing: 1, or: 2, and: 3, not: 4, equality: 5, comparison: 5, additive: 6, multiplicative: 7, negate: 8, try: 9, conversion: 10, cast: 11, optionalChain: 12 };
 
 /** How tightly a chain binds that no optional chain holds: a property access, a call, an indexer, an object expression, `self`, a local, a literal or a parameter. */
 const CHAIN_PRECEDENCE = 13;
@@ -55,6 +55,9 @@ export class DefinitionWriter {
                 return DefinitionWriter.#write(node.target, level);
             case 'equality':
                 return DefinitionWriter.#equality(node, '==', level);
+            case 'comparison':
+                // A chain is written as one, an operator between each two of its operands.
+                return node.operands.map((operand, index) => `${index === 0 ? '' : ` ${node.operators[index - 1]} `}${DefinitionWriter.#within(operand, PRECEDENCE.additive, level)}`).join('');
             case 'conditional':
                 return DefinitionWriter.#conditional(node, level);
             case 'coalescing':

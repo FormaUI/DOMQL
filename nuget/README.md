@@ -607,19 +607,20 @@ The built-in conversions are from a string to a number or a Boolean, and from a 
 
 `to` is not `as`: a cast narrows a node to one of its kinds and converts nothing.
 
-### Calculate with numbers
+### Calculate and compare numbers
 
-Use `+`, `-`, `*`, `/` and `%` to derive the values a result needs from those a query reads, and `-` before a value to negate it:
+Use `+`, `-`, `*`, `/` and `%` to derive the values a result needs from those a query reads, `-` before a value to negate it, and `<`, `<=`, `>` and `>=` to test them:
 
 ```domql
 panel {
     remaining = (self.clientSize?.width ?? 0) - (self.first("[data-key]")?.rect?.width ?? 0),
     half = (self.rect?.width ?? 0) / 2,
-    unreadAfterNext = (self.first("[data-unread]")?:["data-unread"] to "number" ?? 0) + 1
+    unreadAfterNext = (self.first("[data-unread]")?:["data-unread"] to "number" ?? 0) + 1,
+    fits = 0 < (self.clientSize?.width ?? 0) - 32 <= 400
 }
 ```
 
-Arithmetic takes numbers alone: a value that can be null, such as a size an element without a layout box has none of, is an error until it takes a fallback with `??` or a test, so missing data never becomes zero, and text becomes a number only through `to`, which binds tighter than arithmetic. `*`, `/` and `%` bind tighter than `+` and `-`, each level left to right. Dividing by zero, or a result too large for a number, fails the evaluation rather than giving infinity.
+Arithmetic takes numbers alone: a value that can be null, such as a size an element without a layout box has none of, is an error until it takes a fallback with `??` or a test, so missing data never becomes zero, and text becomes a number only through `to`, which binds tighter than arithmetic. `*`, `/` and `%` bind tighter than `+` and `-`, each level left to right. Dividing by zero, or a result too large for a number, fails the evaluation rather than giving infinity. A comparison answers a Boolean, and a chain of them pointing one way tests a range, as `0 < width <= 600`, which evaluates `width` once; it binds looser than arithmetic and tighter than `and` and `or`, and is grouped beside `==` or `??`, as `(a < b) == c`.
 
 ### Cross a shadow boundary
 

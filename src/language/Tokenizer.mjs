@@ -9,11 +9,11 @@ import { Names } from './Names.mjs';
  * The types a token is, which tooling reads as they are: `invalid` for text that is no token, and `end` for the end of the text, after its last trivia.
  * A contract within DOMQL until a public tooling API stabilizes it.
  */
-export const TOKEN_TYPES = Object.freeze(['name', 'literal', 'keyword', 'self', 'invalid', 'end', '.', '?.', '?[', '?:', '??', '(?', '==', '!=', '=', '+', '-', '*', '/', '%', ',', ':', '(', ')', '{', '}', '[', ']']);
+export const TOKEN_TYPES = Object.freeze(['name', 'literal', 'keyword', 'self', 'invalid', 'end', '.', '?.', '?[', '?:', '??', '(?', '==', '!=', '<', '<=', '>', '>=', '=', '+', '-', '*', '/', '%', ',', ':', '(', ')', '{', '}', '[', ']']);
 
 /**
  * @typedef {object} Token
- * @property {'name' | 'literal' | 'keyword' | 'self' | 'invalid' | 'end' | '.' | '?.' | '?[' | '?:' | '??' | '(?' | '==' | '!=' | '=' | '+' | '-' | '*' | '/' | '%' | ',' | ':' | '(' | ')' | '{' | '}' | '[' | ']'} type
+ * @property {'name' | 'literal' | 'keyword' | 'self' | 'invalid' | 'end' | '.' | '?.' | '?[' | '?:' | '??' | '(?' | '==' | '!=' | '<' | '<=' | '>' | '>=' | '=' | '+' | '-' | '*' | '/' | '%' | ',' | ':' | '(' | ')' | '{' | '}' | '[' | ']'} type
  * @property {unknown} [value] A name's or a keyword's text, or a literal's value.
  * @property {number} start
  * @property {number} end
@@ -104,10 +104,16 @@ export class Tokenizer {
             return { type: character, start, end: this.#offset };
         }
 
-        if (['?.', '?[', '?:', '??', '==', '!='].some(operator => this.#text.startsWith(operator, start))) {
+        if (['?.', '?[', '?:', '??', '==', '!=', '<=', '>='].some(operator => this.#text.startsWith(operator, start))) {
             this.#offset += 2;
 
             return { type: this.#text.slice(start, this.#offset), start, end: this.#offset };
+        }
+
+        if (character === '<' || character === '>') {
+            this.#offset++;
+
+            return { type: character, start, end: this.#offset };
         }
 
         if (character === '@') {

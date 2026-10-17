@@ -418,6 +418,37 @@ describe('Watch', () => {
         });
     });
 
+    describe('a comparison', () => {
+        it('evaluates each operand once, and none after the first comparison that is false', () => {
+            const before = evaluations;
+
+            expect(isolated.query('0 < panel.tally < 1000000', { panel }).evaluate()).toBe(true);
+            expect(evaluations).toBe(before + 1);
+            expect(isolated.query('1 < 0 < panel.tally', { panel }).evaluate()).toBe(false);
+            expect(evaluations).toBe(before + 1);
+        });
+
+        it('follows an operand only while the comparisons before it pass evaluation on to it', async () => {
+            watch('0 < (try panel:["data-on"] to "number" ?? 0) < (panel.level ?? 100)', { panel });
+            await settle();
+
+            expect(gauges.has(panel)).toBe(false);
+
+            panel.setAttribute('data-on', '5');
+            await settle();
+            gauges.get(panel).sample = { pending: false, value: 3 };
+            gauges.get(panel).notify();
+            await settle();
+
+            expect(snapshots).toEqual([false, true, false]);
+
+            panel.removeAttribute('data-on');
+            await settle();
+
+            expect(gauges.get(panel).stopped).toBe(1);
+        });
+    });
+
     describe('a conversion', () => {
         it('follows the value it converts, fails while that value has no conversion, and recovers once it has', async () => {
             const watched = watch('panel:attribute["data-n"] to "number"', { panel });

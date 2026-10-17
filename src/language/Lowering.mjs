@@ -51,6 +51,9 @@ export class Lowering {
 
                 return children[1].type === '!=' ? this.#span({ kind: 'not', operand: equality }, child) : equality;
             }
+            case 'comparison':
+                // A chain is one comparison, its operands in order and an operator between each two.
+                return this.#span({ kind: 'comparison', operands: children.filter((_, index) => index % 2 === 0).map(operand => this.#lower(operand)), operators: children.filter((_, index) => index % 2 === 1).map(operator => operator.type) }, child);
             case 'additive':
             case 'multiplicative': {
                 // Operators of one level associate to the left, each operation spanning from the first operand to its own right operand.

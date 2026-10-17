@@ -19,6 +19,7 @@ export const NODE_KINDS = Object.freeze([
     'conjunction',
     'negation',
     'equality',
+    'comparison',
     'additive',
     'multiplicative',
     'arithmetic-negation',

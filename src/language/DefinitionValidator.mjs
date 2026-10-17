@@ -21,6 +21,7 @@ const NODE_PROPERTIES = {
     object: { properties: ['kind', 'target', 'locals', 'fields'], required: ['fields'] },
     optionalChain: { properties: ['kind', 'target'], required: ['target'] },
     equality: { properties: ['kind', 'left', 'right'], required: ['left', 'right'] },
+    comparison: { properties: ['kind', 'operands', 'operators'], required: ['operands', 'operators'] },
     conditional: { properties: ['kind', 'condition', 'binding', 'consequent', 'alternative'], required: ['consequent', 'alternative'] },
     arithmetic: { properties: ['kind', 'operator', 'left', 'right'], required: ['operator', 'left', 'right'] },
     negate: { properties: ['kind', 'operand'], required: ['operand'] },
@@ -41,6 +42,9 @@ const CAST_TARGET_KINDS = new Set(['self', 'parameter', 'local', 'literal', 'obj
 
 /** The operators an arithmetic node holds. */
 const ARITHMETIC_OPERATORS = ['+', '-', '*', '/', '%'];
+
+/** The direction each comparison operator points, which every operator of a chain shares. */
+const COMPARISON_DIRECTIONS = Object.freeze({ '<': 'ascending', '<=': 'ascending', '>': 'descending', '>=': 'descending' });
 
 /** The kinds of node `try` attempts: the operations with a rejection of their own, which an attempt answers null for. */
 const ATTEMPTED_KINDS = new Set(['conversion', 'cast']);
@@ -86,7 +90,7 @@ export class DefinitionValidator {
         }
 
         if (!ObjectUtils.isNonArrayObject(node) || !Object.hasOwn(NODE_PROPERTIES, node.kind)) {
-            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, indexer, object, optionalChain, equality, arithmetic, negate, conditional, coalescing, not, cast, conversion, try, and or or');
+            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, indexer, object, optionalChain, equality, comparison, arithmetic, negate, conditional, coalescing, not, cast, conversion, try, and or or');
         }
 
         this.#requireProperties(node, pointer, NODE_PROPERTIES[node.kind]);
@@ -134,6 +138,8 @@ export class DefinitionValidator {
                     left: this.#validateNode(node.left, `${pointer}/left`, currentValueAvailability),
                     right: this.#validateNode(node.right, `${pointer}/right`, currentValueAvailability),
                 });
+            case 'comparison':
+                return this.#validateComparison(node, pointer, currentValueAvailability);
             case 'arithmetic':
                 if (!ARITHMETIC_OPERATORS.includes(node.operator)) {
                     this.#fail(`${pointer}/operator`, `An arithmetic operator is ${ARITHMETIC_OPERATORS.join(', ')}`);
@@ -273,6 +279,37 @@ export class DefinitionValidator {
         }
 
         return Object.freeze({ kind: node.kind, operands: Object.freeze(node.operands.map((operand, index) => this.#validateNode(operand, `${pointer}/operands/${index}`, currentValueAvailability))) });
+    }
+
+    /** Validates a comparison: two or more operands, each with the current value the comparison has, and between each two of them a comparison operator, every one pointing one way. */
+    #validateComparison(node, pointer, currentValueAvailability) {
+        this.#requireArray(node.operands, `${pointer}/operands`);
+
+        if (node.operands.length < 2) {
+            this.#fail(`${pointer}/operands`, 'A comparison compares two or more expressions');
+        }
+
+        this.#requireArray(node.operators, `${pointer}/operators`);
+
+        if (node.operators.length !== node.operands.length - 1) {
+            this.#fail(`${pointer}/operators`, 'A comparison has an operator between each two of its operands, one fewer than they are');
+        }
+
+        node.operators.forEach((operator, index) => {
+            if (!Object.hasOwn(COMPARISON_DIRECTIONS, operator)) {
+                this.#fail(`${pointer}/operators/${index}`, 'A comparison operator is <, <=, > or >=');
+            }
+
+            if (COMPARISON_DIRECTIONS[operator] !== COMPARISON_DIRECTIONS[node.operators[0]]) {
+                this.#fail(`${pointer}/operators/${index}`, 'A comparison chain keeps one direction: its operators are all < and <=, or all > and >=');
+            }
+        });
+
+        return Object.freeze({
+            kind: 'comparison',
+            operands: Object.freeze(node.operands.map((operand, index) => this.#validateNode(operand, `${pointer}/operands/${index}`, currentValueAvailability))),
+            operators: Object.freeze([...node.operators]),
+        });
     }
 
     #validateLiteral(node, pointer) {

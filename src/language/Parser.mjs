@@ -25,6 +25,9 @@ const ARGUMENT_STARTS = new Set(['self', 'literal']);
 /** The tokens that make an access optional. */
 const OPTIONAL_ACCESSES = new Set(['?.', '?[', '?:']);
 
+/** The direction each comparison operator points, which every operator of a chain shares. */
+const COMPARISON_DIRECTIONS = Object.freeze({ '<': 'ascending', '<=': 'ascending', '>': 'descending', '>=': 'descending' });
+
 /** The kinds of node a member expression is, each beginning with the token that joins it to its receiver. */
 const MEMBER_EXPRESSIONS = new Set(['dot-property-access', 'bracket-property-access', 'function-call', 'indexer']);
 
@@ -76,12 +79,12 @@ export class Parser {
         return this.#parseLogical('and', () => this.#parseAndOperand());
     }
 
-    /** Reads an and-operand: a negation, an equality, or an equality operand alone. */
+    /** Reads an and-operand: a negation, an equality, a comparison, or an equality operand alone. */
     #parseAndOperand() {
         return this.#isKeyword('not') ? this.#parseNegation() : this.#parseEquality();
     }
 
-    /** Reads a negation: `not` and what it negates, another negation, an equality or an equality operand, so it associates to the right; a coalescing operator stands beside it only where a group holds it. */
+    /** Reads a negation: `not` and what it negates, another negation, an equality, a comparison or an equality operand, so it associates to the right; a coalescing operator stands beside it only where a group holds it. */
     #parseNegation() {
         const notKeyword = this.#take();
         const operand = this.#parseAndOperand();
@@ -135,8 +138,8 @@ export class Parser {
     }
 
     /**
-     * Reads an equality: an equality operand, `==` or `!=`, and the equality operand it compares with; an equality operand alone where neither follows it, or the coalescing operator that takes it where `??` follows it.
-     * An equality does not chain, and stands beside a coalescing operator only where a group holds one of them.
+     * Reads an equality: an equality operand, `==` or `!=`, and the equality operand it compares with; an equality operand alone where neither follows it, the comparison it begins where a comparison operator follows it,
+     * or the coalescing operator that takes it where `??` follows it. An equality does not chain, and stands beside a coalescing operator or a comparison only where a group holds one of them.
      */
     #parseEquality() {
         this.#refuseOperandStart(this.#token.start);
@@ -145,6 +148,10 @@ export class Parser {
 
         if (this.#token.type === '??') {
             return this.#parseCoalescingOperator(left);
+        }
+
+        if (this.#isComparisonOperator()) {
+            return this.#parseComparison(left);
         }
 
         if (!this.#isEqualityOperator()) {
@@ -165,12 +172,55 @@ export class Parser {
             throw this.#fail("An equality compares two values and does not chain: write '(… == …) == …' to compare its result", this.#token.start);
         }
 
+        if (this.#isComparisonOperator()) {
+            throw this.#fail(Parser.#apartMessage(operator.type, this.#token.type), this.#token.start);
+        }
+
         return equality;
+    }
+
+    /**
+     * Reads a comparison after its first operand: each comparison operator and the equality operand it compares with, so `0 < width <= 600` compares `width` with both, every operator of the chain pointing one way.
+     * A comparison stands beside an equality or a coalescing operator only where a group holds one of them.
+     */
+    #parseComparison(first) {
+        const children = [first];
+        const direction = COMPARISON_DIRECTIONS[this.#token.type];
+
+        while (this.#isComparisonOperator()) {
+            if (COMPARISON_DIRECTIONS[this.#token.type] !== direction) {
+                const previous = children.at(-2).type;
+
+                throw this.#fail(`A comparison chain keeps one direction, and '${this.#token.type}' turns it from '${previous}': join two comparisons with 'and', as in 'a ${previous} b and b ${this.#token.type} c'`, this.#token.start);
+            }
+
+            children.push(this.#take());
+            this.#refuseOperandStart(this.#token.start);
+            children.push(this.#parseAdditive());
+        }
+
+        const operator = children[1].type;
+
+        if (this.#token.type === '??' || this.#isEqualityOperator()) {
+            throw this.#fail(Parser.#apartMessage(operator, this.#token.type), this.#token.start);
+        }
+
+        return Parser.#node('comparison', children);
+    }
+
+    /** The message for two operators that stand apart, the first written before the second with no group holding either, giving the two ways to group them. */
+    static #apartMessage(first, second) {
+        return `'${first}' and '${second}' stand apart, one of them grouped: write '(… ${first} …) ${second} …' or '… ${first} (… ${second} …)'`;
     }
 
     /** Whether the current token compares the value before it: `==` or `!=`. */
     #isEqualityOperator() {
         return this.#token.type === '==' || this.#token.type === '!=';
+    }
+
+    /** Whether the current token orders the value before it with the one after: `<`, `<=`, `>` or `>=`. */
+    #isComparisonOperator() {
+        return Object.hasOwn(COMPARISON_DIRECTIONS, this.#token.type);
     }
 
     /**
@@ -201,9 +251,9 @@ export class Parser {
         return Parser.#node('attempt', [tryKeyword, operation]);
     }
 
-    /** Refuses what an equality operand cannot start with: `==` or `!=`, which compares the value written before it, and a conditional, which is grouped where it is an operand. */
+    /** Refuses what an equality operand cannot start with: an equality or a comparison operator, which compares the value written before it, and a conditional, which is grouped where it is an operand. */
     #refuseOperandStart(start) {
-        if (this.#isEqualityOperator()) {
+        if (this.#isEqualityOperator() || this.#isComparisonOperator()) {
             throw this.#fail(`'${this.#token.type}' compares the value written before it: write 'self ${this.#token.type} …' to compare the current value`, start);
         }
 
@@ -231,10 +281,8 @@ export class Parser {
 
         const fallback = this.#token.type === '??' ? this.#parseCoalescingOperator(fallbackValue) : fallbackValue;
 
-        if (this.#isEqualityOperator()) {
-            const equality = this.#token.type;
-
-            throw this.#fail(`'??' and '${equality}' stand apart, one of them grouped: write '(… ?? …) ${equality} …' or '… ?? (… ${equality} …)'`, this.#token.start);
+        if (this.#isEqualityOperator() || this.#isComparisonOperator()) {
+            throw this.#fail(Parser.#apartMessage('??', this.#token.type), this.#token.start);
         }
 
         const node = Parser.#node('coalescing', [value, operator, fallback]);
@@ -908,8 +956,14 @@ export class Parser {
     #unexpected(expected) {
         const token = this.#token;
 
-        // `=` gives a field, a local or a binding its value, so one anywhere else is an equality written with one sign.
+        // `=` gives a field, a local or a binding its value, so one anywhere else is an equality written with one sign, or the second half of a comparison operator written apart.
         if (token.type === '=') {
+            const previous = this.#tokens[this.#index - 1];
+
+            if (previous?.type === '<' || previous?.type === '>') {
+                return this.#fail(`'${previous.type}=' is one operator, written with nothing between its signs`, previous.start);
+            }
+
             return this.#fail("Unexpected '=' in an expression. Use '==' to compare values.", token.start);
         }
         const found = token.type === 'end' ? TOKEN_DESCRIPTIONS.end : `'${this.#text.slice(token.start, token.end)}'`;

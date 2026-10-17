@@ -14,7 +14,7 @@ DOMQL is a FormaUI product, developed alongside [Forma](https://github.com/Forma
 - **Work with collections.** Project items, filter them, count them and calculate summaries.
 - **Keep results current.** Watch for changes and receive immutable snapshots or an object updated in place.
 - **Handle missing values.** Use optional access, fallbacks and conditionals directly in your query. Only `null` and `false` are falsey, and `and` and `or` return the operand that decides them, so `panel:["data-label"] or "untitled"` gives a label or a default.
-- **Calculate.** Derive values with `+`, `-`, `*`, `/` and `%`, as `(self.clientSize?.width ?? 0) - 24`. Arithmetic takes numbers alone, so a value that can be missing takes a fallback first, and division by zero is an error, never infinity.
+- **Calculate and compare.** Derive values with `+`, `-`, `*`, `/` and `%`, as `(self.clientSize?.width ?? 0) - 24`, and test them with `<`, `<=`, `>` and `>=`, chained for a range, as `0 < width <= 600`. Both take numbers alone, so a value that can be missing takes a fallback first, and division by zero is an error, never infinity.
 - **Convert values explicitly.** Read attribute text as a number or a Boolean with `to`, or attempt it with `try … to "number"`, which answers null for text that does not convert; with `to` alone, such text is an error, never a silent default. Casts work the same way: `as` fails for a node of another kind, and `try … as` answers null.
 - **Reuse queries.** Evaluate again, bind different targets, or store and exchange definitions as JSON.
 - **Catch invalid requests early.** DOMQL checks bindings, member names, arguments and types before evaluation.

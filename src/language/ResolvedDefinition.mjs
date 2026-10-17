@@ -122,6 +122,7 @@ export class ResolvedDefinition {
                 break;
             case 'and':
             case 'or':
+            case 'comparison':
                 node.operands.forEach((operand, index) => this.#index(operand, `${pointer}/operands/${index}`));
                 break;
             case 'not':

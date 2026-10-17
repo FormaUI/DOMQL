@@ -97,6 +97,15 @@ export class LanguageResolver {
                 this.#requireNumber(this.#resolveNode(node.operand, `${pointer}/operand`, scope), "What '-' negates", `${pointer}/operand`);
 
                 return { type: Type.createNamedType('number'), kind: 'query', isFixed: false };
+            case 'comparison':
+                // Each operand is named by the operator it stands after, the first by the one after it.
+                node.operands.forEach((operand, index) => {
+                    const what = index === 0 ? `The left operand of '${node.operators[0]}'` : `The right operand of '${node.operators[index - 1]}'`;
+
+                    this.#requireNumber(this.#resolveNode(operand, `${pointer}/operands/${index}`, scope), what, `${pointer}/operands/${index}`, 'a comparison');
+                });
+
+                return { type: Type.createNamedType('boolean'), kind: 'query', isFixed: false };
             case 'conditional':
                 return this.#resolveConditional(node, pointer, scope);
             case 'optionalChain':
@@ -550,8 +559,11 @@ export class LanguageResolver {
         return { type: Type.createNamedType('boolean'), kind: 'query', isFixed: false };
     }
 
-    /** Refuses what arithmetic takes no part in: what is no value, a value that can be null, which a fallback or a test removes first, and a value of any type but a number, which nothing converts to one but `to`. */
-    #requireNumber(result, what, pointer) {
+    /**
+     * Refuses what the operation, arithmetic unless another is named, takes no part in: what is no value, a value that can be null, which a fallback or a test removes first,
+     * and a value of any type but a number, which nothing converts to one but `to`.
+     */
+    #requireNumber(result, what, pointer, operation = 'arithmetic') {
         this.#requireValue(result, what, pointer);
 
         const { type } = result;
@@ -561,7 +573,7 @@ export class LanguageResolver {
         }
 
         if (type.isNullable || type.kind === 'null') {
-            this.#fail(`${what} can be null, and arithmetic takes numbers alone: give it a fallback, as in (… ?? 0), or test it first`, pointer);
+            this.#fail(`${what} can be null, and ${operation} takes numbers alone: give it a fallback, as in (… ?? 0), or test it first`, pointer);
         }
 
         if (type.kind !== 'named' || type.name !== 'number') {
