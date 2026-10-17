@@ -84,6 +84,8 @@ export class VocabularyFunctions {
             supportsShare: window => typeof window.navigator.share === 'function',
             supportsClipboard: window => window.navigator.clipboard !== undefined,
             attribute: (element, { name }) => element.getAttribute(name),
+            // The ARIA view's attribute of the name, the element's own attribute `aria-` and the name, read as the attribute indexer reads it.
+            ariaAttribute: (element, { name }) => element.getAttribute(`aria-${name}`),
             // A class is one token, as a class list takes one: never empty, and holding none of the ASCII whitespace that separates its tokens.
             class: (element, { name }) => {
                 if (name === '' || /[\t\n\f\r ]/.test(name)) {

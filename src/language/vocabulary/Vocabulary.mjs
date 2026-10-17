@@ -187,6 +187,7 @@ export class Vocabulary {
 
                 operation('matchesMedia', 'window', 'boolean', { form: 'infix', parameters: [valueParameter('query', 'string')], observations: [{ type: 'media', of: 'window', query: { argument: 'query' } }] }),
                 operation('attribute', 'element', 'string?', { form: 'indexer', isDefault: true, parameters: [valueParameter('name', 'string')], observations: [{ type: 'mutation', of: 'receiver', attributes: [{ argument: 'name' }] }] }),
+                operation('attribute', 'aria', 'string?', { function: 'ariaAttribute', form: 'indexer', isDefault: true, parameters: [valueParameter('name', 'string')], observations: [{ type: 'mutation', of: 'receiver', attributes: [{ argument: 'name', prefix: 'aria-' }] }] }),
                 operation('class', 'element', 'boolean', { form: 'indexer', parameters: [valueParameter('name', 'string')], observations: [{ type: 'mutation', of: 'receiver', attributes: ['class'] }] }),
                 // The verbs that ask a condition: the condition's own declaration carries it out, its function, how it changes and the observations that cover it, so declaring each on any receiver selects the condition's own receivers.
                 operation('is', 'any', 'boolean', { function: null, changes: 'derived', reads: 'derived', parameters: [valueParameter('name', 'string', { fixed: true, selects: 'condition' })] }),

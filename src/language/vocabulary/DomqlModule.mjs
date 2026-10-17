@@ -300,8 +300,8 @@ export class DomqlModule {
         }
     }
 
-    /** Validates the observations that cover a declaration's changes: each names its type, what it observes and the arguments its type takes. */
-    static #validateObservations(declaration, parameterNames, name, fail) {
+    /** Validates the observations that cover a declaration's changes, against its parameters by name: each names its type, what it observes and the arguments its type takes. */
+    static #validateObservations(declaration, parameters, name, fail) {
         const observations = declaration.observations ?? [];
 
         if (!Array.isArray(observations)) {
@@ -321,30 +321,45 @@ export class DomqlModule {
                 fail('An observation names its type as a name is', name);
             }
 
-            const isTarget = OBSERVATION_TARGETS.includes(observationDeclaration.of) || DomqlModule.#isArgumentReference(observationDeclaration.of, parameterNames);
+            const isTarget = OBSERVATION_TARGETS.includes(observationDeclaration.of) || DomqlModule.#isArgumentReference(observationDeclaration.of, parameters);
 
             if (!isTarget) {
                 fail(`The observation '${observationDeclaration.type}' observes the receiver, its root, its roots, the window, the document or an argument of the member, and not '${JSON.stringify(observationDeclaration.of)}'`, name);
             }
 
             for (const [key, value] of Object.entries(observationDeclaration)) {
-                if (key !== 'type' && key !== 'of' && !DomqlModule.#isObservationValue(value, parameterNames)) {
-                    fail(`The observation '${observationDeclaration.type}' gives '${key}' a value that is no literal, list of literals or argument of the member`, name);
+                if (key !== 'type' && key !== 'of' && !DomqlModule.#isObservationValue(value, parameters)) {
+                    fail(`The observation '${observationDeclaration.type}' gives '${key}' a value that is no literal, list of literals or argument of the member, which a prefix, a string, is joined to only where its parameter is a value parameter of type string`, name);
                 }
             }
         }
     }
 
-    static #isArgumentReference(value, parameterNames) {
-        return value !== null && typeof value === 'object' && Object.keys(value).length === 1 && typeof value.argument === 'string' && parameterNames.has(value.argument);
+    static #isArgumentReference(value, parameters) {
+        return value !== null && typeof value === 'object' && Object.keys(value).length === 1 && typeof value.argument === 'string' && parameters.has(value.argument);
     }
 
-    static #isObservationValue(value, parameterNames) {
+    /** Whether the value is an argument with a prefix joined to it, `{ argument, prefix }`, as `{ argument: 'name', prefix: 'aria-' }` names the attribute `aria-` and the name: the prefix a string no empty one, and the parameter a value parameter of type string, so nothing but a string is joined to it. */
+    static #isPrefixedArgumentReference(value, parameters) {
+        if (value === null || typeof value !== 'object' || Object.keys(value).length !== 2 || typeof value.prefix !== 'string' || value.prefix === '' || typeof value.argument !== 'string') {
+            return false;
+        }
+
+        const parameter = parameters.get(value.argument);
+
+        return parameter?.kind === 'value' && parameter.type === 'string';
+    }
+
+    static #isObservationValue(value, parameters) {
         if (value === null || ['string', 'number', 'boolean'].includes(typeof value)) {
             return true;
         }
 
-        return Array.isArray(value) ? value.every(item => DomqlModule.#isObservationValue(item, parameterNames)) : DomqlModule.#isArgumentReference(value, parameterNames);
+        if (Array.isArray(value)) {
+            return value.every(item => DomqlModule.#isObservationValue(item, parameters));
+        }
+
+        return DomqlModule.#isArgumentReference(value, parameters) || DomqlModule.#isPrefixedArgumentReference(value, parameters);
     }
 
     static #validateObservationType(type, fail) {
@@ -423,7 +438,7 @@ export class DomqlModule {
         if (condition.changes === 'derived' || (condition.reads !== 'fresh' && condition.reads !== 'maintained')) {
             fail('A condition changes as constant, observable, partly-observable or unobserved, and reads fresh or maintained', name);
         }
-        DomqlModule.#validateObservations(condition, new Set(), name, fail);
+        DomqlModule.#validateObservations(condition, new Map(), name, fail);
 
         return structuredClone({ verb: 'is', observations: [], ...condition });
     }
@@ -466,7 +481,7 @@ export class DomqlModule {
             fail('Its parameters are a list', name);
         }
 
-        DomqlModule.#validateObservations(member, new Set(parameters.map(parameter => parameter?.name)), name, fail);
+        DomqlModule.#validateObservations(member, new Map(parameters.map(parameter => [parameter?.name, parameter])), name, fail);
 
         for (const parameter of parameters) {
             DomqlModule.#validateParameter(parameter, name, fail);

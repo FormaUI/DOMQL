@@ -640,7 +640,7 @@ A property exposes a value, read by member access, and takes no argument. Each p
 | Node | `root` | `node` | The root of its tree: the document, a document fragment, the shadow root it is in, or the topmost element of a detached tree | Partly observable, as `parent` | Fresh |
 | Node | `host` | `element?` | A shadow root's host, and null for any other node | Constant | Fresh |
 | Element | `shadow` | `shadow` | Its view of its shadow relationships | Constant | Fresh |
-| Element | `aria` | `aria` | Its view of its ARIA states, whose [conditions](#conditions) `is` tests | Constant | Fresh |
+| Element | `aria` | `aria` | Its view of its ARIA states, whose [conditions](#conditions) `is` tests and whose default indexer reads its ARIA attributes | Constant | Fresh |
 | Shadow view | `root` | `shadowRoot?` | The open shadow root its element hosts, null where it hosts none or a closed one | Partly observable: a root attached as its element connects to its document is observed, one attached at any other time is not | Fresh |
 | Shadow view | `elements` | `list<element>?` | The elements its slot shows, flattened, as the section on shadow trees sets out, and null for an element that is no slot | Partly observable: assignment, the fallback and the slot's moves are observed; its detached tree inserted into a shadow tree that assigns it nothing is not | Fresh |
 | Element | `attached` | `boolean` | Whether the element is attached to the document, including through a shadow root | Partly observable: the structure of the document and of every shadow root between the element and the document is observed; its detached tree inserted into a shadow root in the document is not | Fresh |
@@ -656,6 +656,7 @@ An operation performs a lookup, a calculation or a selection with the argument i
 | --- | --- | --- | --- | --- | --- | --- |
 | Window | `matchesMedia query` | `query`: `string` → `boolean` | Whether the media query matches | Observable | Fresh |  |
 | Element | `:attribute[name]`, the default indexer, `:[name]` | `name`: `string` → `string?` | The attribute's value | Observable | Fresh |  |
+| ARIA view | `:attribute[name]`, the default indexer, `:[name]` | `name`: `string` → `string?` | The value of the element's own attribute `aria-` and the name, as the element's `:attribute` reads it, so `self.aria:["checked"]` is `self:["aria-checked"]`: the string as written, or null where the attribute is absent, never a Boolean | Observable: that attribute | Fresh |  |
 | Element | `:class[name]` | `name`: `string` → `boolean` | Whether its class list holds the class, one token: an empty name, or one holding a tab, a line feed, a form feed, a carriage return or a space, is an evaluation error | Observable: its `class` attribute | Fresh |  |
 | Any | `is(name)`, `has(name)`, `supports(name)` | `name`: `string` → `boolean` | Whether the condition of the name its verb asks holds for the receiver, as [conditions](#conditions) set out | As the condition | As the condition | `name` |
 | Element | `:style[property]` | `property`: `string` → `string?` | The property's computed value, custom properties included | Partly observable: its own size and attributes are observed, rules matching from elsewhere are not | Fresh |  |
@@ -704,7 +705,7 @@ A condition's ARIA counterpart is no part of it: `self.is("checked")` is what `:
 | ARIA view | `checked` | The element's own `aria-checked` is `true`, compared ignoring ASCII case; a missing attribute, `false`, `mixed`, the empty string and any other value, padded with spaces included, answer false | Observable: its `aria-checked` attribute | Fresh |
 | ARIA view | `disabled` | The element's own `aria-disabled` is `true`, compared as `checked` compares; an ancestor's `aria-disabled` is not read | Observable: its `aria-disabled` attribute | Fresh |
 
-So `self.is("checked") or self.aria.is("checked")` is whether either says checked, and `self:["aria-checked"] == "mixed"` tells a mixed state, which an ARIA condition answers false for, from the others. No other ARIA attribute is a condition until one is declared, each with a contract of its own, since not every ARIA attribute is a Boolean.
+So `self.is("checked") or self.aria.is("checked")` is whether either says checked, and `self.aria:["checked"] == "mixed"` tells a mixed state, which an ARIA condition answers false for, from the others. The ARIA view's default indexer reads the attribute written on the element, as `self:["aria-checked"]` does, and never the element's effective accessibility state. No other ARIA attribute is a condition until one is declared, each with a contract of its own, since not every ARIA attribute is a Boolean.
 
 ### Built-in conversions
 

@@ -384,7 +384,7 @@ export class Observations {
                 throw new TypeError('An observation gives literals, lists of them and arguments of the member');
             }
 
-            return args[value.argument];
+            return Observations.#argumentValueOf(value, args);
         }
 
         return value;
@@ -407,10 +407,17 @@ export class Observations {
         }
 
         if (declared !== null && typeof declared === 'object') {
-            return Observations.#isSame(args[declared.argument], recorded);
+            return Observations.#isSame(Observations.#argumentValueOf(declared, args), recorded);
         }
 
         return declared === recorded;
+    }
+
+    /** The value an argument reference gives for the call: the argument, with the reference's prefix joined to it where it has one and the argument is not null. */
+    static #argumentValueOf(reference, args) {
+        const value = args[reference.argument];
+
+        return reference.prefix === undefined || value === null || value === undefined ? value : `${reference.prefix}${value}`;
     }
 
     /** Whether two values are the same by the rules an identity follows. */

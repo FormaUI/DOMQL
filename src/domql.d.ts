@@ -298,8 +298,14 @@ export interface DomqlArgumentReference {
     argument: string;
 }
 
-/** A value an observation gives: a literal, a list of values, or an argument of the member. */
-export type DomqlObservationValue = string | number | boolean | null | DomqlArgumentReference | DomqlObservationValue[];
+/** An argument of the member with a prefix joined to it, for a value parameter of type `string`, as `{ argument: 'name', prefix: 'aria-' }` names the attribute `aria-` and the name. */
+export interface DomqlPrefixedArgumentReference extends DomqlArgumentReference {
+    /** What is joined before the argument, a string no empty one. */
+    prefix: string;
+}
+
+/** A value an observation gives: a literal, a list of values, or an argument of the member, which can carry a prefix. */
+export type DomqlObservationValue = string | number | boolean | null | DomqlArgumentReference | DomqlPrefixedArgumentReference | DomqlObservationValue[];
 
 /** An observation that covers a member's changes: its type, what it observes, and the arguments its type takes. */
 export interface DomqlObservationDeclaration {

@@ -3013,6 +3013,32 @@ describe('domql ARIA conditions', () => {
     });
 
     it.each([
+        ['an absent attribute', null, null],
+        ['false', 'false', 'false'],
+        ['mixed', 'mixed', 'mixed'],
+        ['true in capitals', 'TRUE', 'TRUE'],
+        ['the empty string', '', ''],
+        ['a value padded with spaces', ' true ', ' true '],
+    ])('reads the ARIA attribute of the key, its prefix left out, as the raw string the full spelling reads, converting nothing: %s', (_, value, answer) => {
+        if (value !== null) {
+            element.setAttribute('aria-checked', value);
+        }
+
+        expect(evaluate('{ short: @e.aria:["checked"], named: @e.aria:attribute["checked"], full: @e:attribute["aria-checked"] }')).toEqual({ short: answer, named: answer, full: answer });
+        expect(evaluate('@e.aria:["checked"] == @e:["aria-checked"]')).toBe(true);
+    });
+
+    it('reads the attribute a dynamic key names, as the attribute indexer does, a null key answering null', () => {
+        element.setAttribute('aria-expanded', 'false');
+        element.setAttribute('data-key', 'expanded');
+
+        expect(domql.query('@e.aria:[@key]', { e: element, key: 'expanded' }).evaluate()).toBe('false');
+        expect(evaluate('@e.aria:[@e:["data-key"]]')).toBe('false');
+        expect(domql.query('@e.aria:[@key]', { e: element, key: null }).evaluate()).toBeNull();
+        expect(domql.query('@e.aria:[@key]', { e: element, key: 'expanded' }).resolve().type.toString()).toBe('string?');
+    });
+
+    it.each([
         ['the view itself as a result, which is no data', '@e.aria', 'The result would hold aria, which is no data'],
         ['a native condition the view has not', '@e.aria.is("hover")', "'hover' is a condition of element, not of aria, whose conditions 'is' asks are disabled, checked"],
         ['an ARIA condition nothing declares', '@e.aria.is("expanded")', "'expanded' is no condition 'is' asks"],

@@ -305,6 +305,58 @@ describe('Watch', () => {
         });
     });
 
+    describe('the ARIA view\'s indexer', () => {
+        it('observes the attribute it reads through the one observation the full spelling shares, and no other attribute', async () => {
+            const observe = vi.spyOn(window.MutationObserver.prototype, 'observe');
+
+            try {
+                panel.setAttribute('aria-checked', 'false');
+                watch('{ short: @panel.aria:["checked"], full: @panel:["aria-checked"] }', { panel });
+                await settle();
+
+                expect(observe.mock.calls.filter(([, options]) => options.attributeFilter?.includes('aria-checked'))).toHaveLength(1);
+
+                const reads = vi.spyOn(panel, 'getAttribute');
+
+                panel.setAttribute('aria-expanded', 'true');
+                panel.setAttribute('data-n', '2');
+                await settle();
+
+                expect(reads).not.toHaveBeenCalled();
+
+                panel.setAttribute('aria-checked', 'mixed');
+                await settle();
+
+                expect(snapshots).toEqual([{ short: 'false', full: 'false' }, { short: 'mixed', full: 'mixed' }]);
+            } finally {
+                observe.mockRestore();
+            }
+        });
+
+        it('follows a key that changes from checked to expanded, observing aria-expanded and letting go of aria-checked', async () => {
+            panel.setAttribute('aria-checked', 'true');
+            panel.setAttribute('aria-expanded', 'false');
+            panel.setAttribute('data-key', 'checked');
+            watch('@panel.aria:[@panel:["data-key"]]', { panel });
+            await settle();
+
+            panel.setAttribute('data-key', 'expanded');
+            await settle();
+
+            const reads = vi.spyOn(panel, 'getAttribute');
+
+            panel.setAttribute('aria-checked', 'mixed');
+            await settle();
+
+            expect(reads).not.toHaveBeenCalled();
+
+            panel.setAttribute('aria-expanded', 'true');
+            await settle();
+
+            expect(snapshots).toEqual(['true', 'false', 'true']);
+        });
+    });
+
     describe('a conversion', () => {
         it('follows the value it converts, fails while that value has no conversion, and recovers once it has', async () => {
             const watched = watch('@panel:attribute["data-n"] to "number"', { panel });

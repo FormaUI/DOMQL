@@ -163,6 +163,20 @@ describe('observations', () => {
             expect(fails({ members: [observed({ observations: [{ type: 'mutation', of: 'receiver', attributes: [{ argument: 'missing' }] }] })] })).toContain('no literal, list of literals or argument of the member');
         });
 
+        it('join a prefix, a string, to an argument of a string value parameter, and nowhere else', () => {
+            const prefixed = (prefix, type = 'string', kind = 'value') => ({ members: [observed({ kind: 'operation', input: 'direct', parameters: [parameter({ name: 'name', type, kind })], observations: [{ type: 'mutation', of: 'receiver', attributes: [{ argument: 'name', prefix }] }] })] });
+            const message = 'which a prefix, a string, is joined to only where its parameter is a value parameter of type string';
+
+            expect(() => new DomqlModule('charts', prefixed('aria-'))).not.toThrow();
+            expect(fails(prefixed(''))).toContain(message);
+            expect(fails(prefixed(1))).toContain(message);
+            expect(fails(prefixed('aria-', 'number'))).toContain(message);
+            expect(fails(prefixed('aria-', 'string?'))).toContain(message);
+            expect(fails(prefixed('aria-', 'string', 'expression'))).toContain(message);
+            expect(fails({ members: [observed({ kind: 'operation', input: 'direct', parameters: [parameter({ name: 'name', type: 'string' })], observations: [{ type: 'mutation', of: 'receiver', attributes: [{ argument: 'name', prefix: 'aria-', suffix: '-x' }] }] })] })).toContain(message);
+            expect(fails({ members: [observed({ kind: 'operation', input: 'direct', parameters: [parameter({ name: 'other', type: 'element' })], observations: [{ type: 'resize', of: { argument: 'other', prefix: 'aria-' } }] })] })).toContain('observes the receiver, its root, its roots, the window, the document or an argument');
+        });
+
         it('are named for a type that is a name', () => {
             expect(fails({ members: [observed({ observations: [{ type: 'Not a name', of: 'receiver' }] })] })).toContain('names its type as a name is');
             expect(fails({ members: [observed({ observations: 'resize' })] })).toContain('observations are a list');

@@ -140,6 +140,7 @@ describe('DefinitionWriter', () => {
         '@panel?:[@name]',
         '@panel.first(".row")?:["id"] == null',
         '@panel:attribute[@name]',
+        '@panel.aria:["checked"]',
         '@panel?:attribute["data-key"]',
         '@panel.first(".row")?:style["display"]',
         '@panel:lookup["a"]["b"]',

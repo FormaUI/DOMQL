@@ -301,6 +301,16 @@ describe('Observations', () => {
             expect(resolved).toEqual({ type: 'ticks', target, arguments: { step: 'id', names: ['id', 'fixed'], flag: true } });
         });
 
+        it('join an argument reference\'s prefix to the argument, and leave a null argument null', () => {
+            const declaration = Object.freeze({ type: 'ticks', of: 'receiver', names: Object.freeze([Object.freeze({ argument: 'name', prefix: 'aria-' })]) });
+            const resolved = observations.resolve(declaration, { receiver: target, args: { name: 'checked' } });
+
+            expect(resolved).toEqual({ type: 'ticks', target, arguments: { names: ['aria-checked'] } });
+            expect(Observations.resolvesAt(declaration, { name: 'checked' }, target, Observations.valuesOf(resolved))).toBe(true);
+            expect(Observations.resolvesAt(declaration, { name: 'expanded' }, target, Observations.valuesOf(resolved))).toBe(false);
+            expect(observations.resolve(declaration, { receiver: target, args: { name: null } }).arguments).toEqual({ names: [null] });
+        });
+
         it('refuse a value that is neither a literal nor an argument', () => {
             expect(() => observations.resolve({ type: 'ticks', of: 'receiver', step: { not: 'an argument' } }, { receiver: target, args: {} })).toThrow(TypeError);
         });
