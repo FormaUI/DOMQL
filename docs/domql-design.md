@@ -294,7 +294,7 @@ A tool can check a query text known when the code is written against the metadat
 
 - **What it keeps.** The definition's meaning, and the order of its locals and fields as declared; comments and the original layout are discarded, as a definition holds neither.
 - **What it needs.** Neither bindings nor a registered vocabulary: it parses and checks structure as `domql.query` does, and resolves nothing.
-- **The layout.** Four spaces of indentation for each level of an object expression; an object expression of one field and no locals on one line where its value is, `{ size = self.size }`, and any other with one line for each entry; a conditional with an `elseif` on one line for each clause; one space on each side of `and`, `or`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `??`, `+`, `-`, `*`, `/`, `%`, `as` and `to`, and none between a negation's `-` and what it negates; and no trailing comma.
+- **The layout.** Four spaces of indentation for each level of an object expression; an object expression of one field and no locals on one line where its value is, `{ size = self.size }`, and any other with one line for each entry; a conditional with an `elseif` on one line for each clause; a string's line feed, carriage return, tab and escape character as `\n`, `\r`, `\t` and `\e`, and every other control character in it as `\u{…}`; one space on each side of `and`, `or`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `??`, `+`, `-`, `*`, `/`, `%`, `as` and `to`, and none between a negation's `-` and what it negates; and no trailing comma.
 - **It is stable.** Formatting text already formatted gives the same text.
 
 ## Callers

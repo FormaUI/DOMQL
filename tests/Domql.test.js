@@ -924,7 +924,7 @@ describe('domql', () => {
             ['an operator naming a parameter', 'and { size: self.size }', 1, 1],
             ['a field named with a hyphen, which subtracts', 'panel { is-open = self.size }', 1, 9],
             ['a minus with nothing after it', 'panel.size- ', 1, 13],
-            ['an escape other than \\" or \\\\', 'target:attribute["a\\n"]', 1, 20],
+            ['an escape the language has none of', 'target:attribute["a\\q"]', 1, 20],
             ['a string never closed', 'target:attribute["id', 1, 18],
             ['a character outside the language', 'target.size & 1', 1, 13],
             ['an @ with no name after it', '@ { size: self.size }', 1, 1],
@@ -3177,6 +3177,57 @@ describe('domql arithmetic', () => {
         expect(error.kind).toBe('structure');
         expect(error.location.pointer).toBe('/query/operator');
         expect(domql.query({ version: 21, query: { kind: 'negate', operand: { kind: 'literal', value: 2 } } }).evaluate()).toBe(-2);
+    });
+});
+
+describe('domql string escapes', () => {
+    const valueOf = text => domql.query(text).definition.query.value;
+
+    it('reads each escape as the character it stands for, and a line break, a tab and any other character written as itself', () => {
+        expect(valueOf('"\\" \\\\ \\n \\r \\t \\e"')).toBe('" \\ \n \r \t \u001B');
+        expect(valueOf('"\\u{41}\\u{0}\\u{1F600}\\u{10FFFF}\\u{000041}"')).toBe('A\u0000\u{1F600}\u{10FFFF}A');
+        expect(valueOf('"line\nbreak\tand é 😀"')).toBe('line\nbreak\tand é 😀');
+        expect(valueOf('"\\e"')).toBe(valueOf('"\\u{1B}"'));
+        expect(valueOf('"\\u{A0}\\u{200B}\\u{1F600}"')).toBe('\u00A0\u200B😀');
+        expect(valueOf('"😀"')).toBe(valueOf('"\\u{1F600}"'));
+        expect(valueOf('"\\u{1b}"')).toBe(valueOf('"\\u{1B}"'));
+    });
+
+    it.each([
+        ['an escape the language has none of', '"a\\qb"', 'A string escapes only \\", \\\\, \\n, \\r, \\t, \\e and \\u{…}'],
+        ['a backslash ending the text', '"a\\', 'A string escapes only'],
+        ['a Unicode escape without braces', '"a\\u41"', 'A Unicode escape is written \\u{…} with one to six hexadecimal digits, as \\u{1F600}'],
+        ['a Unicode escape without digits', '"a\\u{}"', 'A Unicode escape is written \\u{…}'],
+        ['a Unicode escape of seven digits', '"a\\u{0000041}"', 'A Unicode escape is written \\u{…}'],
+        ['a Unicode escape of no hexadecimal digit', '"a\\u{G}"', 'A Unicode escape is written \\u{…}'],
+        ['a Unicode escape never closed', '"a\\u{41"', 'A Unicode escape is written \\u{…}'],
+        ['the first surrogate', '"a\\u{D800}"', 'A Unicode escape names a scalar value, and D800 to DFFF are surrogates'],
+        ['the last surrogate', '"a\\u{dfff}"', 'and D800 to DFFF are surrogates'],
+        ['a value beyond the last scalar value', '"a\\u{110000}"', 'A Unicode escape names a value no greater than 10FFFF'],
+    ])('refuses %s, at its backslash', (_, text, message) => {
+        const error = getError(() => domql.query(text));
+
+        expect(error.kind).toBe('syntax');
+        expect(error.message).toContain(message);
+        expect(error.location).toMatchObject({ line: 1, column: 3 });
+    });
+
+    it.each([
+        ['a line feed, a carriage return and a tab, written or escaped', '"a\nb\\rc\td\\n"', '"a\\nb\\rc\\td\\n"'],
+        ['an escape character, as \\e however it is written', '"\\u{1B}[0m"', '"\\e[0m"'],
+        ['every other control character as a Unicode escape in upper-case hexadecimal', '"\\u{0}\\u{1f}\\u{7f}\\u{9F}"', '"\\u{0}\\u{1F}\\u{7F}\\u{9F}"'],
+        ['ordinary Unicode as itself, however it is written', '"\\u{E9}\\u{1F600} é"', '"é😀 é"'],
+        ['a double quote and a backslash, as they were', '"\\"\\\\"', '"\\"\\\\"'],
+    ])('writes %s', (_, text, formatted) => {
+        expect(domql.format(text)).toBe(formatted);
+        expect(valueOf(domql.format(text))).toBe(valueOf(text));
+    });
+
+    it('writes a definition\'s string with the escapes the text would read back', () => {
+        const query = domql.query({ version: 21, query: { kind: 'literal', value: 'a\u0001\u001B\n"' } });
+
+        expect(domql.format(query)).toBe('"a\\u{1}\\e\\n\\""');
+        expect(valueOf(domql.format(query))).toBe('a\u0001\u001B\n"');
     });
 });
 

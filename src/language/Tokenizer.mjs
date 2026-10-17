@@ -23,6 +23,12 @@ export const TOKEN_TYPES = Object.freeze(['name', 'literal', 'keyword', 'self', 
  */
 
 /** The tokens of one character, the arithmetic operators among them: `-` is always an operator, negation or subtraction, so no number begins with it, and `/` is one wherever no comment begins. */
+/** The character each escape a letter or a sign names stands for, after its backslash. */
+const ESCAPES = Object.freeze({ '"': '"', '\\': '\\', n: '\n', r: '\r', t: '\t', e: '\u001B' });
+
+/** A Unicode escape after its backslash: `u` and one to six hexadecimal digits in braces. */
+const UNICODE_ESCAPE = /u\{([0-9A-Fa-f]{1,6})\}/y;
+
 const PUNCTUATION = new Set(['.', ',', ':', '(', ')', '{', '}', '[', ']', '+', '-', '*', '/', '%']);
 const NAME = /[A-Za-z][A-Za-z0-9]*/y;
 const NUMBER = /(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?/y;
@@ -201,7 +207,7 @@ export class Tokenizer {
         return this.#invalid(start, NAME.lastIndex, `A binding is named by its name alone: write '${name}', with no '@'`, start);
     }
 
-    /** Reads a string, invalid where it escapes a character no escape is for, at the first such escape, or where it is never closed, running then to the end of the text. */
+    /** Reads a string, invalid where an escape in it is none the language has, at the first such escape, or where it is never closed, running then to the end of the text. */
     #readString(start) {
         let value = '';
         let offset = start + 1;
@@ -217,16 +223,16 @@ export class Tokenizer {
             }
 
             if (character === '\\') {
-                const escaped = this.#text[offset + 1];
+                const escape = this.#readEscape(offset);
 
-                if (escaped !== '"' && escaped !== '\\') {
-                    diagnostic ??= { message: 'A string escapes only \\" and \\\\', offset };
+                if (escape.message !== undefined) {
+                    diagnostic ??= { message: escape.message, offset };
                     offset++;
                     continue;
                 }
 
-                value += escaped;
-                offset += 2;
+                value += escape.character;
+                offset = escape.end;
             } else {
                 value += character;
                 offset++;
@@ -236,6 +242,37 @@ export class Tokenizer {
         const unclosed = diagnostic ?? { message: 'A string is never closed', offset: start };
 
         return this.#invalid(start, this.#text.length, unclosed.message, unclosed.offset);
+    }
+
+    /** Reads the escape whose backslash is at the offset: the character it stands for and where it ends, or the message that says why it is none the language has. */
+    #readEscape(offset) {
+        const escaped = this.#text[offset + 1];
+
+        if (escaped !== 'u') {
+            return Object.hasOwn(ESCAPES, escaped ?? '')
+                ? { character: ESCAPES[escaped], end: offset + 2 }
+                : { message: 'A string escapes only \\", \\\\, \\n, \\r, \\t, \\e and \\u{…}' };
+        }
+
+        UNICODE_ESCAPE.lastIndex = offset + 1;
+
+        const match = UNICODE_ESCAPE.exec(this.#text);
+
+        if (match === null) {
+            return { message: 'A Unicode escape is written \\u{…} with one to six hexadecimal digits, as \\u{1F600}' };
+        }
+
+        const codePoint = Number.parseInt(match[1], 16);
+
+        if (codePoint >= 0xD800 && codePoint <= 0xDFFF) {
+            return { message: 'A Unicode escape names a scalar value, and D800 to DFFF are surrogates' };
+        }
+
+        if (codePoint > 0x10FFFF) {
+            return { message: 'A Unicode escape names a value no greater than 10FFFF' };
+        }
+
+        return { character: String.fromCodePoint(codePoint), end: UNICODE_ESCAPE.lastIndex };
     }
 
     #readNumber(start) {

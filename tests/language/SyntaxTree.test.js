@@ -86,7 +86,7 @@ describe('SyntaxTree', () => {
         ['an unexpected character', 'a # b', '#', "Unexpected '#'"],
         ['a single exclamation mark', 'a ! 1', '!', "Unexpected '!': an inequality is written '!='"],
         ['a string never closed', 'a:["key', '"key', 'A string is never closed'],
-        ['an escape no escape is for', '"a\\nb" == x', '"a\\nb"', 'A string escapes only'],
+        ['an escape no escape is for', '"a\\qb" == x', '"a\\qb"', 'A string escapes only'],
         ['a block comment never closed', 'a /* open', '/* open', 'A block comment is never closed'],
         ['an @ with no name after it', '@ panel', '@', "'@' names nothing: a binding is named by its name alone"],
         ['an @ before a name, which a binding is named without', '@panel.size', '@panel', "A binding is named by its name alone: write 'panel', with no '@'"],

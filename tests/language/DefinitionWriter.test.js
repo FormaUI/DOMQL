@@ -223,7 +223,7 @@ describe('DefinitionWriter', () => {
             ['an optional enclosed access as the accesses it makes optional', '(?panel.parent.rect.width)', 'panel?.parent?.rect?.width'],
             ['an optional enclosed access followed by more of a chain, with the parentheses its boundary needs', '(?x.y.z)?.a.b', '(x?.y?.z)?.a.b'],
             ['the grouping a meaning needs, and none other', '((first and second)) or (third)', 'first and second or third'],
-            ['a string escaping only a double quote and a backslash', 'panel:attribute["say \\"hi\\" \\\\ there"]', 'panel:attribute["say \\"hi\\" \\\\ there"]'],
+            ['a string escaping a double quote and a backslash', 'panel:attribute["say \\"hi\\" \\\\ there"]', 'panel:attribute["say \\"hi\\" \\\\ there"]'],
         ])('lays out %s', (_, text, formatted) => {
             expect(format(text)).toBe(formatted);
         });
