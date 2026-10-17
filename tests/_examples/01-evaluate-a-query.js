@@ -5,7 +5,7 @@ const query = domql.query(`
         count: self.children.count,
         items: self.all("[data-key]") {
             key: self:["data-key"],
-            selected: self matches "[aria-selected=true]"
+            selected: self.aria:["selected"] == "true"
         }
     }
 `, { panel });

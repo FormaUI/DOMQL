@@ -95,10 +95,10 @@ describe('Geometry in a browser', () => {
             const touching = add('position: absolute; left: 100px; top: 0; width: 50px; height: 50px');
             const across = add('position: absolute; left: 90px; top: 90px; width: 50px; height: 50px');
 
-            expect(read('@first overlaps { other: @other }', { first, other: apart })).toBe(false);
-            expect(read('@first overlaps { other: @other, margin: 20 }', { first, other: apart })).toBe(true);
-            expect(read('@first overlaps { other: @other }', { first, other: touching })).toBe(false);
-            expect(read('@first overlaps { other: @other }', { first, other: across })).toBe(true);
+            expect(read('@first.overlaps({ other: @other })', { first, other: apart })).toBe(false);
+            expect(read('@first.overlaps({ other: @other, margin: 20 })', { first, other: apart })).toBe(true);
+            expect(read('@first.overlaps({ other: @other })', { first, other: touching })).toBe(false);
+            expect(read('@first.overlaps({ other: @other })', { first, other: across })).toBe(true);
         });
     });
 
@@ -138,7 +138,7 @@ describe('Geometry in a browser', () => {
             const box = add('width: 10px; height: 10px');
             const none = add('display: none');
 
-            expect(read('@box overlaps { other: @other }', { box, other: none })).toBeNull();
+            expect(read('@box.overlaps({ other: @other })', { box, other: none })).toBeNull();
         });
     });
 

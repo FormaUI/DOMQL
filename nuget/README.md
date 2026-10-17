@@ -93,7 +93,7 @@ const query = domql.query(`
         count: self.children.count,
         items: self.all("[data-key]") {
             key: self:["data-key"],
-            selected: self matches "[aria-selected=true]"
+            selected: self.aria:["selected"] == "true"
         }
     }
 `, { panel });
@@ -161,7 +161,7 @@ Some values need an initial sample from a browser observer, such as whether an e
 
 ```js
 const visibleItems = await domql.query(
-    '@panel.all("[data-key]").where(self intersects).count',
+    '@panel.all("[data-key]").where(self.intersects()).count',
     { panel }
 ).evaluateAsync();
 // 3: every item of the example panel is in view
@@ -180,7 +180,7 @@ Keep a toolbar in step with the panel's selection, whichever code selects an ite
 ```js
 const selection = domql.query(`
     @panel.children
-        .where(self:["aria-selected"] == "true") {
+        .where(self.aria:["selected"] == "true") {
             key: self:["data-key"]
         }
 `, { panel }).watch();
@@ -248,7 +248,7 @@ list.innerHTML = '<li data-key="b1">Apples</li><li data-key="b2">Pears</li>';
 const live = domql.query(`
     @list.children {
         key: self:["data-key"],
-        selected: self:["aria-selected"] == "true"
+        selected: self.aria:["selected"] == "true"
     }
 `, { list }).watch({ updateStrategy: 'liveState' });
 
@@ -288,11 +288,11 @@ An event subscription turns each event into a record of what happened and the st
 
 ```js
 const activations = domql.query(`
-    (@panel on "click") {
+    @panel.on("click") {
         let item: self.target?.closest("[data-key]"),
 
         key: item?:["data-key"],
-        wasSelected: item matches "[aria-selected=true]" ?? false,
+        wasSelected: item?.aria:["selected"] == "true",
         selectedCount: @panel.all("[aria-selected=true]").count
     }
 `, { panel }).subscribe((sender, args) => {
@@ -336,10 +336,10 @@ Members that take input use the form declared by the vocabulary. `all` is a call
 @panel.all("[data-key]").count
 ```
 
-`matches` is an infix call, written after its receiver with a space:
+`matches` is a call too, which tests an element against a selector, for a question only a selector asks, such as where the element stands among its siblings:
 
 ```domql
-@panel matches ".open"
+@button.matches(".toolbar > button:first-child")
 ```
 
 A named indexer reads a value of its receiver by a key, written after a colon with the key in brackets. `attribute` reads an attribute, `style` a computed style, and `class` whether the element has a class:
@@ -357,14 +357,16 @@ All DOMQL names are case-sensitive and use names such as `clientSize`, `rectRela
 Calls take one argument. When a member takes options, pass an object whose fields supply its parameters. This query checks for an intersection with a margin around the panel and needs `evaluateAsync()`:
 
 ```domql
-@sentinel intersects { root: @panel, margin: 200 }
+@sentinel.intersects({ root: @panel, margin: 200 })
 ```
 
-An infix argument can be a literal, parameter, `self`, local, object or grouped expression. An infix call ends its chain; group its result to use it in a larger expression:
+A call whose receiver can be null is written with `?.`, which skips the call, its argument included, and answers null where the receiver is null. This asks whether the nearest group is open, and is false where there is none:
 
 ```domql
-(self.closest("[data-group]") matches ".open") == null
+self.closest("[data-group]")?.matches(".open") ?? false
 ```
+
+`matchesMedia` is an infix call, written after its receiver with a space and ending its chain: `@window matchesMedia "(min-width: 40em)"`.
 
 Using the wrong call form produces an error that shows the expected form.
 
@@ -395,7 +397,7 @@ An object expression after a list runs for each item, with `self` referring to t
 domql.query(`
     @panel.all("[data-key]") {
         key: self:["data-key"],
-        selected: self matches "[aria-selected=true]"
+        selected: self.aria:["selected"] == "true"
     }
 `, { panel }).evaluate();
 // [
@@ -412,7 +414,7 @@ A member after a list operates on the list itself. Use `count`, `first`, `last` 
 ```js
 domql.query(`
     @panel.all("[data-key]")
-        .where(self matches "[aria-selected=true]")
+        .where(self.aria:["selected"] == "true")
         .count
 `, { panel }).evaluate();
 // 1
@@ -476,7 +478,7 @@ This is shorthand for `@panel?.first(".row")?.rect?.height`.
 
 Geometry such as `rect` and `size` is null when an element is detached or has no layout box, including when it or an ancestor has `display: none`. A box with zero dimensions still returns zero dimensions.
 
-An infix call or targeted object expression returns null when its receiver is null. For example:
+A targeted object expression returns null when its receiver is null, as optional access does. For example:
 
 ```js
 domql.query(

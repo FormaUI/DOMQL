@@ -232,7 +232,7 @@ describe('QueryEvaluator', () => {
         });
 
         it('applies an object expression to each item of a list, in order', () => {
-            expect(read('@panel.children { key: self:attribute["data-key"], selected: self matches "[aria-selected=true]" }', { panel })).toEqual([
+            expect(read('@panel.children { key: self:attribute["data-key"], selected: self.matches("[aria-selected=true]") }', { panel })).toEqual([
                 { key: 'a1', selected: false },
                 { key: 'a2', selected: true },
                 { key: 'a3', selected: false },
@@ -266,9 +266,9 @@ describe('QueryEvaluator', () => {
         });
 
         it('keeps the items a Boolean expression holds for', () => {
-            expect(read('@panel.children.where(self matches "[aria-selected=true]").count', { panel })).toBe(1);
+            expect(read('@panel.children.where(self.matches("[aria-selected=true]")).count', { panel })).toBe(1);
             expect(read('@panel.children.where(self.hasChildren).count', { panel })).toBe(0);
-            expect(read('@els.where(self overlaps { other: @panel }).count', { els: [items[0], document.createElement('div')], panel })).toBe(1);
+            expect(read('@els.where(self.overlaps({ other: @panel })).count', { els: [items[0], document.createElement('div')], panel })).toBe(1);
         });
     });
 
@@ -513,7 +513,7 @@ describe('QueryEvaluator', () => {
         });
 
         it('give a local to the expression an argument evaluates for each item', () => {
-            expect(read('@panel { let selector: "[aria-selected=true]", selected: self.children.where(self matches selector) { key: self:attribute["data-key"] } }', { panel }))
+            expect(read('@panel { let selector: "[aria-selected=true]", selected: self.children.where(self.matches(selector)) { key: self:attribute["data-key"] } }', { panel }))
                 .toEqual({ selected: [{ key: 'a2' }] });
         });
 
@@ -559,13 +559,13 @@ describe('QueryEvaluator', () => {
             expect(read('@hidden.grid?.columns', { hidden })).toBeNull();
             expect(read('@hidden.attached', { hidden })).toBe(true);
             expect(read('@item.rectRelativeTo(@hidden)', { item: items[0], hidden })).toBeNull();
-            expect(read('@hidden overlaps { other: @item }', { hidden, item: items[0] })).toBeNull();
+            expect(read('@hidden.overlaps({ other: @item })', { hidden, item: items[0] })).toBeNull();
         });
 
         it('compares two boxes', () => {
-            expect(read('@a overlaps { other: @b }', { a: items[0], b: items[1] })).toBe(false);
-            expect(read('@a overlaps { other: @b, margin: 10 }', { a: items[0], b: items[1] })).toBe(true);
-            expect(read('@a overlaps { other: @b }', { a: items[0], b: items[0] })).toBe(true);
+            expect(read('@a.overlaps({ other: @b })', { a: items[0], b: items[1] })).toBe(false);
+            expect(read('@a.overlaps({ other: @b, margin: 10 })', { a: items[0], b: items[1] })).toBe(true);
+            expect(read('@a.overlaps({ other: @b })', { a: items[0], b: items[0] })).toBe(true);
         });
     });
 
@@ -619,7 +619,7 @@ describe('QueryEvaluator', () => {
 
     describe('errors', () => {
         it('fail where a member fails, naming it and where', () => {
-            const error = failure('@panel matches "["', { panel });
+            const error = failure('@panel.matches("[")', { panel });
 
             expect(error.message).toContain("The member 'matches' failed");
             expect(error.location.line).toBe(1);
@@ -636,7 +636,7 @@ describe('QueryEvaluator', () => {
         });
 
         it('refuse a member maintained by an observation', () => {
-            expect(failure('@item intersects', { item: items[0] }).message).toContain("The member 'intersects' is maintained by an observation");
+            expect(failure('@item.intersects()', { item: items[0] }).message).toContain("The member 'intersects' is maintained by an observation");
         });
 
         it('refuse a request that is not valid before reading anything', () => {
@@ -788,7 +788,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('include those of an argument that is a value of its own', () => {
-            const evaluation = evaluate('@row overlaps { other: @panel.parent as "element" }', { row: rows[0], panel });
+            const evaluation = evaluate('@row.overlaps({ other: @panel.parent as "element" })', { row: rows[0], panel });
             const overlaps = evaluation.dependencies.find(dependency => dependency.member === 'overlaps');
 
             expect(membersOf(evaluation)).toContain('parent');
@@ -914,7 +914,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are held once for every call that observes the same, so a change calls the evaluation back once', async () => {
-            const evaluation = evaluate('@panel.children { on: self matches "[data-on]" }', { panel }, [], true);
+            const evaluation = evaluate('@panel.children { on: self.matches("[data-on]") }', { panel }, [], true);
             const requests = evaluation.dependencies.flatMap(dependency => dependency.observations);
 
             expect(evaluation.dependencies.length).toBe(4);
@@ -928,7 +928,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are held once for every call that observes the same while a pending answer waits', async () => {
-            const evaluation = evaluate('@panel.children { on: self matches "[data-on]", level: self.level }', { panel }, [waitingModule()]);
+            const evaluation = evaluate('@panel.children { on: self.matches("[data-on]"), level: self.level }', { panel }, [waitingModule()]);
 
             expect(evaluation.isPending).toBe(true);
 
@@ -1216,7 +1216,7 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('captures a native event with its target, and null for a target that is no element', () => {
-            const { capture } = evaluatorOf('(@document on "scroll") { id: self.target?:attribute["id"] }').resolveSource();
+            const { capture } = evaluatorOf('@document.on("scroll") { id: self.target?:attribute["id"] }').resolveSource();
 
             expect(capture(new window.Event('scroll'))).toEqual({ target: null });
             expect(capture({ target: panel })).toEqual({ target: panel });
@@ -1235,14 +1235,14 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('reads what it captured, and the document as it is', () => {
-            const evaluator = evaluatorOf('(@document on "scroll") { id: self.target?:attribute["id"] }');
+            const evaluator = evaluatorOf('@document.on("scroll") { id: self.target?:attribute["id"] }');
 
             expect(projectionOf(evaluator, { target: panel }).value).toEqual({ id: 'panel' });
             expect(projectionOf(evaluator, { target: document }).value).toEqual({ id: null });
         });
 
         it('fails its projection where a member fails, without throwing', () => {
-            const evaluator = evaluatorOf('@panel.ticks("tick") { match: @panel matches "[" }', { panel }, [ticks('tick')]);
+            const evaluator = evaluatorOf('@panel.ticks("tick") { match: @panel.matches("[") }', { panel }, [ticks('tick')]);
             const projection = projectionOf(evaluator, { at: 1 });
 
             expect(projection.value).toBeUndefined();

@@ -194,9 +194,9 @@ export class Vocabulary {
                 operation('has', 'any', 'boolean', { function: null, changes: 'derived', reads: 'derived', parameters: [valueParameter('name', 'string', { fixed: true, selects: 'condition' })] }),
                 operation('supports', 'any', 'boolean', { function: null, changes: 'derived', reads: 'derived', parameters: [valueParameter('name', 'string', { fixed: true, selects: 'condition' })] }),
                 operation('style', 'element', 'string?', { ...STYLE, form: 'indexer', parameters: [valueParameter('property', 'string')], observations: [RESIZE, ATTRIBUTES] }),
-                operation('intersects', 'element', 'boolean?', { reads: 'maintained', form: 'infix', input: 'options', parameters: [valueParameter('root', 'element?', { default: null, nulls: 'accept', omitted: 'the window' }), valueParameter('margin', 'number', { default: 0 })], observations: [{ type: 'intersection', of: 'receiver', root: { argument: 'root' }, margin: { argument: 'margin' } }] }),
-                operation('overlaps', 'element', 'boolean?', { ...GEOMETRY, form: 'infix', input: 'options', parameters: [valueParameter('other', 'element'), valueParameter('margin', 'number', { default: 0 })], observations: [RESIZE, { type: 'resize', of: { argument: 'other' } }, SCROLLING, WINDOW_RESIZE] }),
-                operation('matches', 'element', 'boolean?', { ...MATCHING, form: 'infix', parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS, POPOVERS] }),
+                operation('intersects', 'element', 'boolean?', { reads: 'maintained', input: 'options', parameters: [valueParameter('root', 'element?', { default: null, nulls: 'accept', omitted: 'the window' }), valueParameter('margin', 'number', { default: 0 })], observations: [{ type: 'intersection', of: 'receiver', root: { argument: 'root' }, margin: { argument: 'margin' } }] }),
+                operation('overlaps', 'element', 'boolean?', { ...GEOMETRY, input: 'options', parameters: [valueParameter('other', 'element'), valueParameter('margin', 'number', { default: 0 })], observations: [RESIZE, { type: 'resize', of: { argument: 'other' } }, SCROLLING, WINDOW_RESIZE] }),
+                operation('matches', 'element', 'boolean', { ...MATCHING, parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS, POPOVERS] }),
                 operation('rectRelativeTo', 'element', 'rectangle?', { ...GEOMETRY, function: 'rect', parameters: [valueParameter('relativeTo', 'element')], observations: [RESIZE, { type: 'resize', of: { argument: 'relativeTo' } }, SCROLLING, WINDOW_RESIZE] }),
                 operation('closest', 'element', 'element?', { ...MATCHING, parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS, POPOVERS] }),
                 operation('first', 'node', 'element?', { ...MATCHING, function: 'firstMatching', parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS, POPOVERS] }),
@@ -207,7 +207,7 @@ export class Vocabulary {
                 operation('sum', 'list<T>', 'number', { changes: 'derived', reads: 'derived', parameters: [expressionParameter('number?')] }),
                 operation('where', 'list<T>', 'list<T>', { changes: 'derived', reads: 'derived', parameters: [predicateParameter()] }),
 
-                { ...operation('on', ['element', 'document', 'window'], 'event<@selected>', { form: 'infix', changes: 'constant', reads: 'captured', parameters: [valueParameter('type', 'string', { fixed: true, selects: 'eventType' })] }), kind: 'source' },
+                { ...operation('on', ['element', 'document', 'window'], 'event<@selected>', { changes: 'constant', reads: 'captured', parameters: [valueParameter('type', 'string', { fixed: true, selects: 'eventType' })] }), kind: 'source' },
             ],
 
             conversions: [

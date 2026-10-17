@@ -1355,7 +1355,7 @@ describe('Watch', () => {
         });
 
         it('is a query: a request that is not one is refused when the watch is made', () => {
-            const subscription = isolated.query('(@panel on "click") { ratio: @window.devicePixelRatio }', { panel });
+            const subscription = isolated.query('@panel.on("click") { ratio: @window.devicePixelRatio }', { panel });
 
             expect(subscription.resolve({ watch: true }).kind).toBe('subscription');
             expect(() => subscription.watch()).toThrow(expect.objectContaining({ name: 'DomqlError', kind: 'validation', message: expect.stringContaining('it listens to events.\nUse subscribe()') }));

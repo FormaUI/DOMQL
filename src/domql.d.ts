@@ -376,7 +376,7 @@ export interface DomqlMemberDeclaration {
     /** The key of the function that carries it out, among the module's functions; a member whose argument selects a condition names none, since the condition carries it out. */
     function?: string;
     kind: 'property' | 'operation' | 'source' | 'action' | 'behavior';
-    /** How a member that is no property is written: called, `self.closest(".row")`, the default, named, `self matches ".row"`, or a named indexer, `self:attribute["data-key"]`, an operation whose one required value parameter is its key. A property declares none. */
+    /** How a member that is no property is written: called, `self.closest(".row")`, the default, named, `@window matchesMedia "(min-width: 40em)"`, or a named indexer, `self:attribute["data-key"]`, an operation whose one required value parameter is its key. A property declares none. */
     form?: 'call' | 'infix' | 'indexer';
     /** What its argument supplies, where it has parameters: its one parameter, directly, or every parameter, as the fields of an options object; an indexer's is direct. */
     input?: 'direct' | 'options';

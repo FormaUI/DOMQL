@@ -106,7 +106,7 @@ describe('SnapshotComparer', () => {
         });
 
         it('compares strings, Booleans and null exactly', () => {
-            const snapshotComparer = snapshotComparerOf('@element { s: self:attribute["s"], b: self matches ".x", n: self:attribute["none"] }', { element });
+            const snapshotComparer = snapshotComparerOf('@element { s: self:attribute["s"], b: self.matches(".x"), n: self:attribute["none"] }', { element });
             const previous = freeze({ s: 'a', b: true, n: null });
 
             expect(snapshotComparer.reconcile(previous, null, freeze({ s: 'a', b: true, n: null }), null)).toBe(previous);

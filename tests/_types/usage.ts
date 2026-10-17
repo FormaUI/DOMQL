@@ -149,13 +149,13 @@ const watchedAgain: DomqlWatch<{ count: number }> = query.watch(watching);
 const keptAgain: DomqlLiveStateWatch<{ count: number }> = query.watch(keeping);
 
 // A subscription's handler receives the event listener and each event's result, or the failure that produced none.
-const clicks: DomqlEventListener = domql.query<{ x: number }>('(@panel on "click") { x: self.clientX }', { panel }).subscribe((sender, args) => {
+const clicks: DomqlEventListener = domql.query<{ x: number }>('@panel.on("click") { x: self.clientX }', { panel }).subscribe((sender, args) => {
     const listener: DomqlEventListener = sender;
 
     return args.status === 'ready' ? [listener, args.value.x] : args.error;
 }, { window, signal });
 const operating: DomqlOperationOptions = { window, signal };
-const keys: DomqlEventListener = domql.query<{ key: string }>('(@panel on "keydown") { key: self.key }', { panel }).subscribe((sender, args) => args.status, operating);
+const keys: DomqlEventListener = domql.query<{ key: string }>('@panel.on("keydown") { key: self.key }', { panel }).subscribe((sender, args) => args.status, operating);
 const clicking: 'ready' | 'disposed' = clicks.status;
 
 keys.dispose();

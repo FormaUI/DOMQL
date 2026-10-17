@@ -107,9 +107,9 @@ const DOCUMENTS = {
     'nuget/README.md': [
         { about: 'a count' },
         { about: 'a count of a selection' },
-        { about: 'an infix call' },
+        { about: 'a selector test' },
         { about: 'named indexers', each: true },
-        { about: 'an infix call with options' },
+        { about: 'a call with options' },
         { about: 'a fragment testing an ancestor', context: '@cell { value: % }' },
         { about: 'an optional-access group' },
         { about: 'a native condition and an ARIA one', results: { 0: { checked: false, ariaChecked: false } } },

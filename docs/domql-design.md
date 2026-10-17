@@ -109,7 +109,7 @@ Accepting partial observation is an option of the watch, chosen when the caller 
 A watch's dependencies are what its last evaluation actually read: each member applied to its receiver and arguments, with that member's observations, each held through a session as the evaluation reaches it. Dependencies belong to the complete query.
 
 - **Every evaluation holds its dependencies afresh:** it takes over the session of the evaluation before it wherever it reaches the same observation again, acquires the observations it reaches for the first time, and the sessions it no longer reaches are disposed. What a watch observes therefore follows the document: in `@table.all("tbody tr").max(self.rect?.height)`, the watch depends on what the selector matches within the table, and on the height of each row it matched. A row added starts being observed after the evaluation the addition causes, and a row removed stops being observed.
-- **A value argument is a dependency of its own.** `@target intersects { root: @panel }` depends on the intersection of the target with the panel; `self intersects { root: self.parent as "element" }` also depends on which element is the parent, and a new parent is observed after the evaluation its change causes.
+- **A value argument is a dependency of its own.** `@target.intersects({ root: @panel })` depends on the intersection of the target with the panel; `self.intersects({ root: self.parent as "element" })` also depends on which element is the parent, and a new parent is observed after the evaluation its change causes.
 - **An expression argument contributes its dependencies for every item** it was evaluated against.
 - **A chain that met null depends on what it read before the null,** so `self.closest(".row")` finding nothing still depends on the ancestors it searched, and the watch evaluates again when one starts to match.
 - **A watch keeps its bindings.** A query `with` other bindings starts a watch of its own. When the replacement watch is ready before the old watch is disposed, shared observations with matching targets and identifying arguments remain running throughout the replacement.
@@ -182,8 +182,8 @@ An event's object expression is evaluated as the specification defines, and its 
 A maintained member in an event's object expression reads its latest sample, or null while it is pending, never waits for a later one and never revises a result already delivered:
 
 ```domql
-(@button on "click") {
-    nearEnd: @sentinel intersects { root: @panel }
+@button.on("click") {
+    nearEnd: @sentinel.intersects({ root: @panel })
 }
 ```
 
@@ -193,7 +193,7 @@ The subscription holds the sessions its object expressions acquire. After each s
 
 ```js
 const clicks = domql.query(`
-    (@button on "click") {
+    @button.on("click") {
         panelSize: @panel.size
     }
 `, { button, panel });
@@ -364,7 +364,7 @@ JavaScript makes a query from text, and binds its definition anew:
 const panelQuery = domql.query(`
     @panel {
         size: self.size,
-        hasFocus: self matches ":focus-within"
+        hasFocus: self.has("focus-within")
     }
 `, { panel });
 
@@ -380,13 +380,13 @@ const fromDefinition = domql.query(panelQuery.definition, { panel });
 C# writes text, and names the type its result maps onto, or none:
 
 ```csharp
-public sealed record PanelState(double? Width, bool? HasFocus);
+public sealed record PanelState(double? Width, bool HasFocus);
 
 DomqlQuery<PanelState> typed = Domql.Query<PanelState>(
     """
     @panel {
         width: self.size?.width,
-        hasFocus: self matches ":focus-within"
+        hasFocus: self.has("focus-within")
     }
     """,
     ("panel", panel));

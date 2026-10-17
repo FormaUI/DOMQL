@@ -140,6 +140,9 @@ describe('DefinitionWriter', () => {
         '@panel?:[@name]',
         '@panel.first(".row")?:["id"] == null',
         '@panel:attribute[@name]',
+        '@panel.on("click") { x: self.clientX }',
+        '@panel.first(".row")?.matches(".open") ?? false',
+        '@sentinel.intersects({ root: @panel, margin: 10 })',
         '@panel.aria:["checked"]',
         '@panel?:attribute["data-key"]',
         '@panel.first(".row")?:style["display"]',
@@ -275,7 +278,7 @@ describe('DefinitionWriter', () => {
             const { domql: other } = await import('#domql/domql.js');
 
             expect(() => format('@panel {')).toThrow(expect.objectContaining({ kind: 'syntax' }));
-            expect(() => domql.format({ version: 17, query: { kind: 'nonsense' } })).toThrow(expect.objectContaining({ kind: 'structure' }));
+            expect(() => domql.format({ version: 18, query: { kind: 'nonsense' } })).toThrow(expect.objectContaining({ kind: 'structure' }));
             expect(() => domql.format(other.query('@panel'))).toThrow(expect.objectContaining({ kind: 'structure', message: expect.stringContaining('query.definition') }));
         });
     });
