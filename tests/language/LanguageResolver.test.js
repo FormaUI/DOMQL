@@ -45,7 +45,7 @@ describe('LanguageResolver', () => {
         });
 
         it('types an object expression by its written field names', () => {
-            expect(resolve('@panel { size: self.size, hasFocus: self.focused }').type.toString()).toBe('{ size: size?, hasFocus: boolean }');
+            expect(resolve('@panel { size: self.size, hasFocus: self.is("focus") }').type.toString()).toBe('{ size: size?, hasFocus: boolean }');
         });
 
         it('types a bound value by the type it has', () => {
@@ -545,11 +545,12 @@ describe('LanguageResolver', () => {
             expect(failure('(@panel on "click") { x: self.clientX } == null').message).toContain("'==' compares values, and this is an event source");
         });
 
-        it('give the test to write for a value compared with the name of one of its Boolean members, and nothing for any other', () => {
+        it('give the test to write for a value compared with the name of one of its Boolean members or its conditions, and nothing for any other', () => {
             expect(failure('@panel == "attached"').message).toContain("a test is the member that answers it, so write '@panel.attached'");
             expect(failure('@panel != "attached"').message).toContain("write 'not @panel.attached'");
-            expect(failure('@panel == @state', { panel, state: 'disabled' }).message).toContain("write '@panel[@state]'");
-            expect(failure('@panel.first("a") == "focused"').message).toContain(`write '@panel.first("a")?.focused'`);
+            expect(failure('@panel == @state', { panel, state: 'disabled' }).message).toContain("write '@panel.is(@state)'");
+            expect(failure('@panel != "disabled"').message).toContain(`write 'not @panel.is("disabled")'`);
+            expect(failure('@panel.first("a") == "focus"').message).toContain(`write '@panel.first("a")?.is("focus")'`);
             expect(failure('@panel == "visible"').message).not.toContain('write');
             expect(failure('@panel == "Attached"').message).not.toContain('write');
             expect(failure('@panel == "children"').message).not.toContain('write');
@@ -557,25 +558,27 @@ describe('LanguageResolver', () => {
     });
 
     describe('tests', () => {
-        it('resolve a test as the Boolean member it is, nullable where an optional access reads it', () => {
-            const resolved = resolve('@panel.disabled');
+        it('resolve a test as the Boolean member or the condition it is, nullable where an optional access reads it', () => {
+            const resolved = resolve('@panel.is("disabled")');
 
             expect(resolved.type.toString()).toBe('boolean');
-            expect(resolved.getResolution('/query').declaration.name).toBe('disabled');
+            expect(resolved.getResolution('/query').declaration.name).toBe('is');
+            expect(resolved.getResolution('/query').contract.name).toBe('disabled');
             expect(resolve('(@panel.parent as "element")?.attached').type.toString()).toBe('boolean?');
-            expect(resolve('@panel[@name]', { panel, name: 'focused' }).type.toString()).toBe('boolean');
-            expect(resolve('@document.visible and @document.hasFocus').type.toString()).toBe('boolean');
+            expect(resolve('@panel[@name]', { panel, name: 'attached' }).type.toString()).toBe('boolean');
+            expect(resolve('@document.is("visible") and @document.is("focus")').type.toString()).toBe('boolean');
         });
 
         it('refuse a test the receiver has not', () => {
-            expect(failure('@panel.visible').message).toContain("'visible' is not available on element");
+            expect(failure('@panel.is("visible")').message).toContain("'visible' is a condition of document, not of element");
             expect(failure('@document.attached').message).toContain("'attached' is not available on document");
         });
 
         it('give the member to write for has written as the presence test it was, where the receiver\'s type declares that member', () => {
             expect(failure('@panel has "children"').message).toContain("a presence test is the member that answers it, so write '@panel.hasChildren'");
-            expect(failure('@document has "focus"').message).toContain("write '@document.hasFocus'");
-            expect(failure('@panel has "focus"').message).not.toContain('write');
+            expect(failure('@document has "focus"').message).toContain("write '@document.is(\"focus\")'");
+            expect(failure('@panel has "focus"').message).toContain("a presence test is the condition that answers it, so write '@panel.is(\"focus\")'");
+            expect(failure('@panel has "visible"').message).not.toContain('write');
             expect(failure('@panel has "nonsense"').message).not.toContain('write');
             expect(failure('@panel has "Children"').message).not.toContain('write');
         });
@@ -626,7 +629,7 @@ describe('LanguageResolver', () => {
 
     describe('logical expressions', () => {
         it('type an and, an or and a not as a Boolean', () => {
-            expect(resolve('@panel.attached and @panel.focused').type.toString()).toBe('boolean');
+            expect(resolve('@panel.attached and @panel.is("focus")').type.toString()).toBe('boolean');
             expect(resolve('@panel.attached or (((@panel.parent as "element")?.attached) ?? false)').type.toString()).toBe('boolean');
             expect(resolve('not @panel.attached').type.toString()).toBe('boolean');
         });
@@ -667,10 +670,10 @@ describe('LanguageResolver', () => {
         });
 
         it('resolve every operand with its own location, the current value of each the one around the expression', () => {
-            const resolved = resolve('@panel { both: self.attached and (self.disabled or self.focused) }');
+            const resolved = resolve('@panel { both: self.attached and (self.is("disabled") or self.is("focus")) }');
 
             expect(resolved.getResolution('/query/fields/0/value/operands/0').declaration.name).toBe('attached');
-            expect(resolved.getResolution('/query/fields/0/value/operands/1/operands/1').declaration.name).toBe('focused');
+            expect(resolved.getResolution('/query/fields/0/value/operands/1/operands/1').contract.name).toBe('focus');
         });
 
         it('validate an operand that evaluation might never reach', () => {
@@ -681,10 +684,10 @@ describe('LanguageResolver', () => {
         });
 
         it('count every operand when a watch asks what can be followed', () => {
-            const error = failure('@panel.attached or @panel.textEditable', { panel }, { watch: true });
+            const error = failure('@panel.attached or @panel.is("text-editable")', { panel }, { watch: true });
 
-            expect(error.message).toContain("'element.textEditable'");
-            expect(() => resolve('@panel.attached or @panel.textEditable', { panel }, { watch: true, acceptPartialObservation: true })).not.toThrow();
+            expect(error.message).toContain(`'is("text-editable")'`);
+            expect(() => resolve('@panel.attached or @panel.is("text-editable")', { panel }, { watch: true, acceptPartialObservation: true })).not.toThrow();
         });
 
         it('let a group start a chain', () => {
@@ -766,7 +769,7 @@ describe('LanguageResolver', () => {
         });
 
         it('finds each node, by the node itself, with its pointer and its resolution', () => {
-            const resolved = resolve('@panel.all("i") { h: self.size?.height, on: self.attached or self.focused }');
+            const resolved = resolve('@panel.all("i") { h: self.size?.height, on: self.attached or self.is("focus") }');
             const { query } = resolved.definition;
             const [chain, on] = query.fields.map(field => field.value);
             const height = chain.target;
@@ -777,7 +780,7 @@ describe('LanguageResolver', () => {
             expect(resolved.resolutionOf(height).kind).toBe('field');
             expect(resolved.resolutionOf(chain)).toBeUndefined();
             expect(resolved.pointerOf(on.operands[1])).toBe('/query/fields/1/value/operands/1');
-            expect(resolved.resolutionOf(on.operands[1]).declaration.name).toBe('focused');
+            expect(resolved.resolutionOf(on.operands[1]).contract.name).toBe('focus');
             expect(resolved.resolutionOf(query)).toBeUndefined();
         });
     });

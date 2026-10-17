@@ -183,8 +183,8 @@ export class LanguageResolver {
     }
 
     /**
-     * For an equality of a value and a string that names one of the value's Boolean members, as `@input == "disabled"` or `@input == @state` writes one, the member to write, negated for `is not`; nothing for any other.
-     * The name is read exactly, and the member is one the value's type declares.
+     * For an equality of a value and a string that names one of the value's Boolean members or one of its conditions, as `@input == "disabled"` or `@input == @state` writes one, the test to write, negated for `!=`: the member, or `.is(…)` of the condition; nothing for any other.
+     * The name is read exactly, and the member or the condition is one the value's type has.
      */
     #testOf(node, left, right, isNegated) {
         if (!right.isFixed || typeof right.value !== 'string' || (node.right.kind !== 'literal' && node.right.kind !== 'parameter')) {
@@ -193,15 +193,17 @@ export class LanguageResolver {
 
         const receiverType = left.type.toNonNullable();
         const declares = this.#moduleRegistry.getMembers(right.value).some(candidate => candidate.kind === 'property' && candidate.result === 'boolean' && LanguageResolver.#matchesReceiver(candidate, receiverType, new Map()));
+        const isCondition = !declares && this.#moduleRegistry.getConditions(right.value).some(candidate => LanguageResolver.#matchesAny(candidate.on, receiverType));
 
-        if (!declares) {
+        if (!declares && !isCondition) {
             return '';
         }
 
+        const optional = left.type.isNullable ? { optional: true } : {};
         const name = node.right.kind === 'literal' ? right.value : node.right;
-        const access = left.type.isNullable ? { kind: 'member', target: node.left, name, optional: true } : { kind: 'member', target: node.left, name };
+        const test = declares ? { kind: 'member', target: node.left, name, ...optional } : { kind: 'call', target: node.left, name: 'is', argument: node.right, ...optional };
 
-        return `: a test is the member that answers it, so write '${DefinitionWriter.write(isNegated ? { kind: 'not', operand: access } : access)}'`;
+        return `: a test is the member that answers it, so write '${DefinitionWriter.write(isNegated ? { kind: 'not', operand: test } : test)}'`;
     }
 
     /**
@@ -1374,7 +1376,7 @@ export class LanguageResolver {
     }
 
     /**
-     * For `has` written as a presence test, as `@input has "selection"`, the Boolean member the receiver's type declares for it, as the form to write; nothing for any other name or receiver.
+     * For `has` written as a presence test, as `@input has "selection"`, the Boolean member the receiver's type declares for it, or the condition of its name the receiver has, as the form to write; nothing for any other name or receiver.
      * The name is read exactly, as a presence test's was, so `"Selection"` names nothing.
      */
     #presenceTestOf(node, receiverType) {
@@ -1385,7 +1387,13 @@ export class LanguageResolver {
         const name = `has${node.argument.value[0].toUpperCase()}${node.argument.value.slice(1)}`;
         const declares = this.#moduleRegistry.getMembers(name).some(candidate => candidate.result === 'boolean' && LanguageResolver.#matchesReceiver(candidate, receiverType, new Map()));
 
-        return declares ? `: a presence test is the member that answers it, so write '${DefinitionWriter.write({ kind: 'member', target: node.target, name })}'` : '';
+        if (declares) {
+            return `: a presence test is the member that answers it, so write '${DefinitionWriter.write({ kind: 'member', target: node.target, name })}'`;
+        }
+
+        const isCondition = this.#moduleRegistry.getConditions(node.argument.value).some(candidate => LanguageResolver.#matchesAny(candidate.on, receiverType));
+
+        return isCondition ? `: a presence test is the condition that answers it, so write '${DefinitionWriter.write({ kind: 'call', target: node.target, name: 'is', argument: node.argument })}'` : '';
     }
 
     /** Whether a value of the type compares with a value of any type: null, which equals null alone, or a never, which no value has. */

@@ -165,7 +165,7 @@ describe('Geometry in a browser', () => {
         it('knows when an element is disabled through its fieldset', () => {
             document.body.innerHTML = '<fieldset disabled><legend><input id="inLegend"></legend><input id="outside"></fieldset><input id="free">';
 
-            const answer = id => read('@input.disabled', { input: document.getElementById(id) });
+            const answer = id => read('@input.is("disabled")', { input: document.getElementById(id) });
 
             expect(answer('outside')).toBe(true);
             expect(answer('inLegend')).toBe(false);
@@ -176,21 +176,21 @@ describe('Geometry in a browser', () => {
             document.body.innerHTML = '<input id="text"><input id="readonly" readonly><input id="checkbox" type="checkbox"><div id="editable" contenteditable="true"><span id="inner"></span></div><div id="plain"></div>';
 
             const element = id => document.getElementById(id);
-            const ask = (id, test) => read(`@e.${test}`, { e: element(id) });
+            const ask = (id, test) => read(`@e.is("${test}")`, { e: element(id) });
 
-            expect(ask('text', 'textEditable')).toBe(true);
-            expect(ask('readonly', 'textEditable')).toBe(false);
-            expect(ask('readonly', 'readOnly')).toBe(true);
-            expect(ask('checkbox', 'textEditable')).toBe(false);
-            expect(ask('inner', 'textEditable')).toBe(true);
-            expect(ask('plain', 'textEditable')).toBe(false);
+            expect(ask('text', 'text-editable')).toBe(true);
+            expect(ask('readonly', 'text-editable')).toBe(false);
+            expect(ask('readonly', 'readonly')).toBe(true);
+            expect(ask('checkbox', 'text-editable')).toBe(false);
+            expect(ask('inner', 'text-editable')).toBe(true);
+            expect(ask('plain', 'text-editable')).toBe(false);
 
-            expect(ask('text', 'focused')).toBe(false);
+            expect(ask('text', 'focus')).toBe(false);
 
             element('text').focus();
 
-            expect(ask('text', 'focused')).toBe(true);
-            expect(ask('readonly', 'focused')).toBe(false);
+            expect(ask('text', 'focus')).toBe(true);
+            expect(ask('readonly', 'focus')).toBe(false);
         });
 
         it('reads the selection of a text control', () => {
@@ -210,7 +210,7 @@ describe('Geometry in a browser', () => {
             expect(read('@window.devicePixelRatio')).toBeGreaterThan(0);
             expect(read('@window matchesMedia "(min-width: 1px)"')).toBe(true);
             expect(read('@window matchesMedia "(max-width: 0px)"')).toBe(false);
-            expect(read('@document.visible')).toBe(true);
+            expect(read('@document.is("visible")')).toBe(true);
         });
     });
 });

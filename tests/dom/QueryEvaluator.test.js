@@ -298,14 +298,14 @@ describe('QueryEvaluator', () => {
             document.body.insertAdjacentHTML('beforeend', '<button id="b" disabled></button><input id="i" readonly><textarea id="t"></textarea><div id="e" contenteditable="true"><span id="s"></span></div><div inert><div id="n" contenteditable="true"></div></div>');
             const element = id => document.getElementById(id);
 
-            expect(read('@b.disabled', { b: element('b') })).toBe(true);
-            expect(read('@panel.disabled', { panel })).toBe(false);
-            expect(read('@i.readOnly', { i: element('i') })).toBe(true);
-            expect(read('@i.textEditable', { i: element('i') })).toBe(false);
-            expect(read('@t.textEditable', { t: element('t') })).toBe(true);
-            expect(read('@s.textEditable', { s: element('s') })).toBe(true);
-            expect(read('@n.textEditable', { n: element('n') })).toBe(false);
-            expect(read('@panel.textEditable', { panel })).toBe(false);
+            expect(read('@b.is("disabled")', { b: element('b') })).toBe(true);
+            expect(read('@panel.is("disabled")', { panel })).toBe(false);
+            expect(read('@i.is("readonly")', { i: element('i') })).toBe(true);
+            expect(read('@i.is("text-editable")', { i: element('i') })).toBe(false);
+            expect(read('@t.is("text-editable")', { t: element('t') })).toBe(true);
+            expect(read('@s.is("text-editable")', { s: element('s') })).toBe(true);
+            expect(read('@n.is("text-editable")', { n: element('n') })).toBe(false);
+            expect(read('@panel.is("text-editable")', { panel })).toBe(false);
             expect(read('@panel.hasChildren', { panel })).toBe(true);
             expect(read('@item.hasChildren', { item: items[0] })).toBe(false);
         });
@@ -319,16 +319,16 @@ describe('QueryEvaluator', () => {
             const button = document.createElement('button');
             document.body.append(button);
 
-            expect(read('@button.focused', { button })).toBe(false);
+            expect(read('@button.is("focus")', { button })).toBe(false);
 
             button.focus();
 
-            expect(read('@button.focused', { button })).toBe(true);
+            expect(read('@button.is("focus")', { button })).toBe(true);
         });
 
         it('answers the document predicates', () => {
-            expect(read('@document.visible')).toBeTypeOf('boolean');
-            expect(read('@document.hasFocus')).toBeTypeOf('boolean');
+            expect(read('@document.is("visible")')).toBeTypeOf('boolean');
+            expect(read('@document.is("focus")')).toBeTypeOf('boolean');
         });
 
         it('gives a member the document and the window it is read in where an argument names a root', () => {
@@ -394,11 +394,11 @@ describe('QueryEvaluator', () => {
 
         it('test the current value inside an object expression and an expression argument', () => {
             expect(read('@panel { attached: self.attached, empty: self.hasChildren }', { panel })).toEqual({ attached: true, empty: true });
-            expect(read('@panel.children.where(self.attached and self.focused).count', { panel })).toBe(0);
+            expect(read('@panel.children.where(self.attached and self.is("focus")).count', { panel })).toBe(0);
         });
 
-        it('read a test by a name the bindings hold', () => {
-            expect(read('@panel[@state] or @panel[@other]', { panel, state: 'focused', other: 'attached' })).toBe(true);
+        it('read a test by a name the bindings hold, a condition and a member by name', () => {
+            expect(read('@panel.is(@state) or @panel[@other]', { panel, state: 'focus', other: 'attached' })).toBe(true);
         });
 
         it('answer whether a subject is null with is null, never null itself', () => {
@@ -770,7 +770,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('stand where each member is written, inside the items of a list and the operands of an or', () => {
-            const evaluation = evaluate('@panel.all("i") { h: self.rect?.height, on: self.attached or self.focused }', { panel });
+            const evaluation = evaluate('@panel.all("i") { h: self.rect?.height, on: self.attached or self.is("focus") }', { panel });
 
             expect(evaluation.dependencies.map(dependency => [dependency.member, dependency.pointer])).toEqual([
                 ['all', '/query/target'],
@@ -828,11 +828,11 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('include the predicates an or reached, and none it did not need', () => {
-            const reached = evaluate('@panel.attached or @panel.focused', { panel });
-            const both = evaluate('@panel.focused or @panel.attached', { panel });
+            const reached = evaluate('@panel.attached or @panel.is("focus")', { panel });
+            const both = evaluate('@panel.is("focus") or @panel.attached', { panel });
 
             expect(membersOf(reached)).toEqual(['attached']);
-            expect(membersOf(both)).toEqual(['focused', 'attached']);
+            expect(membersOf(both)).toEqual(['focus', 'attached']);
         });
 
         it('are kept with the failure of an evaluation that recorded them before it failed', () => {

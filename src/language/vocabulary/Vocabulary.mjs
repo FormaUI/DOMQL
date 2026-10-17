@@ -57,6 +57,17 @@ function member(kind, name, on, result, { function: implementation = name, param
 }
 
 const property = (name, on, result, options) => member('property', name, on, result, options);
+
+/** A condition: a Boolean of its receivers that `.is(name)` tests, carried out by its own function under its own contract, observable unless it says otherwise. */
+const condition = (name, on, implementation, { changes = 'observable', reads = 'fresh', misses, observations = [] } = {}) => ({
+    name,
+    function: implementation,
+    on,
+    changes,
+    reads,
+    ...(misses === undefined ? {} : { misses }),
+    observations,
+});
 const operation = (name, on, result, options) => member('operation', name, on, result, options);
 
 /** The observations the members share. */
@@ -126,6 +137,24 @@ export class Vocabulary {
                 { name: 'visibility', contract: 'invalidation', function: 'observeVisibility' },
             ],
 
+            // The conditions of elements and of the document, each as the browser decides it, its native semantics: a pseudo-class's matching, or the document's own state.
+            conditions: [
+                condition('disabled', 'element', 'disabled', { observations: [{ type: 'mutation', of: 'root', attributes: ['disabled'], childList: true, subtree: true }] }),
+                condition('readonly', 'element', 'readOnly', { observations: [{ type: 'mutation', of: 'receiver', attributes: ['readonly', 'type'] }] }),
+                condition('text-editable', 'element', 'textEditable', { changes: 'partly-observable', misses: 'the document\'s design mode', observations: [{ type: 'mutation', of: 'roots', attributes: ['disabled', 'readonly', 'type', 'contenteditable', 'inert'], childList: true, subtree: true }] }),
+                condition('focus', 'element', 'focused', { observations: [FOCUS] }),
+                condition('focus-within', 'element', 'focusWithin', { observations: [FOCUS] }),
+                condition('hover', 'element', 'hover', { changes: 'partly-observable', misses: 'an element moving under a pointer that does not move, where the browser fires no pointer event for it', observations: [{ type: 'event', of: 'document', types: ['pointerover', 'pointerout'] }] }),
+                condition('popover-open', 'element', 'popoverOpen', { observations: [POPOVERS] }),
+                condition('checked', 'element', 'checked', {
+                    changes: 'partly-observable',
+                    misses: 'a script setting checked or selected, or a select\'s value or selectedIndex, which fires no event',
+                    observations: [{ type: 'event', of: 'root', types: ['input', 'change', 'reset'], capture: true }, { type: 'mutation', of: 'root', attributes: ['checked', 'selected'], childList: true, subtree: true }],
+                }),
+                condition('visible', 'document', 'visible', { observations: [{ type: 'visibility', of: 'receiver' }] }),
+                condition('focus', 'document', 'hasFocus', { observations: [{ type: 'event', of: 'window', types: ['focus', 'blur'] }] }),
+            ],
+
             members: [
                 property('size', 'window', 'size', { function: 'windowSize', observations: [WINDOW_RESIZE] }),
                 property('devicePixelRatio', 'window', 'number', { observations: [{ type: 'pixelRatio', of: 'window' }] }),
@@ -142,14 +171,8 @@ export class Vocabulary {
                 property('root', 'shadow', 'shadowRoot?', { function: 'shadowRoot', changes: 'partly-observable', misses: 'a shadow root attached at any time but as the element connects to its document', observations: [{ type: 'attachment', of: 'receiver' }] }),
                 property('elements', 'shadow', 'list<element>?', { function: 'assignedElements', changes: 'partly-observable', misses: 'a detached tree holding the slot inserted into a shadow tree that assigns it nothing', observations: [{ type: 'event', of: 'receiver', types: ['slotchange'] }, { type: 'mutation', of: 'root', childList: true, subtree: true }, { type: 'attachment', of: 'receiver' }] }),
                 property('attached', 'element', 'boolean', { changes: 'partly-observable', misses: 'a detached tree inserted into a shadow root in the document', observations: [{ type: 'attachment', of: 'receiver' }] }),
-                property('disabled', 'element', 'boolean', { observations: [{ type: 'mutation', of: 'root', attributes: ['disabled'], childList: true, subtree: true }] }),
-                property('readOnly', 'element', 'boolean', { observations: [{ type: 'mutation', of: 'receiver', attributes: ['readonly', 'type'] }] }),
-                property('textEditable', 'element', 'boolean', { changes: 'partly-observable', misses: 'the document\'s design mode', observations: [{ type: 'mutation', of: 'roots', attributes: ['disabled', 'readonly', 'type', 'contenteditable', 'inert'], childList: true, subtree: true }] }),
-                property('focused', 'element', 'boolean', { observations: [FOCUS] }),
                 property('hasChildren', 'element', 'boolean', { observations: [CHILDREN] }),
                 property('hasSelection', 'element', 'boolean', { changes: 'partly-observable', misses: 'selections assigned by script', observations: TEXT_SELECTION }),
-                property('visible', 'document', 'boolean', { observations: [{ type: 'visibility', of: 'receiver' }] }),
-                property('hasFocus', 'document', 'boolean', { observations: [{ type: 'event', of: 'window', types: ['focus', 'blur'] }] }),
                 property('count', 'list<T>', 'number', { changes: 'derived', reads: 'derived' }),
                 property('first', 'list<T>', 'T?', { changes: 'derived', reads: 'derived' }),
                 property('last', 'list<T>', 'T?', { changes: 'derived', reads: 'derived' }),

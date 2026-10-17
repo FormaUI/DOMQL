@@ -39,11 +39,17 @@ describe('Vocabulary', () => {
     it('declares each test as a Boolean member, a presence test named with has', () => {
         const tests = Vocabulary.module.members.filter(member => member.result === 'boolean' && member.kind === 'property').map(member => `${member.on}.${member.name}`);
 
-        expect(tests).toEqual(['element.attached', 'element.disabled', 'element.readOnly', 'element.textEditable', 'element.focused', 'element.hasChildren', 'element.hasSelection', 'document.visible', 'document.hasFocus']);
+        expect(tests).toEqual(['element.attached', 'element.hasChildren', 'element.hasSelection']);
+    });
+
+    it('declares the conditions of elements and of the document, each tested with is, the state the browser sets rather than one that follows from structure', () => {
+        const conditions = Vocabulary.module.conditions.map(condition => `${condition.on}.${condition.name}`);
+
+        expect(conditions).toEqual(['element.disabled', 'element.readonly', 'element.text-editable', 'element.focus', 'element.focus-within', 'element.hover', 'element.popover-open', 'element.checked', 'document.visible', 'document.focus']);
     });
 
 describe('observations', () => {
-        const members = Vocabulary.module.members;
+        const members = [...Vocabulary.module.members, ...Vocabulary.module.conditions];
         const covered = declaration => ['observable', 'partly-observable'].includes(declaration.changes);
 
         it('are named by every member whose changes they cover, and by no other', () => {

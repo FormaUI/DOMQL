@@ -64,7 +64,7 @@ describe('domql', () => {
         });
 
         it('takes one argument in a call, any expression, which its parentheses delimit', () => {
-            expect(domql.query('@rows.where(self.attached and self.visible)').definition.query.argument.kind).toBe('and');
+            expect(domql.query('@rows.where(self.attached and self.is("visible"))').definition.query.argument.kind).toBe('and');
         });
 
         it('takes a chain input as an infix call\'s argument, an options object among them', () => {
@@ -179,10 +179,10 @@ describe('domql', () => {
     });
 
     describe('tests', () => {
-        it('read a test as the Boolean member it is, written as any property is', () => {
-            expect(domql.query('@document.visible').definition.query).toEqual(member('visible', parameter('document')));
+        it('read a test as the Boolean member it is, written as any property is, and a condition as the call of is it is', () => {
+            expect(domql.query('@document.is("visible")').definition.query).toEqual(call('is', literal('visible'), parameter('document')));
             expect(domql.query('@input.hasSelection').definition.query).toEqual(member('hasSelection', parameter('input')));
-            expect(domql.query('@panel.all("input").where(self.disabled)').definition.query.argument).toEqual(member('disabled'));
+            expect(domql.query('@panel.all("input").where(self.is("disabled"))').definition.query.argument).toEqual(call('is', literal('disabled')));
         });
 
         it('read has as an ordinary name', () => {
@@ -228,13 +228,13 @@ describe('domql', () => {
 
     describe('logical expressions and groups', () => {
         it('combine whole expressions, and binding tighter than or', () => {
-            const { query } = domql.query('@panel.attached or @input.disabled and @enabled').definition;
+            const { query } = domql.query('@panel.attached or @input.is("disabled") and @enabled').definition;
 
             expect(query).toEqual({
                 kind: 'or',
                 operands: [
                     member('attached', parameter('panel')),
-                    { kind: 'and', operands: [member('disabled', parameter('input')), parameter('enabled')] },
+                    { kind: 'and', operands: [call('is', literal('disabled'), parameter('input')), parameter('enabled')] },
                 ],
             });
         });
@@ -253,12 +253,12 @@ describe('domql', () => {
         });
 
         it('stand as a field under the name written for it, as every field does', () => {
-            expect(getError(() => domql.query('@panel {.attached or.disabled }')).kind).toBe('syntax');
-            expect(() => domql.query('@panel { unavailable: self.attached or self.disabled }')).not.toThrow();
+            expect(getError(() => domql.query('@panel {.attached or.is("disabled") }')).kind).toBe('syntax');
+            expect(() => domql.query('@panel { unavailable: self.attached or self.is("disabled") }')).not.toThrow();
         });
 
         it('are created from a definition as they are parsed from text', () => {
-            const parsed = domql.query('@input.disabled or (@input.readOnly and @input.textEditable)', { input: document.body });
+            const parsed = domql.query('@input.is("disabled") or (@input.is("readonly") and @input.is("text-editable"))', { input: document.body });
 
             expect(domql.query(parsed.definition, { input: document.body }).definition).toEqual(parsed.definition);
         });
@@ -293,7 +293,7 @@ describe('domql', () => {
         it('stand where an expression stands, grouped where it is an operand or starts a chain', () => {
             expect(domql.query('(if @wide then @panel else @sidebar).rect.width').definition.query).toEqual(member('width', member('rect', conditional(parameter('wide'), parameter('panel'), parameter('sidebar')))));
             expect(domql.query('(if @a then true else false) and @b').definition.query.kind).toBe('and');
-            expect(domql.query('@panel { state: if self.disabled then "locked" else "open" }').definition.query.fields[0].value.kind).toBe('conditional');
+            expect(domql.query('@panel { state: if self.is("disabled") then "locked" else "open" }').definition.query.fields[0].value.kind).toBe('conditional');
         });
 
         it('are created from a definition as they are parsed from text', () => {
@@ -2909,8 +2909,8 @@ describe('domql conditions', () => {
 
         const messageOf = text => getError(() => isolated.query(text, { panel }).resolve()).message;
 
-        expect(messageOf('@panel.is("dim")')).toContain("'dim' is no condition the vocabulary declares; it declares lit, glowing, steady");
-        expect(messageOf('@panel.is("glowing")')).toContain("'glowing' is a condition of litView, not of element, whose conditions are lit");
+        expect(messageOf('@panel.is("dim")')).toContain("'dim' is no condition the vocabulary declares; it declares disabled, readonly, text-editable, focus, focus-within, hover, popover-open, checked, visible, lit, glowing, steady");
+        expect(messageOf('@panel.is("glowing")')).toContain("'glowing' is a condition of litView, not of element, whose conditions are disabled, readonly, text-editable, focus, focus-within, hover, popover-open, checked, lit");
         expect(messageOf('@window.is("lit")')).toContain("'lit' is a condition of element, not of window, which has no condition 'is' tests");
     });
 

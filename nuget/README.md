@@ -458,7 +458,7 @@ Null means a value is missing or unavailable. Use `?.` to read through a value t
 
 ```js
 domql.query(
-    '@panel.first("input")?.disabled ?? false',
+    '@panel.first("input")?.is("disabled") ?? false',
     { panel }
 ).evaluate();
 // false: the example panel has no input.
@@ -499,7 +499,7 @@ Use `==` and `!=` to compare values. Nodes are compared by identity. The result 
 Use `and`, `or` and `not` for Boolean logic:
 
 ```domql
-@input.disabled or (@input.readOnly and not @input.textEditable)
+@input.is("disabled") or (@input.is("readonly") and not @input.is("text-editable"))
 ```
 
 `not` binds more tightly than `and`, which binds more tightly than `or`. Evaluation stops as soon as an operand determines the answer: the operands after it are still validated, but are not evaluated or observed and cannot fail at run time.
@@ -515,7 +515,7 @@ In the second line, `input.rect` reads the input with a plain `.`, because the r
 
 `or` falls back for `null` and `false`, and `??` for `null` alone: `false or true` is `true`, and `false ?? true` is `false`.
 
-Unlike Lua, DOMQL types every expression, so `and` and `or` must give values of one type. `self.disabled and self` could give `false` or an element, and is refused; write `if self.disabled then self else null` if `null` is an acceptable alternative. Use a conditional whenever the chosen value may itself be `false` or `null`.
+Unlike Lua, DOMQL types every expression, so `and` and `or` must give values of one type. `self.is("disabled") and self` could give `false` or an element, and is refused; write `if self.is("disabled") then self else null` if `null` is an acceptable alternative. Use a conditional whenever the chosen value may itself be `false` or `null`.
 
 Mixing `??` with `==`, `!=`, `not`, `and` or `or` requires parentheses around one of the expressions.
 
@@ -525,8 +525,8 @@ Use `if`, `then` and `else` to choose between values. Add `elseif` for another c
 
 ```domql
 @input {
-    state: if self.disabled then "locked"
-           elseif self.readOnly then "read"
+    state: if self.is("disabled") then "locked"
+           elseif self.is("readonly") then "read"
            else "open"
 }
 ```
