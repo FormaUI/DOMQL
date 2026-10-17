@@ -206,10 +206,40 @@ describe('Geometry in a browser', () => {
             expect(read('@input:attribute["value"]', { input })).toBeNull();
         });
 
+        it('follows a media query as it begins and ceases to match, and the query a dynamic key names', async () => {
+            const width = document.documentElement.clientWidth;
+            const frame = window.frameElement;
+            const before = frame.style.width;
+            const panel = add('');
+            const snapshots = [];
+            const settled = () => new Promise(resolve => setTimeout(resolve, 100));
+
+            panel.setAttribute('data-query', `(min-width: ${width}px)`);
+
+            const watch = domql.query('@window:media[@panel:["data-query"] ?? "all"]', { panel }).watch({ schedule: 'immediate' });
+
+            watch.subscribe('change', (_sender, args) => snapshots.push(args.value));
+
+            try {
+                await watch.readyAsync();
+                frame.style.width = `${width - 100}px`;
+                await settled();
+                frame.style.width = before;
+                await settled();
+                panel.setAttribute('data-query', '(max-width: 0px)');
+                await settled();
+
+                expect(snapshots).toEqual([true, false, true, false]);
+            } finally {
+                watch.dispose();
+                frame.style.width = before;
+            }
+        });
+
         it('answers the window around the document', () => {
             expect(read('@window.devicePixelRatio')).toBeGreaterThan(0);
-            expect(read('@window matchesMedia "(min-width: 1px)"')).toBe(true);
-            expect(read('@window matchesMedia "(max-width: 0px)"')).toBe(false);
+            expect(read('@window:media["(min-width: 1px)"]')).toBe(true);
+            expect(read('@window:media["(max-width: 0px)"]')).toBe(false);
             expect(read('@document.is("visible")')).toBe(true);
         });
     });

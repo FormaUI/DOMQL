@@ -42,7 +42,7 @@ describe('DefinitionWriter', () => {
         '@panel { state: if self.is("disabled") then "locked" else "open" }',
         '@panel.parent == null',
         '@panel { let items: self.children, count: items.count, rows: items { key: self:attribute["data-key"] } }',
-        '@panel { let key: "data-key", let first: self.children.at(0), value: first?:attribute[key] }',
+        '@panel { let key: "data-key", let first: self.children:[0], value: first?:attribute[key] }',
         '@panel { let a: 1, inner: self { let b: a, value: b } }',
         '@panel:attribute["a \\"quoted\\" name, a \\\\ backslash"]',
         '@panel:attribute["two\nlines"]',
@@ -239,7 +239,7 @@ describe('DefinitionWriter', () => {
         it.each([
             '@panel { size: self.size, rows: self.children { key: self:attribute["data-key"], open: self matches ".open" } }',
             'if @a then { x: 1, y: 2 } elseif @b then (if @c then 3 else 4) else @d { z: self.size }',
-            '@panel { let items: self.children, count: items.count, first: items.at(0) { key: self:attribute["data-key"] } }',
+            '@panel { let items: self.children, count: items.count, first: items:[0] { key: self:attribute["data-key"] } }',
             '(@panel on "click") { x: self.clientX, inside: self.target?.closest(".row") == null }',
             '@panel.children.where(self.attached and (self.hasChildren or self matches ".x")).max(self.size?.width)',
             '@panel:attribute["line\nbreak and \\"quote\\""]',
@@ -253,10 +253,10 @@ describe('DefinitionWriter', () => {
         it('keeps negative zero, which a number equal to it would lose', () => {
             const literalOf = text => domql.query(text).definition.query.argument.value;
 
-            expect(format('@panel.at(-0)')).toBe('@panel.at(-0)');
-            expect(DefinitionWriter.write(domql.query('@panel.at(-0)').definition.query)).toBe('@panel.at(-0)');
-            expect(Object.is(literalOf(format('@panel.at(-0)')), -0)).toBe(true);
-            expect(Object.is(literalOf(format('@panel.at(0)')), 0)).toBe(true);
+            expect(format('@panel:[-0]')).toBe('@panel:[-0]');
+            expect(DefinitionWriter.write(domql.query('@panel:[-0]').definition.query)).toBe('@panel:[-0]');
+            expect(Object.is(literalOf(format('@panel:[-0]')), -0)).toBe(true);
+            expect(Object.is(literalOf(format('@panel:[0]')), 0)).toBe(true);
         });
 
         it('gives the same text for a request\'s text, its definition and a query object', () => {

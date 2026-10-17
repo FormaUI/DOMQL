@@ -342,17 +342,18 @@ Members that take input use the form declared by the vocabulary. `all` is a call
 @button.matches(".toolbar > button:first-child")
 ```
 
-A named indexer reads a value of its receiver by a key, written after a colon with the key in brackets. `attribute` reads an attribute, `style` a computed style, and `class` whether the element has a class:
+A named indexer reads a value of its receiver by a key, written after a colon with the key in brackets. `attribute` reads an attribute, `style` a computed style, and `class` whether the element has a class; the window's `media` reads whether a media query matches, which a watch follows as it begins and ceases to:
 
 ```domql
 @panel:attribute["data-key"]
 @panel:style["display"]
 @panel:class["open"]
+@window:media["(min-width: 40em)"]
 ```
 
-The key can be any expression of the type the indexer takes, such as a binding, `@panel:attribute[@name]`. An element's default indexer is `attribute`, so `@panel:["data-key"]` reads the attribute too. Use `?:` when the receiver can be null: `@panel.first(".row")?:["data-key"]` is null when there is no row, and its key is not evaluated.
+The key can be any expression of the type the indexer takes, such as a binding, `@panel:attribute[@name]`. An element's default indexer is `attribute`, so `@panel:["data-key"]` reads the attribute too, and a list's is `item`, so `@panel.children:[0]` is its first child. Use `?:` when the receiver can be null: `@panel.first(".row")?:["data-key"]` is null when there is no row, and its key is not evaluated.
 
-All DOMQL names are case-sensitive and use names such as `clientSize`, `rectRelativeTo` and `matchesMedia`. Strings passed to browser APIs, including selectors and attribute names, follow the browser's rules.
+All DOMQL names are case-sensitive and use names such as `clientSize`, `rectRelativeTo` and `devicePixelRatio`. Strings passed to browser APIs, including selectors and attribute names, follow the browser's rules.
 
 Calls take one argument. When a member takes options, pass an object whose fields supply its parameters. This query checks for an intersection with a margin around the panel and needs `evaluateAsync()`:
 
@@ -365,8 +366,6 @@ A call whose receiver can be null is written with `?.`, which skips the call, it
 ```domql
 self.closest("[data-group]")?.matches(".open") ?? false
 ```
-
-`matchesMedia` is an infix call, written after its receiver with a space and ending its chain: `@window matchesMedia "(min-width: 40em)"`.
 
 Using the wrong call form produces an error that shows the expected form.
 
@@ -409,7 +408,7 @@ domql.query(`
 
 A list keeps the order of its source, here the document's, and neither projecting nor filtering it reorders it.
 
-A member after a list operates on the list itself. Use `count`, `first`, `last` and `at(index)` to inspect it. Use `where` to keep items whose expression is truthy:
+A member after a list operates on the list itself. Use `count`, `first`, `last` and its default indexer, `:[index]`, as `self.children:[2]` for the third child, to inspect it. Use `where` to keep items whose expression is truthy:
 
 ```js
 domql.query(`

@@ -184,8 +184,9 @@ export class Vocabulary {
                 property('count', 'list<T>', 'number', { changes: 'derived', reads: 'derived' }),
                 property('first', 'list<T>', 'T?', { changes: 'derived', reads: 'derived' }),
                 property('last', 'list<T>', 'T?', { changes: 'derived', reads: 'derived' }),
+                operation('item', 'list<T>', 'T?', { form: 'indexer', isDefault: true, changes: 'derived', reads: 'derived', parameters: [valueParameter('index', 'number')] }),
 
-                operation('matchesMedia', 'window', 'boolean', { form: 'infix', parameters: [valueParameter('query', 'string')], observations: [{ type: 'media', of: 'window', query: { argument: 'query' } }] }),
+                operation('media', 'window', 'boolean', { form: 'indexer', parameters: [valueParameter('query', 'string')], observations: [{ type: 'media', of: 'window', query: { argument: 'query' } }] }),
                 operation('attribute', 'element', 'string?', { form: 'indexer', isDefault: true, parameters: [valueParameter('name', 'string')], observations: [{ type: 'mutation', of: 'receiver', attributes: [{ argument: 'name' }] }] }),
                 operation('attribute', 'aria', 'string?', { function: 'ariaAttribute', form: 'indexer', isDefault: true, parameters: [valueParameter('name', 'string')], observations: [{ type: 'mutation', of: 'receiver', attributes: [{ argument: 'name', prefix: 'aria-' }] }] }),
                 operation('class', 'element', 'boolean', { form: 'indexer', parameters: [valueParameter('name', 'string')], observations: [{ type: 'mutation', of: 'receiver', attributes: ['class'] }] }),
@@ -201,7 +202,6 @@ export class Vocabulary {
                 operation('closest', 'element', 'element?', { ...MATCHING, parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS, POPOVERS] }),
                 operation('first', 'node', 'element?', { ...MATCHING, function: 'firstMatching', parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS, POPOVERS] }),
                 operation('all', 'node', 'list<element>', { ...MATCHING, parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS, POPOVERS] }),
-                operation('at', 'list<T>', 'T?', { changes: 'derived', reads: 'derived', parameters: [valueParameter('index', 'number')] }),
                 operation('max', 'list<T>', 'number?', { changes: 'derived', reads: 'derived', parameters: [expressionParameter('number?')] }),
                 operation('min', 'list<T>', 'number?', { changes: 'derived', reads: 'derived', parameters: [expressionParameter('number?')] }),
                 operation('sum', 'list<T>', 'number', { changes: 'derived', reads: 'derived', parameters: [expressionParameter('number?')] }),

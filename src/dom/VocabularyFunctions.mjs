@@ -79,8 +79,10 @@ export class VocabularyFunctions {
             count: items => items.length,
             first: items => items.at(0) ?? null,
             last: items => items.at(-1) ?? null,
+            // The item at a whole index from zero, null for any other index, a negative one included, which never counts from the end.
+            item: (items, { index }) => (Number.isInteger(index) && index >= 0 && index < items.length ? items[index] : null),
 
-            matchesMedia: (window, { query }) => window.matchMedia(query).matches,
+            media: (window, { query }) => window.matchMedia(query).matches,
             supportsShare: window => typeof window.navigator.share === 'function',
             supportsClipboard: window => window.navigator.clipboard !== undefined,
             attribute: (element, { name }) => element.getAttribute(name),
@@ -109,7 +111,6 @@ export class VocabularyFunctions {
             closest: (element, { selector }) => element.closest(selector),
             firstMatching: (node, { selector }) => node.querySelector(selector),
             all: (node, { selector }) => [...node.querySelectorAll(selector)],
-            at: (items, { index }) => Number.isInteger(index) && index >= 0 && index < items.length ? items[index] : null,
             max: (items, { expression }) => VocabularyFunctions.#extreme(items, expression, Math.max),
             min: (items, { expression }) => VocabularyFunctions.#extreme(items, expression, Math.min),
             sum: (items, { expression }) => VocabularyFunctions.#numbers(items, expression).reduce((total, number) => total + number, 0),

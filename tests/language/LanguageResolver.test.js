@@ -41,7 +41,7 @@ describe('LanguageResolver', () => {
 
         it('keeps the item type through where, first and at', () => {
             expect(resolve('@panel.children.where(self.attached).first?.size').type.toString()).toBe('size?');
-            expect(resolve('@panel.children.at(0)?.size').type.toString()).toBe('size?');
+            expect(resolve('@panel.children:[0]?.size').type.toString()).toBe('size?');
         });
 
         it('types an object expression by its written field names', () => {
@@ -56,7 +56,7 @@ describe('LanguageResolver', () => {
         it.each([
             ['the result', '@panel.loose'],
             ['a field', '@panel { v: self.loose }'],
-            ['an argument', '@panel.children.at(@panel.loose)'],
+            ['an argument', '@panel.children:[@panel.loose]'],
             ['an expression', '@panel.children.where(self.loose).count'],
             ['an operand of and', '@panel.loose and 1'],
             ['a condition', 'if @panel.loose then 1 else 2'],
@@ -298,7 +298,7 @@ describe('LanguageResolver', () => {
         });
 
         it('refuses a member written in a form its declaration does not take, giving the form it does', () => {
-            expect(failure('@window.matchesMedia("(min-width: 1px)")').message).toContain(`'matchesMedia' uses infix-call syntax: write '@window matchesMedia "(min-width: 1px)"'`);
+            expect(failure('@window.media("(min-width: 1px)")').message).toContain(`'media' is an indexer: write '@window:media["(min-width: 1px)"]'`);
             expect(failure('@panel matches ".row"').message).toContain(`'matches' uses call syntax: write '@panel.matches(".row")'`);
             expect(failure('@sentinel intersects { root: @panel }', { panel, sentinel: panel }).message).toContain(`'intersects' uses call syntax: write '@sentinel.intersects({ root: @panel })'`);
             expect(failure('@panel on "click"').message).toContain(`'on' uses call syntax: write '@panel.on("click")'`);
@@ -330,8 +330,8 @@ describe('LanguageResolver', () => {
         });
 
         it('makes a call answer null for a written null on a propagating parameter', () => {
-            expect(resolve('@window matchesMedia "(min-width: 1px)"').type.toString()).toBe('boolean');
-            expect(resolve('@window matchesMedia null').type.toString()).toBe('boolean?');
+            expect(resolve('@window:media["(min-width: 1px)"]').type.toString()).toBe('boolean');
+            expect(resolve('@window:media[null]').type.toString()).toBe('boolean?');
         });
 
         it('lets an aggregate expression produce null per item', () => {
@@ -713,7 +713,7 @@ describe('LanguageResolver', () => {
         });
 
         it('let a local hold what is no data, which no field can', () => {
-            expect(resolve('@panel { let first: self.children.at(0), key: first?:attribute["data-key"] }').type.toString()).toBe('{ key: string? }');
+            expect(resolve('@panel { let first: self.children:[0], key: first?:attribute["data-key"] }').type.toString()).toBe('{ key: string? }');
         });
 
         it('validate a local no field uses', () => {

@@ -9,7 +9,7 @@ import { Type } from '../Type.mjs';
 
 const MEMBER_KINDS = ['property', 'operation', 'source', 'action', 'behavior'];
 
-/** How a member that is no property is written: called, `self.closest(".row")`, named, `@window matchesMedia "(min-width: 40em)"`, or a named indexer, `self:attribute["data-key"]`. */
+/** How a member that is no property is written: called, `self.closest(".row")`, named, `@range contains 5`, or a named indexer, `self:attribute["data-key"]`. */
 const FORMS = ['call', 'infix', 'indexer'];
 
 /** What a member's argument supplies: its one parameter, directly, or every parameter, as the fields of an options object. */

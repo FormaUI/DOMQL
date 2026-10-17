@@ -357,6 +357,43 @@ describe('Watch', () => {
         });
     });
 
+    describe('a list\'s default indexer', () => {
+        it('follows an index that changes, and the list it indexes as items are added before it', async () => {
+            panel.setAttribute('data-i', '0');
+            watch('@panel.children:[@panel:["data-i"] to "number"]?:["data-n"]', { panel });
+            await settle();
+
+            panel.setAttribute('data-i', '1');
+            await settle();
+            const added = document.createElement('i');
+
+            added.setAttribute('data-n', '0');
+            panel.prepend(added);
+            await settle();
+            panel.setAttribute('data-i', '5');
+            await settle();
+
+            expect(snapshots).toEqual(['1', '2', '1', null]);
+        });
+
+        it('answers null through optional access while its receiver is null, and follows the receiver once it is not', async () => {
+            panel.setAttribute('data-i', '1');
+            watch('@panel.first(".group")?.children:[@panel:["data-i"] to "number"]?:["data-n"]', { panel }, { acceptPartialObservation: true });
+            await settle();
+
+            const group = Object.assign(document.createElement('div'), { className: 'group', innerHTML: '<i data-n="a"></i><i data-n="b"></i>' });
+
+            panel.append(group);
+            await settle();
+            panel.setAttribute('data-i', '0');
+            await settle();
+            group.remove();
+            await settle();
+
+            expect(snapshots).toEqual([null, 'b', 'a', null]);
+        });
+    });
+
     describe('a conversion', () => {
         it('follows the value it converts, fails while that value has no conversion, and recovers once it has', async () => {
             const watched = watch('@panel:attribute["data-n"] to "number"', { panel });

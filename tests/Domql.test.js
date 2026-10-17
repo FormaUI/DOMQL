@@ -828,7 +828,7 @@ describe('domql', () => {
         });
 
         it('are created from a definition as they are parsed from text', () => {
-            const parsed = domql.query('@panel { let items: self.children, count: items.count, inner: self { let first: items.at(0), key: first?:attribute["data-key"] } }', { panel: document.body });
+            const parsed = domql.query('@panel { let items: self.children, count: items.count, inner: self { let first: items:[0], key: first?:attribute["data-key"] } }', { panel: document.body });
 
             expect(domql.query(parsed.definition, { panel: document.body }).definition).toEqual(parsed.definition);
         });
@@ -867,7 +867,6 @@ describe('domql', () => {
 
         it.each([
             ['a member written without its receiver', '@panel { width: rect.width }', "No local named 'rect' is in scope; write 'self.rect' for the member of the current value", 17],
-            ['an infix call written without its receiver or argument', '@window { open: matchesMedia }', "No local named 'matchesMedia' is in scope; write 'self matchesMedia …'", 17],
             ['an indexer written without its receiver or key', '@panel { key: attribute }', "No local named 'attribute' is in scope; write 'self:attribute[…]'", 15],
             ['a call written without its receiver or argument', '@panel { row: closest }', "No local named 'closest' is in scope; write 'self.closest(…)'", 15],
             ['a name that is no member of the current value', '@panel { a: nothing }', "No local named 'nothing' is in scope", 13],
@@ -1757,7 +1756,7 @@ describe('domql evaluateAsync', () => {
 
     it('evaluates again for a maintained member that a later evaluation introduces', async () => {
         const [first, second, third] = panel.children;
-        const query = isolated.query('@panel.children.at(@first.level)?.level', { panel, first });
+        const query = isolated.query('@panel.children:[@first.level]?.level', { panel, first });
         let answer;
 
         const evaluation = query.evaluateAsync().then(value => { answer = value; });
@@ -3307,3 +3306,50 @@ describe('domql named indexers', () => {
         });
     });
 });
+describe('domql list indexing', () => {
+    let panel;
+    let empty;
+
+    beforeEach(() => {
+        document.body.innerHTML = '<div id="panel"><i data-key="a1"></i><i data-key="a2"></i><i data-key="a3"></i></div><div id="empty"></div>';
+        panel = document.getElementById('panel');
+        empty = document.getElementById('empty');
+    });
+
+    const keyAt = (text, bindings = {}) => domql.query(`{ key: ${text}?:["data-key"] }`, { panel, empty, ...bindings }).evaluate().key;
+
+    it.each([
+        ['the first item', '0', 'a1'],
+        ['an item within the list', '1', 'a2'],
+        ['the last item', '2', 'a3'],
+        ['an index one past the end', '3', null],
+        ['an index far past the end', '1e300', null],
+        ['a negative index, which never counts from the end', '-1', null],
+        ['negative zero, which is zero', '-0', 'a1'],
+        ['a fractional index', '1.5', null],
+        ['an index a binding gives', '@i', 'a2', { i: 1 }],
+        ['an index computed from an attribute', '@panel:["data-i"] to "number"', 'a3', {}, '2'],
+    ])('answers %s', (_, key, answer, bindings = {}, attribute) => {
+        if (attribute !== undefined) {
+            panel.setAttribute('data-i', attribute);
+        }
+
+        expect(keyAt(`@panel.children:[${key}]`, bindings)).toBe(answer);
+    });
+
+    it('answers null for an empty list, a null index, and through optional access a null receiver, without evaluating the index', () => {
+        expect(keyAt('@empty.children:[0]')).toBeNull();
+        expect(keyAt('@panel.children:[@i]', { i: null })).toBeNull();
+        expect(keyAt('@none?.children:[@panel.first("[")?.children?.count ?? 0]', { none: null })).toBeNull();
+        expect(keyAt('@none?.children:[@i]', { none: null, i: null })).toBeNull();
+        expect(getError(() => keyAt('@panel.children:[@panel.first("[")?.children?.count ?? 0]')).message).toContain("The member 'first' failed");
+    });
+
+    it('answers an item that can be null, and refuses an index that is no number and a receiver that can be null without optional access', () => {
+        expect(domql.query('@panel.children:[0]?.size', { panel }).resolve().type.toString()).toBe('size?');
+        expect(domql.query('@panel.children:[@i]?.size', { panel, i: null }).resolve().type.toString()).toBe('size?');
+        expect(getError(() => domql.query('@panel.children:["1"]', { panel }).resolve()).message).toContain('expects number and finds string');
+        expect(getError(() => domql.query('@none.children:[0]', { none: null }).resolve()).kind).toBe('validation');
+    });
+});
+

@@ -129,7 +129,7 @@ const selectedCount = domql.query(`
 `, { panel }).evaluate();
 ```
 
-`where` evaluates its expression for each item. Collections also support `first`, `last`, `at`, `min`, `max` and `sum`. Locals let you reuse a value within a query, while conditionals and null handling let you choose what the result should contain.
+`where` evaluates its expression for each item. Collections also support `first`, `last`, indexing by position as `:[2]`, `min`, `max` and `sum`. Locals let you reuse a value within a query, while conditionals and null handling let you choose what the result should contain.
 
 See [The language](nuget/README.md#the-language) for focused examples of each feature, including casts, conversions, shadow trees and access by property name.
 

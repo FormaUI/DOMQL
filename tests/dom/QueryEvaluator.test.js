@@ -111,9 +111,9 @@ describe('QueryEvaluator', () => {
         it('reads list items by position', () => {
             expect(read('@panel.children.first { key: self:attribute["data-key"] }', { panel })).toEqual({ key: 'a1' });
             expect(read('@panel.children.last { key: self:attribute["data-key"] }', { panel })).toEqual({ key: 'a3' });
-            expect(read('@panel.children.at(1) { key: self:attribute["data-key"] }', { panel })).toEqual({ key: 'a2' });
-            expect(read('@panel.children.at(3) { key: self:attribute["data-key"] }', { panel })).toBeNull();
-            expect(read('@panel.children.at(-1) { key: self:attribute["data-key"] }', { panel })).toBeNull();
+            expect(read('@panel.children:[1] { key: self:attribute["data-key"] }', { panel })).toEqual({ key: 'a2' });
+            expect(read('@panel.children:[3] { key: self:attribute["data-key"] }', { panel })).toBeNull();
+            expect(read('@panel.children:[-1] { key: self:attribute["data-key"] }', { panel })).toBeNull();
         });
 
         it('reads the parent', () => {
@@ -518,7 +518,7 @@ describe('QueryEvaluator', () => {
         });
 
         it('use the locals before it, and those of an enclosing object expression', () => {
-            expect(read('@panel { let rows: self.children, let first: rows.at(0), key: first?:attribute["data-key"], inner: self { last: rows.at(2)?:attribute["data-key"] } }', { panel }))
+            expect(read('@panel { let rows: self.children, let first: rows:[0], key: first?:attribute["data-key"], inner: self { last: rows:[2]?:attribute["data-key"] } }', { panel }))
                 .toEqual({ key: 'a1', inner: { last: 'a3' } });
         });
 
@@ -573,7 +573,7 @@ describe('QueryEvaluator', () => {
         it('reads the window and its media queries', () => {
             expect(read('@window.size.width')).toBeTypeOf('number');
             expect(read('@window.devicePixelRatio')).toBeTypeOf('number');
-            expect(read('@window matchesMedia "(min-width: 0px)"')).toBe(true);
+            expect(read('@window:media["(min-width: 0px)"]')).toBe(true);
             expect(read('@window { share: self.supports("share") }').share).toBeTypeOf('boolean');
         });
 
