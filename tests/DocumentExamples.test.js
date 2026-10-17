@@ -87,7 +87,7 @@ const COMPARED = '(%) != null';
 const DOCUMENTS = {
     'docs/domql-specification.md': [
         { about: 'an object expression' },
-        { about: 'the forms of member access', each: true, context: '@cell { value: % }' },
+        { about: 'the forms of member access', each: true, context: 'cell { value: % }' },
         { about: 'tests', each: true },
         { about: 'equalities', each: true },
         { about: 'logical expressions', each: true, results: { 3: { width: 0 }, 4: 'untitled' } },
@@ -110,7 +110,7 @@ const DOCUMENTS = {
         { about: 'a selector test' },
         { about: 'named indexers', each: true },
         { about: 'a call with options' },
-        { about: 'a fragment testing an ancestor', context: '@cell { value: % }' },
+        { about: 'a fragment testing an ancestor', context: 'cell { value: % }' },
         { about: 'an optional-access group' },
         { about: 'a native condition and an ARIA one', results: { 0: { checked: false, ariaChecked: false } } },
         { about: 'an equality with null' },

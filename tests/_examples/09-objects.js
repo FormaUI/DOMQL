@@ -1,5 +1,5 @@
 domql.query(`
-    @panel {
+    panel {
         count: self.children.count,
         attached: self.attached,
         hasChildren: self.hasChildren

@@ -9,12 +9,12 @@ import { Names } from './Names.mjs';
  * The types a token is, which tooling reads as they are: `invalid` for text that is no token, and `end` for the end of the text, after its last trivia.
  * A contract within DOMQL until a public tooling API stabilizes it.
  */
-export const TOKEN_TYPES = Object.freeze(['name', 'parameter', 'literal', 'keyword', 'self', 'invalid', 'end', '.', '?.', '?[', '?:', '??', '(?', '==', '!=', ',', ':', '(', ')', '{', '}', '[', ']']);
+export const TOKEN_TYPES = Object.freeze(['name', 'literal', 'keyword', 'self', 'invalid', 'end', '.', '?.', '?[', '?:', '??', '(?', '==', '!=', ',', ':', '(', ')', '{', '}', '[', ']']);
 
 /**
  * @typedef {object} Token
- * @property {'name' | 'parameter' | 'literal' | 'keyword' | 'self' | 'invalid' | 'end' | '.' | '?.' | '?[' | '?:' | '??' | '(?' | '==' | '!=' | ',' | ':' | '(' | ')' | '{' | '}' | '[' | ']'} type
- * @property {unknown} [value] A name's, a parameter's or a keyword's text, or a literal's value.
+ * @property {'name' | 'literal' | 'keyword' | 'self' | 'invalid' | 'end' | '.' | '?.' | '?[' | '?:' | '??' | '(?' | '==' | '!=' | ',' | ':' | '(' | ')' | '{' | '}' | '[' | ']'} type
+ * @property {unknown} [value] A name's or a keyword's text, or a literal's value.
  * @property {number} start
  * @property {number} end
  * @property {number} leading Where the trivia before it begins, at its start where there is none, so every character of the text belongs to one token or to the trivia before one.
@@ -110,7 +110,7 @@ export class Tokenizer {
         }
 
         if (character === '@') {
-            return this.#readParameter(start);
+            return this.#readAt(start);
         }
 
         if (character === '"') {
@@ -179,27 +179,17 @@ export class Tokenizer {
         return null;
     }
 
-    /** Reads a parameter, its `@` and its name one token, so nothing comes between them. */
-    #readParameter(start) {
+    /** Reads what `@` begins, which names nothing, since a binding is named by its name alone: an invalid token over the `@` and the name after it, whose diagnostic gives the name to write. */
+    #readAt(start) {
         NAME.lastIndex = start + 1;
 
         if (!NAME.test(this.#text)) {
-            return this.#invalid(start, start + 1, "A parameter is written as '@' and its name, with nothing between them, as '@panel'", start + 1);
+            return this.#invalid(start, start + 1, "'@' names nothing: a binding is named by its name alone, as panel", start);
         }
 
-        this.#offset = NAME.lastIndex;
+        const name = this.#text.slice(start + 1, NAME.lastIndex);
 
-        const name = this.#text.slice(start + 1, this.#offset);
-
-        if (this.#text[this.#offset] === '-') {
-            return this.#invalid(start, this.#offset + 1, `A name holds no hyphen: '${name}-…' is written in camelCase, as clientSize is`, this.#offset);
-        }
-
-        if (!Names.isName(name)) {
-            return this.#invalid(start, this.#offset, `'@${name}' names no parameter: '${name}' is a reserved word`, start + 1);
-        }
-
-        return { type: 'parameter', value: name, start, end: this.#offset };
+        return this.#invalid(start, NAME.lastIndex, `A binding is named by its name alone: write '${name}', with no '@'`, start);
     }
 
     /** Reads a string, invalid where it escapes a character no escape is for, at the first such escape, or where it is never closed, running then to the end of the text. */

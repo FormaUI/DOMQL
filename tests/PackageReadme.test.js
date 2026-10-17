@@ -61,7 +61,7 @@ const examples = [
     {
         file: '20-errors.js',
         observed: 'logged',
-        answers: [['validation'], ["The argument 'name' of 'attribute' expects string and finds number", '(line 1, column 9, at /query/argument)']],
+        answers: [['validation'], ["The argument 'name' of 'attribute' expects string and finds number", '(line 1, column 8, at /query/argument)']],
     },
     { file: '21-module.js', observed: 'reads', answers: [['{ childCount: 3 }']] },
     { file: '22-execute-action.js', observed: 'reads', answers: [['true']] },
@@ -129,7 +129,7 @@ describe('the package README', () => {
         document.body.innerHTML = fixture('document.html');
         layOut(document);
 
-        const otherQuery = other.query('@panel.children.count', { panel: document.getElementById('panel') });
+        const otherQuery = other.query('panel.children.count', { panel: document.getElementById('panel') });
         const mark = (index, inspect) => {
             // What is inspected is read first, so a read it makes belongs to its own example.
             const inspected = inspect === null ? [] : inspect();

@@ -16,6 +16,9 @@ export class Lowering {
     /** @type {WeakMap<object, Span>} */
     #spans = new WeakMap();
 
+    /** The names of the locals in scope where the node being lowered stands, which a name reads; any other name reads the caller's binding. @type {Set<string>} */
+    #localNames = new Set();
+
     /**
      * The definition the tree writes, and the span of text each of its nodes, fields, locals and bindings came from, which the tree is no longer needed for.
      * @param {import('./SyntaxTree.mjs').QueryNode} tree
@@ -78,12 +81,11 @@ export class Lowering {
         switch (token.type) {
             case 'self':
                 return this.#span({ kind: 'self' }, token);
-            case 'parameter':
-                return this.#span({ kind: 'parameter', name: token.value }, token);
             case 'literal':
                 return this.#span({ kind: 'literal', value: token.value }, token);
             case 'name':
-                return this.#span({ kind: 'local', name: token.value }, token);
+                // A name is the local its lexical scope declares, and otherwise the caller's binding, a parameter of the definition.
+                return this.#span({ kind: this.#localNames.has(token.value) ? 'local' : 'parameter', name: token.value }, token);
             default:
                 throw new TypeError(`No definition is lowered from the token '${token.type}'`);
         }
@@ -93,12 +95,13 @@ export class Lowering {
     #lowerConditional(children, index, end) {
         const start = children[index].start;
         const test = children[index + 1];
-        const consequent = this.#lower(children[index + 3]);
+        const isBinding = test.kind === 'conditional-binding';
+        const tested = isBinding ? this.#span({ name: test.children[1].value, value: this.#lower(test.children[3]) }, test) : this.#lower(test);
+        // A binding's name is in scope in its consequent alone.
+        const consequent = isBinding ? this.#lowerWithin([tested.name], children[index + 3]) : this.#lower(children[index + 3]);
         const next = children[index + 4];
         const alternative = next.value === 'elseif' ? this.#lowerConditional(children, index + 4, end) : this.#lower(children[index + 5]);
-        const node = test.kind === 'conditional-binding'
-            ? { kind: 'conditional', binding: this.#span({ name: test.children[1].value, value: this.#lower(test.children[3]) }, test), consequent, alternative }
-            : { kind: 'conditional', condition: this.#lower(test), consequent, alternative };
+        const node = isBinding ? { kind: 'conditional', binding: tested, consequent, alternative } : { kind: 'conditional', condition: tested, consequent, alternative };
 
         this.#spans.set(node, { start, end });
 
@@ -181,14 +184,21 @@ export class Lowering {
         const node = target === undefined ? { kind: 'object' } : { kind: 'object', target };
         const locals = [];
         const fields = [];
+        const enclosingLocalNames = this.#localNames;
 
+        // Each local is in scope after its value, through the locals and the fields after it.
         for (const child of object.children) {
             if (child.kind === 'local') {
-                locals.push(this.#span({ name: child.children[1].value, value: this.#lower(child.children[3]) }, child));
+                const local = this.#span({ name: child.children[1].value, value: this.#lower(child.children[3]) }, child);
+
+                locals.push(local);
+                this.#localNames = new Set(this.#localNames).add(local.name);
             } else if (child.kind === 'field') {
                 fields.push(this.#span({ name: child.children[0].value, value: this.#lower(child.children[2]) }, child));
             }
         }
+
+        this.#localNames = enclosingLocalNames;
 
         if (locals.length > 0) {
             node.locals = locals;
@@ -198,6 +208,19 @@ export class Lowering {
         this.#spans.set(node, { start, end: SyntaxTree.endOf(object) });
 
         return node;
+    }
+
+    /** The child lowered with the names in scope besides those already. */
+    #lowerWithin(names, child) {
+        const enclosingLocalNames = this.#localNames;
+
+        this.#localNames = new Set([...this.#localNames, ...names]);
+
+        try {
+            return this.#lower(child);
+        } finally {
+            this.#localNames = enclosingLocalNames;
+        }
     }
 
     /** Records the part as spanning the syntax node or token. */

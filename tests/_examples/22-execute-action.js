@@ -20,5 +20,5 @@ domql.registerModule(domql.createModule('mark', {
     }
 }));
 
-await domql.query('@panel.mark("reviewed")', { panel }).executeAsync();
+await domql.query('panel.mark("reviewed")', { panel }).executeAsync();
 // true

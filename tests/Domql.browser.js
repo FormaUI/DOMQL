@@ -24,28 +24,28 @@ describe('domql evaluateAsync in a browser', () => {
     });
 
     it('evaluates whether an element intersects the viewport, once the browser has reported it', async () => {
-        expect(await domql.query('@item.intersects()', { item: inside }).evaluateAsync()).toBe(true);
-        expect(await domql.query('@item.intersects()', { item: outside }).evaluateAsync()).toBe(false);
+        expect(await domql.query('item.intersects()', { item: inside }).evaluateAsync()).toBe(true);
+        expect(await domql.query('item.intersects()', { item: outside }).evaluateAsync()).toBe(false);
     });
 
     it('evaluates whether an element intersects a root, with the margin that widens it', async () => {
-        expect(await domql.query('@item.intersects({ root: @panel })', { item: outside, panel }).evaluateAsync()).toBe(false);
-        expect(await domql.query('@item.intersects({ root: @panel, margin: 500 })', { item: outside, panel }).evaluateAsync()).toBe(true);
+        expect(await domql.query('item.intersects({ root: panel })', { item: outside, panel }).evaluateAsync()).toBe(false);
+        expect(await domql.query('item.intersects({ root: panel, margin: 500 })', { item: outside, panel }).evaluateAsync()).toBe(true);
     });
 
     it('evaluates it among the other members of an object expression', async () => {
-        const snapshot = await domql.query('@item { near: self.intersects(), height: self.size?.height, id: self:attribute["id"] }', { item: inside }).evaluateAsync();
+        const snapshot = await domql.query('item { near: self.intersects(), height: self.size?.height, id: self:attribute["id"] }', { item: inside }).evaluateAsync();
 
         expect(snapshot).toEqual({ near: true, height: 40, id: 'inside' });
     });
 
     it('is refused by evaluate, which cannot wait for the sample', () => {
-        expect(() => domql.query('@item.intersects()', { item: inside }).evaluate()).toThrow("The member 'intersects' is maintained by an observation");
+        expect(() => domql.query('item.intersects()', { item: inside }).evaluate()).toThrow("The member 'intersects' is maintained by an observation");
     });
 
     it('is canceled by a signal before the browser reports', async () => {
         const controller = new AbortController();
-        const evaluating = domql.query('@item.intersects()', { item: inside }).evaluateAsync({ signal: controller.signal }).catch(error => error);
+        const evaluating = domql.query('item.intersects()', { item: inside }).evaluateAsync({ signal: controller.signal }).catch(error => error);
 
         controller.abort(new Error('not needed'));
 
@@ -68,7 +68,7 @@ describe('domql evaluateAsync in a browser', () => {
 
         it('follows the layout a browser decides, reporting a snapshot when the size changes', async () => {
             const snapshots = [];
-            const watch = domql.query('@item.size', { item: inside }).watch();
+            const watch = domql.query('item.size', { item: inside }).watch();
 
             watch.subscribe('change', (sender, args) => snapshots.push(args.value));
             watches.push(watch);
@@ -85,7 +85,7 @@ describe('domql evaluateAsync in a browser', () => {
 
         it('follows a box through its own size and the structure around it, and misses a move nothing it observes causes until a refresh', async () => {
             const snapshots = [];
-            const watch = domql.query('@item.rect?.top', { item: outside }).watch({ acceptPartialObservation: true });
+            const watch = domql.query('item.rect?.top', { item: outside }).watch({ acceptPartialObservation: true });
 
             watch.subscribe('change', (sender, args) => snapshots.push(args.value));
             watches.push(watch);
@@ -119,7 +119,7 @@ describe('domql evaluateAsync in a browser', () => {
 
             const tip = document.getElementById('tip');
             const snapshots = [];
-            const watch = domql.query('{ open: @tip.matches(":popover-open"), count: @panel.all(":popover-open").count }', { tip, panel }).watch({ acceptPartialObservation: true });
+            const watch = domql.query('{ open: tip.matches(":popover-open"), count: panel.all(":popover-open").count }', { tip, panel }).watch({ acceptPartialObservation: true });
 
             watch.subscribe('change', (sender, args) => snapshots.push(args.value));
             watches.push(watch);
@@ -147,7 +147,7 @@ describe('domql evaluateAsync in a browser', () => {
             document.body.append(box);
 
             const snapshots = [];
-            const watch = domql.query('@box.clientSize?.width', { box }).watch({ acceptPartialObservation: true });
+            const watch = domql.query('box.clientSize?.width', { box }).watch({ acceptPartialObservation: true });
 
             watch.subscribe('change', (sender, args) => snapshots.push(args.value));
             watches.push(watch);
@@ -199,7 +199,7 @@ describe('domql evaluateAsync in a browser', () => {
             box.style.cssText = 'width: 200px; height: 100px; padding: 10px';
             document.body.append(box);
 
-            const watch = domql.query('@box { width: self.clientSize?.width, evaluations: self.clientEvaluations }', { box }).watch({ schedule: 'immediate', acceptPartialObservation: true });
+            const watch = domql.query('box { width: self.clientSize?.width, evaluations: self.clientEvaluations }', { box }).watch({ schedule: 'immediate', acceptPartialObservation: true });
 
             watches.push(watch);
             await watch.readyAsync();
@@ -216,7 +216,7 @@ describe('domql evaluateAsync in a browser', () => {
 
         it('waits for the browser to report a member it keeps, then follows it', async () => {
             const snapshots = [];
-            const watch = domql.query('@item.intersects({ root: @panel })', { item: outside, panel }).watch();
+            const watch = domql.query('item.intersects({ root: panel })', { item: outside, panel }).watch();
 
             watch.subscribe('change', (sender, args) => snapshots.push(args.value));
             watches.push(watch);
@@ -232,7 +232,7 @@ describe('domql evaluateAsync in a browser', () => {
 
         it('stops reporting once it is disposed', async () => {
             const snapshots = [];
-            const watch = domql.query('@item.size', { item: inside }).watch();
+            const watch = domql.query('item.size', { item: inside }).watch();
 
             watch.subscribe('change', (sender, args) => snapshots.push(args.value));
             await frame();
@@ -253,7 +253,7 @@ describe('domql evaluateAsync in a browser', () => {
             it('delivers the projection of a click, with what the event carried', () => {
                 const results = [];
 
-                listeners.push(domql.query('@panel.on("click") { id: self.target?:attribute["id"], button: self.button, height: self.target?.size?.height }', { panel }).subscribe((sender, args) => results.push(args.value)));
+                listeners.push(domql.query('panel.on("click") { id: self.target?:attribute["id"], button: self.button, height: self.target?.size?.height }', { panel }).subscribe((sender, args) => results.push(args.value)));
                 inside.click();
 
                 expect(results).toEqual([{ id: 'inside', button: 0, height: 40 }]);
@@ -262,7 +262,7 @@ describe('domql evaluateAsync in a browser', () => {
             it('answers null for a member the browser has not reported yet, and its sample at a later event', async () => {
                 const results = [];
 
-                listeners.push(domql.query('@panel.on("click") { near: @item.intersects({ root: @panel }) }', { panel, item: outside }).subscribe((sender, args) => results.push(args.value)));
+                listeners.push(domql.query('panel.on("click") { near: item.intersects({ root: panel }) }', { panel, item: outside }).subscribe((sender, args) => results.push(args.value)));
 
                 panel.click();
                 await frame();

@@ -1,10 +1,10 @@
 const activations = domql.query(`
-    @panel.on("click") {
+    panel.on("click") {
         let item: self.target?.closest("[data-key]"),
 
         key: item?:["data-key"],
         wasSelected: item?.aria:["selected"] == "true",
-        selectedCount: @panel.all("[aria-selected=true]").count
+        selectedCount: panel.all("[aria-selected=true]").count
     }
 `, { panel }).subscribe((sender, args) => {
     if (args.status === 'failed') {

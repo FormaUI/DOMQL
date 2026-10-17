@@ -27,7 +27,7 @@ domql.registerModule(domql.createModule('highlight', {
     }
 }));
 
-const highlight = domql.query('@panel.highlight(@color)', { panel, color: 'gold' }).apply();
+const highlight = domql.query('panel.highlight(color)', { panel, color: 'gold' }).apply();
 console.log(panel.dataset.highlight);
 // 'gold'
 

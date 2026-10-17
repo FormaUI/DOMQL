@@ -68,7 +68,7 @@ if (panel === null) {
     throw new Error('The example needs an element with id="panel".');
 }
 
-const count = domql.query<number>('@panel.children.count', { panel }).evaluate();
+const count = domql.query<number>('panel.children.count', { panel }).evaluate();
 ```
 
 ## Evaluate a query
@@ -89,7 +89,7 @@ Read its child count and the key and selection state of each item:
 const panel = document.getElementById('panel');
 
 const query = domql.query(`
-    @panel {
+    panel {
         count: self.children.count,
         items: self.all("[data-key]") {
             key: self:["data-key"],
@@ -116,7 +116,7 @@ The result is:
 
 Three parts of the query are worth understanding first:
 
-- `@panel` reads the binding supplied in `{ panel }`. It is not an ID lookup.
+- `panel` reads the binding supplied in `{ panel }`. It is not an ID lookup. A name reads a local of that name where one is in scope, and otherwise the binding of that name.
 - An object expression chooses output fields. Here, the outer result has `count` and `items`.
 - An object expression after a list runs for each item. Inside it, `self` refers to that item.
 
@@ -129,7 +129,7 @@ Call `evaluate()` again to read the current state. Earlier snapshots remain unch
 Use `with` to create a query with different bindings:
 
 ```js
-const countQuery = domql.query('@panel.children.count', { panel });
+const countQuery = domql.query('panel.children.count', { panel });
 
 countQuery.evaluate();
 // 3
@@ -161,7 +161,7 @@ Some values need an initial sample from a browser observer, such as whether an e
 
 ```js
 const visibleItems = await domql.query(
-    '@panel.all("[data-key]").where(self.intersects()).count',
+    'panel.all("[data-key]").where(self.intersects()).count',
     { panel }
 ).evaluateAsync();
 // 3: every item of the example panel is in view
@@ -179,7 +179,7 @@ Keep a toolbar in step with the panel's selection, whichever code selects an ite
 
 ```js
 const selection = domql.query(`
-    @panel.children
+    panel.children
         .where(self.aria:["selected"] == "true") {
             key: self:["data-key"]
         }
@@ -247,7 +247,7 @@ const list = document.createElement('ul');
 list.innerHTML = '<li data-key="b1">Apples</li><li data-key="b2">Pears</li>';
 
 const live = domql.query(`
-    @list.children {
+    list.children {
         key: self:["data-key"],
         selected: self.aria:["selected"] == "true"
     }
@@ -290,12 +290,12 @@ An event subscription turns each event into a record of what happened and the st
 
 ```js
 const activations = domql.query(`
-    @panel.on("click") {
+    panel.on("click") {
         let item: self.target?.closest("[data-key]"),
 
         key: item?:["data-key"],
         wasSelected: item?.aria:["selected"] == "true",
-        selectedCount: @panel.all("[aria-selected=true]").count
+        selectedCount: panel.all("[aria-selected=true]").count
     }
 `, { panel }).subscribe((sender, args) => {
     if (args.status === 'failed') {
@@ -330,38 +330,38 @@ Each code block in this section shows a separate query or JavaScript example. Ex
 Use a dot to read a property:
 
 ```domql
-@panel.children.count
+panel.children.count
 ```
 
 Members that take input use the form declared by the vocabulary. `all` is a call with parentheses; this query counts its matches:
 
 ```domql
-@panel.all("[data-key]").count
+panel.all("[data-key]").count
 ```
 
 `matches` is a call too, which tests an element against a selector, for a question only a selector asks, such as where the element stands among its siblings:
 
 ```domql
-@button.matches(".toolbar > button:first-child")
+button.matches(".toolbar > button:first-child")
 ```
 
 A named indexer reads a value of its receiver by a key, written after a colon with the key in brackets. `attribute` reads an attribute, `style` a computed style, and `class` whether the element has a class; the window's `media` reads whether a media query matches, which a watch follows as it begins and ceases to:
 
 ```domql
-@panel:attribute["data-key"]
-@panel:style["display"]
-@panel:class["open"]
-@window:media["(min-width: 40em)"]
+panel:attribute["data-key"]
+panel:style["display"]
+panel:class["open"]
+window:media["(min-width: 40em)"]
 ```
 
-The key can be any expression of the type the indexer takes, such as a binding, `@panel:attribute[@name]`. An element's default indexer is `attribute`, so `@panel:["data-key"]` reads the attribute too, and a list's is `item`, so `@panel.children:[0]` is its first child. Use `?:` when the receiver can be null: `@panel.first(".row")?:["data-key"]` is null when there is no row, and its key is not evaluated.
+The key can be any expression of the type the indexer takes, such as a binding, `panel:attribute[name]`. An element's default indexer is `attribute`, so `panel:["data-key"]` reads the attribute too, and a list's is `item`, so `panel.children:[0]` is its first child. Use `?:` when the receiver can be null: `panel.first(".row")?:["data-key"]` is null when there is no row, and its key is not evaluated.
 
 All DOMQL names are case-sensitive and use names such as `clientSize`, `rectRelativeTo` and `devicePixelRatio`. Strings passed to browser APIs, including selectors and attribute names, follow the browser's rules.
 
 Calls take one argument. When a member takes options, pass an object whose fields supply its parameters. This query checks for an intersection with a margin around the panel and needs `evaluateAsync()`:
 
 ```domql
-@sentinel.intersects({ root: @panel, margin: 200 })
+sentinel.intersects({ root: panel, margin: 200 })
 ```
 
 A call whose receiver can be null is written with `?.`, which skips the call, its argument included, and answers null where the receiver is null. This asks whether the nearest group is open, and is false where there is none:
@@ -378,7 +378,7 @@ An object expression gives each result field a name:
 
 ```js
 domql.query(`
-    @panel {
+    panel {
         count: self.children.count,
         attached: self.attached,
         hasChildren: self.hasChildren
@@ -389,7 +389,7 @@ domql.query(`
 
 Every output field needs an explicit name. Separate fields with commas; a trailing comma is allowed. Queries also support `//` line comments and `/* */` block comments.
 
-Raw DOM nodes cannot appear in a result. For example, `@panel.children` reads a list of elements but cannot be returned by `evaluate()` as data. Project the properties you need instead.
+Raw DOM nodes cannot appear in a result. For example, `panel.children` reads a list of elements but cannot be returned by `evaluate()` as data. Project the properties you need instead.
 
 ### Project and filter lists
 
@@ -397,7 +397,7 @@ An object expression after a list runs for each item, with `self` referring to t
 
 ```js
 domql.query(`
-    @panel.all("[data-key]") {
+    panel.all("[data-key]") {
         key: self:["data-key"],
         selected: self.aria:["selected"] == "true"
     }
@@ -415,7 +415,7 @@ A member after a list operates on the list itself. Use `count`, `first`, `last` 
 
 ```js
 domql.query(`
-    @panel.all("[data-key]")
+    panel.all("[data-key]")
         .where(self.aria:["selected"] == "true")
         .count
 `, { panel }).evaluate();
@@ -428,7 +428,7 @@ domql.query(`
 
 ```js
 domql.query(
-    '@panel.all("[data-key]").max(self.rect?.height)',
+    'panel.all("[data-key]").max(self.rect?.height)',
     { panel }
 ).evaluate();
 // 64
@@ -442,7 +442,7 @@ Declare a local with `let` before the output fields, then refer to it by name:
 
 ```js
 domql.query(`
-    @panel {
+    panel {
         let items: self.all("[data-key]"),
 
         count: items.count,
@@ -462,7 +462,7 @@ Null means a value is missing or unavailable. Use `?.` to read through a value t
 
 ```js
 domql.query(
-    '@panel.first("input")?.is("disabled") ?? false',
+    'panel.first("input")?.is("disabled") ?? false',
     { panel }
 ).evaluate();
 // false: the example panel has no input.
@@ -473,10 +473,10 @@ If `first("input")` returns null, optional access skips the rest of that chain. 
 You can also make every access in a group optional:
 
 ```domql
-(?@panel.first(".row").rect.height)
+(?panel.first(".row").rect.height)
 ```
 
-This is shorthand for `@panel?.first(".row")?.rect?.height`.
+This is shorthand for `panel?.first(".row")?.rect?.height`.
 
 Geometry such as `rect` and `size` is null when an element is detached or has no layout box, including when it or an ancestor has `display: none`. A box with zero dimensions still returns zero dimensions.
 
@@ -484,7 +484,7 @@ A targeted object expression returns null when its receiver is null, as optional
 
 ```js
 domql.query(
-    '@panel.first(".missing")?:["data-key"]',
+    'panel.first(".missing")?:["data-key"]',
     { panel }
 ).evaluate();
 // null
@@ -497,23 +497,23 @@ Null does not hide an invalid query. An unknown member or incompatible argument 
 An element's state that the user or the browser changes, such as whether it is checked, disabled or focused, is a condition. Test it with `.is`, which follows the browser's own rules, and the matching ARIA state with `.aria.is`:
 
 ```domql
-@control { checked: self.is("checked"), ariaChecked: self.aria.is("checked") }
+control { checked: self.is("checked"), ariaChecked: self.aria.is("checked") }
 ```
 
-Ask a possession with `.has`, as `self.has("focus")`, and a capability with `.supports`, as `@window.supports("share")`. `.is("checked")` is true for a checked checkbox or radio button, or a selected option, as `:checked` matches. `.aria.is("checked")` is true only where `aria-checked` is `"true"`; read `self.aria:["checked"]`, the attribute's own text as `self:["aria-checked"]` reads it, or null where it is absent, to tell `"mixed"` from `"false"`. The two never stand in for each other, so write `self.is("checked") or self.aria.is("checked")` where either counts. Elements are asked `is("disabled")`, `is("readonly")`, `is("text-editable")`, `is("hover")`, `is("popover-open")`, `is("checked")`, `has("focus")` and `has("focus-within")`; the document `is("visible")` and `has("focus")`; and the window `supports("share")` and `supports("clipboard")`.
+Ask a possession with `.has`, as `self.has("focus")`, and a capability with `.supports`, as `window.supports("share")`. `.is("checked")` is true for a checked checkbox or radio button, or a selected option, as `:checked` matches. `.aria.is("checked")` is true only where `aria-checked` is `"true"`; read `self.aria:["checked"]`, the attribute's own text as `self:["aria-checked"]` reads it, or null where it is absent, to tell `"mixed"` from `"false"`. The two never stand in for each other, so write `self.is("checked") or self.aria.is("checked")` where either counts. Elements are asked `is("disabled")`, `is("readonly")`, `is("text-editable")`, `is("hover")`, `is("popover-open")`, `is("checked")`, `has("focus")` and `has("focus-within")`; the document `is("visible")` and `has("focus")`; and the window `supports("share")` and `supports("clipboard")`.
 
 ### Compare and combine conditions
 
 Use `==` and `!=` to compare values. Nodes are compared by identity. The result is always a non-null Boolean, including when testing for null:
 
 ```domql
-@panel.parent == null
+panel.parent == null
 ```
 
 Use `and`, `or` and `not` for Boolean logic:
 
 ```domql
-@input.is("disabled") or (@input.is("readonly") and not @input.is("text-editable"))
+input.is("disabled") or (input.is("readonly") and not input.is("text-editable"))
 ```
 
 `not` binds more tightly than `and`, which binds more tightly than `or`. Evaluation stops as soon as an operand determines the answer: the operands after it are still validated, but are not evaluated or observed and cannot fail at run time.
@@ -521,8 +521,8 @@ Use `and`, `or` and `not` for Boolean logic:
 Only `null` and `false` are falsey; every other value is truthy, including `0`, `""` and an empty list. A condition, an operand of `and`, `or` or `not`, and the expression of `where` can be any value. `and` and `or` return the operand that decides them, so they also choose values:
 
 ```domql
-@panel:["data-label"] or "untitled"
-@panel { let input: self.first("input"), width: input and input.rect?.width }
+panel:["data-label"] or "untitled"
+panel { let input: self.first("input"), width: input and input.rect?.width }
 ```
 
 In the second line, `input.rect` reads the input with a plain `.`, because the right side of `and` runs only when `input` is truthy. DOMQL narrows locals, `if let` names, parameters and `self` this way, but not members, which are read again wherever they are written.
@@ -538,7 +538,7 @@ Mixing `??` with `==`, `!=`, `not`, `and` or `or` requires parentheses around on
 Use `if`, `then` and `else` to choose between values. Add `elseif` for another condition:
 
 ```domql
-@input {
+input {
     state: if self.is("disabled") then "locked"
            elseif self.is("readonly") then "read"
            else "open"
@@ -550,20 +550,20 @@ Conditions are tested in order, and only the selected branch is evaluated; the o
 Use `if let` to name a value and choose by whether it is truthy. The name is available in the `then` branch alone, where it cannot be null:
 
 ```domql
-if let row: @cell.closest(".row")
+if let row: cell.closest(".row")
 then { key: row:["data-key"], top: row.rect?.top }
 else null
 ```
 
-`if let` tests truthiness as `if` does, so `0`, empty text and an empty list take the `then` branch, and `false` takes `else`. It pairs with `try`: `if let count: try @panel:["data-count"] to "number" then … else …` converts once and uses the number in its branch.
+`if let` tests truthiness as `if` does, so `0`, empty text and an empty list take the `then` branch, and `false` takes `else`. It pairs with `try`: `if let count: try panel:["data-count"] to "number" then … else …` converts once and uses the number in its branch.
 
 ### Cast a node
 
 `parent` and `root` return nodes, which may be elements, documents, document fragments or shadow roots. Use `as` when a node must be of a specific kind, and `try … as` when it may be of another:
 
 ```domql
-(@panel.parent as "element")?.rect?.width
-(try @panel.parent as "element")?.rect?.width
+(panel.parent as "element")?.rect?.width
+(try panel.parent as "element")?.rect?.width
 ```
 
 The first fails with an error if the parent is not an element, such as a document or a shadow root, and the second returns null for it. Both return null for a missing parent, and the optional accesses account for that and for an element without a layout box.
@@ -574,7 +574,7 @@ Attributes hold text. Use `to` to convert a value to another type, such as the u
 
 ```js
 domql.query(
-    '@panel.all("[data-key]").sum(self:["data-unread"] to "number" ?? 0)',
+    'panel.all("[data-key]").sum(self:["data-unread"] to "number" ?? 0)',
     { panel }
 ).evaluate();
 // 7
@@ -585,7 +585,7 @@ domql.query(
 To handle text that does not convert yourself, attempt the conversion with `try`, which answers null where the conversion rejects the value:
 
 ```domql
-@panel { count: try self:["data-count"] to "number" ?? 0 }
+panel { count: try self:["data-count"] to "number" ?? 0 }
 ```
 
 A missing attribute and malformed text both give null, so `?? 0` supplies zero, and valid text converts to its number. A fault in a conversion, such as one that throws, is still an error.
@@ -593,7 +593,7 @@ A missing attribute and malformed text both give null, so `?? 0` supplies zero, 
 A conversion never answers null for text it accepts, so where text is present, a null from `try` means the text was malformed. To keep the number and still tell missing text from malformed text, return a status beside the value:
 
 ```domql
-@panel {
+panel {
     let count: self:["data-count"],
     count: if let n: try count to "number" then { status: "valid", value: n }
     elseif count == null then { status: "missing", value: null }
@@ -612,17 +612,17 @@ The built-in conversions are from a string to a number or a Boolean, and from a 
 Selectors do not enter shadow roots automatically. Access the open shadow root explicitly:
 
 ```domql
-@host.shadow.root?.all("p").count
+host.shadow.root?.all("p").count
 ```
 
-`shadow.root` is null when there is no open shadow root. `@element.root.host` accesses the host of the shadow tree containing an element. `@slot.shadow.elements` reads the elements a slot displays and returns null when the receiver is not a slot.
+`shadow.root` is null when there is no open shadow root. `element.root.host` accesses the host of the shadow tree containing an element. `slot.shadow.elements` reads the elements a slot displays and returns null when the receiver is not a slot.
 
 ### Choose a property by name
 
 Use brackets when the property name comes from a string:
 
 ```js
-domql.query('@panel[@name].count', {
+domql.query('panel[name].count', {
     panel,
     name: 'children'
 }).evaluate();
@@ -638,8 +638,8 @@ Bindings can contain DOM elements or supported data. Bind a target as null when 
 ```js
 const optional = domql.query(`
     {
-        panel: @panel { size: self.size },
-        ids: @ids
+        panel: panel { size: self.size },
+        ids: ids
     }
 `, { panel: null, ids: [] });
 
@@ -649,7 +649,7 @@ optional.evaluate();
 
 A binding's type comes from its value. Null bindings and empty lists can leave a type unknown; applicable property checks are deferred until the type is known, while calls are still checked against the vocabulary. Use optional access when reading a member from a nullable binding.
 
-Keep independent results in a top-level object, as above. If you instead write `@panel { size: self.size, ids: @ids }`, the entire result is null while `panel` is null.
+Keep independent results in a top-level object, as above. If you instead write `panel { size: self.size, ids: ids }`, the entire result is null while `panel` is null.
 
 ## API and errors
 
@@ -686,7 +686,7 @@ Pass an `AbortSignal` in the options for `evaluateAsync`, `watch`, `subscribe`, 
 `resolve()` checks names and types without reading the DOM and can run without a browser:
 
 ```js
-const resolved = domql.query('@panel?.children.count', { panel: null }).resolve();
+const resolved = domql.query('panel?.children.count', { panel: null }).resolve();
 
 resolved.kind;            // 'query'
 resolved.type.toString(); // 'number?'
@@ -706,7 +706,7 @@ DOMQL reports failures as a `DomqlError` with `kind`, `message` and a structured
 
 ```js
 try {
-    domql.query('@panel:[200]', { panel }).evaluate();
+    domql.query('panel:[200]', { panel }).evaluate();
 } catch (error) {
     if (error?.name !== 'DomqlError') {
         throw error;
@@ -715,7 +715,7 @@ try {
     console.error(error.kind, error.message, error.location);
     // validation
     // The argument 'name' of 'attribute' expects string and finds number
-    // (line 1, column 9, at /query/argument)
+    // (line 1, column 8, at /query/argument)
 }
 ```
 
@@ -723,9 +723,9 @@ A misspelled member is an error; a selector with no match returns null. Raw elem
 
 ## Environments
 
-In a browser, DOMQL uses the default window and document. Queries can access them as `@window` and `@document`.
+In a browser, DOMQL uses the default window and document. Queries can access them as `window` and `document`.
 
-To use another supported DOM environment, pass its window to `query.evaluate({ window: suppliedWindow })`. `@window` and `@document` then refer to that environment.
+To use another supported DOM environment, pass its window to `query.evaluate({ window: suppliedWindow })`. `window` and `document` then refer to that environment.
 
 Node.js can create and resolve queries without a DOM. Evaluation requires a supplied DOM environment; without one, it fails with an `evaluation` error. DOM emulators do not provide full browser layout behavior.
 
@@ -759,7 +759,7 @@ const metricsModule = domql.createModule('metrics', {
 
 domql.registerModule(metricsModule);
 
-domql.query('@panel.metrics { childCount: self.childCount }', { panel }).evaluate();
+domql.query('panel.metrics { childCount: self.childCount }', { panel }).evaluate();
 // { childCount: 3 }
 ```
 
@@ -802,7 +802,7 @@ domql.registerModule(domql.createModule('mark', {
     }
 }));
 
-await domql.query('@panel.mark("reviewed")', { panel }).executeAsync();
+await domql.query('panel.mark("reviewed")', { panel }).executeAsync();
 // true
 ```
 
@@ -846,7 +846,7 @@ domql.registerModule(domql.createModule('highlight', {
     }
 }));
 
-const highlight = domql.query('@panel.highlight(@color)', { panel, color: 'gold' }).apply();
+const highlight = domql.query('panel.highlight(color)', { panel, color: 'gold' }).apply();
 console.log(panel.dataset.highlight);
 // 'gold'
 

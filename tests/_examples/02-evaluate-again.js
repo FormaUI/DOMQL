@@ -1,4 +1,4 @@
-const countQuery = domql.query('@panel.children.count', { panel });
+const countQuery = domql.query('panel.children.count', { panel });
 
 countQuery.evaluate();
 // 3

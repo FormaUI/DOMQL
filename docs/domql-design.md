@@ -108,8 +108,8 @@ Accepting partial observation is an option of the watch, chosen when the caller 
 
 A watch's dependencies are what its last evaluation actually read: each member applied to its receiver and arguments, with that member's observations, each held through a session as the evaluation reaches it. Dependencies belong to the complete query.
 
-- **Every evaluation holds its dependencies afresh:** it takes over the session of the evaluation before it wherever it reaches the same observation again, acquires the observations it reaches for the first time, and the sessions it no longer reaches are disposed. What a watch observes therefore follows the document: in `@table.all("tbody tr").max(self.rect?.height)`, the watch depends on what the selector matches within the table, and on the height of each row it matched. A row added starts being observed after the evaluation the addition causes, and a row removed stops being observed.
-- **A value argument is a dependency of its own.** `@target.intersects({ root: @panel })` depends on the intersection of the target with the panel; `self.intersects({ root: self.parent as "element" })` also depends on which element is the parent, and a new parent is observed after the evaluation its change causes.
+- **Every evaluation holds its dependencies afresh:** it takes over the session of the evaluation before it wherever it reaches the same observation again, acquires the observations it reaches for the first time, and the sessions it no longer reaches are disposed. What a watch observes therefore follows the document: in `table.all("tbody tr").max(self.rect?.height)`, the watch depends on what the selector matches within the table, and on the height of each row it matched. A row added starts being observed after the evaluation the addition causes, and a row removed stops being observed.
+- **A value argument is a dependency of its own.** `target.intersects({ root: panel })` depends on the intersection of the target with the panel; `self.intersects({ root: self.parent as "element" })` also depends on which element is the parent, and a new parent is observed after the evaluation its change causes.
 - **An expression argument contributes its dependencies for every item** it was evaluated against.
 - **A chain that met null depends on what it read before the null,** so `self.closest(".row")` finding nothing still depends on the ancestors it searched, and the watch evaluates again when one starts to match.
 - **A watch keeps its bindings.** A query `with` other bindings starts a watch of its own. When the replacement watch is ready before the old watch is disposed, shared observations with matching targets and identifying arguments remain running throughout the replacement.
@@ -182,8 +182,8 @@ An event's object expression is evaluated as the specification defines, and its 
 A maintained member in an event's object expression reads its latest sample, or null while it is pending, never waits for a later one and never revises a result already delivered:
 
 ```domql
-@button.on("click") {
-    nearEnd: @sentinel.intersects({ root: @panel })
+button.on("click") {
+    nearEnd: sentinel.intersects({ root: panel })
 }
 ```
 
@@ -193,8 +193,8 @@ The subscription holds the sessions its object expressions acquire. After each s
 
 ```js
 const clicks = domql.query(`
-    @button.on("click") {
-        panelSize: @panel.size
+    button.on("click") {
+        panelSize: panel.size
     }
 `, { button, panel });
 
@@ -230,7 +230,7 @@ An action is executed and a behavior applied, each through an operation of its o
 `query.apply(options?)` starts a behavior and answers a `DomqlBehavior`, its handle, which belongs to the caller that applied it; the behavior has started when the call returns, though work it began may still be under way. Its options are `window` and `signal`, which disposes the behavior when it aborts.
 
 ```js
-const behavior = domql.query(`@dialog.focusTrap()`, { dialog }).apply({ signal });
+const behavior = domql.query(`dialog.focusTrap()`, { dialog }).apply({ signal });
 
 behavior.subscribe("error", (sender, args) => reportError(args.error));
 behavior.update({ dialog: otherDialog });
@@ -340,7 +340,7 @@ Each entry point, operation and handle is listed here with what it takes, and th
 Evaluating a query only reads state; executing an action or applying a behavior explicitly requests effects. The request's source decides its kind, so the one entry point serves every request kind, and resolution refuses an operation the kind does not take before anything is evaluated or started, with a validation error that says what the request does and names the operation it takes:
 
 ```text
-Cannot execute '@panel.size': it produces a value.
+Cannot execute 'panel.size': it produces a value.
 Use evaluate(), evaluateAsync() or watch().
 ```
 
@@ -362,7 +362,7 @@ JavaScript makes a query from text, and binds its definition anew:
 ```js
 // From text, binding its parameters by name.
 const panelQuery = domql.query(`
-    @panel {
+    panel {
         size: self.size,
         hasFocus: self.has("focus-within")
     }
@@ -384,20 +384,20 @@ public sealed record PanelState(double? Width, bool HasFocus);
 
 DomqlQuery<PanelState> typed = Domql.Query<PanelState>(
     """
-    @panel {
+    panel {
         width: self.size?.width,
         hasFocus: self.has("focus-within")
     }
     """,
     ("panel", panel));
 
-DomqlQuery untyped = Domql.Query("@panel { size: self.size }", ("panel", panel));
+DomqlQuery untyped = Domql.Query("panel { size: self.size }", ("panel", panel));
 ```
 
 A binding declares no type: every value is typed from itself, a null, an empty list and a list holding nulls among them, so a query is made for an element that is not there yet as it is for one that is.
 
 ```js
-const query = domql.query("{ panel: @panel { size: self.size }, ids: @ids }", { panel: null, ids: [] });
+const query = domql.query("{ panel: panel { size: self.size }, ids: ids }", { panel: null, ids: [] });
 
 const another = query.with({ panel: otherPanel, ids: [1, 2] });
 ```

@@ -182,7 +182,7 @@ export class LanguageResolver {
     }
 
     /**
-     * For an equality of a value and a string that names one of the value's Boolean members or one of its conditions, as `@input == "disabled"` or `@input == @state` writes one, the test to write, negated for `!=`: the member, or the condition asked with its verb; nothing for any other.
+     * For an equality of a value and a string that names one of the value's Boolean members or one of its conditions, as `input == "disabled"` or `input == state` writes one, the test to write, negated for `!=`: the member, or the condition asked with its verb; nothing for any other.
      * The name is read exactly, and the member or the condition is one the value's type has.
      */
     #testOf(node, left, right, isNegated) {
@@ -593,8 +593,11 @@ export class LanguageResolver {
             return { type: Type.createNamedType(node.name), kind: 'query', isFixed: false };
         }
 
+        // A name no local in scope has reads the caller's binding, and one the caller did not bind may be a member written without its receiver.
         if (!this.#bindings.has(node.name)) {
-            this.#fail(`The parameter '@${node.name}' is not bound`, pointer);
+            const form = scope.current === null ? null : this.#memberForm(scope.current, node.name);
+
+            this.#fail(`No local in scope or binding is named '${node.name}'${form === null ? '' : `; write '${form}' for the member of the current value`}`, pointer);
         }
 
         return { type: scope.facts.get(`@${node.name}`) ?? this.#bindings.getType(node.name), kind: 'query', isFixed: true, value: this.#bindings.get(node.name) };

@@ -52,6 +52,9 @@ export class DefinitionValidator {
     /** The names of the locals in scope where the node being validated stands. @type {Set<string>} */
     #localNames = new Set();
 
+    /** The names of the locals declared later in a scope the node being validated stands in, the local whose value it is among them, which no parameter there may name. @type {Set<string>} */
+    #laterNames = new Set();
+
     /** The optional chain the node being validated continues, with whether an access of it is optional so far; null where it continues none. @type {{ hasOptional: boolean } | null} */
     #chain = null;
 
@@ -103,6 +106,7 @@ export class DefinitionValidator {
                 return this.#validateLiteral(node, pointer);
             case 'parameter':
                 this.#requireName(node.name, `${pointer}/name`);
+                this.#requireBindingName(node.name, pointer);
 
                 return Object.freeze({ kind: 'parameter', name: node.name });
             case 'self':
@@ -183,7 +187,10 @@ export class DefinitionValidator {
         this.#requireName(node.binding.name, `${bindingPointer}/name`);
 
         const { name } = node.binding;
-        const value = this.#validateNode(node.binding.value, `${bindingPointer}/value`, currentValueAvailability);
+
+        this.#requireLocalName(name, bindingPointer);
+
+        const value = this.#validateWithLater([name], () => this.#validateNode(node.binding.value, `${bindingPointer}/value`, currentValueAvailability));
 
         if (this.#localNames.has(name)) {
             this.#fail(bindingPointer, `A local named '${name}' is already in scope, and a name means one thing wherever it is visible`);
@@ -363,12 +370,16 @@ export class DefinitionValidator {
     #validateLocals(locals, pointer, currentValueAvailability) {
         this.#requireArray(locals, pointer);
 
+        const names = locals.map(local => local?.name);
+
         return locals.map((local, index) => {
             const localPointer = `${pointer}/${index}`;
             this.#requireProperties(local, localPointer, ENTRY_PROPERTIES);
             this.#requireName(local.name, `${localPointer}/name`);
+            this.#requireLocalName(local.name, localPointer);
 
-            const value = this.#validateNode(local.value, `${localPointer}/value`, currentValueAvailability);
+            // A local's value and the locals before it see neither it nor the locals after it, whose names no parameter there reads.
+            const value = this.#validateWithLater(names.slice(index), () => this.#validateNode(local.value, `${localPointer}/value`, currentValueAvailability));
             const { name } = local;
 
             if (this.#localNames.has(name)) {
@@ -379,6 +390,40 @@ export class DefinitionValidator {
 
             return Object.freeze({ name, value });
         });
+    }
+
+    /** What validating answers, with the names given declared later in its scope besides those already. */
+    #validateWithLater(names, validate) {
+        const enclosingLaterNames = this.#laterNames;
+
+        this.#laterNames = new Set([...this.#laterNames, ...names]);
+
+        try {
+            return validate();
+        } finally {
+            this.#laterNames = enclosingLaterNames;
+        }
+    }
+
+    /**
+     * Refuses a parameter that text could not write: one named as a local in scope where it stands, which the name reads there instead, and one named as a local declared later in its scope,
+     * the local whose value it is among them, which a name reads only after its declaration and never as a binding of that name before it.
+     */
+    #requireBindingName(name, pointer) {
+        if (this.#localNames.has(name)) {
+            this.#fail(pointer, `'${name}' names the local in scope here, so no binding of that name is read where it is`);
+        }
+
+        if (this.#laterNames.has(name)) {
+            this.#fail(pointer, `'${name}' is used before the local of that name is declared in its scope: a local is read after its declaration, and the name reads no binding before it`);
+        }
+    }
+
+    /** Refuses a local named as a root, which its name stands for everywhere. */
+    #requireLocalName(name, pointer) {
+        if (name === 'document' || name === 'window') {
+            this.#fail(pointer, `'${name}' names a root, which no local takes`);
+        }
     }
 
     #requireProperties(part, pointer, { properties, required }) {

@@ -1,5 +1,5 @@
 const selection = domql.query(`
-    @panel.children
+    panel.children
         .where(self.aria:["selected"] == "true") {
             key: self:["data-key"]
         }

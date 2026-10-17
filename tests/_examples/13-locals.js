@@ -1,5 +1,5 @@
 domql.query(`
-    @panel {
+    panel {
         let items: self.all("[data-key]"),
 
         count: items.count,

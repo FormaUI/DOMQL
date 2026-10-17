@@ -71,7 +71,7 @@ describe('Watches in shadow trees', () => {
         const { root } = host(document.body, '<ul><li></li></ul>');
         const list = root.querySelector('ul');
 
-        watch('@list.all("li").count', { list });
+        watch('list.all("li").count', { list });
         await settle();
 
         expect(snapshots).toEqual([1]);
@@ -86,7 +86,7 @@ describe('Watches in shadow trees', () => {
         const { root } = host(document.body, '<ul><li></li></ul>', 'closed');
         const list = root.querySelector('ul');
 
-        watch('@list.all("li").count', { list });
+        watch('list.all("li").count', { list });
         await settle();
         await reports(() => list.append(document.createElement('li')));
 
@@ -100,7 +100,7 @@ describe('Watches in shadow trees', () => {
 
         first.root.append(item);
 
-        const watched = watch('@item.evaluations', { item });
+        const watched = watch('item.evaluations', { item });
 
         await settle();
 
@@ -123,7 +123,7 @@ describe('Watches in shadow trees', () => {
         const item = document.createElement('span');
 
         tree.append(item);
-        watch('@item.evaluations', { item });
+        watch('item.evaluations', { item });
         await settle();
 
         expect(await reports(() => document.body.append(tree))).toBe(1);
@@ -137,7 +137,7 @@ describe('Watches in shadow trees', () => {
         const inner = host(outer.root.querySelector('.host'), '<div class="scroller" style="height: 50px; overflow: auto"><div style="height: 20px"></div><div class="item" style="height: 10px"></div><div style="height: 500px"></div></div>');
         const item = inner.root.querySelector('.item');
 
-        watch('@item.rect?.top', { item });
+        watch('item.rect?.top', { item });
         await settle();
 
         expect(await reports(() => { inner.root.querySelector('.scroller').scrollTop = 10; })).toBe(1);
@@ -149,7 +149,7 @@ describe('Watches in shadow trees', () => {
         const shadow = host(document.body, '<input>');
         const input = shadow.root.querySelector('input');
 
-        watch('@input.is("text-editable")', { input });
+        watch('input.is("text-editable")', { input });
         await settle();
         await reports(() => shadow.element.setAttribute('inert', ''));
         await reports(() => shadow.element.removeAttribute('inert'));
@@ -162,7 +162,7 @@ describe('Watches in shadow trees', () => {
         const input = document.createElement('input');
 
         shadow.element.append(input);
-        watch('@input.is("text-editable")', { input });
+        watch('input.is("text-editable")', { input });
         await settle();
         await reports(() => shadow.root.querySelector('.inert').assign(input));
         await reports(() => shadow.root.querySelector('.open').assign(input));

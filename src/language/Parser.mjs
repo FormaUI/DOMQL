@@ -20,7 +20,7 @@ const TOKEN_DESCRIPTIONS = {
 const CHAIN_CONTINUATIONS = new Set(['.', '?.', '[', '?[', ':', '?:', '{']);
 
 /** The tokens that, after a space, make the name before them a member written without its receiver, which no local is: an argument. */
-const ARGUMENT_STARTS = new Set(['self', 'parameter', 'literal']);
+const ARGUMENT_STARTS = new Set(['self', 'literal']);
 
 /** The tokens that make an access optional. */
 const OPTIONAL_ACCESSES = new Set(['?.', '?[', '?:']);
@@ -422,7 +422,7 @@ export class Parser {
         const { children, accesses } = this.#parseMemberAccessChain(this.#parseReceiver());
 
         if (accesses === 0) {
-            throw this.#fail('An optional-access group holds a receiver and at least one access after it, as (?@panel.first(".row").rect)', this.#token.start);
+            throw this.#fail('An optional-access group holds a receiver and at least one access after it, as (?panel.first(".row").rect)', this.#token.start);
         }
 
         if (this.#token.type !== ')') {
@@ -435,7 +435,7 @@ export class Parser {
     /** Reads a receiver within an optional-access group: an input, or a grouped cast, its own target's accesses optional as the group's are, where its target is no group that keeps its own rules. */
     #parseReceiver() {
         if (this.#token.type === '(?') {
-            throw this.#fail('The receiver of an optional-access group is `self`, a parameter, a literal, a local, an object expression or a grouped cast, as in (?@panel.first(".row").rect)', this.#token.start);
+            throw this.#fail('The receiver of an optional-access group is `self`, a parameter, a literal, a local, an object expression or a grouped cast, as in (?panel.first(".row").rect)', this.#token.start);
         }
 
         if (this.#token.type !== '(') {
@@ -446,7 +446,7 @@ export class Parser {
         const target = this.#parseCastTarget(this.#token.start);
 
         if (!this.#isKeyword('as')) {
-            throw this.#fail('A group as the receiver of an optional-access group holds a cast, as in (?(@node.parent as "element").rect)', this.#token.start);
+            throw this.#fail('A group as the receiver of an optional-access group holds a cast, as in (?(node.parent as "element").rect)', this.#token.start);
         }
 
         const cast = this.#readCast(target);
@@ -468,7 +468,7 @@ export class Parser {
             }
 
             if (this.#continuesChain() && this.#token.type !== '{') {
-                throw this.#fail('A grouped target is cast as it is, with nothing after it but its cast, as in ((@a ?? @b) as "element")', this.#token.start);
+                throw this.#fail('A grouped target is cast as it is, with nothing after it but its cast, as in ((a ?? b) as "element")', this.#token.start);
             }
 
             return target;
@@ -536,11 +536,11 @@ export class Parser {
         return { children, accesses: children.length - 1 };
     }
 
-    /** Reads an input: a value, `self`, a parameter or a literal; a local; or an object expression. */
+    /** Reads an input: `self`, a literal, a name, which the lowering reads as a local or a binding, or an object expression. */
     #parseInput() {
         const token = this.#token;
 
-        // A name that starts a chain is a local, which takes no argument, so one an argument follows is a member written without its receiver.
+        // A name that starts a chain is a local or a binding, which takes no argument, so one an argument follows is a member written without its receiver.
         if (token.type === 'name') {
             const next = this.#tokens[this.#index + 1];
 
@@ -555,7 +555,6 @@ export class Parser {
 
         switch (token.type) {
             case 'self':
-            case 'parameter':
             case 'literal':
             case 'name':
                 return this.#take();
@@ -638,7 +637,7 @@ export class Parser {
         }
 
         if (this.#token.type !== '(') {
-            if (this.#token.type === 'literal' || this.#token.type === 'parameter') {
+            if (this.#token.type === 'literal') {
                 throw this.#fail(`An argument after a dot is enclosed in parentheses, as a call's is, '.${name}(…)'`, this.#token.start);
             }
 
@@ -648,7 +647,7 @@ export class Parser {
         const call = [nameToken, this.#take()];
 
         if (this.#token.type !== ')') {
-            if (this.#token.type === 'name' && this.#tokens[this.#index + 1].type === ':') {
+            if (this.#startsNamedArgument()) {
                 throw this.#fail(`'${name}' takes one argument, and several parameters are given as the fields of an object, as { ${this.#token.value}: … }`, this.#token.start);
             }
 
@@ -662,6 +661,20 @@ export class Parser {
         call.push(this.#expect(')'));
 
         return Parser.#node('member-access-expression', [dot, Parser.#node('call-expression', call)]);
+    }
+
+    /**
+     * Whether a name and a colon begin what stands here as a named argument would, as `relativeTo: other` does, rather than an indexer of a binding the name reads,
+     * whose colon a key in brackets follows, or an indexer's name and then one, as `panel:["id"]` and `panel:attribute["id"]` do.
+     */
+    #startsNamedArgument() {
+        if (this.#token.type !== 'name' || this.#tokens[this.#index + 1].type !== ':') {
+            return false;
+        }
+
+        const afterColon = this.#tokens[this.#index + 2];
+
+        return !(afterColon.type === '[' || (afterColon.type === 'name' && this.#tokens[this.#index + 3].type === '['));
     }
 
     /** Reads operands joined by the operator, answering the operand alone where there is one. */

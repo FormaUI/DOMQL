@@ -8,10 +8,10 @@ import { domql } from '#domql/domql.js';
 const SIZES = [100, 1000, 10000, 100000];
 
 /** Each row as data: its key, whether it is selected, and its box. */
-const ROWS_TEXT = '@table.all("tr") { key: self:attribute["data-key"], selected: self.matches(".selected"), box: self.rect { width: self.width, height: self.height } }';
+const ROWS_TEXT = 'table.all("tr") { key: self:attribute["data-key"], selected: self.matches(".selected"), box: self.rect { width: self.width, height: self.height } }';
 
 /** Each row as data again, its fields reading locals and choosing by conditionals. */
-const LOCALS_TEXT = '@table.all("tr") { let key: self:attribute["data-key"], let box: self.rect, key: key, state: if self.matches(".selected") then "selected" else "plain", width: box?.width, height: if key == null then 0 else box?.height }';
+const LOCALS_TEXT = 'table.all("tr") { let key: self:attribute["data-key"], let box: self.rect, key: key, state: if self.matches(".selected") then "selected" else "plain", width: box?.width, height: if key == null then 0 else box?.height }';
 
 /** A table of rows, in the document, each with a key. */
 const createTable = rows => {
@@ -63,14 +63,14 @@ describe('a small object', () => {
     panel.setAttribute('data-key', 'panel');
     document.body.append(panel);
 
-    const small = domql.query('@panel { key: self:attribute["data-key"], open: self.matches(".open"), count: self.children.count }', { panel });
+    const small = domql.query('panel { key: self:attribute["data-key"], open: self.matches(".open"), count: self.children.count }', { panel });
 
     bench('read as a query', () => {
         small.evaluate();
     });
 
     bench('read from its text and bindings', () => {
-        domql.query('@panel { key: self:attribute["data-key"], open: self.matches(".open"), count: self.children.count }', { panel }).evaluate();
+        domql.query('panel { key: self:attribute["data-key"], open: self.matches(".open"), count: self.children.count }', { panel }).evaluate();
     });
 });
 
@@ -149,7 +149,7 @@ for (const rows of SIZES) {
 const DRAWN = 60;
 
 /** Each drawn item of a windowed list, its spacers left out: its key, where it stands and how tall it is. */
-const WINDOWED_TEXT = '@list.children.where(self:attribute["data-spacer"] is null) { key: self:attribute["data-key"], top: self.rect?.top, height: self.rect?.height }';
+const WINDOWED_TEXT = 'list.children.where(self:attribute["data-spacer"] is null) { key: self:attribute["data-key"], top: self.rect?.top, height: self.rect?.height }';
 
 /** An item of a windowed list, with a height that can change and the box its list's layout gives it, since the test environment lays nothing out. */
 const createItem = (key, height = 40) => {

@@ -34,7 +34,7 @@ describe('Conditions in a browser', () => {
     /** Watches whether the element is in the condition, asked with the verb it is asked with, its ARIA condition where asked, and answers what the watch last reported and what the browser decides now. */
     const watching = async (element, name, isAria = false) => {
         const verb = name === 'focus' || name === 'focus-within' ? 'has' : 'is';
-        const text = isAria ? `@e.aria.is("${name}")` : `@e.${verb}("${name}")`;
+        const text = isAria ? `e.aria.is("${name}")` : `e.${verb}("${name}")`;
         const snapshots = [];
         const watch = domql.query(text, { e: element }).watch({ schedule: 'immediate', acceptPartialObservation: true });
 

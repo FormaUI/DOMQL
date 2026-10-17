@@ -38,7 +38,7 @@ export class DefinitionWriter {
             case 'literal':
                 return DefinitionWriter.#literal(node.value);
             case 'parameter':
-                return `@${node.name}`;
+                return node.name;
             case 'self':
                 return 'self';
             case 'local':

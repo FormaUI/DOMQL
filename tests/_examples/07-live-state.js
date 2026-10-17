@@ -3,7 +3,7 @@ const list = document.createElement('ul');
 list.innerHTML = '<li data-key="b1">Apples</li><li data-key="b2">Pears</li>';
 
 const live = domql.query(`
-    @list.children {
+    list.children {
         key: self:["data-key"],
         selected: self.aria:["selected"] == "true"
     }

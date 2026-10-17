@@ -13,7 +13,7 @@ DOMQL is a FormaUI product, developed alongside [Forma](https://github.com/Forma
 - **Choose your result shape.** Read attributes, dimensions, element state and browser state into named fields.
 - **Work with collections.** Project items, filter them, count them and calculate summaries.
 - **Keep results current.** Watch for changes and receive immutable snapshots or an object updated in place.
-- **Handle missing values.** Use optional access, fallbacks and conditionals directly in your query. Only `null` and `false` are falsey, and `and` and `or` return the operand that decides them, so `@panel:["data-label"] or "untitled"` gives a label or a default.
+- **Handle missing values.** Use optional access, fallbacks and conditionals directly in your query. Only `null` and `false` are falsey, and `and` and `or` return the operand that decides them, so `panel:["data-label"] or "untitled"` gives a label or a default.
 - **Convert values explicitly.** Read attribute text as a number or a Boolean with `to`, or attempt it with `try … to "number"`, which answers null for text that does not convert; with `to` alone, such text is an error, never a silent default. Casts work the same way: `as` fails for a node of another kind, and `try … as` answers null.
 - **Reuse queries.** Evaluate again, bind different targets, or store and exchange definitions as JSON.
 - **Catch invalid requests early.** DOMQL checks bindings, member names, arguments and types before evaluation.
@@ -41,7 +41,7 @@ import { domql } from './src/domql.js';
 const panel = document.getElementById('panel');
 
 const query = domql.query(`
-    @panel {
+    panel {
         count: self.children.count,
         items: self.all("[data-key]") {
             key: self:["data-key"],
@@ -66,7 +66,7 @@ The result is plain data:
 }
 ```
 
-`@panel` is the element you supplied in `{ panel }`. Inside each object expression, `self` refers to the current element. The field names you write become the field names in the result; after a list, the object expression runs for each item.
+`panel` is the element you supplied in `{ panel }`. Inside each object expression, `self` refers to the current element. The field names you write become the field names in the result; after a list, the object expression runs for each item.
 
 Snapshots are immutable and contain no live DOM references. You can retain a snapshot, serialize it or pass it to another part of your application.
 
@@ -124,7 +124,7 @@ Build on the same panel to count selected items:
 
 ```js
 const selectedCount = domql.query(`
-    @panel.all("[data-key]")
+    panel.all("[data-key]")
         .where(self.aria:["selected"] == "true")
         .count
 `, { panel }).evaluate();

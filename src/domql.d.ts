@@ -12,7 +12,7 @@ export interface DomqlResolveOptions {
 
 /** How a query is evaluated once. */
 export interface DomqlEvaluateOptions {
-    /** The window `@window` stands for, and whose document `@document` stands for; by default the environment's. */
+    /** The window `window` stands for, and whose document `document` stands for; by default the environment's. */
     window?: Window;
 }
 
@@ -32,7 +32,7 @@ export interface DomqlWatchOptions {
     acceptPartialObservation?: boolean;
     /** Disposes the watch when it aborts; one already aborted answers a watch that is disposed and starts nothing. */
     signal?: AbortSignal;
-    /** The window `@window` stands for, and whose document `@document` stands for; by default the environment's. */
+    /** The window `window` stands for, and whose document `document` stands for; by default the environment's. */
     window?: Window;
 }
 
@@ -44,7 +44,7 @@ export interface DomqlLiveStateWatchOptions extends Omit<DomqlWatchOptions, 'upd
 
 /** How a subscription is listened to, an action executed, or a behavior applied. */
 export interface DomqlOperationOptions {
-    /** The window `@window` stands for, and whose document `@document` stands for; by default the environment's. */
+    /** The window `window` stands for, and whose document `document` stands for; by default the environment's. */
     window?: Window;
     /** Ends what the operation started when it aborts; one already aborted starts nothing. */
     signal?: AbortSignal;
