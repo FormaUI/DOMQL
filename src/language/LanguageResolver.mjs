@@ -103,6 +103,9 @@ export class LanguageResolver {
         }
     }
 
+    /** The result each test and operand resolved to, by its node, which the values an access by name can give follow where it is fixed or its type tells its falsey part. @type {WeakMap<object, object>} */
+    #decidingResults = new WeakMap();
+
     /**
      * Resolves a coalescing: a value and a fallback of one type, as a conditional's branches are, its type the value's made non-null where the fallback's is; the whole is resolved before any of it is evaluated.
      * Where the value is fixed, it is the side that value selects, fixed where that side is.
@@ -114,6 +117,8 @@ export class LanguageResolver {
             if (result.kind !== 'query') {
                 this.#fail(`The ${side} of '??' is a value, and this one is ${LanguageResolver.#descriptionOf(result.kind)}`, `${pointer}/${side}`);
             }
+
+            this.#decidingResults.set(node[side], result);
 
             return result;
         });
@@ -209,6 +214,7 @@ export class LanguageResolver {
         const tested = this.#resolveNode(test, testPointer, scope);
 
         this.#requireValue(tested, node.binding === undefined ? "The condition of 'if'" : "What 'if let' binds", testPointer);
+        this.#decidingResults.set(test, tested);
 
         const truthyScope = LanguageResolver.#withFacts(scope, this.#factsOf(test, scope, true));
         const falseyScope = LanguageResolver.#withFacts(scope, this.#factsOf(test, scope, false));
@@ -264,6 +270,7 @@ export class LanguageResolver {
             const result = this.#resolveNode(operand, operandPointer, operandScope);
 
             this.#requireValue(result, `An operand of '${node.kind}'`, operandPointer);
+            this.#decidingResults.set(operand, result);
             results.push(result);
             passed = LanguageResolver.#unionOf(passed, this.#factsOf(operand, operandScope, passesWhenTruthy));
         });
@@ -659,8 +666,12 @@ export class LanguageResolver {
         const name = this.#resolveNode(node.name, namePointer, scope);
         const possible = name.kind === 'query' ? this.#possibleNamesOf(node.name, scope) : null;
 
-        if (possible === null) {
-            this.#fail(`An access by name reads a name determined when the query is prepared, which a string literal, null, a bound parameter, a local holding one, or a conditional or a '??' of them gives, and '${DefinitionWriter.write(node.name)}' is none of them`, namePointer);
+        if (possible === null || possible.canBeOther) {
+            this.#fail(`An access by name reads a name determined when the query is prepared, which a string literal, null, a bound parameter, a local holding one, or a conditional, a '??', an 'and' or an 'or' of them gives, and '${DefinitionWriter.write(node.name)}' is none of them`, namePointer);
+        }
+
+        if (possible.canBeFalse) {
+            this.#fail(`An access by name reads a string, and '${DefinitionWriter.write(node.name)}' can be false`, namePointer);
         }
 
         if (possible.canBeNull || possible.names.size === 0) {
@@ -693,44 +704,116 @@ export class LanguageResolver {
     }
 
     /**
-     * The names an access by name's expression can give, determined through these forms alone: a string literal, null, a bound parameter, a local whose value is one of them, a conditional binding's name, without null, whose value is, a conditional whose branches are, and a `??` of them, whose names are its value's and, where its value can be null, its fallback's.
-     * Null is tracked through them, so a `??` can remove it; any other expression gives no names that can be determined, and answers null.
-     * @returns {{ names: Set<string>, canBeNull: boolean } | null}
+     * The values an access by name's expression can give, determined through these forms alone: a string literal, null, a bound parameter, a local whose value is one of them, a conditional binding's name, truthy, whose value is,
+     * and a conditional, a `??`, an `and` and an `or` of them, each by the rules that evaluate it: a conditional gives its branches', a `??` its value's and, where its value can be null, its fallback's, and an `and` or an `or` the part of each operand before its last that decides it, falsey for `and` and truthy for `or`, and its last's.
+     * A test or an operand whose value is fixed decides when the query is prepared, so what evaluation would not reach gives nothing; the falsey part of an `and`'s operand that names nothing is told from its type.
+     * The names are the strings it can give, and null, false and any other value are tracked beside them, so a `??` can remove null; any other expression gives no values that can be determined, and answers null.
+     * @returns {{ names: Set<string>, canBeNull: boolean, canBeFalse: boolean, canBeOther: boolean } | null}
      */
     #possibleNamesOf(node, scope) {
-        const of = value => (typeof value === 'string' ? { names: new Set([value]), canBeNull: false } : value === null ? { names: new Set(), canBeNull: true } : null);
-
         switch (node.kind) {
             case 'literal':
-                return of(node.value);
+                return LanguageResolver.#possibleOf(node.value);
             case 'parameter':
-                return node.name === 'document' || node.name === 'window' ? null : of(this.#bindings.get(node.name));
+                return node.name === 'document' || node.name === 'window' ? null : LanguageResolver.#possibleOf(this.#bindings.get(node.name));
             case 'local': {
                 const local = scope.locals.get(node.name);
                 const possible = local === undefined ? null : this.#possibleNamesOf(local.value, local.scope);
 
-                // A conditional binding's name is used where its value is not null.
-                return possible !== null && local.binding !== undefined ? { names: possible.names, canBeNull: false } : possible;
+                // A conditional binding's name is used where its value is truthy.
+                return possible !== null && local.binding !== undefined ? LanguageResolver.#partOfPossible(possible, true) : possible;
             }
             case 'conditional': {
+                const tested = this.#decidingResults.get(node.binding === undefined ? node.condition : node.binding.value);
                 const consequentScope = node.binding === undefined ? scope : LanguageResolver.#consequentScopeOf(node, scope, null);
-                const sides = [[node.consequent, consequentScope], [node.alternative, scope]].map(([branch, branchScope]) => this.#possibleNamesOf(branch, branchScope));
+                const branches = [[node.consequent, consequentScope], [node.alternative, scope]];
+                const reached = tested?.isFixed ? [branches[LanguageResolver.#isTruthy(tested.value) ? 0 : 1]] : branches;
+                const sides = reached.map(([branch, branchScope]) => this.#possibleNamesOf(branch, branchScope));
 
-                return sides.includes(null) ? null : { names: new Set(sides.flatMap(side => [...side.names])), canBeNull: sides.some(side => side.canBeNull) };
+                return sides.includes(null) ? null : sides.reduce(LanguageResolver.#unionOfPossible);
             }
             case 'coalescing': {
                 const value = this.#possibleNamesOf(node.value, scope);
-                const fallback = this.#possibleNamesOf(node.fallback, scope);
 
-                if (value === null || fallback === null) {
-                    return null;
+                if (value === null || !value.canBeNull) {
+                    return value;
                 }
 
-                return { names: new Set([...value.names, ...(value.canBeNull ? fallback.names : [])]), canBeNull: value.canBeNull && fallback.canBeNull };
+                const fallback = this.#possibleNamesOf(node.fallback, scope);
+
+                return fallback === null ? null : LanguageResolver.#unionOfPossible({ ...value, canBeNull: false }, fallback);
+            }
+            case 'and':
+            case 'or': {
+                const decidesWhenTruthy = node.kind === 'or';
+                const last = node.operands.length - 1;
+                let possible = LanguageResolver.#possibleOf(undefined);
+
+                for (let index = 0; index < last; index++) {
+                    const operand = node.operands[index];
+                    const result = this.#decidingResults.get(operand);
+
+                    // A fixed operand decides, giving its value, or passes evaluation on, giving nothing.
+                    if (result?.isFixed) {
+                        if (LanguageResolver.#isTruthy(result.value) === decidesWhenTruthy) {
+                            return LanguageResolver.#unionOfPossible(possible, LanguageResolver.#possibleOf(result.value));
+                        }
+
+                        continue;
+                    }
+
+                    const operandPossible = this.#possibleNamesOf(operand, scope);
+
+                    if (operandPossible !== null) {
+                        possible = LanguageResolver.#unionOfPossible(possible, LanguageResolver.#partOfPossible(operandPossible, decidesWhenTruthy));
+                    } else if (!decidesWhenTruthy && result !== undefined) {
+                        possible = LanguageResolver.#unionOfPossible(possible, LanguageResolver.#falseyPossibleOf(result.type));
+                    } else {
+                        return null;
+                    }
+                }
+
+                const lastPossible = this.#possibleNamesOf(node.operands[last], scope);
+
+                return lastPossible === null ? null : LanguageResolver.#unionOfPossible(possible, lastPossible);
             }
             default:
                 return null;
         }
+    }
+
+    /** The values a value gives: a string, its name, null, false, or any other value; undefined gives none. */
+    static #possibleOf(value) {
+        return {
+            names: typeof value === 'string' ? new Set([value]) : new Set(),
+            canBeNull: value === null,
+            canBeFalse: value === false,
+            canBeOther: value !== undefined && value !== null && value !== false && typeof value !== 'string',
+        };
+    }
+
+    /** The values two sets of them give together. */
+    static #unionOfPossible(first, second) {
+        return {
+            names: new Set([...first.names, ...second.names]),
+            canBeNull: first.canBeNull || second.canBeNull,
+            canBeFalse: first.canBeFalse || second.canBeFalse,
+            canBeOther: first.canBeOther || second.canBeOther,
+        };
+    }
+
+    /** The truthy part of the values, its names and any other value, or the falsey part, null and false. */
+    static #partOfPossible(possible, isTruthy) {
+        return isTruthy
+            ? { names: possible.names, canBeNull: false, canBeFalse: false, canBeOther: possible.canBeOther }
+            : { names: new Set(), canBeNull: possible.canBeNull, canBeFalse: possible.canBeFalse, canBeOther: false };
+    }
+
+    /** The falsey values a value of the type can give, which no name is: false for a Boolean and null where it can be null. */
+    static #falseyPossibleOf(type) {
+        const isBoolean = type.kind === 'named' && type.name === 'boolean';
+
+        return { names: new Set(), canBeNull: type.isNullable, canBeFalse: isBoolean, canBeOther: false };
     }
 
     /** Resolves the member the node names on a receiver of the type, which its receiver's null policy has already been applied to. */

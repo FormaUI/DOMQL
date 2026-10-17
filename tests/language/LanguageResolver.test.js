@@ -352,11 +352,32 @@ describe('LanguageResolver', () => {
             expect(failure('if let name: @panel:["data-name"] then @panel[name] else null', { panel }).message).toContain('An access by name reads a name determined when the query is prepared');
         });
 
+        it.each([
+            ['an and and an or settle, a flag bound true', '@panel[@wide and "size" or "rect"]', { wide: true }, 'size?'],
+            ['an and and an or settle, a flag bound false', '@panel[@wide and "size" or "rect"]', { wide: false }, 'rectangle?'],
+            ['an and and an or choose between, by a value read when the query is evaluated', '@panel[@panel.first(".a") and "size" or "clientSize"]', {}, 'size?'],
+            ['an or gives past a falsey middle operand, which passes evaluation on', '@panel[@wide and @label or "rect"]', { wide: true, label: null }, 'rectangle?'],
+            ['an or gives from a truthy middle operand', '@panel[@wide and @label or "rect"]', { wide: true, label: 'size' }, 'size?'],
+            ['an or gives past a null operand', '@panel[@first or @second]', { first: null, second: 'size' }, 'size?'],
+            ['a conditional whose fixed condition selects one branch, the other left unread', '@panel[if @wide then "size" else "nonsense"]', { wide: true }, 'size?'],
+        ])('resolves an access by name to the names %s', (_, text, bindings, type) => {
+            expect(resolve(text, { panel, ...bindings }).type.toString()).toBe(type);
+        });
+
+        it.each([
+            ['an and that can give false', '@panel[@wide and "size"]', { wide: false }, "An access by name reads a string, and '@wide and \"size\"' can be false"],
+            ['a name an and and an or reach that no property has', '@panel[@wide and "nonsense" or "size"]', { wide: true }, "'nonsense' is no member of the vocabulary"],
+            ['an and of a Boolean member and a name, whose values no one type holds', '@panel { v: self[self.attached and "size" or "rect"] }', {}, "What 'and' gives is false or string"],
+            ['a value that is no name', '@panel[@count]', { count: 5 }, 'An access by name reads a name determined when the query is prepared'],
+        ])('refuses an access by name through %s', (_, text, bindings, message) => {
+            expect(failure(text, { panel, ...bindings }).message).toContain(message);
+        });
+
         it('refuses an access by name whose names cannot be determined, can be null, name no property or are of different types', () => {
             expect(failure('@panel[@panel:attribute["data-name"]]').message).toContain('An access by name reads a name determined when the query is prepared');
             expect(failure('@panel[@name]', { panel, name: null }).message).toContain("An access by name reads a string, and '@name' can be null");
             expect(failure('@panel["depth"]').message).toContain("'depth' is no member of the vocabulary");
-            expect(failure('@panel[if @wide then "size" else "children"]', { panel, wide: true }).message).toContain('are of one type, and these are size?, list<element>');
+            expect(failure('@panel[if @panel.attached then "size" else "children"]', { panel }).message).toContain('are of one type, and these are size?, list<element>');
         });
 
         it('refuses an access by name of a receiver that can be null, giving the optional form', () => {

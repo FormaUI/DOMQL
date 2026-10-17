@@ -615,7 +615,7 @@ domql.query('@panel[@name].count', {
 // 3
 ```
 
-DOMQL must be able to determine the possible property names during preparation and validate them against the receiver. This supports literals, bound parameters, locals and `if let` names holding supported name expressions, conditionals and `??`; it is not unrestricted lookup from an arbitrary runtime string. See the specification for the full rules.
+DOMQL must be able to determine the possible property names during preparation and validate them against the receiver. This supports literals, bound parameters, locals and `if let` names holding supported name expressions, conditionals, `??`, `and` and `or`; it is not unrestricted lookup from an arbitrary runtime string. See the specification for the full rules.
 
 ### Bind values that are not there yet
 
