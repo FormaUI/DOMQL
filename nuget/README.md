@@ -496,7 +496,7 @@ An element's state that the user or the browser changes, such as whether it is c
 @control { checked: self.is("checked"), ariaChecked: self.aria.is("checked") }
 ```
 
-Ask a possession with `.has`, as `self.has("focus")`, and a capability with `.can`, as `@window.supports("share")`. `.is("checked")` is true for a checked checkbox or radio button, or a selected option, as `:checked` matches. `.aria.is("checked")` is true only where `aria-checked` is `"true"`; read `self:["aria-checked"]` to tell `"mixed"` from `"false"`. The two never stand in for each other, so write `self.is("checked") or self.aria.is("checked")` where either counts. Elements are asked `is("disabled")`, `is("readonly")`, `is("text-editable")`, `is("hover")`, `is("popover-open")`, `is("checked")`, `has("focus")` and `has("focus-within")`; the document `is("visible")` and `has("focus")`; and the window `supports("share")` and `supports("clipboard")`.
+Ask a possession with `.has`, as `self.has("focus")`, and a capability with `.supports`, as `@window.supports("share")`. `.is("checked")` is true for a checked checkbox or radio button, or a selected option, as `:checked` matches. `.aria.is("checked")` is true only where `aria-checked` is `"true"`; read `self:["aria-checked"]` to tell `"mixed"` from `"false"`. The two never stand in for each other, so write `self.is("checked") or self.aria.is("checked")` where either counts. Elements are asked `is("disabled")`, `is("readonly")`, `is("text-editable")`, `is("hover")`, `is("popover-open")`, `is("checked")`, `has("focus")` and `has("focus-within")`; the document `is("visible")` and `has("focus")`; and the window `supports("share")` and `supports("clipboard")`.
 
 ### Compare and combine conditions
 
