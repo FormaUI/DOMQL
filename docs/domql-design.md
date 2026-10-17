@@ -109,7 +109,7 @@ Accepting partial observation is an option of the watch, chosen when the caller 
 A watch's dependencies are what its last evaluation actually read: each member applied to its receiver and arguments, with that member's observations, each held through a session as the evaluation reaches it. Dependencies belong to the complete query.
 
 - **Every evaluation holds its dependencies afresh:** it takes over the session of the evaluation before it wherever it reaches the same observation again, acquires the observations it reaches for the first time, and the sessions it no longer reaches are disposed. What a watch observes therefore follows the document: in `table.all("tbody tr").max(self.rect?.height)`, the watch depends on what the selector matches within the table, and on the height of each row it matched. A row added starts being observed after the evaluation the addition causes, and a row removed stops being observed.
-- **A value argument is a dependency of its own.** `target.intersects({ root: panel })` depends on the intersection of the target with the panel; `self.intersects({ root: self.parent as "element" })` also depends on which element is the parent, and a new parent is observed after the evaluation its change causes.
+- **A value argument is a dependency of its own.** `target.intersects({ root = panel })` depends on the intersection of the target with the panel; `self.intersects({ root = self.parent as "element" })` also depends on which element is the parent, and a new parent is observed after the evaluation its change causes.
 - **An expression argument contributes its dependencies for every item** it was evaluated against.
 - **A chain that met null depends on what it read before the null,** so `self.closest(".row")` finding nothing still depends on the ancestors it searched, and the watch evaluates again when one starts to match.
 - **A watch keeps its bindings.** A query `with` other bindings starts a watch of its own. When the replacement watch is ready before the old watch is disposed, shared observations with matching targets and identifying arguments remain running throughout the replacement.
@@ -183,7 +183,7 @@ A maintained member in an event's object expression reads its latest sample, or 
 
 ```domql
 button.on("click") {
-    nearEnd: sentinel.intersects({ root: panel })
+    nearEnd = sentinel.intersects({ root = panel })
 }
 ```
 
@@ -194,7 +194,7 @@ The subscription holds the sessions its object expressions acquire. After each s
 ```js
 const clicks = domql.query(`
     button.on("click") {
-        panelSize: panel.size
+        panelSize = panel.size
     }
 `, { button, panel });
 
@@ -294,7 +294,7 @@ A tool can check a query text known when the code is written against the metadat
 
 - **What it keeps.** The definition's meaning, and the order of its locals and fields as declared; comments and the original layout are discarded, as a definition holds neither.
 - **What it needs.** Neither bindings nor a registered vocabulary: it parses and checks structure as `domql.query` does, and resolves nothing.
-- **The layout.** Four spaces of indentation for each level of an object expression; an object expression of one field, with no locals, on one line, `{ size: self.size }`, and one of more on one line for each entry; a conditional with an `elseif` on one line for each clause; one space on each side of `and`, `or`, `==`, `!=`, `??`, `as` and `to`; and no trailing comma.
+- **The layout.** Four spaces of indentation for each level of an object expression; an object expression of one field, with no locals, on one line, `{ size = self.size }`, and one of more on one line for each entry; a conditional with an `elseif` on one line for each clause; one space on each side of `and`, `or`, `==`, `!=`, `??`, `as` and `to`; and no trailing comma.
 - **It is stable.** Formatting text already formatted gives the same text.
 
 ## Callers
@@ -363,8 +363,8 @@ JavaScript makes a query from text, and binds its definition anew:
 // From text, binding its parameters by name.
 const panelQuery = domql.query(`
     panel {
-        size: self.size,
-        hasFocus: self.has("focus-within")
+        size = self.size,
+        hasFocus = self.has("focus-within")
     }
 `, { panel });
 
@@ -385,19 +385,19 @@ public sealed record PanelState(double? Width, bool HasFocus);
 DomqlQuery<PanelState> typed = Domql.Query<PanelState>(
     """
     panel {
-        width: self.size?.width,
-        hasFocus: self.has("focus-within")
+        width = self.size?.width,
+        hasFocus = self.has("focus-within")
     }
     """,
     ("panel", panel));
 
-DomqlQuery untyped = Domql.Query("panel { size: self.size }", ("panel", panel));
+DomqlQuery untyped = Domql.Query("panel { size = self.size }", ("panel", panel));
 ```
 
 A binding declares no type: every value is typed from itself, a null, an empty list and a list holding nulls among them, so a query is made for an element that is not there yet as it is for one that is.
 
 ```js
-const query = domql.query("{ panel: panel { size: self.size }, ids: ids }", { panel: null, ids: [] });
+const query = domql.query("{ panel = panel { size = self.size }, ids = ids }", { panel: null, ids: [] });
 
 const another = query.with({ panel: otherPanel, ids: [1, 2] });
 ```

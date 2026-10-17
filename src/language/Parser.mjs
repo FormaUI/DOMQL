@@ -124,8 +124,8 @@ export class Parser {
     #parseBinding() {
         const letKeyword = this.#take();
 
-        if (!(this.#token.type === 'name' && this.#tokens[this.#index + 1]?.type === ':')) {
-            this.#refuseName('A binding is written with let, its name and a colon before its value, as if let key: self:["data-key"] then …');
+        if (!this.#startsEntry()) {
+            this.#refuseName('A binding takes its value after =', 'A binding is written with let, its name and = before its value, as if let key = self:["data-key"] then …', 'if let ');
         }
 
         return Parser.#node('conditional-binding', [letKeyword, this.#take(), this.#take(), this.#parseCondition()]);
@@ -278,7 +278,7 @@ export class Parser {
             return true;
         }
 
-        if (this.#tokens[this.#index + 1].type === ':') {
+        if (this.#tokens[this.#index + 1].type === '=') {
             throw this.#unexpected("',' before the next field");
         }
 
@@ -648,7 +648,7 @@ export class Parser {
 
         if (this.#token.type !== ')') {
             if (this.#startsNamedArgument()) {
-                throw this.#fail(`'${name}' takes one argument, and several parameters are given as the fields of an object, as { ${this.#token.value}: … }`, this.#token.start);
+                throw this.#fail(`'${name}' takes one argument, and several parameters are given as the fields of an object, as { ${this.#token.value} = … }`, this.#token.start);
             }
 
             call.push(this.#parseExpression());
@@ -664,17 +664,27 @@ export class Parser {
     }
 
     /**
-     * Whether a name and a colon begin what stands here as a named argument would, as `relativeTo: other` does, rather than an indexer of a binding the name reads,
-     * whose colon a key in brackets follows, or an indexer's name and then one, as `panel:["id"]` and `panel:attribute["id"]` do.
+     * Whether what stands here is written as a named argument would be, which no call takes: a name and `=`, as a field gives its value, or a name and a colon, as `relativeTo: other` writes one,
+     * rather than an indexer of a binding the name reads, whose colon a key in brackets follows, or an indexer's name and then one, as `panel:["id"]` and `panel:attribute["id"]` do.
      */
     #startsNamedArgument() {
-        if (this.#token.type !== 'name' || this.#tokens[this.#index + 1].type !== ':') {
+        return this.#startsEntry() || this.#startsColonEntry();
+    }
+
+    /** Whether a name and `=` begin what stands here, as a field, a local's name or a binding's does. */
+    #startsEntry() {
+        return this.#token.type === 'name' && this.#tokens[this.#index + 1]?.type === '=';
+    }
+
+    /** Whether a name and a colon begin what stands here, as no field, local or binding writes its value, rather than an indexer of a binding the name reads. */
+    #startsColonEntry() {
+        if (this.#token.type !== 'name' || this.#tokens[this.#index + 1]?.type !== ':') {
             return false;
         }
 
         const afterColon = this.#tokens[this.#index + 2];
 
-        return !(afterColon.type === '[' || (afterColon.type === 'name' && this.#tokens[this.#index + 3].type === '['));
+        return !(afterColon.type === '[' || (afterColon.type === 'name' && this.#tokens[this.#index + 3]?.type === '['));
     }
 
     /** Reads operands joined by the operator, answering the operand alone where there is one. */
@@ -721,7 +731,7 @@ export class Parser {
         }
 
         if (this.#token.type === '}') {
-            const example = locals > 0 ? '{ let r: self.rect, width: r.width }' : '{ size: self.size }';
+            const example = locals > 0 ? '{ let r = self.rect, width = r.width }' : '{ size = self.size }';
 
             throw this.#fail(`An object expression holds at least one field${locals > 0 ? ' after its locals' : ''}, as ${example}`, this.#token.start);
         }
@@ -741,35 +751,42 @@ export class Parser {
         return Parser.#node('object', children);
     }
 
-    /** Reads a local: `let`, its name, a colon and its value. */
+    /** Reads a local: `let`, its name, `=` and its value. */
     #parseLocal() {
         const letKeyword = this.#take();
 
-        if (!(this.#token.type === 'name' && this.#tokens[this.#index + 1]?.type === ':')) {
-            this.#refuseName('A local is written with let, its name and a colon before its value, as let r: self.rect');
+        if (!this.#startsEntry()) {
+            this.#refuseName('A local takes its value after =', 'A local is written with let, its name and = before its value, as let r = self.rect', 'let ');
         }
 
         return Parser.#node('local', [letKeyword, this.#take(), this.#take(), this.#parseExpression()]);
     }
 
-    /** Reads a field: its name, a colon and its value. */
+    /** Reads a field: its name, `=` and its value. */
     #parseField() {
         if (this.#isLocal()) {
             throw this.#fail('A local is written before the fields of its object expression', this.#token.start);
         }
 
-        if (!(this.#token.type === 'name' && this.#tokens[this.#index + 1]?.type === ':')) {
-            this.#refuseName('A field is written with its name and a colon before its value, as size: self.size');
+        if (!this.#startsEntry()) {
+            this.#refuseName('A field takes its value after =', 'A field is written with its name and = before its value, as size = self.size', '');
         }
 
         return Parser.#node('field', [this.#take(), this.#take(), this.#parseExpression()]);
     }
 
-    /** Refuses what stands where a local or a field is named: a literal or a keyword a colon follows names nothing, and anything else is written as the message gives. */
-    #refuseName(message) {
+    /**
+     * Refuses what stands where a field, a local or a binding is named: a literal or a keyword `=` or a colon follows names nothing; a name a colon follows gives its value as `=` does, which the colon message says
+     * with the form to write, its prefix written before the name; and anything else is written as the message gives.
+     */
+    #refuseName(colonMessage, message, prefix) {
         const token = this.#token;
 
-        if (this.#tokens[this.#index + 1]?.type === ':') {
+        if (this.#startsColonEntry()) {
+            throw this.#fail(`${colonMessage}: write '${prefix}${token.value} = …'`, this.#tokens[this.#index + 1].start);
+        }
+
+        if (this.#tokens[this.#index + 1]?.type === '=' || this.#tokens[this.#index + 1]?.type === ':') {
             if (token.type === 'literal') {
                 throw this.#fail(`'${this.#text.slice(token.start, token.end)}' is a literal, and names nothing`, token.start);
             }
@@ -786,9 +803,11 @@ export class Parser {
         return this.#tokens[this.#index];
     }
 
-    /** Whether a local starts here: `let`, which a colon after it would make a field's name instead, a keyword that names nothing. */
+    /** Whether a local starts here: `let`, which `=` or a colon after it would make a field's name instead, a keyword that names nothing. */
     #isLocal() {
-        return this.#isKeyword('let') && this.#tokens[this.#index + 1]?.type !== ':';
+        const next = this.#tokens[this.#index + 1]?.type;
+
+        return this.#isKeyword('let') && next !== '=' && next !== ':';
     }
 
     #isKeyword(word) {
@@ -826,6 +845,11 @@ export class Parser {
 
     #unexpected(expected) {
         const token = this.#token;
+
+        // `=` gives a field, a local or a binding its value, so one anywhere else is an equality written with one sign.
+        if (token.type === '=') {
+            return this.#fail("Unexpected '=' in an expression. Use '==' to compare values.", token.start);
+        }
         const found = token.type === 'end' ? TOKEN_DESCRIPTIONS.end : `'${this.#text.slice(token.start, token.end)}'`;
 
         return this.#fail(`Expected ${expected}, found ${found}`, token.start);

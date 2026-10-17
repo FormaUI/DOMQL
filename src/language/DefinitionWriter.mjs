@@ -99,8 +99,8 @@ export class DefinitionWriter {
     static #object(node, level) {
         const inner = level === null ? null : level + 1;
         const entries = [
-            ...(node.locals ?? []).map(local => `let ${local.name}: ${DefinitionWriter.#write(local.value, inner)}`),
-            ...node.fields.map(field => `${field.name}: ${DefinitionWriter.#write(field.value, inner)}`),
+            ...(node.locals ?? []).map(local => `let ${local.name} = ${DefinitionWriter.#write(local.value, inner)}`),
+            ...node.fields.map(field => `${field.name} = ${DefinitionWriter.#write(field.value, inner)}`),
         ];
 
         if (level === null || (node.locals === undefined && entries.length === 1 && !entries[0].includes('\n'))) {
@@ -136,7 +136,7 @@ export class DefinitionWriter {
         for (;;) {
             const test = current.binding === undefined
                 ? DefinitionWriter.#within(current.condition, PRECEDENCE.coalescing, level)
-                : `let ${current.binding.name}: ${DefinitionWriter.#within(current.binding.value, PRECEDENCE.coalescing, level)}`;
+                : `let ${current.binding.name} = ${DefinitionWriter.#within(current.binding.value, PRECEDENCE.coalescing, level)}`;
 
             clauses.push(`${clauses.length === 0 ? 'if' : 'elseif'} ${test} then ${DefinitionWriter.#within(current.consequent, PRECEDENCE.coalescing, level)}`);
 

@@ -8,8 +8,8 @@ describe('DefinitionWriter', () => {
     it.each([
         'panel.size',
         'panel:attribute["data-key"]',
-        'panel.intersects({ root: panel, margin: 10 })',
-        'panel { size: self.size, box: { width: self.size?.width }, kind: "panel", rank: 3, none: null }',
+        'panel.intersects({ root = panel, margin = 10 })',
+        'panel { size = self.size, box = { width = self.size?.width }, kind = "panel", rank = 3, none = null }',
         'panel.children.where(self.attached).max(self.size?.width)',
         '(panel.attached or panel.has("focus")) and panel.is("disabled")',
         'panel.attached or panel.has("focus") and panel.is("disabled")',
@@ -23,10 +23,10 @@ describe('DefinitionWriter', () => {
         '(count ?? 0) == 0',
         'a == b and c',
         'not (a == b) and c',
-        '(first or second) { size: self.size }',
+        '(first or second) { size = self.size }',
         'panel.children.count',
         'panel.hasChildren',
-        'window { ratio: self.devicePixelRatio, visible: document.is("visible") }',
+        'window { ratio = self.devicePixelRatio, visible = document.is("visible") }',
         'panel.closest(".row")?:attribute["data-key"]',
         '(panel:attribute["role"]).length',
         'panel:attribute["role"] == null',
@@ -38,17 +38,17 @@ describe('DefinitionWriter', () => {
         '(if a then true else false) and b',
         'if (if a then b else c) then 1 else 2',
         'if a then (if b then 1 else 2) else 3',
-        'panel { state: if self.is("disabled") then "locked" else "open" }',
+        'panel { state = if self.is("disabled") then "locked" else "open" }',
         'panel.parent == null',
-        'panel { let items: self.children, count: items.count, rows: items { key: self:attribute["data-key"] } }',
-        'panel { let key: "data-key", let first: self.children:[0], value: first?:attribute[key] }',
-        'panel { let a: 1, inner: self { let b: a, value: b } }',
+        'panel { let items = self.children, count = items.count, rows = items { key = self:attribute["data-key"] } }',
+        'panel { let key = "data-key", let first = self.children:[0], value = first?:attribute[key] }',
+        'panel { let a = 1, inner = self { let b = a, value = b } }',
         'panel:attribute["a \\"quoted\\" name, a \\\\ backslash"]',
         'panel:attribute["two\nlines"]',
         'panel.parent?.children.count',
         '(panel.parent?.children).count',
-        'panel.parent?.rect { top: self.top }',
-        '(panel.parent?.rect) { top: self.top }',
+        'panel.parent?.rect { top = self.top }',
+        '(panel.parent?.rect) { top = self.top }',
         'panel.parent?.closest(".row")?:attribute["id"]',
         'panel.matches(row?.key)',
         'panel.closest(row?.key)?.parent',
@@ -96,8 +96,8 @@ describe('DefinitionWriter', () => {
         '(a to "string"):attribute["id"]',
         '(a to "string").length',
         'panel.parent as "element" to "string"',
-        '{ from: 1, to: 2 }',
-        'panel { let to: self.size, width: to.width }',
+        '{ from = 1, to = 2 }',
+        'panel { let to = self.size, width = to.width }',
         'range.to to "string"',
         'range.to() to "string"',
         'sentinel.intersects() to "string"',
@@ -117,19 +117,19 @@ describe('DefinitionWriter', () => {
         'try (node as "element") to "string"',
         'try (preferred ?? fallback) as "element"',
         'node as "element"',
-        'if let n: try a to "number" then n else 0',
-        'if a then 1 elseif let n: b then n else 0',
-        'if let row: panel.closest(".row") then { key: row:["data-key"] } else null',
-        '(if let n: a then n else 0) to "string"',
-        'if let b: a == 1 then b else false',
-        'if let n: a ?? b then n else 0',
+        'if let n = try a to "number" then n else 0',
+        'if a then 1 elseif let n = b then n else 0',
+        'if let row = panel.closest(".row") then { key = row:["data-key"] } else null',
+        '(if let n = a then n else 0) to "string"',
+        'if let b = a == 1 then b else false',
+        'if let n = a ?? b then n else 0',
         'a.is("checked") != false',
-        '{ is: a.is("checked") }',
+        '{ is = a.is("checked") }',
         '(try a to "number") == 5',
         'a == convertible',
         'a == (convertible to "number")',
         'a != (convertible to "string" to "number")',
-        '{ convertible: try a to "number" }',
+        '{ convertible = try a to "number" }',
         'panel:attribute["data-key"]',
         'panel:["data-key"]',
         'panel:class["open"]',
@@ -141,7 +141,7 @@ describe('DefinitionWriter', () => {
         'panel?:[name]',
         'panel.first(".row")?:["id"] == null',
         'panel:attribute[name]',
-        'panel.on("click") { x: self.clientX }',
+        'panel.on("click") { x = self.clientX }',
         'panel.first(".row")?.matches(".open") ?? false',
         'panel.aria:["checked"]',
         'panel?:attribute["data-key"]',
@@ -149,8 +149,8 @@ describe('DefinitionWriter', () => {
         'panel:lookup["a"]["b"]',
         'panel:lookup["a"]?.label',
         'panel:lookup[panel:attribute["data-which"]]',
-        '{ key: panel:attribute["data-key"], n: 1 }',
-        'panel { key: self:attribute["data-key"] }',
+        '{ key = panel:attribute["data-key"], n = 1 }',
+        'panel { key = self:attribute["data-key"] }',
         '(?panel.first(".row"):attribute["id"])',
         '(panel:attribute["n"]):attribute["id"]',
         'panel.matches(row:attribute["key"])',
@@ -172,7 +172,7 @@ describe('DefinitionWriter', () => {
         expect(write('panel.size')).toBe('panel.size');
         expect(write('((panel.matches(".x"))).length')).toBe('panel.matches(".x").length');
         expect(write('(panel.matches(".x")) == null')).toBe('panel.matches(".x") == null');
-        expect(write('(panel.on("click")) { x: self.clientX }')).toBe('panel.on("click") { x: self.clientX }');
+        expect(write('(panel.on("click")) { x = self.clientX }')).toBe('panel.on("click") { x = self.clientX }');
         expect(write('(panel:attribute["role"]).length')).toBe('panel:attribute["role"].length');
         expect(write('if a then 1 else if b then 2 else 3')).toBe('if a then 1 elseif b then 2 else 3');
         expect(write('if a then 1 else (if b then 2 else 3)')).toBe('if a then 1 elseif b then 2 else 3');
@@ -187,31 +187,31 @@ describe('DefinitionWriter', () => {
         expect(write('(try node as "element") != null')).toBe('try node as "element" != null');
         expect(write('try (node as "element") to "string"')).toBe('try (node as "element") to "string"');
         expect(write('try (a to "number")')).toBe('try a to "number"');
-        expect(write('if let n: (a ?? b) then n else 0')).toBe('if let n: a ?? b then n else 0');
-        expect(write('(if let n: a then n else 0).size')).toBe('(if let n: a then n else 0).size');
+        expect(write('if let n = (a ?? b) then n else 0')).toBe('if let n = a ?? b then n else 0');
+        expect(write('(if let n = a then n else 0).size')).toBe('(if let n = a then n else 0).size');
     });
 
     it('writes an options object as the fields it is written with', () => {
-        const { definition } = domql.query('panel.intersects({ root: panel, margin: 5 })', { panel });
+        const { definition } = domql.query('panel.intersects({ root = panel, margin = 5 })', { panel });
 
-        expect(DefinitionWriter.write(definition.query)).toBe('panel.intersects({ root: panel, margin: 5 })');
+        expect(DefinitionWriter.write(definition.query)).toBe('panel.intersects({ root = panel, margin = 5 })');
     });
 
     describe('format', () => {
         const format = text => domql.format(text);
 
         it.each([
-            ['an object expression of one field', 'panel {size:self.size}', 'panel { size: self.size }'],
-            ['an object expression of more fields, a line for each', 'panel { size: self.size, key: self:attribute["data-key"] }', 'panel {\n    size: self.size,\n    key: self:attribute["data-key"]\n}'],
-            ['an object expression of one field whose value takes lines', 'panel { box: { width: self.size?.width, height: self.size?.height } }', 'panel {\n    box: {\n        width: self.size?.width,\n        height: self.size?.height\n    }\n}'],
-            ['an object expression of one field and a local', 'panel { let s: self.size, width: s.width }', 'panel {\n    let s: self.size,\n    width: s.width\n}'],
+            ['an object expression of one field', 'panel {size = self.size}', 'panel { size = self.size }'],
+            ['an object expression of more fields, a line for each', 'panel { size = self.size, key = self:attribute["data-key"] }', 'panel {\n    size = self.size,\n    key = self:attribute["data-key"]\n}'],
+            ['an object expression of one field whose value takes lines', 'panel { box = { width = self.size?.width, height = self.size?.height } }', 'panel {\n    box = {\n        width = self.size?.width,\n        height = self.size?.height\n    }\n}'],
+            ['an object expression of one field and a local', 'panel { let s = self.size, width = s.width }', 'panel {\n    let s = self.size,\n    width = s.width\n}'],
             ['a conditional with no elseif, on one line', 'if a then 1 else 2', 'if a then 1 else 2'],
-            ['a conditional with an elseif, a line for each clause', 'panel { state: if self.is("disabled") then "locked" elseif self.is("readonly") then "read" else "open" }', 'panel {\n    state: if self.is("disabled") then "locked"\n    elseif self.is("readonly") then "read"\n    else "open"\n}'],
-            ['a conditional binding with an elseif, a line for each clause', 'panel { v: if let a: self:["a"] then a elseif let b: self:["b"] then b else "none" }', 'panel {\n    v: if let a: self:["a"] then a\n    elseif let b: self:["b"] then b\n    else "none"\n}'],
+            ['a conditional with an elseif, a line for each clause', 'panel { state = if self.is("disabled") then "locked" elseif self.is("readonly") then "read" else "open" }', 'panel {\n    state = if self.is("disabled") then "locked"\n    elseif self.is("readonly") then "read"\n    else "open"\n}'],
+            ['a conditional binding with an elseif, a line for each clause', 'panel { v = if let a = self:["a"] then a elseif let b = self:["b"] then b else "none" }', 'panel {\n    v = if let a = self:["a"] then a\n    elseif let b = self:["b"] then b\n    else "none"\n}'],
             ['one space around and and or', 'a   and(b or   c)', 'a and (b or c)'],
             ['one space around to and ==, and none in a call', 'panel . matches ( ".x" )   to"string"   ==   null', 'panel.matches(".x") to "string" == null'],
             ['no space around an indexer', 'panel  :  attribute  [ "role" ]   ==   null', 'panel:attribute["role"] == null'],
-            ['no trailing comma', 'panel { size: self.size, key: 1, }', 'panel {\n    size: self.size,\n    key: 1\n}'],
+            ['no trailing comma', 'panel { size = self.size, key = 1, }', 'panel {\n    size = self.size,\n    key = 1\n}'],
             ['no comment and no original layout', 'panel // the panel\n    /* its size */ .size', 'panel.size'],
             ['an optional access as one token, with the group that ends its chain', '(panel.parent  ?.children) . count', '(panel.parent?.children).count'],
             ['a cast in an optional-access group as the optional accesses it writes', '(?(panel.parent as "element").rect.width)', '(panel?.parent as "element")?.rect?.width'],
@@ -229,10 +229,10 @@ describe('DefinitionWriter', () => {
         });
 
         it.each([
-            'panel { size: self.size, rows: self.children { key: self:attribute["data-key"], open: self.matches(".open") } }',
-            'if a then { x: 1, y: 2 } elseif b then (if c then 3 else 4) else d { z: self.size }',
-            'panel { let items: self.children, count: items.count, first: items:[0] { key: self:attribute["data-key"] } }',
-            'panel.on("click") { x: self.clientX, inside: self.target?.closest(".row") == null }',
+            'panel { size = self.size, rows = self.children { key = self:attribute["data-key"], open = self.matches(".open") } }',
+            'if a then { x = 1, y = 2 } elseif b then (if c then 3 else 4) else d { z = self.size }',
+            'panel { let items = self.children, count = items.count, first = items:[0] { key = self:attribute["data-key"] } }',
+            'panel.on("click") { x = self.clientX, inside = self.target?.closest(".row") == null }',
             'panel.children.where(self.attached and (self.hasChildren or self.matches(".x"))).max(self.size?.width)',
             'panel:attribute["line\nbreak and \\"quote\\""]',
         ])('gives text that formats to itself, and parses back to the same definition: %s', text => {
@@ -252,7 +252,7 @@ describe('DefinitionWriter', () => {
         });
 
         it('gives the same text for a request\'s text, its definition and a query object', () => {
-            const text = 'panel { size: self.size, key: self:attribute["data-key"] }';
+            const text = 'panel { size = self.size, key = self:attribute["data-key"] }';
             const query = domql.query(text, { panel });
 
             expect(domql.format(query.definition)).toBe(format(text));
@@ -260,7 +260,7 @@ describe('DefinitionWriter', () => {
         });
 
         it('needs no bindings and resolves nothing, so a query of unbound parameters and an unknown vocabulary is formatted', () => {
-            expect(format('nobody.nothing{x:self.whatever(other)}')).toBe('nobody.nothing { x: self.whatever(other) }');
+            expect(format('nobody.nothing{x = self.whatever(other)}')).toBe('nobody.nothing { x = self.whatever(other) }');
             expect(() => domql.query('nobody.nothing').resolve()).toThrow(expect.objectContaining({ kind: 'validation' }));
         });
 

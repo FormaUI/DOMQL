@@ -105,19 +105,19 @@ describe('QueryEvaluator', () => {
         it('answers an empty list where nothing matches and null where an element is expected', () => {
             expect(read('panel.all(".none").count', { panel })).toBe(0);
             expect(read('panel.first(".none")?:attribute["id"]', { panel })).toBeNull();
-            expect(read('panel.closest(".none") { id: self:attribute["id"] }', { panel })).toBeNull();
+            expect(read('panel.closest(".none") { id = self:attribute["id"] }', { panel })).toBeNull();
         });
 
         it('reads list items by position', () => {
-            expect(read('panel.children.first { key: self:attribute["data-key"] }', { panel })).toEqual({ key: 'a1' });
-            expect(read('panel.children.last { key: self:attribute["data-key"] }', { panel })).toEqual({ key: 'a3' });
-            expect(read('panel.children:[1] { key: self:attribute["data-key"] }', { panel })).toEqual({ key: 'a2' });
-            expect(read('panel.children:[3] { key: self:attribute["data-key"] }', { panel })).toBeNull();
-            expect(read('panel.children:[-1] { key: self:attribute["data-key"] }', { panel })).toBeNull();
+            expect(read('panel.children.first { key = self:attribute["data-key"] }', { panel })).toEqual({ key: 'a1' });
+            expect(read('panel.children.last { key = self:attribute["data-key"] }', { panel })).toEqual({ key: 'a3' });
+            expect(read('panel.children:[1] { key = self:attribute["data-key"] }', { panel })).toEqual({ key: 'a2' });
+            expect(read('panel.children:[3] { key = self:attribute["data-key"] }', { panel })).toBeNull();
+            expect(read('panel.children:[-1] { key = self:attribute["data-key"] }', { panel })).toBeNull();
         });
 
         it('reads the parent', () => {
-            expect(read('(item.parent as "element") { id: self:attribute["id"] }', { item: items[0] })).toEqual({ id: 'panel' });
+            expect(read('(item.parent as "element") { id = self:attribute["id"] }', { item: items[0] })).toEqual({ id: 'panel' });
         });
     });
 
@@ -173,7 +173,7 @@ describe('QueryEvaluator', () => {
 
             expect(read('(detached.parent as "element")?.size', { detached })).toBeNull();
             expect(read('detached.parent?.children.count', { detached })).toBeNull();
-            expect(read('detached { parent: (self.parent as "element")?.size, tag: self:attribute["id"] }', { detached })).toEqual({ parent: null, tag: null });
+            expect(read('detached { parent = (self.parent as "element")?.size, tag = self:attribute["id"] }', { detached })).toEqual({ parent: null, tag: null });
         });
 
         it('skips the rest of an optional chain where a receiver is null, reading it where the receiver is present', () => {
@@ -225,14 +225,14 @@ describe('QueryEvaluator', () => {
 
     describe('object expressions', () => {
         it('names each field as it is written, and keeps their order', () => {
-            const answer = read('panel { count: self.children.count, id: self:attribute["id"], attached: self.attached, children: self.hasChildren }', { panel });
+            const answer = read('panel { count = self.children.count, id = self:attribute["id"], attached = self.attached, children = self.hasChildren }', { panel });
 
             expect(answer).toEqual({ count: 3, id: 'panel', attached: true, children: true });
             expect(Object.keys(answer)).toEqual(['count', 'id', 'attached', 'children']);
         });
 
         it('applies an object expression to each item of a list, in order', () => {
-            expect(read('panel.children { key: self:attribute["data-key"], selected: self.matches("[aria-selected=true]") }', { panel })).toEqual([
+            expect(read('panel.children { key = self:attribute["data-key"], selected = self.matches("[aria-selected=true]") }', { panel })).toEqual([
                 { key: 'a1', selected: false },
                 { key: 'a2', selected: true },
                 { key: 'a3', selected: false },
@@ -240,7 +240,7 @@ describe('QueryEvaluator', () => {
         });
 
         it('reads a top-level list of facts', () => {
-            expect(read('{ items: panel.children.count, kind: "list", none: null }', { panel })).toEqual({ items: 3, kind: 'list', none: null });
+            expect(read('{ items = panel.children.count, kind = "list", none = null }', { panel })).toEqual({ items: 3, kind: 'list', none: null });
         });
     });
 
@@ -268,7 +268,7 @@ describe('QueryEvaluator', () => {
         it('keeps the items a Boolean expression holds for', () => {
             expect(read('panel.children.where(self.matches("[aria-selected=true]")).count', { panel })).toBe(1);
             expect(read('panel.children.where(self.hasChildren).count', { panel })).toBe(0);
-            expect(read('els.where(self.overlaps({ other: panel })).count', { els: [items[0], document.createElement('div')], panel })).toBe(1);
+            expect(read('els.where(self.overlaps({ other = panel })).count', { els: [items[0], document.createElement('div')], panel })).toBe(1);
         });
     });
 
@@ -276,12 +276,12 @@ describe('QueryEvaluator', () => {
         it('reads what a name names, as direct access does', () => {
             expect(read('panel["children"].count', { panel })).toBe(3);
             expect(read('panel["size"]?.width', { panel })).toBe(640);
-            expect(read('panel { size: self["size"], clientSize: self["clientSize"] }', { panel }).size).toEqual({ width: 640, height: 480 });
+            expect(read('panel { size = self["size"], clientSize = self["clientSize"] }', { panel }).size).toEqual({ width: 640, height: 480 });
         });
 
         it('takes the name from a bound string, a local, a conditional and a coalescing operator', () => {
             expect(read('panel[name]?.width', { panel, name: 'size' })).toBe(640);
-            expect(read('panel { let name: if wide then "size" else "clientSize", width: self[name]?.width }', { panel, wide: true })).toEqual({ width: 640 });
+            expect(read('panel { let name = if wide then "size" else "clientSize", width = self[name]?.width }', { panel, wide: true })).toEqual({ width: 640 });
             expect(read('panel[name ?? "size"]?.width', { panel, name: null })).toBe(640);
         });
 
@@ -346,13 +346,13 @@ describe('QueryEvaluator', () => {
             document.body.append(input);
             input.setSelectionRange(1, 3);
 
-            expect(read('input.selection { start: self.start, end: self.end }', { input })).toEqual({ start: 1, end: 3 });
+            expect(read('input.selection { start = self.start, end = self.end }', { input })).toEqual({ start: 1, end: 3 });
             expect(read('input.hasSelection', { input })).toBe(true);
 
             input.setSelectionRange(2, 2);
 
             expect(read('input.hasSelection', { input })).toBe(false);
-            expect(read('panel.selection { start: self.start }', { panel })).toBeNull();
+            expect(read('panel.selection { start = self.start }', { panel })).toBeNull();
         });
     });
 
@@ -393,7 +393,7 @@ describe('QueryEvaluator', () => {
         });
 
         it('test the current value inside an object expression and an expression argument', () => {
-            expect(read('panel { attached: self.attached, empty: self.hasChildren }', { panel })).toEqual({ attached: true, empty: true });
+            expect(read('panel { attached = self.attached, empty = self.hasChildren }', { panel })).toEqual({ attached: true, empty: true });
             expect(read('panel.children.where(self.attached and self.has("focus")).count', { panel })).toBe(0);
         });
 
@@ -478,7 +478,7 @@ describe('QueryEvaluator', () => {
 
         it('evaluate a local once for each application of its object expression, giving every use there its value', () => {
             const { module, record } = counting();
-            const result = readWith(module, 'rows { let n: self.counted, a: n, b: n }', { rows: items });
+            const result = readWith(module, 'rows { let n = self.counted, a = n, b = n }', { rows: items });
 
             expect(record.reads).toBe(3);
             expect(result).toEqual([{ a: 1, b: 1 }, { a: 2, b: 2 }, { a: 3, b: 3 }]);
@@ -487,44 +487,44 @@ describe('QueryEvaluator', () => {
         it('evaluate a local no evaluated expression uses never', () => {
             const { module, record } = counting();
 
-            expect(readWith(module, 'panel { let n: self.counted, a: 1 }', { panel })).toEqual({ a: 1 });
-            expect(readWith(module, 'panel { let n: self.counted, a: if on then n else 0 }', { panel, on: false })).toEqual({ a: 0 });
+            expect(readWith(module, 'panel { let n = self.counted, a = 1 }', { panel })).toEqual({ a: 1 });
+            expect(readWith(module, 'panel { let n = self.counted, a = if on then n else 0 }', { panel, on: false })).toEqual({ a: 0 });
             expect(record.reads).toBe(0);
         });
 
         it('evaluate a local at its first use, wherever that is', () => {
             const { module, record } = counting();
 
-            expect(readWith(module, 'panel { let n: self.counted, a: if on then n else 0, b: n }', { panel, on: false })).toEqual({ a: 0, b: 1 });
+            expect(readWith(module, 'panel { let n = self.counted, a = if on then n else 0, b = n }', { panel, on: false })).toEqual({ a: 0, b: 1 });
             expect(record.reads).toBe(1);
         });
 
         it('give a later evaluation fresh locals', () => {
             const { module } = counting();
 
-            expect(readWith(module, 'panel { let n: self.counted, a: n }', { panel })).toEqual({ a: 1 });
-            expect(readWith(module, 'panel { let n: self.counted, a: n }', { panel })).toEqual({ a: 2 });
+            expect(readWith(module, 'panel { let n = self.counted, a = n }', { panel })).toEqual({ a: 1 });
+            expect(readWith(module, 'panel { let n = self.counted, a = n }', { panel })).toEqual({ a: 2 });
         });
 
         it('keep the self of where a local is written, used inside a nested projection', () => {
-            const result = read('panel { let owner: self:attribute["id"], rows: self.children { owner: owner, key: self:attribute["data-key"] } }', { panel });
+            const result = read('panel { let owner = self:attribute["id"], rows = self.children { owner = owner, key = self:attribute["data-key"] } }', { panel });
 
             expect(result.rows).toEqual([{ owner: 'panel', key: 'a1' }, { owner: 'panel', key: 'a2' }, { owner: 'panel', key: 'a3' }]);
         });
 
         it('give a local to the expression an argument evaluates for each item', () => {
-            expect(read('panel { let selector: "[aria-selected=true]", selected: self.children.where(self.matches(selector)) { key: self:attribute["data-key"] } }', { panel }))
+            expect(read('panel { let selector = "[aria-selected=true]", selected = self.children.where(self.matches(selector)) { key = self:attribute["data-key"] } }', { panel }))
                 .toEqual({ selected: [{ key: 'a2' }] });
         });
 
         it('use the locals before it, and those of an enclosing object expression', () => {
-            expect(read('panel { let rows: self.children, let first: rows:[0], key: first?:attribute["data-key"], inner: self { last: rows:[2]?:attribute["data-key"] } }', { panel }))
+            expect(read('panel { let rows = self.children, let first = rows:[0], key = first?:attribute["data-key"], inner = self { last = rows:[2]?:attribute["data-key"] } }', { panel }))
                 .toEqual({ key: 'a1', inner: { last: 'a3' } });
         });
 
         it('stand where an access by name\'s name is, with the names they can give', () => {
-            expect(read('panel { let name: "size", width: self[name]?.width }', { panel })).toEqual({ width: 640 });
-            expect(read('panel { let name: chosen, let selected: name, width: self[selected]?.width }', { panel, chosen: 'size' })).toEqual({ width: 640 });
+            expect(read('panel { let name = "size", width = self[name]?.width }', { panel })).toEqual({ width: 640 });
+            expect(read('panel { let name = chosen, let selected = name, width = self[selected]?.width }', { panel, chosen: 'size' })).toEqual({ width: 640 });
         });
     });
 
@@ -559,13 +559,13 @@ describe('QueryEvaluator', () => {
             expect(read('hidden.grid?.columns', { hidden })).toBeNull();
             expect(read('hidden.attached', { hidden })).toBe(true);
             expect(read('item.rectRelativeTo(hidden)', { item: items[0], hidden })).toBeNull();
-            expect(read('hidden.overlaps({ other: item })', { hidden, item: items[0] })).toBeNull();
+            expect(read('hidden.overlaps({ other = item })', { hidden, item: items[0] })).toBeNull();
         });
 
         it('compares two boxes', () => {
-            expect(read('a.overlaps({ other: b })', { a: items[0], b: items[1] })).toBe(false);
-            expect(read('a.overlaps({ other: b, margin: 10 })', { a: items[0], b: items[1] })).toBe(true);
-            expect(read('a.overlaps({ other: b })', { a: items[0], b: items[0] })).toBe(true);
+            expect(read('a.overlaps({ other = b })', { a: items[0], b: items[1] })).toBe(false);
+            expect(read('a.overlaps({ other = b, margin = 10 })', { a: items[0], b: items[1] })).toBe(true);
+            expect(read('a.overlaps({ other = b })', { a: items[0], b: items[0] })).toBe(true);
         });
     });
 
@@ -574,7 +574,7 @@ describe('QueryEvaluator', () => {
             expect(read('window.size.width')).toBeTypeOf('number');
             expect(read('window.devicePixelRatio')).toBeTypeOf('number');
             expect(read('window:media["(min-width: 0px)"]')).toBe(true);
-            expect(read('window { share: self.supports("share") }').share).toBeTypeOf('boolean');
+            expect(read('window { share = self.supports("share") }').share).toBeTypeOf('boolean');
         });
 
         it('reads the window it is given', () => {
@@ -595,7 +595,7 @@ describe('QueryEvaluator', () => {
 
     describe('answers', () => {
         it('are the same for a parsed query and one created from its definition', () => {
-            const parsed = domql.query('panel { count: self.children.count, keys: self.children { key: self:attribute["data-key"] } }', { panel });
+            const parsed = domql.query('panel { count = self.children.count, keys = self.children { key = self:attribute["data-key"] } }', { panel });
             const created = domql.query(parsed.definition, { panel });
 
             expect(created.evaluate()).toEqual(parsed.evaluate());
@@ -608,12 +608,12 @@ describe('QueryEvaluator', () => {
             expect(answer).toEqual(numbers);
             expect(answer).not.toBe(numbers);
             expect(Object.isFrozen(answer)).toBe(true);
-            expect(Object.isFrozen(read('panel { size: self.size }', { panel }))).toBe(true);
+            expect(Object.isFrozen(read('panel { size = self.size }', { panel }))).toBe(true);
         });
 
         it('read a field of a bound object', () => {
             expect(read('box.width', { box: { width: 5, height: 6 } })).toBe(5);
-            expect(read('box { width: self.width, other: self.height }', { box: { width: 5, height: 6 } })).toEqual({ width: 5, other: 6 });
+            expect(read('box { width = self.width, other = self.height }', { box: { width: 5, height: 6 } })).toEqual({ width: 5, other: 6 });
         });
     });
 
@@ -711,7 +711,7 @@ describe('QueryEvaluator evaluation', () => {
 
         it('are recorded beside the identities of the place in the result each conditional gave', () => {
             expect(consequents(evaluate('if on then 1 else 2', { on: true }).identities)).toEqual([true]);
-            expect(consequents(evaluate('panel { width: if on then panel.size?.width else 0 }', { panel, on: false }).identities.fields.width)).toEqual([false]);
+            expect(consequents(evaluate('panel { width = if on then panel.size?.width else 0 }', { panel, on: false }).identities.fields.width)).toEqual([false]);
         });
 
         it('are recorded for the operand an and or an or gave', () => {
@@ -731,17 +731,17 @@ describe('QueryEvaluator evaluation', () => {
         it('are recorded for each item, which can select a different branch', () => {
             rows[1].setAttribute('data-on', '');
 
-            const { items } = evaluate('panel.children { pick: if (self:attribute["data-on"]) == null then 2 else 1 }', { panel }).identities;
+            const { items } = evaluate('panel.children { pick = if (self:attribute["data-on"]) == null then 2 else 1 }', { panel }).identities;
 
             expect(items.map(item => consequents(item.fields.pick))).toEqual([[true], [false], [true]]);
         });
 
         it('leave the identities of a result no conditional gave as they were', () => {
-            expect(evaluate('panel { width: panel.size?.width }', { panel }).identities).toBeNull();
+            expect(evaluate('panel { width = panel.size?.width }', { panel }).identities).toBeNull();
         });
 
         it('are recorded at every place a local is used, which its conditionals gave', () => {
-            const { fields } = evaluate('panel { let w: if on then 1 else 2, a: w, b: w }', { panel, on: true }).identities;
+            const { fields } = evaluate('panel { let w = if on then 1 else 2, a = w, b = w }', { panel, on: true }).identities;
 
             expect(consequents(fields.a)).toEqual([true]);
             expect(consequents(fields.b)).toEqual([true]);
@@ -770,7 +770,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('stand where each member is written, inside the items of a list and the operands of an or', () => {
-            const evaluation = evaluate('panel.all("i") { h: self.rect?.height, on: self.attached or self.has("focus") }', { panel });
+            const evaluation = evaluate('panel.all("i") { h = self.rect?.height, on = self.attached or self.has("focus") }', { panel });
 
             expect(evaluation.dependencies.map(dependency => [dependency.member, dependency.pointer])).toEqual([
                 ['all', '/query/target'],
@@ -788,7 +788,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('include those of an argument that is a value of its own', () => {
-            const evaluation = evaluate('row.overlaps({ other: panel.parent as "element" })', { row: rows[0], panel });
+            const evaluation = evaluate('row.overlaps({ other = panel.parent as "element" })', { row: rows[0], panel });
             const overlaps = evaluation.dependencies.find(dependency => dependency.member === 'overlaps');
 
             expect(membersOf(evaluation)).toContain('parent');
@@ -819,7 +819,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('include only those of the locals evaluation used', () => {
-            expect(membersOf(evaluate('panel { let s: self.size, let c: self.clientSize, a: s, b: s }', { panel }))).toEqual(['size']);
+            expect(membersOf(evaluate('panel { let s = self.size, let c = self.clientSize, a = s, b = s }', { panel }))).toEqual(['size']);
         });
 
         it('include only those of the branch a conditional evaluated', () => {
@@ -836,7 +836,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are kept with the failure of an evaluation that recorded them before it failed', () => {
-            const evaluation = evaluate('{ id: panel:attribute["id"], boom: panel.boom }', { panel }, [propertyModule('boom', () => { throw new Error('no'); })]);
+            const evaluation = evaluate('{ id = panel:attribute["id"], boom = panel.boom }', { panel }, [propertyModule('boom', () => { throw new Error('no'); })]);
 
             expect(evaluation.error).toBeInstanceOf(DomqlError);
             expect(evaluation.error.message).toContain("The member 'boom' failed");
@@ -867,7 +867,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are all held for a pending answer, which waits on any of them changing', () => {
-            const evaluation = evaluate('{ id: panel:attribute["id"], level: panel.level }', { panel }, [waitingModule()]);
+            const evaluation = evaluate('{ id = panel:attribute["id"], level = panel.level }', { panel }, [waitingModule()]);
 
             expect(evaluation.isPending).toBe(true);
             expect(evaluation.value).toEqual({ id: 'panel', level: null });
@@ -914,7 +914,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are held once for every call that observes the same, so a change calls the evaluation back once', async () => {
-            const evaluation = evaluate('panel.children { on: self.matches("[data-on]") }', { panel }, [], true);
+            const evaluation = evaluate('panel.children { on = self.matches("[data-on]") }', { panel }, [], true);
             const requests = evaluation.dependencies.flatMap(dependency => dependency.observations);
 
             expect(evaluation.dependencies.length).toBe(4);
@@ -928,7 +928,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are held once for every call that observes the same while a pending answer waits', async () => {
-            const evaluation = evaluate('panel.children { on: self.matches("[data-on]"), level: self.level }', { panel }, [waitingModule()]);
+            const evaluation = evaluate('panel.children { on = self.matches("[data-on]"), level = self.level }', { panel }, [waitingModule()]);
 
             expect(evaluation.isPending).toBe(true);
 
@@ -991,7 +991,7 @@ describe('QueryEvaluator evaluation', () => {
         };
 
         it('are taken over by every evaluation in turn, each from the one it replaces, so a run of them acquires nothing after the first', () => {
-            const run = evaluationsOf('panel.children { p: self.probe(), w: self.rect?.width }', { panel }, [probeModule()]);
+            const run = evaluationsOf('panel.children { p = self.probe(), w = self.rect?.width }', { panel }, [probeModule()]);
             let last = run.evaluate([]);
             const acquired = run.acquired();
 
@@ -1007,7 +1007,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are taken over where the evaluation observes the same again, so nothing is acquired or stopped', () => {
-            const run = evaluationsOf('panel.children { p: self.probe() }', { panel }, [probeModule()]);
+            const run = evaluationsOf('panel.children { p = self.probe() }', { panel }, [probeModule()]);
             const first = run.evaluate([]);
             const acquired = run.acquired();
             const second = run.evaluate([first]);
@@ -1025,7 +1025,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are taken from every evaluation replaced, so one only an earlier of them still holds is not started again', () => {
-            const run = evaluationsOf('panel.children { p: self.probe() }', { panel }, [probeModule()]);
+            const run = evaluationsOf('panel.children { p = self.probe() }', { panel }, [probeModule()]);
             const first = run.evaluate([]);
             const last = rows[2];
 
@@ -1068,7 +1068,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are held once, and taken over once, where the evaluation observes the same twice', () => {
-            const run = evaluationsOf('items { p: self.probe() }', { items: [rows[0], rows[0]] }, [probeModule()]);
+            const run = evaluationsOf('items { p = self.probe() }', { items: [rows[0], rows[0]] }, [probeModule()]);
             const first = run.evaluate([]);
 
             expect(run.acquired()).toBe(1);
@@ -1178,7 +1178,7 @@ describe('QueryEvaluator projection', () => {
 
     describe('the source', () => {
         it('resolves into what starts it: the function, and the receiver and arguments evaluated now', () => {
-            const source = evaluatorOf('panel.ticks("tick") { at: self.at }', { panel }, [ticks('tick')]).resolveSource();
+            const source = evaluatorOf('panel.ticks("tick") { at = self.at }', { panel }, [ticks('tick')]).resolveSource();
 
             expect(source).toMatchObject({ name: 'ticks', receiver: panel, args: { type: 'tick' }, environment: { window, document } });
             expect(typeof source.start).toBe('function');
@@ -1186,7 +1186,7 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('is null where its receiver is, since there is nothing to listen to', () => {
-            expect(evaluatorOf('panel.first(".none")?.ticks("tick") { at: self.at }', { panel }, [ticks('tick')]).resolveSource()).toBeNull();
+            expect(evaluatorOf('panel.first(".none")?.ticks("tick") { at = self.at }', { panel }, [ticks('tick')]).resolveSource()).toBeNull();
         });
 
         it('is refused for a request that is not a subscription', () => {
@@ -1194,7 +1194,7 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('captures an event as the fields its type declares, a nullable one it does not carry as null', () => {
-            const { capture } = evaluatorOf('panel.ticks("tick") { at: self.at, label: self.label }', { panel }, [ticks('tick')]).resolveSource();
+            const { capture } = evaluatorOf('panel.ticks("tick") { at = self.at, label = self.label }', { panel }, [ticks('tick')]).resolveSource();
 
             expect(capture({ at: 1, label: 'first', extra: true })).toEqual({ at: 1, label: 'first' });
             expect(capture({ at: 1 })).toEqual({ at: 1, label: null });
@@ -1202,7 +1202,7 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('fails a capture where the event carries no value a field that is not nullable admits', () => {
-            const { capture } = evaluatorOf('panel.ticks("tick") { at: self.at }', { panel }, [ticks('tick')]).resolveSource();
+            const { capture } = evaluatorOf('panel.ticks("tick") { at = self.at }', { panel }, [ticks('tick')]).resolveSource();
 
             expect(failureOf(() => capture({ at: 'soon' }))).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The source 'ticks' delivered an event whose 'at' is \"soon\", and its type declares number") });
             expect(failureOf(() => capture(null))).toMatchObject({ kind: 'evaluation' });
@@ -1216,7 +1216,7 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('captures a native event with its target, and null for a target that is no element', () => {
-            const { capture } = evaluatorOf('document.on("scroll") { id: self.target?:attribute["id"] }').resolveSource();
+            const { capture } = evaluatorOf('document.on("scroll") { id = self.target?:attribute["id"] }').resolveSource();
 
             expect(capture(new window.Event('scroll'))).toEqual({ target: null });
             expect(capture({ target: panel })).toEqual({ target: panel });
@@ -1226,7 +1226,7 @@ describe('QueryEvaluator projection', () => {
 
     describe('an event', () => {
         it('is projected through the object expression that follows its source, as detached, immutable data', () => {
-            const evaluator = evaluatorOf('panel.ticks("tick") { at: self.at, label: self.label, count: panel.children.count }', { panel }, [ticks('tick')]);
+            const evaluator = evaluatorOf('panel.ticks("tick") { at = self.at, label = self.label, count = panel.children.count }', { panel }, [ticks('tick')]);
             const projection = projectionOf(evaluator, { at: 3, label: 'third' });
 
             expect(projection.error).toBeNull();
@@ -1235,14 +1235,14 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('reads what it captured, and the document as it is', () => {
-            const evaluator = evaluatorOf('document.on("scroll") { id: self.target?:attribute["id"] }');
+            const evaluator = evaluatorOf('document.on("scroll") { id = self.target?:attribute["id"] }');
 
             expect(projectionOf(evaluator, { target: panel }).value).toEqual({ id: 'panel' });
             expect(projectionOf(evaluator, { target: document }).value).toEqual({ id: null });
         });
 
         it('fails its projection where a member fails, without throwing', () => {
-            const evaluator = evaluatorOf('panel.ticks("tick") { match: panel.matches("[") }', { panel }, [ticks('tick')]);
+            const evaluator = evaluatorOf('panel.ticks("tick") { match = panel.matches("[") }', { panel }, [ticks('tick')]);
             const projection = projectionOf(evaluator, { at: 1 });
 
             expect(projection.value).toBeUndefined();
@@ -1250,7 +1250,7 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('stands for its source, which the projection never starts or reads', () => {
-            const evaluator = evaluatorOf('panel.ticks("tick") { at: self.at }', { panel }, [ticks('tick')]);
+            const evaluator = evaluatorOf('panel.ticks("tick") { at = self.at }', { panel }, [ticks('tick')]);
 
             projectionOf(evaluator, { at: 1 });
             projectionOf(evaluator, { at: 2 });

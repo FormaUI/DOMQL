@@ -61,7 +61,7 @@ describe('Geometry in a browser', () => {
         it('follow a transform', () => {
             const box = add('position: absolute; left: 0; top: 0; width: 100px; height: 50px; transform: translate(15px, 25px)');
 
-            expect(read('box.rect { left: self.left, top: self.top, width: self.width, height: self.height }', { box })).toEqual({ left: 15, top: 25, width: 100, height: 50 });
+            expect(read('box.rect { left = self.left, top = self.top, width = self.width, height = self.height }', { box })).toEqual({ left: 15, top: 25, width: 100, height: 50 });
         });
 
         it('are the browser\'s bounding box for an element split across lines, whether or not its lines have an area', () => {
@@ -95,10 +95,10 @@ describe('Geometry in a browser', () => {
             const touching = add('position: absolute; left: 100px; top: 0; width: 50px; height: 50px');
             const across = add('position: absolute; left: 90px; top: 90px; width: 50px; height: 50px');
 
-            expect(read('first.overlaps({ other: other })', { first, other: apart })).toBe(false);
-            expect(read('first.overlaps({ other: other, margin: 20 })', { first, other: apart })).toBe(true);
-            expect(read('first.overlaps({ other: other })', { first, other: touching })).toBe(false);
-            expect(read('first.overlaps({ other: other })', { first, other: across })).toBe(true);
+            expect(read('first.overlaps({ other = other })', { first, other: apart })).toBe(false);
+            expect(read('first.overlaps({ other = other, margin = 20 })', { first, other: apart })).toBe(true);
+            expect(read('first.overlaps({ other = other })', { first, other: touching })).toBe(false);
+            expect(read('first.overlaps({ other = other })', { first, other: across })).toBe(true);
         });
     });
 
@@ -138,7 +138,7 @@ describe('Geometry in a browser', () => {
             const box = add('width: 10px; height: 10px');
             const none = add('display: none');
 
-            expect(read('box.overlaps({ other: other })', { box, other: none })).toBeNull();
+            expect(read('box.overlaps({ other = other })', { box, other: none })).toBeNull();
         });
     });
 
@@ -201,7 +201,7 @@ describe('Geometry in a browser', () => {
             input.focus();
             input.setSelectionRange(2, 7);
 
-            expect(read('input.selection { start: self.start, end: self.end }', { input })).toEqual({ start: 2, end: 7 });
+            expect(read('input.selection { start = self.start, end = self.end }', { input })).toEqual({ start: 2, end: 7 });
             expect(read('input.hasSelection', { input })).toBe(true);
             expect(read('input:attribute["value"]', { input })).toBeNull();
         });

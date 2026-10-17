@@ -90,10 +90,10 @@ const panel = document.getElementById('panel');
 
 const query = domql.query(`
     panel {
-        count: self.children.count,
-        items: self.all("[data-key]") {
-            key: self:["data-key"],
-            selected: self.aria:["selected"] == "true"
+        count = self.children.count,
+        items = self.all("[data-key]") {
+            key = self:["data-key"],
+            selected = self.aria:["selected"] == "true"
         }
     }
 `, { panel });
@@ -181,7 +181,7 @@ Keep a toolbar in step with the panel's selection, whichever code selects an ite
 const selection = domql.query(`
     panel.children
         .where(self.aria:["selected"] == "true") {
-            key: self:["data-key"]
+            key = self:["data-key"]
         }
 `, { panel }).watch();
 
@@ -248,8 +248,8 @@ list.innerHTML = '<li data-key="b1">Apples</li><li data-key="b2">Pears</li>';
 
 const live = domql.query(`
     list.children {
-        key: self:["data-key"],
-        selected: self.aria:["selected"] == "true"
+        key = self:["data-key"],
+        selected = self.aria:["selected"] == "true"
     }
 `, { list }).watch({ updateStrategy: 'liveState' });
 
@@ -291,11 +291,11 @@ An event subscription turns each event into a record of what happened and the st
 ```js
 const activations = domql.query(`
     panel.on("click") {
-        let item: self.target?.closest("[data-key]"),
+        let item = self.target?.closest("[data-key]"),
 
-        key: item?:["data-key"],
-        wasSelected: item?.aria:["selected"] == "true",
-        selectedCount: panel.all("[aria-selected=true]").count
+        key = item?:["data-key"],
+        wasSelected = item?.aria:["selected"] == "true",
+        selectedCount = panel.all("[aria-selected=true]").count
     }
 `, { panel }).subscribe((sender, args) => {
     if (args.status === 'failed') {
@@ -361,7 +361,7 @@ All DOMQL names are case-sensitive and use names such as `clientSize`, `rectRela
 Calls take one argument. When a member takes options, pass an object whose fields supply its parameters. This query checks for an intersection with a margin around the panel and needs `evaluateAsync()`:
 
 ```domql
-sentinel.intersects({ root: panel, margin: 200 })
+sentinel.intersects({ root = panel, margin = 200 })
 ```
 
 A call whose receiver can be null is written with `?.`, which skips the call, its argument included, and answers null where the receiver is null. This asks whether the nearest group is open, and is false where there is none:
@@ -379,9 +379,9 @@ An object expression gives each result field a name:
 ```js
 domql.query(`
     panel {
-        count: self.children.count,
-        attached: self.attached,
-        hasChildren: self.hasChildren
+        count = self.children.count,
+        attached = self.attached,
+        hasChildren = self.hasChildren
     }
 `, { panel }).evaluate();
 // { count: 3, attached: true, hasChildren: true }
@@ -398,8 +398,8 @@ An object expression after a list runs for each item, with `self` referring to t
 ```js
 domql.query(`
     panel.all("[data-key]") {
-        key: self:["data-key"],
-        selected: self.aria:["selected"] == "true"
+        key = self:["data-key"],
+        selected = self.aria:["selected"] == "true"
     }
 `, { panel }).evaluate();
 // [
@@ -443,10 +443,10 @@ Declare a local with `let` before the output fields, then refer to it by name:
 ```js
 domql.query(`
     panel {
-        let items: self.all("[data-key]"),
+        let items = self.all("[data-key]"),
 
-        count: items.count,
-        tallest: items.max(self.rect?.height)
+        count = items.count,
+        tallest = items.max(self.rect?.height)
     }
 `, { panel }).evaluate();
 // { count: 3, tallest: 64 }
@@ -497,7 +497,7 @@ Null does not hide an invalid query. An unknown member or incompatible argument 
 An element's state that the user or the browser changes, such as whether it is checked, disabled or focused, is a condition. Test it with `.is`, which follows the browser's own rules, and the matching ARIA state with `.aria.is`:
 
 ```domql
-control { checked: self.is("checked"), ariaChecked: self.aria.is("checked") }
+control { checked = self.is("checked"), ariaChecked = self.aria.is("checked") }
 ```
 
 Ask a possession with `.has`, as `self.has("focus")`, and a capability with `.supports`, as `window.supports("share")`. `.is("checked")` is true for a checked checkbox or radio button, or a selected option, as `:checked` matches. `.aria.is("checked")` is true only where `aria-checked` is `"true"`; read `self.aria:["checked"]`, the attribute's own text as `self:["aria-checked"]` reads it, or null where it is absent, to tell `"mixed"` from `"false"`. The two never stand in for each other, so write `self.is("checked") or self.aria.is("checked")` where either counts. Elements are asked `is("disabled")`, `is("readonly")`, `is("text-editable")`, `is("hover")`, `is("popover-open")`, `is("checked")`, `has("focus")` and `has("focus-within")`; the document `is("visible")` and `has("focus")`; and the window `supports("share")` and `supports("clipboard")`.
@@ -522,7 +522,7 @@ Only `null` and `false` are falsey; every other value is truthy, including `0`, 
 
 ```domql
 panel:["data-label"] or "untitled"
-panel { let input: self.first("input"), width: input and input.rect?.width }
+panel { let input = self.first("input"), width = input and input.rect?.width }
 ```
 
 In the second line, `input.rect` reads the input with a plain `.`, because the right side of `and` runs only when `input` is truthy. DOMQL narrows locals, `if let` names, parameters and `self` this way, but not members, which are read again wherever they are written.
@@ -539,7 +539,7 @@ Use `if`, `then` and `else` to choose between values. Add `elseif` for another c
 
 ```domql
 input {
-    state: if self.is("disabled") then "locked"
+    state = if self.is("disabled") then "locked"
            elseif self.is("readonly") then "read"
            else "open"
 }
@@ -550,12 +550,12 @@ Conditions are tested in order, and only the selected branch is evaluated; the o
 Use `if let` to name a value and choose by whether it is truthy. The name is available in the `then` branch alone, where it cannot be null:
 
 ```domql
-if let row: cell.closest(".row")
-then { key: row:["data-key"], top: row.rect?.top }
+if let row = cell.closest(".row")
+then { key = row:["data-key"], top = row.rect?.top }
 else null
 ```
 
-`if let` tests truthiness as `if` does, so `0`, empty text and an empty list take the `then` branch, and `false` takes `else`. It pairs with `try`: `if let count: try panel:["data-count"] to "number" then … else …` converts once and uses the number in its branch.
+`if let` tests truthiness as `if` does, so `0`, empty text and an empty list take the `then` branch, and `false` takes `else`. It pairs with `try`: `if let count = try panel:["data-count"] to "number" then … else …` converts once and uses the number in its branch.
 
 ### Cast a node
 
@@ -585,7 +585,7 @@ domql.query(
 To handle text that does not convert yourself, attempt the conversion with `try`, which answers null where the conversion rejects the value:
 
 ```domql
-panel { count: try self:["data-count"] to "number" ?? 0 }
+panel { count = try self:["data-count"] to "number" ?? 0 }
 ```
 
 A missing attribute and malformed text both give null, so `?? 0` supplies zero, and valid text converts to its number. A fault in a conversion, such as one that throws, is still an error.
@@ -594,10 +594,10 @@ A conversion never answers null for text it accepts, so where text is present, a
 
 ```domql
 panel {
-    let count: self:["data-count"],
-    count: if let n: try count to "number" then { status: "valid", value: n }
-    elseif count == null then { status: "missing", value: null }
-    else { status: "malformed", value: null }
+    let count = self:["data-count"],
+    count = if let n = try count to "number" then { status = "valid", value = n }
+    elseif count == null then { status = "missing", value = null }
+    else { status = "malformed", value = null }
 }
 ```
 
@@ -638,8 +638,8 @@ Bindings can contain DOM elements or supported data. Bind a target as null when 
 ```js
 const optional = domql.query(`
     {
-        panel: panel { size: self.size },
-        ids: ids
+        panel = panel { size = self.size },
+        ids = ids
     }
 `, { panel: null, ids: [] });
 
@@ -649,7 +649,7 @@ optional.evaluate();
 
 A binding's type comes from its value. Null bindings and empty lists can leave a type unknown; applicable property checks are deferred until the type is known, while calls are still checked against the vocabulary. Use optional access when reading a member from a nullable binding.
 
-Keep independent results in a top-level object, as above. If you instead write `panel { size: self.size, ids: ids }`, the entire result is null while `panel` is null.
+Keep independent results in a top-level object, as above. If you instead write `panel { size = self.size, ids = ids }`, the entire result is null while `panel` is null.
 
 ## API and errors
 
@@ -759,7 +759,7 @@ const metricsModule = domql.createModule('metrics', {
 
 domql.registerModule(metricsModule);
 
-domql.query('panel.metrics { childCount: self.childCount }', { panel }).evaluate();
+domql.query('panel.metrics { childCount = self.childCount }', { panel }).evaluate();
 // { childCount: 3 }
 ```
 

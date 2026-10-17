@@ -9,11 +9,11 @@ import { Names } from './Names.mjs';
  * The types a token is, which tooling reads as they are: `invalid` for text that is no token, and `end` for the end of the text, after its last trivia.
  * A contract within DOMQL until a public tooling API stabilizes it.
  */
-export const TOKEN_TYPES = Object.freeze(['name', 'literal', 'keyword', 'self', 'invalid', 'end', '.', '?.', '?[', '?:', '??', '(?', '==', '!=', ',', ':', '(', ')', '{', '}', '[', ']']);
+export const TOKEN_TYPES = Object.freeze(['name', 'literal', 'keyword', 'self', 'invalid', 'end', '.', '?.', '?[', '?:', '??', '(?', '==', '!=', '=', ',', ':', '(', ')', '{', '}', '[', ']']);
 
 /**
  * @typedef {object} Token
- * @property {'name' | 'literal' | 'keyword' | 'self' | 'invalid' | 'end' | '.' | '?.' | '?[' | '?:' | '??' | '(?' | '==' | '!=' | ',' | ':' | '(' | ')' | '{' | '}' | '[' | ']'} type
+ * @property {'name' | 'literal' | 'keyword' | 'self' | 'invalid' | 'end' | '.' | '?.' | '?[' | '?:' | '??' | '(?' | '==' | '!=' | '=' | ',' | ':' | '(' | ')' | '{' | '}' | '[' | ']'} type
  * @property {unknown} [value] A name's or a keyword's text, or a literal's value.
  * @property {number} start
  * @property {number} end
@@ -145,9 +145,16 @@ export class Tokenizer {
             return { type: Names.isKeyword(name) ? 'keyword' : 'name', value: name, start, end: this.#offset };
         }
 
-        // A single `=` or `!` is no operator; an equality is written `==` or `!=`, and a negation `not`.
-        if (character === '=' || character === '!') {
-            return this.#invalid(start, start + 1, `Unexpected '${character}': an equality is written '==' or '!=', and a negation 'not'`, start);
+        // A single `=` gives a field, a local or a binding its value, which the parser reads where one stands.
+        if (character === '=') {
+            this.#offset++;
+
+            return { type: '=', start, end: this.#offset };
+        }
+
+        // A single `!` is no operator; an inequality is written `!=`, and a negation `not`.
+        if (character === '!') {
+            return this.#invalid(start, start + 1, "Unexpected '!': an inequality is written '!=', and a negation 'not'", start);
         }
 
         return this.#invalid(start, start + 1, `Unexpected '${character}'`, start);

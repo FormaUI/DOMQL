@@ -7,8 +7,8 @@ const controller = new AbortController();
 const signal = controller.signal;
 
 // A query object is made from text or a definition, and bound again by `with`.
-const query: DomqlQuery<{ count: number }> = domql.query<{ count: number }>('panel { count: self.children.count }', { panel });
-const optional = domql.query('panel { size: self.size }', { panel: null, ids: [] });
+const query: DomqlQuery<{ count: number }> = domql.query<{ count: number }>('panel { count = self.children.count }', { panel });
+const optional = domql.query('panel { size = self.size }', { panel: null, ids: [] });
 const definition: DomqlDefinition = query.definition;
 const created: DomqlQuery<{ count: number }> = domql.query<{ count: number }>(definition, { panel });
 const rebound: DomqlQuery<{ count: number }> = query.with({ panel: document.body });
@@ -39,7 +39,7 @@ const selection: DomqlSelection<number> = query.select<number>('count');
 const selected: number = selection.evaluate({ window });
 const selectedAsync: Promise<number> = selection.evaluateAsync(evaluating);
 const selectedWatch: DomqlWatch<number> = selection.watch({ schedule: 'immediate' });
-const key: DomqlSelection<string> = domql.query('panel.children { key: self:attribute["data-key"] }', { panel }).select('items').select<string>(0, 'key');
+const key: DomqlSelection<string> = domql.query('panel.children { key = self:attribute["data-key"] }', { panel }).select('items').select<string>(0, 'key');
 
 // @ts-expect-error A path item is a field's name or a list index.
 query.select(true);
@@ -109,7 +109,7 @@ query.watch({ updateStrategy: 'changeSet' });
 query.watch({ onChange: () => {} });
 
 // Live state is one object the watch keeps current, which the caller reads and never writes.
-const living: DomqlLiveStateWatch<{ rows: { key: string }[] }> = domql.query<{ rows: { key: string }[] }>('{ rows: panel.children { key: self:attribute["data-key"] } }', { panel }).watch({
+const living: DomqlLiveStateWatch<{ rows: { key: string }[] }> = domql.query<{ rows: { key: string }[] }>('{ rows = panel.children { key = self:attribute["data-key"] } }', { panel }).watch({
     updateStrategy: 'liveState',
     signal,
 });
@@ -149,13 +149,13 @@ const watchedAgain: DomqlWatch<{ count: number }> = query.watch(watching);
 const keptAgain: DomqlLiveStateWatch<{ count: number }> = query.watch(keeping);
 
 // A subscription's handler receives the event listener and each event's result, or the failure that produced none.
-const clicks: DomqlEventListener = domql.query<{ x: number }>('panel.on("click") { x: self.clientX }', { panel }).subscribe((sender, args) => {
+const clicks: DomqlEventListener = domql.query<{ x: number }>('panel.on("click") { x = self.clientX }', { panel }).subscribe((sender, args) => {
     const listener: DomqlEventListener = sender;
 
     return args.status === 'ready' ? [listener, args.value.x] : args.error;
 }, { window, signal });
 const operating: DomqlOperationOptions = { window, signal };
-const keys: DomqlEventListener = domql.query<{ key: string }>('panel.on("keydown") { key: self.key }', { panel }).subscribe((sender, args) => args.status, operating);
+const keys: DomqlEventListener = domql.query<{ key: string }>('panel.on("keydown") { key = self.key }', { panel }).subscribe((sender, args) => args.status, operating);
 const clicking: 'ready' | 'disposed' = clicks.status;
 
 keys.dispose();

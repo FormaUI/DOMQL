@@ -15,13 +15,13 @@ describe('SyntaxTree', () => {
     it.each([
         'panel',
         '  panel.size  ',
-        '// A panel.\npanel { /* its\nfirst item */ open: self.first(".item") /* inline */.matches(/**/".open") // whether it is open\n}\n',
-        'panel {\n    let rows: self.all("tr"),\n\n    count: rows.count,\n    first: rows:[0]?:["data-key"]\n}',
-        'if let n: a to "number" then n elseif b then 1 else (?panel.parent.rect).width',
+        '// A panel.\npanel { /* its\nfirst item */ open = self.first(".item") /* inline */.matches(/**/".open") // whether it is open\n}\n',
+        'panel {\n    let rows = self.all("tr"),\n\n    count = rows.count,\n    first = rows:[0]?:["data-key"]\n}',
+        'if let n = a to "number" then n elseif b then 1 else (?panel.parent.rect).width',
         '\t(a ?? b)\tas "element"',
         '(?(panel.parent as "element").rect.width) == null and not x != y or (try v to"number" ?? 0)',
         'a/* the value */to/* its type */"number"',
-        '{ say: "say \\"hi\\" \\\\ // not a comment" }',
+        '{ say = "say \\"hi\\" \\\\ // not a comment" }',
         'list:item[i]?.size // trailing comment with no line feed',
     ])('reconstructs its text exactly, whitespace and comments included: %j', text => {
         expect(SyntaxTree.textOf(treeOf(text))).toBe(text);
@@ -52,9 +52,9 @@ describe('SyntaxTree', () => {
     it('names each node after the grammar rule that produces it, a rule that passes an operand on giving none', () => {
         expect(kindsOf(treeOf('panel'))).toEqual(['query']);
         expect(kindsOf(treeOf('a == b and c'))).toEqual(['query', 'conjunction', 'equality']);
-        expect(kindsOf(treeOf('panel.closest(".row")?.rect { top: self.top }'))).toEqual(['query', 'chain', 'member-access-expression', 'call-expression', 'member-access-expression', 'object', 'field', 'chain', 'member-access-expression']);
+        expect(kindsOf(treeOf('panel.closest(".row")?.rect { top = self.top }'))).toEqual(['query', 'chain', 'member-access-expression', 'call-expression', 'member-access-expression', 'object', 'field', 'chain', 'member-access-expression']);
         expect(kindsOf(treeOf('(?a.b) ?? (c as "node")'))).toEqual(['query', 'coalescing-operator', 'optional-access-group', 'member-access-chain', 'member-access-expression', 'expression-group', 'cast']);
-        expect(kindsOf(treeOf('if let v: a then v else 0'))).toEqual(['query', 'conditional-expression', 'conditional-binding']);
+        expect(kindsOf(treeOf('if let v = a then v else 0'))).toEqual(['query', 'conditional-expression', 'conditional-binding']);
     });
 
     it('starts and ends a node at its first and last tokens, its trivia left out', () => {
@@ -66,10 +66,10 @@ describe('SyntaxTree', () => {
 
     it('publishes every node kind the parser builds and every token type the tokenizer reads', () => {
         const texts = [
-            'if let v: a then v elseif not b then 1 else 2',
+            'if let v = a then v elseif not b then 1 else 2',
             'a == b and c != d or (try e to "number" ?? 0)',
-            '(?(panel.parent as "element").rect.width) ?? panel.closest(".row")?.rect { top: self.top }',
-            'panel { let rows: self.all("i"), first: rows:[0]?:["data-key"], name: self[name], open: self.matches(".x") }',
+            '(?(panel.parent as "element").rect.width) ?? panel.closest(".row")?.rect { top = self.top }',
+            'panel { let rows = self.all("i"), first = rows:[0]?:["data-key"], name = self[name], open = self.matches(".x") }',
         ];
         const kinds = new Set(texts.flatMap(text => kindsOf(treeOf(text))));
         const types = new Set(texts.flatMap(text => Tokenizer.scan(text).map(token => token.type)).concat(Tokenizer.scan('a = 1').map(token => token.type)));
@@ -81,7 +81,7 @@ describe('SyntaxTree', () => {
 
     it.each([
         ['an unexpected character', 'a # b', '#', "Unexpected '#'"],
-        ['a single equals sign', 'a = 1', '=', "Unexpected '='"],
+        ['a single exclamation mark', 'a ! 1', '!', "Unexpected '!': an inequality is written '!='"],
         ['a string never closed', 'a:["key', '"key', 'A string is never closed'],
         ['an escape no escape is for', '"a\\nb" == x', '"a\\nb"', 'A string escapes only'],
         ['a block comment never closed', 'a /* open', '/* open', 'A block comment is never closed'],
@@ -100,7 +100,7 @@ describe('SyntaxTree', () => {
     });
 
     it('keeps the text a query was made from beside its definition, from which its tree is read again, and none for a query made from a definition', () => {
-        const text = 'panel {\n    // its size\n    size: self.size\n}';
+        const text = 'panel {\n    // its size\n    size = self.size\n}';
         const query = domql.query(text);
 
         expect(SyntaxTree.textOf(treeOf(ParsedTexts.textOf(query.definition)))).toBe(text);
@@ -108,7 +108,7 @@ describe('SyntaxTree', () => {
     });
 
     it('lowers into the definition a query of the text holds, which keeps nothing of the tree', () => {
-        const text = 'panel { let rows: self.all("i"), first: rows:[0]?:["data-key"] }';
+        const text = 'panel { let rows = self.all("i"), first = rows:[0]?:["data-key"] }';
         const { definition } = Lowering.lower(treeOf(text));
 
         expect(definition).toEqual(domql.query(text).definition);

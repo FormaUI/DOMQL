@@ -75,7 +75,7 @@ describe('Nodes in a browser', () => {
             const ancestor = element('<section id="ancestor"><i></i></section>');
             const item = ancestor.firstElementChild;
 
-            await watch('{ parent: (item.parent as "element")?:attribute["id"], host: (try item.root as "shadowRoot")?.host?:attribute["id"] }', { item });
+            await watch('{ parent = (item.parent as "element")?:attribute["id"], host = (try item.root as "shadowRoot")?.host?:attribute["id"] }', { item });
 
             expect(snapshots).toEqual([{ parent: 'ancestor', host: null }]);
             expect(await after(() => root.append(ancestor))).toEqual({ parent: 'ancestor', host: 'host' });
@@ -86,7 +86,7 @@ describe('Nodes in a browser', () => {
             const parent = element('<div id="parent"></div>');
             const item = element('<i></i>', null);
 
-            await watch('{ parent: (item.parent as "element")?:attribute["id"], inDocument: (try item.root as "document") == null }', { item });
+            await watch('{ parent = (item.parent as "element")?:attribute["id"], inDocument = (try item.root as "document") == null }', { item });
 
             expect(snapshots).toEqual([{ parent: null, inDocument: true }]);
             expect(await after(() => parent.append(item))).toEqual({ parent: 'parent', inDocument: false });
@@ -103,7 +103,7 @@ describe('Nodes in a browser', () => {
             // Out of the template's content, the element is the top of a detached tree that another document owns.
             item.remove();
 
-            await watch('{ parent: (item.parent as "element")?:attribute["id"], inDocument: (try item.root as "document") == null }', { item });
+            await watch('{ parent = (item.parent as "element")?:attribute["id"], inDocument = (try item.root as "document") == null }', { item });
 
             expect(snapshots).toEqual([{ parent: null, inDocument: true }]);
             expect(await after(() => parent.append(item))).toEqual({ parent: 'parent', inDocument: false });
@@ -166,7 +166,7 @@ describe('Nodes in a browser', () => {
             open.attachShadow({ mode: 'open' }).innerHTML = '<p></p>';
             closed.attachShadow({ mode: 'closed' }).innerHTML = '<p></p>';
 
-            await watch('{ open: open.shadow.root?.children.count, closed: closed.shadow.root?.children.count, none: none.shadow.root?.children.count }', { open, closed, none });
+            await watch('{ open = open.shadow.root?.children.count, closed = closed.shadow.root?.children.count, none = none.shadow.root?.children.count }', { open, closed, none });
 
             expect(snapshots).toEqual([{ open: 1, closed: null, none: null }]);
         });
@@ -205,7 +205,7 @@ describe('Nodes in a browser', () => {
     });
 
     describe('shadow.elements', () => {
-        const ids = 'slot.shadow.elements { id: self:attribute["id"] }';
+        const ids = 'slot.shadow.elements { id = self:attribute["id"] }';
 
         /** A host whose open shadow root holds the markup, with the light children given. */
         const host = (markup, light = '') => {
@@ -258,7 +258,7 @@ describe('Nodes in a browser', () => {
             const slot = element('<slot><b id="fallback"></b></slot>');
             const other = element('<div><b></b></div>');
 
-            await watch('{ slot: slot.shadow.elements?.count, other: other.shadow.elements?.count }', { slot, other });
+            await watch('{ slot = slot.shadow.elements?.count, other = other.shadow.elements?.count }', { slot, other });
 
             expect(snapshots).toEqual([{ slot: 0, other: null }]);
         });
