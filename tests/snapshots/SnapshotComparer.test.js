@@ -20,6 +20,30 @@ const resolvedOf = (text, bindings, tolerance) => {
     return new LanguageResolver(registry, DomqlQuery.bindingsOf(query), null, {}).resolveDefinition(query.definition);
 };
 
+/** A module of a meter, whose default indexer reads a level by its key, and one of a reading, an indexer of an element, each answering a number within a tolerance of 2. */
+const indexerModules = () => {
+    const key = [{ name: 'key', kind: 'value', type: 'string', required: true, nulls: 'propagate' }];
+    const level = { function: 'level', kind: 'operation', form: 'indexer', parameters: key, result: 'number', changes: 'constant', reads: 'fresh', tolerance: 2 };
+
+    return [
+        new DomqlModule('meter', {
+            types: [{ name: 'meter', fields: { name: 'string' } }],
+            members: [
+                { name: 'meter', function: 'meter', kind: 'property', on: 'element', parameters: [], result: 'meter', changes: 'constant', reads: 'fresh' },
+                { ...level, name: 'level', on: 'meter', default: true },
+            ],
+        }, null),
+        new DomqlModule('reading', { members: [{ ...level, name: 'reading', function: 'reading', on: 'element' }] }, null),
+    ];
+};
+
+/** The comparer of the snapshots of a query that reads the indexer modules, which compares them as a watch does. */
+const indexerComparerOf = (text, bindings) => {
+    const query = domql.query(text, bindings);
+
+    return new SnapshotComparer(new LanguageResolver(new ModuleRegistry([Vocabulary.module, ...indexerModules()]), DomqlQuery.bindingsOf(query), null, {}).resolveDefinition(query.definition));
+};
+
 /** The comparer of the snapshots of a query, which compares them as a watch does. */
 const snapshotComparerOf = (text, bindings = {}, tolerance = {}) => new SnapshotComparer(resolvedOf(text, bindings, tolerance));
 
@@ -128,6 +152,46 @@ describe('SnapshotComparer', () => {
 
             expect(snapshotComparer.reconcile(previous, null, freeze({ w: 1001, v: 100 }), null).w).toBe(1001);
             expect(snapshotComparer.reconcile(previous, null, freeze({ w: 1000, v: 100.5 }), null).v).toBe(100.5);
+        });
+
+        it.each([
+            ['a named indexer', 'element { r = self:reading["x"] }'],
+            ['a default indexer', 'element { r = self.meter:["x"] }'],
+            ['an optional indexer', 'element { r = self?:reading["x"] }'],
+        ])('compares a number %s answered within its tolerance, as a call or a property is', (_, text) => {
+            const snapshotComparer = indexerComparerOf(text, { element });
+            const previous = freeze({ r: 100 });
+
+            expect(snapshotComparer.reconcile(previous, null, freeze({ r: 101 }), null)).toBe(previous);
+            expect(snapshotComparer.reconcile(previous, null, freeze({ r: 98 }), null)).toBe(previous);
+            expect(snapshotComparer.reconcile(previous, null, freeze({ r: 102.5 }), null).r).toBe(102.5);
+        });
+
+        it('treats a difference exactly at the tolerance as unchanged, and one beyond it as a change', () => {
+            const snapshotComparer = indexerComparerOf('element { r = self:reading["x"] }', { element });
+            const previous = freeze({ r: 100 });
+
+            expect(snapshotComparer.reconcile(previous, null, freeze({ r: 102 }), null)).toBe(previous);
+            expect(snapshotComparer.reconcile(previous, null, freeze({ r: 98 }), null)).toBe(previous);
+            expect(snapshotComparer.reconcile(previous, null, freeze({ r: 102.25 }), null).r).toBe(102.25);
+            expect(snapshotComparer.reconcile(previous, null, freeze({ r: 97.75 }), null).r).toBe(97.75);
+        });
+
+        it('measures each change from the snapshot it keeps, so small steps that add up beyond the tolerance report the value they reach', () => {
+            const snapshotComparer = indexerComparerOf('element { r = self:reading["x"] }', { element });
+            let kept = freeze({ r: 100 });
+            const reported = [];
+
+            for (const r of [100.75, 101.5, 102, 102.75, 103.5, 104.25, 105]) {
+                const next = snapshotComparer.reconcile(kept, null, freeze({ r }), null);
+
+                if (next !== kept) {
+                    reported.push(next.r);
+                    kept = next;
+                }
+            }
+
+            expect(reported).toEqual([102.75, 105]);
         });
 
         it('compares a number within the tolerance of the member that produced it', () => {
