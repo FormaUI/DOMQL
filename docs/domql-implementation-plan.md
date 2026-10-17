@@ -99,18 +99,18 @@ Accepted; built by step 14. One error-tolerant parser builds a lossless syntax t
 
 A step is done when its tests pass in the gate, its documents say what it built, and its state here says so. Completed steps leave the plan. Built describes the capabilities they delivered.
 
-The remaining work is classes and states, then the beta, then editor tooling and the C# half, which follow it.
+The remaining work is conditions and calls in place of infix calls, then the beta, then editor tooling and the C# half, which follow it.
 
-### 24. Classes and states
+### 24. Conditions, and calls in place of infix calls
 
-Element conditions read by the forms that say what they are: `:class["open"]` for a class, `:state["checked"]` for a state a module registers, under the contract the state declares, and `matches` replaced by them, attribute access and DOMQL composition.
+Element conditions read by the forms that say what they are, `:class["open"]` for a class and `.is("checked")` for a condition a module registers, under the contract the condition declares; and every member an ordinary call or an indexer, so the infix form leaves the language. Each part lands on its own, in this order.
 
 - **Needs:** named and default indexers, which are built.
 - **Done when:**
-  - modules declare states, each with its receivers, its function and its own contract, under the namespace and collision rules members follow; `:state[name]` takes a fixed name and carries the state out under its contract; and `:class[name]` tests one class token;
-  - the built-in states are declared, each with an observability classification that accounts for every input to its condition, the specification's known gaps included, and is shown in Chromium: `focus` and `disabled` from `focused` and `disabled`, `readonly` and `text-editable` from `readOnly` and `textEditable`, `focus-within`, `hover`, `popover-open` and `checked`, and the document's `visible` and `focus` from `visible` and `hasFocus`;
-  - `@window:media[…]` and `@window:supports[…]` replace `matchesMedia` and `supports`, and `at` is a list's default indexer;
-  - the examples, the documents and the tests use the new forms, `matches` and the members they supersede are removed, and the capability `matches` gave that nothing replaces is decided for each gap: type selectors, attribute operators, sibling combinators, `:nth-child` and the states not registered.
+  - **Conditions.** Modules declare conditions, each with its receivers, its function and its own contract, under the namespace and collision rules members follow, and `.is(name)` is an ordinary call answering a Boolean. Its name is fixed, as the fixed-argument rule sets out: a literal, a bound parameter, or a local or a conditional binding holding one. Its declaration on any receiver selects the named condition's own receivers, so a name no condition has, and a receiver no condition of the name applies to, are validation errors naming the condition and the receiver; `?.is(…)` skips the call for a null receiver and is validated as any call is. The rename from states covers the condition machinery alone, never watch state or live state.
+  - **The built-in conditions.** Each is declared with a contract saying what counts as true, the receivers it applies to and the changes a watch misses, its observability accounting for every input to the condition, the specification's known gaps included, and shown in Chromium: `focus` and `disabled` from `focused` and `disabled`, `readonly` and `text-editable` from `readOnly` and `textEditable`, `focus-within`, `hover`, `popover-open` and `checked`, and the document's `visible` and `focus` from `visible` and `hasFocus`. Whether `checked` and `disabled` mean native semantics, ARIA semantics or a stated combination is settled before they are built.
+  - **Calls in place of infix calls.** `matches`, `intersects`, `overlaps` and `on` are calls, as `self.matches(".open")`, `@sentinel.intersects({ root: @panel })` and `@panel.on("click") { … }`; `@window:media[…]` and `@window:supports[…]` replace `matchesMedia` and `supports`; and `at` is a list's default indexer. The infix form leaves the grammar, the definition, the canonical text and module declarations, with the rules that serve it alone, and so does the open decision of an infix call's null-receiver policy. Whether `matches` answers a `boolean?` is checked, and it answers a `boolean` where nothing needs the null.
+  - The examples, the documents and the tests use the new forms, the documents' examples checked by the gate.
 - **State:** modules declare states, `:state` and `:class` are built, and indexers take a fixed key; no built-in state is declared yet.
 
 ### 22. Beta
