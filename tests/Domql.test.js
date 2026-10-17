@@ -74,7 +74,7 @@ describe('domql', () => {
         });
 
         it('ends a chain at an infix call, which a group continues from', () => {
-            const { definition } = domql.query('(@panel.closest("[data-group]") matches ".open") is null');
+            const { definition } = domql.query('(@panel.closest("[data-group]") matches ".open") == null');
 
             expect(definition.query.left).toEqual(infixCall('matches', literal('.open'), call('closest', literal('[data-group]'), parameter('panel'))));
         });
@@ -186,24 +186,24 @@ describe('domql', () => {
 
     describe('equalities', () => {
         it('read is between two equality operands, and is not as the negation of is', () => {
-            expect(domql.query('@panel.parent is null').definition.query).toEqual(equality(member('parent', parameter('panel')), literal(null)));
-            expect(domql.query('@action is "save"').definition.query).toEqual(equality(parameter('action'), literal('save')));
-            expect(domql.query('@a is not @b').definition.query).toEqual(not(equality(parameter('a'), parameter('b'))));
-            expect(domql.query('@left:attribute["name"] is @right:attribute["name"]').definition.query).toEqual(equality(indexer('attribute', literal('name'), parameter('left')), indexer('attribute', literal('name'), parameter('right'))));
-            expect(domql.query('@node as "element" is @panel').definition.query).toEqual(equality({ kind: 'cast', type: 'element', target: parameter('node') }, parameter('panel')));
+            expect(domql.query('@panel.parent == null').definition.query).toEqual(equality(member('parent', parameter('panel')), literal(null)));
+            expect(domql.query('@action == "save"').definition.query).toEqual(equality(parameter('action'), literal('save')));
+            expect(domql.query('@a != @b').definition.query).toEqual(not(equality(parameter('a'), parameter('b'))));
+            expect(domql.query('@left:attribute["name"] == @right:attribute["name"]').definition.query).toEqual(equality(indexer('attribute', literal('name'), parameter('left')), indexer('attribute', literal('name'), parameter('right'))));
+            expect(domql.query('@node as "element" == @panel').definition.query).toEqual(equality({ kind: 'cast', type: 'element', target: parameter('node') }, parameter('panel')));
         });
 
         it('give is not, not around is, and not before is one definition', () => {
-            const negated = domql.query('@a is not @b').definition;
+            const negated = domql.query('@a != @b').definition;
 
-            expect(domql.query('not (@a is @b)').definition).toEqual(negated);
-            expect(domql.query('not @a is @b').definition).toEqual(negated);
+            expect(domql.query('not (@a == @b)').definition).toEqual(negated);
+            expect(domql.query('not @a == @b').definition).toEqual(negated);
         });
 
         it('bind more loosely than an infix call and more tightly than and, taking a group as either operand', () => {
-            expect(domql.query('@a is @b and @c').definition.query).toEqual({ kind: 'and', operands: [equality(parameter('a'), parameter('b')), parameter('c')] });
-            expect(domql.query('(@a is @b) is true').definition.query).toEqual(equality(equality(parameter('a'), parameter('b')), literal(true)));
-            expect(domql.query('(@count ?? 0) is 0').definition.query).toEqual(equality({ kind: 'coalescing', value: parameter('count'), fallback: literal(0) }, literal(0)));
+            expect(domql.query('@a == @b and @c').definition.query).toEqual({ kind: 'and', operands: [equality(parameter('a'), parameter('b')), parameter('c')] });
+            expect(domql.query('(@a == @b) == true').definition.query).toEqual(equality(equality(parameter('a'), parameter('b')), literal(true)));
+            expect(domql.query('(@count ?? 0) == 0').definition.query).toEqual(equality({ kind: 'coalescing', value: parameter('count'), fallback: literal(0) }, literal(0)));
         });
 
         it.each([
@@ -290,7 +290,7 @@ describe('domql', () => {
         });
 
         it('are created from a definition as they are parsed from text', () => {
-            const parsed = domql.query('if @panel is null then "gone" elseif @panel.attached then "here" else "away"', { panel: document.body });
+            const parsed = domql.query('if @panel == null then "gone" elseif @panel.attached then "here" else "away"', { panel: document.body });
 
             expect(domql.query(parsed.definition, { panel: document.body }).definition).toEqual(parsed.definition);
         });
@@ -329,7 +329,7 @@ describe('domql', () => {
         });
 
         it('are created from a definition as they are parsed from text', () => {
-            const parsed = domql.query('(@panel.parent?.children).count is null and @panel.first(".a")?.closest(".b") is null');
+            const parsed = domql.query('(@panel.parent?.children).count == null and @panel.first(".a")?.closest(".b") == null');
 
             expect(domql.query(parsed.definition).definition).toEqual(parsed.definition);
         });
@@ -512,7 +512,7 @@ describe('domql', () => {
             expect(domql.query('@panel:attribute["data-count"] to "number"').definition.query).toEqual(conversion('number', indexer('attribute', literal('data-count'), parameter('panel'))));
             expect(domql.query('@panel matches ".open" to "string"').definition.query).toEqual(conversion('string', infixCall('matches', literal('.open'), parameter('panel'))));
             expect(domql.query('@a to "string" to "number"').definition.query).toEqual(conversion('number', conversion('string', parameter('a'))));
-            expect(domql.query('@panel:attribute["data-count"] to "number" is 5').definition.query).toEqual(equality(conversion('number', indexer('attribute', literal('data-count'), parameter('panel'))), literal(5)));
+            expect(domql.query('@panel:attribute["data-count"] to "number" == 5').definition.query).toEqual(equality(conversion('number', indexer('attribute', literal('data-count'), parameter('panel'))), literal(5)));
             expect(domql.query('@a to "number" ?? 0').definition.query).toEqual(coalescing(conversion('number', parameter('a')), literal(0)));
             expect(domql.query('@a ?? @b to "number"').definition.query).toEqual(coalescing(parameter('a'), conversion('number', parameter('b'))));
             expect(domql.query('not @a to "boolean"').definition.query).toEqual(not(conversion('boolean', parameter('a'))));
@@ -555,34 +555,46 @@ describe('domql', () => {
         });
     });
 
-    describe('convertibilities', () => {
+    describe('tests of a conversion', () => {
         const convertibility = (type, target) => ({ kind: 'convertibility', type, target });
         const conversion = (type, target) => ({ kind: 'conversion', type, target });
+        const coalescing = (value, fallback) => ({ kind: 'coalescing', value, fallback });
 
-        it('read a value, is convertible to and the quoted type, standing as an equality does and negated with is not', () => {
-            expect(domql.query('@a is convertible to "number"').definition.query).toEqual(convertibility('number', parameter('a')));
-            expect(domql.query('@a is not convertible to "number"').definition.query).toEqual(not(convertibility('number', parameter('a'))));
-            expect(domql.query('@panel:attribute["data-n"] is convertible to "number"').definition.query).toEqual(convertibility('number', indexer('attribute', literal('data-n'), parameter('panel'))));
-            expect(domql.query('@a to "string" is convertible to "number"').definition.query).toEqual(convertibility('number', conversion('string', parameter('a'))));
-            expect(domql.query('@a is convertible to "number" and @b').definition.query).toEqual({ kind: 'and', operands: [convertibility('number', parameter('a')), parameter('b')] });
-            expect(domql.query('not @a is convertible to "number"').definition.query).toEqual(not(convertibility('number', parameter('a'))));
+        it('read try and the one conversion it tests, binding tighter than an equality and negated with not', () => {
+            expect(domql.query('try @a to "number"').definition.query).toEqual(convertibility('number', parameter('a')));
+            expect(domql.query('try @panel:["data-n"] to "number"').definition.query).toEqual(convertibility('number', indexer(undefined, literal('data-n'), parameter('panel'))));
+            expect(domql.query('try (@a to "string") to "number"').definition.query).toEqual(convertibility('number', conversion('string', parameter('a'))));
+            expect(domql.query('try @a to "number" == true').definition.query).toEqual(equality(convertibility('number', parameter('a')), literal(true)));
+            expect(domql.query('try @a to "number" ?? false').definition.query).toEqual(coalescing(convertibility('number', parameter('a')), literal(false)));
+            expect(domql.query('try @a to "number" and @b').definition.query).toEqual({ kind: 'and', operands: [convertibility('number', parameter('a')), parameter('b')] });
+            expect(domql.query('not try @a to "number"').definition.query).toEqual(not(convertibility('number', parameter('a'))));
+            expect(domql.query('not (try @a to "number")').definition).toEqual(domql.query('not try @a to "number"').definition);
+            // `not` negates the whole equality after it, as it does any.
+            expect(domql.query('not try @a to "number" == true').definition.query).toEqual(not(equality(convertibility('number', parameter('a')), literal(true))));
+            expect(domql.query('(not try @a to "number") == true').definition.query).toEqual(equality(not(convertibility('number', parameter('a'))), literal(true)));
+            expect(domql.format('not try @a to "number" == true')).toBe('try @a to "number" != true');
         });
 
-        it('leave convertible a name wherever is convertible to is not written, and a local named so is converted where it is grouped', () => {
+        it('leave is and convertible names, as any word that is no keyword is', () => {
             const local = { kind: 'local', name: 'convertible' };
 
-            expect(domql.query('@a is convertible').definition.query).toEqual(equality(parameter('a'), local));
-            expect(domql.query('@a is (convertible to "number")').definition.query).toEqual(equality(parameter('a'), conversion('number', local)));
-            expect(domql.query('{ convertible: 1 }').definition.query.fields[0].name).toBe('convertible');
+            expect(domql.query('@a == convertible').definition.query).toEqual(equality(parameter('a'), local));
+            expect(domql.query('@a == convertible to "number"').definition.query).toEqual(equality(parameter('a'), conversion('number', local)));
             expect(domql.query('@a.convertible').definition.query).toEqual(member('convertible', parameter('a')));
+            expect(domql.query('{ is: 1 }').definition.query.fields[0].name).toBe('is');
+            expect(domql.query('@panel { let is: self.size, width: is.width }').definition.query.fields[0].value).toEqual(member('width', { kind: 'local', name: 'is' }));
+            expect(domql.query('@a.is').definition.query).toEqual(member('is', parameter('a')));
+            expect(domql.query('@a.is("checked") == true').definition.query).toEqual(equality(call('is', literal('checked'), parameter('a')), literal(true)));
+            expect(domql.query('@a?.is("checked")').definition.query).toEqual({ kind: 'optionalChain', target: { ...call('is', literal('checked'), parameter('a')), optional: true } });
         });
 
         it.each([
-            ['to a type that is not quoted', '@a is convertible to number', 1, 22],
-            ['to a type written without a space', '@a is convertible to"number"', 1, 21],
-            ['chained', '@a is convertible to "number" is true', 1, 31],
-            ['beside ??', '@a is convertible to "number" ?? false', 1, 31],
-        ])('refuse a convertibility %s', (_, text, line, column) => {
+            ['of a chain of conversions without a group', 'try @a to "string" to "number"', 1, 1],
+            ['of what is no conversion', 'try @a', 1, 1],
+            ['of another test', 'try try @a to "number"', 1, 5],
+            ['to a type that is not quoted', 'try @a to number', 1, 11],
+            ['chained by an equality', 'try @a to "number" == true == false', 1, 28],
+        ])('refuse a test %s', (_, text, line, column) => {
             const error = getError(() => domql.query(text));
 
             expect(error.kind).toBe('syntax');
@@ -592,7 +604,7 @@ describe('domql', () => {
         it.each([
             ['a type that is no string', convertibility(5, parameter('a')), '/query/type'],
             ['no target', { kind: 'convertibility', type: 'number' }, '/query'],
-        ])('refuse a definition of a convertibility with %s', (_, query, pointer) => {
+        ])('refuse a definition of a test of a conversion with %s', (_, query, pointer) => {
             const error = getError(() => domql.query({ version: 14, query }));
 
             expect(error.kind).toBe('structure');
@@ -666,7 +678,7 @@ describe('domql', () => {
             expect(domql.query('not @a').definition.query).toEqual(not(parameter('a')));
             expect(domql.query('not not @a').definition.query).toEqual(not(not(parameter('a'))));
             expect(domql.query('not @panel.attached').definition.query).toEqual(not(member('attached', parameter('panel'))));
-            expect(domql.query('not @a is null').definition.query).toEqual(not(equality(parameter('a'), literal(null))));
+            expect(domql.query('not @a == null').definition.query).toEqual(not(equality(parameter('a'), literal(null))));
             expect(domql.query('not @a and @b').definition.query).toEqual({ kind: 'and', operands: [not(parameter('a')), parameter('b')] });
             expect(domql.query('@a or not @b').definition.query).toEqual({ kind: 'or', operands: [parameter('a'), not(parameter('b'))] });
             expect(domql.query('not (@a or @b)').definition.query).toEqual(not({ kind: 'or', operands: [parameter('a'), parameter('b')] }));
@@ -725,8 +737,8 @@ describe('domql', () => {
             ['beside and after them', '@a ?? false and @b', 1, 1],
             ['beside and before them', '@a and @b ?? false', 1, 8],
             ['beside or', '@a or @b ?? false', 1, 7],
-            ['beside a null test after them', '@a ?? @b is null', 1, 10],
-            ['beside a null test before them', '@a is null ?? false', 1, 12],
+            ['beside a null test after them', '@a ?? @b == null', 1, 10],
+            ['beside a null test before them', '@a == null ?? false', 1, 12],
             ['with a question mark apart from the other', '@a ? ? 0', 1, 4],
         ])('refuse a coalescing operator %s, where no group stands', (_, text, line, column) => {
             const error = getError(() => domql.query(text));
@@ -832,8 +844,8 @@ describe('domql', () => {
             ['two fields with no comma between them', '@panel {\n    size: self.size\n    clientSize: self.clientSize\n}', 3, 5],
             ['a call with no receiver', '@panel { row: first(".row") }', 1, 15],
             ['an infix call with no receiver', '@panel { open: matches ".open" }', 1, 16],
-            ['a null test with no subject', '@panel { open: is null }', 1, 16],
-            ['a null test with no subject at the top level', 'is null', 1, 1],
+            ['a null test with no subject', '@panel { open: == null }', 1, 16],
+            ['a null test with no subject at the top level', '== null', 1, 1],
             ['arguments after a dot without parentheses', '@sentinel.intersects @panel', 1, 22],
             ['a call given two arguments', '@panel.closest(".a", ".b")', 1, 20],
             ['a call given a named argument', '@panel.rectRelativeTo(relativeTo: @other)', 1, 23],
@@ -844,12 +856,14 @@ describe('domql', () => {
             ['an infix call given two arguments', '@panel intersects @container 200', 1, 30],
             ['self named as a field', '@panel { self: self.size }', 1, 10],
             ['self named as a parameter', '@self.size', 1, 2],
-            ['is written as a member', '@target.is "attached"', 1, 9],
-            ['an equality that chains', '@a is @b is @c', 1, 10],
-            ['is not followed by a negation', '@a is not not @b', 1, 11],
+            ['a member given an argument without parentheses', '@target.is "attached"', 1, 12],
+            ['an equality that chains', '@a == @b == @c', 1, 10],
+            ['a negation after !=', '@a != not @b', 1, 7],
+            ['a single equals sign', '@a = 1', 1, 4],
+            ['a single exclamation mark', '@a ! @b', 1, 4],
             ['a group never closed', '(@first or @second', 1, 19],
             ['a group closing nothing', '@first)', 1, 7],
-            ['an operator naming a field', '@panel { is: self.size }', 1, 10],
+            ['an operator naming a field', '@panel { try: self.size }', 1, 10],
             ['an operator naming a parameter', '@and { size: self.size }', 1, 2],
             ['a hyphen in a member\'s name', '@panel.attribute-of', 1, 17],
             ['a hyphen in a parameter\'s name', '@my-panel { size: self.size }', 1, 4],
@@ -1238,7 +1252,7 @@ describe('domql evaluates', () => {
         });
 
         it('evaluates each query that shares it against its own bindings, interleaved, its locals and branches its own', () => {
-            const text = '@panel { let id: self:attribute["id"], id: id, kind: if id is "first" then "one" else "other", count: self.children.count }';
+            const text = '@panel { let id: self:attribute["id"], id: id, kind: if id == "first" then "one" else "other", count: self.children.count }';
             const first = document.createElement('div');
             const second = document.createElement('div');
 
@@ -2356,28 +2370,28 @@ describe('domql conversions', () => {
 
     describe('a convertibility', () => {
         it('tests the value itself, true where the conversion accepts it and false where it rejects it', () => {
-            expect(evaluate('"42" is convertible to "number"')).toBe(true);
-            expect(evaluate('" 3.5 " is convertible to "number"')).toBe(true);
-            expect(evaluate('"hello" is convertible to "number"')).toBe(false);
-            expect(evaluate('"1e999" is convertible to "number"')).toBe(false);
-            expect(evaluate('"true" is convertible to "boolean"')).toBe(true);
-            expect(evaluate('"TRUE" is convertible to "boolean"')).toBe(false);
-            expect(evaluate('"hello" is not convertible to "number"')).toBe(true);
+            expect(evaluate('try "42" to "number"')).toBe(true);
+            expect(evaluate('try " 3.5 " to "number"')).toBe(true);
+            expect(evaluate('try "hello" to "number"')).toBe(false);
+            expect(evaluate('try "1e999" to "number"')).toBe(false);
+            expect(evaluate('try "true" to "boolean"')).toBe(true);
+            expect(evaluate('try "TRUE" to "boolean"')).toBe(false);
+            expect(evaluate('not (try "hello" to "number")')).toBe(true);
         });
 
         it('is true for a value already of the type and for null, as to answers them without failing', () => {
-            expect(evaluate('5 is convertible to "number"')).toBe(true);
-            expect(evaluate('@value is convertible to "number"', { value: null })).toBe(true);
-            expect(evaluate('@panel:attribute["data-missing"] is convertible to "number"')).toBe(true);
-            expect(String(isolated.query('@panel:attribute["data-missing"] is convertible to "number"', { panel }).resolve().type)).toBe('boolean');
+            expect(evaluate('try 5 to "number"')).toBe(true);
+            expect(evaluate('try @value to "number"', { value: null })).toBe(true);
+            expect(evaluate('try @panel:attribute["data-missing"] to "number"')).toBe(true);
+            expect(String(isolated.query('try @panel:attribute["data-missing"] to "number"', { panel }).resolve().type)).toBe('boolean');
         });
 
         it.each([
-            ['a target no type has', '"a" is convertible to "nope"', "and 'nope' is none of them"],
-            ['a pair no conversion is declared for', '5 is convertible to "boolean"', 'No conversion from number to boolean is declared'],
-            ['a nullable value whose type has no conversion', '@panel.closest(".row") is convertible to "string"', 'No conversion from element to string is declared'],
-            ['a null whose target is no type of data', '@value is convertible to "element"', "a node is narrowed to one of its kinds with 'as'"],
-            ['an event source', '(@panel on "click") is convertible to "string"', "What 'is convertible to' tests is a value, and this one is an event source"],
+            ['a target no type has', 'try "a" to "nope"', "and 'nope' is none of them"],
+            ['a pair no conversion is declared for', 'try 5 to "boolean"', 'No conversion from number to boolean is declared'],
+            ['a nullable value whose type has no conversion', 'try @panel.closest(".row") to "string"', 'No conversion from element to string is declared'],
+            ['a null whose target is no type of data', 'try @value to "element"', "a node is narrowed to one of its kinds with 'as'"],
+            ['an event source', 'try (@panel on "click") to "string"', "What 'try' tests is a value, and this one is an event source"],
         ])('is refused before anything is evaluated for %s, as to is', (_, text, message) => {
             const error = getError(() => isolated.query(text, { panel, value: null }).resolve());
 
@@ -2388,8 +2402,8 @@ describe('domql conversions', () => {
         it('tests a conversion a module declares by what it accepts and rejects', () => {
             registerTemperature();
 
-            expect(evaluate('"21C" is convertible to "celsius"')).toBe(true);
-            expect(evaluate('"warm" is convertible to "celsius"')).toBe(false);
+            expect(evaluate('try "21C" to "celsius"')).toBe(true);
+            expect(evaluate('try "warm" to "celsius"')).toBe(false);
         });
 
         it.each([
@@ -2408,12 +2422,29 @@ describe('domql conversions', () => {
         ])('leaves a fault an error, whichever form asks and however it is negated, where the conversion %s', (_, answer, message) => {
             registerTemperature({ answer });
 
-            for (const text of ['"21C" to "celsius"', '"21C" is convertible to "celsius"', '"21C" is not convertible to "celsius"']) {
+            for (const text of ['"21C" to "celsius"', 'try "21C" to "celsius"', 'not (try "21C" to "celsius")']) {
                 const error = getError(() => evaluate(text));
 
                 expect(error.kind, text).toBe('evaluation');
                 expect(error.message, text).toContain(`The conversion from string to celsius ${message}`);
             }
+        });
+
+        it('leaves a failure of evaluating its value an error, a rejection of a conversion within that value among them, since it tests its own conversion alone', () => {
+            isolated.registerModule(isolated.createModule('broken', {
+                members: [{ name: 'broken', function: 'read', kind: 'property', on: 'element', parameters: [], result: 'string', changes: 'constant', reads: 'fresh' }],
+            }, { read: () => { throw new Error('unreadable'); } }));
+
+            const failed = getError(() => evaluate('try @panel.broken to "number"'));
+
+            expect(failed.kind).toBe('evaluation');
+            expect(failed.message).toContain("The member 'broken' failed: unreadable");
+
+            const rejected = getError(() => evaluate('try ("abc" to "number") to "string"'));
+
+            expect(rejected.kind).toBe('evaluation');
+            expect(rejected.message).toContain('The conversion from string to number rejected its value');
+            expect(evaluate('try ("12" to "number") to "string"')).toBe(true);
         });
 
         it('evaluates the value it tests once, and testing and then converting runs the conversion twice', () => {
@@ -2425,9 +2456,9 @@ describe('domql conversions', () => {
                 members: [{ name: 'reading', function: 'read', kind: 'property', on: 'element', parameters: [], result: 'string', changes: 'constant', reads: 'fresh' }],
             }, { read: () => `${++reads}C` }));
 
-            expect(evaluate('@panel.reading is convertible to "celsius"')).toBe(true);
+            expect(evaluate('try @panel.reading to "celsius"')).toBe(true);
             expect([reads, conversions]).toEqual([1, 1]);
-            expect(evaluate('@panel { let reading: self.reading, value: if reading is convertible to "celsius" then reading to "celsius" else null }')).toEqual({ value: { degrees: 2 } });
+            expect(evaluate('@panel { let reading: self.reading, value: if try reading to "celsius" then reading to "celsius" else null }')).toEqual({ value: { degrees: 2 } });
             expect([reads, conversions]).toEqual([2, 3]);
         });
     });

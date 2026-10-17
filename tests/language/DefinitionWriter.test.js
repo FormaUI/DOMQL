@@ -42,14 +42,14 @@ describe('DefinitionWriter', () => {
         '@panel.attached or @panel.focused and @panel.disabled',
         '@first and (@second and @third)',
         '(@first or @second) or @third',
-        '(@panel is null).size',
-        '@a is @b',
-        '@a is not @b',
-        '(@a is @b) is true',
-        '@left:attribute["name"] is @right:attribute["name"]',
-        '(@count ?? 0) is 0',
-        '@a is @b and @c',
-        'not (@a is @b) and @c',
+        '(@panel == null).size',
+        '@a == @b',
+        '@a != @b',
+        '(@a == @b) == true',
+        '@left:attribute["name"] == @right:attribute["name"]',
+        '(@count ?? 0) == 0',
+        '@a == @b and @c',
+        'not (@a == @b) and @c',
         '(@first or @second) { size: self.size }',
         '@panel.children.count',
         '@panel.hasChildren',
@@ -57,17 +57,17 @@ describe('DefinitionWriter', () => {
         '@panel.closest(".row")?:attribute["data-key"]',
         '(@panel on "click") { x: self.clientX }',
         '(@panel:attribute["role"]).length',
-        '@panel:attribute["role"] is null',
+        '@panel:attribute["role"] == null',
         '@sentinel intersects',
         '@panel matches (@panel:attribute["for"])',
         '@panel.rectRelativeTo(@panel.parent)?.top',
-        'if @panel.attached then "here" elseif @panel is null then "gone" else "away"',
+        'if @panel.attached then "here" elseif @panel == null then "gone" else "away"',
         '(if @a then @panel else @other).size',
         '(if @a then true else false) and @b',
         'if (if @a then @b else @c) then 1 else 2',
         'if @a then (if @b then 1 else 2) else 3',
         '@panel { state: if self.disabled then "locked" else "open" }',
-        '@panel.parent is null',
+        '@panel.parent == null',
         '@panel { let items: self.children, count: items.count, rows: items { key: self:attribute["data-key"] } }',
         '@panel { let key: "data-key", let first: self.children.at(0), value: first?:attribute[key] }',
         '@panel { let a: 1, inner: self { let b: a, value: b } }',
@@ -114,7 +114,7 @@ describe('DefinitionWriter', () => {
         '(not @a) ?? false',
         'if not @a then 1 else 2',
         '@panel:attribute["data-count"] to "number"',
-        '@panel:attribute["data-count"] to "number" is 5',
+        '@panel:attribute["data-count"] to "number" == 5',
         '@a to "string" to "number"',
         '(@a ?? @b) to "number"',
         '@a to "number" ?? 0',
@@ -129,24 +129,30 @@ describe('DefinitionWriter', () => {
         '@range.to() to "string"',
         '@sentinel intersects to "string"',
         '@panel:attribute[to] to "number"',
-        '@a is convertible to "number"',
-        '@a is not convertible to "number"',
-        '@panel:attribute["data-n"] is convertible to "number" and @b',
-        '@a to "string" is convertible to "number"',
-        '(@a is convertible to "number") is true',
-        '@a is convertible',
-        '@a is (convertible to "number")',
-        '@a is not (convertible to "string" to "number")',
-        '{ convertible: @a is convertible to "number" }',
+        'try @a to "number"',
+        'not (try @a to "number")',
+        'try @panel:attribute["data-n"] to "number" and @b',
+        'try (@a to "string") to "number"',
+        'try @a to "number" == true',
+        'not try @a to "number"',
+        '(try @a to "number") to "string"',
+        'try (@a ?? "1") to "number"',
+        '@a.is("checked") != false',
+        '{ is: @a.is("checked") }',
+        '(try @a to "number") == true',
+        '@a == convertible',
+        '@a == (convertible to "number")',
+        '@a != (convertible to "string" to "number")',
+        '{ convertible: try @a to "number" }',
         '@panel:attribute["data-key"]',
         '@panel:["data-key"]',
         '@panel:class["open"]',
         '@panel?:class[@name]',
         '@panel:state["checked"]',
         '@panel:class["open"] and @panel:state["focus-within"]',
-        '@panel.view:state["glowing"] is true',
+        '@panel.view:state["glowing"] == true',
         '@panel?:[@name]',
-        '@panel.first(".row")?:["id"] is null',
+        '@panel.first(".row")?:["id"] == null',
         '@panel:attribute[@name]',
         '@panel?:attribute["data-key"]',
         '@panel.first(".row")?:style["display"]',
@@ -159,7 +165,7 @@ describe('DefinitionWriter', () => {
         '(@panel:attribute["n"]):attribute["id"]',
         '@panel matches (@row:attribute["key"])',
         '@panel:attribute["n"] to "number"',
-        '@panel:attribute["n"] is convertible to "number"',
+        'try @panel:attribute["n"] to "number"',
         '@panel:lookup["a"] as "element"',
     ])('writes text that parses back to the same definition: %s', text => {
         const { definition } = domql.query(text, { panel });
@@ -172,22 +178,22 @@ describe('DefinitionWriter', () => {
 
         expect(write('(@first or @second) and @third')).toBe('(@first or @second) and @third');
         expect(write('(@first and @second) or @third')).toBe('@first and @second or @third');
-        expect(write('(@panel is null).size')).toBe('(@panel is null).size');
+        expect(write('(@panel == null).size')).toBe('(@panel == null).size');
         expect(write('@panel.size')).toBe('@panel.size');
         expect(write('((@panel matches ".x")).length')).toBe('(@panel matches ".x").length');
-        expect(write('(@panel matches ".x") is null')).toBe('@panel matches ".x" is null');
+        expect(write('(@panel matches ".x") == null')).toBe('@panel matches ".x" == null');
         expect(write('(@panel:attribute["role"]).length')).toBe('@panel:attribute["role"].length');
         expect(write('if @a then 1 else if @b then 2 else 3')).toBe('if @a then 1 elseif @b then 2 else 3');
         expect(write('if @a then 1 else (if @b then 2 else 3)')).toBe('if @a then 1 elseif @b then 2 else 3');
         expect(write('(if @a then @b else @c).attached')).toBe('(if @a then @b else @c).attached');
         expect(write('(@panel:attribute["n"]) to "number"')).toBe('@panel:attribute["n"] to "number"');
         expect(write('(@a to "string") to "number"')).toBe('@a to "string" to "number"');
-        expect(write('(@a to "number") is 5')).toBe('@a to "number" is 5');
-        expect(write('(@a is @b) to "string"')).toBe('(@a is @b) to "string"');
+        expect(write('(@a to "number") == 5')).toBe('@a to "number" == 5');
+        expect(write('(@a == @b) to "string"')).toBe('(@a == @b) to "string"');
         expect(write('(@a ?? @b) to "number"')).toBe('(@a ?? @b) to "number"');
-        expect(write('not (@a is convertible to "number")')).toBe('@a is not convertible to "number"');
-        expect(write('(@a is convertible to "number") and @b')).toBe('@a is convertible to "number" and @b');
-        expect(write('(@a is convertible to "number") ?? false')).toBe('(@a is convertible to "number") ?? false');
+        expect(write('not (try @a to "number")')).toBe('not try @a to "number"');
+        expect(write('(try @a to "number") and @b')).toBe('try @a to "number" and @b');
+        expect(write('(try @a to "number") ?? false')).toBe('try @a to "number" ?? false');
     });
 
     it('writes the argument of an infix call as an input, grouping any other', () => {
@@ -216,14 +222,14 @@ describe('DefinitionWriter', () => {
             ['a conditional with no elseif, on one line', 'if @a then 1 else 2', 'if @a then 1 else 2'],
             ['a conditional with an elseif, a line for each clause', '@panel { state: if self.disabled then "locked" elseif self.readOnly then "read" else "open" }', '@panel {\n    state: if self.disabled then "locked"\n    elseif self.readOnly then "read"\n    else "open"\n}'],
             ['one space around and and or', '@a   and(@b or   @c)', '@a and (@b or @c)'],
-            ['one space around an infix call and is', '@panel   matches    ".x"   is   null', '@panel matches ".x" is null'],
-            ['no space around an indexer', '@panel  :  attribute  [ "role" ]   is   null', '@panel:attribute["role"] is null'],
+            ['one space around an infix call and is', '@panel   matches    ".x"   ==   null', '@panel matches ".x" == null'],
+            ['no space around an indexer', '@panel  :  attribute  [ "role" ]   ==   null', '@panel:attribute["role"] == null'],
             ['no trailing comma', '@panel { size: self.size, key: 1, }', '@panel {\n    size: self.size,\n    key: 1\n}'],
             ['no comment and no original layout', '@panel // the panel\n    /* its size */ .size', '@panel.size'],
             ['an optional access as one token, with the group that ends its chain', '(@panel.parent  ?.children) . count', '(@panel.parent?.children).count'],
             ['a cast in an optional-access group as the optional accesses it writes', '(?(@panel.parent as "element").rect.width)', '(@panel?.parent as "element")?.rect?.width'],
             ['a grouped coalescing operator cast in an optional-access group, its sides as written', '(?((@a.x ?? @b) as "element").rect)', '((@a.x ?? @b) as "element")?.rect'],
-            ['an equality negated as is not, however its negation is written', 'not (@a is @b)', '@a is not @b'],
+            ['an equality negated as is not, however its negation is written', 'not (@a == @b)', '@a != @b'],
             ['a negation, grouped only where what it negates needs it', 'not ((@panel.attached))', 'not @panel.attached'],
             ['an access by name of a string literal that is a name, as the name', '@panel["size"]', '@panel.size'],
             ['a coalescing operator, grouped only where its sides need it', '((@a) ?? ((@b ?? 0)))', '@a ?? @b ?? 0'],
@@ -239,7 +245,7 @@ describe('DefinitionWriter', () => {
             '@panel { size: self.size, rows: self.children { key: self:attribute["data-key"], open: self matches ".open" } }',
             'if @a then { x: 1, y: 2 } elseif @b then (if @c then 3 else 4) else @d { z: self.size }',
             '@panel { let items: self.children, count: items.count, first: items.at(0) { key: self:attribute["data-key"] } }',
-            '(@panel on "click") { x: self.clientX, inside: self.target?.closest(".row") is null }',
+            '(@panel on "click") { x: self.clientX, inside: self.target?.closest(".row") == null }',
             '@panel.children.where(self.attached and (self.hasChildren or self matches ".x")).max(self.size?.width)',
             '@panel:attribute["line\nbreak and \\"quote\\""]',
         ])('gives text that formats to itself, and parses back to the same definition: %s', text => {

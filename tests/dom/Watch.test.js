@@ -323,7 +323,7 @@ describe('Watch', () => {
         });
 
         it('lets a convertibility choose a fallback for malformed text without failing, and the converted value once the text converts', async () => {
-            const watched = watch('@panel { let n: self:attribute["data-n"], value: if n is convertible to "number" then n to "number" ?? 0 else 0 }', { panel });
+            const watched = watch('@panel { let n: self:attribute["data-n"], value: if try n to "number" then n to "number" ?? 0 else 0 }', { panel });
 
             await settle();
             await change(panel, 'two');
@@ -478,7 +478,7 @@ describe('Watch', () => {
 
     describe('a local', () => {
         it('holds what it reads only while an evaluation uses it: from when a branch first reaches it until none does', async () => {
-            watch('@panel { let level: self.level, value: if self:attribute["data-on"] is null then 0 else level }', { panel });
+            watch('@panel { let level: self.level, value: if self:attribute["data-on"] == null then 0 else level }', { panel });
             await settle();
 
             expect(snapshots).toEqual([{ value: 0 }]);
@@ -538,7 +538,7 @@ describe('Watch', () => {
         it('holds what its right operand reads only while it evaluates that operand', async () => {
             const item = panel.querySelector('i');
 
-            watch('{ v: (@item:attribute["data-on"]) is null or @item.level is null }', { item });
+            watch('{ v: (@item:attribute["data-on"]) == null or @item.level == null }', { item });
             await settle();
 
             expect(snapshots.at(-1)).toEqual({ v: true });
@@ -564,7 +564,7 @@ describe('Watch', () => {
         it('follows what its name reads and the property it selects, holding the one it no longer selects no longer', async () => {
             const item = panel.querySelector('i');
 
-            watch('{ v: @item[if @item:attribute["data-on"] is null then "level" else "tally"] }', { item });
+            watch('{ v: @item[if @item:attribute["data-on"] == null then "level" else "tally"] }', { item });
             await settle();
             gauges.get(item).sample = { pending: false, value: 4 };
             gauges.get(item).notify();

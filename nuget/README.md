@@ -180,7 +180,7 @@ Keep a toolbar in step with the panel's selection, whichever code selects an ite
 ```js
 const selection = domql.query(`
     @panel.children
-        .where(self:["aria-selected"] is "true") {
+        .where(self:["aria-selected"] == "true") {
             key: self:["data-key"]
         }
 `, { panel }).watch();
@@ -248,7 +248,7 @@ list.innerHTML = '<li data-key="b1">Apples</li><li data-key="b2">Pears</li>';
 const live = domql.query(`
     @list.children {
         key: self:["data-key"],
-        selected: self:["aria-selected"] is "true"
+        selected: self:["aria-selected"] == "true"
     }
 `, { list }).watch({ updateStrategy: 'liveState' });
 
@@ -363,7 +363,7 @@ Calls take one argument. When a member takes options, pass an object whose field
 An infix argument can be a literal, parameter, `self`, local, object or grouped expression. An infix call ends its chain; group its result to use it in a larger expression:
 
 ```text
-(self.closest("[data-group]") matches ".open") is null
+(self.closest("[data-group]") matches ".open") == null
 ```
 
 Using the wrong call form produces an error that shows the expected form.
@@ -490,10 +490,10 @@ Null does not hide an invalid query. An unknown member or incompatible argument 
 
 ### Compare and combine conditions
 
-Use `is` and `is not` to compare values. Nodes are compared by identity. The result is always a non-null Boolean, including when testing for null:
+Use `==` and `!=` to compare values. Nodes are compared by identity. The result is always a non-null Boolean, including when testing for null:
 
 ```text
-@panel.parent is null
+@panel.parent == null
 ```
 
 Use `and`, `or` and `not` for Boolean logic:
@@ -510,7 +510,7 @@ Boolean operators and conditional tests require non-null Booleans. Give a nullab
 (@panel.first("input")?.disabled ?? false) or @busy
 ```
 
-Mixing `??` with `is`, `not`, `and` or `or` requires parentheses around one of the expressions.
+Mixing `??` with `==`, `!=`, `not`, `and` or `or` requires parentheses around one of the expressions.
 
 ### Choose a result with a conditional
 
@@ -550,12 +550,12 @@ domql.query(
 
 `to` converts what comes before it, here the attribute. An item without the attribute gives null, which `?? 0` counts as zero. Text that is no number, such as `"5 new"`, fails the evaluation with an error rather than becoming null or zero.
 
-To handle text that does not convert yourself, test it first with `is convertible to`, which answers whether the conversion accepts the value:
+To handle text that does not convert yourself, test it first with `try`, which answers whether the conversion accepts the value:
 
 ```text
 @panel {
     let count: self:["data-count"],
-    value: if count is convertible to "number" then count to "number" ?? 0 else 0
+    value: if try count to "number" then count to "number" ?? 0 else 0
 }
 ```
 

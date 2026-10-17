@@ -460,35 +460,35 @@ describe('LanguageResolver', () => {
 
     describe('equalities', () => {
         it('type an equality as a Boolean that is never null, whatever its operands', () => {
-            expect(resolve('@panel.parent is null').type.toString()).toBe('boolean');
-            expect(resolve('@panel.first("a")?.rect?.width is 0').type.toString()).toBe('boolean');
-            expect(resolve('@panel is not @panel').type.toString()).toBe('boolean');
-            expect(resolve('@panel.parent is @document').type.toString()).toBe('boolean');
-            expect(resolve('@panel.rect is null').type.toString()).toBe('boolean');
-            expect(resolve('@missing is "x"', { missing: null }).type.toString()).toBe('boolean');
+            expect(resolve('@panel.parent == null').type.toString()).toBe('boolean');
+            expect(resolve('@panel.first("a")?.rect?.width == 0').type.toString()).toBe('boolean');
+            expect(resolve('@panel != @panel').type.toString()).toBe('boolean');
+            expect(resolve('@panel.parent == @document').type.toString()).toBe('boolean');
+            expect(resolve('@panel.rect == null').type.toString()).toBe('boolean');
+            expect(resolve('@missing == "x"', { missing: null }).type.toString()).toBe('boolean');
         });
 
         it('refuse two values whose types fit neither way', () => {
-            expect(failure('"1" is 1').message).toContain("'is' compares values whose types fit one way or the other, and string and number fit neither way");
-            expect(failure('@panel is @document').message).toContain('element and document fit neither way');
-            expect(failure('@panel.attached is "true"').message).toContain('boolean and string fit neither way');
+            expect(failure('"1" == 1').message).toContain("'==' compares values whose types fit one way or the other, and string and number fit neither way");
+            expect(failure('@panel == @document').message).toContain('element and document fit neither way');
+            expect(failure('@panel.attached == "true"').message).toContain('boolean and string fit neither way');
         });
 
         it('compare a value that is no string, number, Boolean or node with null alone', () => {
-            expect(failure('@panel.rect is @panel.rect').message).toContain("'is' compares a value of rectangle with null alone");
-            expect(failure('@panel.children is @panel.children').message).toContain('a value of list<element> with null alone');
-            expect(failure('@window is @window').message).toContain('a value of window with null alone');
-            expect(failure('(@panel on "click") { x: self.clientX } is null').message).toContain("'is' compares values, and this is an event source");
+            expect(failure('@panel.rect == @panel.rect').message).toContain("'==' compares a value of rectangle with null alone");
+            expect(failure('@panel.children == @panel.children').message).toContain('a value of list<element> with null alone');
+            expect(failure('@window == @window').message).toContain('a value of window with null alone');
+            expect(failure('(@panel on "click") { x: self.clientX } == null').message).toContain("'==' compares values, and this is an event source");
         });
 
         it('give the test to write for a value compared with the name of one of its Boolean members, and nothing for any other', () => {
-            expect(failure('@panel is "attached"').message).toContain("a test is the member that answers it, so write '@panel.attached'");
-            expect(failure('@panel is not "attached"').message).toContain("write 'not @panel.attached'");
-            expect(failure('@panel is @state', { panel, state: 'disabled' }).message).toContain("write '@panel[@state]'");
-            expect(failure('@panel.first("a") is "focused"').message).toContain(`write '@panel.first("a")?.focused'`);
-            expect(failure('@panel is "visible"').message).not.toContain('write');
-            expect(failure('@panel is "Attached"').message).not.toContain('write');
-            expect(failure('@panel is "children"').message).not.toContain('write');
+            expect(failure('@panel == "attached"').message).toContain("a test is the member that answers it, so write '@panel.attached'");
+            expect(failure('@panel != "attached"').message).toContain("write 'not @panel.attached'");
+            expect(failure('@panel == @state', { panel, state: 'disabled' }).message).toContain("write '@panel[@state]'");
+            expect(failure('@panel.first("a") == "focused"').message).toContain(`write '@panel.first("a")?.focused'`);
+            expect(failure('@panel == "visible"').message).not.toContain('write');
+            expect(failure('@panel == "Attached"').message).not.toContain('write');
+            expect(failure('@panel == "children"').message).not.toContain('write');
         });
     });
 
@@ -517,9 +517,9 @@ describe('LanguageResolver', () => {
         });
 
         it('test for null with is null, a Boolean that is never null, whatever its subject', () => {
-            expect(resolve('@panel.parent is null').type.toString()).toBe('boolean');
-            expect(resolve('null is null').type.toString()).toBe('boolean');
-            expect(failure('(@panel on "click") { clientX: self.clientX } is null').message).toContain('event source');
+            expect(resolve('@panel.parent == null').type.toString()).toBe('boolean');
+            expect(resolve('null == null').type.toString()).toBe('boolean');
+            expect(failure('(@panel on "click") { clientX: self.clientX } == null').message).toContain('event source');
         });
     });
 
@@ -630,8 +630,8 @@ describe('LanguageResolver', () => {
         });
 
         it('type is null as a Boolean that is never null, whatever its subject', () => {
-            expect(resolve('@panel.parent is null').type.toString()).toBe('boolean');
-            expect(resolve('null is null').type.toString()).toBe('boolean');
+            expect(resolve('@panel.parent == null').type.toString()).toBe('boolean');
+            expect(resolve('null == null').type.toString()).toBe('boolean');
         });
     });
 

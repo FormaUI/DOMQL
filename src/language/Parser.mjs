@@ -37,6 +37,9 @@ export class Parser {
     /** The coalescing operators read where no group holds them, which no `and`, `or` or equality may stand beside. @type {WeakSet<object>} */
     #ungroupedCoalescings = new WeakSet();
 
+    /** The conversions read after another conversion of the same chain, without a group between them, which `try` refuses to test. @type {WeakSet<object>} */
+    #chainedConversions = new WeakSet();
+
     /** @param {string} text The query text. */
     constructor(text) {
         this.#text = text;
@@ -127,9 +130,8 @@ export class Parser {
     }
 
     /**
-     * Reads an equality: an equality operand, `is` or `is not`, and the equality operand it compares with, `is not` recorded as the negation of `is`; an equality operand alone where no `is` follows it, or the coalescing operator that takes it where `??` follows it.
-     * `convertible to` after `is` or `is not` reads a convertibility in its place, which a quoted type ends, so a local named `convertible` that is converted is grouped where it is compared.
-     * An equality and a convertibility do not chain, and stand beside a coalescing operator only where a group holds one of them.
+     * Reads an equality: an equality operand, `==` or `!=`, and the equality operand it compares with, `!=` recorded as the negation of `==`; an equality operand alone where neither follows it, or the coalescing operator that takes it where `??` follows it.
+     * An equality does not chain, and stands beside a coalescing operator only where a group holds one of them.
      */
     #parseEquality() {
         const start = this.#token.start;
@@ -142,61 +144,65 @@ export class Parser {
             return this.#parseCoalescingOperator(left, start);
         }
 
-        if (!this.#isKeyword('is')) {
+        if (!this.#isEqualityOperator()) {
             return left;
         }
 
+        const operator = this.#token.type;
+        const isNegated = operator === '!=';
+
         this.#advance();
-
-        const isNegated = this.#isKeyword('not');
-
-        if (isNegated) {
-            this.#advance();
-        }
 
         const rightStart = this.#token.start;
-        const isConvertibility = this.#token.type === 'name' && this.#token.value === 'convertible' && this.#tokens[this.#index + 1].type === 'name' && this.#tokens[this.#index + 1].value === 'to';
 
-        if (!isConvertibility) {
-            this.#refuseOperandStart(rightStart);
-        }
+        this.#refuseOperandStart(rightStart);
 
-        const comparison = isConvertibility ? this.#parseConvertibility(left, start) : this.#recordSpan({ kind: 'equality', left, right: this.#parseEqualityOperand() }, start);
+        const equality = this.#recordSpan({ kind: 'equality', left, right: this.#parseEqualityOperand() }, start);
 
         if (this.#token.type === '??') {
-            throw DomqlError.syntax("'??' and 'is' stand apart, one of them grouped: write '(… is …) ?? …' or '… is (… ?? …)'", this.#text, this.#token.start);
+            throw DomqlError.syntax(`'??' and '${operator}' stand apart, one of them grouped: write '(… ${operator} …) ?? …' or '… ${operator} (… ?? …)'`, this.#text, this.#token.start);
         }
 
-        if (this.#isKeyword('is')) {
-            throw DomqlError.syntax("An equality compares two values and does not chain: write '(… is …) is …' to compare its result", this.#text, this.#token.start);
+        if (this.#isEqualityOperator()) {
+            throw DomqlError.syntax("An equality compares two values and does not chain: write '(… == …) == …' to compare its result", this.#text, this.#token.start);
         }
 
-        return isNegated ? this.#recordSpan({ kind: 'not', operand: comparison }, start) : comparison;
+        return isNegated ? this.#recordSpan({ kind: 'not', operand: equality }, start) : equality;
     }
 
-    /** Reads a convertibility after its `is`: `convertible to` and the quoted name of the type it tests the value against, which follows `to` after a space or a comment, as a conversion's does. */
-    #parseConvertibility(target, start) {
-        this.#index += 2;
+    /** Whether the current token compares the value before it: `==` or `!=`. */
+    #isEqualityOperator() {
+        return this.#token.type === '==' || this.#token.type === '!=';
+    }
 
-        const token = this.#token;
-
-        if (token.type !== 'literal' || typeof token.value !== 'string') {
-            throw this.#unexpected('the quoted name of the type it tests the value against, as in is convertible to "number"');
-        }
-
-        if (!token.spaced) {
-            throw DomqlError.syntax("The type a convertibility tests follows 'to' after a space or a comment", this.#text, token.start);
-        }
-
+    /**
+     * Reads a test of a conversion after its `try`: the one conversion it tests, the equality operand that follows, recorded as a convertibility of the value that conversion converts.
+     * It tests that conversion alone, so a chain of conversions is grouped to say which it tests, and anything that is no conversion is refused.
+     */
+    #parseTry(start) {
         this.#advance();
 
-        return this.#recordSpan({ kind: 'convertibility', type: token.value, target }, start);
+        if (this.#isKeyword('try')) {
+            throw DomqlError.syntax('\'try\' tests a conversion, and no other test: write \'try … to "type"\'', this.#text, this.#token.start);
+        }
+
+        const conversion = this.#parseEqualityOperand();
+
+        if (conversion.kind !== 'conversion') {
+            throw DomqlError.syntax('\'try\' tests a conversion: write \'try … to "type"\'', this.#text, start);
+        }
+
+        if (this.#chainedConversions.has(conversion)) {
+            throw DomqlError.syntax(`'try' tests one conversion: group the value it converts, as in 'try (… to "${conversion.target.type}") to "${conversion.type}"'`, this.#text, start);
+        }
+
+        return this.#recordSpan({ kind: 'convertibility', type: conversion.type, target: conversion.target }, start);
     }
 
-    /** Refuses what an equality operand cannot start with: `is`, which compares the value written before it, and a conditional, which is grouped where it is an operand. */
+    /** Refuses what an equality operand cannot start with: `==` or `!=`, which compares the value written before it, and a conditional, which is grouped where it is an operand. */
     #refuseOperandStart(start) {
-        if (this.#isKeyword('is')) {
-            throw DomqlError.syntax("'is' compares the value written before it: write 'self is …' to compare the current value", this.#text, start);
+        if (this.#isEqualityOperator()) {
+            throw DomqlError.syntax(`'${this.#token.type}' compares the value written before it: write 'self ${this.#token.type} …' to compare the current value`, this.#text, start);
         }
 
         if (this.#isKeyword('if')) {
@@ -219,8 +225,10 @@ export class Parser {
         const fallbackValue = this.#parseEqualityOperand();
         const fallback = this.#token.type === '??' ? this.#parseCoalescingOperator(fallbackValue, fallbackStart) : fallbackValue;
 
-        if (this.#isKeyword('is')) {
-            throw DomqlError.syntax("'??' and 'is' stand apart, one of them grouped: write '(… ?? …) is …' or '… ?? (… is …)'", this.#text, this.#token.start);
+        if (this.#isEqualityOperator()) {
+            const operator = this.#token.type;
+
+            throw DomqlError.syntax(`'??' and '${operator}' stand apart, one of them grouped: write '(… ?? …) ${operator} …' or '… ?? (… ${operator} …)'`, this.#text, this.#token.start);
         }
 
         const node = this.#recordSpan({ kind: 'coalescing', value, fallback }, start);
@@ -233,6 +241,10 @@ export class Parser {
     /** Reads an equality operand: a chain, held by an optional chain where one of its accesses is optional, the infix call that may end it, and the conversions that follow, each converting what is before it. */
     #parseEqualityOperand() {
         const start = this.#token.start;
+
+        if (this.#isKeyword('try')) {
+            return this.#parseTry(start);
+        }
         const chain = this.#parseChain();
         let value = chain.isOptional ? this.#recordSpan({ kind: 'optionalChain', target: chain.node }, start) : chain.node;
 
@@ -251,7 +263,14 @@ export class Parser {
                 throw DomqlError.syntax(`${value.kind === 'conversion' ? 'A conversion' : 'An infix call'} ends its chain; group it to continue from its result, as in ${written}`, this.#text, this.#token.start);
             }
 
-            value = this.#parseConversion(value, start);
+            const converted = this.#parseConversion(value, start);
+
+            // A conversion of what the conversion before it in this chain converted is written ungrouped, which a test of one conversion refuses.
+            if (value.kind === 'conversion' && value === converted.target && this.#spans.get(value)?.start === start) {
+                this.#chainedConversions.add(converted);
+            }
+
+            value = converted;
         }
 
         return value;
@@ -341,10 +360,6 @@ export class Parser {
 
                 this.#advance();
                 this.#refuseDotBeforeBrackets(optional);
-
-                if (this.#isKeyword('is')) {
-                    throw DomqlError.syntax("'is' compares a value and is no member: write 'is' after the value, without a dot", this.#text, this.#token.start);
-                }
 
                 node = this.#parseMemberAccessExpression(node, start, optional);
                 isOptional ||= optional;
@@ -552,10 +567,6 @@ export class Parser {
 
             this.#advance();
             this.#refuseDotBeforeBrackets(optional);
-
-            if (this.#isKeyword('is')) {
-                throw DomqlError.syntax("'is' compares a value and is no member: write 'is' after the optional-access group", this.#text, this.#token.start);
-            }
 
             node = this.#parseMemberAccessExpression(node, start, true);
             accesses++;

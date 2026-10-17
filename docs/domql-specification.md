@@ -8,7 +8,7 @@ This specification describes the whole language. An implementation may cover par
 
 ## Terms
 
-A **query** is a value expression whose evaluation produces a **result**. A **chain input** is `self`, a parameter, a local, a literal, an object expression or a group, and a **chain** follows **members** from one, each of the value before it, its **receiver**: a **member access** reads a property, `self.rect`, or one its name names in brackets, an **access by name**, `self[@name]`, a **call** invokes an operation with parentheses, `self.closest(".row")`, a **named indexer** invokes one with its key in brackets after a colon, `self:attribute["data-key"]`, and an **infix call** writes the member's name after its receiver, `self:attribute["data-key"]`, followed by an optional argument, which may be omitted where the member's declaration permits it. An access or a call written with `.` requires a receiver that cannot be null, and an **optional** one, written with `?.`, or with `?[` for an access by name, reads its receiver where it is not null and ends its chain with null where it is; the chain it ends is an **optional chain**. A member belongs to a **type**, such as an element, a list or a rectangle, and a call or an infix call can take an **argument**. A **node** is a value of the DOM tree, an element, a document, a document fragment or a shadow root, each a **kind** of node, a **cast**, `as`, answers a node as one of its kinds where it is one, a **conversion**, `to`, answers a value converted to another type of data, and a **convertibility**, `is convertible to`, answers whether it converts. `self` is the **current value**, the value an object expression or an argument is evaluated against. An **object expression** names the **fields** of the **object** it produces, each with a value, and the object's **object type** describes those fields and their types. A **local** names a value in an object expression, written once with `let` and used by its name in the entries after it. A **test** is a member that answers a Boolean, such as `self.disabled`, and an **equality**, `is`, compares two values, with `is not` its negation. A **logical expression** combines Boolean expressions with `and` and `or`, a **negation** negates one with `not`, a **conditional** chooses between two values by a Boolean condition, a **coalescing operator**, `??`, answers a value where it is not null and its fallback where it is, an **expression group** is an expression in parentheses, and an **optional-access group**, `(? … )`, holds a **member-access chain**, a receiver and the accesses after it, every one of them optional. A **parameter** is a name a query reads a value through, such as `@panel`, and a **binding** is the value the caller supplies for it, such as an element. A **vocabulary** is a set of types and their members; the **built-in vocabulary** comes with DOMQL, and an **extension** is a vocabulary registered under a name of its own. An **event source** is a member whose value is a stream of **events**, things that happened, rather than state; an event belongs to an **event type**, such as `click`, and what its source captured of it is its **event data**. An **action** is an operation the browser carries out once, and a **behavior** one that runs on until it is updated or disposed; a **request** is a query, a subscription, an action or a behavior request. A query's **definition** is the JSON document recording its meaning, and every request has one.
+A **query** is a value expression whose evaluation produces a **result**. A **chain input** is `self`, a parameter, a local, a literal, an object expression or a group, and a **chain** follows **members** from one, each of the value before it, its **receiver**: a **member access** reads a property, `self.rect`, or one its name names in brackets, an **access by name**, `self[@name]`, a **call** invokes an operation with parentheses, `self.closest(".row")`, a **named indexer** invokes one with its key in brackets after a colon, `self:attribute["data-key"]`, and an **infix call** writes the member's name after its receiver, `self:attribute["data-key"]`, followed by an optional argument, which may be omitted where the member's declaration permits it. An access or a call written with `.` requires a receiver that cannot be null, and an **optional** one, written with `?.`, or with `?[` for an access by name, reads its receiver where it is not null and ends its chain with null where it is; the chain it ends is an **optional chain**. A member belongs to a **type**, such as an element, a list or a rectangle, and a call or an infix call can take an **argument**. A **node** is a value of the DOM tree, an element, a document, a document fragment or a shadow root, each a **kind** of node, a **cast**, `as`, answers a node as one of its kinds where it is one, a **conversion**, `to`, answers a value converted to another type of data, and a **test of a conversion**, `try`, answers whether a conversion succeeds. `self` is the **current value**, the value an object expression or an argument is evaluated against. An **object expression** names the **fields** of the **object** it produces, each with a value, and the object's **object type** describes those fields and their types. A **local** names a value in an object expression, written once with `let` and used by its name in the entries after it. A **test** is a member that answers a Boolean, such as `self.disabled`, and an **equality**, `==`, compares two values, with `!=` its negation. A **logical expression** combines Boolean expressions with `and` and `or`, a **negation** negates one with `not`, a **conditional** chooses between two values by a Boolean condition, a **coalescing operator**, `??`, answers a value where it is not null and its fallback where it is, an **expression group** is an expression in parentheses, and an **optional-access group**, `(? … )`, holds a **member-access chain**, a receiver and the accesses after it, every one of them optional. A **parameter** is a name a query reads a value through, such as `@panel`, and a **binding** is the value the caller supplies for it, such as an element. A **vocabulary** is a set of types and their members; the **built-in vocabulary** comes with DOMQL, and an **extension** is a vocabulary registered under a name of its own. An **event source** is a member whose value is a stream of **events**, things that happened, rather than state; an event belongs to an **event type**, such as `click`, and what its source captured of it is its **event data**. An **action** is an operation the browser carries out once, and a **behavior** one that runs on until it is updated or disposed; a **request** is a query, a subscription, an action or a behavior request. A query's **definition** is the JSON document recording its meaning, and every request has one.
 
 ## Syntax
 
@@ -35,19 +35,18 @@ or-operand                = conjunction | and-operand
 
 conjunction               = and-operand "and" and-operand
                             { "and" and-operand }
-and-operand               = negation | equality | convertibility | equality-operand
+and-operand               = negation | equality | equality-operand
 
 negation                  = "not"
-                            ( negation | equality | convertibility | equality-operand )
+                            ( negation | equality | equality-operand )
 
 equality                  = equality-operand
-                            "is" [ "not" ]
+                            ( "==" | "!=" )
                             equality-operand
 
-convertibility            = equality-operand
-                            "is" [ "not" ] "convertible" separator "to" separator string
-
 equality-operand          = chain | cast | infix-call-expression | conversion
+                          | conversion-test
+conversion-test           = "try" conversion
 infix-call-expression     = ( chain | cast ) separator infix-call
 infix-call                = infix-name [ separator chain-input ]
 infix-name                = identifier - "to"
@@ -87,7 +86,7 @@ literal                   = string | number | "true" | "false" | "null"
 identifier                = name - reserved-word
 name                      = letter { letter | digit }
 reserved-word             = "true" | "false" | "null" | keyword
-keyword                   = "self" | "is" | "not" | "as" | "and" | "or"
+keyword                   = "self" | "not" | "try" | "as" | "and" | "or"
                           | "if" | "then" | "elseif" | "else" | "let"
 
 number                    = [ "-" ] integer [ fraction ] [ exponent ]
@@ -120,7 +119,7 @@ end-of-input              = ? end of input ?
 
 An identifier is a name that is no reserved word, as `matchesMedia` is; it holds no hyphen, so every identifier is also a JavaScript identifier. No reserved word, a literal's or a keyword, can be used as a name, even where its position would tell it apart, as in `self.null` or `{ null: 1 }`, so one naming rule holds everywhere; the restriction applies equally to text queries and to definitions created directly, wherever a name is declared or supplied: a member, a parameter, a field's or a local's name, and an extension's declaration. A string holding a reserved word stays an ordinary string, so `self:["null"]` reads the attribute named `null`. The rule is for the names a query declares; supplied data keeps its own keys: a bound object, and one a member answers, keeps every field it has, whatever its key, `__proto__` included, as an ordinary field of its own, in a result, its snapshots and live state alike. `document` and `window` name the roots, and no binding can take either. They are ordinary names everywhere else, so `window: @window { size: self.size }` names a field `window`. The tokens are names, numbers, strings and the punctuation the rules quote, `?.`, `?[`, `?:`, `??` and `(?` each being one token, so `? .`, `? [`, `? :`, `? ?` and `( ?` are syntax errors, and an access by name takes no dot before its brackets, so `self.[@name]` and `self?.[@name]` are syntax errors whose messages give the form without the dot. Trivia, which is whitespace, line breaks included, and comments, may stand between any two tokens and never inside one, and is required where the grammar writes `separator`: between an infix call's receiver and its name, and between its name and its argument, so `self matches".row"` is a syntax error. A parameter is one token, its `@` and its name together, so `@ panel` and `@/* the panel */panel` are syntax errors, as `- 5` is no number. Tokens are read by the longest match, and a reserved word matches a whole name alone, so `isVisible` and `nullable` are identifiers; every match is exact, so `IS` is no keyword. A string takes `\"` and `\\` as its only escapes, and may hold a line break. A block comment does not nest, so the first `*/` closes it, and one never closed is a syntax error. Inside a string, `//` and `/*` are text, so `"https://example.com"` and `"/* */"` read as written.
 
-A conjunction exists only where `and` is written, a disjunction only where `or` is, a negation only where `not` is and an equality only where `is` is, so an expression with none of them is an equality operand. An equality takes an equality operand on either side, so it does not chain, and `a is b is c` is a syntax error. A convertibility exists only where `is convertible to` or `is not convertible to` is written, and stands where an equality does, neither chaining: after `is`, the words `convertible to` read a convertibility, which a quoted type ends, so a comparison with a local named `convertible` that is converted groups it, `@a is (convertible to "number")`, and `convertible` stays a name everywhere else, as in `@a is convertible`. A cast exists only where `as` is written, and holds another cast only inside parentheses, so casts do not chain, and a chain continues from one only through a group. A conversion exists only where `to` is written where an infix call's name would stand: it converts what is before it, an infix call's result included, so `self:["data-count"] to "number"` converts the attribute, and an infix call whose argument can be left out takes none where `to` and a quoted type follow it, so `@sentinel intersects to "string"` converts the intersection; conversions chain from left to right, and a chain continues from one only through a group. `to` is a keyword in that position alone, so no infix call is named `to`, and it stays a name everywhere else, as a field in `{ from: 1, to: 2 }`, a local and a property in `@range.to` are. A chain is its chain input and the member-access expressions and object expressions that continue it, so `42` and `@panel` are chains of their input alone. The grammar's `value` rule names `self`, a parameter and a literal, the forms that stand for a value by themselves, while a value in this specification's prose is any value a query has, whose type resolution decides. The grammar's `input` rule names what a chain starts from, and its `receiver` rule what a member-access chain and a cast target start from, an input or a cast in parentheses, while a member's input declaration, which the section on arguments sets out, says how its argument is supplied. A condition and an operand of `not`, `and` or `or` are Booleans that cannot be null by type, which validation checks, so a Boolean parameter, `if @wide then …`, and a property answering one, `self.focused and @enabled`, are written as they read, and one that can be null says what its absence means, `(self matches ":focus" ?? false) and @enabled`.
+A conjunction exists only where `and` is written, a disjunction only where `or` is, a negation only where `not` is and an equality only where `==` or `!=` is, so an expression with none of them is an equality operand. An equality takes an equality operand on either side, so it does not chain, and `a == b == c` is a syntax error. A test of a conversion exists only where `try` is written, before the one conversion it tests, whose value is no conversion written without a group, so `try (@a to "string") to "number"` tests the second conversion and `try @a to "string" to "number"` is a syntax error. A cast exists only where `as` is written, and holds another cast only inside parentheses, so casts do not chain, and a chain continues from one only through a group. A conversion exists only where `to` is written where an infix call's name would stand: it converts what is before it, an infix call's result included, so `self:["data-count"] to "number"` converts the attribute, and an infix call whose argument can be left out takes none where `to` and a quoted type follow it, so `@sentinel intersects to "string"` converts the intersection; conversions chain from left to right, and a chain continues from one only through a group. `to` is a keyword in that position alone, so no infix call is named `to`, and it stays a name everywhere else, as a field in `{ from: 1, to: 2 }`, a local and a property in `@range.to` are. A chain is its chain input and the member-access expressions and object expressions that continue it, so `42` and `@panel` are chains of their input alone. The grammar's `value` rule names `self`, a parameter and a literal, the forms that stand for a value by themselves, while a value in this specification's prose is any value a query has, whose type resolution decides. The grammar's `input` rule names what a chain starts from, and its `receiver` rule what a member-access chain and a cast target start from, an input or a cast in parentheses, while a member's input declaration, which the section on arguments sets out, says how its argument is supplied. A condition and an operand of `not`, `and` or `or` are Booleans that cannot be null by type, which validation checks, so a Boolean parameter, `if @wide then …`, and a property answering one, `self.focused and @enabled`, are written as they read, and one that can be null says what its absence means, `(self matches ":focus" ?? false) and @enabled`.
 
 ```
 @viewport {
@@ -149,7 +148,7 @@ self.children.count                            // Member access.
 self.closest(".row")?.rect?.width              // A call, then optional access.
 self:attribute["data-key"]                     // A named indexer.
 self matches ".row"                            // An infix call.
-(self.closest("[data-group]") matches ".open") is null
+(self.closest("[data-group]") matches ".open") == null
 ```
 
 - **Member access** reads a property and takes no argument; whitespace never stands for its dot, so `self rect width` is an error that gives the form `self.rect`.
@@ -202,35 +201,35 @@ A test is a member that answers a Boolean, read as every member is.
 ```
 
 - **Members.** A test is a property or an operation whose result is a `boolean` or a `boolean?`: `self.disabled` asks whether an element is disabled, and `self matches ":focus"` whether it matches a selector. A test of presence is named with `has`, as `hasChildren` and `hasSelection` are, since `children` and `selection` read what is present. A test follows the access rules as every member does, so one of a receiver that can be null is read with `?.` and is a `boolean?`, and `@input[@state]` reads the test a binding names, as the section on access by name sets out. The built-in vocabulary's tests are in its table of properties, and a module declares a test as it declares any member.
-- **No test by name after `is`.** `is` compares values, so `@input is "disabled"` compares an element with a string, a validation error that gives the member to write, `@input.disabled`.
+- **No test by name after `==`.** `==` compares values, so `@input == "disabled"` compares an element with a string, a validation error that gives the member to write, `@input.disabled`.
 
 ### Equalities
 
-`a is b` compares two values, and `a is not b` is its negation.
+`a == b` compares two values, and `a != b` is its negation.
 
 ```
-@action is "save"
-@panel.parent is null
-@left:["name"] is @right:["name"]
-(@item.parent as "element") is @panel
-@count is not 0
+@action == "save"
+@panel.parent == null
+@left:["name"] == @right:["name"]
+(@item.parent as "element") == @panel
+@count != 0
 ```
 
-- **Comparison.** Strings compare exactly, by code unit; numbers numerically, so `-0 is 0` is true; Booleans by value; and nodes by identity, so `@a is @b` asks whether they are the same node. Nothing is converted.
-- **Null** equals only null, and a value of any type is compared with null, one that cannot be null included, so `@panel.parent is null` asks whether the panel has a parent.
-- **Types.** Two values whose types fit neither way, as `"1" is 1` or an `element` with a `document`, are a validation error naming both; an `element` and a `node` fit, as do a `number` and a `number?`. A structured value, a list, an object, the window, a view and an event source are compared with null alone.
-- **Results.** An equality answers a `boolean`, never null, evaluating both operands once, from left to right, and a watch follows what both read. It narrows nothing: after `@target is not null`, an access of `@target` follows its type.
-- **`is not`** has the definition of `not` around `is`, and the canonical text writes it so: `not (@a is @b)` and `not @a is @b` are both written `@a is not @b`.
-- **Binding.** A dot binds tighter than `is`, and so do an indexer and an infix call, so `@panel:["role"] is null` tests the attribute and `@panel matches ".open" is false` tests the match. An equality takes an equality operand on either side, a chain, a cast or an infix call, and does not chain, so `a is b is c` is a syntax error and `(a is b) is c` compares the first's result; it stands beside a coalescing operator only where a group holds one of them, `(@count ?? 0) is 0`.
+- **Comparison.** Strings compare exactly, by code unit; numbers numerically, so `-0 == 0` is true; Booleans by value; and nodes by identity, so `@a == @b` asks whether they are the same node. Nothing is converted.
+- **Null** equals only null, and a value of any type is compared with null, one that cannot be null included, so `@panel.parent == null` asks whether the panel has a parent.
+- **Types.** Two values whose types fit neither way, as `"1" == 1` or an `element` with a `document`, are a validation error naming both; an `element` and a `node` fit, as do a `number` and a `number?`. A structured value, a list, an object, the window, a view and an event source are compared with null alone.
+- **Results.** An equality answers a `boolean`, never null, evaluating both operands once, from left to right, and a watch follows what both read. It narrows nothing: after `@target != null`, an access of `@target` follows its type.
+- **`!=`** has the definition of `not` around `==`, and the canonical text writes it so: `not (@a == @b)` and `not @a == @b` are both written `@a != @b`.
+- **Binding.** A dot binds tighter than `==`, and so do an indexer, an infix call, a conversion and a test of one, so `@panel:["role"] == null` tests the attribute and `@panel matches ".open" == false` tests the match. An equality takes an equality operand on either side, a chain, a cast or an infix call, and does not chain, so `a == b == c` is a syntax error and `(a == b) == c` compares the first's result; it stands beside a coalescing operator only where a group holds one of them, `(@count ?? 0) == 0`.
 
 For a nullable Boolean `x`, comparing and negating answer differently where `x` is null:
 
 | Expression | Where `x` is null | Same as |
 | --- | --- | --- |
-| `x is true` | false | `x ?? false` |
-| `x is false` | false | `not (x ?? true)` |
-| `x is not true` | true | `not (x ?? false)` |
-| `x is not false` | true | `x ?? true` |
+| `x == true` | false | `x ?? false` |
+| `x == false` | false | `not (x ?? true)` |
+| `x != true` | true | `not (x ?? false)` |
+| `x != false` | true | `x ?? true` |
 
 ### Logical expressions, negations and groups
 
@@ -244,7 +243,7 @@ not (@panel.attached or @input.disabled) and @enabled
 ```
 
 - **Operands.** Every operand of `and` and `or`, and what `not` negates, is a `boolean` that cannot be null; a `boolean?` is a validation error that gives the fallback to write, as is an operand of another type, which it names. Null is never false: an operand that can be null says what its absence means with a coalescing operator, `@panel.first("input")?.disabled ?? false`.
-- **Binding.** An equality binds tighter than `not`, `not` tighter than `and`, and `and` tighter than `or`, so `@panel.attached or not @input is null and @enabled` combines the negation of the input's equality and `@enabled` before the panel's test. `not` associates to the right, so `not not @a` negates `@a` twice, and `and not` and `or not` are `and` and `or` of a negation.
+- **Binding.** An equality binds tighter than `not`, `not` tighter than `and`, and `and` tighter than `or`, so `@panel.attached or not @input == null and @enabled` combines the negation of the input's equality and `@enabled` before the panel's test. `not` associates to the right, so `not not @a` negates `@a` twice, and `and not` and `or not` are `and` and `or` of a negation.
 - **Results.** `and` answers true where every operand is true and false otherwise, `or` false where every operand is false and true otherwise, and `not` the Boolean its operand is not; each answers a `boolean`.
 - **Evaluation.** Operands are evaluated from left to right, each once, and evaluation stops at the first that decides the result, false for `and` and true for `or`. Every operand is resolved and validated before anything is evaluated all the same, and a watch follows the operands evaluation reached, so it holds what an operand reads only while evaluation reaches it.
 - **Groups.** An expression group holds an expression and adds nothing of its own, so `((@panel))` is `@panel`, and as a chain input it can start a chain: `(@panel).children.count`.
@@ -255,7 +254,7 @@ A conditional chooses between two values: `if` a Boolean condition `then` its co
 
 ```
 if @wide then @panel else @sidebar
-if @panel.first("input")?.disabled ?? false then "locked" elseif @panel.first("input") is null then "empty" else "open"
+if @panel.first("input")?.disabled ?? false then "locked" elseif @panel.first("input") == null then "empty" else "open"
 @panel { state: if self.disabled then "locked" else "open" }
 (if @wide then @panel else @sidebar).rect?.width
 ```
@@ -279,7 +278,7 @@ A coalescing operator answers its value where it is not null, and otherwise its 
 - **Evaluation.** The value is evaluated once, and the fallback only where the value is null, so a watch follows what the fallback reads while the value is null alone. False, zero and the empty string are values, which the fallback never replaces, and a failure of either side stays a failure.
 - **Type.** The value and the fallback are of one type, compared as a conditional's branches are, and the whole is of the value's type made non-null where the fallback's is, so `@panel.rect?.width ?? 0` is a `number`. A value of the type `null` gives the fallback's type, and `??` after a value that cannot be null is valid, since a binding typed from its value may be one that can.
 - **Association.** `??` associates to the right, so `@a ?? @b ?? 0` is `@a ?? (@b ?? 0)`, and each side is an equality operand: a chain, a cast or an infix call.
-- **Grouping.** A coalescing operator stands beside `not`, `and`, `or` and an equality only where a group holds one of them, so `@enabled ?? false and @ready` and `@a ?? @b is null` are syntax errors, while `(@enabled ?? false) and @ready` and `@enabled ?? (@ready and @visible)` each say what they mean.
+- **Grouping.** A coalescing operator stands beside `not`, `and`, `or` and an equality only where a group holds one of them, so `@enabled ?? false and @ready` and `@a ?? @b == null` are syntax errors, while `(@enabled ?? false) and @ready` and `@enabled ?? (@ready and @visible)` each say what they mean.
 
 ### Casts
 
@@ -314,25 +313,27 @@ A conversion answers a value converted to another type of data: `value to "type"
 - **One declared conversion.** A value converts to another type only through the one conversion the vocabulary declares from its type to that type. Conversions never chain on their own: a Boolean converts to a string and a string to a number, and `@enabled to "number"` is still a validation error, whose message names the types a Boolean converts to. A query that means both conversions writes both.
 - **A value already of the type** answers itself, so `5 to "number"` is 5. This is the language's rule, and no conversion is declared from a type to itself.
 - **Null.** A conversion of null answers null without converting, and its type is the type it converts to, made nullable where its value can be null. A value of the type null, a null binding, converts to any type a conversion can name, however many conversions reach it, since nothing is converted; a value whose type is known is checked by that type without null, so `@panel.closest(".row") to "string"` is a validation error, as a conversion from an element is declared nowhere.
-- **What fails.** A value its conversion rejects, as `"12px" to "number"`, fails the evaluation with an evaluation error naming the conversion, the reason it gave and where it stands. A conversion that fails otherwise, by throwing or by answering a value not of its type, has a fault, which fails the evaluation too. A failure never answers null or a default: `?? 0` gives a missing attribute a value, and leaves a malformed one an error, which a [convertibility](#convertibilities) tests for beforehand. A watch whose conversion fails is failed until its value converts again.
+- **What fails.** A value its conversion rejects, as `"12px" to "number"`, fails the evaluation with an evaluation error naming the conversion, the reason it gave and where it stands. A conversion that fails otherwise, by throwing or by answering a value not of its type, has a fault, which fails the evaluation too. A failure never answers null or a default: `?? 0` gives a missing attribute a value, and leaves a malformed one an error, which [a test of the conversion](#testing-a-conversion) tells beforehand. A watch whose conversion fails is failed until its value converts again.
 - **Evaluation.** The value is evaluated once, and a conversion reads nothing but that value, so what a watch of a conversion depends on is what its value depends on.
 
-### Convertibilities
+### Testing a conversion
 
-A convertibility answers whether a value converts: `value is convertible to "type"` carries out the conversion `value to "type"` would, and answers true where it accepts the value and false where it rejects it, and `is not convertible to` answers the opposite. It handles a value its conversion rejects without failing, where `??` handles a missing one:
+`try value to "type"` answers whether a conversion succeeds: it carries out the conversion `value to "type"` would, and answers true where the conversion accepts the value, whatever it converts it to, `0`, `false` and null among them, and false where the conversion rejects it. `not (try value to "type")`, written `not try value to "type"` too, answers the opposite. It handles a value its conversion rejects without failing, where `??` handles a missing one:
 
 ```
 @panel {
     let count: self:["data-count"],
-    value: if count is convertible to "number" then count to "number" ?? 0 else 0
+    value: if try count to "number" then count to "number" ?? 0 else 0
 }
 ```
 
-A missing attribute is null, which converts to null, so the convertibility is true and `?? 0` gives zero; malformed text is rejected, so it is false and the alternative gives zero; and text that converts gives its number.
+A missing attribute is null, which converts to null, so the test is true and `?? 0` gives zero; malformed text is rejected, so it is false and the alternative gives zero; and text that converts gives its number.
 
-- **One set of rules.** A convertibility resolves as its conversion does, so a target no type has, a pair no conversion is declared for, and a nullable value whose type has no conversion are validation errors for both forms. It is true for a value already of the type, and for null, which a conversion answers without failing; its type is a Boolean that cannot be null.
-- **A rejection alone is false.** A conversion that throws, rejects with a reason that is no string, rejects and then answers, or answers a value not of its type has a fault, which fails the evaluation under `is convertible to` and `is not convertible to` alike.
-- **Two conversions.** Both forms carry a conversion out by the same rules, so for the same unchanged value and a conversion that is deterministic and pure, as every conversion is declared to be, a true convertibility means its conversion succeeds. Each form evaluates its own value once, so testing a value and then converting it carries the conversion out twice.
+- **One conversion.** `try` tests the one conversion written after it, and nothing else, so it is no general catch of errors: a failure while its value is evaluated, a rejection by a conversion that value holds among them, fails the evaluation as it would anywhere. A chain of conversions is grouped to say which one is tested, `try (@a to "string") to "number"`, so `try @a to "string" to "number"` is a syntax error, as is `try` before anything that is no conversion.
+- **One set of rules.** A test of a conversion resolves as its conversion does, so a target no type has, a pair no conversion is declared for, and a nullable value whose type has no conversion are validation errors for both. It is true for a value already of the type, and for null, which a conversion answers without failing; its type is a Boolean that cannot be null.
+- **A rejection alone is false.** A conversion that throws, rejects with a reason that is no string, rejects and then answers, or answers a value not of its type has a fault, which fails the evaluation under `try` and `not try` alike.
+- **Two conversions.** A test and a conversion carry the conversion out by the same rules, so for the same unchanged value and a conversion that is deterministic and pure, as every conversion is declared to be, a true test means its conversion succeeds. The test evaluates its value once and carries its conversion out once, so testing a value and then converting it carries the conversion out twice.
+- **Binding.** `try` binds tighter than `==`, `!=` and `??`, so `try @v to "number" == true` compares the test's answer, and it stands where an equality operand stands. `not` negates the whole equality after it, as it does any, so `not try @v to "number" == true` is `not ((try @v to "number") == true)`, written `try @v to "number" != true`; `(not try @v to "number") == true` groups the negation first.
 
 ### Locals
 
@@ -739,12 +740,12 @@ A document holds the definition's `version` and the `query` node. The version ch
 | `infixCall` | `name`; `argument`, its one argument, where it is given one; and `target`, the receiver | An infix call |
 | `indexer` | `name`, left out for the default indexer; `argument`, its key; `target`, the receiver; and `optional`, true, where it is written with `?:` | A named indexer, or the receiver's default indexer |
 | `object` | `fields`; `locals`, where it has any; and `target`, the node the object expression follows | An object expression; without a target, one keeping the current value around it, which at the top level is absent |
-| `equality` | `left` and `right`, the two expressions it compares | An equality; `is not` is a `not` holding one |
+| `equality` | `left` and `right`, the two expressions it compares | An equality; `!=` is a `not` holding one |
 | `conditional` | `condition`, `consequent` and `alternative`, three expressions | A conditional; an `elseif` is a conditional nested in the alternative before it |
 | `coalescing` | `value` and `fallback`, two expressions | A coalescing operator |
 | `cast` | `type`, the name of the type it casts to, and `target`, the expression it casts | A cast |
 | `conversion` | `type`, the name of the type it converts to, and `target`, the expression it converts | A conversion |
-| `convertibility` | `type`, the name of the type it tests the value against, and `target`, the expression it tests | A convertibility; `is not convertible to` is a `not` holding one |
+| `convertibility` | `type`, the name of the type its conversion converts to, and `target`, the value that conversion converts | A test of a conversion, `try`; `not try` is a `not` holding one |
 | `optionalChain` | `target`, the chain it holds | An optional chain: the chain of member accesses, calls and object expressions whose optional accesses end at it, holding at least one |
 | `and`, `or` | `operands`, two or more expressions | A logical expression |
 | `not` | `operand`, the expression it negates | A negation |
@@ -902,6 +903,6 @@ With no item selected, `current` is null. With an empty panel, `items` is an emp
 | An element's states and what it holds | `@target { attached: self.attached, disabled: self.disabled, hasChildren: self.hasChildren, hasSelection: self.hasSelection }` |
 | Whether a control cannot take text | `@input.disabled or @input.readOnly` |
 | A control's state, one word | `@input { state: if self.disabled then "locked" elseif self.readOnly then "read" else "open" }` |
-| Whether an element has no parent | `@panel.parent is null` |
+| Whether an element has no parent | `@panel.parent == null` |
 | The width of an element's parent element, null where the parent is none | `(@panel.parent as "element")?.rect?.width` |
 | A list's size and its tallest item, the list read once | `@panel { let items: self.all("[data-key]"), count: items.count, tallest: items.max(self.rect?.height) }` |

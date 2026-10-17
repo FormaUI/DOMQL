@@ -142,7 +142,7 @@ export class LanguageResolver {
     /**
      * Resolves an equality: two values, compared, and answers a Boolean that is never null, whatever their types.
      * A string, a number, a Boolean or a node is compared with a value of a type one of theirs fits, and a value of any other type with null alone; a value of the type null, and a never, compare with any.
-     * Where `is`, or `is not` as it is negated, compares a value with a string that names one of its Boolean members, the refusal gives the member to write.
+     * Where `==`, or `!=` as it is negated, compares a value with a string that names one of its Boolean members, the refusal gives the member to write.
      */
     #resolveEquality(node, pointer, scope, isNegated) {
         const left = this.#resolveNode(node.left, `${pointer}/left`, scope);
@@ -150,7 +150,7 @@ export class LanguageResolver {
 
         for (const [side, result] of [['left', left], ['right', right]]) {
             if (result.kind !== 'query') {
-                this.#fail(`'is' compares values, and this is ${LanguageResolver.#descriptionOf(result.kind)}`, `${pointer}/${side}`);
+                this.#fail(`'==' compares values, and this is ${LanguageResolver.#descriptionOf(result.kind)}`, `${pointer}/${side}`);
             }
         }
 
@@ -160,12 +160,12 @@ export class LanguageResolver {
 
             for (const [side, type] of [['left', leftType], ['right', rightType]]) {
                 if (!LanguageResolver.#isComparable(type)) {
-                    this.#fail(`'is' compares a value of ${type} with null alone, since only strings, numbers, Booleans and nodes are compared with each other`, `${pointer}/${side}`);
+                    this.#fail(`'==' compares a value of ${type} with null alone, since only strings, numbers, Booleans and nodes are compared with each other`, `${pointer}/${side}`);
                 }
             }
 
             if (!leftType.isAssignableTo(rightType) && !rightType.isAssignableTo(leftType)) {
-                this.#fail(`'is' compares values whose types fit one way or the other, and ${leftType} and ${rightType} fit neither way${this.#testOf(node, left, right, isNegated)}`, pointer);
+                this.#fail(`'==' compares values whose types fit one way or the other, and ${leftType} and ${rightType} fit neither way${this.#testOf(node, left, right, isNegated)}`, pointer);
             }
         }
 
@@ -173,7 +173,7 @@ export class LanguageResolver {
     }
 
     /**
-     * For an equality of a value and a string that names one of the value's Boolean members, as `@input is "disabled"` or `@input is @state` writes one, the member to write, negated for `is not`; nothing for any other.
+     * For an equality of a value and a string that names one of the value's Boolean members, as `@input == "disabled"` or `@input == @state` writes one, the member to write, negated for `is not`; nothing for any other.
      * The name is read exactly, and the member is one the value's type declares.
      */
     #testOf(node, left, right, isNegated) {
@@ -264,7 +264,7 @@ export class LanguageResolver {
         const target = this.#resolveNode(node.target, `${pointer}/target`, scope);
 
         if (target.kind !== 'query') {
-            this.#fail(`${node.kind === 'conversion' ? "What 'to' converts" : "What 'is convertible to' tests"} is a value, and this one is ${LanguageResolver.#descriptionOf(target.kind)}`, `${pointer}/target`);
+            this.#fail(`${node.kind === 'conversion' ? "What 'to' converts" : "What 'try' tests"} is a value, and this one is ${LanguageResolver.#descriptionOf(target.kind)}`, `${pointer}/target`);
         }
 
         const to = Type.parse(node.type);
@@ -301,7 +301,7 @@ export class LanguageResolver {
 
     /** Resolves a negation: what it negates, a Boolean that cannot be null, and answers a Boolean. */
     #resolveNot(node, pointer, scope) {
-        // An equality is negated as `is not` writes it, so the member a refusal gives is negated too.
+        // An equality is negated as `!=` writes it, so the member a refusal gives is negated too.
         const operand = node.operand.kind === 'equality' ? this.#resolveEquality(node.operand, `${pointer}/operand`, scope, true) : this.#resolveNode(node.operand, `${pointer}/operand`, scope);
 
         this.#requireBoolean(operand, node.operand, "What 'not' negates", `${pointer}/operand`);

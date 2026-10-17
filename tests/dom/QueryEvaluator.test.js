@@ -401,35 +401,35 @@ describe('QueryEvaluator', () => {
         });
 
         it('answer whether a subject is null with is null, never null itself', () => {
-            expect(read('@panel.first(".none") is null', { panel })).toBe(true);
-            expect(read('@panel.parent is null', { panel })).toBe(false);
-            expect(read('null is null')).toBe(true);
+            expect(read('@panel.first(".none") == null', { panel })).toBe(true);
+            expect(read('@panel.parent == null', { panel })).toBe(false);
+            expect(read('null == null')).toBe(true);
         });
     });
 
     describe('equalities', () => {
         it('compare strings by code unit, numbers numerically, Booleans by value and nodes by identity', () => {
-            expect(read('@a is "x"', { a: 'x' })).toBe(true);
-            expect(read('@a is "X"', { a: 'x' })).toBe(false);
-            expect(read('@a is 0', { a: -0 })).toBe(true);
-            expect(read('@a is false', { a: false })).toBe(true);
-            expect(read('@a is @b', { a: items[0], b: items[0] })).toBe(true);
-            expect(read('@a is not @b', { a: items[0], b: items[1] })).toBe(true);
-            expect(read('(@item.parent as "element") is @panel', { item: items[0], panel })).toBe(true);
+            expect(read('@a == "x"', { a: 'x' })).toBe(true);
+            expect(read('@a == "X"', { a: 'x' })).toBe(false);
+            expect(read('@a == 0', { a: -0 })).toBe(true);
+            expect(read('@a == false', { a: false })).toBe(true);
+            expect(read('@a == @b', { a: items[0], b: items[0] })).toBe(true);
+            expect(read('@a != @b', { a: items[0], b: items[1] })).toBe(true);
+            expect(read('(@item.parent as "element") == @panel', { item: items[0], panel })).toBe(true);
         });
 
         it('equal null to null alone, whatever the other value\'s type', () => {
-            expect(read('@a is null', { a: null })).toBe(true);
-            expect(read('@panel.first(".none") is null', { panel })).toBe(true);
-            expect(read('@a is not null', { a: 0 })).toBe(true);
-            expect(read('@a is ""', { a: null })).toBe(false);
+            expect(read('@a == null', { a: null })).toBe(true);
+            expect(read('@panel.first(".none") == null', { panel })).toBe(true);
+            expect(read('@a != null', { a: 0 })).toBe(true);
+            expect(read('@a == ""', { a: null })).toBe(false);
         });
 
         it.each([true, false, null])('compare and negate a nullable Boolean %s as the table of nullable Booleans states', x => {
-            expect(read('@x is true', { x })).toBe(read('@x ?? false', { x }));
-            expect(read('@x is false', { x })).toBe(read('not (@x ?? true)', { x }));
-            expect(read('@x is not true', { x })).toBe(read('not (@x ?? false)', { x }));
-            expect(read('@x is not false', { x })).toBe(read('@x ?? true', { x }));
+            expect(read('@x == true', { x })).toBe(read('@x ?? false', { x }));
+            expect(read('@x == false', { x })).toBe(read('not (@x ?? true)', { x }));
+            expect(read('@x != true', { x })).toBe(read('not (@x ?? false)', { x }));
+            expect(read('@x != false', { x })).toBe(read('@x ?? true', { x }));
         });
     });
 
@@ -720,7 +720,7 @@ describe('QueryEvaluator evaluation', () => {
         it('are recorded for each item, which can select a different branch', () => {
             rows[1].setAttribute('data-on', '');
 
-            const { items } = evaluate('@panel.children { pick: if (self:attribute["data-on"]) is null then 2 else 1 }', { panel }).identities;
+            const { items } = evaluate('@panel.children { pick: if (self:attribute["data-on"]) == null then 2 else 1 }', { panel }).identities;
 
             expect(items.map(item => consequents(item.fields.pick))).toEqual([[true], [false], [true]]);
         });
@@ -768,7 +768,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('stand where each operand of an equality is written, both evaluated', () => {
-            expect(membersOf(evaluate('@panel:attribute["id"] is @panel.first("i")?:attribute["id"]', { panel }))).toEqual(['attribute', 'first', 'attribute']);
+            expect(membersOf(evaluate('@panel:attribute["id"] == @panel.first("i")?:attribute["id"]', { panel }))).toEqual(['attribute', 'first', 'attribute']);
         });
 
         it('stop where an optional chain meets null, and reach as far as its receivers are present', () => {

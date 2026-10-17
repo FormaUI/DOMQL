@@ -86,7 +86,7 @@ describe('Nodes in a browser', () => {
             const parent = element('<div id="parent"></div>');
             const item = element('<i></i>', null);
 
-            await watch('{ parent: (@item.parent as "element")?:attribute["id"], inDocument: (@item.root as "document") is null }', { item });
+            await watch('{ parent: (@item.parent as "element")?:attribute["id"], inDocument: (@item.root as "document") == null }', { item });
 
             expect(snapshots).toEqual([{ parent: null, inDocument: true }]);
             expect(await after(() => parent.append(item))).toEqual({ parent: 'parent', inDocument: false });
@@ -103,7 +103,7 @@ describe('Nodes in a browser', () => {
             // Out of the template's content, the element is the top of a detached tree that another document owns.
             item.remove();
 
-            await watch('{ parent: (@item.parent as "element")?:attribute["id"], inDocument: (@item.root as "document") is null }', { item });
+            await watch('{ parent: (@item.parent as "element")?:attribute["id"], inDocument: (@item.root as "document") == null }', { item });
 
             expect(snapshots).toEqual([{ parent: null, inDocument: true }]);
             expect(await after(() => parent.append(item))).toEqual({ parent: 'parent', inDocument: false });

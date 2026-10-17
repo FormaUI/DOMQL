@@ -7,7 +7,7 @@ import { Names } from './Names.mjs';
 
 /**
  * @typedef {object} Token
- * @property {'name' | 'parameter' | 'literal' | 'keyword' | 'self' | 'end' | '.' | '?.' | '?[' | '?:' | '??' | '(?' | ',' | ':' | '(' | ')' | '{' | '}' | '[' | ']'} type
+ * @property {'name' | 'parameter' | 'literal' | 'keyword' | 'self' | 'end' | '.' | '?.' | '?[' | '?:' | '??' | '(?' | '==' | '!=' | ',' | ':' | '(' | ')' | '{' | '}' | '[' | ']'} type
  * @property {unknown} [value] A name's, a parameter's or a keyword's text, or a literal's value.
  * @property {number} start
  * @property {number} end
@@ -74,7 +74,7 @@ export class Tokenizer {
             return { type: character, start, end: this.#offset };
         }
 
-        if (this.#text.startsWith('?.', start) || this.#text.startsWith('?[', start) || this.#text.startsWith('?:', start) || this.#text.startsWith('??', start)) {
+        if (['?.', '?[', '?:', '??', '==', '!='].some(operator => this.#text.startsWith(operator, start))) {
             this.#offset += 2;
 
             return { type: this.#text.slice(start, this.#offset), start, end: this.#offset };
@@ -114,6 +114,11 @@ export class Tokenizer {
             }
 
             return { type: Names.isKeyword(name) ? 'keyword' : 'name', value: name, start, end: this.#offset };
+        }
+
+        // A single `=` or `!` is no operator; an equality is written `==` or `!=`, and a negation `not`.
+        if (character === '=' || character === '!') {
+            throw DomqlError.syntax(`Unexpected '${character}': an equality is written '==' or '!=', and a negation 'not'`, this.#text, start);
         }
 
         throw DomqlError.syntax(`Unexpected '${character}'`, this.#text, start);

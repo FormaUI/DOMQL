@@ -267,7 +267,7 @@ domql.query(42);
 // @ts-expect-error A query object is made from text or a definition, never from another query object.
 domql.query(query);
 
-const tested = domql.query('@panel.attached or @panel is null', { panel }).definition.query;
+const tested = domql.query('@panel.attached or @panel == null', { panel }).definition.query;
 
 if (tested.kind === 'or') {
     const second: DomqlDefinitionNode = tested.operands[1];
