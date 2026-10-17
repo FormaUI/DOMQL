@@ -3155,6 +3155,22 @@ describe('domql arithmetic', () => {
         expect(domql.format('-2 * 3')).toBe('-2 * 3');
     });
 
+    it.each([
+        ['written with no spaces', 'panel { w = self.client-size }', "'client' is no member of the vocabulary. Did you mean 'self.clientSize'?"],
+        ['written with spaces, which may be a subtraction', 'panel { w = self.client - size }', "'client' is no member of the vocabulary. Did you mean 'self.clientSize'?"],
+        ['spelled otherwise than the member', 'panel.client-SIZE', "'client' is no member of the vocabulary. Did you mean 'panel.clientSize'?"],
+        ['subtracting a local', 'panel { let size = 1, w = self.client-size }', "Did you mean 'self.clientSize'?"],
+        ['read where its receiver is not null', 'panel.first(".x")?.client-size', "Did you mean 'panel.first(\".x\")?.clientSize'?"],
+        ['after a grouped receiver', '(panel ?? panel).client-size', "Did you mean '(panel ?? panel).clientSize'?"],
+    ])('suggests the member a hyphen joins two names into, where no member has the first: %s', (_, text, message) => {
+        expect(getError(() => domql.query(text, { panel: document.body, size: 1, SIZE: 1 }).resolve()).message).toContain(message);
+    });
+
+    it('suggests nothing where the joined name is no member of the receiver, or the first name is one', () => {
+        expect(getError(() => domql.query('panel.nothing-here', { panel: document.body, here: 1 }).resolve()).message).toMatch(/'nothing' is no member of the vocabulary \(/);
+        expect(getError(() => domql.query('panel.size-width', { panel: document.body, width: 1 }).resolve()).message).not.toContain('Did you mean');
+    });
+
     it('refuses a definition with an operator arithmetic has none of, and takes a negation of any number', () => {
         const error = getError(() => domql.query({ version: 20, query: { kind: 'arithmetic', operator: '^', left: { kind: 'literal', value: 2 }, right: { kind: 'literal', value: 3 } } }));
 

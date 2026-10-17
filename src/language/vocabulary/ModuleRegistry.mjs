@@ -182,6 +182,11 @@ export class ModuleRegistry {
         return this.#conditions.get(name) ?? [];
     }
 
+    /** The names of every member declared, across every module. */
+    get memberNames() {
+        return [...this.#members.keys()];
+    }
+
     /** The names of every condition declared, across every module. */
     get conditionNames() {
         return [...this.#conditions.keys()];

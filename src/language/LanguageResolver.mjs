@@ -81,6 +81,13 @@ export class LanguageResolver {
             case 'equality':
                 return this.#resolveEquality(node, pointer, scope, false);
             case 'arithmetic':
+                // A subtraction of a bare name from a member access may be one name written with a hyphen, as `self.client-size` is, which a failure to find the member suggests.
+                const access = node.left.kind === 'optionalChain' ? node.left.target : node.left;
+
+                if (node.operator === '-' && access.kind === 'member' && typeof access.name === 'string' && (node.right.kind === 'parameter' || node.right.kind === 'local')) {
+                    this.#joinedNames.set(access, `${access.name}${node.right.name[0].toUpperCase()}${node.right.name.slice(1)}`);
+                }
+
                 for (const side of ['left', 'right']) {
                     this.#requireNumber(this.#resolveNode(node[side], `${pointer}/${side}`, scope), `The ${side} operand of '${node.operator}'`, `${pointer}/${side}`);
                 }
@@ -591,10 +598,36 @@ export class LanguageResolver {
         return narrowed === undefined ? local.result : { ...local.result, type: narrowed };
     }
 
-    /** How the member of the type with the name is written with `self` as its receiver, or null where the type has none. */
-    #memberForm(type, name) {
+    /** The names a member access joins with the bare name a subtraction takes from it, by the access, which a failure to find its member suggests. @type {WeakMap<object, string>} */
+    #joinedNames = new WeakMap();
+
+    /**
+     * For a member access no member is named as, which a subtraction takes a bare name from, the suggestion of the member the two names joined in camelCase name, as `client` and `size` join as `clientSize`,
+     * where the receiver's type has one of that name, compared ignoring case and written as the member spells it; nothing for any other access.
+     */
+    #joinedNameHintOf(node, receiverType) {
+        const joined = this.#joinedNames.get(node)?.toLowerCase();
+
+        if (joined === undefined || LanguageResolver.#isOfUnknownType(receiverType)) {
+            return '';
+        }
+
+        const name = this.#moduleRegistry.memberNames.find(candidate => candidate.toLowerCase() === joined && this.#memberForm(receiverType, candidate) !== null);
+
+        if (name === undefined) {
+            return '';
+        }
+
+        // The access written with the member's name, less that name, is its receiver as the access writes it, grouped where it needs to be and ending in `?` where the access is optional.
+        const receiver = DefinitionWriter.write({ ...node, name }).slice(0, -(name.length + 1));
+
+        return `. Did you mean '${this.#memberForm(receiverType, name, receiver)}'?`;
+    }
+
+    /** How the member of the type with the name is written after the receiver, `self` unless another is given, or null where the type has none. */
+    #memberForm(type, name, receiver = 'self') {
         if (this.#fieldTypeOf(type, name) !== null) {
-            return `self.${name}`;
+            return `${receiver}.${name}`;
         }
 
         const declaration = this.#moduleRegistry.getMembers(name).find(candidate => LanguageResolver.#matchesReceiver(candidate, type, new Map()));
@@ -604,10 +637,10 @@ export class LanguageResolver {
         }
 
         if (declaration.kind === 'property') {
-            return `self.${name}`;
+            return `${receiver}.${name}`;
         }
 
-        return declaration.form === 'indexer' ? `self:${name}[…]` : `self.${name}(…)`;
+        return declaration.form === 'indexer' ? `${receiver}:${name}[…]` : `${receiver}.${name}(…)`;
     }
 
     #resolveLiteral(node) {
@@ -870,7 +903,7 @@ export class LanguageResolver {
         const candidates = this.#moduleRegistry.getMembers(node.name);
 
         if (candidates.length === 0) {
-            this.#fail(`'${node.name}' is no member of the vocabulary`, pointer);
+            this.#fail(`'${node.name}' is no member of the vocabulary${this.#joinedNameHintOf(node, receiverType)}`, pointer);
         }
 
         const matching = candidates.filter(candidate => LanguageResolver.#matchesReceiver(candidate, receiverType, new Map()));
