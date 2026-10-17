@@ -197,6 +197,7 @@ selection.subscribe('change', (sender, args) => {
 await selection.refreshAsync();
 // ['a2']
 
+// For this example only: your app, a UI library or the user changes the page; DOMQL only observes it.
 panel.children[0].setAttribute('aria-selected', 'true');
 await selection.refreshAsync();
 // ['a1', 'a2']
@@ -266,6 +267,7 @@ await live.refreshAsync();
 
 const pears = live.liveState[1];
 
+// For this example only: your app, a UI library or the user changes the page; DOMQL only observes it.
 list.children[1].setAttribute('aria-selected', 'true');
 await live.refreshAsync();
 // [{ op: 'replace', path: '/1/selected', value: true }]
@@ -304,6 +306,7 @@ const activations = domql.query(`
     console.log(args.value);
 });
 
+// For this example only: the user clicks the second item; DOMQL only listens.
 panel.querySelector('[data-key="a2"]').click();
 // { key: 'a2', wasSelected: true, selectedCount: 1 }
 

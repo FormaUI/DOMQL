@@ -15,6 +15,7 @@ const activations = domql.query(`
     console.log(args.value);
 });
 
+// For this example only: the user clicks the second item; DOMQL only listens.
 panel.querySelector('[data-key="a2"]').click();
 // { key: 'a2', wasSelected: true, selectedCount: 1 }
 

@@ -77,6 +77,7 @@ The source import above works when serving the repository. For the packaged bund
 Creating a query does not read the DOM. Evaluate the same query whenever you need a new snapshot:
 
 ```js
+// For this example only: your app, a UI library or the user changes the page; DOMQL only reads it.
 panel.children[0].setAttribute('aria-selected', 'true');
 
 const next = query.evaluate();

@@ -23,6 +23,7 @@ await live.refreshAsync();
 
 const pears = live.liveState[1];
 
+// For this example only: your app, a UI library or the user changes the page; DOMQL only observes it.
 list.children[1].setAttribute('aria-selected', 'true');
 await live.refreshAsync();
 // [{ op: 'replace', path: '/1/selected', value: true }]
