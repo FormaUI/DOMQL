@@ -1313,8 +1313,9 @@ export class QueryEvaluator {
                 return value?.nodeType === 11 && value.host !== undefined;
             case 'node':
                 return value?.nodeType === 1 || value?.nodeType === 9 || value?.nodeType === 11;
-            // An element's shadow view is the element itself, which its type, never its value, tells from the element.
+            // An element's shadow view and its ARIA view are the element itself, which their types, never their values, tell from the element.
             case 'shadow':
+            case 'aria':
                 return value?.nodeType === 1;
             case 'window':
                 return value?.window === value;

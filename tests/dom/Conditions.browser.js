@@ -31,9 +31,9 @@ describe('Conditions in a browser', () => {
         return new Proxy({}, { get: (_, id) => document.getElementById(id) });
     };
 
-    /** Watches whether the element is in the condition, and answers what the watch last reported and what the browser decides now. */
-    const watching = async (element, name) => {
-        const text = `@e.is("${name}")`;
+    /** Watches whether the element is in the condition, its ARIA condition where asked, and answers what the watch last reported and what the browser decides now. */
+    const watching = async (element, name, isAria = false) => {
+        const text = isAria ? `@e.aria.is("${name}")` : `@e.is("${name}")`;
         const snapshots = [];
         const watch = domql.query(text, { e: element }).watch({ schedule: 'immediate', acceptPartialObservation: true });
 
@@ -165,6 +165,29 @@ describe('Conditions in a browser', () => {
             await settle();
 
             expect(await hover.after(() => { away.style.left = '0'; away.style.zIndex = '1'; })).toEqual({ watched: true, decided: true });
+        });
+    });
+
+    describe('the ARIA conditions, as their attributes say', () => {
+        it('follow aria-checked and aria-disabled as they change, mixed answering false', async () => {
+            const { box } = page('<div id="box" role="checkbox"></div>');
+            const checked = await watching(box, 'checked', true);
+            const disabled = await watching(box, 'disabled', true);
+
+            expect(await checked.after(() => box.setAttribute('aria-checked', 'true'))).toEqual({ watched: true, decided: true });
+            expect(await checked.after(() => box.setAttribute('aria-checked', 'mixed'))).toEqual({ watched: false, decided: false });
+            expect(await disabled.after(() => box.setAttribute('aria-disabled', 'true'))).toEqual({ watched: true, decided: true });
+            expect(await disabled.after(() => box.removeAttribute('aria-disabled'))).toEqual({ watched: false, decided: false });
+        });
+
+        it('stay as they are while the native state changes, as the native conditions do while the attributes change', async () => {
+            const { box } = page('<input id="box" type="checkbox">');
+            const aria = await watching(box, 'checked', true);
+            const native = await watching(box, 'checked');
+
+            expect(await aria.after(() => userEvent.click(box))).toEqual({ watched: false, decided: false });
+            expect(native.watched).toBe(true);
+            expect(await native.after(() => box.setAttribute('aria-checked', 'false'))).toEqual({ watched: true, decided: true });
         });
     });
 

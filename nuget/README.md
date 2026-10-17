@@ -488,6 +488,16 @@ domql.query(
 
 Null does not hide an invalid query. An unknown member or incompatible argument remains an error.
 
+### Test a condition
+
+An element's state that the user or the browser changes, such as whether it is checked, disabled or focused, is a condition. Test it with `.is`, which follows the browser's own rules, and the matching ARIA state with `.aria.is`:
+
+```domql
+@control { checked: self.is("checked"), ariaChecked: self.aria.is("checked") }
+```
+
+`.is("checked")` is true for a checked checkbox or radio button, or a selected option, as `:checked` matches. `.aria.is("checked")` is true only where `aria-checked` is `"true"`; read `self:["aria-checked"]` to tell `"mixed"` from `"false"`. The two never stand in for each other, so write `self.is("checked") or self.aria.is("checked")` where either counts. Elements have the conditions `disabled`, `readonly`, `text-editable`, `focus`, `focus-within`, `hover`, `popover-open` and `checked`, and the document `visible` and `focus`.
+
 ### Compare and combine conditions
 
 Use `==` and `!=` to compare values. Nodes are compared by identity. The result is always a non-null Boolean, including when testing for null:

@@ -2963,6 +2963,67 @@ describe('domql conditions', () => {
     });
 });
 
+describe('domql ARIA conditions', () => {
+    let element;
+
+    beforeEach(() => {
+        document.body.innerHTML = '<div id="parent"><input id="element" type="checkbox"></div>';
+        element = document.getElementById('element');
+    });
+
+    const evaluate = text => domql.query(text, { e: element }).evaluate();
+
+    it.each([
+        ['true', true],
+        ['TRUE', true],
+        ['True', true],
+        ['false', false],
+        ['mixed', false],
+        ['', false],
+        [' true ', false],
+        ['yes', false],
+        [null, false],
+    ])('tests aria-checked and aria-disabled for the value true, ignoring ASCII case: %j answers %s', (value, answer) => {
+        if (value !== null) {
+            element.setAttribute('aria-checked', value);
+            element.setAttribute('aria-disabled', value);
+        }
+
+        expect(evaluate('@e.aria.is("checked")')).toBe(answer);
+        expect(evaluate('@e.aria.is("disabled")')).toBe(answer);
+    });
+
+    it('reads the element\'s own attribute, never an ancestor\'s, and keeps mixed for the attribute itself', () => {
+        document.getElementById('parent').setAttribute('aria-disabled', 'true');
+        element.setAttribute('aria-checked', 'mixed');
+
+        expect(evaluate('@e.aria.is("disabled")')).toBe(false);
+        expect(evaluate('@e:["aria-checked"] == "mixed"')).toBe(true);
+    });
+
+    it('stands apart from the native condition of the same name, each falling back on nothing of the other', () => {
+        element.checked = true;
+
+        expect(evaluate('{ native: @e.is("checked"), aria: @e.aria.is("checked"), either: @e.is("checked") or @e.aria.is("checked") }')).toEqual({ native: true, aria: false, either: true });
+
+        element.checked = false;
+        element.setAttribute('aria-checked', 'true');
+
+        expect(evaluate('{ native: @e.is("checked"), aria: @e.aria.is("checked") }')).toEqual({ native: false, aria: true });
+    });
+
+    it.each([
+        ['the view itself as a result, which is no data', '@e.aria', 'The result would hold aria, which is no data'],
+        ['a native condition the view has not', '@e.aria.is("focus")', "'focus' is a condition of element, document, not of aria, whose conditions are disabled, checked"],
+        ['an ARIA condition nothing declares', '@e.aria.is("expanded")', "'expanded' is no condition the vocabulary declares"],
+    ])('refuses %s', (_, text, message) => {
+        const error = getError(() => domql.query(text, { e: element }).resolve());
+
+        expect(error.kind).toBe('validation');
+        expect(error.message).toContain(message);
+    });
+});
+
 describe('domql named indexers', () => {
     // Each test loads its own copy of domql, with a registry of its own.
     let isolated;

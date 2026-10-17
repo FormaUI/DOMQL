@@ -60,7 +60,7 @@ const bindingsOf = () => {
     return {
         panel, input: byId('input'), cell: byId('cell'), sidebar: byId('sidebar'), sentinel: byId('sentinel'), button: byId('button'), zone: byId('zone'), host: byId('host'),
         element: shadow.querySelector('p'), slot: shadow.querySelector('slot'),
-        viewport: panel, target: panel, item: first, table: panel, list: panel, cards: panel, header: panel, field: byId('input'), left: first, right: second,
+        viewport: panel, target: panel, control: byId('input'), item: first, table: panel, list: panel, cards: panel, header: panel, field: byId('input'), left: first, right: second,
         wide: true, enabled: true, busy: false, action: 'save', count: 3, state: 'disabled', preferred: null, fallback: panel, property: null,
     };
 };
@@ -112,6 +112,7 @@ const DOCUMENTS = {
         { about: 'an infix call with options' },
         { about: 'a fragment testing an ancestor', context: '@cell { value: % }' },
         { about: 'an optional-access group' },
+        { about: 'a native condition and an ARIA one', results: { 0: { checked: false, ariaChecked: false } } },
         { about: 'an equality with null' },
         { about: 'logical expressions' },
         { about: 'values that and and or choose', each: true, results: { 0: 'untitled', 1: { width: 0 } } },

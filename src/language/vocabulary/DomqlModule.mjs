@@ -34,7 +34,7 @@ const OBSERVED_CHANGE_CATEGORIES = ['observable', 'partly-observable'];
 const OBSERVATION_TARGETS = ['receiver', 'root', 'roots', 'window', 'document'];
 
 /** The names of the types DOMQL defines, which a declaration names without any module declaring them. */
-const BUILT_IN_TYPE_NAMES = ['number', 'string', 'boolean', 'node', 'element', 'document', 'documentFragment', 'shadowRoot', 'shadow', 'window'];
+const BUILT_IN_TYPE_NAMES = ['number', 'string', 'boolean', 'node', 'element', 'document', 'documentFragment', 'shadowRoot', 'shadow', 'aria', 'window'];
 
 /** The names no module declares a type by: those DOMQL defines, and the words of the type notation. */
 const RESERVED_TYPE_NAMES = new Set([...BUILT_IN_TYPE_NAMES, 'list', 'event', 'null', 'never']);

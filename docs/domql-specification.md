@@ -431,7 +431,7 @@ CSS selectors and `where` are the two ways a query filters: a selector chooses e
 
 A value has a type, and every member declares the types it works with. Type checking is part of preparation: a request that cannot be typed is a validation error naming where it fails, the type it expected and the type it found, before anything is evaluated.
 
-The types are `number`, `string`, `boolean`, `node` and its kinds, `element`, `document`, `documentFragment` and `shadowRoot`, `window`, and `shadow`, an element's view of its shadow relationships; `list<T>` of items of type `T`; the structured values, each with named fields of declared types, such as `rectangle`, `size`, `selection` and `grid`, the object types of the objects a query's object expressions produce, and any a module declares; and `event<T>`, an event source whose events carry event data of type `T`. A module can declare types of its own. `null` is a value of every type that is written with a `?`: `T?` is a `T` or null. Null alone is of the type `null`, which fits every nullable type, and `never` is the type no value has, which fits every type, so `list<never>`, the type of the empty list, fits every list type. Both are names of the type notation, and neither is a word of the expression language.
+The types are `number`, `string`, `boolean`, `node` and its kinds, `element`, `document`, `documentFragment` and `shadowRoot`, `window`, `shadow`, an element's view of its shadow relationships, and `aria`, its view of its ARIA states; `list<T>` of items of type `T`; the structured values, each with named fields of declared types, such as `rectangle`, `size`, `selection` and `grid`, the object types of the objects a query's object expressions produce, and any a module declares; and `event<T>`, an event source whose events carry event data of type `T`. A module can declare types of its own. `null` is a value of every type that is written with a `?`: `T?` is a `T` or null. Null alone is of the type `null`, which fits every nullable type, and `never` is the type no value has, which fits every type, so `list<never>`, the type of the empty list, fits every list type. Both are names of the type notation, and neither is a word of the expression language.
 
 ### What a member declares
 
@@ -640,6 +640,7 @@ A property exposes a value, read by member access, and takes no argument. Each p
 | Node | `root` | `node` | The root of its tree: the document, a document fragment, the shadow root it is in, or the topmost element of a detached tree | Partly observable, as `parent` | Fresh |
 | Node | `host` | `element?` | A shadow root's host, and null for any other node | Constant | Fresh |
 | Element | `shadow` | `shadow` | Its view of its shadow relationships | Constant | Fresh |
+| Element | `aria` | `aria` | Its view of its ARIA states, whose [conditions](#conditions) `is` tests | Constant | Fresh |
 | Shadow view | `root` | `shadowRoot?` | The open shadow root its element hosts, null where it hosts none or a closed one | Partly observable: a root attached as its element connects to its document is observed, one attached at any other time is not | Fresh |
 | Shadow view | `elements` | `list<element>?` | The elements its slot shows, flattened, as the section on shadow trees sets out, and null for an element that is no slot | Partly observable: assignment, the fallback and the slot's moves are observed; its detached tree inserted into a shadow tree that assigns it nothing is not | Fresh |
 | Element | `attached` | `boolean` | Whether the element is attached to the document, including through a shadow root | Partly observable: the structure of the document and of every shadow root between the element and the document is observed; its detached tree inserted into a shadow root in the document is not | Fresh |
@@ -695,7 +696,14 @@ The built-in vocabulary declares these conditions, each with its native semantic
 | Document | `visible` | The document is visible | Observable | Fresh |
 | Document | `focus` | Focus is anywhere within the document | Observable | Fresh |
 
-A condition's ARIA counterpart is no part of it: `self.is("checked")` is what `:checked` matches, whatever `aria-checked` says, and the attribute is read as it is, `self:["aria-checked"] == "true"`.
+A condition's ARIA counterpart is no part of it: `self.is("checked")` is what `:checked` matches, whatever `aria-checked` says. An element's ARIA states are conditions of its ARIA view, `self.aria`, a value of the type `aria`, which has no data form, so a result never holds one, and `self.aria.is("checked")` tests one. Each reads the element's own attribute under a contract of its own, falling back on no native state, and observes that attribute:
+
+| Receiver | Condition | True where | How it changes | Reads |
+| --- | --- | --- | --- | --- |
+| ARIA view | `checked` | The element's own `aria-checked` is `true`, compared ignoring ASCII case; a missing attribute, `false`, `mixed`, the empty string and any other value, padded with spaces included, answer false | Observable: its `aria-checked` attribute | Fresh |
+| ARIA view | `disabled` | The element's own `aria-disabled` is `true`, compared as `checked` compares; an ancestor's `aria-disabled` is not read | Observable: its `aria-disabled` attribute | Fresh |
+
+So `self.is("checked") or self.aria.is("checked")` is whether either says checked, and `self:["aria-checked"] == "mixed"` tells a mixed state, which an ARIA condition answers false for, from the others. No other ARIA attribute is a condition until one is declared, each with a contract of its own, since not every ARIA attribute is a Boolean.
 
 ### Built-in conversions
 

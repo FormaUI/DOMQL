@@ -71,6 +71,9 @@ export class VocabularyFunctions {
             root: node => node.getRootNode(),
             host: node => (node.nodeType === 11 && node.host !== undefined ? node.host : null),
             shadow: element => element,
+            aria: element => element,
+            ariaChecked: element => VocabularyFunctions.#isAriaTrue(element, 'aria-checked'),
+            ariaDisabled: element => VocabularyFunctions.#isAriaTrue(element, 'aria-disabled'),
             shadowRoot: element => element.shadowRoot ?? null,
             assignedElements: element => (typeof element.assignedElements === 'function' ? element.assignedElements({ flatten: true }) : null),
             count: items => items.length,
@@ -129,6 +132,11 @@ export class VocabularyFunctions {
             hasSelection: element => VocabularyFunctions.#hasSelection(element),
             hasFocus: document => document.hasFocus(),
         };
+    }
+
+    /** Whether the element's own ARIA attribute of the name is `true`, compared ignoring ASCII case as ARIA's token values are, so a missing attribute, `false`, `mixed` and any other value answer false. */
+    static #isAriaTrue(element, name) {
+        return element.getAttribute(name)?.toLowerCase() === 'true';
     }
 
     /** Whether the element has a layout box: it is attached and the browser generates a box for it, which it does not for `display: none` or `display: contents`. A box of no size is still a box. */

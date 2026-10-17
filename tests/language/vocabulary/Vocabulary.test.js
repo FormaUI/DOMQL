@@ -45,7 +45,7 @@ describe('Vocabulary', () => {
     it('declares the conditions of elements and of the document, each tested with is, the state the browser sets rather than one that follows from structure', () => {
         const conditions = Vocabulary.module.conditions.map(condition => `${condition.on}.${condition.name}`);
 
-        expect(conditions).toEqual(['element.disabled', 'element.readonly', 'element.text-editable', 'element.focus', 'element.focus-within', 'element.hover', 'element.popover-open', 'element.checked', 'document.visible', 'document.focus']);
+        expect(conditions).toEqual(['element.disabled', 'element.readonly', 'element.text-editable', 'element.focus', 'element.focus-within', 'element.hover', 'element.popover-open', 'element.checked', 'document.visible', 'document.focus', 'aria.checked', 'aria.disabled']);
     });
 
 describe('observations', () => {

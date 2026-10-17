@@ -153,6 +153,10 @@ export class Vocabulary {
                 }),
                 condition('visible', 'document', 'visible', { observations: [{ type: 'visibility', of: 'receiver' }] }),
                 condition('focus', 'document', 'hasFocus', { observations: [{ type: 'event', of: 'window', types: ['focus', 'blur'] }] }),
+
+                // The ARIA conditions of an element's ARIA view, each its own attribute's value read under its own contract, never its native state.
+                condition('checked', 'aria', 'ariaChecked', { observations: [{ type: 'mutation', of: 'receiver', attributes: ['aria-checked'] }] }),
+                condition('disabled', 'aria', 'ariaDisabled', { observations: [{ type: 'mutation', of: 'receiver', attributes: ['aria-disabled'] }] }),
             ],
 
             members: [
@@ -168,6 +172,7 @@ export class Vocabulary {
                 property('root', 'node', 'node', { changes: 'partly-observable', misses: 'a detached tree inserted into another detached tree or into a shadow root', observations: [{ type: 'mutation', of: 'root', childList: true, subtree: true }, { type: 'attachment', of: 'receiver' }] }),
                 property('host', 'node', 'element?', { changes: 'constant' }),
                 property('shadow', 'element', 'shadow', { changes: 'constant' }),
+                property('aria', 'element', 'aria', { changes: 'constant' }),
                 property('root', 'shadow', 'shadowRoot?', { function: 'shadowRoot', changes: 'partly-observable', misses: 'a shadow root attached at any time but as the element connects to its document', observations: [{ type: 'attachment', of: 'receiver' }] }),
                 property('elements', 'shadow', 'list<element>?', { function: 'assignedElements', changes: 'partly-observable', misses: 'a detached tree holding the slot inserted into a shadow tree that assigns it nothing', observations: [{ type: 'event', of: 'receiver', types: ['slotchange'] }, { type: 'mutation', of: 'root', childList: true, subtree: true }, { type: 'attachment', of: 'receiver' }] }),
                 property('attached', 'element', 'boolean', { changes: 'partly-observable', misses: 'a detached tree inserted into a shadow root in the document', observations: [{ type: 'attachment', of: 'receiver' }] }),
