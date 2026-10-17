@@ -3,7 +3,7 @@
  */
 
 /** How tightly each kind of expression binds, the loosest lowest: one written where a tighter one stands is parenthesized. An optional chain is an infix call's receiver as it is, and is grouped where a chain continues from it, since its short-circuit ends where it does. */
-const PRECEDENCE = { conditional: 0, coalescing: 1, or: 2, and: 3, not: 4, equality: 5, attempt: 6, conversion: 7, infixCall: 8, cast: 9, optionalChain: 10 };
+const PRECEDENCE = { conditional: 0, coalescing: 1, or: 2, and: 3, not: 4, equality: 5, try: 6, conversion: 7, infixCall: 8, cast: 9, optionalChain: 10 };
 
 /** How tightly a chain binds that no infix call ends and no optional chain holds: a member access, a call, an object expression, `self`, a local, a literal or a parameter. */
 const CHAIN_PRECEDENCE = 11;
@@ -67,17 +67,17 @@ export class DefinitionWriter {
                 return DefinitionWriter.#conditional(node, level);
             case 'coalescing':
                 // A coalescing operator associates to the right, so a fallback that is one is written as it is.
-                return `${DefinitionWriter.#within(node.value, PRECEDENCE.attempt, level)} ?? ${node.fallback.kind === 'coalescing' ? DefinitionWriter.#write(node.fallback, level) : DefinitionWriter.#within(node.fallback, PRECEDENCE.attempt, level)}`;
+                return `${DefinitionWriter.#within(node.value, PRECEDENCE.try, level)} ?? ${node.fallback.kind === 'coalescing' ? DefinitionWriter.#write(node.fallback, level) : DefinitionWriter.#within(node.fallback, PRECEDENCE.try, level)}`;
             case 'not':
                 // The negation of an equality is written as `!=`, which is its canonical text.
                 return node.operand.kind === 'equality' ? DefinitionWriter.#equality(node.operand, '!=', level) : `not ${DefinitionWriter.#within(node.operand, PRECEDENCE.not, level)}`;
             case 'cast':
                 return `${DefinitionWriter.#within(node.target, PRECEDENCE.optionalChain, level)} as ${DefinitionWriter.#literal(node.type)}`;
             case 'conversion':
-                // An attempted conversion is written with `try` before the one conversion it attempts, so a value that is a conversion, or binds more loosely than one, is grouped; any other converts what is before it.
-                return node.attempt === true
-                    ? `try ${DefinitionWriter.#within(node.target, PRECEDENCE.conversion + 1, level)} to ${DefinitionWriter.#literal(node.type)}`
-                    : `${DefinitionWriter.#within(node.target, PRECEDENCE.conversion, level)} to ${DefinitionWriter.#literal(node.type)}`;
+                // A conversion converts what is before it, so one that converts another is written as it is.
+                return `${DefinitionWriter.#within(node.target, PRECEDENCE.conversion, level)} to ${DefinitionWriter.#literal(node.type)}`;
+            case 'try':
+                return `try ${DefinitionWriter.#attempted(node.target, level)}`;
             case 'and':
             case 'or':
                 return node.operands.map(operand => DefinitionWriter.#within(operand, PRECEDENCE[node.kind] + 1, level)).join(` ${node.kind} `);
@@ -120,9 +120,20 @@ export class DefinitionWriter {
         return `{\n${entries.map(entry => `${indentation}${entry}`).join(',\n')}\n${INDENTATION.repeat(level)}}`;
     }
 
-    /** An equality, or its negation, as its operator writes it: two equality operands, each grouped where it binds more loosely than an attempted conversion. */
+    /** The operation `try` attempts: a cast as it is, and a conversion whose value is grouped where it is a conversion or a cast, so `try` attempts the conversion alone. */
+    static #attempted(node, level) {
+        if (node.kind !== 'conversion') {
+            return DefinitionWriter.#write(node, level);
+        }
+
+        const value = node.target.kind === 'conversion' || node.target.kind === 'cast' ? `(${DefinitionWriter.#write(node.target, level)})` : DefinitionWriter.#within(node.target, PRECEDENCE.conversion, level);
+
+        return `${value} to ${DefinitionWriter.#literal(node.type)}`;
+    }
+
+    /** An equality, or its negation, as its operator writes it: two equality operands, each grouped where it binds more loosely than an attempt. */
     static #equality(node, operator, level) {
-        return `${DefinitionWriter.#within(node.left, PRECEDENCE.attempt, level)} ${operator} ${DefinitionWriter.#within(node.right, PRECEDENCE.attempt, level)}`;
+        return `${DefinitionWriter.#within(node.left, PRECEDENCE.try, level)} ${operator} ${DefinitionWriter.#within(node.right, PRECEDENCE.try, level)}`;
     }
 
     /** A conditional's clauses, each a condition or a binding: a conditional nested in its alternative is written as an `elseif`, and one in its condition or consequent in parentheses; laid out on lines, one with an `elseif` has a line for each clause. */
@@ -159,11 +170,6 @@ export class DefinitionWriter {
     static #within(node, precedence, level) {
         const text = DefinitionWriter.#write(node, level);
 
-        return DefinitionWriter.#precedenceOf(node) < precedence ? `(${text})` : text;
-    }
-
-    /** How tightly the node binds, an attempted conversion as `try` does. */
-    static #precedenceOf(node) {
-        return node.kind === 'conversion' && node.attempt === true ? PRECEDENCE.attempt : PRECEDENCE[node.kind] ?? CHAIN_PRECEDENCE;
+        return (PRECEDENCE[node.kind] ?? CHAIN_PRECEDENCE) < precedence ? `(${text})` : text;
     }
 }

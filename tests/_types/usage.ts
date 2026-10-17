@@ -224,7 +224,8 @@ domql.createModule('partial', { conversions: [{ from: 'string', function: 'parse
 
 // A conversion is a node of a definition, which names the type it converts to and what it converts.
 const converted: DomqlDefinitionNode = { kind: 'conversion', type: 'number', target: { kind: 'parameter', name: 'count' } };
-const attempted: DomqlDefinitionNode = { kind: 'conversion', type: 'number', target: { kind: 'parameter', name: 'count' }, attempt: true };
+const attempted: DomqlDefinitionNode = { kind: 'try', target: { kind: 'conversion', type: 'number', target: { kind: 'parameter', name: 'count' } } };
+const probed: DomqlDefinitionNode = { kind: 'try', target: { kind: 'cast', type: 'element', target: { kind: 'parameter', name: 'node' } } };
 const binding: DomqlDefinitionNode = { kind: 'conditional', binding: { name: 'n', value: attempted }, consequent: { kind: 'local', name: 'n' }, alternative: { kind: 'literal', value: 0 } };
 
 // A named indexer is a form a member declares, and a node of a definition that names its key.

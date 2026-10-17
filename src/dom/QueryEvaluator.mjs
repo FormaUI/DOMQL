@@ -467,19 +467,12 @@ export class QueryEvaluator {
 
                 return (evaluator, currentValue) => operand(evaluator, currentValue) !== true;
             }
-            case 'cast': {
-                const target = this.#getCompiledFunction(node.target);
-                const { type } = node;
-
-                // A cast answers its target where it is of the type, and null where it is of another or is null.
-                return (evaluator, currentValue) => {
-                    const value = target(evaluator, currentValue);
-
-                    return value !== null && evaluator.#conformsNamed(value, type) ? value : null;
-                };
-            }
+            case 'cast':
+                return this.#compileCast(node, false);
             case 'conversion':
-                return this.#compileConversion(node);
+                return this.#compileConversion(node, false);
+            case 'try':
+                return node.target.kind === 'cast' ? this.#compileCast(node.target, true) : this.#compileConversion(node.target, true);
             case 'object':
                 return this.#compileObject(node);
             default:
@@ -488,10 +481,32 @@ export class QueryEvaluator {
     }
 
     /**
+     * A cast, with its target evaluated once: its target itself where it is of the type, and null where it is null. A target of another type fails the evaluation of a cast, and an attempted one answers null instead.
+     */
+    #compileCast(node, isAttempted) {
+        const target = this.#getCompiledFunction(node.target);
+        const { type } = node;
+
+        return (evaluator, currentValue) => {
+            const value = target(evaluator, currentValue);
+
+            if (value === null || evaluator.#conformsNamed(value, type)) {
+                return value;
+            }
+
+            if (isAttempted) {
+                return null;
+            }
+
+            return evaluator.#fail(`The cast to ${type} rejected its value: it is ${QueryEvaluator.#describeKind(value)}`, evaluator.#pointerOf(node));
+        };
+    }
+
+    /**
      * A conversion, with its target evaluated once and its conversion carried out once. Null converts to null, and a value already of the type to itself, without a conversion;
      * a conversion that rejects its value fails the evaluation, and an attempted one answers null instead. A fault fails the evaluation of either, as a failure of its target does.
      */
-    #compileConversion(node) {
+    #compileConversion(node, isAttempted) {
         const target = this.#getCompiledFunction(node.target);
         const { declaration, type } = this.#resolvedDefinition.resolutionOf(node);
 
@@ -501,7 +516,6 @@ export class QueryEvaluator {
 
         const name = DomqlModule.conversionNameOf(declaration);
         const attempt = QueryEvaluator.#compileConversionAttempt(declaration, type, this.#moduleRegistry);
-        const isAttempted = node.attempt === true;
 
         return (evaluator, currentValue) => {
             const value = target(evaluator, currentValue);
@@ -1332,6 +1346,20 @@ export class QueryEvaluator {
         }
 
         return fields;
+    }
+
+    /** What kind of node the value is, for a message, or what it is where it is no node. */
+    static #describeKind(value) {
+        switch (value?.nodeType) {
+            case 1:
+                return 'an element';
+            case 9:
+                return 'a document';
+            case 11:
+                return value.host === undefined ? 'a document fragment' : 'a shadow root';
+            default:
+                return QueryEvaluator.#describe(value);
+        }
     }
 
     /** What the value is, for a message: nothing, a node, or its data where it has any. */

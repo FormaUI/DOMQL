@@ -8,7 +8,7 @@ This design describes the whole runtime, and the [README](../README.md#status) s
 
 | Decision | Contract |
 | --- | --- |
-| A small language | Chains, with required and optional access, access by name and named indexers, object expressions and their locals, lists, equalities, logical expressions, negations, conditionals, coalescing operators, casts, conversions, attempted or not, with literals and parameters. Arithmetic, ordering and anything else a query needs computed belongs to a member or to the caller. |
+| A small language | Chains, with required and optional access, access by name and named indexers, object expressions and their locals, lists, equalities, logical expressions, negations, conditionals, coalescing operators, casts and conversions, each strict or attempted, with literals and parameters. Arithmetic, ordering and anything else a query needs computed belongs to a member or to the caller. |
 | An open vocabulary | Everything a query can ask about is a member a vocabulary contributes; the built-in vocabulary and every extension follow one contract, and adding a member leaves the grammar unchanged. |
 | Queries read, requests act | Evaluating, watching or subscribing to a request reads the document and changes nothing, whatever vocabulary it uses; an action or a behavior is a request of its own kind, carried out only when its caller executes or applies it. |
 | One meaning | A query evaluates the same way for every caller, however it was written. |

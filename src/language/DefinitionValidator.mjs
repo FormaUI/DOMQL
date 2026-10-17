@@ -26,7 +26,8 @@ const NODE_PROPERTIES = {
     coalescing: { properties: ['kind', 'value', 'fallback'], required: ['value', 'fallback'] },
     not: { properties: ['kind', 'operand'], required: ['operand'] },
     cast: { properties: ['kind', 'type', 'target'], required: ['type', 'target'] },
-    conversion: { properties: ['kind', 'type', 'target', 'attempt'], required: ['type', 'target'] },
+    conversion: { properties: ['kind', 'type', 'target'], required: ['type', 'target'] },
+    try: { properties: ['kind', 'target'], required: ['target'] },
     and: { properties: ['kind', 'operands'], required: ['operands'] },
     or: { properties: ['kind', 'operands'], required: ['operands'] },
 };
@@ -36,6 +37,9 @@ const CHAIN_KINDS = new Set(['member', 'call', 'indexer', 'object']);
 
 /** The kinds of node a cast's target can be, as text writes one: a receiver and its accesses, a coalescing operator, another cast, or an optional chain. */
 const CAST_TARGET_KINDS = new Set(['self', 'parameter', 'local', 'literal', 'object', 'member', 'call', 'indexer', 'optionalChain', 'coalescing', 'cast']);
+
+/** The kinds of node `try` attempts: the operations with a rejection of their own, which an attempt answers null for. */
+const ATTEMPTED_KINDS = new Set(['conversion', 'cast']);
 
 /** What a local and a field of an object expression each hold: a name, always written, and a value. */
 const ENTRY_PROPERTIES = { properties: ['name', 'value'], required: ['name', 'value'] };
@@ -70,7 +74,7 @@ export class DefinitionValidator {
 
     #validateNode(node, pointer, currentValueAvailability) {
         if (!ObjectUtils.isNonArrayObject(node) || !Object.hasOwn(NODE_PROPERTIES, node.kind)) {
-            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, infixCall, indexer, object, optionalChain, equality, conditional, coalescing, not, cast, conversion, and or or');
+            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, infixCall, indexer, object, optionalChain, equality, conditional, coalescing, not, cast, conversion, try, and or or');
         }
 
         this.#requireProperties(node, pointer, NODE_PROPERTIES[node.kind]);
@@ -130,7 +134,17 @@ export class DefinitionValidator {
             case 'cast':
                 return this.#validateCast(node, pointer, currentValueAvailability);
             case 'conversion':
-                return this.#validateConversion(node, pointer, currentValueAvailability);
+                if (typeof node.type !== 'string') {
+                    this.#fail(`${pointer}/type`, 'A conversion names the type it converts to by a string');
+                }
+
+                return Object.freeze({ kind: 'conversion', type: node.type, target: this.#validateNode(node.target, `${pointer}/target`, currentValueAvailability) });
+            case 'try':
+                if (!ATTEMPTED_KINDS.has(node.target?.kind)) {
+                    this.#fail(`${pointer}/target`, "What 'try' attempts is a conversion or a cast");
+                }
+
+                return Object.freeze({ kind: 'try', target: this.#validateNode(node.target, `${pointer}/target`, currentValueAvailability) });
             case 'coalescing':
                 return Object.freeze({
                     kind: 'coalescing',
@@ -190,21 +204,6 @@ export class DefinitionValidator {
             consequent,
             alternative: this.#validateNode(node.alternative, `${pointer}/alternative`, currentValueAvailability),
         });
-    }
-
-    /** Validates a conversion: the type it converts to, named by a string, its target, and whether it is attempted, `attempt: true` alone, a definition of an ordinary one leaving it out or giving false. */
-    #validateConversion(node, pointer, currentValueAvailability) {
-        if (typeof node.type !== 'string') {
-            this.#fail(`${pointer}/type`, 'A conversion names the type it converts to by a string');
-        }
-
-        if (node.attempt !== undefined && typeof node.attempt !== 'boolean') {
-            this.#fail(`${pointer}/attempt`, 'A conversion says whether it is attempted by a Boolean');
-        }
-
-        const target = this.#validateNode(node.target, `${pointer}/target`, currentValueAvailability);
-
-        return Object.freeze(node.attempt === true ? { kind: 'conversion', type: node.type, target, attempt: true } : { kind: 'conversion', type: node.type, target });
     }
 
     /** Validates a cast: the quoted type it casts to, and its target, which is a receiver and its accesses, a coalescing operator, another cast, or an optional chain, as text can write one. */

@@ -90,6 +90,8 @@ export class LanguageResolver {
                 return this.#resolveCast(node, pointer, scope);
             case 'conversion':
                 return this.#resolveConversion(node, pointer, scope);
+            case 'try':
+                return this.#resolveTry(node, pointer, scope);
             case 'and':
             case 'or':
                 return this.#resolveLogical(node, pointer, scope);
@@ -246,7 +248,7 @@ export class LanguageResolver {
     }
 
     /**
-     * Resolves a cast: its target, a value, and the type it casts to, a node or one of its kinds, its result that type made nullable.
+     * Resolves a cast: its target, a value, and the type it casts to, a node or one of its kinds, its result of that type, nullable where the target is, since null passes through it.
      * A target that can never be of the type is refused, while one that always is, and null, are not, since a binding typed from its value may be either.
      */
     #resolveCast(node, pointer, scope) {
@@ -265,14 +267,21 @@ export class LanguageResolver {
         const canBe = from.kind === 'null' || from.kind === 'never' || (from.isNode && (from.name === 'node' || type.name === 'node' || from.name === type.name));
 
         if (!canBe) {
-            this.#fail(`A value of ${from.toNonNullable()} can never be cast to ${node.type}: the cast would always answer null`, pointer);
+            this.#fail(`A value of ${from.toNonNullable()} can never be cast to ${node.type}: the cast would always reject it`, pointer);
         }
 
-        return { type: type.toNullable(), kind: 'query', isFixed: false };
+        return { type: from.kind === 'null' || from.isNullable ? type.toNullable() : type, kind: 'query', isFixed: false };
+    }
+
+    /** Resolves an attempt: the conversion or the cast it attempts, as it resolves strictly, its result made nullable, since a rejection answers null. */
+    #resolveTry(node, pointer, scope) {
+        const result = this.#resolveNode(node.target, `${pointer}/target`, scope);
+
+        return { type: result.type.toNullable(), kind: 'query', isFixed: false };
     }
 
     /**
-     * Resolves a conversion: its target, a value, and the type of data it converts to, its result of that type, nullable where the target is, and always where the conversion is attempted, which answers null for a value it rejects.
+     * Resolves a conversion: its target, a value, and the type of data it converts to, its result of that type, nullable where the target is.
      * A value already of the type answers itself, which no declaration overrides; any other takes the one conversion declared from its type to that one, never a chain of them.
      * A target of unknown type chooses none: null answers null, and a never is never evaluated.
      */
@@ -280,7 +289,7 @@ export class LanguageResolver {
         const target = this.#resolveNode(node.target, `${pointer}/target`, scope);
 
         if (target.kind !== 'query') {
-            this.#fail(`${node.attempt === true ? "What 'try' converts" : "What 'to' converts"} is a value, and this one is ${LanguageResolver.#descriptionOf(target.kind)}`, `${pointer}/target`);
+            this.#fail(`What 'to' converts is a value, and this one is ${LanguageResolver.#descriptionOf(target.kind)}`, `${pointer}/target`);
         }
 
         const to = Type.parse(node.type);
@@ -296,7 +305,7 @@ export class LanguageResolver {
         if (from.kind === 'null' || from.kind === 'never') {
             this.#resolutions.set(pointer, { kind: 'conversion', declaration: null });
 
-            return { type: from.kind === 'null' || node.attempt === true ? to.toNullable() : to, kind: 'query', isFixed: false };
+            return { type: from.kind === 'null' ? to.toNullable() : to, kind: 'query', isFixed: false };
         }
 
         const source = from.toNonNullable();
@@ -312,7 +321,7 @@ export class LanguageResolver {
 
         this.#resolutions.set(pointer, { kind: 'conversion', declaration: declaration ?? null, type: to });
 
-        return { type: from.isNullable || node.attempt === true ? to.toNullable() : to, kind: 'query', isFixed: false };
+        return { type: from.isNullable ? to.toNullable() : to, kind: 'query', isFixed: false };
     }
 
     /** The scope a conditional binding's consequent is resolved in: the scope around it, with the binding's name a local holding its value, of the result given. */

@@ -135,6 +135,14 @@ describe('DefinitionWriter', () => {
         'try @a to "number" == 5',
         '(try @a to "number") to "string"',
         'try (@a ?? "1") to "number"',
+        'try @node as "element"',
+        'try @node.parent as "element" ?? @panel',
+        '(try @node as "element") != null',
+        '(try @node as "element")?.rect',
+        'try (@node as "element").parent as "element"',
+        'try (@node as "element") to "string"',
+        'try (@preferred ?? @fallback) as "element"',
+        '@node as "element"',
         'if let n: try @a to "number" then n else 0',
         'if @a then 1 elseif let n: @b then n else 0',
         'if let row: @panel.closest(".row") then { key: row:["data-key"] } else null',
@@ -197,6 +205,9 @@ describe('DefinitionWriter', () => {
         expect(write('(@a ?? @b) to "number"')).toBe('(@a ?? @b) to "number"');
         expect(write('(try @a to "number") ?? 0')).toBe('try @a to "number" ?? 0');
         expect(write('(try @a to "number") == 5')).toBe('try @a to "number" == 5');
+        expect(write('(try @node as "element") != null')).toBe('try @node as "element" != null');
+        expect(write('try (@node as "element") to "string"')).toBe('try (@node as "element") to "string"');
+        expect(write('try (@a to "number")')).toBe('try @a to "number"');
         expect(write('if let n: (@a ?? @b) then n else 0')).toBe('if let n: @a ?? @b then n else 0');
         expect(write('(if let n: @a then n else 0).size')).toBe('(if let n: @a then n else 0).size');
     });
@@ -289,7 +300,7 @@ describe('DefinitionWriter', () => {
             const { domql: other } = await import('#domql/domql.js');
 
             expect(() => format('@panel {')).toThrow(expect.objectContaining({ kind: 'syntax' }));
-            expect(() => domql.format({ version: 15, query: { kind: 'nonsense' } })).toThrow(expect.objectContaining({ kind: 'structure' }));
+            expect(() => domql.format({ version: 16, query: { kind: 'nonsense' } })).toThrow(expect.objectContaining({ kind: 'structure' }));
             expect(() => domql.format(other.query('@panel'))).toThrow(expect.objectContaining({ kind: 'structure', message: expect.stringContaining('query.definition') }));
         });
 

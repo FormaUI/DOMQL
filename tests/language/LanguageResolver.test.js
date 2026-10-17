@@ -262,17 +262,23 @@ describe('LanguageResolver', () => {
             expect(failure('@panel.root.shadow').message).toContain("'shadow' is not available on node");
         });
 
-        it('types a cast as the type it casts to, made nullable', () => {
+        it('types a strict cast as the type it casts to, nullable where its target can be null, and an attempted one as that type made nullable', () => {
             expect(heldType('@panel.parent as "element"')).toBe('element?');
             expect(resolve('(@panel.parent as "element")?.rect?.width').type.toString()).toBe('number?');
-            expect(heldType('@panel as "element"')).toBe('element?');
-            expect(heldType('@panel as "node"')).toBe('node?');
+            expect(heldType('@panel as "element"')).toBe('element');
+            expect(heldType('@panel as "node"')).toBe('node');
             expect(heldType('null as "shadowRoot"')).toBe('shadowRoot?');
+            expect(heldType('try @panel as "element"')).toBe('element?');
+            expect(heldType('try @panel.parent as "element"')).toBe('element?');
+            expect(resolve('try @n to "number"', { n: '1' }).type.toString()).toBe('number?');
+            expect(resolve('try @n to "number" ?? 0', { n: '1' }).type.toString()).toBe('number');
         });
 
         it('refuses a cast to a type that is no node, and one its target can never be', () => {
             expect(failure('@panel as "widget"').message).toContain("'as' casts to node or one of its kinds, element, document, documentFragment, shadowRoot, and 'widget' is none of them");
             expect(failure('@document as "element"').message).toContain('A value of document can never be cast to element');
+            expect(failure('try @document as "element"').message).toContain('A value of document can never be cast to element');
+            expect(failure('try @panel as "widget"').message).toContain("'as' casts to node or one of its kinds");
             expect(failure('5 as "element"').message).toContain('A value of number can never be cast to element');
         });
 
@@ -450,7 +456,7 @@ describe('LanguageResolver', () => {
 
         it('points into a definition that has no text', () => {
             const definition = {
-                version: 15,
+                version: 16,
                 query: { kind: 'member', target: { kind: 'parameter', name: 'panel' }, name: 'nonsense', arguments: [] },
             };
 

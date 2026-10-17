@@ -176,7 +176,8 @@ export type DomqlDefinitionNode =
     | { readonly kind: 'coalescing'; readonly value: DomqlDefinitionNode; readonly fallback: DomqlDefinitionNode }
     | { readonly kind: 'not'; readonly operand: DomqlDefinitionNode }
     | { readonly kind: 'cast'; readonly type: string; readonly target: DomqlDefinitionNode }
-    | { readonly kind: 'conversion'; readonly type: string; readonly target: DomqlDefinitionNode; readonly attempt?: boolean }
+    | { readonly kind: 'conversion'; readonly type: string; readonly target: DomqlDefinitionNode }
+    | { readonly kind: 'try'; readonly target: DomqlDefinitionNode }
     | { readonly kind: 'equality'; readonly left: DomqlDefinitionNode; readonly right: DomqlDefinitionNode }
     | { readonly kind: 'conditional'; readonly condition?: DomqlDefinitionNode; readonly binding?: { readonly name: string; readonly value: DomqlDefinitionNode }; readonly consequent: DomqlDefinitionNode; readonly alternative: DomqlDefinitionNode }
     | { readonly kind: 'and' | 'or'; readonly operands: readonly DomqlDefinitionNode[] };

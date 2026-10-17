@@ -40,7 +40,7 @@ export class Parser {
     /** The coalescing operators read where no group holds them, which no `and`, `or` or equality may stand beside. @type {WeakSet<object>} */
     #ungroupedCoalescings = new WeakSet();
 
-    /** The conversions read after another conversion of the same chain, without a group between them, which `try` refuses to attempt. @type {WeakSet<object>} */
+    /** The conversions read directly after another conversion or a cast of the same chain, without a group between them, which `try` refuses to attempt. @type {WeakSet<object>} */
     #chainedConversions = new WeakSet();
 
     /** @param {string} text The query text. */
@@ -200,27 +200,29 @@ export class Parser {
     }
 
     /**
-     * Reads an attempted conversion after its `try`: the one conversion of the equality operand that follows, recorded as that conversion attempted, which answers null where it rejects its value.
-     * It attempts that conversion alone, so a chain of conversions is grouped to say which it attempts, and anything that is no conversion is refused.
+     * Reads an attempt after its `try`: the one conversion or cast the equality operand that follows ends with, which answers null where it rejects its value.
+     * It attempts that operation alone, so a conversion of a conversion or of a cast is grouped to say which it attempts, and anything else is refused.
      */
     #parseTry(start) {
         this.#advance();
 
         if (this.#isKeyword('try')) {
-            throw DomqlError.syntax('\'try\' attempts a conversion, and no other attempt: write \'try … to "type"\'', this.#text, this.#token.start);
+            throw DomqlError.syntax('\'try\' attempts a conversion or a cast, and no other attempt: write \'try … to "type"\' or \'try … as "type"\'', this.#text, this.#token.start);
         }
 
-        const conversion = this.#parseEqualityOperand();
+        const operation = this.#parseEqualityOperand();
 
-        if (conversion.kind !== 'conversion') {
-            throw DomqlError.syntax('\'try\' attempts a conversion: write \'try … to "type"\'', this.#text, start);
+        if (operation.kind !== 'conversion' && operation.kind !== 'cast') {
+            throw DomqlError.syntax('\'try\' attempts a conversion or a cast: write \'try … to "type"\' or \'try … as "type"\'', this.#text, start);
         }
 
-        if (this.#chainedConversions.has(conversion)) {
-            throw DomqlError.syntax(`'try' attempts one conversion: group the value it converts, as in 'try (… to "${conversion.target.type}") to "${conversion.type}"'`, this.#text, start);
+        if (this.#chainedConversions.has(operation)) {
+            const inner = operation.target.kind === 'cast' ? `as "${operation.target.type}"` : `to "${operation.target.type}"`;
+
+            throw DomqlError.syntax(`'try' attempts one operation: group the value it converts, as in 'try (… ${inner}) to "${operation.type}"'`, this.#text, start);
         }
 
-        return this.#recordSpan({ ...conversion, attempt: true }, start);
+        return this.#recordSpan({ kind: 'try', target: operation }, start);
     }
 
     /** Refuses what an equality operand cannot start with: `==` or `!=`, which compares the value written before it, and a conditional, which is grouped where it is an operand. */
@@ -289,8 +291,8 @@ export class Parser {
 
             const converted = this.#parseConversion(value, start);
 
-            // A conversion of what the conversion before it in this chain converted is written ungrouped, which a test of one conversion refuses.
-            if (value.kind === 'conversion' && value === converted.target && this.#spans.get(value)?.start === start) {
+            // A conversion of a conversion or a cast before it in this chain is written ungrouped, which an attempt of one operation refuses.
+            if ((value.kind === 'conversion' || value.kind === 'cast') && value === converted.target && this.#spans.get(value)?.start === start) {
                 this.#chainedConversions.add(converted);
             }
 

@@ -146,13 +146,14 @@ describe('QueryEvaluator', () => {
             expect(read('@root.first("#inner")?:attribute["id"]', { root })).toBe('inner');
         });
 
-        it('casts a node to its kind, and answers null for one of another kind', () => {
+        it('casts a node to its kind, failing for one of another kind, which an attempted cast answers null for', () => {
             const { inner } = shadowHost();
 
-            expect(read('(@inner.parent as "element")?:attribute["id"]', { inner })).toBeNull();
+            expect(() => read('(@inner.parent as "element")?:attribute["id"]', { inner })).toThrow(expect.objectContaining({ kind: 'evaluation', message: expect.stringContaining('The cast to element rejected its value: it is a shadow root') }));
+            expect(read('(try @inner.parent as "element")?:attribute["id"]', { inner })).toBeNull();
             expect(read('(@item.parent as "element")?:attribute["id"]', { item: items[0] })).toBe('panel');
             expect(read('(@item.root as "document")?.children.count', { item: items[0] })).toBe(1);
-            expect(read('(@item.root as "shadowRoot")?.children.count', { item: items[0] })).toBeNull();
+            expect(read('(try @item.root as "shadowRoot")?.children.count', { item: items[0] })).toBeNull();
         });
 
         it('answers the topmost element of a detached tree as its root, which has no parent', () => {

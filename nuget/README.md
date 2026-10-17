@@ -538,13 +538,14 @@ else null
 
 ### Cast a node
 
-`parent` and `root` return nodes, which may be elements, documents, document fragments or shadow roots. Use `as` when you need members of a specific node kind:
+`parent` and `root` return nodes, which may be elements, documents, document fragments or shadow roots. Use `as` when a node must be of a specific kind, and `try … as` when it may be of another:
 
 ```text
 (@panel.parent as "element")?.rect?.width
+(try @panel.parent as "element")?.rect?.width
 ```
 
-The cast returns null if the parent is not an element. The optional accesses account for that and for an element without a layout box.
+The first fails with an error if the parent is not an element, such as a document or a shadow root, and the second returns null for it. Both return null for a missing parent, and the optional accesses account for that and for an element without a layout box.
 
 ### Convert a value
 
