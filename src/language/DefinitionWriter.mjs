@@ -2,10 +2,13 @@
  * DefinitionWriter — a definition's node as the DOMQL text that writes it, parenthesized where its grouping needs it: on one line, as a diagnostic quotes it, or laid out on lines, as formatting gives its canonical text
  */
 
-/** How tightly each kind of expression binds, the loosest lowest: one written where a tighter one stands is parenthesized. An optional chain is a cast's target as it is, and is grouped where a chain continues from it, since its short-circuit ends where it does. */
-/** The escape the canonical text writes for each character it escapes with a letter or the character itself; any other control character it writes as a Unicode escape. */
+/** The escape the canonical text writes for each character it escapes with a letter or the character itself; any other character it escapes it writes as a Unicode escape. */
 const ESCAPED = Object.freeze({ '"': '\\"', '\\': '\\\\', '\n': '\\n', '\r': '\\r', '\t': '\\t', '\u001B': '\\e' });
 
+/** The characters the canonical text escapes: a double quote, a backslash, and every character that shows nothing of itself, a control, a format, a line or paragraph separator, or a space separator but the space. */
+const ESCAPED_CHARACTERS = /["\\\p{Cc}\p{Cf}\p{Zl}\p{Zp}]|(?! )\p{Zs}/gu;
+
+/** How tightly each kind of expression binds, the loosest lowest: one written where a tighter one stands is parenthesized. An optional chain is a cast's target as it is, and is grouped where a chain continues from it, since its short-circuit ends where it does. */
 const PRECEDENCE = { conditional: 0, coalescing: 1, or: 2, and: 3, not: 4, equality: 5, comparison: 5, additive: 6, multiplicative: 7, negate: 8, try: 9, conversion: 10, cast: 11, optionalChain: 12 };
 
 /** How tightly a chain binds that no optional chain holds: a property access, a call, an indexer, an object expression, `self`, a local, a literal or a parameter. */
@@ -107,11 +110,11 @@ export class DefinitionWriter {
 
     /**
      * A literal as DOMQL writes it: a string in double quotes, a double quote, a backslash, a line feed, a carriage return, a tab and an escape character escaped by their letters,
-     * any other control character as a Unicode escape in upper-case hexadecimal, and every other character as itself; negative zero as `-0`, which JSON writes as zero; anything else as JSON writes it.
+     * any other control, format or separator character but the space as a Unicode escape in upper-case hexadecimal, and every other character as itself; negative zero as `-0`, which JSON writes as zero; anything else as JSON writes it.
      */
     static #literal(value) {
         if (typeof value === 'string') {
-            return `"${value.replaceAll(/["\\\p{Cc}]/gu, character => ESCAPED[character] ?? `\\u{${character.codePointAt(0).toString(16).toUpperCase()}}`)}"`;
+            return `"${value.replaceAll(ESCAPED_CHARACTERS, character => ESCAPED[character] ?? `\\u{${character.codePointAt(0).toString(16).toUpperCase()}}`)}"`;
         }
 
         return Object.is(value, -0) ? '-0' : JSON.stringify(value);

@@ -3217,6 +3217,10 @@ describe('domql string escapes', () => {
         ['an escape character, as \\e however it is written', '"\\u{1B}[0m"', '"\\e[0m"'],
         ['every other control character as a Unicode escape in upper-case hexadecimal', '"\\u{0}\\u{1f}\\u{7f}\\u{9F}"', '"\\u{0}\\u{1F}\\u{7F}\\u{9F}"'],
         ['ordinary Unicode as itself, however it is written', '"\\u{E9}\\u{1F600} é"', '"é😀 é"'],
+        ['a format character as a Unicode escape, written or escaped', '"a\u200Bb\\u{FEFF}\u00AD"', '"a\\u{200B}b\\u{FEFF}\\u{AD}"'],
+        ['a line and a paragraph separator as Unicode escapes', '"a\u2028b\\u{2029}"', '"a\\u{2028}b\\u{2029}"'],
+        ['every space separator but the space as a Unicode escape', '"a b\u00A0c\\u{3000}d\\u{20}"', '"a b\\u{A0}c\\u{3000}d "'],
+        ['an emoji a zero-width joiner joins with the joiner between its parts', '"👩\u200D💻"', '"👩\\u{200D}💻"'],
         ['a double quote and a backslash, as they were', '"\\"\\\\"', '"\\"\\\\"'],
     ])('writes %s', (_, text, formatted) => {
         expect(domql.format(text)).toBe(formatted);
