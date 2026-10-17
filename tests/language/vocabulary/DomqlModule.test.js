@@ -88,7 +88,7 @@ describe('DomqlModule', () => {
 
     it('refuses what a module does not declare, predicates among them, a test being a member that answers a Boolean', () => {
         expect(messageOf(() => new DomqlModule('charts', { predicates: [] }))).toContain("'predicates' is none of them; a test is a member that answers a Boolean");
-        expect(messageOf(() => new DomqlModule('charts', { member: [] }))).toContain("A module declares members, types, eventTypes, features, observationTypes, conversions, states, and 'member' is none of them");
+        expect(messageOf(() => new DomqlModule('charts', { member: [] }))).toContain("A module declares members, types, eventTypes, features, observationTypes, conversions, conditions, and 'member' is none of them");
         expect(() => new DomqlModule('charts', { members: [declaration({ name: 'charts', result: 'boolean' })] })).not.toThrow();
     });
 
@@ -232,42 +232,42 @@ describe('conversions', () => {
     });
 });
 
-describe('states', () => {
-    const state = (overrides = {}) => ({ name: 'lit', function: 'isLit', on: 'element', changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: ['data-lit'] }], ...overrides });
-    const declaring = (states, functions = null) => new DomqlModule('lit', { states }, functions);
+describe('conditions', () => {
+    const condition = (overrides = {}) => ({ name: 'lit', function: 'isLit', on: 'element', changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: ['data-lit'] }], ...overrides });
+    const declaring = (conditions, functions = null) => new DomqlModule('lit', { conditions }, functions);
 
     it('are kept as data, each a name, its receivers, its function and its own contract', () => {
-        expect(declaring([state()]).states).toEqual([state()]);
-        const { observations, ...constant } = state({ changes: 'constant' });
+        expect(declaring([condition()]).conditions).toEqual([condition()]);
+        const { observations, ...constant } = condition({ changes: 'constant' });
 
         expect(observations).toHaveLength(1);
-        expect(declaring([constant]).states[0].observations).toEqual([]);
+        expect(declaring([constant]).conditions[0].observations).toEqual([]);
     });
 
     it.each([
-        ['a name that is no words joined by hyphens', { name: 'focus_within' }, 'A state is named by words of letters and digits joined by hyphens'],
-        ['a name ending in a hyphen', { name: 'focus-' }, 'A state is named by words of letters and digits joined by hyphens'],
+        ['a name that is no words joined by hyphens', { name: 'focus_within' }, 'A condition is named by words of letters and digits joined by hyphens'],
+        ['a name ending in a hyphen', { name: 'focus-' }, 'A condition is named by words of letters and digits joined by hyphens'],
         ['no function', { function: undefined }, 'It names its function as an identifier'],
         ['no receivers', { on: [] }, 'It declares the types it applies to'],
-        ['a change it derives', { changes: 'derived', observations: undefined }, 'A state changes as constant, observable, partly-observable or unobserved, and reads fresh or maintained'],
+        ['a change it derives', { changes: 'derived', observations: undefined }, 'A condition changes as constant, observable, partly-observable or unobserved, and reads fresh or maintained'],
         ['a reading it captures', { reads: 'captured' }, 'and reads fresh or maintained'],
         ['an observable change no observation covers', { observations: [] }, 'It changes as observable, so it names the observations that cover its changes'],
         ['a partly observable change that names no misses', { changes: 'partly-observable' }, 'A partly observable member states the changes it misses'],
-        ['an observation of an argument, which a state takes none of', { observations: [{ type: 'mutation', of: { argument: 'name' } }] }, "observes the receiver, its root, its roots, the window, the document or an argument of the member"],
-        ['a key it does not take', { result: 'boolean' }, "A state declares name, function, on, changes, reads, misses, observations, and 'result' is none of them"],
+        ['an observation of an argument, which a condition takes none of', { observations: [{ type: 'mutation', of: { argument: 'name' } }] }, "observes the receiver, its root, its roots, the window, the document or an argument of the member"],
+        ['a key it does not take', { result: 'boolean' }, "A condition declares name, function, on, changes, reads, misses, observations, and 'result' is none of them"],
     ])('refuse %s', (_, overrides, message) => {
-        expect(messageOf(() => declaring([state(overrides)]))).toContain(message);
+        expect(messageOf(() => declaring([condition(overrides)]))).toContain(message);
     });
 
     it('need the function they name among the functions of the module', () => {
-        expect(messageOf(() => declaring([state()], {}))).toContain("The function 'isLit' it names is not among the module's functions");
+        expect(messageOf(() => declaring([condition()], {}))).toContain("The function 'isLit' it names is not among the module's functions");
     });
 
     it('are tested through a member whose fixed argument selects one, which names no function and derives how it changes', () => {
-        const selecting = overrides => new DomqlModule('lit', { members: [declaration({ name: 'lit', kind: 'operation', form: 'indexer', function: undefined, changes: 'derived', reads: 'derived', result: 'boolean', parameters: [parameter({ name: 'name', type: 'string', fixed: true, selects: 'state' })], ...overrides })] });
+        const selecting = overrides => new DomqlModule('lit', { members: [declaration({ name: 'lit', kind: 'operation', form: 'indexer', function: undefined, changes: 'derived', reads: 'derived', result: 'boolean', parameters: [parameter({ name: 'name', type: 'string', fixed: true, selects: 'condition' })], ...overrides })] });
 
         expect(selecting({}).members[0].function).toBeUndefined();
-        expect(messageOf(() => selecting({ function: 'lit' }))).toContain('It selects a state, which carries it out, so it names no function and changes and reads as derived');
-        expect(messageOf(() => selecting({ changes: 'constant', reads: 'fresh' }))).toContain('It selects a state, which carries it out');
+        expect(messageOf(() => selecting({ function: 'lit' }))).toContain('It selects a condition, which carries it out, so it names no function and changes and reads as derived');
+        expect(messageOf(() => selecting({ changes: 'constant', reads: 'fresh' }))).toContain('It selects a condition, which carries it out');
     });
 });

@@ -610,7 +610,7 @@ export class QueryEvaluator {
         }
 
         const { type } = resolution;
-        // A state the request selects carries it out as it declares itself.
+        // A condition the request selects carries it out as it declares itself.
         const declaration = resolution.contract ?? resolution.declaration;
         const implementation = this.#moduleRegistry.getFunction(declaration);
         const conforms = QueryEvaluator.#compileTypeCheck(type, this.#moduleRegistry);
@@ -975,7 +975,7 @@ export class QueryEvaluator {
     /** Carries out the function of a declaration whose function, check of its result and copy of the structures it holds are found already. */
     #invokeImplementation(declaration, implementation, conforms, copyStructures, receiver, args, type, node) {
         if (implementation === undefined) {
-            this.#fail(`The module '${this.#moduleRegistry.getOwner(declaration)}' supplies no function for ${QueryEvaluator.#isState(declaration) ? `the state '${declaration.name}'` : `'${declaration.name}'`}`, this.#pointerOf(node));
+            this.#fail(`The module '${this.#moduleRegistry.getOwner(declaration)}' supplies no function for ${QueryEvaluator.#isCondition(declaration) ? `the condition '${declaration.name}'` : `'${declaration.name}'`}`, this.#pointerOf(node));
         }
 
         const samples = this.#observe(declaration, receiver, args, node);
@@ -993,7 +993,7 @@ export class QueryEvaluator {
         }
 
         if (!conforms(value)) {
-            this.#fail(`${this.#subjectOf(declaration, node)} answered ${QueryEvaluator.#describe(value)}, and ${QueryEvaluator.#isState(declaration) ? 'a state answers' : 'it declares'} ${type}`, this.#pointerOf(node));
+            this.#fail(`${this.#subjectOf(declaration, node)} answered ${QueryEvaluator.#describe(value)}, and ${QueryEvaluator.#isCondition(declaration) ? 'a condition answers' : 'it declares'} ${type}`, this.#pointerOf(node));
         }
 
         this.#followDetachedReceiver(declaration, receiver, value, node);
@@ -1001,15 +1001,15 @@ export class QueryEvaluator {
         return copyStructures === null ? value : copyStructures(value);
     }
 
-    /** Whether the declaration carrying a request out is a state, which an indexer selects, rather than a member. */
-    static #isState(declaration) {
+    /** Whether the declaration carrying a request out is a condition, which a call's fixed argument selects, rather than a member. */
+    static #isCondition(declaration) {
         return declaration.kind === undefined;
     }
 
-    /** What a message names as carrying the request out: the member, or the state the indexer selects, with the module that declares it. */
+    /** What a message names as carrying the request out: the member, or the condition the call selects, with the module that declares it. */
     #subjectOf(declaration, node) {
-        return QueryEvaluator.#isState(declaration)
-            ? `The state '${declaration.name}' that ':${node.name}' selects, declared by the module '${this.#moduleRegistry.getOwner(declaration)}',`
+        return QueryEvaluator.#isCondition(declaration)
+            ? `The condition '${declaration.name}' that '${node.name}' selects, declared by the module '${this.#moduleRegistry.getOwner(declaration)}',`
             : `The member '${declaration.name}'`;
     }
 

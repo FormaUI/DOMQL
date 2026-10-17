@@ -188,7 +188,7 @@ Every parameter of a member is declared as one of three kinds, and the evaluator
 - An **expression argument** is evaluated by the member against a context the member's signature declares, such as each item of a list, which is its `self`. In `@table.all("tbody tr").max(self.rect?.height)`, `self` is each row. The built-in vocabulary's expression parameters are those of `max`, `min` and `sum`.
 - A **predicate argument** is an expression argument of any value, and the member receives its truthiness, a Boolean, for each item it evaluates it against: in `@panel.children.where(self:["data-key"])`, the element's attribute is truthy wherever it is present, empty or not. The built-in vocabulary's predicate is that of `where`.
 
-A value argument can be declared **fixed**, where it selects something validation needs before evaluation, such as the event type whose members `on` offers, the feature `supports` names or the state `:state` tests. A fixed argument is a literal, a bound parameter, or a local or a conditional binding whose value is one of them, `@window { let feature: "share", canShare: self supports feature }`, each settled when the query is prepared; any other value, a conditional among them, is a validation error.
+A value argument can be declared **fixed**, where it selects something validation needs before evaluation, such as the event type whose members `on` offers, the feature `supports` names or the condition `is` tests. A fixed argument is a literal, a bound parameter, or a local or a conditional binding whose value is one of them, `@window { let feature: "share", canShare: self supports feature }`, each settled when the query is prepared; any other value, a conditional among them, is a validation error.
 
 Because the kind is part of the signature, the evaluator validates every kind before evaluation and records the dependencies of value, expression and predicate arguments while it evaluates.
 
@@ -663,7 +663,7 @@ An operation performs a lookup, a calculation or a selection with the argument i
 | Window | `supports feature` | `feature`: `string` → `boolean` | Whether the browser offers a feature from the vocabulary's registered list, such as `"share"`; a name not on the list is a validation error | Constant | Fresh | `feature` |
 | Element | `:attribute[name]`, the default indexer, `:[name]` | `name`: `string` → `string?` | The attribute's value | Observable | Fresh |  |
 | Element | `:class[name]` | `name`: `string` → `boolean` | Whether its class list holds the class, one token: an empty name, or one holding a tab, a line feed, a form feed, a carriage return or a space, is an evaluation error | Observable: its `class` attribute | Fresh |  |
-| Any | `:state[name]` | `name`: `string` → `boolean` | Whether the state of the name holds for the receiver, as [states](#states) set out | As the state | As the state | `name` |
+| Any | `is(name)` | `name`: `string` → `boolean` | Whether the condition of the name holds for the receiver, as [conditions](#conditions) set out | As the condition | As the condition | `name` |
 | Element | `:style[property]` | `property`: `string` → `string?` | The property's computed value, custom properties included | Partly observable: its own size and attributes are observed, rules matching from elsewhere are not | Fresh |  |
 | Element | `intersects { root, margin }` | optional `root`: `element?`, the window when omitted or null; optional `margin`: `number`, 0 when omitted → `boolean?` | Whether the browser's intersection observation reports it intersecting the root, or the window without a root, grown by the margin, with its ancestors' clipping applied as the browser applies it | Observable | Maintained |  |
 | Element | `overlaps { other, margin }` | required `other`: `element`; optional `margin`: `number`, 0 when omitted → `boolean?` | Whether its border box overlaps the other's, grown by the margin, compared as rectangles | Partly observable, as `rect` | Fresh |  |
@@ -675,14 +675,16 @@ An operation performs a lookup, a calculation or a selection with the argument i
 | List | `max(expression)`, `min(expression)`, `sum(expression)` | `expression`: `T` → `number?`; answers `number?`, `number?`, `number` | An aggregate over a number expression, as the section on lists defines | As their items and expressions | As their items |  |
 | List | `where(expression)` | `expression`: a predicate of `T`; answers `list<T>` | The items for which the predicate is truthy | As its items and expression | As its items |  |
 
-### States
+### Conditions
 
-A state is a Boolean condition of its receiver that the user, the browser or the page sets and clears over time, under a name of its own, and `:state["name"]` tests it: `self:state["checked"]` is whether the element is checked. A Boolean that follows from the receiver's structure, or from another member's value, is a property of it, as `attached`, `hasChildren` and `hasSelection` are.
+A condition is a Boolean of its receiver that the user, the browser or the page sets and clears over time, under a name of its own, and `.is("name")`, an ordinary call, tests it: `self.is("checked")` is whether the element is checked. A Boolean that follows from the receiver's structure, or from another member's value, is a property of it, as `attached`, `hasChildren` and `hasSelection` are.
 
-- **Each state is a declaration of its own,** with the receivers it applies to, the function that tests it, how it changes, how it reads, the changes it misses where it is partly observable, and the observations that cover it. A test of a state follows the state's contract alone, so a watch of one partly observable state needs partial observation accepted, and a watch of others does not.
-- **The name is fixed:** it selects the state's declaration when the query is prepared, so it is a literal, a bound parameter or a local holding one. A name no state has is a validation error naming the states the vocabulary declares, and a state of other receivers is one naming the states the receiver has. A null receiver read with `?:` answers null without testing its state, its name still checked.
-- **Its type is a Boolean that cannot be null,** made nullable where the receiver can be null. A state whose function answers anything else, or throws, fails the evaluation with an evaluation error that names the state, `:state` and the module that declares it.
-- **States compose as Booleans do:** `self:class["open"] and self:state["focus-within"]`.
+- **Each condition is a declaration of its own,** with the receivers it applies to, the function that tests it, how it changes, how it reads, the changes it misses where it is partly observable, and the observations that cover it. A test of a condition follows the condition's contract alone, so a watch of one partly observable condition needs partial observation accepted, and a watch of others does not.
+- **The name is fixed,** as a [fixed argument](#arguments) is: a string literal, a bound parameter, or a local or a conditional binding holding one, which selects the condition's declaration when the query is prepared.
+- **Its receivers are the condition's.** `is` is declared on any receiver, which says only that any receiver can be asked: the condition of the name decides which receivers it applies to, so a name no condition has is a validation error naming the conditions the vocabulary declares, and a condition of other receivers is one naming the condition, the receiver and the conditions the receiver has.
+- **It is a call as any other.** `.` requires a receiver that cannot be null, and `?.is(…)` answers null for a null receiver without testing its condition; either is validated as written, its name included, whatever its receiver is when it is evaluated.
+- **Its type is a Boolean that cannot be null,** made nullable where `?.` reads a receiver that can be. A condition whose function answers anything else, or throws, fails the evaluation with an evaluation error that names the condition, `is` and the module that declares it.
+- **Conditions compose as Booleans do:** `self:class["open"] and self.is("focus-within")`.
 
 ### Built-in conversions
 
@@ -753,7 +755,7 @@ An extension adds members under one name of its own, a member of a built-in type
 
 The built-in vocabulary declares the native event types its callers need, and an extension can declare more. A subscription observes an event as it reaches its target and leaves its course to the page.
 
-An extension can define types of its own, named indexers, states, event sources, actions and behaviors, and conversions to and from its own types, one for each source type and target, and follows the built-in vocabulary's contract throughout: every member declares its signature, its argument kinds, its result type and how it changes, and evaluating a query stays read-only and synchronous.
+An extension can define types of its own, named indexers, conditions, event sources, actions and behaviors, and conversions to and from its own types, one for each source type and target, and follows the built-in vocabulary's contract throughout: every member declares its signature, its argument kinds, its result type and how it changes, and evaluating a query stays read-only and synchronous.
 
 ## Definition
 

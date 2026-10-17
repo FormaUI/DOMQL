@@ -354,7 +354,7 @@ export interface DomqlParameterDeclaration {
     /** Whether the argument names something the vocabulary resolves before any evaluation; a fixed parameter is a value parameter of type `string`. */
     fixed?: boolean;
     /** What a fixed parameter names, and only a fixed one. */
-    selects?: 'eventType' | 'feature' | 'state';
+    selects?: 'eventType' | 'feature' | 'condition';
     /** Whether a null argument makes the call answer null, or is accepted. */
     nulls: 'propagate' | 'accept';
     /** What an expression or a predicate argument is evaluated against. */
@@ -367,7 +367,7 @@ export interface DomqlParameterDeclaration {
 export interface DomqlMemberDeclaration {
     /** The DOMQL name. */
     name: string;
-    /** The key of the function that carries it out, among the module's functions; a member whose argument selects a state names none, since the state carries it out. */
+    /** The key of the function that carries it out, among the module's functions; a member whose argument selects a condition names none, since the condition carries it out. */
     function?: string;
     kind: 'property' | 'operation' | 'source' | 'action' | 'behavior';
     /** How a member that is no property is written: called, `self.closest(".row")`, the default, named, `self matches ".row"`, or a named indexer, `self:attribute["data-key"]`, an operation whose one required value parameter is its key. A property declares none. */
@@ -404,15 +404,15 @@ export interface DomqlModuleContents {
     observationTypes?: DomqlObservationTypeDeclaration[];
     /** The conversions it declares, each to or from one of its own types outside the built-in module, and one for each source and target. */
     conversions?: DomqlConversionDeclaration[];
-    /** The states it declares, which `:state[…]` tests by name. */
-    states?: DomqlStateDeclaration[];
+    /** The conditions it declares, which `.is(…)` tests by name. */
+    conditions?: DomqlConditionDeclaration[];
 }
 
 /**
- * A state: a Boolean condition of its receivers, which `:state["name"]` tests, carried out by its own function under its own contract, so one state's observability is no other's.
- * A module names a state freely on its own types, and on any other names a single one for itself, as it does members; a name is declared once for any receiver.
+ * A condition: a Boolean of its receivers, which `.is("name")` tests, carried out by its own function under its own contract, so one condition's observability is no other's.
+ * A module names a condition freely on its own types, and on any other names a single one for itself, as it does members; a name is declared once for any receiver.
  */
-export interface DomqlStateDeclaration {
+export interface DomqlConditionDeclaration {
     /** Its name, words of letters and digits joined by hyphens, as `focus-within` is. */
     name: string;
     /** The key of the function that tests it, among the module's functions, which takes what a member's does, its name as the one argument, and answers a Boolean. */
@@ -421,21 +421,21 @@ export interface DomqlStateDeclaration {
     on: string | string[];
     changes: 'constant' | 'observable' | 'partly-observable' | 'unobserved';
     reads: 'fresh' | 'maintained';
-    /** The changes a partly observable state's observations miss. */
+    /** The changes a partly observable condition's observations miss. */
     misses?: string;
-    /** The observations that cover its changes, which an observable or partly observable state names and no other does. */
+    /** The observations that cover its changes, which an observable or partly observable condition names and no other does. */
     observations?: DomqlObservationDeclaration[];
 }
 
 /**
- * The functions that carry a module's members, observation types, conversions and states out, by the key each declaration names.
+ * The functions that carry a module's members, observation types, conversions and conditions out, by the key each declaration names.
  * A member takes its receiver, its arguments by name and the environment, and a member that reads maintained values also their values, in the order its declaration names the observations; it is not called while one of them is pending.
  * A structure a member or an action answers is taken by its declared fields alone, read as the value offers them, getters included.
  * A source takes its receiver, its arguments and the environment, and the function it delivers each event to, and returns an object whose `stop` ends the listening.
  * An action takes its receiver, its arguments, the environment and `{ signal }`, and returns its result or a promise of it.
  * A behavior takes its receiver, its arguments, the environment and `{ reportError }`, starts before it returns, and returns an object whose `update(receiver, args)` applies new arguments and whose `dispose` ends it.
  * An observation type takes the request, the function it calls when something may have changed and the environment, and returns an object whose `stop` ends the observation and, for a maintained one, whose `sample` returns its latest sample as `{ pending, value }`, pending until the first arrives.
- * A state takes what a member does, its name as `{ name }`, and answers a Boolean.
+ * A condition takes what a member does, its name as `{ name }`, and answers a Boolean.
  * A conversion takes the value, never null, and a `DomqlConversionContext`, reads nothing else, and returns the converted value, of the type it converts to, or calls `reject` where the value has none; `to` fails for a rejected value, and `try … to "type"` answers null.
  */
 export type DomqlModuleFunctions = Record<string, (...args: any[]) => unknown>;
@@ -449,7 +449,7 @@ export interface DomqlModule {
     readonly features: readonly string[];
     readonly observationTypes: readonly DomqlObservationTypeDeclaration[];
     readonly conversions: readonly DomqlConversionDeclaration[];
-    readonly states: readonly DomqlStateDeclaration[];
+    readonly conditions: readonly DomqlConditionDeclaration[];
     readonly functions: DomqlModuleFunctions | null;
 }
 

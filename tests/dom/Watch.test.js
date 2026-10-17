@@ -265,12 +265,12 @@ describe('Watch', () => {
         });
     });
 
-    describe('a state', () => {
+    describe('a condition', () => {
         it('follows the observations its own declaration names', async () => {
             isolated.registerModule(isolated.createModule('lit', {
-                states: [{ name: 'lit', function: 'isLit', on: 'element', changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: ['data-lit'] }] }],
+                conditions: [{ name: 'lit', function: 'isLit', on: 'element', changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: ['data-lit'] }] }],
             }, { isLit: element => element.hasAttribute('data-lit') }));
-            watch('@panel:state["lit"]', { panel });
+            watch('@panel.is("lit")', { panel });
             await settle();
 
             panel.setAttribute('data-lit', '');

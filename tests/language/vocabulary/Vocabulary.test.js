@@ -14,8 +14,12 @@ describe('Vocabulary', () => {
         expect(names.filter(name => registry.getMembers(name).length === 0)).toEqual([]);
     });
 
-    it('declares no member for is and has, which are operators of the language', () => {
-        expect(registry.getMembers('is')).toEqual([]);
+    it('declares is as the one call that tests a condition, of any receiver, carried out by the condition it selects, and no member for has', () => {
+        const [is] = registry.getMembers('is');
+
+        expect(registry.getMembers('is')).toHaveLength(1);
+        expect(is).toMatchObject({ kind: 'operation', form: 'call', on: 'any', result: 'boolean', changes: 'derived', reads: 'derived' });
+        expect(is.parameters[0]).toMatchObject({ name: 'name', type: 'string', fixed: true, selects: 'condition' });
         expect(registry.getMembers('has')).toEqual([]);
     });
 

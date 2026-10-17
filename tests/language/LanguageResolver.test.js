@@ -373,13 +373,13 @@ describe('LanguageResolver', () => {
         it('resolves a feature held in a local whose value is a literal or a bound parameter, and refuses one any other expression gives', () => {
             expect(resolve('@window { let feature: "share", canShare: self supports feature }').type.toString()).toBe('{ canShare: boolean }');
             expect(resolve('@window { let feature: @feature, canShare: self supports feature }', { feature: 'share' }).type.toString()).toBe('{ canShare: boolean }');
-            expect(failure('@window { let feature: if @wide then "share" else "clipboard", canShare: self supports feature }', { wide: true }).message).toContain('a string literal, a parameter bound to a string or a local holding one');
+            expect(failure('@window { let feature: if @wide then "share" else "clipboard", canShare: self supports feature }', { wide: true }).message).toContain('a string literal, a parameter bound to a string, or a local or a conditional binding holding one');
         });
 
         it('resolves a feature a conditional binding holds where its value is a literal or a bound parameter, and refuses one any other expression gives', () => {
             expect(resolve('if let feature: "share" then @window supports feature else false').type.toString()).toBe('boolean');
             expect(resolve('if let feature: @feature then @window supports feature else false', { feature: 'share' }).type.toString()).toBe('boolean');
-            expect(failure('if let feature: @panel:["data-f"] then @window supports feature else false', { panel }).message).toContain('a string literal, a parameter bound to a string or a local holding one');
+            expect(failure('if let feature: @panel:["data-f"] then @window supports feature else false', { panel }).message).toContain('a string literal, a parameter bound to a string, or a local or a conditional binding holding one');
         });
 
         it('refuses an event type or a feature the vocabulary does not declare', () => {

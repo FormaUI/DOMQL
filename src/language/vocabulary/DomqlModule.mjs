@@ -21,7 +21,7 @@ const CHANGE_CATEGORIES = ['constant', 'observable', 'partly-observable', 'unobs
 /** How a member reads, as the specification's modes name it, `derived` for a contract that comes from the items and expression a member selects or evaluates. */
 const READING_MODES = ['fresh', 'maintained', 'captured', 'derived'];
 const NULL_POLICIES = ['propagate', 'accept'];
-const SELECTION_KINDS = ['eventType', 'feature', 'state'];
+const SELECTION_KINDS = ['eventType', 'feature', 'condition'];
 const PARAMETER_KINDS = ['value', 'expression', 'predicate'];
 
 /** What an observation type provides: a signal that an answer may have changed, or a sampled value a member reads. */
@@ -43,7 +43,7 @@ const RESERVED_TYPE_NAMES = new Set([...BUILT_IN_TYPE_NAMES, 'list', 'event', 'n
 const DATA_TYPE_NAMES = ['number', 'string', 'boolean'];
 
 /** What a module can declare. */
-const CONTENTS = ['members', 'types', 'eventTypes', 'features', 'observationTypes', 'conversions', 'states'];
+const CONTENTS = ['members', 'types', 'eventTypes', 'features', 'observationTypes', 'conversions', 'conditions'];
 
 /** The keys each kind of declaration takes, so one misspelled is refused rather than ignored. */
 const MEMBER_KEYS = ['name', 'function', 'kind', 'form', 'input', 'default', 'on', 'parameters', 'result', 'changes', 'reads', 'misses', 'tolerance', 'observations'];
@@ -51,10 +51,10 @@ const PARAMETER_KEYS = ['name', 'kind', 'type', 'required', 'default', 'fixed', 
 const TYPE_KEYS = ['name', 'fields'];
 const EVENT_TYPE_KEYS = ['name', 'payload'];
 const OBSERVATION_TYPE_KEYS = ['name', 'contract', 'identity', 'shared', 'function'];
-const STATE_KEYS = ['name', 'function', 'on', 'changes', 'reads', 'misses', 'observations'];
+const CONDITION_KEYS = ['name', 'function', 'on', 'changes', 'reads', 'misses', 'observations'];
 
-/** How a state is named: words of letters and digits joined by hyphens, as `focus-within` is, or the name of the module that declares it. */
-const STATE_NAME = /^[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*$/;
+/** How a condition is named: words of letters and digits joined by hyphens, as `focus-within` is, or the name of the module that declares it. */
+const CONDITION_NAME = /^[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*$/;
 const CONVERSION_KEYS = ['from', 'to', 'function'];
 
 /** The name that identifies the built-in module, whose members stand without a namespace. */
@@ -68,7 +68,7 @@ export class DomqlModule {
     #features;
     #observationTypes;
     #conversions;
-    #states;
+    #conditions;
     #functions;
 
     /** Proves a module is the built-in one, which only its own factory can. */
@@ -83,7 +83,7 @@ export class DomqlModule {
      * @param {string[]} [contents.features] The features `supports` names.
      * @param {object[]} [contents.observationTypes] The types of observation it declares, each with the function that starts one.
      * @param {object[]} [contents.conversions] The conversions it declares, each from a type of data to another, with the function that converts.
-     * @param {object[]} [contents.states] The states it declares, each a condition of its receivers that `:state[…]` tests by its name, with the function that tests it and the observations that cover its changes.
+     * @param {object[]} [contents.conditions] The conditions it declares, each a Boolean of its receivers that `.is(…)` tests by its name, with the function that tests it and the observations that cover its changes.
      * @param {Record<string, Function> | null} [functions] The functions that carry the members out, by the key each member names.
      * @param {symbol} [builtInToken] Held by the built-in module alone.
      */
@@ -106,9 +106,9 @@ export class DomqlModule {
             fail("A module's functions are an object holding each function by its key");
         }
 
-        const { members = [], types = [], eventTypes = [], features = [], observationTypes = [], conversions = [], states = [] } = contents;
+        const { members = [], types = [], eventTypes = [], features = [], observationTypes = [], conversions = [], conditions = [] } = contents;
 
-        for (const [key, list] of Object.entries({ members, types, eventTypes, features, observationTypes, conversions, states })) {
+        for (const [key, list] of Object.entries({ members, types, eventTypes, features, observationTypes, conversions, conditions })) {
             if (!Array.isArray(list)) {
                 fail(`A module's ${key} are a list`);
             }
@@ -128,10 +128,10 @@ export class DomqlModule {
         this.#features = DomqlModule.#freezeItems(features.map(feature => DomqlModule.#validateFeatureName(feature, fail)));
         this.#observationTypes = DomqlModule.#freezeItems(observationTypes.map(type => DomqlModule.#validateObservationType(type, fail)));
         this.#conversions = DomqlModule.#freezeItems(conversions.map(conversion => DomqlModule.#validateConversion(conversion, fail)));
-        this.#states = DomqlModule.#freezeItems(states.map(state => DomqlModule.#validateState(state, fail)));
+        this.#conditions = DomqlModule.#freezeItems(conditions.map(condition => DomqlModule.#validateCondition(condition, fail)));
 
         if (functions !== null) {
-            for (const declaration of [...this.#members, ...this.#observationTypes, ...this.#conversions, ...this.#states]) {
+            for (const declaration of [...this.#members, ...this.#observationTypes, ...this.#conversions, ...this.#conditions]) {
                 if (declaration.function !== undefined && typeof functions[declaration.function] !== 'function') {
                     fail(`The function '${declaration.function}' it names is not among the module's functions`, declaration.name ?? DomqlModule.conversionNameOf(declaration));
                 }
@@ -186,9 +186,9 @@ export class DomqlModule {
         return this.#conversions;
     }
 
-    /** The states the module declares. */
-    get states() {
-        return this.#states;
+    /** The conditions the module declares. */
+    get conditions() {
+        return this.#conditions;
     }
 
     /** The functions that carry the members out, or null for a module that declares and does not yet implement. */
@@ -409,32 +409,32 @@ export class DomqlModule {
     }
 
     /**
-     * Validates a state: its name, the receivers it applies to, the function that tests it, which answers a Boolean, and its own contract, how it changes and reads and the observations that cover its changes, as a member declares them.
-     * A state takes no argument, so an observation names no argument of it.
+     * Validates a condition: its name, the receivers it applies to, the function that tests it, which answers a Boolean, and its own contract, how it changes and reads and the observations that cover its changes, as a member declares them.
+     * A condition takes no argument, so an observation names no argument of it.
      */
-    static #validateState(state, fail) {
-        DomqlModule.#validateKeys(state, STATE_KEYS, 'A state', fail);
+    static #validateCondition(condition, fail) {
+        DomqlModule.#validateKeys(condition, CONDITION_KEYS, 'A condition', fail);
 
-        const name = state.name;
+        const name = condition.name;
 
-        if (typeof name !== 'string' || !STATE_NAME.test(name)) {
-            fail('A state is named by words of letters and digits joined by hyphens, as focus-within is', String(name));
+        if (typeof name !== 'string' || !CONDITION_NAME.test(name)) {
+            fail('A condition is named by words of letters and digits joined by hyphens, as focus-within is', String(name));
         }
 
-        if (!DomqlModule.#isIdentifier(state.function)) {
+        if (!DomqlModule.#isIdentifier(condition.function)) {
             fail('It names its function as an identifier', name);
         }
 
-        DomqlModule.#validateReceiverTypes(state, name, fail);
-        DomqlModule.#validateChangeContract(state, name, fail);
+        DomqlModule.#validateReceiverTypes(condition, name, fail);
+        DomqlModule.#validateChangeContract(condition, name, fail);
 
-        // A state is a condition of its receiver, read as it is or kept by an observation; it selects no items and captures no event.
-        if (state.changes === 'derived' || (state.reads !== 'fresh' && state.reads !== 'maintained')) {
-            fail('A state changes as constant, observable, partly-observable or unobserved, and reads fresh or maintained', name);
+        // A condition is a Boolean of its receiver, read as it is or kept by an observation; it selects no items and captures no event.
+        if (condition.changes === 'derived' || (condition.reads !== 'fresh' && condition.reads !== 'maintained')) {
+            fail('A condition changes as constant, observable, partly-observable or unobserved, and reads fresh or maintained', name);
         }
-        DomqlModule.#validateObservations(state, new Set(), name, fail);
+        DomqlModule.#validateObservations(condition, new Set(), name, fail);
 
-        return structuredClone({ observations: [], ...state });
+        return structuredClone({ observations: [], ...condition });
     }
 
     static #validateMember(member, fail) {
@@ -446,12 +446,12 @@ export class DomqlModule {
             fail(`A member is named as a name is and is one of ${MEMBER_KINDS.join(', ')}`, String(name));
         }
 
-        // A member whose argument selects a state is carried out by the state it selects, as that state declares, so it names no function and changes as what it selects.
-        const selectsState = Array.isArray(member.parameters) && member.parameters.some(parameter => parameter?.selects === 'state');
+        // A member whose argument selects a condition is carried out by the condition it selects, as that condition declares, so it names no function and changes as what it selects.
+        const selectsCondition = Array.isArray(member.parameters) && member.parameters.some(parameter => parameter?.selects === 'condition');
 
-        if (selectsState) {
+        if (selectsCondition) {
             if (member.function !== undefined || member.changes !== 'derived' || member.reads !== 'derived') {
-                fail('It selects a state, which carries it out, so it names no function and changes and reads as derived', name);
+                fail('It selects a condition, which carries it out, so it names no function and changes and reads as derived', name);
             }
         } else if (!DomqlModule.#isIdentifier(member.function)) {
             fail('It names its function as an identifier', name);

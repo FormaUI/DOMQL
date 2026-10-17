@@ -774,9 +774,9 @@ export class LanguageResolver {
 
         const declared = Type.parse(declaration.result).resolveTypeParameters(resultTypeArguments);
 
-        // A state carries the request out as it declares itself, so its contract is the one a watch checks and the evaluation follows, beside the declaration the request invokes.
+        // A condition carries the request out as it declares itself, so its contract is the one a watch checks and the evaluation follows, beside the declaration the request invokes.
         const contract = resolved.selected?.contract ?? null;
-        const used = contract === null ? { declaration, name: LanguageResolver.#qualifiedNameOf(declaration, receiverType) } : { declaration: contract, name: `:${declaration.name}["${contract.name}"]` };
+        const used = contract === null ? { declaration, name: LanguageResolver.#qualifiedNameOf(declaration, receiverType) } : { declaration: contract, name: `${declaration.name}("${contract.name}")` };
 
         this.#usedDeclarations.push({ ...used, pointer });
         this.#resolutions.set(pointer, { kind: 'member', declaration, contract, receiverType, type: declared, arguments: resolved.arguments, selected: resolved.selected });
@@ -1028,7 +1028,7 @@ export class LanguageResolver {
     /** Resolves what a fixed argument selects from the vocabulary, which must be known before anything is evaluated. */
     #select(parameter, result, declaration, receiverType, pointer) {
         if (!result.isFixed || typeof result.value !== 'string') {
-            this.#fail(`The argument '${parameter.name}' of '${declaration.name}' selects from the vocabulary, so it is a string literal, a parameter bound to a string or a local holding one, never null`, pointer);
+            this.#fail(`The argument '${parameter.name}' of '${declaration.name}' selects from the vocabulary, so it is a string literal, a parameter bound to a string, or a local or a conditional binding holding one, never null`, pointer);
         }
 
         const name = result.value;
@@ -1043,8 +1043,8 @@ export class LanguageResolver {
 
                 return { selected: { name, type: Type.parse(event.payload) } };
             }
-            case 'state':
-                return { selected: { name, type: Type.createNamedType('boolean'), contract: this.#stateFor(name, declaration, receiverType, pointer) } };
+            case 'condition':
+                return { selected: { name, type: Type.createNamedType('boolean'), contract: this.#conditionFor(name, declaration, receiverType, pointer) } };
             default:
                 if (!this.#moduleRegistry.hasFeature(name)) {
                     this.#fail(`'${name}' is no feature the vocabulary declares`, pointer);
@@ -1055,32 +1055,32 @@ export class LanguageResolver {
     }
 
     /**
-     * The state of the name that applies to the receiver, whose declaration carries the request out: its function, how it changes and the observations that cover it.
-     * A receiver of unknown type selects none, and takes any name a state has; a name no state has, and one no state of the receiver's type has, are refused, naming those it has.
+     * The condition of the name that applies to the receiver, whose declaration carries the request out: its function, how it changes and the observations that cover it.
+     * A receiver of unknown type selects none, and takes any name a condition has; a name no condition has, and one no condition of the receiver's type has, are refused, naming those it has.
      */
-    #stateFor(name, declaration, receiverType, pointer) {
-        const states = this.#moduleRegistry.getStates(name);
+    #conditionFor(name, declaration, receiverType, pointer) {
+        const conditions = this.#moduleRegistry.getConditions(name);
         const written = `'${declaration.name}'`;
 
-        if (states.length === 0) {
-            const names = this.#moduleRegistry.stateNames;
+        if (conditions.length === 0) {
+            const names = this.#moduleRegistry.conditionNames;
 
-            this.#fail(`'${name}' is no state the vocabulary declares${names.length === 0 ? '' : `; it declares ${names.join(', ')}`}`, pointer);
+            this.#fail(`'${name}' is no condition the vocabulary declares${names.length === 0 ? '' : `; it declares ${names.join(', ')}`}`, pointer);
         }
 
         if (LanguageResolver.#isOfUnknownType(receiverType)) {
             return null;
         }
 
-        const [state] = states.filter(candidate => LanguageResolver.#matchesAny(candidate.on, receiverType));
+        const [condition] = conditions.filter(candidate => LanguageResolver.#matchesAny(candidate.on, receiverType));
 
-        if (state === undefined) {
-            const available = this.#moduleRegistry.stateNames.filter(other => this.#moduleRegistry.getStates(other).some(candidate => LanguageResolver.#matchesAny(candidate.on, receiverType)));
+        if (condition === undefined) {
+            const available = this.#moduleRegistry.conditionNames.filter(other => this.#moduleRegistry.getConditions(other).some(candidate => LanguageResolver.#matchesAny(candidate.on, receiverType)));
 
-            this.#fail(`'${name}' is a state of ${states.flatMap(candidate => [candidate.on].flat()).join(', ')}, not of ${receiverType.toNonNullable()}${available.length === 0 ? `, which has no state ${written} tests` : `, whose states are ${available.join(', ')}`}`, pointer);
+            this.#fail(`'${name}' is a condition of ${conditions.flatMap(candidate => [candidate.on].flat()).join(', ')}, not of ${receiverType.toNonNullable()}${available.length === 0 ? `, which has no condition ${written} tests` : `, whose conditions are ${available.join(', ')}`}`, pointer);
         }
 
-        return state;
+        return condition;
     }
 
     #resolveObject(node, pointer, scope) {

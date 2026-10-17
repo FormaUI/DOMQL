@@ -4,7 +4,7 @@ import { Vocabulary } from '#domql/language/vocabulary/Vocabulary.mjs';
 
 describe('BrowserModule', () => {
     const module = BrowserModule.create();
-    const declared = [...module.members, ...module.observationTypes, ...module.conversions, ...module.states].map(declaration => declaration.function).filter(key => key !== undefined);
+    const declared = [...module.members, ...module.observationTypes, ...module.conversions, ...module.conditions].map(declaration => declaration.function).filter(key => key !== undefined);
 
     it('is the built-in vocabulary', () => {
         expect(module.isBuiltIn).toBe(true);
