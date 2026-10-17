@@ -2,14 +2,11 @@
  * DefinitionWriter — a definition's node as the DOMQL text that writes it, parenthesized where its grouping needs it: on one line, as a diagnostic quotes it, or laid out on lines, as formatting gives its canonical text
  */
 
-/** How tightly each kind of expression binds, the loosest lowest: one written where a tighter one stands is parenthesized. An optional chain is an infix call's receiver as it is, and is grouped where a chain continues from it, since its short-circuit ends where it does. */
-const PRECEDENCE = { conditional: 0, coalescing: 1, or: 2, and: 3, not: 4, equality: 5, try: 6, conversion: 7, infixCall: 8, cast: 9, optionalChain: 10 };
+/** How tightly each kind of expression binds, the loosest lowest: one written where a tighter one stands is parenthesized. An optional chain is a cast's target as it is, and is grouped where a chain continues from it, since its short-circuit ends where it does. */
+const PRECEDENCE = { conditional: 0, coalescing: 1, or: 2, and: 3, not: 4, equality: 5, try: 6, conversion: 7, cast: 8, optionalChain: 9 };
 
-/** How tightly a chain binds that no infix call ends and no optional chain holds: a member access, a call, an object expression, `self`, a local, a literal or a parameter. */
-const CHAIN_PRECEDENCE = 11;
-
-/** The nodes that stand as an input, and so as an infix call's argument without parentheses. */
-const INPUT_KINDS = new Set(['self', 'local', 'parameter', 'literal']);
+/** How tightly a chain binds that no optional chain holds: a member access, a call, an indexer, an object expression, `self`, a local, a literal or a parameter. */
+const CHAIN_PRECEDENCE = 10;
 
 /** The indentation of one level of an object expression laid out on lines. */
 const INDENTATION = '    ';
@@ -56,11 +53,6 @@ export class DefinitionWriter {
                 return `${DefinitionWriter.#within(node.target, CHAIN_PRECEDENCE, level)}${node.optional === true ? '?:' : ':'}${node.name ?? ''}[${DefinitionWriter.#write(node.argument, level)}]`;
             case 'optionalChain':
                 return DefinitionWriter.#write(node.target, level);
-            case 'infixCall': {
-                const head = `${DefinitionWriter.#within(node.target, PRECEDENCE.cast, level)} ${node.name}`;
-
-                return node.argument === undefined ? head : `${head} ${DefinitionWriter.#argument(node.argument, level)}`;
-            }
             case 'equality':
                 return DefinitionWriter.#equality(node, '==', level);
             case 'conditional':
@@ -157,13 +149,6 @@ export class DefinitionWriter {
         }
 
         return clauses.join(level === null || clauses.length === 2 ? ' ' : `\n${INDENTATION.repeat(level)}`);
-    }
-
-    /** The text of an infix call's argument: an input as it is, and anything else in parentheses. */
-    static #argument(node, level) {
-        const text = DefinitionWriter.#write(node, level);
-
-        return INPUT_KINDS.has(node.kind) || (node.kind === 'object' && node.target === undefined) ? text : `(${text})`;
     }
 
     /** The text of the node where an expression of at least the given precedence stands: in parentheses where its own precedence is lower. */

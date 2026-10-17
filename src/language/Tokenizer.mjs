@@ -11,7 +11,7 @@ import { Names } from './Names.mjs';
  * @property {unknown} [value] A name's, a parameter's or a keyword's text, or a literal's value.
  * @property {number} start
  * @property {number} end
- * @property {boolean} spaced Whether trivia, whitespace or a comment, comes before it, as an infix call's separator requires.
+ * @property {boolean} spaced Whether trivia, whitespace or a comment, comes before it, which tells an argument written after a name from one of the name's own.
  */
 
 const PUNCTUATION = new Set(['.', ',', ':', '(', ')', '{', '}', '[', ']']);

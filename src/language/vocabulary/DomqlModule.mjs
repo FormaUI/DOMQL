@@ -9,8 +9,8 @@ import { Type } from '../Type.mjs';
 
 const MEMBER_KINDS = ['property', 'operation', 'source', 'action', 'behavior'];
 
-/** How a member that is no property is written: called, `self.closest(".row")`, named, `@range contains 5`, or a named indexer, `self:attribute["data-key"]`. */
-const FORMS = ['call', 'infix', 'indexer'];
+/** How a member that is no property is written: called, `self.closest(".row")`, or a named indexer, `self:attribute["data-key"]`. */
+const FORMS = ['call', 'indexer'];
 
 /** What a member's argument supplies: its one parameter, directly, or every parameter, as the fields of an options object. */
 const INPUTS = ['direct', 'options'];
@@ -500,7 +500,7 @@ export class DomqlModule {
     }
 
     /**
-     * Checks how the member is written and what its argument supplies: a property is accessed and takes none, and any other member is a call by default or an infix call, whose input is direct for exactly one parameter or an options object,
+     * Checks how the member is written and what its argument supplies: a property is accessed and takes none, and any other member is a call by default, whose input is direct for exactly one parameter or an options object,
      * or an indexer, an operation whose one key is its one parameter, a required value parameter, so its input is direct.
      */
     static #validateForm(member, parameters, name, fail) {
@@ -516,13 +516,13 @@ export class DomqlModule {
             return;
         }
 
-        if (member.form !== undefined && !FORMS.includes(member.form)) {
-            fail(`It is written as ${FORMS.slice(0, -1).join(', ')} or ${FORMS.at(-1)}`, name);
+        // A member that takes an argument is written after its receiver and a dot or a colon, so infix is no form, and the message says which take its place.
+        if (member.form === 'infix') {
+            fail("'infix' is no form: a member that takes an argument is a call, the default, or an indexer", name);
         }
 
-        // Where an infix call's name stands, `to` converts the value before it.
-        if (member.form === 'infix' && name === 'to') {
-            fail("'to' converts the value before it where an infix call's name stands, so no infix call is named 'to'", name);
+        if (member.form !== undefined && !FORMS.includes(member.form)) {
+            fail(`It is written as ${FORMS.join(' or ')}`, name);
         }
 
         if (member.form === 'indexer') {

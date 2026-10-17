@@ -17,12 +17,6 @@ const TOKEN_DESCRIPTIONS = {
 };
 
 
-/** The tokens a chain input starts with, and so the argument of an infix call. */
-const CHAIN_INPUT_STARTS = new Set(['self', 'parameter', 'literal', 'name', '{', '(', '(?']);
-
-/** The keywords that begin an expression which is no chain input: a negation, an attempted conversion and a conditional. */
-const EXPRESSION_KEYWORDS = new Set(['not', 'try', 'if']);
-
 /** The tokens that continue a chain after what is before them. */
 const CHAIN_CONTINUATIONS = new Set(['.', '?.', '[', '?[', ':', '?:', '{']);
 
@@ -264,7 +258,7 @@ export class Parser {
         return node;
     }
 
-    /** Reads an equality operand: a chain, held by an optional chain where one of its accesses is optional, the infix call that may end it, and the conversions that follow, each converting what is before it. */
+    /** Reads an equality operand: a chain, held by an optional chain where one of its accesses is optional, the cast that may end it, and the conversions that follow, each converting what is before it. */
     #parseEqualityOperand() {
         const start = this.#token.start;
 
@@ -278,17 +272,7 @@ export class Parser {
             value = this.#parseCast(value, chain, start);
         }
 
-        if (this.#isInfixName() && !this.#isConversion()) {
-            value = this.#parseInfixCall(value, start);
-        }
-
-        while (this.#isInfixName()) {
-            if (!this.#isConversion()) {
-                const written = value.kind === 'conversion' ? `'(… to "${value.type}") ${this.#token.value} …'` : `'(… ${value.name} …) ${this.#token.value} …'`;
-
-                throw DomqlError.syntax(`${value.kind === 'conversion' ? 'A conversion' : 'An infix call'} ends its chain; group it to continue from its result, as in ${written}`, this.#text, this.#token.start);
-            }
-
+        while (this.#isConversion(value, start)) {
             const converted = this.#parseConversion(value, start);
 
             // A conversion of a conversion or a cast before it in this chain is written ungrouped, which an attempt of one operation refuses.
@@ -302,26 +286,27 @@ export class Parser {
         return value;
     }
 
-    /** Whether a name stands where an infix call's is written, after its receiver and a space: one a colon follows names the next field, which a comma comes before. */
-    #isInfixName() {
+    /**
+     * Whether `to` follows the value, which converts it; `to` is a name everywhere else. Any other name there is refused: one a colon follows names the next field, which a comma comes before,
+     * and any other is a member written after its receiver without the dot or the colon that joins it, so the message gives the call to write, of the receiver in a group where it is a cast or a conversion, which a chain continues from only so.
+     */
+    #isConversion(value, start) {
         if (this.#token.type !== 'name') {
             return false;
+        }
+
+        if (this.#token.value === 'to') {
+            return true;
         }
 
         if (this.#tokens[this.#index + 1].type === ':') {
             throw this.#unexpected("',' before the next field");
         }
 
-        if (!this.#token.spaced) {
-            throw DomqlError.syntax(`'${this.#token.value}' follows its receiver after a space or a comment, as an infix call does`, this.#text, this.#token.start);
-        }
+        const written = this.#text.slice(start, this.#tokens[this.#index - 1].end);
+        const receiver = value.kind === 'cast' || value.kind === 'conversion' ? `(${written})` : written;
 
-        return true;
-    }
-
-    /** Whether the name where an infix call's would stand is `to`, which converts what is before it there, since no infix call is named so. */
-    #isConversion() {
-        return this.#token.value === 'to';
+        throw DomqlError.syntax(`A member follows its receiver after a dot, or after a colon for an indexer: write '${receiver}.${this.#token.value}(…)'`, this.#text, this.#token.start);
     }
 
     /** Whether the current name is `to` with a quoted type after it, which only a conversion writes, so no local an argument or a chain starts with. */
@@ -331,7 +316,7 @@ export class Parser {
         return this.#token.type === 'name' && this.#token.value === 'to' && next.type === 'literal' && typeof next.value === 'string';
     }
 
-    /** Reads a conversion after the value it converts: `to` and the quoted name of the type it converts to. It ends its chain, as an infix call does, and another conversion may follow it. */
+    /** Reads a conversion after the value it converts: `to` and the quoted name of the type it converts to. It ends its chain, and another conversion may follow it. */
     #parseConversion(target, start) {
         this.#advance();
 
@@ -339,10 +324,6 @@ export class Parser {
 
         if (token.type !== 'literal' || typeof token.value !== 'string') {
             throw this.#unexpected('the quoted name of the type it converts to, as in to "number"');
-        }
-
-        if (!token.spaced) {
-            throw DomqlError.syntax("The type a conversion converts to follows 'to' after a space or a comment", this.#text, token.start);
         }
 
         this.#advance();
@@ -614,7 +595,7 @@ export class Parser {
             }
 
             if (next.type === '(' || (next.spaced && ARGUMENT_STARTS.has(next.type))) {
-                throw DomqlError.syntax(`'${token.value}' follows no receiver: write ${this.#memberForm(token.value)} for a member of the current value`, this.#text, token.start);
+                throw DomqlError.syntax(`'${token.value}' follows no receiver: write 'self.${token.value}(…)' for a member of the current value`, this.#text, token.start);
             }
         }
 
@@ -724,7 +705,7 @@ export class Parser {
 
         if (this.#token.type !== '(') {
             if (this.#token.type === 'literal' || this.#token.type === 'parameter') {
-                throw DomqlError.syntax(`An argument after a dot is enclosed in parentheses, as a call's is, '.${name}(…)'; an infix call follows its receiver after a space, without a dot`, this.#text, this.#token.start);
+                throw DomqlError.syntax(`An argument after a dot is enclosed in parentheses, as a call's is, '.${name}(…)'`, this.#text, this.#token.start);
             }
 
             return this.#recordSpan({ kind: 'member', ...access }, start);
@@ -751,47 +732,6 @@ export class Parser {
         this.#expect(')');
 
         return this.#recordSpan({ kind: 'call', ...access, argument }, start);
-    }
-
-    /** Reads an infix call: its name and, after a separator, the chain input that is its argument; it ends its chain. */
-    #parseInfixCall(target, start) {
-        const name = this.#token.value;
-
-        this.#advance();
-
-        let node = { kind: 'infixCall', target, name };
-
-        // A name a colon follows names the next field, which a comma comes before.
-        if (this.#token.type === 'name' && this.#tokens[this.#index + 1].type === ':') {
-            throw this.#unexpected("',' before the next field");
-        }
-
-        // An expression that begins with a keyword is no chain input, so as an argument it is grouped; the message says so, and promises nothing of what the group holds.
-        if (EXPRESSION_KEYWORDS.has(this.#token.value) && this.#token.type === 'keyword') {
-            throw DomqlError.syntax(`An argument that begins with '${this.#token.value}' is written in parentheses, as in '… ${name} (${this.#token.value} …)'`, this.#text, this.#token.start);
-        }
-
-        // An argument that can be left out is, where a conversion follows the infix call.
-        if (CHAIN_INPUT_STARTS.has(this.#token.type) && !this.#startsConversion()) {
-            if (!this.#token.spaced) {
-                throw DomqlError.syntax(`The argument of '${name}' follows it after a space or a comment`, this.#text, this.#token.start);
-            }
-
-            node = { kind: 'infixCall', target, name, argument: this.#parseChainInput() };
-        }
-
-        this.#recordSpan(node, start);
-
-        if (this.#continuesChain()) {
-            throw DomqlError.syntax(`An infix call ends its chain; group it to continue from its result, as in '(… ${name} …).value'`, this.#text, this.#token.start);
-        }
-
-        return node;
-    }
-
-    /** How a member of the current value is written, for a name an argument follows with no receiver before it: a call, or an infix call. */
-    #memberForm(name) {
-        return this.#tokens[this.#index + 1].type === '(' ? `'self.${name}(…)'` : `'self ${name} …'`;
     }
 
     /** Reads operands joined by the operator, answering the operand alone where there is one. */

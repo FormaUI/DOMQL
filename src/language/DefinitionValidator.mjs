@@ -17,7 +17,6 @@ const NODE_PROPERTIES = {
     local: { properties: ['kind', 'name'], required: ['name'] },
     member: { properties: ['kind', 'target', 'name', 'optional'], required: ['target', 'name'] },
     call: { properties: ['kind', 'target', 'name', 'optional', 'argument'], required: ['target', 'name'] },
-    infixCall: { properties: ['kind', 'target', 'name', 'argument'], required: ['target', 'name'] },
     indexer: { properties: ['kind', 'target', 'name', 'optional', 'argument'], required: ['target', 'argument'] },
     object: { properties: ['kind', 'target', 'locals', 'fields'], required: ['fields'] },
     optionalChain: { properties: ['kind', 'target'], required: ['target'] },
@@ -73,8 +72,13 @@ export class DefinitionValidator {
     }
 
     #validateNode(node, pointer, currentValueAvailability) {
+        // A member that takes an argument is written as a call or an indexer, so an infix call is no node, and the message says which nodes take its place.
+        if (ObjectUtils.isNonArrayObject(node) && node.kind === 'infixCall') {
+            this.#fail(pointer, 'An infixCall is no node: an operation is a call node, or an indexer node for a named or default indexer');
+        }
+
         if (!ObjectUtils.isNonArrayObject(node) || !Object.hasOwn(NODE_PROPERTIES, node.kind)) {
-            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, infixCall, indexer, object, optionalChain, equality, conditional, coalescing, not, cast, conversion, try, and or or');
+            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, indexer, object, optionalChain, equality, conditional, coalescing, not, cast, conversion, try, and or or');
         }
 
         this.#requireProperties(node, pointer, NODE_PROPERTIES[node.kind]);
@@ -113,7 +117,6 @@ export class DefinitionValidator {
                 return Object.freeze({ kind: 'local', name: node.name });
             case 'member':
             case 'call':
-            case 'infixCall':
             case 'indexer':
                 return this.#validateMember(node, pointer, currentValueAvailability);
             case 'equality':
@@ -257,18 +260,13 @@ export class DefinitionValidator {
         return Object.freeze({ kind: 'literal', value });
     }
 
-    /** Validates a member access, a call or an infix call: its name, its receiver, whether an access or a call is optional, which it is within an optional chain alone, and the one argument a call or an infix call may take, whose current value its declaration decides. */
+    /** Validates a member access, a call or an indexer: its name, its receiver, whether it is optional, which it is within an optional chain alone, and the one argument a call or an indexer takes, whose current value its declaration decides. */
     #validateMember(node, pointer, currentValueAvailability) {
         const name = node.kind === 'member' && ObjectUtils.isNonArrayObject(node.name) ? this.#validateNameExpression(node.name, `${pointer}/name`, currentValueAvailability) : node.name;
 
-        // A name an access by name's expression gave is checked as that expression, and a default indexer has none; any other is a name, a call's and an infix call's always.
+        // A name an access by name's expression gave is checked as that expression, and a default indexer has none; any other is a name, a call's always.
         if (name === node.name && !(node.kind === 'indexer' && name === undefined)) {
             this.#requireName(name, `${pointer}/name`);
-        }
-
-        // Where an infix call's name stands, `to` converts, so no infix call is named so.
-        if (node.kind === 'infixCall' && name === 'to') {
-            this.#fail(`${pointer}/name`, "'to' converts the value before it, and names no infix call");
         }
 
         if (node.optional !== undefined) {

@@ -50,13 +50,13 @@ describe('domql', () => {
             expect(definition.query).toEqual(member('count', call('all', literal('li'), parameter('panel'))));
         });
 
-        it('reads a member access, a call, a named indexer and an infix call as nodes of their own, each holding its receiver', () => {
+        it('reads a member access, a call and a named indexer as nodes of their own, each holding its receiver', () => {
             expect(domql.query('@panel.size').definition.query).toEqual(member('size', parameter('panel')));
             expect(domql.query('@panel.closest(".row")').definition.query).toEqual(call('closest', literal('.row'), parameter('panel')));
             expect(domql.query('@panel.parent.closest()').definition.query).toEqual(call('closest', undefined, member('parent', parameter('panel'))));
             expect(domql.query('@panel:attribute["id"]').definition.query).toEqual(indexer('attribute', literal('id'), parameter('panel')));
-            expect(domql.query('@panel matches ".row"').definition.query).toEqual(infixCall('matches', literal('.row'), parameter('panel')));
-            expect(domql.query('@sentinel intersects').definition.query).toEqual(infixCall('intersects', undefined, parameter('sentinel')));
+            expect(domql.query('@panel.matches(".row")').definition.query).toEqual(call('matches', literal('.row'), parameter('panel')));
+            expect(domql.query('@sentinel.intersects()').definition.query).toEqual(call('intersects', undefined, parameter('sentinel')));
         });
 
         it('reads self as the current value, written as a receiver like any other', () => {
@@ -67,34 +67,14 @@ describe('domql', () => {
             expect(domql.query('@rows.where(self.attached and self.is("visible"))').definition.query.argument.kind).toBe('and');
         });
 
-        it('takes a chain input as an infix call\'s argument, an options object among them', () => {
-            expect(domql.query('@sentinel intersects { root: @panel, margin: 200, }').definition.query.argument).toEqual({ kind: 'object', fields: [{ name: 'root', value: parameter('panel') }, { name: 'margin', value: literal(200) }] });
-            expect(domql.query('@panel matches @selector').definition.query.argument).toEqual(parameter('selector'));
-            expect(domql.query('@panel matches (".row" )').definition.query.argument).toEqual(literal('.row'));
+        it('takes an options object as a call\'s argument, and an argument that begins with a keyword in its parentheses', () => {
+            expect(domql.query('@sentinel.intersects({ root: @panel, margin: 200, })').definition.query.argument).toEqual({ kind: 'object', fields: [{ name: 'root', value: parameter('panel') }, { name: 'margin', value: literal(200) }] });
+            expect(domql.query('@x.matches(not @flag)').definition.query.argument).toEqual(not(parameter('flag')));
+            expect(domql.query('@x.intersects() and @y').definition.query.kind).toBe('and');
         });
 
-        it('ends a chain at an infix call, which a group continues from', () => {
-            const { definition } = domql.query('(@panel.closest("[data-group]") matches ".open") == null');
-
-            expect(definition.query.left).toEqual(infixCall('matches', literal('.open'), call('closest', literal('[data-group]'), parameter('panel'))));
-        });
-
-        it('refuses an argument that begins with a keyword, saying it is grouped and promising nothing of what the group holds', () => {
-            expect(getError(() => domql.query('@x matches not @flag')).message).toContain("An argument that begins with 'not' is written in parentheses, as in '… matches (not …)'");
-            expect(getError(() => domql.query('self matches try')).message).toContain("An argument that begins with 'try' is written in parentheses, as in '… matches (try …)'");
-            expect(domql.query('@x matches (not @flag)').definition.query.argument).toEqual(not(parameter('flag')));
-            expect(domql.query('@x intersects and @y').definition.query.kind).toBe('and');
-        });
-
-        it('ends an infix call\'s argument at a comma, so each field keeps its own', () => {
-            const { definition } = domql.query('@target { open: self matches ".open", selected: self matches ".x" }');
-
-            expect(definition.query.fields.map(field => field.name)).toEqual(['open', 'selected']);
-            expect(definition.query.fields[0].value.argument).toEqual(literal('.open'));
-        });
-
-        it('takes an infix call and its argument across a line break', () => {
-            expect(domql.query('@target {\n    open: self\n    matches\n    ".open"\n}').definition).toEqual(domql.query('@target { open: self matches ".open" }').definition);
+        it('takes a call across a line break', () => {
+            expect(domql.query('@target {\n    open: self\n    .matches(\n    ".open")\n}').definition).toEqual(domql.query('@target { open: self.matches(".open") }').definition);
         });
 
         it('takes an object expression after a call', () => {
@@ -111,9 +91,9 @@ describe('domql', () => {
         });
 
         it('skips line and block comments, which separate as whitespace does', () => {
-            const { definition } = domql.query('// A panel.\n@panel { /* its\nfirst item */ open: self.first(".item") /* inline */matches/**/".open" // whether it is open\n}');
+            const { definition } = domql.query('// A panel.\n@panel { /* its\nfirst item */ open: self.first(".item") /* inline */.matches(/**/".open") // whether it is open\n}');
 
-            expect(definition.query.fields[0].value).toEqual(infixCall('matches', literal('.open'), call('first', literal('.item'))));
+            expect(definition.query.fields[0].value).toEqual(call('matches', literal('.open'), call('first', literal('.item'))));
         });
 
         it('keeps comment markers inside a string as text', () => {
@@ -144,12 +124,12 @@ describe('domql', () => {
             ]);
         });
 
-        it('reads a camelCase name as one name and the literal an indexer or an infix call takes as its argument', () => {
-            const { definition } = domql.query('@target { tier: self:style["--layout-tier"], dark: self matchesMedia "(prefers-color-scheme: dark)" }');
+        it('reads a camelCase name as one name and the literal an indexer takes as its key', () => {
+            const { definition } = domql.query('@target { tier: self:style["--layout-tier"], dark: self.rectRelativeTo(@panel) }');
 
             expect(definition.query.fields).toEqual([
                 { name: 'tier', value: indexer('style', literal('--layout-tier')) },
-                { name: 'dark', value: infixCall('matchesMedia', literal('(prefers-color-scheme: dark)')) },
+                { name: 'dark', value: call('rectRelativeTo', parameter('panel')) },
             ]);
         });
 
@@ -185,8 +165,8 @@ describe('domql', () => {
             expect(domql.query('@panel.all("input").where(self.is("disabled"))').definition.query.argument).toEqual(call('is', literal('disabled')));
         });
 
-        it('read has as an ordinary name', () => {
-            expect(domql.query('@panel has "selection"').definition.query).toEqual(infixCall('has', literal('selection'), parameter('panel')));
+        it('read has as the call of its verb and as an ordinary name', () => {
+            expect(domql.query('@panel.has("focus")').definition.query).toEqual(call('has', literal('focus'), parameter('panel')));
             expect(domql.query('{ has: @panel.hasChildren }').definition.query.fields[0].name).toBe('has');
         });
     });
@@ -207,7 +187,7 @@ describe('domql', () => {
             expect(domql.query('not @a == @b').definition).toEqual(negated);
         });
 
-        it('bind more loosely than an infix call and more tightly than and, taking a group as either operand', () => {
+        it('bind more loosely than a conversion and more tightly than and, taking a group as either operand', () => {
             expect(domql.query('@a == @b and @c').definition.query).toEqual({ kind: 'and', operands: [equality(parameter('a'), parameter('b')), parameter('c')] });
             expect(domql.query('(@a == @b) == true').definition.query).toEqual(equality(equality(parameter('a'), parameter('b')), literal(true)));
             expect(domql.query('(@count ?? 0) == 0').definition.query).toEqual(equality({ kind: 'coalescing', value: parameter('count'), fallback: literal(0) }, literal(0)));
@@ -326,9 +306,9 @@ describe('domql', () => {
             expect(domql.query('(@panel.parent?.children).count').definition.query).toEqual(member('count', chain(optional(member('children', member('parent', parameter('panel')))))));
         });
 
-        it('carry an object expression in the chain, and end before an infix call, which receives its value', () => {
+        it('carry an object expression and the calls after an optional one in the chain', () => {
             expect(domql.query('@panel.parent?.rect { top: self.top }').definition.query).toEqual(chain({ kind: 'object', target: optional(member('rect', member('parent', parameter('panel')))), fields: [{ name: 'top', value: member('top') }] }));
-            expect(domql.query('@panel.parent?.closest(".row") matches ".open"').definition.query).toEqual(infixCall('matches', literal('.open'), chain(optional(call('closest', literal('.row'), member('parent', parameter('panel')))))));
+            expect(domql.query('@panel.parent?.closest(".row").matches(".open")').definition.query).toEqual(chain(call('matches', literal('.open'), optional(call('closest', literal('.row'), member('parent', parameter('panel')))))));
         });
 
         it('keep the chain of an argument its own', () => {
@@ -346,10 +326,8 @@ describe('domql', () => {
             ['an optional chain holding no optional access', chain(member('size', parameter('panel'))), '/query'],
             ['an optional chain directly holding another', chain(chain(optional(member('size', parameter('panel'))))), '/query'],
             ['an optional access that is not true', { ...member('size', parameter('panel')), optional: false }, '/query/optional'],
-            ['an optional infix call', optional(infixCall('matches', literal('.row'), parameter('panel'))), '/query'],
             ['a call named by an expression, which only an access by name is', { kind: 'call', target: parameter('panel'), name: literal('closest') }, '/query/name'],
             ['an optional access of an argument the chain it is passed to holds', chain(optional(call('closest', optional(member('key', parameter('row'))), parameter('panel')))), '/query/target/argument'],
-            ['an optional access beyond an infix call in the chain', chain(member('length', infixCall('matches', literal('.row'), optional(member('parent', parameter('panel')))))), '/query/target/target/target'],
         ])('refuse a definition with %s', (_, query, pointer) => {
             const error = getError(() => domql.query({ version: 18, query }));
 
@@ -370,8 +348,8 @@ describe('domql', () => {
             expect(domql.query('(@x.y.z)?.a').definition.query).toEqual(chain(optional(member('a', member('z', member('y', parameter('x')))))));
         });
 
-        it('take an optional-access group as a chain input, an infix call\'s argument among them, keeping its arguments their own', () => {
-            expect(domql.query('@panel matches (?@row.key)').definition.query).toEqual(infixCall('matches', chain(optional(member('key', parameter('row')))), parameter('panel')));
+        it('take an optional-access group as a chain input, a call\'s argument among them, keeping its arguments their own', () => {
+            expect(domql.query('@panel.matches((?@row.key))').definition.query).toEqual(call('matches', chain(optional(member('key', parameter('row')))), parameter('panel')));
             expect(domql.query('(?@panel.closest(@row.key))').definition.query).toEqual(chain(optional(call('closest', member('key', parameter('row')), parameter('panel')))));
         });
 
@@ -380,7 +358,7 @@ describe('domql', () => {
             ['an optional-access group with no access', '(?@panel)', 1, 9],
             ['an optional-access group whose receiver is a group holding no cast', '(?(@panel).size)', 1, 10],
             ['an optional-access group holding an object expression', '(?@panel.rect { top: self.top })', 1, 15],
-            ['an optional-access group holding an infix call', '(?@panel.parent matches ".row")', 1, 17],
+            ['an optional-access group holding a member written after a space', '(?@panel.parent matches ".row")', 1, 17],
             ['a call whose parenthesis opens the optional-access group that is its argument', '@panel.closest(?@row.key)', 1, 15],
         ])('refuse %s', (_, text, line, column) => {
             const error = getError(() => domql.query(text));
@@ -429,7 +407,7 @@ describe('domql', () => {
             ['a dot before a bracket', '@panel.[@name]', 1, 7],
             ['a dot before an optional bracket', '@panel?.[@name]', 1, 7],
             ['a dot before a bracket in an optional-access group', '(?@panel.[@name])', 1, 9],
-            ['a bracket after an infix call, which ends its chain', '@panel matches @row[@name]', 1, 20],
+            ['a bracket after a conversion, which ends its chain', '@a to "string"[@name]', 1, 15],
         ])('refuse %s', (_, text, line, column) => {
             const error = getError(() => domql.query(text));
 
@@ -446,7 +424,7 @@ describe('domql', () => {
         it('read a target, as and the quoted type it casts to, which a chain continues from only in a group', () => {
             expect(domql.query('@panel.parent as "element"').definition.query).toEqual(cast('element', member('parent', parameter('panel'))));
             expect(domql.query('(@panel.parent as "element")?.rect').definition.query).toEqual(chain(optional(member('rect', cast('element', member('parent', parameter('panel')))))));
-            expect(domql.query('@panel.parent as "element" matches ".row"').definition.query).toEqual(infixCall('matches', literal('.row'), cast('element', member('parent', parameter('panel')))));
+            expect(domql.query('(@panel.parent as "element").matches(".row")').definition.query).toEqual(call('matches', literal('.row'), cast('element', member('parent', parameter('panel')))));
         });
 
         it('take a coalescing operator in parentheses, an optional-access group and another cast in a group as targets', () => {
@@ -501,7 +479,7 @@ describe('domql', () => {
 
         it.each([
             ['a type that is no string', cast(5, parameter('a')), '/query/type'],
-            ['a target that is an infix call', cast('element', infixCall('matches', literal('.row'), parameter('a'))), '/query/target'],
+            ['a target that is an infixCall, which is no node', cast('element', infixCall('matches', literal('.row'), parameter('a'))), '/query/target'],
         ])('refuse a definition of a cast with %s', (_, query, pointer) => {
             const error = getError(() => domql.query({ version: 18, query }));
 
@@ -514,33 +492,47 @@ describe('domql', () => {
         const conversion = (type, target) => ({ kind: 'conversion', type, target });
         const coalescing = (value, fallback) => ({ kind: 'coalescing', value, fallback });
 
-        it('read a value, to and the quoted type it converts to, binding looser than an infix call and tighter than an equality, and chaining left to right', () => {
+        it('read a value, to and the quoted type it converts to, binding looser than a cast and tighter than an equality, and chaining left to right', () => {
             expect(domql.query('@a to "number"').definition.query).toEqual(conversion('number', parameter('a')));
             expect(domql.query('@panel:attribute["data-count"] to "number"').definition.query).toEqual(conversion('number', indexer('attribute', literal('data-count'), parameter('panel'))));
-            expect(domql.query('@panel matches ".open" to "string"').definition.query).toEqual(conversion('string', infixCall('matches', literal('.open'), parameter('panel'))));
+            expect(domql.query('@panel.matches(".open") to "string"').definition.query).toEqual(conversion('string', call('matches', literal('.open'), parameter('panel'))));
             expect(domql.query('@a to "string" to "number"').definition.query).toEqual(conversion('number', conversion('string', parameter('a'))));
             expect(domql.query('@panel:attribute["data-count"] to "number" == 5').definition.query).toEqual(equality(conversion('number', indexer('attribute', literal('data-count'), parameter('panel'))), literal(5)));
             expect(domql.query('@a to "number" ?? 0').definition.query).toEqual(coalescing(conversion('number', parameter('a')), literal(0)));
             expect(domql.query('@a ?? @b to "number"').definition.query).toEqual(coalescing(parameter('a'), conversion('number', parameter('b'))));
             expect(domql.query('not @a to "boolean"').definition.query).toEqual(not(conversion('boolean', parameter('a'))));
             expect(domql.query('@a as "element" to "string"').definition.query).toEqual(conversion('string', { kind: 'cast', type: 'element', target: parameter('a') }));
-            expect(domql.query('@sentinel intersects to "string"').definition.query).toEqual(conversion('string', infixCall('intersects', undefined, parameter('sentinel'))));
-            expect(domql.query('@panel matches to to "string"').definition.query).toEqual(conversion('string', infixCall('matches', { kind: 'local', name: 'to' }, parameter('panel'))));
+            expect(domql.query('@sentinel.intersects() to "string"').definition.query).toEqual(conversion('string', call('intersects', undefined, parameter('sentinel'))));
+            expect(domql.query('@panel.matches(to) to "string"').definition.query).toEqual(conversion('string', call('matches', { kind: 'local', name: 'to' }, parameter('panel'))));
         });
 
-        it('leave to a name wherever no infix call stands: a field, a local, a property and a call', () => {
+        it('take to with or without the trivia around it, which separates nothing a token does not', () => {
+            const spaced = domql.query('@a to "number"').definition;
+
+            expect(domql.query('@a to"number"').definition).toEqual(spaced);
+            expect(domql.query('@a/* the value */to/* its type */"number"').definition).toEqual(spaced);
+            expect(domql.query('(@a)to "number"').definition).toEqual(spaced);
+            expect(domql.query('@a:["n"]to "number"').definition.query).toEqual(conversion('number', indexer(undefined, literal('n'), parameter('a'))));
+        });
+
+        it('leave to a name everywhere but after a value: a field, a local, a parameter, a property, a call and an indexer', () => {
             expect(domql.query('{ from: 1, to: 2 }').definition.query.fields.map(field => field.name)).toEqual(['from', 'to']);
             expect(domql.query('@panel { let to: self.size, width: to.width }').definition.query.fields[0].value).toEqual(member('width', { kind: 'local', name: 'to' }));
             expect(domql.query('@range.to').definition.query).toEqual(member('to', parameter('range')));
             expect(domql.query('@range.to()').definition.query).toEqual(call('to', undefined, parameter('range')));
             expect(domql.query('@range { let to: "3", value: to to "number" }').definition.query.fields[0].value).toEqual(conversion('number', { kind: 'local', name: 'to' }));
+            expect(domql.query('@to.size').definition.query).toEqual(member('size', parameter('to')));
+            expect(domql.query('@range:to[1]').definition.query).toEqual(indexer('to', literal(1), parameter('range')));
+            expect(domql.query('@panel { let to: ".x", open: self.matches(to) }').definition.query.fields[0].value).toEqual(call('matches', { kind: 'local', name: 'to' }));
+            expect(domql.query({ version: 18, query: member('to', parameter('to')) }).definition.query).toEqual(member('to', parameter('to')));
+            expect(domql.query({ version: 18, query: { kind: 'object', target: parameter('to'), locals: [{ name: 'to', value: literal(1) }], fields: [{ name: 'to', value: { kind: 'local', name: 'to' } }] } }).definition.query.fields[0].name).toBe('to');
         });
 
         it.each([
             ['to a type that is not quoted', '@a to number', 1, 7],
             ['continued without a group', '@a to "number".x', 1, 15],
             ['followed by an object expression', '@a to "number" { x: 1 }', 1, 16],
-            ['followed by an infix call', '@a to "number" matches ".row"', 1, 16],
+            ['followed by a member written after a space', '@a to "number" matches ".row"', 1, 16],
             ['cast without a group', '@a to "string" as "element"', 1, 16],
             ['written without the value it converts', 'to "number"', 1, 1],
         ])('refuse a conversion %s', (_, text, line, column) => {
@@ -553,7 +545,6 @@ describe('domql', () => {
         it.each([
             ['a type that is no string', conversion(5, parameter('a')), '/query/type'],
             ['no target', { kind: 'conversion', type: 'number' }, '/query'],
-            ['an infix call named to', infixCall('to', literal('number'), parameter('a')), '/query/name'],
         ])('refuse a definition of a conversion with %s', (_, query, pointer) => {
             const error = getError(() => domql.query({ version: 18, query }));
 
@@ -601,7 +592,6 @@ describe('domql', () => {
             ['of a chain of conversions without a group', 'try @a to "string" to "number"', 1, 1],
             ['of a conversion of a cast without a group', 'try @node as "element" to "string"', 1, 1],
             ['of what is neither a conversion nor a cast', 'try @a', 1, 1],
-            ['of an infix call of a cast', 'try @node as "element" matches ".a"', 1, 1],
             ['of another attempt', 'try try @a to "number"', 1, 5],
             ['to a type that is not quoted', 'try @a to number', 1, 11],
             ['casting to a type that is not quoted', 'try @a as element', 1, 11],
@@ -765,8 +755,8 @@ describe('domql', () => {
             expect(domql.query('(@a ?? @b) ?? 0').definition.query).toEqual(coalescing(coalescing(parameter('a'), parameter('b')), literal(0)));
         });
 
-        it('take an infix call on either side, and stand as a condition, a field and an argument', () => {
-            expect(domql.query('@a matches ".x" ?? @b matches ".y"').definition.query).toEqual(coalescing(infixCall('matches', literal('.x'), parameter('a')), infixCall('matches', literal('.y'), parameter('b'))));
+        it('take a call on either side, and stand as a condition, a field and an argument', () => {
+            expect(domql.query('@a.matches(".x") ?? @b.matches(".y")').definition.query).toEqual(coalescing(call('matches', literal('.x'), parameter('a')), call('matches', literal('.y'), parameter('b'))));
             expect(domql.query('@a:attribute["x"] ?? @b:attribute["x"]').definition.query).toEqual(coalescing(indexer('attribute', literal('x'), parameter('a')), indexer('attribute', literal('x'), parameter('b'))));
             expect(domql.query('if @on ?? false then 1 else 2').definition.query.condition).toEqual(coalescing(parameter('on'), literal(false)));
             expect(domql.query('@panel.closest(@a ?? ".row")').definition.query.argument).toEqual(coalescing(parameter('a'), literal('.row')));
@@ -893,26 +883,22 @@ describe('domql', () => {
         it.each([
             ['two fields with no comma between them', '@panel {\n    size: self.size\n    clientSize: self.clientSize\n}', 3, 5],
             ['a call with no receiver', '@panel { row: first(".row") }', 1, 15],
-            ['an infix call with no receiver', '@panel { open: matches ".open" }', 1, 16],
+            ['a member given an argument with no receiver and no parentheses', '@panel { open: matches ".open" }', 1, 16],
             ['a null test with no subject', '@panel { open: == null }', 1, 16],
             ['a null test with no subject at the top level', '== null', 1, 1],
             ['arguments after a dot without parentheses', '@sentinel.intersects @panel', 1, 22],
             ['a call given two arguments', '@panel.closest(".a", ".b")', 1, 20],
             ['a call given a named argument', '@panel.rectRelativeTo(relativeTo: @other)', 1, 23],
-            ['an infix call with no separator before its argument', '@panel matches".open"', 1, 15],
-            ['an infix call with no separator after its receiver', '@panel.first(".row")matches ".open"', 1, 21],
-            ['an infix call continued by a dot', '@panel matches ".open" .length', 1, 24],
-            ['an infix call followed by an object expression', '@panel on "click" { x: self.clientX }', 1, 19],
-            ['an infix call given two arguments', '@panel intersects @container 200', 1, 30],
+            ['a member written after a space', '@panel matches ".open"', 1, 8],
+            ['a member written after a call with nothing between them', '@panel.first(".row")matches ".open"', 1, 21],
+            ['a member written after a space, an object expression after it', '@panel on "click" { x: self.clientX }', 1, 8],
+            ['a member written after a space with no argument', '@sentinel intersects', 1, 11],
             ['self named as a field', '@panel { self: self.size }', 1, 10],
             ['self named as a parameter', '@self.size', 1, 2],
             ['a member given an argument without parentheses', '@target.is "attached"', 1, 12],
             ['an equality that chains', '@a == @b == @c', 1, 10],
             ['a negation after !=', '@a != not @b', 1, 7],
             ['a single equals sign', '@a = 1', 1, 4],
-            ['an infix call\'s argument that begins with not', '@x matches not @flag', 1, 12],
-            ['an infix call\'s argument that begins with try', '@x matches try @v to "string"', 1, 12],
-            ['an infix call\'s argument that begins with if', '@x matches if @a then ".a" else ".b"', 1, 12],
             ['a single exclamation mark', '@a ! @b', 1, 4],
             ['a group never closed', '(@first or @second', 1, 19],
             ['a group closing nothing', '@first)', 1, 7],
@@ -962,7 +948,7 @@ describe('domql', () => {
     describe('structure', () => {
         it.each([
             ['two fields named alike', '@target { width: self.rect.width, width: self.size.width }', '/query/fields/1'],
-            ['two fields of an options object named alike', '@sentinel intersects { root: @panel, root: @other }', '/query/argument/fields/1'],
+            ['two fields of an options object named alike', '@sentinel.intersects({ root: @panel, root: @other })', '/query/argument/fields/1'],
             ['self at the top level', 'self.rect.width', '/query/target/target'],
             ['self in a field of a top-level object expression', '{ width: self.rect.width }', '/query/fields/0/value/target/target'],
         ])('rejects %s, naming where', (_, text, pointer) => {
@@ -982,7 +968,7 @@ describe('domql', () => {
         });
 
         it('accepts a member at the start of an argument, whose current value its member decides', () => {
-            expect(() => domql.query('@list.all("li").where(self intersects { root: @list }).count')).not.toThrow();
+            expect(() => domql.query('@list.all("li").where(self.intersects({ root: @list })).count')).not.toThrow();
         });
 
         it('locates a failure on the line it is written on', () => {
@@ -2064,7 +2050,6 @@ describe('domql receivers of unknown type', () => {
         ['a name in a form none of its declarations takes', '@panel?.size()', 'is a property'],
         ['an argument none of its declarations takes', '@panel?:attribute[5]', "expects string and finds number"],
         ['a misspelled call in the object expression that follows', '@panel { size: self.sise() }', 'no member of the vocabulary'],
-        ['an infix call no declaration has', '@panel glows "selection"', 'no member of the vocabulary'],
     ])('refuse %s', (_, text, message) => {
         const error = getError(() => isolated.query(text, { panel: null }).resolve());
 
@@ -3102,15 +3087,25 @@ describe('domql calls that were infix calls', () => {
     });
 
     it.each([
-        ['matches', '@panel matches ".row"', `write '@panel.matches(".row")'`],
-        ['intersects', '@panel intersects { root: @panel }', `write '@panel.intersects({ root: @panel })'`],
-        ['overlaps', '@panel overlaps { other: @panel }', `write '@panel.overlaps({ other: @panel })'`],
-        ['on', '@panel on "click"', `write '@panel.on("click")'`],
-    ])('refuse %s written as an infix call, giving the call to write', (name, text, written) => {
-        const error = getError(() => domql.query(text, { panel }).resolve());
+        ['matches', '@panel matches ".row"', '@panel'],
+        ['intersects', '@panel.first(".row") intersects { root: @panel }', '@panel.first(".row")'],
+        ['overlaps', '(@a ?? @b) overlaps { other: @panel }', '(@a ?? @b)'],
+        ['on', '@panel on "click" { x: self.clientX }', '@panel'],
+        ['matches', '@panel.parent as "element" matches ".row"', '(@panel.parent as "element")'],
+        ['matches', '@panel:["n"] to "string" matches ".row"', '(@panel:["n"] to "string")'],
+    ])('refuse %s written after its receiver and a space, the infix form, giving the call to write', (name, text, receiver) => {
+        const error = getError(() => domql.query(text, { panel }));
 
-        expect(error.kind).toBe('validation');
-        expect(error.message).toContain(`'${name}' uses call syntax: ${written}`);
+        expect(error.kind).toBe('syntax');
+        expect(error.message).toContain(`A member follows its receiver after a dot, or after a colon for an indexer: write '${receiver}.${name}(…)'`);
+    });
+
+    it('refuse a definition holding an infixCall, which is no node, saying which nodes take its place', () => {
+        const error = getError(() => domql.query({ version: 18, query: { kind: 'object', target: parameter('panel'), fields: [{ name: 'open', value: infixCall('matches', literal('.open')) }] } }));
+
+        expect(error.kind).toBe('structure');
+        expect(error.location.pointer).toBe('/query/fields/0/value');
+        expect(error.message).toContain('An infixCall is no node: an operation is a call node, or an indexer node for a named or default indexer');
     });
 });
 

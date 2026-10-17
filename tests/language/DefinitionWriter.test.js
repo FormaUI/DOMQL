@@ -8,7 +8,7 @@ describe('DefinitionWriter', () => {
     it.each([
         '@panel.size',
         '@panel:attribute["data-key"]',
-        '@panel intersects { root: @panel, margin: 10 }',
+        '@panel.intersects({ root: @panel, margin: 10 })',
         '@panel { size: self.size, box: { width: self.size?.width }, kind: "panel", rank: 3, none: null }',
         '@panel.children.where(self.attached).max(self.size?.width)',
         '(@panel.attached or @panel.has("focus")) and @panel.is("disabled")',
@@ -28,11 +28,10 @@ describe('DefinitionWriter', () => {
         '@panel.hasChildren',
         '@window { ratio: self.devicePixelRatio, visible: @document.is("visible") }',
         '@panel.closest(".row")?:attribute["data-key"]',
-        '(@panel on "click") { x: self.clientX }',
         '(@panel:attribute["role"]).length',
         '@panel:attribute["role"] == null',
-        '@sentinel intersects',
-        '@panel matches (@panel:attribute["for"])',
+        '@sentinel.intersects()',
+        '@panel.matches(@panel:attribute["for"])',
         '@panel.rectRelativeTo(@panel.parent)?.top',
         'if @panel.attached then "here" elseif @panel == null then "gone" else "away"',
         '(if @a then @panel else @other).size',
@@ -51,7 +50,7 @@ describe('DefinitionWriter', () => {
         '@panel.parent?.rect { top: self.top }',
         '(@panel.parent?.rect) { top: self.top }',
         '@panel.parent?.closest(".row")?:attribute["id"]',
-        '@panel matches (@row?.key)',
+        '@panel.matches(@row?.key)',
         '@panel.closest(@row?.key)?.parent',
         '(?@x.y.z)?.a',
         '(?@x.y.z)?.a.b',
@@ -64,7 +63,7 @@ describe('DefinitionWriter', () => {
         '(@a ?? @b).attached',
         '@a ?? (@b.attached)',
         'if @on ?? false then 1 else 2',
-        '@panel matches (@name ?? ".row")',
+        '@panel.matches(@name ?? ".row")',
         '(@a ?? @b).size',
         '@panel[@name]',
         '@panel.parent?[@name]?.width',
@@ -73,7 +72,8 @@ describe('DefinitionWriter', () => {
         '(?@panel.parent[@name].width)',
         '@panel.parent as "element"',
         '(@panel.parent as "element")?.rect',
-        '@panel.parent as "element" matches ".row"',
+        '(@panel.parent as "element").matches(".row")',
+        '@panel.parent as "element" to "string"',
         '(@a ?? @b) as "element"',
         '(?@a.b) as "element"',
         '(@a as "node") as "element"',
@@ -100,7 +100,8 @@ describe('DefinitionWriter', () => {
         '@panel { let to: self.size, width: to.width }',
         '@range.to to "string"',
         '@range.to() to "string"',
-        '@sentinel intersects to "string"',
+        '@sentinel.intersects() to "string"',
+        '@panel:media[@query]to"string"',
         '@panel:attribute[to] to "number"',
         'try @a to "number"',
         'try @panel:attribute["data-n"] to "number" ?? 0',
@@ -142,7 +143,6 @@ describe('DefinitionWriter', () => {
         '@panel:attribute[@name]',
         '@panel.on("click") { x: self.clientX }',
         '@panel.first(".row")?.matches(".open") ?? false',
-        '@sentinel.intersects({ root: @panel, margin: 10 })',
         '@panel.aria:["checked"]',
         '@panel?:attribute["data-key"]',
         '@panel.first(".row")?:style["display"]',
@@ -153,7 +153,7 @@ describe('DefinitionWriter', () => {
         '@panel { key: self:attribute["data-key"] }',
         '(?@panel.first(".row"):attribute["id"])',
         '(@panel:attribute["n"]):attribute["id"]',
-        '@panel matches (@row:attribute["key"])',
+        '@panel.matches(@row:attribute["key"])',
         '@panel:attribute["n"] to "number"',
         'try @panel:attribute["n"] to "number"',
         '@panel:lookup["a"] as "element"',
@@ -170,8 +170,9 @@ describe('DefinitionWriter', () => {
         expect(write('(@first and @second) or @third')).toBe('@first and @second or @third');
         expect(write('(@panel == null).size')).toBe('(@panel == null).size');
         expect(write('@panel.size')).toBe('@panel.size');
-        expect(write('((@panel matches ".x")).length')).toBe('(@panel matches ".x").length');
-        expect(write('(@panel matches ".x") == null')).toBe('@panel matches ".x" == null');
+        expect(write('((@panel.matches(".x"))).length')).toBe('@panel.matches(".x").length');
+        expect(write('(@panel.matches(".x")) == null')).toBe('@panel.matches(".x") == null');
+        expect(write('(@panel.on("click")) { x: self.clientX }')).toBe('@panel.on("click") { x: self.clientX }');
         expect(write('(@panel:attribute["role"]).length')).toBe('@panel:attribute["role"].length');
         expect(write('if @a then 1 else if @b then 2 else 3')).toBe('if @a then 1 elseif @b then 2 else 3');
         expect(write('if @a then 1 else (if @b then 2 else 3)')).toBe('if @a then 1 elseif @b then 2 else 3');
@@ -190,19 +191,10 @@ describe('DefinitionWriter', () => {
         expect(write('(if let n: @a then n else 0).size')).toBe('(if let n: @a then n else 0).size');
     });
 
-    it('writes the argument of an infix call as an input, grouping any other', () => {
-        const target = { kind: 'parameter', name: 'panel' };
-        const named = argument => ({ kind: 'infixCall', target, name: 'matches', argument });
-
-        expect(DefinitionWriter.write(named({ kind: 'member', target, name: 'size' }))).toBe('@panel matches (@panel.size)');
-        expect(DefinitionWriter.write(named({ kind: 'object', fields: [{ name: 'a', value: { kind: 'literal', value: 1 } }] }))).toBe('@panel matches { a: 1 }');
-        expect(DefinitionWriter.write({ kind: 'member', target: named({ kind: 'literal', value: 'role' }), name: 'length' })).toBe('(@panel matches "role").length');
-    });
-
     it('writes an options object as the fields it is written with', () => {
-        const { definition } = domql.query('@panel intersects { root: @panel, margin: 5 }', { panel });
+        const { definition } = domql.query('@panel.intersects({ root: @panel, margin: 5 })', { panel });
 
-        expect(DefinitionWriter.write(definition.query)).toBe('@panel intersects { root: @panel, margin: 5 }');
+        expect(DefinitionWriter.write(definition.query)).toBe('@panel.intersects({ root: @panel, margin: 5 })');
     });
 
     describe('format', () => {
@@ -217,7 +209,7 @@ describe('DefinitionWriter', () => {
             ['a conditional with an elseif, a line for each clause', '@panel { state: if self.is("disabled") then "locked" elseif self.is("readonly") then "read" else "open" }', '@panel {\n    state: if self.is("disabled") then "locked"\n    elseif self.is("readonly") then "read"\n    else "open"\n}'],
             ['a conditional binding with an elseif, a line for each clause', '@panel { v: if let a: self:["a"] then a elseif let b: self:["b"] then b else "none" }', '@panel {\n    v: if let a: self:["a"] then a\n    elseif let b: self:["b"] then b\n    else "none"\n}'],
             ['one space around and and or', '@a   and(@b or   @c)', '@a and (@b or @c)'],
-            ['one space around an infix call and is', '@panel   matches    ".x"   ==   null', '@panel matches ".x" == null'],
+            ['one space around to and ==, and none in a call', '@panel . matches ( ".x" )   to"string"   ==   null', '@panel.matches(".x") to "string" == null'],
             ['no space around an indexer', '@panel  :  attribute  [ "role" ]   ==   null', '@panel:attribute["role"] == null'],
             ['no trailing comma', '@panel { size: self.size, key: 1, }', '@panel {\n    size: self.size,\n    key: 1\n}'],
             ['no comment and no original layout', '@panel // the panel\n    /* its size */ .size', '@panel.size'],
@@ -237,11 +229,11 @@ describe('DefinitionWriter', () => {
         });
 
         it.each([
-            '@panel { size: self.size, rows: self.children { key: self:attribute["data-key"], open: self matches ".open" } }',
+            '@panel { size: self.size, rows: self.children { key: self:attribute["data-key"], open: self.matches(".open") } }',
             'if @a then { x: 1, y: 2 } elseif @b then (if @c then 3 else 4) else @d { z: self.size }',
             '@panel { let items: self.children, count: items.count, first: items:[0] { key: self:attribute["data-key"] } }',
-            '(@panel on "click") { x: self.clientX, inside: self.target?.closest(".row") == null }',
-            '@panel.children.where(self.attached and (self.hasChildren or self matches ".x")).max(self.size?.width)',
+            '@panel.on("click") { x: self.clientX, inside: self.target?.closest(".row") == null }',
+            '@panel.children.where(self.attached and (self.hasChildren or self.matches(".x"))).max(self.size?.width)',
             '@panel:attribute["line\nbreak and \\"quote\\""]',
         ])('gives text that formats to itself, and parses back to the same definition: %s', text => {
             const formatted = format(text);

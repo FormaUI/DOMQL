@@ -50,13 +50,18 @@ describe('DomqlModule', () => {
         expect(() => new DomqlModule('charts', { members: [declaration({ name: 'charts', changes: 'unobserved' })] })).not.toThrow();
     });
 
-    it('writes a property by access alone, and an operation as a call unless it is written infix', () => {
-        const zoom = new DomqlModule('charts', { members: [declaration({ kind: 'operation', input: 'direct', parameters: [parameter()] }), declaration({ name: 'pan', function: 'pan', kind: 'operation', form: 'infix' })] });
+    it('writes a property by access alone, and an operation as a call unless it is declared an indexer', () => {
+        const zoom = new DomqlModule('charts', { members: [declaration({ kind: 'operation', input: 'direct', parameters: [parameter()] })] });
 
-        expect(zoom.members.map(member => member.form)).toEqual(['call', 'infix']);
+        expect(zoom.members.map(member => member.form)).toEqual(['call']);
         expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ parameters: [parameter()] })] }))).toContain('A property is accessed');
         expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ form: 'call' })] }))).toContain('A property is accessed');
-        expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ kind: 'operation', form: 'phrase' })] }))).toContain('written as call, infix or indexer');
+        expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ kind: 'operation', form: 'phrase' })] }))).toContain('It is written as call or indexer');
+    });
+
+    it('refuses the infix form, saying which forms a member that takes an argument has', () => {
+        expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ name: 'pan', function: 'pan', kind: 'operation', form: 'infix', input: 'direct', parameters: [parameter()] })] })))
+            .toContain("'infix' is no form: a member that takes an argument is a call, the default, or an indexer");
     });
 
     it('requires an operation with parameters to declare its input, direct for exactly one parameter and options for one or several', () => {
@@ -241,9 +246,10 @@ describe('conversions', () => {
         expect(messageOf(() => declaring([conversion({ name: 'parse' })]))).toContain("A conversion declares from, to, function, and 'name' is none of them");
     });
 
-    it('leave no infix call named to, which converts where an infix call is written', () => {
-        expect(messageOf(() => new DomqlModule('charts', { members: [declaration({ name: 'to', kind: 'operation', form: 'infix', input: 'direct', parameters: [parameter()] })] }))).toContain("no infix call is named 'to'");
+    it('take to as a member name, a property, a call or an indexer, since it converts only after a value', () => {
         expect(new DomqlModule('charts', { members: [declaration({ name: 'to', kind: 'operation', input: 'direct', parameters: [parameter()] })] }).members[0].form).toBe('call');
+        expect(new DomqlModule('charts', { members: [declaration({ name: 'to' })] }).members[0].name).toBe('to');
+        expect(new DomqlModule('charts', { members: [declaration({ name: 'to', kind: 'operation', form: 'indexer', parameters: [parameter()] })] }).members[0].form).toBe('indexer');
     });
 });
 

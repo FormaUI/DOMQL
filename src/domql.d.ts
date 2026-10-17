@@ -169,7 +169,6 @@ export type DomqlDefinitionNode =
     | { readonly kind: 'local'; readonly name: string }
     | { readonly kind: 'member'; readonly target: DomqlDefinitionNode; readonly name: string | DomqlDefinitionNode; readonly optional?: true }
     | { readonly kind: 'call'; readonly target: DomqlDefinitionNode; readonly name: string; readonly optional?: true; readonly argument?: DomqlDefinitionNode }
-    | { readonly kind: 'infixCall'; readonly target: DomqlDefinitionNode; readonly name: string; readonly argument?: DomqlDefinitionNode }
     | { readonly kind: 'indexer'; readonly target: DomqlDefinitionNode; readonly name?: string; readonly argument: DomqlDefinitionNode; readonly optional?: true }
     | { readonly kind: 'object'; readonly target?: DomqlDefinitionNode; readonly locals?: readonly DomqlDefinitionLocal[]; readonly fields: readonly DomqlDefinitionField[] }
     | { readonly kind: 'optionalChain'; readonly target: DomqlDefinitionNode }
@@ -376,8 +375,8 @@ export interface DomqlMemberDeclaration {
     /** The key of the function that carries it out, among the module's functions; a member whose argument selects a condition names none, since the condition carries it out. */
     function?: string;
     kind: 'property' | 'operation' | 'source' | 'action' | 'behavior';
-    /** How a member that is no property is written: called, `self.closest(".row")`, the default, named, `@range contains 5`, or a named indexer, `self:attribute["data-key"]`, an operation whose one required value parameter is its key. A property declares none. */
-    form?: 'call' | 'infix' | 'indexer';
+    /** How a member that is no property is written: called, `self.closest(".row")`, the default, or a named indexer, `self:attribute["data-key"]`, an operation whose one required value parameter is its key. A property declares none. */
+    form?: 'call' | 'indexer';
     /** What its argument supplies, where it has parameters: its one parameter, directly, or every parameter, as the fields of an options object; an indexer's is direct. */
     input?: 'direct' | 'options';
     /** Whether an indexer is the default of its receivers, which `:[…]` invokes, as `attribute` is an element's; a receiver has one at most. */

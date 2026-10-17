@@ -364,7 +364,6 @@ export class QueryEvaluator {
             }
             case 'member':
             case 'call':
-            case 'infixCall':
             case 'indexer':
                 return this.#compileMember(node);
             case 'equality': {
@@ -583,7 +582,7 @@ export class QueryEvaluator {
     }
 
     /**
-     * A member access, a call or an infix call, with its resolution, its function, its arguments and the check of its result made once.
+     * A member access, a call or an indexer, with its resolution, its function, its arguments and the check of its result made once.
      * An access by name, and a member of a receiver of unknown type, which answers null without reading anything, are evaluated as the node itself says.
      */
     #compileMember(node) {

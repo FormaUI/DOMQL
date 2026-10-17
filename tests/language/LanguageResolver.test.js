@@ -299,11 +299,8 @@ describe('LanguageResolver', () => {
 
         it('refuses a member written in a form its declaration does not take, giving the form it does', () => {
             expect(failure('@window.media("(min-width: 1px)")').message).toContain(`'media' is an indexer: write '@window:media["(min-width: 1px)"]'`);
-            expect(failure('@panel matches ".row"').message).toContain(`'matches' uses call syntax: write '@panel.matches(".row")'`);
-            expect(failure('@sentinel intersects { root: @panel }', { panel, sentinel: panel }).message).toContain(`'intersects' uses call syntax: write '@sentinel.intersects({ root: @panel })'`);
-            expect(failure('@panel on "click"').message).toContain(`'on' uses call syntax: write '@panel.on("click")'`);
             expect(failure('@panel.attribute("id")').message).toContain(`'attribute' is an indexer: write '@panel:attribute["id"]'`);
-            expect(failure('@panel closest ".row"').message).toContain(`'closest' uses call syntax: write '@panel.closest(".row")'`);
+            expect(failure('@panel:closest[".row"]').message).toContain(`'closest' uses call syntax: write '@panel.closest(".row")'`);
             expect(failure('@panel.parent()').message).toContain("'parent' is a property: write '@panel.parent'");
             expect(failure('@panel.size?.width()').message).toContain("write '@panel.size?.width'");
         });
