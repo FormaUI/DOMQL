@@ -22,6 +22,8 @@ const NODE_PROPERTIES = {
     optionalChain: { properties: ['kind', 'target'], required: ['target'] },
     equality: { properties: ['kind', 'left', 'right'], required: ['left', 'right'] },
     conditional: { properties: ['kind', 'condition', 'binding', 'consequent', 'alternative'], required: ['consequent', 'alternative'] },
+    arithmetic: { properties: ['kind', 'operator', 'left', 'right'], required: ['operator', 'left', 'right'] },
+    negate: { properties: ['kind', 'operand'], required: ['operand'] },
     coalescing: { properties: ['kind', 'value', 'fallback'], required: ['value', 'fallback'] },
     not: { properties: ['kind', 'operand'], required: ['operand'] },
     cast: { properties: ['kind', 'type', 'target'], required: ['type', 'target'] },
@@ -36,6 +38,9 @@ const CHAIN_KINDS = new Set(['member', 'call', 'indexer', 'object']);
 
 /** The kinds of node a cast's target can be, as text writes one: a receiver and its accesses, a coalescing operator, another cast, or an optional chain. */
 const CAST_TARGET_KINDS = new Set(['self', 'parameter', 'local', 'literal', 'object', 'member', 'call', 'indexer', 'optionalChain', 'coalescing', 'cast']);
+
+/** The operators an arithmetic node holds. */
+const ARITHMETIC_OPERATORS = ['+', '-', '*', '/', '%'];
 
 /** The kinds of node `try` attempts: the operations with a rejection of their own, which an attempt answers null for. */
 const ATTEMPTED_KINDS = new Set(['conversion', 'cast']);
@@ -81,7 +86,7 @@ export class DefinitionValidator {
         }
 
         if (!ObjectUtils.isNonArrayObject(node) || !Object.hasOwn(NODE_PROPERTIES, node.kind)) {
-            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, indexer, object, optionalChain, equality, conditional, coalescing, not, cast, conversion, try, and or or');
+            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, indexer, object, optionalChain, equality, arithmetic, negate, conditional, coalescing, not, cast, conversion, try, and or or');
         }
 
         this.#requireProperties(node, pointer, NODE_PROPERTIES[node.kind]);
@@ -129,6 +134,19 @@ export class DefinitionValidator {
                     left: this.#validateNode(node.left, `${pointer}/left`, currentValueAvailability),
                     right: this.#validateNode(node.right, `${pointer}/right`, currentValueAvailability),
                 });
+            case 'arithmetic':
+                if (!ARITHMETIC_OPERATORS.includes(node.operator)) {
+                    this.#fail(`${pointer}/operator`, `An arithmetic operator is ${ARITHMETIC_OPERATORS.join(', ')}`);
+                }
+
+                return Object.freeze({
+                    kind: 'arithmetic',
+                    operator: node.operator,
+                    left: this.#validateNode(node.left, `${pointer}/left`, currentValueAvailability),
+                    right: this.#validateNode(node.right, `${pointer}/right`, currentValueAvailability),
+                });
+            case 'negate':
+                return Object.freeze({ kind: 'negate', operand: this.#validateNode(node.operand, `${pointer}/operand`, currentValueAvailability) });
             case 'conditional':
                 return this.#validateConditional(node, pointer, currentValueAvailability);
             case 'and':

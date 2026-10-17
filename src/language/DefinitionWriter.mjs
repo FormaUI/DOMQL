@@ -3,10 +3,10 @@
  */
 
 /** How tightly each kind of expression binds, the loosest lowest: one written where a tighter one stands is parenthesized. An optional chain is a cast's target as it is, and is grouped where a chain continues from it, since its short-circuit ends where it does. */
-const PRECEDENCE = { conditional: 0, coalescing: 1, or: 2, and: 3, not: 4, equality: 5, try: 6, conversion: 7, cast: 8, optionalChain: 9 };
+const PRECEDENCE = { conditional: 0, coalescing: 1, or: 2, and: 3, not: 4, equality: 5, additive: 6, multiplicative: 7, negate: 8, try: 9, conversion: 10, cast: 11, optionalChain: 12 };
 
 /** How tightly a chain binds that no optional chain holds: a member access, a call, an indexer, an object expression, `self`, a local, a literal or a parameter. */
-const CHAIN_PRECEDENCE = 10;
+const CHAIN_PRECEDENCE = 13;
 
 /** The indentation of one level of an object expression laid out on lines. */
 const INDENTATION = '    ';
@@ -59,7 +59,20 @@ export class DefinitionWriter {
                 return DefinitionWriter.#conditional(node, level);
             case 'coalescing':
                 // A coalescing operator associates to the right, so a fallback that is one is written as it is.
-                return `${DefinitionWriter.#within(node.value, PRECEDENCE.try, level)} ?? ${node.fallback.kind === 'coalescing' ? DefinitionWriter.#write(node.fallback, level) : DefinitionWriter.#within(node.fallback, PRECEDENCE.try, level)}`;
+                return `${DefinitionWriter.#within(node.value, PRECEDENCE.negate, level)} ?? ${node.fallback.kind === 'coalescing' ? DefinitionWriter.#write(node.fallback, level) : DefinitionWriter.#within(node.fallback, PRECEDENCE.negate, level)}`;
+            case 'arithmetic': {
+                // Operators of one level associate to the left, so a right operand of that level is grouped.
+                const precedence = DefinitionWriter.#precedenceOf(node);
+
+                return `${DefinitionWriter.#within(node.left, precedence, level)} ${node.operator} ${DefinitionWriter.#within(node.right, precedence + 1, level)}`;
+            }
+            case 'negate': {
+                // A negated negative number, or a negation, is grouped, so the signs never run together.
+                const { operand } = node;
+                const runsTogether = operand.kind === 'negate' || (operand.kind === 'literal' && typeof operand.value === 'number' && (operand.value < 0 || Object.is(operand.value, -0)));
+
+                return `-${runsTogether ? `(${DefinitionWriter.#write(operand, level)})` : DefinitionWriter.#within(operand, PRECEDENCE.negate, level)}`;
+            }
             case 'not':
                 // The negation of an equality is written as `!=`, which is its canonical text.
                 return node.operand.kind === 'equality' ? DefinitionWriter.#equality(node.operand, '!=', level) : `not ${DefinitionWriter.#within(node.operand, PRECEDENCE.not, level)}`;
@@ -123,9 +136,25 @@ export class DefinitionWriter {
         return `${value} to ${DefinitionWriter.#literal(node.type)}`;
     }
 
-    /** An equality, or its negation, as its operator writes it: two equality operands, each grouped where it binds more loosely than an attempt. */
+    /** An equality, or its negation, as its operator writes it: two equality operands, each grouped where it binds more loosely than arithmetic. */
     static #equality(node, operator, level) {
-        return `${DefinitionWriter.#within(node.left, PRECEDENCE.try, level)} ${operator} ${DefinitionWriter.#within(node.right, PRECEDENCE.try, level)}`;
+        return `${DefinitionWriter.#within(node.left, PRECEDENCE.additive, level)} ${operator} ${DefinitionWriter.#within(node.right, PRECEDENCE.additive, level)}`;
+    }
+
+    /**
+     * How tightly the node binds: an arithmetic node by its operator's level, a negative number as a negation, since its `-` is one in text, so what follows it, a conversion or an access, groups it,
+     * and any other by its kind's.
+     */
+    static #precedenceOf(node) {
+        if (node.kind === 'arithmetic') {
+            return node.operator === '+' || node.operator === '-' ? PRECEDENCE.additive : PRECEDENCE.multiplicative;
+        }
+
+        if (node.kind === 'literal' && typeof node.value === 'number' && (node.value < 0 || Object.is(node.value, -0))) {
+            return PRECEDENCE.negate;
+        }
+
+        return PRECEDENCE[node.kind] ?? CHAIN_PRECEDENCE;
     }
 
     /** A conditional's clauses, each a condition or a binding: a conditional nested in its alternative is written as an `elseif`, and one in its condition or consequent in parentheses; laid out on lines, one with an `elseif` has a line for each clause. */
@@ -155,6 +184,6 @@ export class DefinitionWriter {
     static #within(node, precedence, level) {
         const text = DefinitionWriter.#write(node, level);
 
-        return (PRECEDENCE[node.kind] ?? CHAIN_PRECEDENCE) < precedence ? `(${text})` : text;
+        return DefinitionWriter.#precedenceOf(node) < precedence ? `(${text})` : text;
     }
 }

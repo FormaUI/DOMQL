@@ -9,11 +9,11 @@ import { Names } from './Names.mjs';
  * The types a token is, which tooling reads as they are: `invalid` for text that is no token, and `end` for the end of the text, after its last trivia.
  * A contract within DOMQL until a public tooling API stabilizes it.
  */
-export const TOKEN_TYPES = Object.freeze(['name', 'literal', 'keyword', 'self', 'invalid', 'end', '.', '?.', '?[', '?:', '??', '(?', '==', '!=', '=', ',', ':', '(', ')', '{', '}', '[', ']']);
+export const TOKEN_TYPES = Object.freeze(['name', 'literal', 'keyword', 'self', 'invalid', 'end', '.', '?.', '?[', '?:', '??', '(?', '==', '!=', '=', '+', '-', '*', '/', '%', ',', ':', '(', ')', '{', '}', '[', ']']);
 
 /**
  * @typedef {object} Token
- * @property {'name' | 'literal' | 'keyword' | 'self' | 'invalid' | 'end' | '.' | '?.' | '?[' | '?:' | '??' | '(?' | '==' | '!=' | '=' | ',' | ':' | '(' | ')' | '{' | '}' | '[' | ']'} type
+ * @property {'name' | 'literal' | 'keyword' | 'self' | 'invalid' | 'end' | '.' | '?.' | '?[' | '?:' | '??' | '(?' | '==' | '!=' | '=' | '+' | '-' | '*' | '/' | '%' | ',' | ':' | '(' | ')' | '{' | '}' | '[' | ']'} type
  * @property {unknown} [value] A name's or a keyword's text, or a literal's value.
  * @property {number} start
  * @property {number} end
@@ -22,9 +22,10 @@ export const TOKEN_TYPES = Object.freeze(['name', 'literal', 'keyword', 'self', 
  * @property {{ message: string, offset: number }} [diagnostic] Why an invalid token is no token, and where the text first fails.
  */
 
-const PUNCTUATION = new Set(['.', ',', ':', '(', ')', '{', '}', '[', ']']);
+/** The tokens of one character, the arithmetic operators among them: `-` is always an operator, negation or subtraction, so no number begins with it, and `/` is one wherever no comment begins. */
+const PUNCTUATION = new Set(['.', ',', ':', '(', ')', '{', '}', '[', ']', '+', '-', '*', '/', '%']);
 const NAME = /[A-Za-z][A-Za-z0-9]*/y;
-const NUMBER = /-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?/y;
+const NUMBER = /(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?/y;
 const SPACE = /\s/;
 
 export class Tokenizer {
@@ -117,7 +118,7 @@ export class Tokenizer {
             return this.#readString(start);
         }
 
-        if (character === '-' || (character >= '0' && character <= '9')) {
+        if (character >= '0' && character <= '9') {
             return this.#readNumber(start);
         }
 
@@ -127,11 +128,6 @@ export class Tokenizer {
             this.#offset = NAME.lastIndex;
 
             const name = this.#text.slice(start, this.#offset);
-
-            // A hyphen right after a name is never a negative number, which whitespace or a parenthesis comes before.
-            if (this.#text[this.#offset] === '-') {
-                return this.#invalid(start, this.#offset + 1, `A name holds no hyphen: '${name}-…' is written in camelCase, as clientSize is`, this.#offset);
-            }
 
             if (Names.isLiteral(name)) {
                 return { type: 'literal', value: Names.literalValueOf(name), start, end: this.#offset };

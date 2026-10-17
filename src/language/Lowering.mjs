@@ -51,6 +51,28 @@ export class Lowering {
 
                 return children[1].type === '!=' ? this.#span({ kind: 'not', operand: equality }, child) : equality;
             }
+            case 'additive':
+            case 'multiplicative': {
+                // Operators of one level associate to the left, each operation spanning from the first operand to its own right operand.
+                let value = this.#lower(children[0]);
+
+                for (let index = 1; index < children.length; index += 2) {
+                    value = { kind: 'arithmetic', operator: children[index].type, left: value, right: this.#lower(children[index + 1]) };
+                    this.#spans.set(value, { start: SyntaxTree.startOf(child), end: SyntaxTree.endOf(children[index + 1]) });
+                }
+
+                return value;
+            }
+            case 'arithmetic-negation': {
+                // A negation of a numeric literal is the negative literal, negative zero included, as the text writes it.
+                const [, operand] = children;
+
+                if (SyntaxTree.isToken(operand) && operand.type === 'literal' && typeof operand.value === 'number') {
+                    return this.#span({ kind: 'literal', value: -operand.value }, child);
+                }
+
+                return this.#span({ kind: 'negate', operand: this.#lower(operand) }, child);
+            }
             case 'coalescing-operator':
                 return this.#span({ kind: 'coalescing', value: this.#lower(children[0]), fallback: this.#lower(children[2]) }, child);
             case 'attempt':

@@ -70,6 +70,7 @@ describe('SyntaxTree', () => {
             'a == b and c != d or (try e to "number" ?? 0)',
             '(?(panel.parent as "element").rect.width) ?? panel.closest(".row")?.rect { top = self.top }',
             'panel { let rows = self.all("i"), first = rows:[0]?:["data-key"], name = self[name], open = self.matches(".x") }',
+            '-a * 2 + b % 3 - c / d',
         ];
         const kinds = new Set(texts.flatMap(text => kindsOf(treeOf(text))));
         const types = new Set(texts.flatMap(text => Tokenizer.scan(text).map(token => token.type)).concat(Tokenizer.scan('a = 1').map(token => token.type)));
@@ -85,7 +86,6 @@ describe('SyntaxTree', () => {
         ['a string never closed', 'a:["key', '"key', 'A string is never closed'],
         ['an escape no escape is for', '"a\\nb" == x', '"a\\nb"', 'A string escapes only'],
         ['a block comment never closed', 'a /* open', '/* open', 'A block comment is never closed'],
-        ['a hyphen after a name', 'panel.client-size', 'client-', 'A name holds no hyphen'],
         ['an @ with no name after it', '@ panel', '@', "'@' names nothing: a binding is named by its name alone"],
         ['an @ before a name, which a binding is named without', '@panel.size', '@panel', "A binding is named by its name alone: write 'panel', with no '@'"],
     ])('scans text that is no token, %s, into an invalid token with its diagnostic, reading on after it', (_, text, invalidText, message) => {

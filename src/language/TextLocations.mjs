@@ -83,7 +83,12 @@ export class TextLocations {
             this.#collect(node.right, `${pointer}/right`, spans);
         }
 
-        if (node.kind === 'not') {
+        if (node.kind === 'arithmetic') {
+            this.#collect(node.left, `${pointer}/left`, spans);
+            this.#collect(node.right, `${pointer}/right`, spans);
+        }
+
+        if (node.kind === 'not' || node.kind === 'negate') {
             this.#collect(node.operand, `${pointer}/operand`, spans);
         }
 

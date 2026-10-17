@@ -125,7 +125,12 @@ export class ResolvedDefinition {
                 node.operands.forEach((operand, index) => this.#index(operand, `${pointer}/operands/${index}`));
                 break;
             case 'not':
+            case 'negate':
                 this.#index(node.operand, `${pointer}/operand`);
+                break;
+            case 'arithmetic':
+                this.#index(node.left, `${pointer}/left`);
+                this.#index(node.right, `${pointer}/right`);
                 break;
             case 'coalescing':
                 this.#index(node.value, `${pointer}/value`);

@@ -90,6 +90,7 @@ const DOCUMENTS = {
         { about: 'the forms of member access', each: true, context: 'cell { value = % }' },
         { about: 'tests', each: true },
         { about: 'equalities', each: true },
+        { about: 'arithmetic' },
         { about: 'logical expressions', each: true, results: { 3: { width: 0 }, 4: 'untitled' } },
         { about: 'conditionals', each: true, context: COMPARED, results: { 2: true } },
         { about: 'coalescing operators', each: true, results: { 2: false } },
@@ -121,6 +122,7 @@ const DOCUMENTS = {
         { about: 'a strict and an attempted cast', each: true },
         { about: 'an attempt with a fallback', results: { 0: { count: 12 } } },
         { about: 'a result that tells missing from malformed', results: { 0: { count: { status: 'valid', value: 12 } } } },
+        { about: 'arithmetic' },
         { about: 'a shadow tree', results: { 0: 1 } },
     ],
     'docs/domql-design.md': [

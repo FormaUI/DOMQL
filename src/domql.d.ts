@@ -174,6 +174,8 @@ export type DomqlDefinitionNode =
     | { readonly kind: 'optionalChain'; readonly target: DomqlDefinitionNode }
     | { readonly kind: 'coalescing'; readonly value: DomqlDefinitionNode; readonly fallback: DomqlDefinitionNode }
     | { readonly kind: 'not'; readonly operand: DomqlDefinitionNode }
+    | { readonly kind: 'arithmetic'; readonly operator: '+' | '-' | '*' | '/' | '%'; readonly left: DomqlDefinitionNode; readonly right: DomqlDefinitionNode }
+    | { readonly kind: 'negate'; readonly operand: DomqlDefinitionNode }
     | { readonly kind: 'cast'; readonly type: string; readonly target: DomqlDefinitionNode }
     | { readonly kind: 'conversion'; readonly type: string; readonly target: DomqlDefinitionNode }
     | { readonly kind: 'try'; readonly target: DomqlDefinitionNode }

@@ -138,7 +138,7 @@ export class Parser {
     #parseEquality() {
         this.#refuseOperandStart(this.#token.start);
 
-        const left = this.#parseEqualityOperand();
+        const left = this.#parseAdditive();
 
         if (this.#token.type === '??') {
             return this.#parseCoalescingOperator(left);
@@ -152,7 +152,7 @@ export class Parser {
 
         this.#refuseOperandStart(this.#token.start);
 
-        const equality = Parser.#node('equality', [left, operator, this.#parseEqualityOperand()]);
+        const equality = Parser.#node('equality', [left, operator, this.#parseAdditive()]);
 
         if (this.#token.type === '??') {
             throw this.#fail(`'??' and '${operator.type}' stand apart, one of them grouped: write '(… ${operator.type} …) ?? …' or '… ${operator.type} (… ?? …)'`, this.#token.start);
@@ -209,8 +209,10 @@ export class Parser {
         }
     }
 
-    /** Reads a coalescing operator after its value: `??` and its fallback, an equality operand or another coalescing operator, so it associates to the right. */
+    /** Reads a coalescing operator after its value: `??` and its fallback, an equality operand or another coalescing operator, so it associates to the right; binary arithmetic stands beside it only where a group holds one of them. */
     #parseCoalescingOperator(value) {
+        this.#refuseArithmeticBeside(value, true);
+
         const operator = this.#take();
         const fallbackStart = this.#token.start;
 
@@ -220,7 +222,10 @@ export class Parser {
 
         this.#refuseOperandStart(fallbackStart);
 
-        const fallbackValue = this.#parseEqualityOperand();
+        const fallbackValue = this.#parseAdditive();
+
+        this.#refuseArithmeticBeside(fallbackValue, false);
+
         const fallback = this.#token.type === '??' ? this.#parseCoalescingOperator(fallbackValue) : fallbackValue;
 
         if (this.#isEqualityOperator()) {
@@ -234,6 +239,60 @@ export class Parser {
         this.#ungroupedCoalescings.add(node);
 
         return node;
+    }
+
+    /** Refuses binary arithmetic no group holds as a side of `??`, which stands apart from it, as it does from `and`, `or` and an equality; a negation is no binary arithmetic, so `value ?? -1` stands. */
+    #refuseArithmeticBeside(side, isValue) {
+        if (side.kind !== 'additive' && side.kind !== 'multiplicative') {
+            return;
+        }
+
+        const operator = side.children[1].type;
+        const grouped = isValue ? `'(… ${operator} …) ?? …' or '… ${operator} (… ?? …)'` : `'(… ?? …) ${operator} …' or '… ?? (… ${operator} …)'`;
+
+        throw this.#fail(`'??' and '${operator}' stand apart, one of them grouped: write ${grouped}`, side.children[1].start);
+    }
+
+    /** Reads an additive expression: multiplicative expressions joined by `+` and `-`, left to right; the one alone where none follows. */
+    #parseAdditive() {
+        return this.#parseBinary('additive', ['+', '-'], () => this.#parseMultiplicative());
+    }
+
+    /** Reads a multiplicative expression: unary expressions joined by `*`, `/` and `%`, left to right; the one alone where none follows. */
+    #parseMultiplicative() {
+        return this.#parseBinary('multiplicative', ['*', '/', '%'], () => this.#parseUnary());
+    }
+
+    /** Reads operands the operators join, left to right, as the node of the kind, or the operand alone where no operator follows it. */
+    #parseBinary(kind, operators, parseOperand) {
+        const first = parseOperand();
+
+        if (!operators.includes(this.#token.type)) {
+            return first;
+        }
+
+        const children = [first];
+
+        while (operators.includes(this.#token.type)) {
+            children.push(this.#take());
+            this.#refuseOperandStart(this.#token.start);
+            children.push(parseOperand());
+        }
+
+        return Parser.#node(kind, children);
+    }
+
+    /** Reads a unary expression: `-` and what it negates, another unary expression or an equality operand, so `-x to "number"` negates the converted value; or an equality operand alone. */
+    #parseUnary() {
+        if (this.#token.type !== '-') {
+            return this.#parseEqualityOperand();
+        }
+
+        const minus = this.#take();
+
+        this.#refuseOperandStart(this.#token.start);
+
+        return Parser.#node('arithmetic-negation', [minus, this.#parseUnary()]);
     }
 
     /** Reads an equality operand: a chain, the cast that may end it, and the conversions that follow, each converting what is before it. */

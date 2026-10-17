@@ -61,6 +61,15 @@ const NO_SAMPLES = Object.freeze([]);
 /** The observations of a declaration that names none. */
 const NO_OBSERVATIONS = Object.freeze([]);
 
+/** What each arithmetic operator answers for its operands: `%` the remainder with the sign of the dividend, as `-5 % 3` is `-2`. */
+const ARITHMETIC = Object.freeze({
+    '+': (a, b) => a + b,
+    '-': (a, b) => a - b,
+    '*': (a, b) => a * b,
+    '/': (a, b) => a / b,
+    '%': (a, b) => a % b,
+});
+
 export class QueryEvaluator {
     /** The fields of each declared structure, each with its type parsed, by the structure: valid for as long as the structure, which is frozen, and released with it. @type {WeakMap<object, [string, Type][]>} */
     static #fieldTypesByStructure = new WeakMap();
@@ -459,6 +468,28 @@ export class QueryEvaluator {
                 const operand = this.#getCompiledFunction(node.operand);
 
                 return (evaluator, currentValue) => !QueryEvaluator.#isTruthy(operand(evaluator, currentValue));
+            }
+            case 'arithmetic': {
+                // The left operand is evaluated, then the right; arithmetic does not short-circuit, and an operand that fails stops it.
+                const left = this.#getCompiledFunction(node.left);
+                const right = this.#getCompiledFunction(node.right);
+                const operate = ARITHMETIC[node.operator];
+
+                return (evaluator, currentValue) => {
+                    const leftValue = left(evaluator, currentValue);
+                    const rightValue = right(evaluator, currentValue);
+
+                    return evaluator.#arithmeticResult(node, operate(leftValue, rightValue), leftValue, rightValue);
+                };
+            }
+            case 'negate': {
+                const operand = this.#getCompiledFunction(node.operand);
+
+                return (evaluator, currentValue) => {
+                    const value = operand(evaluator, currentValue);
+
+                    return evaluator.#arithmeticResult(node, -value, value, 0);
+                };
             }
             case 'cast':
                 return this.#compileCast(node, false);
@@ -937,6 +968,28 @@ export class QueryEvaluator {
         const args = this.#evaluateArguments(resolution, currentValue);
 
         return args === null ? null : this.#invokeMember(resolution.contract ?? resolution.declaration, receiver, args, resolution.type, node);
+    }
+
+    /**
+     * The result of an arithmetic operation, refused where an operand is no number, which a binding of no number can still give, where `/` or `%` divides by zero,
+     * and where the result is no finite number, so neither infinity nor NaN reaches a result; each is an evaluation error at the operation.
+     */
+    #arithmeticResult(node, result, left, right) {
+        const operator = node.kind === 'negate' ? '-' : node.operator;
+
+        if (typeof left !== 'number' || typeof right !== 'number') {
+            throw DomqlError.evaluation(`'${operator}' takes numbers, and is given ${typeof left !== 'number' ? QueryEvaluator.#describe(left) : QueryEvaluator.#describe(right)}`, this.#locate(this.#pointerOf(node)));
+        }
+
+        if ((operator === '/' || operator === '%') && right === 0 && node.kind === 'arithmetic') {
+            throw DomqlError.evaluation(`'${operator}' divides by zero`, this.#locate(this.#pointerOf(node)));
+        }
+
+        if (!Number.isFinite(result)) {
+            throw DomqlError.evaluation(`The result of '${operator}' is no finite number`, this.#locate(this.#pointerOf(node)));
+        }
+
+        return result;
     }
 
     /** The arguments by parameter name, or null where a null argument makes the call answer null. */

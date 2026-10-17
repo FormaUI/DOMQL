@@ -122,6 +122,14 @@ describe('SnapshotComparer', () => {
             expect(snapshotComparer.reconcile(previous, null, freeze({ n: 10 }), null)).toBe(previous);
         });
 
+        it('compares a computed number exactly, whatever the tolerance of the members its operands read', () => {
+            const snapshotComparer = snapshotComparerOf('element { w = self.wobble.width * 10, v = self.wobble.width + 0 }', { element }, { tolerance: 2 });
+            const previous = freeze({ w: 1000, v: 100 });
+
+            expect(snapshotComparer.reconcile(previous, null, freeze({ w: 1001, v: 100 }), null).w).toBe(1001);
+            expect(snapshotComparer.reconcile(previous, null, freeze({ w: 1000, v: 100.5 }), null).v).toBe(100.5);
+        });
+
         it('compares a number within the tolerance of the member that produced it', () => {
             const snapshotComparer = snapshotComparerOf('element { size = self.wobble }', { element }, { tolerance: 0.5 });
             const previous = freeze({ size: { width: 100, height: 40 } });

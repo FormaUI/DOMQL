@@ -394,6 +394,30 @@ describe('Watch', () => {
         });
     });
 
+    describe('arithmetic', () => {
+        it('follows what each operand reads, evaluating the left operand and then the right', async () => {
+            panel.setAttribute('data-a', '1');
+            panel.setAttribute('data-b', '2');
+            watch('(panel:["data-a"] to "number" ?? 0) + (panel:["data-b"] to "number" ?? 0) * 10', { panel });
+            await settle();
+
+            panel.setAttribute('data-a', '5');
+            await settle();
+            panel.setAttribute('data-b', '3');
+            await settle();
+
+            expect(snapshots).toEqual([21, 25, 35]);
+            expect(isolated.query('panel.tally - panel.tally', { panel }).evaluate()).toBe(-1);
+        });
+
+        it('evaluates no right operand once the left fails', () => {
+            const before = evaluations;
+
+            expect(() => isolated.query('(panel.first("[")?.children?.count ?? 0) + panel.tally', { panel }).evaluate()).toThrow("The member 'first' failed");
+            expect(evaluations).toBe(before);
+        });
+    });
+
     describe('a conversion', () => {
         it('follows the value it converts, fails while that value has no conversion, and recovers once it has', async () => {
             const watched = watch('panel:attribute["data-n"] to "number"', { panel });

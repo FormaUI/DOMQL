@@ -80,6 +80,16 @@ export class LanguageResolver {
                 return this.#resolveMember(node, pointer, scope);
             case 'equality':
                 return this.#resolveEquality(node, pointer, scope, false);
+            case 'arithmetic':
+                for (const side of ['left', 'right']) {
+                    this.#requireNumber(this.#resolveNode(node[side], `${pointer}/${side}`, scope), `The ${side} operand of '${node.operator}'`, `${pointer}/${side}`);
+                }
+
+                return { type: Type.createNamedType('number'), kind: 'query', isFixed: false };
+            case 'negate':
+                this.#requireNumber(this.#resolveNode(node.operand, `${pointer}/operand`, scope), "What '-' negates", `${pointer}/operand`);
+
+                return { type: Type.createNamedType('number'), kind: 'query', isFixed: false };
             case 'conditional':
                 return this.#resolveConditional(node, pointer, scope);
             case 'optionalChain':
@@ -531,6 +541,25 @@ export class LanguageResolver {
         this.#requireValue(operand, "What 'not' negates", `${pointer}/operand`);
 
         return { type: Type.createNamedType('boolean'), kind: 'query', isFixed: false };
+    }
+
+    /** Refuses what arithmetic takes no part in: what is no value, a value that can be null, which a fallback or a test removes first, and a value of any type but a number, which nothing converts to one but `to`. */
+    #requireNumber(result, what, pointer) {
+        this.#requireValue(result, what, pointer);
+
+        const { type } = result;
+
+        if (type.kind === 'never') {
+            return;
+        }
+
+        if (type.isNullable || type.kind === 'null') {
+            this.#fail(`${what} can be null, and arithmetic takes numbers alone: give it a fallback, as in (… ?? 0), or test it first`, pointer);
+        }
+
+        if (type.kind !== 'named' || type.name !== 'number') {
+            this.#fail(`${what} is a number, and this one is ${type}; a conversion makes a number of text, as in … to "number"`, pointer);
+        }
     }
 
     /** Refuses what is no value where one is tested for its truthiness, an event source, an action or a behavior, and a value whose type no receiver gives, which tells nothing of whether it can be falsey. */

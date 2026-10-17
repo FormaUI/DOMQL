@@ -270,7 +270,7 @@ describe('DefinitionWriter', () => {
             const { domql: other } = await import('#domql/domql.js');
 
             expect(() => format('panel {')).toThrow(expect.objectContaining({ kind: 'syntax' }));
-            expect(() => domql.format({ version: 19, query: { kind: 'nonsense' } })).toThrow(expect.objectContaining({ kind: 'structure' }));
+            expect(() => domql.format({ version: 20, query: { kind: 'nonsense' } })).toThrow(expect.objectContaining({ kind: 'structure' }));
             expect(() => domql.format(other.query('panel'))).toThrow(expect.objectContaining({ kind: 'structure', message: expect.stringContaining('query.definition') }));
         });
     });
