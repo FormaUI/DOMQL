@@ -5,7 +5,7 @@
 /** How tightly each kind of expression binds, the loosest lowest: one written where a tighter one stands is parenthesized. An optional chain is a cast's target as it is, and is grouped where a chain continues from it, since its short-circuit ends where it does. */
 const PRECEDENCE = { conditional: 0, coalescing: 1, or: 2, and: 3, not: 4, equality: 5, additive: 6, multiplicative: 7, negate: 8, try: 9, conversion: 10, cast: 11, optionalChain: 12 };
 
-/** How tightly a chain binds that no optional chain holds: a member access, a call, an indexer, an object expression, `self`, a local, a literal or a parameter. */
+/** How tightly a chain binds that no optional chain holds: a property access, a call, an indexer, an object expression, `self`, a local, a literal or a parameter. */
 const CHAIN_PRECEDENCE = 13;
 
 /** The indentation of one level of an object expression laid out on lines. */

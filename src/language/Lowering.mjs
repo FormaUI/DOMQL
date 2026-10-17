@@ -73,22 +73,22 @@ export class Lowering {
 
                 return this.#span({ kind: 'negate', operand: this.#lower(operand) }, child);
             }
-            case 'coalescing-operator':
+            case 'coalescing':
                 return this.#span({ kind: 'coalescing', value: this.#lower(children[0]), fallback: this.#lower(children[2]) }, child);
             case 'attempt':
                 return this.#span({ kind: 'try', target: this.#lower(children[1]) }, child);
             case 'conversion':
                 return this.#span({ kind: 'conversion', type: children[2].value, target: this.#lower(children[0]) }, child);
             case 'cast': {
-                // A cast's target written as a member-access chain within an optional-access group is the optional chain of its accesses.
+                // A cast's target written as a member chain within an optional enclosed access is the optional chain of its accesses.
                 const [target] = children;
 
-                return this.#span({ kind: 'cast', type: children[2].value, target: target.kind === 'member-access-chain' ? this.#optionalChainOf(target, target) : this.#lower(target) }, child);
+                return this.#span({ kind: 'cast', type: children[2].value, target: target.kind === 'member-chain' ? this.#optionalChainOf(target, target) : this.#lower(target) }, child);
             }
-            case 'expression-group':
+            case 'parenthesized-expression':
             case 'receiver':
                 return this.#lower(children[1]);
-            case 'optional-access-group':
+            case 'optional-enclosed-access':
                 return this.#optionalChainOf(children[1], child);
             case 'chain':
                 return this.#lowerChain(child);
@@ -152,35 +152,38 @@ export class Lowering {
     }
 
     /**
-     * A member-access expression after its receiver: a member access, a call, an access by name, its name the name a string literal is where it is one, or an indexer, spanning from the start given to its own end,
-     * and optional where its token says so or where every access is, as an optional-access group makes them.
+     * A member after its receiver: a dot property access, a call, a bracket property access, its name the name a string literal is where it is one, or an indexer, spanning from the start given to its own end,
+     * and optional where its token says so or where every access is, as an optional enclosed access makes them.
      */
     #lowerAccess(part, target, start, isEveryOptional) {
         const [first, second] = part.children;
         const optional = isEveryOptional || OPTIONAL_ACCESSES.has(first.type);
         let node;
 
-        if (first.type === '.' || first.type === '?.') {
-            const isCall = second.kind === 'call-expression';
-            const name = isCall ? second.children[0].value : second.value;
-            const access = optional ? { target, name, optional } : { target, name };
+        switch (part.kind) {
+            case 'dot-property-access':
+                node = optional ? { kind: 'member', target, name: second.value, optional } : { kind: 'member', target, name: second.value };
+                break;
+            case 'function-call': {
+                const call = optional ? { kind: 'call', target, name: second.value, optional } : { kind: 'call', target, name: second.value };
 
-            if (!isCall) {
-                node = { kind: 'member', ...access };
-            } else {
-                node = second.children.length === 4 ? { kind: 'call', ...access, argument: this.#lower(second.children[2]) } : { kind: 'call', ...access };
+                node = part.children.length === 5 ? { ...call, argument: this.#lower(part.children[3]) } : call;
+                break;
             }
-        } else if (first.type === '[' || first.type === '?[') {
-            const expression = this.#lower(second);
-            const name = expression.kind === 'literal' && Names.isName(expression.value) ? expression.value : expression;
+            case 'bracket-property-access': {
+                const expression = this.#lower(second);
+                const name = expression.kind === 'literal' && Names.isName(expression.value) ? expression.value : expression;
 
-            node = optional ? { kind: 'member', target, name, optional } : { kind: 'member', target, name };
-        } else {
-            const isNamed = second.type === 'name';
-            const argument = this.#lower(part.children[isNamed ? 3 : 2]);
-            const indexer = isNamed ? { kind: 'indexer', target, name: second.value, argument } : { kind: 'indexer', target, argument };
+                node = optional ? { kind: 'member', target, name, optional } : { kind: 'member', target, name };
+                break;
+            }
+            default: {
+                const isNamed = second.type === 'name';
+                const argument = this.#lower(part.children[isNamed ? 3 : 2]);
+                const indexer = isNamed ? { kind: 'indexer', target, name: second.value, argument } : { kind: 'indexer', target, argument };
 
-            node = optional ? { ...indexer, optional } : indexer;
+                node = optional ? { ...indexer, optional } : indexer;
+            }
         }
 
         this.#spans.set(node, { start, end: SyntaxTree.endOf(part) });
@@ -188,7 +191,7 @@ export class Lowering {
         return node;
     }
 
-    /** The optional chain of a member-access chain's accesses, every one of them optional, spanning what the span node does. */
+    /** The optional chain of a member chain's accesses, every one of them optional, spanning what the span node does. */
     #optionalChainOf(chain, spanned) {
         const { children } = chain;
         const start = SyntaxTree.startOf(chain);

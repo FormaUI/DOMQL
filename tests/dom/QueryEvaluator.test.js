@@ -192,7 +192,7 @@ describe('QueryEvaluator', () => {
             expect(reads).toEqual([panel]);
         });
 
-        it('answers what an optional-access group reads, and null where a receiver in it is null', () => {
+        it('answers what an optional enclosed access reads, and null where a receiver in it is null', () => {
             expect(read('(?item.parent.children.count)', { item: items[0] })).toBe(items.length);
             expect(read('(?item.parent.children.count)', { item: document.createElement('div') })).toBeNull();
         });
@@ -272,7 +272,7 @@ describe('QueryEvaluator', () => {
         });
     });
 
-    describe('access by name', () => {
+    describe('bracket property access', () => {
         it('reads what a name names, as direct access does', () => {
             expect(read('panel["children"].count', { panel })).toBe(3);
             expect(read('panel["size"]?.width', { panel })).toBe(640);
@@ -522,7 +522,7 @@ describe('QueryEvaluator', () => {
                 .toEqual({ key: 'a1', inner: { last: 'a3' } });
         });
 
-        it('stand where an access by name\'s name is, with the names they can give', () => {
+        it('stand where a bracket property access\'s name is, with the names they can give', () => {
             expect(read('panel { let name = "size", width = self[name]?.width }', { panel })).toEqual({ width: 640 });
             expect(read('panel { let name = chosen, let selected = name, width = self[selected]?.width }', { panel, chosen: 'size' })).toEqual({ width: 640 });
         });

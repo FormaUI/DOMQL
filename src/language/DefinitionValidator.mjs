@@ -93,7 +93,7 @@ export class DefinitionValidator {
 
         const enclosingChain = this.#chain;
 
-        // A chain continues through a member access's, a call's and an object expression's target alone, so any other node ends it.
+        // A chain continues through a property access's, a call's and an object expression's target alone, so any other node ends it.
         if (!CHAIN_KINDS.has(node.kind)) {
             this.#chain = null;
         }
@@ -243,7 +243,7 @@ export class DefinitionValidator {
         const target = this.#validateNode(node.target, `${pointer}/target`, currentValueAvailability);
 
         if (!CAST_TARGET_KINDS.has(target.kind) || (target.kind === 'object' && target.target !== undefined)) {
-            this.#fail(`${pointer}/target`, "A cast's target is a receiver and the member-access expressions after it, a coalescing operator in parentheses, or an optional-access group");
+            this.#fail(`${pointer}/target`, "A cast's target is a receiver and the members after it, a coalescing operator in parentheses, or an optional enclosed access");
         }
 
         return Object.freeze({ kind: 'cast', type: node.type, target });
@@ -285,11 +285,11 @@ export class DefinitionValidator {
         return Object.freeze({ kind: 'literal', value });
     }
 
-    /** Validates a member access, a call or an indexer: its name, its receiver, whether it is optional, which it is within an optional chain alone, and the one argument a call or an indexer takes, whose current value its declaration decides. */
+    /** Validates a property access, a call or an indexer: its name, its receiver, whether it is optional, which it is within an optional chain alone, and the one argument a call or an indexer takes, whose current value its declaration decides. */
     #validateMember(node, pointer, currentValueAvailability) {
         const name = node.kind === 'member' && ObjectUtils.isNonArrayObject(node.name) ? this.#validateNameExpression(node.name, `${pointer}/name`, currentValueAvailability) : node.name;
 
-        // A name an access by name's expression gave is checked as that expression, and a default indexer has none; any other is a name, a call's always.
+        // A name a bracket property access's expression gave is checked as that expression, and a default indexer has none; any other is a name, a call's always.
         if (name === node.name && !(node.kind === 'indexer' && name === undefined)) {
             this.#requireName(name, `${pointer}/name`);
         }
@@ -320,7 +320,7 @@ export class DefinitionValidator {
         return Object.freeze({ ...access, argument });
     }
 
-    /** Validates the expression an access by name holds, which continues no chain; a string literal that is a name is the name itself, as `.` writes it, so an access has one definition. */
+    /** Validates the expression a bracket property access holds, which continues no chain; a string literal that is a name is the name itself, as `.` writes it, so an access has one definition. */
     #validateNameExpression(node, pointer, currentValueAvailability) {
         const enclosingChain = this.#chain;
 

@@ -50,7 +50,7 @@ describe('domql', () => {
             expect(definition.query).toEqual(member('count', call('all', literal('li'), parameter('panel'))));
         });
 
-        it('reads a member access, a call and a named indexer as nodes of their own, each holding its receiver', () => {
+        it('reads a property access, a call and a named indexer as nodes of their own, each holding its receiver', () => {
             expect(domql.query('panel.size').definition.query).toEqual(member('size', parameter('panel')));
             expect(domql.query('panel.closest(".row")').definition.query).toEqual(call('closest', literal('.row'), parameter('panel')));
             expect(domql.query('panel.parent.closest()').definition.query).toEqual(call('closest', undefined, member('parent', parameter('panel'))));
@@ -326,7 +326,7 @@ describe('domql', () => {
             ['an optional chain holding no optional access', chain(member('size', parameter('panel'))), '/query'],
             ['an optional chain directly holding another', chain(chain(optional(member('size', parameter('panel'))))), '/query'],
             ['an optional access that is not true', { ...member('size', parameter('panel')), optional: false }, '/query/optional'],
-            ['a call named by an expression, which only an access by name is', { kind: 'call', target: parameter('panel'), name: literal('closest') }, '/query/name'],
+            ['a call named by an expression, which only a bracket property access is', { kind: 'call', target: parameter('panel'), name: literal('closest') }, '/query/name'],
             ['an optional access of an argument the chain it is passed to holds', chain(optional(call('closest', optional(member('key', parameter('row'))), parameter('panel')))), '/query/target/argument'],
         ])('refuse a definition with %s', (_, query, pointer) => {
             const error = getError(() => domql.query({ version: 20, query }));
@@ -335,12 +335,12 @@ describe('domql', () => {
             expect(error.location.pointer).toBe(pointer);
         });
 
-        it('read an optional-access group as the optional chain of its accesses, every one of them optional', () => {
+        it('read an optional enclosed access as the optional chain of its accesses, every one of them optional', () => {
             expect(domql.query('(?panel.parent.rect)').definition).toEqual(domql.query('panel?.parent?.rect').definition);
             expect(domql.query('(?panel.first(".a").closest(".b"))').definition.query).toEqual(chain(optional(call('closest', literal('.b'), optional(call('first', literal('.a'), parameter('panel')))))));
         });
 
-        it('end the optional chain of an optional-access group at its closing parenthesis', () => {
+        it('end the optional chain of an optional enclosed access at its closing parenthesis', () => {
             const group = chain(optional(member('z', optional(member('y', parameter('x'))))));
 
             expect(domql.query('(?x.y.z)?.a.b').definition.query).toEqual(chain(member('b', optional(member('a', group)))));
@@ -348,18 +348,18 @@ describe('domql', () => {
             expect(domql.query('(x.y.z)?.a').definition.query).toEqual(chain(optional(member('a', member('z', member('y', parameter('x')))))));
         });
 
-        it('take an optional-access group as a chain input, a call\'s argument among them, keeping its arguments their own', () => {
+        it('take an optional enclosed access as a chain input, a call\'s argument among them, keeping its arguments their own', () => {
             expect(domql.query('panel.matches((?row.key))').definition.query).toEqual(call('matches', chain(optional(member('key', parameter('row')))), parameter('panel')));
             expect(domql.query('(?panel.closest(row.key))').definition.query).toEqual(chain(optional(call('closest', member('key', parameter('row')), parameter('panel')))));
         });
 
         it.each([
             ['a question mark apart from its parenthesis', '( ?panel.size)', 1, 3],
-            ['an optional-access group with no access', '(?panel)', 1, 8],
-            ['an optional-access group whose receiver is a group holding no cast', '(?(panel).size)', 1, 9],
-            ['an optional-access group holding an object expression', '(?panel.rect { top: self.top })', 1, 14],
-            ['an optional-access group holding a member written after a space', '(?panel.parent matches ".row")', 1, 16],
-            ['a call whose parenthesis opens the optional-access group that is its argument', 'panel.closest(?row.key)', 1, 14],
+            ['an optional enclosed access with no access', '(?panel)', 1, 8],
+            ['an optional enclosed access whose receiver is a group holding no cast', '(?(panel).size)', 1, 9],
+            ['an optional enclosed access holding an object expression', '(?panel.rect { top: self.top })', 1, 14],
+            ['an optional enclosed access holding a member written after a space', '(?panel.parent matches ".row")', 1, 16],
+            ['a call whose parenthesis opens the optional enclosed access that is its argument', 'panel.closest(?row.key)', 1, 14],
         ])('refuse %s', (_, text, line, column) => {
             const error = getError(() => domql.query(text));
 
@@ -378,18 +378,18 @@ describe('domql', () => {
         });
     });
 
-    describe('access by name', () => {
+    describe('bracket property access', () => {
         const optional = node => ({ ...node, optional: true });
         const chain = target => ({ kind: 'optionalChain', target });
 
-        it('reads a bracket as a member access named by the expression it holds, and a string literal that is a name as that name', () => {
+        it('reads a bracket as a property access named by the expression it holds, and a string literal that is a name as that name', () => {
             expect(domql.query('panel[name]').definition.query).toEqual(member(parameter('name'), parameter('panel')));
             expect(domql.query('panel["size"]').definition).toEqual(domql.query('panel.size').definition);
             expect(domql.query('panel["data-key"]').definition.query).toEqual(member(literal('data-key'), parameter('panel')));
             expect(domql.query('panel [ name ]').definition).toEqual(domql.query('panel[name]').definition);
         });
 
-        it('read ?[…] as an optional access by name, and every access by name of an optional-access group as optional', () => {
+        it('read ?[…] as an optional bracket property access, and every bracket property access of an optional enclosed access as optional', () => {
             expect(domql.query('panel.parent?[name]').definition.query).toEqual(chain(optional(member(parameter('name'), member('parent', parameter('panel'))))));
             expect(domql.query('(?panel.parent[name].width)').definition.query).toEqual(chain(optional(member('width', optional(member(parameter('name'), optional(member('parent', parameter('panel')))))))));
         });
@@ -406,7 +406,7 @@ describe('domql', () => {
             ['an unclosed bracket', 'panel[name', 1, 11],
             ['a dot before a bracket', 'panel.[name]', 1, 6],
             ['a dot before an optional bracket', 'panel?.[name]', 1, 6],
-            ['a dot before a bracket in an optional-access group', '(?panel.[name])', 1, 8],
+            ['a dot before a bracket in an optional enclosed access', '(?panel.[name])', 1, 8],
             ['a bracket after a conversion, which ends its chain', 'a to "string"[name]', 1, 14],
         ])('refuse %s', (_, text, line, column) => {
             const error = getError(() => domql.query(text));
@@ -427,13 +427,13 @@ describe('domql', () => {
             expect(domql.query('(panel.parent as "element").matches(".row")').definition.query).toEqual(call('matches', literal('.row'), cast('element', member('parent', parameter('panel')))));
         });
 
-        it('take a coalescing operator in parentheses, an optional-access group and another cast in a group as targets', () => {
+        it('take a coalescing operator in parentheses, an optional enclosed access and another cast in a group as targets', () => {
             expect(domql.query('(a ?? b) as "element"').definition.query).toEqual(cast('element', { kind: 'coalescing', value: parameter('a'), fallback: parameter('b') }));
             expect(domql.query('(?node.parent) as "element"').definition.query).toEqual(cast('element', chain(optional(member('parent', parameter('node'))))));
             expect(domql.query('(a as "node") as "element"').definition.query).toEqual(cast('element', cast('node', parameter('a'))));
         });
 
-        it('stand as the receiver of an optional-access group, their own target\'s accesses optional too', () => {
+        it('stand as the receiver of an optional enclosed access, their own target\'s accesses optional too', () => {
             expect(domql.query('(?(panel.parent as "element").rect.width)').definition).toEqual(domql.query('(panel?.parent as "element")?.rect?.width').definition);
             expect(domql.query('(?((node.parent as "node") as "element").rect)').definition).toEqual(domql.query('((node?.parent as "node") as "element")?.rect').definition);
             // `self` and a literal are receivers a grouped cast holds, never keywords that tell a grouped target from a grouped cast.
@@ -441,7 +441,7 @@ describe('domql', () => {
             expect(domql.query('(?((null as "node") as "element").rect)').definition).toEqual(domql.query('((null as "node") as "element")?.rect').definition);
         });
 
-        it('stand as the receiver of an optional-access group with a grouped target that keeps its own rules, a coalescing operator or another optional-access group', () => {
+        it('stand as the receiver of an optional enclosed access with a grouped target that keeps its own rules, a coalescing operator or another optional enclosed access', () => {
             expect(domql.query('(?((a.x ?? b.y) as "element").rect.width)').definition).toEqual(domql.query('((a.x ?? b.y) as "element")?.rect?.width').definition);
             expect(domql.query('(?((?a.b) as "element").c)').definition).toEqual(domql.query('(a?.b as "element")?.c').definition);
             expect(domql.query('(?(((a ?? b) as "node") as "element").rect)').definition).toEqual(domql.query('(((a ?? b) as "node") as "element")?.rect').definition);
@@ -451,11 +451,11 @@ describe('domql', () => {
 
         it.each([
             ['a grouped coalescing operator an access follows', '(?((a ?? b).x as "element").rect)', 1, 12],
-            ['an optional-access group an access follows', '(?((?a.b).c as "element").d)', 1, 10],
+            ['an optional enclosed access an access follows', '(?((?a.b).c as "element").d)', 1, 10],
             ['a conditional in parentheses', '(?((if a then b else c) as "element").d)', 1, 4],
             ['a conditional in parentheses whose branch is a cast', '(?((if a then b as "node" else c) as "element").d)', 1, 4],
             ['a coalescing operator that no cast holds', '(?((a ?? b)).rect)', 1, 12],
-        ])('refuse as the cast an optional-access group receives %s', (_, text, line, column) => {
+        ])('refuse as the cast an optional enclosed access receives %s', (_, text, line, column) => {
             const error = getError(() => domql.query(text));
 
             expect(error.kind).toBe('syntax');
@@ -465,7 +465,7 @@ describe('domql', () => {
         it.each([
             ['of a conditional in parentheses', '(if a then b else c) as "element"', 1, 1],
             ['of a chain an object expression continues', 'a { x = 1 } as "element"', 1, 1],
-            ['of an optional-access group a chain continues', '(?a.b).c as "element"', 1, 1],
+            ['of an optional enclosed access a chain continues', '(?a.b).c as "element"', 1, 1],
             ['of a coalescing operator a chain continues', '(a ?? b).c as "element"', 1, 1],
             ['to a type that is not quoted', 'a as element', 1, 6],
             ['continued without a group', 'a as "element".rect', 1, 15],
@@ -672,12 +672,12 @@ describe('domql', () => {
             expect(domql.query({ version: 20, query: { kind: 'indexer', target: parameter('panel'), argument: literal('id') } }).definition.query).toEqual({ kind: 'indexer', target: parameter('panel'), argument: literal('id') });
         });
 
-        it('leave a bracket after a member an access by name of what it answers', () => {
+        it('leave a bracket after a member a bracket property access of what it answers', () => {
             expect(domql.query('panel.size["width"]').definition.query).toEqual(member('width', member('size', parameter('panel'))));
             expect(domql.query('panel.attribute["data-key"]').definition.query).toEqual(member(literal('data-key'), member('attribute', parameter('panel'))));
         });
 
-        it('read ?: as an indexer of a receiver that can be null, and every indexer of an optional-access group as one', () => {
+        it('read ?: as an indexer of a receiver that can be null, and every indexer of an optional enclosed access as one', () => {
             expect(domql.query('panel?:attribute["id"]').definition.query).toEqual(chain(indexer('attribute', literal('id'), parameter('panel'), true)));
             expect(domql.query('(?panel.first(".row"):attribute["id"])').definition).toEqual(domql.query('panel?.first(".row")?:attribute["id"]').definition);
         });
@@ -860,7 +860,7 @@ describe('domql', () => {
             ['an indexer written without its receiver or key', 'panel { key = attribute }', "No local in scope or binding is named 'attribute'; write 'self:attribute[…]'", 15],
             ['a call written without its receiver or argument', 'panel { row = closest }', "No local in scope or binding is named 'closest'; write 'self.closest(…)'", 15],
             ['a name that is no member of the current value', 'panel { a = nothing }', "No local in scope or binding is named 'nothing'", 13],
-            ['a local read from the document where an access by name stands', 'panel { let path = self:attribute["data-path"], width = self[path] }', "An access by name reads a name determined when the query is prepared", 62],
+            ['a local read from the document where a bracket property access stands', 'panel { let path = self:attribute["data-path"], width = self[path] }', "A bracket property access reads a name determined when the query is prepared", 62],
             ['a local of an object expression used beside it', 'panel { a = self { let n = 1, v = n }, b = n }', "No local in scope or binding is named 'n'", 44],
             ['a name at the top level', 'items.count', "No local in scope or binding is named 'items'", 1],
             ['an options object holding a local', 'sentinel.intersects({ let m = 200, root = panel, margin = m })', "'intersects' takes its arguments as the fields of an object, whose fields are its parameters, so it holds no locals", 23],
@@ -1019,7 +1019,7 @@ describe('domql', () => {
             ['an unknown kind', { version: 20, query: { kind: 'phrase', name: 'size' } }, '/query'],
             ['a member without a receiver', { version: 20, query: { kind: 'member', name: 'size' } }, '/query'],
             ['a call without a receiver', { version: 20, query: { kind: 'call', name: 'closest' } }, '/query'],
-            ['a member access holding an argument', { version: 20, query: { kind: 'member', target: parameter('panel'), name: 'size', argument: literal(1) } }, '/query'],
+            ['a property access holding an argument', { version: 20, query: { kind: 'member', target: parameter('panel'), name: 'size', argument: literal(1) } }, '/query'],
             ['a member holding the arguments of an earlier version', { version: 20, query: { kind: 'member', target: parameter('panel'), name: 'size', arguments: [] } }, '/query'],
             ['self at the top level', { version: 20, query: member('size', self) }, '/query/target'],
             ['a name that is no name', { version: 20, query: parameter('2panel') }, '/query/name'],
@@ -2071,7 +2071,7 @@ describe('domql receivers of unknown type', () => {
         expect(error.message).toContain(message);
     });
 
-    it('read a Boolean member of a null binding as null, as any access by name of one is', () => {
+    it('read a Boolean member of a null binding as null, as any bracket property access of one is', () => {
         expect(isolated.query('panel?.attached', { panel: null }).evaluate()).toBeNull();
         expect(isolated.query('panel?[name]', { panel: null, name: 'size' }).evaluate()).toBeNull();
         expect(isolated.query('row?["id"]', { row: null }).evaluate()).toBeNull();

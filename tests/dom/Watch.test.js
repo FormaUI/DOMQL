@@ -711,7 +711,7 @@ describe('Watch', () => {
         });
     });
 
-    describe('an access by name', () => {
+    describe('a bracket property access', () => {
         it('follows what its name reads and the property it selects, holding the one it no longer selects no longer', async () => {
             const item = panel.querySelector('i');
 

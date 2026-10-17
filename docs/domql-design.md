@@ -8,7 +8,7 @@ This design describes the whole runtime, and the [README](../README.md#status) s
 
 | Decision | Contract |
 | --- | --- |
-| A small language | Chains, with required and optional access, access by name and named indexers, object expressions and their locals, lists, equalities, truthiness and the logical expressions and negations that test it, conditionals, coalescing operators, casts and conversions, each strict or attempted, with literals and parameters. Arithmetic, ordering and anything else a query needs computed belongs to a member or to the caller. |
+| A small language | Chains, with required and optional access, bracket property access and named indexers, object expressions and their locals, lists, equalities, truthiness and the logical expressions and negations that test it, conditionals, coalescing operators, casts and conversions, each strict or attempted, with literals and parameters. Arithmetic, ordering and anything else a query needs computed belongs to a member or to the caller. |
 | An open vocabulary | Everything a query can ask about is a member a vocabulary contributes; the built-in vocabulary and every extension follow one contract, and adding a member leaves the grammar unchanged. |
 | Queries read, requests act | Evaluating, watching or subscribing to a request reads the document and changes nothing, whatever vocabulary it uses; an action or a behavior is a request of its own kind, carried out only when its caller executes or applies it. |
 | One meaning | A query evaluates the same way for every caller, however it was written. |
@@ -173,7 +173,7 @@ A watch keeps its result as live state when its caller chooses it as its update 
 
 A watch reports a snapshot that differs from the last one it reported, compared field by field and item by item. Strings, Booleans and null compare exactly; a number compares within the tolerance its member declares, and exactly where it declares none.
 
-A number a conditional gave compares within the tolerance of the member its branch read where the number last reported came from the same branch, and exactly where it came from another, which is a different reading whose difference no tolerance absorbs. A number a coalescing operator gave compares the same way, by the side it came from, its value or its fallback, and one an access by name gave by the property its name selected. A conditional can select a different branch at each place in the result, as for each item of a list, so evaluation keeps the branch each conditional selected for each place beside the elements its lists came from, and the comparer reads it there.
+A number a conditional gave compares within the tolerance of the member its branch read where the number last reported came from the same branch, and exactly where it came from another, which is a different reading whose difference no tolerance absorbs. A number a coalescing operator gave compares the same way, by the side it came from, its value or its fallback, and one a bracket property access gave by the property its name selected. A conditional can select a different branch at each place in the result, as for each item of a list, so evaluation keeps the branch each conditional selected for each place beside the elements its lists came from, and the comparer reads it there.
 
 ## Event delivery
 

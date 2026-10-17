@@ -87,7 +87,7 @@ const COMPARED = '(%) != null';
 const DOCUMENTS = {
     'docs/domql-specification.md': [
         { about: 'an object expression' },
-        { about: 'the forms of member access', each: true, context: 'cell { value = % }' },
+        { about: 'the forms of a member', each: true, context: 'cell { value = % }' },
         { about: 'tests', each: true },
         { about: 'equalities', each: true },
         { about: 'arithmetic' },
@@ -102,7 +102,7 @@ const DOCUMENTS = {
         { about: 'shadow trees', each: true, context: COMPARED },
         { about: 'an action and a behavior request', each: true, modules: [scrollModule] },
         { about: 'a subscription' },
-        { about: 'access by name' },
+        { about: 'bracket property access' },
         { about: 'a complete query' },
     ],
     'nuget/README.md': [
@@ -112,7 +112,7 @@ const DOCUMENTS = {
         { about: 'named indexers', each: true },
         { about: 'a call with options' },
         { about: 'a fragment testing an ancestor', context: 'cell { value = % }' },
-        { about: 'an optional-access group' },
+        { about: 'an optional enclosed access' },
         { about: 'a native condition and an ARIA one', results: { 0: { checked: false, ariaChecked: false } } },
         { about: 'an equality with null' },
         { about: 'logical expressions' },

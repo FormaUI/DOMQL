@@ -91,7 +91,7 @@ export class Tokenizer {
 
         const character = this.#text[start];
 
-        // `(?` opens an optional-access group, one token, so no trivia stands inside it.
+        // `(?` opens an optional enclosed access, one token, so no trivia stands inside it.
         if (this.#text.startsWith('(?', start)) {
             this.#offset += 2;
 

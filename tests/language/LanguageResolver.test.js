@@ -286,7 +286,7 @@ describe('LanguageResolver', () => {
             expect(failure('5 as "element"').message).toContain('A value of number can never be cast to element');
         });
 
-        it('types an optional-access group as the optional chain it writes', () => {
+        it('types an optional enclosed access as the optional chain it writes', () => {
             expect(resolve('(?(panel.parent as "element").rect.width)').type.toString()).toBe('number?');
             expect(resolve('(?panel.children.count)').type.toString()).toBe('number');
         });
@@ -341,7 +341,7 @@ describe('LanguageResolver', () => {
     });
 
     describe('fixed names', () => {
-        it('resolves an access by name to the type the properties its names name share', () => {
+        it('resolves a bracket property access to the type the properties its names name share', () => {
             expect(resolve('panel["children"].count').type.toString()).toBe('number');
             expect(resolve('panel[name]', { panel, name: 'size' }).type.toString()).toBe('size?');
             expect(resolve('panel { let name = if wide then "size" else "clientSize", s = self[name] }', { panel, wide: true }).type.toString()).toBe('{ s: size? }');
@@ -351,7 +351,7 @@ describe('LanguageResolver', () => {
         it('determines the names a conditional binding gives as its value does, without null, in its consequent', () => {
             expect(resolve('panel[if let name = chosen then name else "clientSize"]', { panel, chosen: 'size' }).type.toString()).toBe('size?');
             expect(resolve('if let name = chosen then panel[name] else null', { panel, chosen: 'size' }).type.toString()).toBe('size?');
-            expect(failure('if let name = panel:["data-name"] then panel[name] else null', { panel }).message).toContain('An access by name reads a name determined when the query is prepared');
+            expect(failure('if let name = panel:["data-name"] then panel[name] else null', { panel }).message).toContain('A bracket property access reads a name determined when the query is prepared');
         });
 
         it.each([
@@ -364,28 +364,28 @@ describe('LanguageResolver', () => {
             ['a conditional whose fixed condition selects one branch, the other left unread', 'panel[if wide then "size" else "nonsense"]', { wide: true }, 'size?'],
             ['a conditional whose condition is read when the query is evaluated, either branch possible', 'panel[if panel.attached then "size" else "clientSize"]', {}, 'size?'],
             ['a coalescing operator whose value cannot be null, its fallback never asked for names', 'panel["size" ?? panel:["x"]]', {}, 'size?'],
-        ])('resolves an access by name to the names %s', (_, text, bindings, type) => {
+        ])('resolves a bracket property access to the names %s', (_, text, bindings, type) => {
             expect(resolve(text, { panel, ...bindings }).type.toString()).toBe(type);
         });
 
         it.each([
-            ['an and that can give false', 'panel[wide and "size"]', { wide: false }, "An access by name reads a string, and 'wide and \"size\"' can be false"],
+            ['an and that can give false', 'panel[wide and "size"]', { wide: false }, "A bracket property access reads a string, and 'wide and \"size\"' can be false"],
             ['a name an and and an or reach that no property has', 'panel[wide and "nonsense" or "size"]', { wide: true }, "'nonsense' is no member of the vocabulary"],
             ['an and of a Boolean member and a name, whose values no one type holds', 'panel { v = self[self.attached and "size" or "clientSize"] }', {}, "What 'and' gives is false or string"],
-            ['a value that is no name', 'panel[count]', { count: 5 }, 'An access by name reads a name determined when the query is prepared'],
+            ['a value that is no name', 'panel[count]', { count: 5 }, 'A bracket property access reads a name determined when the query is prepared'],
             ['a fallback whose names go unasked, which is validated all the same', 'panel["size" ?? panel.nonsense]', {}, "'nonsense' is no member of the vocabulary"],
-        ])('refuses an access by name through %s', (_, text, bindings, message) => {
+        ])('refuses a bracket property access through %s', (_, text, bindings, message) => {
             expect(failure(text, { panel, ...bindings }).message).toContain(message);
         });
 
-        it('refuses an access by name whose names cannot be determined, can be null, name no property or are of different types', () => {
-            expect(failure('panel[panel:attribute["data-name"]]').message).toContain('An access by name reads a name determined when the query is prepared');
-            expect(failure('panel[name]', { panel, name: null }).message).toContain("An access by name reads a string, and 'name' can be null");
+        it('refuses a bracket property access whose names cannot be determined, can be null, name no property or are of different types', () => {
+            expect(failure('panel[panel:attribute["data-name"]]').message).toContain('A bracket property access reads a name determined when the query is prepared');
+            expect(failure('panel[name]', { panel, name: null }).message).toContain("A bracket property access reads a string, and 'name' can be null");
             expect(failure('panel["depth"]').message).toContain("'depth' is no member of the vocabulary");
             expect(failure('panel[if panel.attached then "size" else "children"]', { panel }).message).toContain('are of one type, and these are size?, list<element>');
         });
 
-        it('refuses an access by name of a receiver that can be null, giving the optional form', () => {
+        it('refuses a bracket property access of a receiver that can be null, giving the optional form', () => {
             expect(failure('panel.first(".a")[name]', { panel, name: 'size' }).message).toContain(`write 'panel.first(".a")?[name]'`);
             expect(resolve('panel.first(".a")?[name]', { panel, name: 'size' }).type.toString()).toBe('size?');
             expect(resolve('row?[name]', { row: null, name: 'id' }).type.toString()).toBe('null');

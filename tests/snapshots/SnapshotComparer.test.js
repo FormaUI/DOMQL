@@ -212,7 +212,7 @@ describe('SnapshotComparer', () => {
             });
         });
 
-        describe('under an access by name', () => {
+        describe('under a bracket property access', () => {
             const selecting = (access, name) => ({ branches: new Map([[access, name]]) });
 
             it('compares a number within the tolerance of the property both values came from, and exactly where they came from different ones', () => {

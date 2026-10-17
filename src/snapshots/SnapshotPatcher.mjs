@@ -6,7 +6,7 @@ import { ObjectUtils } from '../common/ObjectUtils.mjs';
 
 /**
  * The elements a result's lists were projected from, following the result's structure: a list projected from elements holds the element of each item, and a part that holds no such list is null.
- * The result never holds them, and neither does a change set; they tell two items apart that project to the same data. A part a selection was made for also holds its `branches`: selections by expression node, the selected expression for a conditional or coalescing expression, or the selected member name for access by name, which tell the comparer which expression a value came from, so that it is compared as that expression is, its tolerance included.
+ * The result never holds them, and neither does a change set; they tell two items apart that project to the same data. A part a selection was made for also holds its `branches`: selections by expression node, the selected expression for a conditional or coalescing expression, or the selected member name for bracket property access, which tell the comparer which expression a value came from, so that it is compared as that expression is, its tolerance included.
  * @typedef {({ elements: (Element | null)[] | null, items: Identities[] } | { fields: Record<string, Identities> } | {}) & { branches?: Map<object, object | string> } | null} Identities
  */
 

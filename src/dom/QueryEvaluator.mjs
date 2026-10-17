@@ -96,7 +96,7 @@ export class QueryEvaluator {
     #fieldSelectionsByObject = new WeakMap();
 
     /**
-     * The selections made for the value being evaluated at its place in the result, by the node that made each: the branch a conditional or a coalescing selected, as its node, and the name an access by name selected; null where none has been made.
+     * The selections made for the value being evaluated at its place in the result, by the node that made each: the branch a conditional or a coalescing selected, as its node, and the name a bracket property access selected; null where none has been made.
      * A result's identities hold them as their `branches`, a name kept from when conditionals alone made them.
      * @type {Map<object, object | string> | null}
      */
@@ -613,8 +613,8 @@ export class QueryEvaluator {
     }
 
     /**
-     * A member access, a call or an indexer, with its resolution, its function, its arguments and the check of its result made once.
-     * An access by name, and a member of a receiver of unknown type, which answers null without reading anything, are evaluated as the node itself says.
+     * A property access, a call or an indexer, with its resolution, its function, its arguments and the check of its result made once.
+     * A bracket property access, and a member of a receiver of unknown type, which answers null without reading anything, are evaluated as the node itself says.
      */
     #compileMember(node) {
         const resolution = this.#resolvedDefinition.resolutionOf(node);
@@ -951,7 +951,7 @@ export class QueryEvaluator {
             return this.#readResolvedMember(resolution, receiver, node, currentValue);
         }
 
-        // An access by name computes its name once and reads the property it selects, which is recorded for the value's place in the result.
+        // A bracket property access computes its name once and reads the property it selects, which is recorded for the value's place in the result.
         const name = this.#evaluateNode(node.name, currentValue);
 
         (this.#selections ??= new Map()).set(node, name);

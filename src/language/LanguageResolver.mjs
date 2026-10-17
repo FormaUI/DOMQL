@@ -81,7 +81,7 @@ export class LanguageResolver {
             case 'equality':
                 return this.#resolveEquality(node, pointer, scope, false);
             case 'arithmetic':
-                // A subtraction of a bare name from a member access may be one name written with a hyphen, as `self.client-size` is, which a failure to find the member suggests.
+                // A subtraction of a bare name from a property access may be one name written with a hyphen, as `self.client-size` is, which a failure to find the member suggests.
                 const access = node.left.kind === 'optionalChain' ? node.left.target : node.left;
 
                 if (node.operator === '-' && access.kind === 'member' && typeof access.name === 'string' && (node.right.kind === 'parameter' || node.right.kind === 'local')) {
@@ -119,7 +119,7 @@ export class LanguageResolver {
         }
     }
 
-    /** The result each test and operand resolved to, by its node, which the values an access by name can give follow where it is fixed or its type tells its falsey part. @type {WeakMap<object, object>} */
+    /** The result each test and operand resolved to, by its node, which the values a bracket property access can give follow where it is fixed or its type tells its falsey part. @type {WeakMap<object, object>} */
     #decidingResults = new WeakMap();
 
     /**
@@ -598,11 +598,11 @@ export class LanguageResolver {
         return narrowed === undefined ? local.result : { ...local.result, type: narrowed };
     }
 
-    /** The names a member access joins with the bare name a subtraction takes from it, by the access, which a failure to find its member suggests. @type {WeakMap<object, string>} */
+    /** The names a property access joins with the bare name a subtraction takes from it, by the access, which a failure to find its member suggests. @type {WeakMap<object, string>} */
     #joinedNames = new WeakMap();
 
     /**
-     * For a member access no member is named as, which a subtraction takes a bare name from, the suggestion of the member the two names joined in camelCase name, as `client` and `size` join as `clientSize`,
+     * For a property access no member is named as, which a subtraction takes a bare name from, the suggestion of the member the two names joined in camelCase name, as `client` and `size` join as `clientSize`,
      * where the receiver's type has one of that name, compared ignoring case and written as the member spells it; nothing for any other access.
      */
     #joinedNameHintOf(node, receiverType) {
@@ -724,7 +724,7 @@ export class LanguageResolver {
     }
 
     /**
-     * Resolves an access by name: the names its expression can give, which preparation determines, each a property of the receiver, their types of one type as a conditional's branches are.
+     * Resolves a bracket property access: the names its expression can give, which preparation determines, each a property of the receiver, their types of one type as a conditional's branches are.
      * The resolution keeps each name's, so evaluation reads the one the name selects; on a receiver of unknown type, whether each is a property and whether their types agree are checked once its type is known.
      */
     #resolveByName(node, pointer, scope, receiverType) {
@@ -733,15 +733,15 @@ export class LanguageResolver {
         const possible = name.kind === 'query' ? this.#possibleNamesOf(node.name, scope) : null;
 
         if (possible === null || possible.canBeOther) {
-            this.#fail(`An access by name reads a name determined when the query is prepared, which a string literal, null, a bound parameter, a local holding one, or a conditional, a '??', an 'and' or an 'or' of them gives, and '${DefinitionWriter.write(node.name)}' is none of them`, namePointer);
+            this.#fail(`A bracket property access reads a name determined when the query is prepared, which a string literal, null, a bound parameter, a local holding one, or a conditional, a '??', an 'and' or an 'or' of them gives, and '${DefinitionWriter.write(node.name)}' is none of them`, namePointer);
         }
 
         if (possible.canBeFalse) {
-            this.#fail(`An access by name reads a string, and '${DefinitionWriter.write(node.name)}' can be false`, namePointer);
+            this.#fail(`A bracket property access reads a string, and '${DefinitionWriter.write(node.name)}' can be false`, namePointer);
         }
 
         if (possible.canBeNull || possible.names.size === 0) {
-            this.#fail(`An access by name reads a string, and '${DefinitionWriter.write(node.name)}' can be null`, namePointer);
+            this.#fail(`A bracket property access reads a string, and '${DefinitionWriter.write(node.name)}' can be null`, namePointer);
         }
 
         const candidates = new Map();
@@ -770,7 +770,7 @@ export class LanguageResolver {
     }
 
     /**
-     * The values an access by name's expression can give, determined through these forms alone: a string literal, null, a bound parameter, a local whose value is one of them, a conditional binding's name, truthy, whose value is,
+     * The values a bracket property access's expression can give, determined through these forms alone: a string literal, null, a bound parameter, a local whose value is one of them, a conditional binding's name, truthy, whose value is,
      * and a conditional, a `??`, an `and` and an `or` of them, each by the rules that evaluate it: a conditional gives its branches', a `??` its value's and, where its value can be null, its fallback's, and an `and` or an `or` the part of each operand before its last that decides it, falsey for `and` and truthy for `or`, and its last's.
      * A test or an operand whose value is fixed decides when the query is prepared, so what evaluation would not reach gives nothing; the falsey part of an `and`'s operand that names nothing is told from its type.
      * The names are the strings it can give, and null, false and any other value are tracked beside them, so a `??` can remove null; any other expression gives no values that can be determined, and answers null.
@@ -1404,7 +1404,7 @@ export class LanguageResolver {
         }
     }
 
-    /** The member access that writes the node's name after its receiver, optional where the node is. */
+    /** The property access that writes the node's name after its receiver, optional where the node is. */
     static #accessOf(node) {
         return { kind: 'member', target: node.target, name: node.name, ...(node.optional === true ? { optional: true } : {}) };
     }

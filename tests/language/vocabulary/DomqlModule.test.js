@@ -123,7 +123,7 @@ describe('DomqlModule', () => {
         expect(() => new DomqlModule('charts', { members: [member({ fixed: true, selects: 'eventType' })] })).not.toThrow();
     });
 
-    it('refuses a member that selects a member, which an access by name reads', () => {
+    it('refuses a member that selects a member, which a bracket property access reads', () => {
         const selecting = selects => declaration({ name: 'charts', kind: 'operation', input: 'direct', parameters: [parameter({ type: 'string', fixed: true, selects })] });
 
         expect(messageOf(() => new DomqlModule('charts', { members: [selecting('member')] }))).toContain('declares what it selects, one of eventType, condition');

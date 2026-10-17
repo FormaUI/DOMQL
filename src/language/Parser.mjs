@@ -25,6 +25,9 @@ const ARGUMENT_STARTS = new Set(['self', 'literal']);
 /** The tokens that make an access optional. */
 const OPTIONAL_ACCESSES = new Set(['?.', '?[', '?:']);
 
+/** The kinds of node a member expression is, each beginning with the token that joins it to its receiver. */
+const MEMBER_EXPRESSIONS = new Set(['dot-property-access', 'bracket-property-access', 'function-call', 'indexer']);
+
 export class Parser {
     #text;
     /** @type {Token[]} */
@@ -234,7 +237,7 @@ export class Parser {
             throw this.#fail(`'??' and '${equality}' stand apart, one of them grouped: write '(… ?? …) ${equality} …' or '… ?? (… ${equality} …)'`, this.#token.start);
         }
 
-        const node = Parser.#node('coalescing-operator', [value, operator, fallback]);
+        const node = Parser.#node('coalescing', [value, operator, fallback]);
 
         this.#ungroupedCoalescings.add(node);
 
@@ -380,11 +383,11 @@ export class Parser {
     }
 
     /**
-     * Reads a chain: a chain input and the member-access expressions and object expressions that continue it, and what a cast after it needs to know of it: whether an access of it is optional, which a group within it leaves to its own chain,
+     * Reads a chain: a chain input and the members and object expressions that continue it, and what a cast after it needs to know of it: whether an access of it is optional, which a group within it leaves to its own chain,
      * what its input is, what a group it starts with holds, and whether anything continues it or an object expression is among what does.
      */
     #parseChain() {
-        const input = this.#token.type === '(' ? 'expressionGroup' : this.#token.type === '(?' ? 'optionalAccessGroup' : 'input';
+        const input = this.#token.type === '(' ? 'parenthesizedExpression' : this.#token.type === '(?' ? 'optionalEnclosedAccess' : 'input';
         const first = this.#parseChainInput();
         const grouped = Parser.#kindOf(first);
         const children = [first];
@@ -394,7 +397,7 @@ export class Parser {
         for (;;) {
             if (this.#token.type === '[' || this.#token.type === '?[') {
                 isOptional ||= this.#token.type === '?[';
-                children.push(this.#parseAccessByName());
+                children.push(this.#parseBracketPropertyAccess());
             } else if (this.#token.type === ':' || this.#token.type === '?:') {
                 isOptional ||= this.#token.type === '?:';
                 children.push(this.#parseIndexer());
@@ -403,7 +406,7 @@ export class Parser {
                 const dot = this.#take();
 
                 this.#refuseDotBeforeBrackets(optional);
-                children.push(this.#parseMemberAccessExpression(dot));
+                children.push(this.#parseDotPropertyAccessOrFunctionCall(dot));
                 isOptional ||= optional;
             } else if (this.#token.type === '{') {
                 children.push(this.#parseObject());
@@ -417,15 +420,15 @@ export class Parser {
     }
 
     /**
-     * Reads a cast after its target: `as` and the quoted name of the type it casts to. Its target is a receiver and the member-access expressions after it, a coalescing operator in parentheses, or an optional-access group, and a cast continues a chain only from a group.
+     * Reads a cast after its target: `as` and the quoted name of the type it casts to. Its target is a receiver and the members after it, a coalescing operator in parentheses, or an optional enclosed access, and a cast continues a chain only from a group.
      */
     #parseCast(target, chain, start) {
         const isTarget = !chain.hasObject && (chain.input === 'input'
-            || (chain.input === 'expressionGroup' && (chain.grouped === 'cast' || (chain.grouped === 'coalescing' && !chain.isContinued)))
-            || (chain.input === 'optionalAccessGroup' && !chain.isContinued));
+            || (chain.input === 'parenthesizedExpression' && (chain.grouped === 'cast' || (chain.grouped === 'coalescing' && !chain.isContinued)))
+            || (chain.input === 'optionalEnclosedAccess' && !chain.isContinued));
 
         if (!isTarget) {
-            throw this.#fail(`A cast's target is a receiver and the member-access expressions after it, a coalescing operator in parentheses, or an optional-access group, and this is none of them`, start);
+            throw this.#fail(`A cast's target is a receiver and the members after it, a coalescing operator in parentheses, or an optional enclosed access, and this is none of them`, start);
         }
 
         return this.#readCast(target);
@@ -455,46 +458,46 @@ export class Parser {
         return node;
     }
 
-    /** Reads a chain input: an input, an expression group, or an optional-access group. */
+    /** Reads a chain input: an input, a parenthesized expression, or an optional enclosed access. */
     #parseChainInput() {
         switch (this.#token.type) {
             case '(': {
-                // An expression group holds the expression in its parentheses, which a chain may then continue from, and groups a coalescing operator it holds.
+                // A parenthesized expression holds the expression in its parentheses, which a chain may then continue from, and groups a coalescing operator it holds.
                 const open = this.#take();
                 const expression = this.#parseExpression();
                 const close = this.#expect(')');
 
                 this.#ungroupedCoalescings.delete(expression);
 
-                return Parser.#node('expression-group', [open, expression, close]);
+                return Parser.#node('parenthesized-expression', [open, expression, close]);
             }
             case '(?':
-                return this.#parseOptionalAccessGroup();
+                return this.#parseOptionalEnclosedAccess();
             default:
                 return this.#parseInput();
         }
     }
 
-    /** Reads an optional-access group: its member-access chain, a receiver followed by at least one member-access expression, every access of which is optional, which its closing parenthesis ends. */
-    #parseOptionalAccessGroup() {
+    /** Reads an optional enclosed access: its member chain, a receiver followed by at least one member, every access of which is optional, which its closing parenthesis ends. */
+    #parseOptionalEnclosedAccess() {
         const open = this.#take();
-        const { children, accesses } = this.#parseMemberAccessChain(this.#parseReceiver());
+        const { children, accesses } = this.#parseMemberChain(this.#parseReceiver());
 
         if (accesses === 0) {
-            throw this.#fail('An optional-access group holds a receiver and at least one access after it, as (?panel.first(".row").rect)', this.#token.start);
+            throw this.#fail('An optional enclosed access holds a receiver and at least one access after it, as (?panel.first(".row").rect)', this.#token.start);
         }
 
         if (this.#token.type !== ')') {
-            throw this.#unexpected("')' closing the optional-access group, which holds accesses and calls alone");
+            throw this.#unexpected("')' closing the optional enclosed access, which holds accesses and calls alone");
         }
 
-        return Parser.#node('optional-access-group', [open, Parser.#node('member-access-chain', children), this.#take()]);
+        return Parser.#node('optional-enclosed-access', [open, Parser.#node('member-chain', children), this.#take()]);
     }
 
-    /** Reads a receiver within an optional-access group: an input, or a grouped cast, its own target's accesses optional as the group's are, where its target is no group that keeps its own rules. */
+    /** Reads a receiver within an optional enclosed access: an input, or a grouped cast, its own target's accesses optional as the enclosed access's are, where its target is no group that keeps its own rules. */
     #parseReceiver() {
         if (this.#token.type === '(?') {
-            throw this.#fail('The receiver of an optional-access group is `self`, a parameter, a literal, a local, an object expression or a grouped cast, as in (?panel.first(".row").rect)', this.#token.start);
+            throw this.#fail('The receiver of an optional enclosed access is `self`, a parameter, a literal, a local, an object expression or a grouped cast, as in (?panel.first(".row").rect)', this.#token.start);
         }
 
         if (this.#token.type !== '(') {
@@ -505,7 +508,7 @@ export class Parser {
         const target = this.#parseCastTarget(this.#token.start);
 
         if (!this.#isKeyword('as')) {
-            throw this.#fail('A group as the receiver of an optional-access group holds a cast, as in (?(node.parent as "element").rect)', this.#token.start);
+            throw this.#fail('A group as the receiver of an optional enclosed access holds a cast, as in (?(node.parent as "element").rect)', this.#token.start);
         }
 
         const cast = this.#readCast(target);
@@ -514,8 +517,8 @@ export class Parser {
     }
 
     /**
-     * Reads the target of a cast that is the receiver of an optional-access group: a coalescing operator in parentheses or an optional-access group, each keeping its own rules as it does outside one,
-     * or a receiver and the member-access expressions after it, every one of them optional.
+     * Reads the target of a cast that is the receiver of an optional enclosed access: a coalescing operator in parentheses or an optional enclosed access, each keeping its own rules as it does outside one,
+     * or a receiver and the members after it, every one of them optional.
      */
     #parseCastTarget(start) {
         if (this.#token.type === '(?' || (this.#token.type === '(' && !this.#groupHoldsCast())) {
@@ -523,7 +526,7 @@ export class Parser {
             const kind = Parser.#kindOf(target);
 
             if (kind !== 'coalescing' && kind !== 'optionalChain') {
-                throw this.#fail(`A cast's target is a receiver and the member-access expressions after it, a coalescing operator in parentheses, or an optional-access group, and this is none of them`, start);
+                throw this.#fail(`A cast's target is a receiver and the members after it, a coalescing operator in parentheses, or an optional enclosed access, and this is none of them`, start);
             }
 
             if (this.#continuesChain() && this.#token.type !== '{') {
@@ -534,9 +537,9 @@ export class Parser {
         }
 
         const receiver = this.#parseReceiver();
-        const { children, accesses } = this.#parseMemberAccessChain(receiver);
+        const { children, accesses } = this.#parseMemberChain(receiver);
 
-        return accesses > 0 ? Parser.#node('member-access-chain', children) : receiver;
+        return accesses > 0 ? Parser.#node('member-chain', children) : receiver;
     }
 
     /**
@@ -574,13 +577,13 @@ export class Parser {
         return false;
     }
 
-    /** Reads the rest of a member-access chain within an optional-access group, the member-access expressions after its receiver, every one of them optional, and how many there are. */
-    #parseMemberAccessChain(receiver) {
+    /** Reads the rest of a member chain within an optional enclosed access, the members after its receiver, every one of them optional, and how many there are. */
+    #parseMemberChain(receiver) {
         const children = [receiver];
 
         while (this.#continuesChain() && this.#token.type !== '{') {
             if (this.#token.type === '[' || this.#token.type === '?[') {
-                children.push(this.#parseAccessByName());
+                children.push(this.#parseBracketPropertyAccess());
             } else if (this.#token.type === ':' || this.#token.type === '?:') {
                 children.push(this.#parseIndexer());
             } else {
@@ -588,7 +591,7 @@ export class Parser {
                 const dot = this.#take();
 
                 this.#refuseDotBeforeBrackets(optional);
-                children.push(this.#parseMemberAccessExpression(dot));
+                children.push(this.#parseDotPropertyAccessOrFunctionCall(dot));
             }
         }
 
@@ -624,14 +627,14 @@ export class Parser {
         }
     }
 
-    /** Whether the current token continues a chain: an access, an access by name, an indexer, each optional or not, or an object expression. */
+    /** Whether the current token continues a chain: an access, a bracket property access, an indexer, each optional or not, or an object expression. */
     #continuesChain() {
         return CHAIN_CONTINUATIONS.has(this.#token.type);
     }
 
     /**
      * Reads an indexer: `:`, or `?:` where it is optional, the indexer's name, or none for the receiver's default indexer, and its one key in brackets, an expression.
-     * The parser knows no indexer: the vocabulary says which a name is and which is a receiver's default, and a bracket after the indexer's own is an access by name of what it answers.
+     * The parser knows no indexer: the vocabulary says which a name is and which is a receiver's default, and a bracket after the indexer's own is a bracket property access of what it answers.
      */
     #parseIndexer() {
         const children = [this.#take()];
@@ -665,34 +668,34 @@ export class Parser {
 
         children.push(this.#expect(']'));
 
-        return Parser.#node('member-access-expression', children);
+        return Parser.#node('indexer', children);
     }
 
-    /** Refuses brackets after the dot just read: an access by name follows its receiver with no dot, as `[…]`, or `?[…]` where it is optional. */
+    /** Refuses brackets after the dot just read: a bracket property access follows its receiver with no dot, as `[…]`, or `?[…]` where it is optional. */
     #refuseDotBeforeBrackets(optional) {
         if (this.#token.type === '[' || this.#token.type === '?[') {
-            const message = optional ? "An optional access by name is written '?[…]', with no dot before it" : "An access by name is written '[…]' after its receiver, with no dot before it";
+            const message = optional ? "An optional bracket property access is written '?[…]', with no dot before it" : "A bracket property access is written '[…]' after its receiver, with no dot before it";
 
             throw this.#fail(message, this.#tokens[this.#index - 1].start);
         }
     }
 
-    /** Reads an access by name: its expression in brackets, which `?[` makes optional. */
-    #parseAccessByName() {
+    /** Reads a bracket property access: its expression in brackets, which `?[` makes optional. */
+    #parseBracketPropertyAccess() {
         const open = this.#take();
         const expression = this.#parseExpression();
 
-        return Parser.#node('member-access-expression', [open, expression, this.#expect(']')]);
+        return Parser.#node('bracket-property-access', [open, expression, this.#expect(']')]);
     }
 
-    /** Reads a member-access expression after its dot, or the `?.` of an optional access: a member access, or a call expression where parentheses follow the name. */
-    #parseMemberAccessExpression(dot) {
+    /** Reads a member after its dot, or the `?.` of an optional access: a dot property access, or a function call where parentheses follow the name. */
+    #parseDotPropertyAccessOrFunctionCall(dot) {
         const nameToken = this.#expect('name');
         const name = nameToken.value;
 
-        // `(?` is one token, so a call's parenthesis cannot also open the optional-access group that is its argument.
+        // `(?` is one token, so a call's parenthesis cannot also open the optional enclosed access that is its argument.
         if (this.#token.type === '(?' && !this.#token.spaced) {
-            throw this.#fail(`A call whose argument is an optional-access group writes the group in parentheses of its own: '.${name}((?…))'`, this.#token.start);
+            throw this.#fail(`A call whose argument is an optional enclosed access writes it in parentheses of its own: '.${name}((?…))'`, this.#token.start);
         }
 
         if (this.#token.type !== '(') {
@@ -700,10 +703,10 @@ export class Parser {
                 throw this.#fail(`An argument after a dot is enclosed in parentheses, as a call's is, '.${name}(…)'`, this.#token.start);
             }
 
-            return Parser.#node('member-access-expression', [dot, nameToken]);
+            return Parser.#node('dot-property-access', [dot, nameToken]);
         }
 
-        const call = [nameToken, this.#take()];
+        const call = [dot, nameToken, this.#take()];
 
         if (this.#token.type !== ')') {
             if (this.#startsNamedArgument()) {
@@ -719,7 +722,7 @@ export class Parser {
 
         call.push(this.#expect(')'));
 
-        return Parser.#node('member-access-expression', [dot, Parser.#node('call-expression', call)]);
+        return Parser.#node('function-call', call);
     }
 
     /**
@@ -925,18 +928,16 @@ export class Parser {
 
     /**
      * The kind of definition node a syntax node lowers to, as far as the parser's checks ask it: a group is what it holds, a chain an optional chain where an access of it is optional,
-     * and an optional-access group an optional chain.
+     * and an optional enclosed access an optional chain.
      */
     static #kindOf(child) {
         switch (child.kind) {
-            case 'expression-group':
+            case 'parenthesized-expression':
                 return Parser.#kindOf(child.children[1]);
             case 'chain':
-                return child.children.some(part => part.kind === 'member-access-expression' && OPTIONAL_ACCESSES.has(part.children[0].type)) ? 'optionalChain' : 'access';
-            case 'optional-access-group':
+                return child.children.some(part => MEMBER_EXPRESSIONS.has(part.kind) && OPTIONAL_ACCESSES.has(part.children[0].type)) ? 'optionalChain' : 'access';
+            case 'optional-enclosed-access':
                 return 'optionalChain';
-            case 'coalescing-operator':
-                return 'coalescing';
             default:
                 return child.kind ?? child.type;
         }
