@@ -360,6 +360,8 @@ describe('LanguageResolver', () => {
             ['an or gives from a truthy middle operand', '@panel[@wide and @label or "rect"]', { wide: true, label: 'size' }, 'size?'],
             ['an or gives past a null operand', '@panel[@first or @second]', { first: null, second: 'size' }, 'size?'],
             ['a conditional whose fixed condition selects one branch, the other left unread', '@panel[if @wide then "size" else "nonsense"]', { wide: true }, 'size?'],
+            ['a conditional whose condition is read when the query is evaluated, either branch possible', '@panel[if @panel.attached then "size" else "clientSize"]', {}, 'size?'],
+            ['a coalescing operator whose value cannot be null, its fallback never asked for names', '@panel["size" ?? @panel:["x"]]', {}, 'size?'],
         ])('resolves an access by name to the names %s', (_, text, bindings, type) => {
             expect(resolve(text, { panel, ...bindings }).type.toString()).toBe(type);
         });
@@ -367,8 +369,9 @@ describe('LanguageResolver', () => {
         it.each([
             ['an and that can give false', '@panel[@wide and "size"]', { wide: false }, "An access by name reads a string, and '@wide and \"size\"' can be false"],
             ['a name an and and an or reach that no property has', '@panel[@wide and "nonsense" or "size"]', { wide: true }, "'nonsense' is no member of the vocabulary"],
-            ['an and of a Boolean member and a name, whose values no one type holds', '@panel { v: self[self.attached and "size" or "rect"] }', {}, "What 'and' gives is false or string"],
+            ['an and of a Boolean member and a name, whose values no one type holds', '@panel { v: self[self.attached and "size" or "clientSize"] }', {}, "What 'and' gives is false or string"],
             ['a value that is no name', '@panel[@count]', { count: 5 }, 'An access by name reads a name determined when the query is prepared'],
+            ['a fallback whose names go unasked, which is validated all the same', '@panel["size" ?? @panel.nonsense]', {}, "'nonsense' is no member of the vocabulary"],
         ])('refuses an access by name through %s', (_, text, bindings, message) => {
             expect(failure(text, { panel, ...bindings }).message).toContain(message);
         });
