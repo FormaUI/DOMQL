@@ -333,8 +333,20 @@ A missing attribute is null, which converts to null, and malformed text is rejec
 - **One conversion.** `try` attempts the one conversion written after it, and nothing else, so it is no general catch of errors: a failure while its value is evaluated, a rejection by a conversion that value holds among them, fails the evaluation as it would anywhere. A chain of conversions is grouped to say which one is attempted, `try (@a to "string") to "number"`, so `try @a to "string" to "number"` is a syntax error, as is `try` before anything that is no conversion, another `try` among them.
 - **One set of rules.** An attempted conversion resolves as its conversion does, so a target no type has, a pair no conversion is declared for, and a nullable value whose type has no conversion are validation errors for both. It answers a value already of the type as it is, and null for null.
 - **A rejection alone is null.** A conversion that throws, rejects with a reason that is no string, rejects and then answers, or answers a value not of its type has a fault, which fails the evaluation whether or not the conversion is attempted.
+- **Null means a rejection.** For a non-null input, a successful conversion returns a non-null value of its declared target type. A converter returning null is a fault, including under `try`. Consequently, for a stable bound value, `value != null and try value to "type" == null` is true exactly when the conversion rejects that value. Faults remain errors.
 - **Evaluation.** Its value is evaluated once and its conversion carried out once, and what a watch of it depends on is what its value depends on.
 - **Binding.** `try` binds tighter than `==`, `!=` and `??`, and looser than the conversion it attempts, so `try @v to "number" == 5` compares the converted value and `try @v to "number" ?? 0` gives its fallback for both null and a rejection. It stands where an equality operand stands, and a conversion of its value groups it, `(try @v to "number") to "string"`.
+
+A result that keeps the converted number and tells a missing value from a malformed one says which it is beside the value, reading the attribute once through a local:
+
+```
+@panel {
+    let count: self:["data-count"],
+    count: if let n: try count to "number" then { status: "valid", value: n }
+    elseif count == null then { status: "missing", value: null }
+    else { status: "malformed", value: null }
+}
+```
 
 ### Locals
 

@@ -568,6 +568,19 @@ To handle text that does not convert yourself, attempt the conversion with `try`
 
 A missing attribute and malformed text both give null, so `?? 0` supplies zero, and valid text converts to its number. A fault in a conversion, such as one that throws, is still an error.
 
+A conversion never answers null for text it accepts, so where text is present, a null from `try` means the text was malformed. To keep the number and still tell missing text from malformed text, return a status beside the value:
+
+```text
+@panel {
+    let count: self:["data-count"],
+    count: if let n: try count to "number" then { status: "valid", value: n }
+    elseif count == null then { status: "missing", value: null }
+    else { status: "malformed", value: null }
+}
+```
+
+The attribute is read once into a local, so both checks see the same text.
+
 The built-in conversions are from a string to a number or a Boolean, and from a number or a Boolean to a string. A string converts to a number when it is written as HTML writes a number, such as `"-12"`, `" 3.5 "` or `"1e3"`, and to a Boolean when it is exactly `"true"` or `"false"`. A value already of the type converts to itself.
 
 `to` is not `as`: a cast narrows a node to one of its kinds and converts nothing.

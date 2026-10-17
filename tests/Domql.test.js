@@ -2445,6 +2445,7 @@ describe('domql conversions', () => {
         it.each([
             ['throws', () => { throw new Error('the table of units is missing'); }, 'failed: the table of units is missing'],
             ['answers a value not of its type', () => '21', 'answered'],
+            ['answers null for a value that is not null', () => null, 'answered null, and it converts to celsius'],
             ['rejects with a reason that is no string', (text, reject) => reject(42), 'rejected its value with a reason that is no string'],
             ['catches its rejection and answers a value', (text, reject) => {
                 try {
