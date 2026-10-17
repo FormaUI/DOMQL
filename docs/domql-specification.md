@@ -14,7 +14,7 @@ A **query** is a value expression whose evaluation produces a **result**. A **ch
 
 In this notation, `[...]` means optional, `{...}` means repetition, `|` separates alternatives, `-` means exclusion, and `? ... ?` describes a special sequence. Each name describes a form written or the category a position holds.
 
-```
+```ebnf
 query                     = expression end-of-input
 
 expression                = conditional-expression | condition
@@ -123,7 +123,7 @@ An identifier is a name that is no reserved word, as `matchesMedia` is; it holds
 
 A conjunction exists only where `and` is written, a disjunction only where `or` is, a negation only where `not` is and an equality only where `==` or `!=` is, so an expression with none of them is an equality operand. An equality takes an equality operand on either side, so it does not chain, and `a == b == c` is a syntax error. An attempt exists only where `try` is written, before the one conversion or cast it attempts, a conversion whose value is no conversion or cast written without a group, so `try (@a to "string") to "number"` attempts the second conversion, and `try @a to "string" to "number"` and `try @node as "element" to "string"` are syntax errors. A conditional binding exists only where `let` follows `if` or `elseif`, and binds the whole condition after its colon. A cast exists only where `as` is written, and holds another cast only inside parentheses, so casts do not chain, and a chain continues from one only through a group. A conversion exists only where `to` is written where an infix call's name would stand: it converts what is before it, an infix call's result included, so `self:["data-count"] to "number"` converts the attribute, and an infix call whose argument can be left out takes none where `to` and a quoted type follow it, so `@sentinel intersects to "string"` converts the intersection; conversions chain from left to right, and a chain continues from one only through a group. `to` is a keyword in that position alone, so no infix call is named `to`, and it stays a name everywhere else, as a field in `{ from: 1, to: 2 }`, a local and a property in `@range.to` are. A chain is its chain input and the member-access expressions and object expressions that continue it, so `42` and `@panel` are chains of their input alone. The grammar's `value` rule names `self`, a parameter and a literal, the forms that stand for a value by themselves, while a value in this specification's prose is any value a query has, whose type resolution decides. The grammar's `input` rule names what a chain starts from, and its `receiver` rule what a member-access chain and a cast target start from, an input or a cast in parentheses, while a member's input declaration, which the section on arguments sets out, says how its argument is supplied. A condition and an operand of `not`, `and` or `or` are any value, tested for its [truthiness](#truthiness), so a Boolean parameter, `if @wide then …`, a property answering one, `self.focused and @enabled`, and one that can be null, `self matches ":focus" and @enabled`, are written as they read.
 
-```
+```domql
 @viewport {
     // The viewport's width, and whether focus is within it.
     width: self.rect?.width,
@@ -145,7 +145,7 @@ Member access, calls and infix calls are three distinct constructs, not alternat
 | Named indexer | `receiver:indexer[key]` | `self:attribute["data-key"]` |
 | Infix call | `receiver member argument` | `self matches ".row"` |
 
-```
+```domql
 self.children.count                            // Member access.
 self.closest(".row")?.rect?.width              // A call, then optional access.
 self:attribute["data-key"]                     // A named indexer.
@@ -196,7 +196,7 @@ Because the kind is part of the signature, the evaluator validates every kind be
 
 A test is a member that answers a Boolean, read as every member is.
 
-```
+```domql
 @document.visible
 @panel.first("input")?.disabled
 @input.hasSelection
@@ -210,7 +210,7 @@ A test is a member that answers a Boolean, read as every member is.
 
 `a == b` compares two values, and `a != b` is its negation.
 
-```
+```domql
 @action == "save"
 @panel.parent == null
 @left:["name"] == @right:["name"]
@@ -247,7 +247,7 @@ Null and false are falsey, and every other value is truthy: `0`, the empty strin
 
 `and` and `or` answer the operand that decides them, `not` answers whether a value is falsey, and parentheses group any expression.
 
-```
+```domql
 @panel.attached and @enabled
 @input.disabled or (@input.readOnly and @input.textEditable)
 @panel { available: self.attached and not @busy }
@@ -267,7 +267,7 @@ Null and false are falsey, and every other value is truthy: `0`, the empty strin
 
 A conditional chooses between two values: `if` a condition `then` its consequent `else` its alternative, taking the consequent where the condition is truthy. Further conditions, each with `elseif`, are tested in order before the alternative. A clause can bind a value in place of its condition, `if let name: value`, and takes its consequent where that value is truthy.
 
-```
+```domql
 if @wide then @panel else @sidebar
 if let row: @cell.closest(".row") then { key: row:["data-key"], top: row.rect?.top } else null
 if @panel.first("input")?.disabled then "locked" elseif @panel.first("input") == null then "empty" else "open"
@@ -286,7 +286,7 @@ if @panel.first("input")?.disabled then "locked" elseif @panel.first("input") ==
 
 A coalescing operator answers its value where it is not null, and otherwise its fallback: `value ?? fallback`.
 
-```
+```domql
 @panel.rect?.width ?? 0
 @panel:["data-label"] ?? @panel:["title"] ?? "untitled"
 @panel.first("input")?.disabled ?? true
@@ -302,7 +302,7 @@ A coalescing operator answers its value where it is not null, and otherwise its 
 
 A cast answers a node as one of its kinds: `target as "type"` answers its target itself where it is of that type, and null where it is null. A node of another kind fails the evaluation, which [an attempt](#attempts), `try target as "type"`, answers null for instead.
 
-```
+```domql
 @panel.parent as "element"
 (@panel.parent as "element")?.rect?.width
 (@preferred ?? @fallback) as "element"
@@ -322,7 +322,7 @@ A cast answers a node as one of its kinds: `target as "type"` answers its target
 
 A conversion answers a value converted to another type of data: `value to "type"` evaluates its value, carries out the conversion the vocabulary declares from the value's type to the type it names, and answers the converted value. A cast converts nothing, and a conversion narrows nothing.
 
-```
+```domql
 @panel:["data-count"] to "number"
 @panel:["data-count"] to "number" ?? 0
 @panel:["aria-expanded"] to "boolean"
@@ -340,7 +340,7 @@ A conversion answers a value converted to another type of data: `value to "type"
 
 `try` attempts the one conversion or cast written after it, and answers null where that operation rejects its value: `try value to "type"` answers the converted value where the conversion accepts the value, and `try target as "type"` answers its target where it is of the type. Its type is the operation's, made nullable. It handles a value its operation rejects without failing, as `??` handles a missing one, so the two together give a value either way:
 
-```
+```domql
 @panel { count: try self:["data-count"] to "number" ?? 0 }
 (try @panel.parent as "element")?.rect?.width
 ```
@@ -356,7 +356,7 @@ A missing attribute is null, which converts to null, and malformed text is rejec
 
 A result that keeps the converted number and tells a missing value from a malformed one says which it is beside the value, reading the attribute once through a local:
 
-```
+```domql
 @panel {
     let count: self:["data-count"],
     count: if let n: try count to "number" then { status: "valid", value: n }
@@ -369,7 +369,7 @@ A result that keeps the converted number and tells a missing value from a malfor
 
 An object expression can name a value once, as a **local**, and use it by its name in the entries after it, so a value read in several places is written and evaluated once.
 
-```
+```domql
 @panel {
     let items: self.all("[data-key]"),
 
@@ -459,7 +459,7 @@ A node is a value of the DOM tree, and its kinds are `element`, `document`, `doc
 
 Every crossing of a shadow boundary is written, so a query shows the relationship it follows:
 
-```
+```domql
 @host.shadow.root            // Into the shadow tree an element hosts.
 @element.root.host           // Out of the shadow tree an element is in, to its host.
 @slot.shadow.elements        // The elements a slot shows.
@@ -524,7 +524,7 @@ An action is an operation the browser carries out once, and a behavior is one th
 
 Evaluating or watching a query never performs an action or configures a behavior: a query only reads, and an action or a behavior request acts only when its caller executes or applies it. A behavior belongs to the caller that applied it.
 
-```
+```domql
 // An action: step the viewport forward, answering whether it moved.
 @viewport.scroll({ axis: "inline" }).step({ direction: "forward" })
 
@@ -536,7 +536,7 @@ Evaluating or watching a query never performs an action or configures a behavior
 
 A chain that ends in an event source is subscribed to, in two stages. The source hands each event to the evaluator, which evaluates the object expression following it at once, in the task the source delivers it in, with that event as its current value. The result is immutable data, and that result, never the browser's live event object or the object expression still to evaluate, is what reaches the caller, by the caller's own delivery. An event in DOMQL is what its source delivers, read through the event data it captured; the browser's own event object is never a value of the language. Here the event source is the built-in vocabulary's native drop event:
 
-```
+```domql
 (@zone on "drop") { key: self.target?.closest("[data-drop-target]")?:["data-drop-key"] }
 ```
 
@@ -730,7 +730,7 @@ An event is captured as the members its type declares when it is dispatched. A m
 
 An access by name reads the property a name names, the name written as an expression in brackets: `self["rect"]` and `self.rect` resolve the same member, with its one implementation, type, null behavior and observation sources, and `self[@name]` reads the one the bindings name.
 
-```
+```domql
 @target {
     let name: if @wide then "size" else "clientSize",
 
@@ -862,7 +862,7 @@ A list panel asks, in one query, how it is laid out, what it holds, what is in v
 
 The query reads it:
 
-```
+```domql
 /* A list panel, its items and the window around it. */
 {
     // The panel's items, read once for the fields that use them.

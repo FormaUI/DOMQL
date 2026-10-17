@@ -326,25 +326,25 @@ Each code block in this section shows a separate query or JavaScript example. Ex
 
 Use a dot to read a property:
 
-```text
+```domql
 @panel.children.count
 ```
 
 Members that take input use the form declared by the vocabulary. `all` is a call with parentheses; this query counts its matches:
 
-```text
+```domql
 @panel.all("[data-key]").count
 ```
 
 `matches` is an infix call, written after its receiver with a space:
 
-```text
+```domql
 @panel matches ".open"
 ```
 
 A named indexer reads a value of its receiver by a key, written after a colon with the key in brackets. `attribute` reads an attribute, `style` a computed style, and `class` whether the element has a class:
 
-```text
+```domql
 @panel:attribute["data-key"]
 @panel:style["display"]
 @panel:class["open"]
@@ -356,13 +356,13 @@ All DOMQL names are case-sensitive and use names such as `clientSize`, `rectRela
 
 Calls take one argument. When a member takes options, pass an object whose fields supply its parameters. This query checks for an intersection with a margin around the panel and needs `evaluateAsync()`:
 
-```text
+```domql
 @sentinel intersects { root: @panel, margin: 200 }
 ```
 
 An infix argument can be a literal, parameter, `self`, local, object or grouped expression. An infix call ends its chain; group its result to use it in a larger expression:
 
-```text
+```domql
 (self.closest("[data-group]") matches ".open") == null
 ```
 
@@ -468,7 +468,7 @@ If `first("input")` returns null, optional access skips the rest of that chain. 
 
 You can also make every access in a group optional:
 
-```text
+```domql
 (?@panel.first(".row").rect.height)
 ```
 
@@ -492,13 +492,13 @@ Null does not hide an invalid query. An unknown member or incompatible argument 
 
 Use `==` and `!=` to compare values. Nodes are compared by identity. The result is always a non-null Boolean, including when testing for null:
 
-```text
+```domql
 @panel.parent == null
 ```
 
 Use `and`, `or` and `not` for Boolean logic:
 
-```text
+```domql
 @input.disabled or (@input.readOnly and not @input.textEditable)
 ```
 
@@ -506,7 +506,7 @@ Use `and`, `or` and `not` for Boolean logic:
 
 Only `null` and `false` are falsey; every other value is truthy, including `0`, `""` and an empty list. A condition, an operand of `and`, `or` or `not`, and the expression of `where` can be any value. `and` and `or` return the operand that decides them, so they also choose values:
 
-```text
+```domql
 @panel:["data-label"] or "untitled"
 @panel { let input: self.first("input"), width: input and input.rect?.width }
 ```
@@ -523,7 +523,7 @@ Mixing `??` with `==`, `!=`, `not`, `and` or `or` requires parentheses around on
 
 Use `if`, `then` and `else` to choose between values. Add `elseif` for another condition:
 
-```text
+```domql
 @input {
     state: if self.disabled then "locked"
            elseif self.readOnly then "read"
@@ -535,7 +535,7 @@ Conditions are tested in order, and only the selected branch is evaluated; the o
 
 Use `if let` to name a value and choose by whether it is truthy. The name is available in the `then` branch alone, where it cannot be null:
 
-```text
+```domql
 if let row: @cell.closest(".row")
 then { key: row:["data-key"], top: row.rect?.top }
 else null
@@ -547,7 +547,7 @@ else null
 
 `parent` and `root` return nodes, which may be elements, documents, document fragments or shadow roots. Use `as` when a node must be of a specific kind, and `try … as` when it may be of another:
 
-```text
+```domql
 (@panel.parent as "element")?.rect?.width
 (try @panel.parent as "element")?.rect?.width
 ```
@@ -570,7 +570,7 @@ domql.query(
 
 To handle text that does not convert yourself, attempt the conversion with `try`, which answers null where the conversion rejects the value:
 
-```text
+```domql
 @panel { count: try self:["data-count"] to "number" ?? 0 }
 ```
 
@@ -578,7 +578,7 @@ A missing attribute and malformed text both give null, so `?? 0` supplies zero, 
 
 A conversion never answers null for text it accepts, so where text is present, a null from `try` means the text was malformed. To keep the number and still tell missing text from malformed text, return a status beside the value:
 
-```text
+```domql
 @panel {
     let count: self:["data-count"],
     count: if let n: try count to "number" then { status: "valid", value: n }
@@ -597,7 +597,7 @@ The built-in conversions are from a string to a number or a Boolean, and from a 
 
 Selectors do not enter shadow roots automatically. Access the open shadow root explicitly:
 
-```text
+```domql
 @host.shadow.root?.all("p").count
 ```
 

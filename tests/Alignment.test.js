@@ -42,7 +42,7 @@ describe('Alignment', () => {
     });
 
     it('has a specification whose complete query resolves to the fields of the result it shows', () => {
-        const [, text, result] = specification.match(/## A complete query[\s\S]*?The query reads it:\s*```\n([\s\S]*?)```[\s\S]*?```json\n([\s\S]*?)```/);
+        const [, text, result] = specification.match(/## A complete query[\s\S]*?The query reads it:\s*```domql\n([\s\S]*?)```[\s\S]*?```json\n([\s\S]*?)```/);
         const resolved = domql.query(text, { panel: document.createElement('div'), sentinel: document.createElement('div') }).resolve();
 
         expect([...resolved.type.fieldTypes.keys()]).toEqual(Object.keys(JSON.parse(result)));

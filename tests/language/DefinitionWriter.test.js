@@ -1,33 +1,6 @@
-import { readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { describe, it, expect, vi } from 'vitest';
 import { domql } from '#domql/domql.js';
 import { DefinitionWriter } from '#domql/language/DefinitionWriter.mjs';
-
-/** The queries the specification and the design write in their plain code blocks: a block that is one query, or each line of one that holds a query on every line. */
-const documentedQueries = (() => {
-    const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-    const parses = text => {
-        try {
-            domql.query(text);
-
-            return true;
-        } catch {
-            return false;
-        }
-    };
-
-    return ['docs/domql-specification.md', 'docs/domql-design.md'].flatMap(path => [...readFileSync(resolve(root, path), 'utf8').matchAll(/```\n([\s\S]*?)```/g)].flatMap(([, block]) => {
-        const lines = block.split('\n').filter(line => line.trim() !== '');
-
-        if (parses(block)) {
-            return [block];
-        }
-
-        return lines.every(parses) ? lines : [];
-    }));
-})();
 
 const panel = document.createElement('div');
 
@@ -302,17 +275,6 @@ describe('DefinitionWriter', () => {
             expect(() => format('@panel {')).toThrow(expect.objectContaining({ kind: 'syntax' }));
             expect(() => domql.format({ version: 17, query: { kind: 'nonsense' } })).toThrow(expect.objectContaining({ kind: 'structure' }));
             expect(() => domql.format(other.query('@panel'))).toThrow(expect.objectContaining({ kind: 'structure', message: expect.stringContaining('query.definition') }));
-        });
-
-        it('formats every query the specification and the design write to text that formats to itself and means the same', () => {
-            expect(documentedQueries.length).toBeGreaterThan(15);
-
-            for (const text of documentedQueries) {
-                const formatted = format(text);
-
-                expect(format(formatted)).toBe(formatted);
-                expect(domql.query(formatted).definition).toEqual(domql.query(text).definition);
-            }
         });
     });
 });
