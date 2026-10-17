@@ -2894,7 +2894,14 @@ describe('domql conditions', () => {
         const error = getError(() => isolated.query('@panel.is(@panel:["data-state"])', { panel }).resolve());
 
         expect(error.kind).toBe('validation');
-        expect(error.message).toContain("The argument 'name' of 'is' selects from the vocabulary, so it is a string literal, a parameter bound to a string, or a local or a conditional binding holding one, never null");
+        expect(error.message).toContain("The argument 'name' of 'is' selects from the vocabulary, so it is a string the query's preparation settles, from literals and bound parameters, never null");
+    });
+
+    it('takes a name an and and an or settle from a bound parameter, as they settle it everywhere, and refuses the one they settle to where no condition has it', () => {
+        registerLit();
+
+        expect(evaluate('@panel.is(@on and "lit" or "dim")', { on: true })).toBe(false);
+        expect(getError(() => isolated.query('@panel.is(@on and "lit" or "dim")', { panel, on: false }).resolve()).message).toContain("'dim' is no condition the vocabulary declares");
     });
 
     it('refuses a name no condition has, and a condition of other receivers, naming the condition and the receiver, and those the vocabulary or the receiver has', () => {

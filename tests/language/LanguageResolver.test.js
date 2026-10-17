@@ -370,16 +370,34 @@ describe('LanguageResolver', () => {
             expect(resolve('@window supports "share"').type.toString()).toBe('boolean');
         });
 
-        it('resolves a feature held in a local whose value is a literal or a bound parameter, and refuses one any other expression gives', () => {
+        it('resolves a feature held in a local whose value is a literal or a bound parameter, and refuses one whose value reads the document', () => {
             expect(resolve('@window { let feature: "share", canShare: self supports feature }').type.toString()).toBe('{ canShare: boolean }');
             expect(resolve('@window { let feature: @feature, canShare: self supports feature }', { feature: 'share' }).type.toString()).toBe('{ canShare: boolean }');
-            expect(failure('@window { let feature: if @wide then "share" else "clipboard", canShare: self supports feature }', { wide: true }).message).toContain('a string literal, a parameter bound to a string, or a local or a conditional binding holding one');
+            expect(failure('@window { let feature: if @panel.attached then "share" else "clipboard", canShare: self supports feature }', { panel }).message).toContain('a string the query\'s preparation settles');
+        });
+
+        it.each([
+            ['an and and an or', '@window supports (@wide and "share" or "clipboard")', { wide: true }],
+            ['an and and an or, the other way', '@window supports (@wide and "clipboard" or "share")', { wide: false }],
+            ['a conditional', '@window supports (if @wide then "share" else "nothing")', { wide: true }],
+            ['a conditional binding', '@window supports (if let f: @feature then f else "nothing")', { feature: 'share' }],
+            ['a coalescing operator whose value is null', '@window supports (@feature ?? "share")', { feature: null }],
+            ['a coalescing operator whose value is not', '@window supports (@feature ?? "nothing")', { feature: 'share' }],
+            ['a local holding one of them', '@window { let f: @wide and "share" or "nothing", can: self supports f }', { wide: true }],
+        ])('resolves a feature %s settles when the query is prepared, the side it does not take left unselected', (_, text, bindings) => {
+            expect(() => resolve(text, bindings)).not.toThrow();
+        });
+
+        it('refuses a feature an expression settles to a name the vocabulary lacks, and one that reads the document to settle', () => {
+            expect(failure('@window supports (@wide and "share" or "nothing")', { wide: false }).message).toContain("'nothing' is no feature the vocabulary declares");
+            expect(failure('@window supports (if @panel.attached then "share" else "share")', { panel }).message).toContain("a string the query's preparation settles");
+            expect(failure('@window supports (@panel:["data-f"] ?? "share")', { panel }).message).toContain("a string the query's preparation settles");
         });
 
         it('resolves a feature a conditional binding holds where its value is a literal or a bound parameter, and refuses one any other expression gives', () => {
             expect(resolve('if let feature: "share" then @window supports feature else false').type.toString()).toBe('boolean');
             expect(resolve('if let feature: @feature then @window supports feature else false', { feature: 'share' }).type.toString()).toBe('boolean');
-            expect(failure('if let feature: @panel:["data-f"] then @window supports feature else false', { panel }).message).toContain('a string literal, a parameter bound to a string, or a local or a conditional binding holding one');
+            expect(failure('if let feature: @panel:["data-f"] then @window supports feature else false', { panel }).message).toContain('a string the query\'s preparation settles');
         });
 
         it('refuses an event type or a feature the vocabulary does not declare', () => {

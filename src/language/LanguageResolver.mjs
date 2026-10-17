@@ -103,17 +103,21 @@ export class LanguageResolver {
         }
     }
 
-    /** Resolves a coalescing: a value and a fallback of one type, as a conditional's branches are, its type the value's made non-null where the fallback's is; the whole is resolved before any of it is evaluated. */
+    /**
+     * Resolves a coalescing: a value and a fallback of one type, as a conditional's branches are, its type the value's made non-null where the fallback's is; the whole is resolved before any of it is evaluated.
+     * Where the value is fixed, it is the side that value selects, fixed where that side is.
+     */
     #resolveCoalescing(node, pointer, scope) {
-        const [value, fallback] = ['value', 'fallback'].map(side => {
+        const results = ['value', 'fallback'].map(side => {
             const result = this.#resolveNode(node[side], `${pointer}/${side}`, scope);
 
             if (result.kind !== 'query') {
                 this.#fail(`The ${side} of '??' is a value, and this one is ${LanguageResolver.#descriptionOf(result.kind)}`, `${pointer}/${side}`);
             }
 
-            return result.type;
+            return result;
         });
+        const [value, fallback] = results.map(result => result.type);
 
         // A value of the type null is never anything but null, so the fallback's type is the whole's.
         const type = value.kind === 'null' ? fallback : Type.merge(value.toNonNullable(), fallback);
@@ -122,7 +126,7 @@ export class LanguageResolver {
             this.#fail(`The value and the fallback of '??' are of one type, and these are ${value} and ${fallback}`, `${pointer}/fallback`);
         }
 
-        return { type, kind: 'query', isFixed: false };
+        return LanguageResolver.#fixedAs(type, results[0].isFixed ? results[results[0].value === null ? 1 : 0] : null);
     }
 
     /** Resolves an optional chain: the chain it holds, nullable where an optional access of it can meet a null receiver, which ends the chain with null. */
@@ -219,22 +223,29 @@ export class LanguageResolver {
             consequentScope = LanguageResolver.#consequentScopeOf(node, truthyScope, result);
         }
 
-        const branches = ['consequent', 'alternative'].map(branch => {
+        const results = ['consequent', 'alternative'].map(branch => {
             const result = this.#resolveNode(node[branch], `${pointer}/${branch}`, branch === 'consequent' ? consequentScope : falseyScope);
 
             if (result.kind !== 'query') {
                 this.#fail(`A branch of 'if' is a value, and this one is ${LanguageResolver.#descriptionOf(result.kind)}`, `${pointer}/${branch}`);
             }
 
-            return result.type;
+            return result;
         });
+        const branches = results.map(result => result.type);
         const type = Type.merge(...branches);
 
         if (type === null) {
             this.#fail(`The branches of 'if' are of one type, and these are ${branches[0]} and ${branches[1]}`, `${pointer}/alternative`);
         }
 
-        return { type, kind: 'query', isFixed: false };
+        // A fixed condition, or a fixed value bound, selects its branch when the query is prepared, and the conditional is fixed where that branch is.
+        return LanguageResolver.#fixedAs(type, tested.isFixed ? results[LanguageResolver.#isTruthy(tested.value) ? 0 : 1] : null);
+    }
+
+    /** A result of the type, fixed to the value of the result that decides it where that one is fixed: a value preparation settles, from literals and bound parameters, without reading the document. */
+    static #fixedAs(type, deciding) {
+        return deciding?.isFixed ? { type, kind: 'query', isFixed: true, value: deciding.value } : { type, kind: 'query', isFixed: false };
     }
 
     /**
@@ -1028,7 +1039,7 @@ export class LanguageResolver {
     /** Resolves what a fixed argument selects from the vocabulary, which must be known before anything is evaluated. */
     #select(parameter, result, declaration, receiverType, pointer) {
         if (!result.isFixed || typeof result.value !== 'string') {
-            this.#fail(`The argument '${parameter.name}' of '${declaration.name}' selects from the vocabulary, so it is a string literal, a parameter bound to a string, or a local or a conditional binding holding one, never null`, pointer);
+            this.#fail(`The argument '${parameter.name}' of '${declaration.name}' selects from the vocabulary, so it is a string the query's preparation settles, from literals and bound parameters, never null`, pointer);
         }
 
         const name = result.value;
