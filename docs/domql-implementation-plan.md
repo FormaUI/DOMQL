@@ -70,6 +70,7 @@ The open decisions are taken a group at a time, in this order, each group one ki
 What a query can say that it cannot yet.
 
 - **A flat-tree parent.** A parent across slots, beside the tree's own `parent` and `root`, waits until its uses and its meaning are clear.
+- **Arithmetic.** DOMQL has no operators on numbers; aggregates such as `sum` and `max` compute over lists. Operators, their precedence, and what they answer for a null operand and for a result no number represents, as a division by zero gives, are designed as a task of their own.
 
 #### 2. Evaluation cost
 
@@ -99,7 +100,34 @@ Accepted; built by step 14. One error-tolerant parser builds a lossless syntax t
 
 A step is done when its tests pass in the gate, its documents say what it built, and its state here says so. Completed steps leave the plan. Built describes the capabilities they delivered.
 
-The remaining work is the beta, then editor tooling and the C# half, which follow it.
+The remaining work is bare names, bodies and functions, then the beta, then editor tooling and the C# half, which follow it.
+
+### 25. Bare names, bodies and functions
+
+A query organizes a calculation in bodies, names its intermediate values and reuses its logic through local functions, none of which reaches its result unless it is returned; braces stay objects and projections, and keywords bound what executes. Every name is bare. Three changes land it in order, each reviewed on its own: bare names, then bodies with the conditionals that become them, then functions.
+
+- **Needs:** nothing beyond what is built.
+- **Done when:**
+  - **Bare names.** `@` leaves the language: external bindings, locals and function parameters are all bare names, and a name is the local its lexical scope declares, and otherwise the caller's binding. `self`, `document` and `window` keep their meanings, and no local, parameter or binding takes `document` or `window`. A name used before its declaration later in the same scope is refused, never read as a binding of that name, so no forward reference or recursive call reaches one, while a declaration in a sibling or an unrelated nested scope leaves the name the caller's. `@name` is a syntax error that gives `name`. A definition keeps its parameter and local nodes, and refuses a parameter node, which selects the caller's binding, standing where a local of its name is in scope, since text could not write it; a caller's binding a local shadows is simply unused, never refused.
+  - **Bodies.** A body is zero or more immutable `let name: expression` bindings and one final `return expression`. A query is an expression, as it is now, or a body; `do … end` evaluates its body where execution reaches it; and every branch of a conditional is a body, the conditional ending with one `end` after its `else`, which stays required, and `elseif` continuing it. `if let` and `elseif let` keep their binding and its narrowing for their own branch alone.
+    - A binding is evaluated once, in order, whenever its body runs, an unused one included, and is visible after its initializer through the rest of its body and what it nests; a nested body may shadow it, and no binding is visible to a later one's initializer before it, to a sibling branch or outside its body. A duplicate in one scope is refused.
+    - `return` supplies its own body's value and completes that body alone. A bare `return`, anything after `return`, and an expression standing as a statement are refused; early returns, assignment and loops are no part of the language.
+    - A body leaves `self` as it is. A `do` block, a conditional and a function expression are never the receiver of a chain, grouped or not, in text or in a definition, and the diagnostic says to bind the value to a local first.
+    - A `do` block settles a fixed argument only where every initializer it runs and its `return` settle by the fixed-argument rule, so a read a binding makes is never discarded.
+    - Object-level `let` stays as it is.
+  - **Functions.** `function(name, …) body end` is a value a local names, and the local's name calls it, with no arguments or several, positional, each evaluated once, left to right, before the body runs; a call's result is a value a chain continues from.
+    - Its declaration checks what no argument's type decides: syntax, names, scope and duplicate parameters. Each call checks the number of arguments and resolves the body against that call's argument types, so one function serves arguments of different types, and a function never called is never resolved beyond its declaration and never runs. No placeholder value or type stands in for an argument.
+    - It captures the bindings and `self` of the execution that declares it: a captured node keeps its identity, and reading it during a call follows the ordinary evaluation and observation rules. A later evaluation of a watch uses its own captures, never an earlier one's. A call never rebinds `self`, and a function declared where there is none cannot use it, its caller passing the value as a parameter instead.
+    - No function calls itself, or one declared after it, and neither name reaches a caller's binding of that name instead.
+    - A function is called through its local's name alone: no function is passed, returned, stored in an object, compared or held in a result.
+    - A local call never settles a fixed argument.
+    - Creating a function reads nothing; a call contributes the reads it reaches; an unselected branch contributes none. A read query stays a read query through every call.
+  - **Shown in Chromium,** as the full gate runs it: observations through function calls, a watch following the branch a changed condition selects, and fresh captures across a watch's evaluations.
+  - **Keywords.** `do`, `end`, `return` and `function` are reserved as every keyword is, so none names a field, a member, a local or a parameter, in text or in a definition.
+  - **Definitions.** Each change that alters which definitions are accepted advances the definition's version: 19 for bare names, 20 for bodies and 21 for functions.
+  - **Diagnostics** name a missing `return`, `end` or `else`, a binding after a `return`, a duplicate local or parameter, a name out of scope, a call no local function answers or given the wrong number of arguments, and a chain from a block, a conditional or a function expression, which they say to bind first.
+  - The examples, the documents and the tests use the new forms, without arithmetic, which is a decision of its own; the documents' examples are checked by the gate.
+- **State:** not started.
 
 ### 22. Beta
 
