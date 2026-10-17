@@ -56,8 +56,20 @@ export class TextLocations {
         }
 
         if (node.kind === 'conditional') {
+            if (node.binding !== undefined) {
+                const bindingSpan = spans.get(node.binding);
+
+                if (bindingSpan) {
+                    this.#spans.set(`${pointer}/binding`, bindingSpan);
+                }
+
+                this.#collect(node.binding.value, `${pointer}/binding/value`, spans);
+            }
+
             for (const branch of ['condition', 'consequent', 'alternative']) {
-                this.#collect(node[branch], `${pointer}/${branch}`, spans);
+                if (node[branch] !== undefined) {
+                    this.#collect(node[branch], `${pointer}/${branch}`, spans);
+                }
             }
         }
 

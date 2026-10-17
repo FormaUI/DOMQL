@@ -20,7 +20,7 @@ const TOKEN_DESCRIPTIONS = {
 /** The tokens a chain input starts with, and so the argument of an infix call. */
 const CHAIN_INPUT_STARTS = new Set(['self', 'parameter', 'literal', 'name', '{', '(', '(?']);
 
-/** The keywords that begin an expression which is no chain input: a negation, a test of a conversion and a conditional. */
+/** The keywords that begin an expression which is no chain input: a negation, an attempted conversion and a conditional. */
 const EXPRESSION_KEYWORDS = new Set(['not', 'try', 'if']);
 
 /** The tokens that continue a chain after what is before them. */
@@ -40,7 +40,7 @@ export class Parser {
     /** The coalescing operators read where no group holds them, which no `and`, `or` or equality may stand beside. @type {WeakSet<object>} */
     #ungroupedCoalescings = new WeakSet();
 
-    /** The conversions read after another conversion of the same chain, without a group between them, which `try` refuses to test. @type {WeakSet<object>} */
+    /** The conversions read after another conversion of the same chain, without a group between them, which `try` refuses to attempt. @type {WeakSet<object>} */
     #chainedConversions = new WeakSet();
 
     /** @param {string} text The query text. */
@@ -100,13 +100,17 @@ export class Parser {
         return this.#recordSpan({ kind: 'not', operand }, start);
     }
 
-    /** Reads a conditional after its `if` or an `elseif`: its condition, a logical term or an operand, its consequent, and its alternative, an `elseif` being a conditional nested there. */
+    /**
+     * Reads a conditional after its `if` or an `elseif`: its condition, a logical term or an operand, or its binding, `let`, a name and a value, its consequent, and its alternative, an `elseif` being a conditional nested there.
+     * A binding takes the consequent where its value is not null, with the name bound to that value there alone, and the alternative where it is.
+     */
     #parseConditionalExpression(start) {
         if (this.#isKeyword('if')) {
             throw DomqlError.syntax('A conditional that is a condition is enclosed in parentheses: write if (if … then … else …) then …', this.#text, this.#token.start);
         }
 
-        const condition = this.#parseCondition();
+        const binding = this.#isKeyword('let') ? this.#parseBinding() : null;
+        const condition = binding === null ? this.#parseCondition() : null;
 
         if (!this.#isKeyword('then')) {
             throw this.#unexpected("'then' after the condition");
@@ -129,7 +133,24 @@ export class Parser {
             throw this.#unexpected("'elseif' or 'else', which every conditional ends with");
         }
 
-        return this.#recordSpan({ kind: 'conditional', condition, consequent, alternative }, start);
+        return this.#recordSpan(binding === null ? { kind: 'conditional', condition, consequent, alternative } : { kind: 'conditional', binding, consequent, alternative }, start);
+    }
+
+    /** Reads a conditional's binding after its `if` or `elseif`: `let`, its name, a colon and the value it binds, a logical term or an operand, as a condition is. */
+    #parseBinding() {
+        const start = this.#token.start;
+
+        this.#advance();
+
+        if (!(this.#token.type === 'name' && this.#tokens[this.#index + 1]?.type === ':')) {
+            this.#refuseName('A binding is written with let, its name and a colon before its value, as if let key: self:["data-key"] then …');
+        }
+
+        const name = this.#token.value;
+
+        this.#index += 2;
+
+        return this.#recordSpan({ name, value: this.#parseCondition() }, start);
     }
 
     /**
@@ -179,27 +200,27 @@ export class Parser {
     }
 
     /**
-     * Reads a test of a conversion after its `try`: the one conversion it tests, the equality operand that follows, recorded as a convertibility of the value that conversion converts.
-     * It tests that conversion alone, so a chain of conversions is grouped to say which it tests, and anything that is no conversion is refused.
+     * Reads an attempted conversion after its `try`: the one conversion of the equality operand that follows, recorded as that conversion attempted, which answers null where it rejects its value.
+     * It attempts that conversion alone, so a chain of conversions is grouped to say which it attempts, and anything that is no conversion is refused.
      */
     #parseTry(start) {
         this.#advance();
 
         if (this.#isKeyword('try')) {
-            throw DomqlError.syntax('\'try\' tests a conversion, and no other test: write \'try … to "type"\'', this.#text, this.#token.start);
+            throw DomqlError.syntax('\'try\' attempts a conversion, and no other attempt: write \'try … to "type"\'', this.#text, this.#token.start);
         }
 
         const conversion = this.#parseEqualityOperand();
 
         if (conversion.kind !== 'conversion') {
-            throw DomqlError.syntax('\'try\' tests a conversion: write \'try … to "type"\'', this.#text, start);
+            throw DomqlError.syntax('\'try\' attempts a conversion: write \'try … to "type"\'', this.#text, start);
         }
 
         if (this.#chainedConversions.has(conversion)) {
-            throw DomqlError.syntax(`'try' tests one conversion: group the value it converts, as in 'try (… to "${conversion.target.type}") to "${conversion.type}"'`, this.#text, start);
+            throw DomqlError.syntax(`'try' attempts one conversion: group the value it converts, as in 'try (… to "${conversion.target.type}") to "${conversion.type}"'`, this.#text, start);
         }
 
-        return this.#recordSpan({ kind: 'convertibility', type: conversion.type, target: conversion.target }, start);
+        return this.#recordSpan({ ...conversion, attempt: true }, start);
     }
 
     /** Refuses what an equality operand cannot start with: `==` or `!=`, which compares the value written before it, and a conditional, which is grouped where it is an operand. */

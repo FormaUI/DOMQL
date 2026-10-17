@@ -155,6 +155,16 @@ describe('SnapshotComparer', () => {
                 expect(snapshotComparer.reconcile(100, selecting(query, query.alternative), 101.5, selecting(query, query.alternative))).toBe(101.5);
             });
 
+            it('compares what a conditional binding gives as the value it binds, within the tolerance of its member, where both values came from its consequent', () => {
+                const resolved = resolvedOf('if let width: @element.wobble?.width then { a: width, b: width } else null', { element }, { tolerance: 2 });
+                const snapshotComparer = new SnapshotComparer(resolved);
+                const { query } = resolved.definition;
+                const previous = freeze({ a: 100, b: 100 });
+
+                expect(snapshotComparer.reconcile(previous, selecting(query, query.consequent), freeze({ a: 101.5, b: 101.5 }), selecting(query, query.consequent))).toBe(previous);
+                expect(snapshotComparer.reconcile(previous, selecting(query, query.consequent), freeze({ a: 103, b: 100 }), selecting(query, query.consequent))).toEqual({ a: 103, b: 100 });
+            });
+
             it('compares a number exactly where the two values came from different branches', () => {
                 const resolved = resolvedOf('if @wide then @element.wobble.width else @other.wobble.width', { element, other: element, wide: true }, { tolerance: 2 });
                 const snapshotComparer = new SnapshotComparer(resolved);

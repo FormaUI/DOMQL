@@ -90,10 +90,6 @@ export class LanguageResolver {
                 return this.#resolveCast(node, pointer, scope);
             case 'conversion':
                 return this.#resolveConversion(node, pointer, scope);
-            case 'convertibility':
-                this.#resolveConversion(node, pointer, scope);
-
-                return { type: Type.createNamedType('boolean'), kind: 'query', isFixed: false };
             case 'and':
             case 'or':
                 return this.#resolveLogical(node, pointer, scope);
@@ -194,14 +190,34 @@ export class LanguageResolver {
         return `: a test is the member that answers it, so write '${DefinitionWriter.write(isNegated ? { kind: 'not', operand: access } : access)}'`;
     }
 
-    /** Resolves a conditional: a Boolean condition, and two branches of one type, nullable where either is; the whole is resolved before any of it is evaluated. */
+    /**
+     * Resolves a conditional: a Boolean condition, or a binding, any value, whose name the consequent alone sees, bound to that value without null; and two branches of one type, nullable where either is.
+     * The whole is resolved before any of it is evaluated.
+     */
     #resolveConditional(node, pointer, scope) {
-        const condition = this.#resolveNode(node.condition, `${pointer}/condition`, scope);
+        let consequentScope = scope;
 
-        this.#requireBoolean(condition, node.condition, "The condition of 'if'", `${pointer}/condition`);
+        if (node.binding === undefined) {
+            const condition = this.#resolveNode(node.condition, `${pointer}/condition`, scope);
+
+            this.#requireBoolean(condition, node.condition, "The condition of 'if'", `${pointer}/condition`);
+        } else {
+            const valuePointer = `${pointer}/binding/value`;
+            const bound = this.#resolveNode(node.binding.value, valuePointer, scope);
+
+            if (bound.kind !== 'query') {
+                this.#fail(`What 'if let' binds is a value, and this one is ${LanguageResolver.#descriptionOf(bound.kind)}`, valuePointer);
+            }
+
+            // The consequent is taken where the value is not null, so it sees the value without null, fixed where the value is fixed and not null; a value that is always null is never bound, and is a never there.
+            const type = bound.type.kind === 'null' ? Type.never : bound.type.toNonNullable();
+            const result = bound.isFixed && bound.value !== null ? { type, kind: 'query', isFixed: true, value: bound.value } : { type, kind: 'query', isFixed: false };
+
+            consequentScope = LanguageResolver.#consequentScopeOf(node, scope, result);
+        }
 
         const branches = ['consequent', 'alternative'].map(branch => {
-            const result = this.#resolveNode(node[branch], `${pointer}/${branch}`, scope);
+            const result = this.#resolveNode(node[branch], `${pointer}/${branch}`, branch === 'consequent' ? consequentScope : scope);
 
             if (result.kind !== 'query') {
                 this.#fail(`A branch of 'if' is a value, and this one is ${LanguageResolver.#descriptionOf(result.kind)}`, `${pointer}/${branch}`);
@@ -256,7 +272,7 @@ export class LanguageResolver {
     }
 
     /**
-     * Resolves a conversion, or the conversion a convertibility tests: its target, a value, and the type of data it converts to, its result of that type, nullable where the target is.
+     * Resolves a conversion: its target, a value, and the type of data it converts to, its result of that type, nullable where the target is, and always where the conversion is attempted, which answers null for a value it rejects.
      * A value already of the type answers itself, which no declaration overrides; any other takes the one conversion declared from its type to that one, never a chain of them.
      * A target of unknown type chooses none: null answers null, and a never is never evaluated.
      */
@@ -264,7 +280,7 @@ export class LanguageResolver {
         const target = this.#resolveNode(node.target, `${pointer}/target`, scope);
 
         if (target.kind !== 'query') {
-            this.#fail(`${node.kind === 'conversion' ? "What 'to' converts" : "What 'try' tests"} is a value, and this one is ${LanguageResolver.#descriptionOf(target.kind)}`, `${pointer}/target`);
+            this.#fail(`${node.attempt === true ? "What 'try' converts" : "What 'to' converts"} is a value, and this one is ${LanguageResolver.#descriptionOf(target.kind)}`, `${pointer}/target`);
         }
 
         const to = Type.parse(node.type);
@@ -280,7 +296,7 @@ export class LanguageResolver {
         if (from.kind === 'null' || from.kind === 'never') {
             this.#resolutions.set(pointer, { kind: 'conversion', declaration: null });
 
-            return { type: from.kind === 'null' ? to.toNullable() : to, kind: 'query', isFixed: false };
+            return { type: from.kind === 'null' || node.attempt === true ? to.toNullable() : to, kind: 'query', isFixed: false };
         }
 
         const source = from.toNonNullable();
@@ -296,7 +312,12 @@ export class LanguageResolver {
 
         this.#resolutions.set(pointer, { kind: 'conversion', declaration: declaration ?? null, type: to });
 
-        return { type: from.isNullable ? to.toNullable() : to, kind: 'query', isFixed: false };
+        return { type: from.isNullable || node.attempt === true ? to.toNullable() : to, kind: 'query', isFixed: false };
+    }
+
+    /** The scope a conditional binding's consequent is resolved in: the scope around it, with the binding's name a local holding its value, of the result given. */
+    static #consequentScopeOf(node, scope, result) {
+        return { ...scope, locals: new Map(scope.locals).set(node.binding.name, { result, value: node.binding.value, scope, binding: node }) };
     }
 
     /** Resolves a negation: what it negates, a Boolean that cannot be null, and answers a Boolean. */
@@ -341,7 +362,8 @@ export class LanguageResolver {
             this.#fail(`No local named '${node.name}' is in scope${form === null ? '' : `; write '${form}' for the member of the current value`}`, pointer);
         }
 
-        this.#resolutions.set(pointer, { kind: 'local', name: node.name, value: local.value });
+        // A binding's value is evaluated once, by its conditional, which a use of its name reads; either records the expression its value came from.
+        this.#resolutions.set(pointer, local.binding === undefined ? { kind: 'local', name: node.name, value: local.value } : { kind: 'binding', conditional: local.binding, value: local.value });
 
         return local.result;
     }
@@ -485,7 +507,7 @@ export class LanguageResolver {
     }
 
     /**
-     * The names an access by name's expression can give, determined through these forms alone: a string literal, null, a bound parameter, a local whose value is one of them, a conditional whose branches are, and a `??` of them, whose names are its value's and, where its value can be null, its fallback's.
+     * The names an access by name's expression can give, determined through these forms alone: a string literal, null, a bound parameter, a local whose value is one of them, a conditional binding's name, without null, whose value is, a conditional whose branches are, and a `??` of them, whose names are its value's and, where its value can be null, its fallback's.
      * Null is tracked through them, so a `??` can remove it; any other expression gives no names that can be determined, and answers null.
      * @returns {{ names: Set<string>, canBeNull: boolean } | null}
      */
@@ -499,11 +521,14 @@ export class LanguageResolver {
                 return node.name === 'document' || node.name === 'window' ? null : of(this.#bindings.get(node.name));
             case 'local': {
                 const local = scope.locals.get(node.name);
+                const possible = local === undefined ? null : this.#possibleNamesOf(local.value, local.scope);
 
-                return local === undefined ? null : this.#possibleNamesOf(local.value, local.scope);
+                // A conditional binding's name is used where its value is not null.
+                return possible !== null && local.binding !== undefined ? { names: possible.names, canBeNull: false } : possible;
             }
             case 'conditional': {
-                const sides = [node.consequent, node.alternative].map(branch => this.#possibleNamesOf(branch, scope));
+                const consequentScope = node.binding === undefined ? scope : LanguageResolver.#consequentScopeOf(node, scope, null);
+                const sides = [[node.consequent, consequentScope], [node.alternative, scope]].map(([branch, branchScope]) => this.#possibleNamesOf(branch, branchScope));
 
                 return sides.includes(null) ? null : { names: new Set(sides.flatMap(side => [...side.names])), canBeNull: sides.some(side => side.canBeNull) };
             }

@@ -130,16 +130,20 @@ describe('DefinitionWriter', () => {
         '@sentinel intersects to "string"',
         '@panel:attribute[to] to "number"',
         'try @a to "number"',
-        'not (try @a to "number")',
-        'try @panel:attribute["data-n"] to "number" and @b',
+        'try @panel:attribute["data-n"] to "number" ?? 0',
         'try (@a to "string") to "number"',
-        'try @a to "number" == true',
-        'not try @a to "number"',
+        'try @a to "number" == 5',
         '(try @a to "number") to "string"',
         'try (@a ?? "1") to "number"',
+        'if let n: try @a to "number" then n else 0',
+        'if @a then 1 elseif let n: @b then n else 0',
+        'if let row: @panel.closest(".row") then { key: row:["data-key"] } else null',
+        '(if let n: @a then n else 0) to "string"',
+        'if let b: @a == 1 then b else false',
+        'if let n: @a ?? @b then n else 0',
         '@a.is("checked") != false',
         '{ is: @a.is("checked") }',
-        '(try @a to "number") == true',
+        '(try @a to "number") == 5',
         '@a == convertible',
         '@a == (convertible to "number")',
         '@a != (convertible to "string" to "number")',
@@ -191,9 +195,10 @@ describe('DefinitionWriter', () => {
         expect(write('(@a to "number") == 5')).toBe('@a to "number" == 5');
         expect(write('(@a == @b) to "string"')).toBe('(@a == @b) to "string"');
         expect(write('(@a ?? @b) to "number"')).toBe('(@a ?? @b) to "number"');
-        expect(write('not (try @a to "number")')).toBe('not try @a to "number"');
-        expect(write('(try @a to "number") and @b')).toBe('try @a to "number" and @b');
-        expect(write('(try @a to "number") ?? false')).toBe('try @a to "number" ?? false');
+        expect(write('(try @a to "number") ?? 0')).toBe('try @a to "number" ?? 0');
+        expect(write('(try @a to "number") == 5')).toBe('try @a to "number" == 5');
+        expect(write('if let n: (@a ?? @b) then n else 0')).toBe('if let n: @a ?? @b then n else 0');
+        expect(write('(if let n: @a then n else 0).size')).toBe('(if let n: @a then n else 0).size');
     });
 
     it('writes the argument of an infix call as an input, grouping any other', () => {
@@ -221,6 +226,7 @@ describe('DefinitionWriter', () => {
             ['an object expression of one field and a local', '@panel { let s: self.size, width: s.width }', '@panel {\n    let s: self.size,\n    width: s.width\n}'],
             ['a conditional with no elseif, on one line', 'if @a then 1 else 2', 'if @a then 1 else 2'],
             ['a conditional with an elseif, a line for each clause', '@panel { state: if self.disabled then "locked" elseif self.readOnly then "read" else "open" }', '@panel {\n    state: if self.disabled then "locked"\n    elseif self.readOnly then "read"\n    else "open"\n}'],
+            ['a conditional binding with an elseif, a line for each clause', '@panel { v: if let a: self:["a"] then a elseif let b: self:["b"] then b else "none" }', '@panel {\n    v: if let a: self:["a"] then a\n    elseif let b: self:["b"] then b\n    else "none"\n}'],
             ['one space around and and or', '@a   and(@b or   @c)', '@a and (@b or @c)'],
             ['one space around an infix call and is', '@panel   matches    ".x"   ==   null', '@panel matches ".x" == null'],
             ['no space around an indexer', '@panel  :  attribute  [ "role" ]   ==   null', '@panel:attribute["role"] == null'],
@@ -283,7 +289,7 @@ describe('DefinitionWriter', () => {
             const { domql: other } = await import('#domql/domql.js');
 
             expect(() => format('@panel {')).toThrow(expect.objectContaining({ kind: 'syntax' }));
-            expect(() => domql.format({ version: 14, query: { kind: 'nonsense' } })).toThrow(expect.objectContaining({ kind: 'structure' }));
+            expect(() => domql.format({ version: 15, query: { kind: 'nonsense' } })).toThrow(expect.objectContaining({ kind: 'structure' }));
             expect(() => domql.format(other.query('@panel'))).toThrow(expect.objectContaining({ kind: 'structure', message: expect.stringContaining('query.definition') }));
         });
 

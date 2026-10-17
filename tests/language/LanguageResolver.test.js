@@ -336,6 +336,12 @@ describe('LanguageResolver', () => {
             expect(resolve('@panel[null ?? "size"]').type.toString()).toBe('size?');
         });
 
+        it('determines the names a conditional binding gives as its value does, without null, in its consequent', () => {
+            expect(resolve('@panel[if let name: @name then name else "clientSize"]', { panel, name: 'size' }).type.toString()).toBe('size?');
+            expect(resolve('if let name: @name then @panel[name] else null', { panel, name: 'size' }).type.toString()).toBe('size?');
+            expect(failure('if let name: @panel:["data-name"] then @panel[name] else null', { panel }).message).toContain('An access by name reads a name determined when the query is prepared');
+        });
+
         it('refuses an access by name whose names cannot be determined, can be null, name no property or are of different types', () => {
             expect(failure('@panel[@panel:attribute["data-name"]]').message).toContain('An access by name reads a name determined when the query is prepared');
             expect(failure('@panel[@name]', { panel, name: null }).message).toContain("An access by name reads a string, and '@name' can be null");
@@ -358,6 +364,12 @@ describe('LanguageResolver', () => {
             expect(resolve('@window { let feature: "share", canShare: self supports feature }').type.toString()).toBe('{ canShare: boolean }');
             expect(resolve('@window { let feature: @feature, canShare: self supports feature }', { feature: 'share' }).type.toString()).toBe('{ canShare: boolean }');
             expect(failure('@window { let feature: if @wide then "share" else "clipboard", canShare: self supports feature }', { wide: true }).message).toContain('a string literal, a parameter bound to a string or a local holding one');
+        });
+
+        it('resolves a feature a conditional binding holds where its value is a literal or a bound parameter, and refuses one any other expression gives', () => {
+            expect(resolve('if let feature: "share" then @window supports feature else false').type.toString()).toBe('boolean');
+            expect(resolve('if let feature: @feature then @window supports feature else false', { feature: 'share' }).type.toString()).toBe('boolean');
+            expect(failure('if let feature: @panel:["data-f"] then @window supports feature else false', { panel }).message).toContain('a string literal, a parameter bound to a string or a local holding one');
         });
 
         it('refuses an event type or a feature the vocabulary does not declare', () => {
@@ -438,7 +450,7 @@ describe('LanguageResolver', () => {
 
         it('points into a definition that has no text', () => {
             const definition = {
-                version: 14,
+                version: 15,
                 query: { kind: 'member', target: { kind: 'parameter', name: 'panel' }, name: 'nonsense', arguments: [] },
             };
 

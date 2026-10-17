@@ -96,6 +96,9 @@ export class QueryEvaluator {
     /** The frame of locals of the innermost application of an object expression that has any, with the value of each evaluated so far, inside those of the applications enclosing it; null outside every one. @type {LocalsFrame | null} */
     #localsFrame = null;
 
+    /** The value each conditional with a binding bound, while its consequent is evaluated, which the uses of its name read. @type {Map<object, unknown>} */
+    #boundValues = new Map();
+
     /** What the evaluation in progress records, or null where none does. @type {ObservationContext | null} */
     #observationContext = null;
 
@@ -348,8 +351,17 @@ export class QueryEvaluator {
                 return evaluator => evaluator.#parameterBindings.get(node.name);
             case 'self':
                 return (evaluator, currentValue) => currentValue;
-            case 'local':
+            case 'local': {
+                const resolution = this.#resolvedDefinition.resolutionOf(node);
+
+                if (resolution?.kind === 'binding') {
+                    const { conditional } = resolution;
+
+                    return evaluator => evaluator.#boundValues.get(conditional);
+                }
+
                 return evaluator => evaluator.#evaluateLocal(node);
+            }
             case 'member':
             case 'call':
             case 'infixCall':
@@ -366,9 +378,39 @@ export class QueryEvaluator {
                 };
             }
             case 'conditional': {
-                const condition = this.#getCompiledFunction(node.condition);
                 const consequent = this.#getCompiledFunction(node.consequent);
                 const alternative = this.#getCompiledFunction(node.alternative);
+
+                if (node.binding !== undefined) {
+                    const bind = this.#getCompiledFunction(node.binding.value);
+
+                    // The value is evaluated once; where it is not null, the consequent reads it through the name it is bound to, and the branch taken is recorded for the value's place in the result.
+                    return (evaluator, currentValue) => {
+                        const value = bind(evaluator, currentValue);
+
+                        (evaluator.#selections ??= new Map()).set(node, value === null ? node.alternative : node.consequent);
+
+                        if (value === null) {
+                            return alternative(evaluator, currentValue);
+                        }
+
+                        const enclosing = evaluator.#boundValues.get(node);
+
+                        evaluator.#boundValues.set(node, value);
+
+                        try {
+                            return consequent(evaluator, currentValue);
+                        } finally {
+                            if (enclosing === undefined) {
+                                evaluator.#boundValues.delete(node);
+                            } else {
+                                evaluator.#boundValues.set(node, enclosing);
+                            }
+                        }
+                    };
+                }
+
+                const condition = this.#getCompiledFunction(node.condition);
 
                 // The branch the condition selects is recorded for the value's place in the result.
                 return (evaluator, currentValue) => {
@@ -437,7 +479,6 @@ export class QueryEvaluator {
                 };
             }
             case 'conversion':
-            case 'convertibility':
                 return this.#compileConversion(node);
             case 'object':
                 return this.#compileObject(node);
@@ -447,44 +488,35 @@ export class QueryEvaluator {
     }
 
     /**
-     * A conversion, or a convertibility, which carries the same conversion out and answers whether the conversion accepted its value, with its target evaluated once.
-     * Null converts to null, and a value already of the type to itself, without a conversion; a conversion that rejects its value fails a conversion's evaluation and makes a convertibility false.
+     * A conversion, with its target evaluated once and its conversion carried out once. Null converts to null, and a value already of the type to itself, without a conversion;
+     * a conversion that rejects its value fails the evaluation, and an attempted one answers null instead. A fault fails the evaluation of either, as a failure of its target does.
      */
     #compileConversion(node) {
         const target = this.#getCompiledFunction(node.target);
         const { declaration, type } = this.#resolvedDefinition.resolutionOf(node);
-        const isTest = node.kind === 'convertibility';
 
-        if (declaration === null && !isTest) {
-            return target;
-        }
-
-        // The value is evaluated for what it depends on, and converts whatever it is.
         if (declaration === null) {
-            return (evaluator, currentValue) => {
-                target(evaluator, currentValue);
-
-                return true;
-            };
+            return target;
         }
 
         const name = DomqlModule.conversionNameOf(declaration);
         const attempt = QueryEvaluator.#compileConversionAttempt(declaration, type, this.#moduleRegistry);
+        const isAttempted = node.attempt === true;
 
         return (evaluator, currentValue) => {
             const value = target(evaluator, currentValue);
 
             if (value === null) {
-                return isTest ? true : null;
+                return null;
             }
 
             const outcome = attempt(evaluator, value, node);
 
-            if (isTest) {
-                return outcome.isAccepted;
-            }
-
             if (!outcome.isAccepted) {
+                if (isAttempted) {
+                    return null;
+                }
+
                 evaluator.#fail(`The conversion from ${name} rejected its value: ${outcome.reason}`, evaluator.#pointerOf(node));
             }
 
@@ -493,8 +525,8 @@ export class QueryEvaluator {
     }
 
     /**
-     * The conversion of a value that is not null, as both forms carry it out: its converted value where it accepts the value, or the reason it rejected it with.
-     * A rejection is the signal `reject` throws for this attempt alone; any other exception, a reason that is no string, a rejection the conversion caught and answered past, and a value not of the type are faults, which fail the evaluation whichever form asked.
+     * The conversion of a value that is not null, attempted or not: its converted value where it accepts the value, or the reason it rejected it with.
+     * A rejection is the signal `reject` throws for this attempt alone; any other exception, a reason that is no string, a rejection the conversion caught and answered past, and a value not of the type are faults, which fail the evaluation, attempted or not.
      */
     static #compileConversionAttempt(declaration, type, moduleRegistry) {
         const name = DomqlModule.conversionNameOf(declaration);

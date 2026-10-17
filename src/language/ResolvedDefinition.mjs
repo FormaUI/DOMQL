@@ -111,8 +111,14 @@ export class ResolvedDefinition {
                 this.#index(node.right, `${pointer}/right`);
                 break;
             case 'conditional':
+                if (node.binding !== undefined) {
+                    this.#index(node.binding.value, `${pointer}/binding/value`);
+                }
+
                 for (const branch of ['condition', 'consequent', 'alternative']) {
-                    this.#index(node[branch], `${pointer}/${branch}`);
+                    if (node[branch] !== undefined) {
+                        this.#index(node[branch], `${pointer}/${branch}`);
+                    }
                 }
                 break;
             case 'and':

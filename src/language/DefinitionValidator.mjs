@@ -22,12 +22,11 @@ const NODE_PROPERTIES = {
     object: { properties: ['kind', 'target', 'locals', 'fields'], required: ['fields'] },
     optionalChain: { properties: ['kind', 'target'], required: ['target'] },
     equality: { properties: ['kind', 'left', 'right'], required: ['left', 'right'] },
-    conditional: { properties: ['kind', 'condition', 'consequent', 'alternative'], required: ['condition', 'consequent', 'alternative'] },
+    conditional: { properties: ['kind', 'condition', 'binding', 'consequent', 'alternative'], required: ['consequent', 'alternative'] },
     coalescing: { properties: ['kind', 'value', 'fallback'], required: ['value', 'fallback'] },
     not: { properties: ['kind', 'operand'], required: ['operand'] },
     cast: { properties: ['kind', 'type', 'target'], required: ['type', 'target'] },
-    conversion: { properties: ['kind', 'type', 'target'], required: ['type', 'target'] },
-    convertibility: { properties: ['kind', 'type', 'target'], required: ['type', 'target'] },
+    conversion: { properties: ['kind', 'type', 'target', 'attempt'], required: ['type', 'target'] },
     and: { properties: ['kind', 'operands'], required: ['operands'] },
     or: { properties: ['kind', 'operands'], required: ['operands'] },
 };
@@ -71,7 +70,7 @@ export class DefinitionValidator {
 
     #validateNode(node, pointer, currentValueAvailability) {
         if (!ObjectUtils.isNonArrayObject(node) || !Object.hasOwn(NODE_PROPERTIES, node.kind)) {
-            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, infixCall, indexer, object, optionalChain, equality, conditional, coalescing, not, cast, conversion, convertibility, and or or');
+            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, infixCall, indexer, object, optionalChain, equality, conditional, coalescing, not, cast, conversion, and or or');
         }
 
         this.#requireProperties(node, pointer, NODE_PROPERTIES[node.kind]);
@@ -120,12 +119,7 @@ export class DefinitionValidator {
                     right: this.#validateNode(node.right, `${pointer}/right`, currentValueAvailability),
                 });
             case 'conditional':
-                return Object.freeze({
-                    kind: 'conditional',
-                    condition: this.#validateNode(node.condition, `${pointer}/condition`, currentValueAvailability),
-                    consequent: this.#validateNode(node.consequent, `${pointer}/consequent`, currentValueAvailability),
-                    alternative: this.#validateNode(node.alternative, `${pointer}/alternative`, currentValueAvailability),
-                });
+                return this.#validateConditional(node, pointer, currentValueAvailability);
             case 'and':
             case 'or':
                 return this.#validateLogical(node, pointer, currentValueAvailability);
@@ -136,12 +130,7 @@ export class DefinitionValidator {
             case 'cast':
                 return this.#validateCast(node, pointer, currentValueAvailability);
             case 'conversion':
-            case 'convertibility':
-                if (typeof node.type !== 'string') {
-                    this.#fail(`${pointer}/type`, `A ${node.kind} names the type it ${node.kind === 'conversion' ? 'converts to' : 'tests its value against'} by a string`);
-                }
-
-                return Object.freeze({ kind: node.kind, type: node.type, target: this.#validateNode(node.target, `${pointer}/target`, currentValueAvailability) });
+                return this.#validateConversion(node, pointer, currentValueAvailability);
             case 'coalescing':
                 return Object.freeze({
                     kind: 'coalescing',
@@ -151,6 +140,71 @@ export class DefinitionValidator {
             default:
                 return this.#validateObject(node, pointer, currentValueAvailability);
         }
+    }
+
+    /**
+     * Validates a conditional: a condition or a binding, exactly one of them, its consequent and its alternative.
+     * A binding's name is a name no local in scope has, in scope in the consequent alone, never in its own value or the alternative.
+     */
+    #validateConditional(node, pointer, currentValueAvailability) {
+        if ((node.condition === undefined) === (node.binding === undefined)) {
+            this.#fail(pointer, 'A conditional holds a condition or a binding, one of them');
+        }
+
+        if (node.condition !== undefined) {
+            return Object.freeze({
+                kind: 'conditional',
+                condition: this.#validateNode(node.condition, `${pointer}/condition`, currentValueAvailability),
+                consequent: this.#validateNode(node.consequent, `${pointer}/consequent`, currentValueAvailability),
+                alternative: this.#validateNode(node.alternative, `${pointer}/alternative`, currentValueAvailability),
+            });
+        }
+
+        const bindingPointer = `${pointer}/binding`;
+
+        this.#requireProperties(node.binding, bindingPointer, ENTRY_PROPERTIES);
+        this.#requireName(node.binding.name, `${bindingPointer}/name`);
+
+        const { name } = node.binding;
+        const value = this.#validateNode(node.binding.value, `${bindingPointer}/value`, currentValueAvailability);
+
+        if (this.#localNames.has(name)) {
+            this.#fail(bindingPointer, `A local named '${name}' is already in scope, and a name means one thing wherever it is visible`);
+        }
+
+        const enclosingLocalNames = this.#localNames;
+
+        this.#localNames = new Set(this.#localNames).add(name);
+
+        let consequent;
+
+        try {
+            consequent = this.#validateNode(node.consequent, `${pointer}/consequent`, currentValueAvailability);
+        } finally {
+            this.#localNames = enclosingLocalNames;
+        }
+
+        return Object.freeze({
+            kind: 'conditional',
+            binding: Object.freeze({ name, value }),
+            consequent,
+            alternative: this.#validateNode(node.alternative, `${pointer}/alternative`, currentValueAvailability),
+        });
+    }
+
+    /** Validates a conversion: the type it converts to, named by a string, its target, and whether it is attempted, `attempt: true` alone, a definition of an ordinary one leaving it out or giving false. */
+    #validateConversion(node, pointer, currentValueAvailability) {
+        if (typeof node.type !== 'string') {
+            this.#fail(`${pointer}/type`, 'A conversion names the type it converts to by a string');
+        }
+
+        if (node.attempt !== undefined && typeof node.attempt !== 'boolean') {
+            this.#fail(`${pointer}/attempt`, 'A conversion says whether it is attempted by a Boolean');
+        }
+
+        const target = this.#validateNode(node.target, `${pointer}/target`, currentValueAvailability);
+
+        return Object.freeze(node.attempt === true ? { kind: 'conversion', type: node.type, target, attempt: true } : { kind: 'conversion', type: node.type, target });
     }
 
     /** Validates a cast: the quoted type it casts to, and its target, which is a receiver and its accesses, a coalescing operator, another cast, or an optional chain, as text can write one. */

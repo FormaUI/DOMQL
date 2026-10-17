@@ -322,8 +322,8 @@ describe('Watch', () => {
             expect(snapshots).toEqual([1, 2, 3]);
         });
 
-        it('lets a convertibility choose a fallback for malformed text without failing, and the converted value once the text converts', async () => {
-            const watched = watch('@panel { let n: self:attribute["data-n"], value: if try n to "number" then n to "number" ?? 0 else 0 }', { panel });
+        it('lets an attempted conversion fall back for malformed text without failing, and give the converted value once the text converts', async () => {
+            const watched = watch('@panel { value: try self:["data-n"] to "number" ?? 0 }', { panel });
 
             await settle();
             await change(panel, 'two');
@@ -335,6 +335,17 @@ describe('Watch', () => {
             await change(panel, 3);
 
             expect(snapshots).toEqual([{ value: 1 }, { value: 0 }, { value: 3 }]);
+            expect(failures).toEqual([]);
+        });
+
+        it('follows a conditional binding through the value it binds and the branch it takes', async () => {
+            watch('if let n: try @panel:["data-n"] to "number" then { n: n } else { n: -1 }', { panel });
+            await settle();
+            await change(panel, 'two');
+            await change(panel, 5);
+            await change(panel, 7);
+
+            expect(snapshots).toEqual([{ n: 1 }, { n: -1 }, { n: 5 }, { n: 7 }]);
             expect(failures).toEqual([]);
         });
 

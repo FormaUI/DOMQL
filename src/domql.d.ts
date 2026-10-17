@@ -176,10 +176,9 @@ export type DomqlDefinitionNode =
     | { readonly kind: 'coalescing'; readonly value: DomqlDefinitionNode; readonly fallback: DomqlDefinitionNode }
     | { readonly kind: 'not'; readonly operand: DomqlDefinitionNode }
     | { readonly kind: 'cast'; readonly type: string; readonly target: DomqlDefinitionNode }
-    | { readonly kind: 'conversion'; readonly type: string; readonly target: DomqlDefinitionNode }
-    | { readonly kind: 'convertibility'; readonly type: string; readonly target: DomqlDefinitionNode }
+    | { readonly kind: 'conversion'; readonly type: string; readonly target: DomqlDefinitionNode; readonly attempt?: boolean }
     | { readonly kind: 'equality'; readonly left: DomqlDefinitionNode; readonly right: DomqlDefinitionNode }
-    | { readonly kind: 'conditional'; readonly condition: DomqlDefinitionNode; readonly consequent: DomqlDefinitionNode; readonly alternative: DomqlDefinitionNode }
+    | { readonly kind: 'conditional'; readonly condition?: DomqlDefinitionNode; readonly binding?: { readonly name: string; readonly value: DomqlDefinitionNode }; readonly consequent: DomqlDefinitionNode; readonly alternative: DomqlDefinitionNode }
     | { readonly kind: 'and' | 'or'; readonly operands: readonly DomqlDefinitionNode[] };
 
 /** A local of an object expression: its name, which a `local` node uses, and the value it names, never output. */
@@ -435,7 +434,7 @@ export interface DomqlStateDeclaration {
  * A behavior takes its receiver, its arguments, the environment and `{ reportError }`, starts before it returns, and returns an object whose `update(receiver, args)` applies new arguments and whose `dispose` ends it.
  * An observation type takes the request, the function it calls when something may have changed and the environment, and returns an object whose `stop` ends the observation and, for a maintained one, whose `sample` returns its latest sample as `{ pending, value }`, pending until the first arrives.
  * A state takes what a member does, its name as `{ name }`, and answers a Boolean.
- * A conversion takes the value, never null, and a `DomqlConversionContext`, reads nothing else, and returns the converted value, of the type it converts to, or calls `reject` where the value has none; `to` fails for a rejected value, and `try … to "type"` answers false.
+ * A conversion takes the value, never null, and a `DomqlConversionContext`, reads nothing else, and returns the converted value, of the type it converts to, or calls `reject` where the value has none; `to` fails for a rejected value, and `try … to "type"` answers null.
  */
 export type DomqlModuleFunctions = Record<string, (...args: any[]) => unknown>;
 

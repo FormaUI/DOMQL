@@ -526,6 +526,16 @@ Use `if`, `then` and `else` to choose between values. Add `elseif` for another c
 
 Conditions are tested in order, and only the selected branch is evaluated. Branches must have compatible types; the result is nullable if either branch can be null. Group a conditional when using it as a condition, an operand or the start of a member chain.
 
+Use `if let` to name a value and choose by whether it is null. The name is available in the `then` branch alone, where it cannot be null:
+
+```text
+if let row: @cell.closest(".row")
+then { key: row:["data-key"], top: row.rect?.top }
+else null
+```
+
+`if let` tests presence, so `0`, `false` and empty text take the `then` branch. It pairs with `try`: `if let count: try @panel:["data-count"] to "number" then … else …` converts once and uses the number in its branch.
+
 ### Cast a node
 
 `parent` and `root` return nodes, which may be elements, documents, document fragments or shadow roots. Use `as` when you need members of a specific node kind:
@@ -550,16 +560,13 @@ domql.query(
 
 `to` converts what comes before it, here the attribute. An item without the attribute gives null, which `?? 0` counts as zero. Text that is no number, such as `"5 new"`, fails the evaluation with an error rather than becoming null or zero.
 
-To handle text that does not convert yourself, test it first with `try`, which answers whether the conversion accepts the value:
+To handle text that does not convert yourself, attempt the conversion with `try`, which answers null where the conversion rejects the value:
 
 ```text
-@panel {
-    let count: self:["data-count"],
-    value: if try count to "number" then count to "number" ?? 0 else 0
-}
+@panel { count: try self:["data-count"] to "number" ?? 0 }
 ```
 
-A missing attribute gives null, so `?? 0` supplies zero; malformed text makes the test false, so the `else` branch supplies zero; and valid text converts to its number. Testing and then converting carries the conversion out twice.
+A missing attribute and malformed text both give null, so `?? 0` supplies zero, and valid text converts to its number. A fault in a conversion, such as one that throws, is still an error.
 
 The built-in conversions are from a string to a number or a Boolean, and from a number or a Boolean to a string. A string converts to a number when it is written as HTML writes a number, such as `"-12"`, `" 3.5 "` or `"1e3"`, and to a Boolean when it is exactly `"true"` or `"false"`. A value already of the type converts to itself.
 
@@ -587,7 +594,7 @@ domql.query('@panel[@name].count', {
 // 3
 ```
 
-DOMQL must be able to determine the possible property names during preparation and validate them against the receiver. This supports literals, bound parameters, locals holding supported name expressions, conditionals and `??`; it is not unrestricted lookup from an arbitrary runtime string. See the specification for the full rules.
+DOMQL must be able to determine the possible property names during preparation and validate them against the receiver. This supports literals, bound parameters, locals and `if let` names holding supported name expressions, conditionals and `??`; it is not unrestricted lookup from an arbitrary runtime string. See the specification for the full rules.
 
 ### Bind values that are not there yet
 
