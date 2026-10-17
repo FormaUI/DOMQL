@@ -21,7 +21,7 @@ const CHANGE_CATEGORIES = ['constant', 'observable', 'partly-observable', 'unobs
 /** How a member reads, as the specification's modes name it, `derived` for a contract that comes from the items and expression a member selects or evaluates. */
 const READING_MODES = ['fresh', 'maintained', 'captured', 'derived'];
 const NULL_POLICIES = ['propagate', 'accept'];
-const SELECTION_KINDS = ['eventType', 'feature', 'condition'];
+const SELECTION_KINDS = ['eventType', 'condition'];
 const PARAMETER_KINDS = ['value', 'expression', 'predicate'];
 
 /** What an observation type provides: a signal that an answer may have changed, or a sampled value a member reads. */
@@ -43,7 +43,7 @@ const RESERVED_TYPE_NAMES = new Set([...BUILT_IN_TYPE_NAMES, 'list', 'event', 'n
 const DATA_TYPE_NAMES = ['number', 'string', 'boolean'];
 
 /** What a module can declare. */
-const CONTENTS = ['members', 'types', 'eventTypes', 'features', 'observationTypes', 'conversions', 'conditions'];
+const CONTENTS = ['members', 'types', 'eventTypes', 'observationTypes', 'conversions', 'conditions'];
 
 /** The keys each kind of declaration takes, so one misspelled is refused rather than ignored. */
 const MEMBER_KEYS = ['name', 'function', 'kind', 'form', 'input', 'default', 'on', 'parameters', 'result', 'changes', 'reads', 'misses', 'tolerance', 'observations'];
@@ -51,7 +51,10 @@ const PARAMETER_KEYS = ['name', 'kind', 'type', 'required', 'default', 'fixed', 
 const TYPE_KEYS = ['name', 'fields'];
 const EVENT_TYPE_KEYS = ['name', 'payload'];
 const OBSERVATION_TYPE_KEYS = ['name', 'contract', 'identity', 'shared', 'function'];
-const CONDITION_KEYS = ['name', 'function', 'on', 'changes', 'reads', 'misses', 'observations'];
+const CONDITION_KEYS = ['name', 'verb', 'function', 'on', 'changes', 'reads', 'misses', 'observations'];
+
+/** The verbs that ask a condition, each its own kind of Boolean question: `is` a state, `has` a possession or a presence, and `supports` a capability. */
+export const CONDITION_VERBS = Object.freeze(['is', 'has', 'supports']);
 
 /** How a condition is named: words of letters and digits joined by hyphens, as `focus-within` is, or the name of the module that declares it. */
 const CONDITION_NAME = /^[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*$/;
@@ -65,7 +68,6 @@ export class DomqlModule {
     #members;
     #types;
     #eventTypes;
-    #features;
     #observationTypes;
     #conversions;
     #conditions;
@@ -80,10 +82,9 @@ export class DomqlModule {
      * @param {object[]} [contents.members] The properties, operations, sources, actions and behaviors it adds.
      * @param {object[]} [contents.types] The structured types it declares, each with its fields.
      * @param {object[]} [contents.eventTypes] The event types it declares, each with the type of its event data.
-     * @param {string[]} [contents.features] The features `supports` names.
      * @param {object[]} [contents.observationTypes] The types of observation it declares, each with the function that starts one.
      * @param {object[]} [contents.conversions] The conversions it declares, each from a type of data to another, with the function that converts.
-     * @param {object[]} [contents.conditions] The conditions it declares, each a Boolean of its receivers that `.is(…)` tests by its name, with the function that tests it and the observations that cover its changes.
+     * @param {object[]} [contents.conditions] The conditions it declares, each a Boolean of its receivers that its verb asks by its name, with the function that tests it and the observations that cover its changes.
      * @param {Record<string, Function> | null} [functions] The functions that carry the members out, by the key each member names.
      * @param {symbol} [builtInToken] Held by the built-in module alone.
      */
@@ -106,9 +107,9 @@ export class DomqlModule {
             fail("A module's functions are an object holding each function by its key");
         }
 
-        const { members = [], types = [], eventTypes = [], features = [], observationTypes = [], conversions = [], conditions = [] } = contents;
+        const { members = [], types = [], eventTypes = [], observationTypes = [], conversions = [], conditions = [] } = contents;
 
-        for (const [key, list] of Object.entries({ members, types, eventTypes, features, observationTypes, conversions, conditions })) {
+        for (const [key, list] of Object.entries({ members, types, eventTypes, observationTypes, conversions, conditions })) {
             if (!Array.isArray(list)) {
                 fail(`A module's ${key} are a list`);
             }
@@ -125,7 +126,6 @@ export class DomqlModule {
         this.#types = DomqlModule.#freezeItems(types.map(type => DomqlModule.#validateTypeDeclaration(type, fail)));
         this.#members = DomqlModule.#freezeItems(members.map(member => DomqlModule.#validateMember(member, fail)));
         this.#eventTypes = DomqlModule.#freezeItems(eventTypes.map(eventType => DomqlModule.#validateEventType(eventType, fail)));
-        this.#features = DomqlModule.#freezeItems(features.map(feature => DomqlModule.#validateFeatureName(feature, fail)));
         this.#observationTypes = DomqlModule.#freezeItems(observationTypes.map(type => DomqlModule.#validateObservationType(type, fail)));
         this.#conversions = DomqlModule.#freezeItems(conversions.map(conversion => DomqlModule.#validateConversion(conversion, fail)));
         this.#conditions = DomqlModule.#freezeItems(conditions.map(condition => DomqlModule.#validateCondition(condition, fail)));
@@ -169,11 +169,6 @@ export class DomqlModule {
     /** The event types the module declares. */
     get eventTypes() {
         return this.#eventTypes;
-    }
-
-    /** The features the module declares. */
-    get features() {
-        return this.#features;
     }
 
     /** The types of observation the module declares. */
@@ -280,14 +275,6 @@ export class DomqlModule {
         }
 
         return structuredClone(eventType);
-    }
-
-    static #validateFeatureName(feature, fail) {
-        if (typeof feature !== 'string' || !/^[A-Za-z][A-Za-z0-9-]*$/.test(feature)) {
-            fail('A feature is named as a name is', String(feature));
-        }
-
-        return feature;
     }
 
     static #validateReceiverTypes(declaration, name, fail) {
@@ -421,6 +408,10 @@ export class DomqlModule {
             fail('A condition is named by words of letters and digits joined by hyphens, as focus-within is', String(name));
         }
 
+        if (condition.verb !== undefined && !CONDITION_VERBS.includes(condition.verb)) {
+            fail(`A condition is asked by one verb, ${CONDITION_VERBS.join(', ')}, is where it declares none`, name);
+        }
+
         if (!DomqlModule.#isIdentifier(condition.function)) {
             fail('It names its function as an identifier', name);
         }
@@ -434,7 +425,7 @@ export class DomqlModule {
         }
         DomqlModule.#validateObservations(condition, new Set(), name, fail);
 
-        return structuredClone({ observations: [], ...condition });
+        return structuredClone({ verb: 'is', observations: [], ...condition });
     }
 
     static #validateMember(member, fail) {
@@ -446,10 +437,14 @@ export class DomqlModule {
             fail(`A member is named as a name is and is one of ${MEMBER_KINDS.join(', ')}`, String(name));
         }
 
-        // A member whose argument selects a condition is carried out by the condition it selects, as that condition declares, so it names no function and changes as what it selects.
+        // A member whose argument selects a condition is one of the verbs that ask one, carried out by the condition it selects, as that condition declares, so it names no function and changes as what it selects.
         const selectsCondition = Array.isArray(member.parameters) && member.parameters.some(parameter => parameter?.selects === 'condition');
 
         if (selectsCondition) {
+            if (!CONDITION_VERBS.includes(name)) {
+                fail(`It selects a condition, so it is one of the verbs that ask one, ${CONDITION_VERBS.join(', ')}`, name);
+            }
+
             if (member.function !== undefined || member.changes !== 'derived' || member.reads !== 'derived') {
                 fail('It selects a condition, which carries it out, so it names no function and changes and reads as derived', name);
             }

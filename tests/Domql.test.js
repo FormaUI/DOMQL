@@ -2065,7 +2065,7 @@ describe('domql receivers of unknown type', () => {
         ['a name in a form none of its declarations takes', '@panel?.size()', 'is a property'],
         ['an argument none of its declarations takes', '@panel?:attribute[5]', "expects string and finds number"],
         ['a misspelled call in the object expression that follows', '@panel { size: self.sise() }', 'no member of the vocabulary'],
-        ['an infix call no declaration has, as has is', '@panel has "selection"', 'no member of the vocabulary'],
+        ['an infix call no declaration has', '@panel glows "selection"', 'no member of the vocabulary'],
     ])('refuse %s', (_, text, message) => {
         const error = getError(() => isolated.query(text, { panel: null }).resolve());
 
@@ -2901,7 +2901,7 @@ describe('domql conditions', () => {
         registerLit();
 
         expect(evaluate('@panel.is(@on and "lit" or "dim")', { on: true })).toBe(false);
-        expect(getError(() => isolated.query('@panel.is(@on and "lit" or "dim")', { panel, on: false }).resolve()).message).toContain("'dim' is no condition the vocabulary declares");
+        expect(getError(() => isolated.query('@panel.is(@on and "lit" or "dim")', { panel, on: false }).resolve()).message).toContain("'dim' is no condition 'is' asks");
     });
 
     it('refuses a name no condition has, and a condition of other receivers, naming the condition and the receiver, and those the vocabulary or the receiver has', () => {
@@ -2909,9 +2909,9 @@ describe('domql conditions', () => {
 
         const messageOf = text => getError(() => isolated.query(text, { panel }).resolve()).message;
 
-        expect(messageOf('@panel.is("dim")')).toContain("'dim' is no condition the vocabulary declares; it declares disabled, readonly, text-editable, focus, focus-within, hover, popover-open, checked, visible, lit, glowing, steady");
-        expect(messageOf('@panel.is("glowing")')).toContain("'glowing' is a condition of litView, not of element, whose conditions are disabled, readonly, text-editable, focus, focus-within, hover, popover-open, checked, lit");
-        expect(messageOf('@window.is("lit")')).toContain("'lit' is a condition of element, not of window, which has no condition 'is' tests");
+        expect(messageOf('@panel.is("dim")')).toContain("'dim' is no condition 'is' asks; it asks disabled, readonly, text-editable, hover, popover-open, checked, visible, lit, glowing, steady");
+        expect(messageOf('@panel.is("glowing")')).toContain("'glowing' is a condition of litView, not of element, whose conditions 'is' asks are disabled, readonly, text-editable, hover, popover-open, checked, lit");
+        expect(messageOf('@window.is("lit")')).toContain("'lit' is a condition of element, not of window, which has no condition 'is' asks");
     });
 
     it('skips its argument and its condition for a null receiver read with ?., after checking its name as any call is checked', () => {
@@ -2922,7 +2922,7 @@ describe('domql conditions', () => {
         expect(evaluate('@missing?.is("glowing")', { missing: null })).toBeNull();
         expect(evaluate('@panel.lit?.is("glowing")')).toBe(true);
         expect(tests).toBe(1);
-        expect(getError(() => evaluate('@missing?.is("dim")', { missing: null })).message).toContain("'dim' is no condition the vocabulary declares");
+        expect(getError(() => evaluate('@missing?.is("dim")', { missing: null })).message).toContain("'dim' is no condition 'is' asks");
     });
 
     it.each([
@@ -3014,8 +3014,8 @@ describe('domql ARIA conditions', () => {
 
     it.each([
         ['the view itself as a result, which is no data', '@e.aria', 'The result would hold aria, which is no data'],
-        ['a native condition the view has not', '@e.aria.is("focus")', "'focus' is a condition of element, document, not of aria, whose conditions are disabled, checked"],
-        ['an ARIA condition nothing declares', '@e.aria.is("expanded")', "'expanded' is no condition the vocabulary declares"],
+        ['a native condition the view has not', '@e.aria.is("hover")', "'hover' is a condition of element, not of aria, whose conditions 'is' asks are disabled, checked"],
+        ['an ARIA condition nothing declares', '@e.aria.is("expanded")', "'expanded' is no condition 'is' asks"],
     ])('refuses %s', (_, text, message) => {
         const error = getError(() => domql.query(text, { e: element }).resolve());
 

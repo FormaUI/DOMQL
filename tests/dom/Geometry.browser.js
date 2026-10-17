@@ -176,7 +176,7 @@ describe('Geometry in a browser', () => {
             document.body.innerHTML = '<input id="text"><input id="readonly" readonly><input id="checkbox" type="checkbox"><div id="editable" contenteditable="true"><span id="inner"></span></div><div id="plain"></div>';
 
             const element = id => document.getElementById(id);
-            const ask = (id, test) => read(`@e.is("${test}")`, { e: element(id) });
+            const ask = (id, test) => read(`@e.${test === 'focus' ? 'has' : 'is'}("${test}")`, { e: element(id) });
 
             expect(ask('text', 'text-editable')).toBe(true);
             expect(ask('readonly', 'text-editable')).toBe(false);

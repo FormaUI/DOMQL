@@ -45,7 +45,7 @@ describe('LanguageResolver', () => {
         });
 
         it('types an object expression by its written field names', () => {
-            expect(resolve('@panel { size: self.size, hasFocus: self.is("focus") }').type.toString()).toBe('{ size: size?, hasFocus: boolean }');
+            expect(resolve('@panel { size: self.size, hasFocus: self.has("focus") }').type.toString()).toBe('{ size: size?, hasFocus: boolean }');
         });
 
         it('types a bound value by the type it has', () => {
@@ -391,42 +391,42 @@ describe('LanguageResolver', () => {
 
         it('resolves an event type and a feature', () => {
             expect(resolve('(@document on "keydown") { key: self.key }').type.toString()).toBe('event<{ key: string }>');
-            expect(resolve('@window supports "share"').type.toString()).toBe('boolean');
+            expect(resolve('@window.supports("share")').type.toString()).toBe('boolean');
         });
 
         it('resolves a feature held in a local whose value is a literal or a bound parameter, and refuses one whose value reads the document', () => {
-            expect(resolve('@window { let feature: "share", canShare: self supports feature }').type.toString()).toBe('{ canShare: boolean }');
-            expect(resolve('@window { let feature: @feature, canShare: self supports feature }', { feature: 'share' }).type.toString()).toBe('{ canShare: boolean }');
-            expect(failure('@window { let feature: if @panel.attached then "share" else "clipboard", canShare: self supports feature }', { panel }).message).toContain('a string the query\'s preparation settles');
+            expect(resolve('@window { let feature: "share", supportsShare: self.supports(feature) }').type.toString()).toBe('{ supportsShare: boolean }');
+            expect(resolve('@window { let feature: @feature, supportsShare: self.supports(feature) }', { feature: 'share' }).type.toString()).toBe('{ supportsShare: boolean }');
+            expect(failure('@window { let feature: if @panel.attached then "share" else "clipboard", supportsShare: self.supports(feature) }', { panel }).message).toContain('a string the query\'s preparation settles');
         });
 
         it.each([
-            ['an and and an or', '@window supports (@wide and "share" or "clipboard")', { wide: true }],
-            ['an and and an or, the other way', '@window supports (@wide and "clipboard" or "share")', { wide: false }],
-            ['a conditional', '@window supports (if @wide then "share" else "nothing")', { wide: true }],
-            ['a conditional binding', '@window supports (if let f: @feature then f else "nothing")', { feature: 'share' }],
-            ['a coalescing operator whose value is null', '@window supports (@feature ?? "share")', { feature: null }],
-            ['a coalescing operator whose value is not', '@window supports (@feature ?? "nothing")', { feature: 'share' }],
-            ['a local holding one of them', '@window { let f: @wide and "share" or "nothing", can: self supports f }', { wide: true }],
+            ['an and and an or', '@window.supports(@wide and "share" or "clipboard")', { wide: true }],
+            ['an and and an or, the other way', '@window.supports(@wide and "clipboard" or "share")', { wide: false }],
+            ['a conditional', '@window.supports(if @wide then "share" else "nothing")', { wide: true }],
+            ['a conditional binding', '@window.supports(if let f: @feature then f else "nothing")', { feature: 'share' }],
+            ['a coalescing operator whose value is null', '@window.supports(@feature ?? "share")', { feature: null }],
+            ['a coalescing operator whose value is not', '@window.supports(@feature ?? "nothing")', { feature: 'share' }],
+            ['a local holding one of them', '@window { let f: @wide and "share" or "nothing", supported: self.supports(f) }', { wide: true }],
         ])('resolves a feature %s settles when the query is prepared, the side it does not take left unselected', (_, text, bindings) => {
             expect(() => resolve(text, bindings)).not.toThrow();
         });
 
         it('refuses a feature an expression settles to a name the vocabulary lacks, and one that reads the document to settle', () => {
-            expect(failure('@window supports (@wide and "share" or "nothing")', { wide: false }).message).toContain("'nothing' is no feature the vocabulary declares");
-            expect(failure('@window supports (if @panel.attached then "share" else "share")', { panel }).message).toContain("a string the query's preparation settles");
-            expect(failure('@window supports (@panel:["data-f"] ?? "share")', { panel }).message).toContain("a string the query's preparation settles");
+            expect(failure('@window.supports(@wide and "share" or "nothing")', { wide: false }).message).toContain("'nothing' is no condition 'supports' asks; it asks share, clipboard");
+            expect(failure('@window.supports(if @panel.attached then "share" else "share")', { panel }).message).toContain("a string the query's preparation settles");
+            expect(failure('@window.supports(@panel:["data-f"] ?? "share")', { panel }).message).toContain("a string the query's preparation settles");
         });
 
         it('resolves a feature a conditional binding holds where its value is a literal or a bound parameter, and refuses one any other expression gives', () => {
-            expect(resolve('if let feature: "share" then @window supports feature else false').type.toString()).toBe('boolean');
-            expect(resolve('if let feature: @feature then @window supports feature else false', { feature: 'share' }).type.toString()).toBe('boolean');
-            expect(failure('if let feature: @panel:["data-f"] then @window supports feature else false', { panel }).message).toContain('a string the query\'s preparation settles');
+            expect(resolve('if let feature: "share" then @window.supports(feature) else false').type.toString()).toBe('boolean');
+            expect(resolve('if let feature: @feature then @window.supports(feature) else false', { feature: 'share' }).type.toString()).toBe('boolean');
+            expect(failure('if let feature: @panel:["data-f"] then @window.supports(feature) else false', { panel }).message).toContain('a string the query\'s preparation settles');
         });
 
         it('refuses an event type or a feature the vocabulary does not declare', () => {
             expect(failure('@panel on "nonsense"').message).toContain('no event type');
-            expect(failure('@window supports "nonsense"').message).toContain('no feature');
+            expect(failure('@window.supports("nonsense")').message).toContain("'nonsense' is no condition 'supports' asks");
         });
     });
 
@@ -550,7 +550,7 @@ describe('LanguageResolver', () => {
             expect(failure('@panel != "attached"').message).toContain("write 'not @panel.attached'");
             expect(failure('@panel == @state', { panel, state: 'disabled' }).message).toContain("write '@panel.is(@state)'");
             expect(failure('@panel != "disabled"').message).toContain(`write 'not @panel.is("disabled")'`);
-            expect(failure('@panel.first("a") == "focus"').message).toContain(`write '@panel.first("a")?.is("focus")'`);
+            expect(failure('@panel.first("a") == "focus"').message).toContain(`write '@panel.first("a")?.has("focus")'`);
             expect(failure('@panel == "visible"').message).not.toContain('write');
             expect(failure('@panel == "Attached"').message).not.toContain('write');
             expect(failure('@panel == "children"').message).not.toContain('write');
@@ -566,7 +566,7 @@ describe('LanguageResolver', () => {
             expect(resolved.getResolution('/query').contract.name).toBe('disabled');
             expect(resolve('(@panel.parent as "element")?.attached').type.toString()).toBe('boolean?');
             expect(resolve('@panel[@name]', { panel, name: 'attached' }).type.toString()).toBe('boolean');
-            expect(resolve('@document.is("visible") and @document.is("focus")').type.toString()).toBe('boolean');
+            expect(resolve('@document.is("visible") and @document.has("focus")').type.toString()).toBe('boolean');
         });
 
         it('refuse a test the receiver has not', () => {
@@ -574,13 +574,15 @@ describe('LanguageResolver', () => {
             expect(failure('@document.attached').message).toContain("'attached' is not available on document");
         });
 
-        it('give the member to write for has written as the presence test it was, where the receiver\'s type declares that member', () => {
-            expect(failure('@panel has "children"').message).toContain("a presence test is the member that answers it, so write '@panel.hasChildren'");
-            expect(failure('@document has "focus"').message).toContain("write '@document.is(\"focus\")'");
-            expect(failure('@panel has "focus"').message).toContain("a presence test is the condition that answers it, so write '@panel.is(\"focus\")'");
-            expect(failure('@panel has "visible"').message).not.toContain('write');
-            expect(failure('@panel has "nonsense"').message).not.toContain('write');
-            expect(failure('@panel has "Children"').message).not.toContain('write');
+        it('give the member that answers a presence has asks of no condition, where the receiver\'s type declares that member, and the verb that asks a condition of another', () => {
+            expect(failure('@panel.has("children")').message).toContain("'children' is no condition 'has' asks");
+            expect(failure('@panel.has("children")').message).toContain("the member 'hasChildren' answers whether it has children");
+            expect(failure('@panel.has("nonsense")').message).not.toContain('hasNonsense');
+            expect(failure('@panel.has("Children")').message).not.toContain('hasChildren');
+            expect(failure('@panel.is("focus")').message).toContain(`'focus' is asked with 'has', not 'is': write '.has("focus")'`);
+            expect(failure('@window.is("share")').message).toContain(`'share' is asked with 'supports', not 'is': write '.supports("share")'`);
+            expect(failure('@document.has("visible")').message).toContain(`'visible' is asked with 'is', not 'has': write '.is("visible")'`);
+            expect(resolve('@document.has("focus") and @window.supports("share")').type.toString()).toBe('boolean');
         });
 
         it('test for null with is null, a Boolean that is never null, whatever its subject', () => {
@@ -629,7 +631,7 @@ describe('LanguageResolver', () => {
 
     describe('logical expressions', () => {
         it('type an and, an or and a not as a Boolean', () => {
-            expect(resolve('@panel.attached and @panel.is("focus")').type.toString()).toBe('boolean');
+            expect(resolve('@panel.attached and @panel.has("focus")').type.toString()).toBe('boolean');
             expect(resolve('@panel.attached or (((@panel.parent as "element")?.attached) ?? false)').type.toString()).toBe('boolean');
             expect(resolve('not @panel.attached').type.toString()).toBe('boolean');
         });
@@ -670,7 +672,7 @@ describe('LanguageResolver', () => {
         });
 
         it('resolve every operand with its own location, the current value of each the one around the expression', () => {
-            const resolved = resolve('@panel { both: self.attached and (self.is("disabled") or self.is("focus")) }');
+            const resolved = resolve('@panel { both: self.attached and (self.is("disabled") or self.has("focus")) }');
 
             expect(resolved.getResolution('/query/fields/0/value/operands/0').declaration.name).toBe('attached');
             expect(resolved.getResolution('/query/fields/0/value/operands/1/operands/1').contract.name).toBe('focus');
@@ -769,7 +771,7 @@ describe('LanguageResolver', () => {
         });
 
         it('finds each node, by the node itself, with its pointer and its resolution', () => {
-            const resolved = resolve('@panel.all("i") { h: self.size?.height, on: self.attached or self.is("focus") }');
+            const resolved = resolve('@panel.all("i") { h: self.size?.height, on: self.attached or self.has("focus") }');
             const { query } = resolved.definition;
             const [chain, on] = query.fields.map(field => field.value);
             const height = chain.target;

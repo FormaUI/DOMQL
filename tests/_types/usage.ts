@@ -203,7 +203,7 @@ const contents: DomqlModuleContents = {
     types: [{ name: 'childMetrics', fields: { childCount: 'number' } }],
     members: [{ name: 'metrics', function: 'readMetrics', kind: 'property', on: 'element', parameters: [], result: 'childMetrics', changes: 'unobserved', reads: 'fresh', tolerance: 0.5 }],
     eventTypes: [{ name: 'chart-selected', payload: 'number' }],
-    features: ['share'],
+    conditions: [{ name: 'charted', verb: 'has', function: 'isCharted', on: 'childMetrics', changes: 'constant', reads: 'fresh' }],
     observationTypes: [{ name: 'chartsChanged', contract: 'maintained', identity: ['root'], shared: true, function: 'observeCharts' }],
     conversions: [{ from: 'string', to: 'childMetrics', function: 'parseMetrics' }],
 };

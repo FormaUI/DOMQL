@@ -183,7 +183,7 @@ export class LanguageResolver {
     }
 
     /**
-     * For an equality of a value and a string that names one of the value's Boolean members or one of its conditions, as `@input == "disabled"` or `@input == @state` writes one, the test to write, negated for `!=`: the member, or `.is(…)` of the condition; nothing for any other.
+     * For an equality of a value and a string that names one of the value's Boolean members or one of its conditions, as `@input == "disabled"` or `@input == @state` writes one, the test to write, negated for `!=`: the member, or the condition asked with its verb; nothing for any other.
      * The name is read exactly, and the member or the condition is one the value's type has.
      */
     #testOf(node, left, right, isNegated) {
@@ -193,15 +193,15 @@ export class LanguageResolver {
 
         const receiverType = left.type.toNonNullable();
         const declares = this.#moduleRegistry.getMembers(right.value).some(candidate => candidate.kind === 'property' && candidate.result === 'boolean' && LanguageResolver.#matchesReceiver(candidate, receiverType, new Map()));
-        const isCondition = !declares && this.#moduleRegistry.getConditions(right.value).some(candidate => LanguageResolver.#matchesAny(candidate.on, receiverType));
+        const condition = declares ? undefined : this.#moduleRegistry.getConditions(right.value).find(candidate => LanguageResolver.#matchesAny(candidate.on, receiverType));
 
-        if (!declares && !isCondition) {
+        if (!declares && condition === undefined) {
             return '';
         }
 
         const optional = left.type.isNullable ? { optional: true } : {};
         const name = node.right.kind === 'literal' ? right.value : node.right;
-        const test = declares ? { kind: 'member', target: node.left, name, ...optional } : { kind: 'call', target: node.left, name: 'is', argument: node.right, ...optional };
+        const test = declares ? { kind: 'member', target: node.left, name, ...optional } : { kind: 'call', target: node.left, name: condition.verb, argument: node.right, ...optional };
 
         return `: a test is the member that answers it, so write '${DefinitionWriter.write(isNegated ? { kind: 'not', operand: test } : test)}'`;
     }
@@ -839,7 +839,7 @@ export class LanguageResolver {
         const candidates = this.#moduleRegistry.getMembers(node.name);
 
         if (candidates.length === 0) {
-            this.#fail(`'${node.name}' is no member of the vocabulary${this.#presenceTestOf(node, receiverType)}`, pointer);
+            this.#fail(`'${node.name}' is no member of the vocabulary`, pointer);
         }
 
         const matching = candidates.filter(candidate => LanguageResolver.#matchesReceiver(candidate, receiverType, new Map()));
@@ -1139,44 +1139,61 @@ export class LanguageResolver {
 
                 return { selected: { name, type: Type.parse(event.payload) } };
             }
-            case 'condition':
-                return { selected: { name, type: Type.createNamedType('boolean'), contract: this.#conditionFor(name, declaration, receiverType, pointer) } };
             default:
-                if (!this.#moduleRegistry.hasFeature(name)) {
-                    this.#fail(`'${name}' is no feature the vocabulary declares`, pointer);
-                }
-
-                return { selected: { name, type: Type.createNamedType('string') } };
+                return { selected: { name, type: Type.createNamedType('boolean'), contract: this.#conditionFor(name, declaration, receiverType, pointer) } };
         }
     }
 
     /**
-     * The condition of the name that applies to the receiver, whose declaration carries the request out: its function, how it changes and the observations that cover it.
-     * A receiver of unknown type selects none, and takes any name a condition has; a name no condition has, and one no condition of the receiver's type has, are refused, naming those it has.
+     * The condition of the name that applies to the receiver and that the verb asks, the call's name, whose declaration carries the request out: its function, how it changes and the observations that cover it.
+     * A receiver of unknown type selects none, and takes any name a condition of the verb has; a name no condition of the verb has, one the receiver's type answers to another verb, and one no condition of the receiver's type has, are refused, naming those it has.
      */
     #conditionFor(name, declaration, receiverType, pointer) {
-        const conditions = this.#moduleRegistry.getConditions(name);
-        const written = `'${declaration.name}'`;
+        const verb = declaration.name;
+        const written = `'${verb}'`;
+        const namesOf = predicate => this.#moduleRegistry.conditionNames.filter(other => this.#moduleRegistry.getConditions(other).some(predicate));
+        const all = this.#moduleRegistry.getConditions(name);
+        const conditions = all.filter(candidate => candidate.verb === verb);
+        const isOfUnknownType = LanguageResolver.#isOfUnknownType(receiverType);
 
-        if (conditions.length === 0) {
-            const names = this.#moduleRegistry.conditionNames;
+        // A condition another verb asks of the receiver is written with that verb, the one question it is.
+        const asked = all.find(candidate => candidate.verb !== verb && (isOfUnknownType || LanguageResolver.#matchesAny(candidate.on, receiverType)));
 
-            this.#fail(`'${name}' is no condition the vocabulary declares${names.length === 0 ? '' : `; it declares ${names.join(', ')}`}`, pointer);
+        if (asked !== undefined && !conditions.some(candidate => isOfUnknownType || LanguageResolver.#matchesAny(candidate.on, receiverType))) {
+            this.#fail(`'${name}' is asked with '${asked.verb}', not ${written}: write '.${asked.verb}(${DefinitionWriter.write({ kind: 'literal', value: name })})'`, pointer);
         }
 
-        if (LanguageResolver.#isOfUnknownType(receiverType)) {
+        if (conditions.length === 0) {
+            const names = namesOf(candidate => candidate.verb === verb);
+
+            this.#fail(`'${name}' is no condition ${written} asks${names.length === 0 ? '' : `; it asks ${names.join(', ')}`}${this.#presenceMemberOf(verb, name, receiverType)}`, pointer);
+        }
+
+        if (isOfUnknownType) {
             return null;
         }
 
         const [condition] = conditions.filter(candidate => LanguageResolver.#matchesAny(candidate.on, receiverType));
 
         if (condition === undefined) {
-            const available = this.#moduleRegistry.conditionNames.filter(other => this.#moduleRegistry.getConditions(other).some(candidate => LanguageResolver.#matchesAny(candidate.on, receiverType)));
+            const available = namesOf(candidate => candidate.verb === verb && LanguageResolver.#matchesAny(candidate.on, receiverType));
 
-            this.#fail(`'${name}' is a condition of ${conditions.flatMap(candidate => [candidate.on].flat()).join(', ')}, not of ${receiverType.toNonNullable()}${available.length === 0 ? `, which has no condition ${written} tests` : `, whose conditions are ${available.join(', ')}`}`, pointer);
+            this.#fail(`'${name}' is a condition of ${conditions.flatMap(candidate => [candidate.on].flat()).join(', ')}, not of ${receiverType.toNonNullable()}${available.length === 0 ? `, which has no condition ${written} asks` : `, whose conditions ${written} asks are ${available.join(', ')}`}`, pointer);
         }
 
         return condition;
+    }
+
+    /** For a name `has` asks that no condition has, the Boolean member the receiver's type declares for the presence it names, as `children` names `hasChildren`; nothing for any other verb, name or receiver. */
+    #presenceMemberOf(verb, name, receiverType) {
+        if (verb !== 'has' || !/^[a-z]/.test(name)) {
+            return '';
+        }
+
+        const member = `has${name[0].toUpperCase()}${name.slice(1)}`;
+        const declares = this.#moduleRegistry.getMembers(member).some(candidate => candidate.kind === 'property' && candidate.result === 'boolean' && LanguageResolver.#matchesReceiver(candidate, receiverType, new Map()));
+
+        return declares ? `; the member '${member}' answers whether it has ${name}` : '';
     }
 
     #resolveObject(node, pointer, scope) {
@@ -1373,27 +1390,6 @@ export class LanguageResolver {
         const type = Type.parse(on);
 
         return `${type.kind === 'named' ? type.name : type.kind}.${declaration.name}`;
-    }
-
-    /**
-     * For `has` written as a presence test, as `@input has "selection"`, the Boolean member the receiver's type declares for it, or the condition of its name the receiver has, as the form to write; nothing for any other name or receiver.
-     * The name is read exactly, as a presence test's was, so `"Selection"` names nothing.
-     */
-    #presenceTestOf(node, receiverType) {
-        if (node.kind !== 'infixCall' || node.name !== 'has' || node.argument?.kind !== 'literal' || typeof node.argument.value !== 'string' || !/^[a-z]/.test(node.argument.value)) {
-            return '';
-        }
-
-        const name = `has${node.argument.value[0].toUpperCase()}${node.argument.value.slice(1)}`;
-        const declares = this.#moduleRegistry.getMembers(name).some(candidate => candidate.result === 'boolean' && LanguageResolver.#matchesReceiver(candidate, receiverType, new Map()));
-
-        if (declares) {
-            return `: a presence test is the member that answers it, so write '${DefinitionWriter.write({ kind: 'member', target: node.target, name })}'`;
-        }
-
-        const isCondition = this.#moduleRegistry.getConditions(node.argument.value).some(candidate => LanguageResolver.#matchesAny(candidate.on, receiverType));
-
-        return isCondition ? `: a presence test is the condition that answers it, so write '${DefinitionWriter.write({ kind: 'call', target: node.target, name: 'is', argument: node.argument })}'` : '';
     }
 
     /** Whether a value of the type compares with a value of any type: null, which equals null alone, or a never, which no value has. */

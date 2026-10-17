@@ -178,7 +178,7 @@ describe('conditions', () => {
     it('are found by their name, with the module that declares each', () => {
         const registry = registering(new DomqlModule('lit', { conditions: [lit()] }))();
 
-        expect(registry.getConditions('lit')).toEqual([lit()]);
+        expect(registry.getConditions('lit')).toEqual([{ verb: 'is', ...lit() }]);
         expect(registry.getConditions('dim')).toEqual([]);
         expect(registry.conditionNames).toContain('lit');
         expect(registry.getOwner(registry.getConditions('lit')[0])).toBe('lit');

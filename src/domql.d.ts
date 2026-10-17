@@ -354,7 +354,7 @@ export interface DomqlParameterDeclaration {
     /** Whether the argument names something the vocabulary resolves before any evaluation; a fixed parameter is a value parameter of type `string`. */
     fixed?: boolean;
     /** What a fixed parameter names, and only a fixed one. */
-    selects?: 'eventType' | 'feature' | 'condition';
+    selects?: 'eventType' | 'condition';
     /** Whether a null argument makes the call answer null, or is accepted. */
     nulls: 'propagate' | 'accept';
     /** What an expression or a predicate argument is evaluated against. */
@@ -398,23 +398,23 @@ export interface DomqlModuleContents {
     types?: { name: string; fields: Record<string, string> }[];
     /** The event types it declares, each with the type of its event data. */
     eventTypes?: { name: string; payload: string }[];
-    /** The features `supports` names. */
-    features?: string[];
     /** The types of observation it declares. */
     observationTypes?: DomqlObservationTypeDeclaration[];
     /** The conversions it declares, each to or from one of its own types outside the built-in module, and one for each source and target. */
     conversions?: DomqlConversionDeclaration[];
-    /** The conditions it declares, which `.is(…)` tests by name. */
+    /** The conditions it declares, each asked by name with its verb. */
     conditions?: DomqlConditionDeclaration[];
 }
 
 /**
- * A condition: a Boolean of its receivers, which `.is("name")` tests, carried out by its own function under its own contract, so one condition's observability is no other's.
+ * A condition: a Boolean of its receivers, which its verb asks by name, as `.is("name")` does, carried out by its own function under its own contract, so one condition's observability is no other's.
  * A module names a condition freely on its own types, and on any other names a single one for itself, as it does members; a name is declared once for any receiver.
  */
 export interface DomqlConditionDeclaration {
     /** Its name, words of letters and digits joined by hyphens, as `focus-within` is. */
     name: string;
+    /** The verb that asks it, its one kind of Boolean question: `is` a state, the default, `has` a possession or a presence, and `supports` a capability. */
+    verb?: 'is' | 'has' | 'supports';
     /** The key of the function that tests it, among the module's functions, which takes what a member's does, its name as the one argument, and answers a Boolean. */
     function: string;
     /** The types it applies to, in DOMQL's notation. */
@@ -446,7 +446,6 @@ export interface DomqlModule {
     readonly members: readonly DomqlMemberDeclaration[];
     readonly types: readonly { readonly name: string; readonly fields: Readonly<Record<string, string>> }[];
     readonly eventTypes: readonly { readonly name: string; readonly payload: string }[];
-    readonly features: readonly string[];
     readonly observationTypes: readonly DomqlObservationTypeDeclaration[];
     readonly conversions: readonly DomqlConversionDeclaration[];
     readonly conditions: readonly DomqlConditionDeclaration[];

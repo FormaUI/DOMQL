@@ -58,9 +58,10 @@ function member(kind, name, on, result, { function: implementation = name, param
 
 const property = (name, on, result, options) => member('property', name, on, result, options);
 
-/** A condition: a Boolean of its receivers that `.is(name)` tests, carried out by its own function under its own contract, observable unless it says otherwise. */
-const condition = (name, on, implementation, { changes = 'observable', reads = 'fresh', misses, observations = [] } = {}) => ({
+/** A condition: a Boolean of its receivers that its verb, `is` unless it says otherwise, asks by name, carried out by its own function under its own contract, observable unless it says otherwise. */
+const condition = (name, on, implementation, { verb = 'is', changes = 'observable', reads = 'fresh', misses, observations = [] } = {}) => ({
     name,
+    verb,
     function: implementation,
     on,
     changes,
@@ -124,8 +125,6 @@ export class Vocabulary {
                 { name: 'resize', payload: 'domEvent' },
             ],
 
-            features: ['share', 'clipboard'],
-
             observationTypes: [
                 { name: 'resize', contract: 'invalidation', identity: ['box'], function: 'observeResize' },
                 { name: 'mutation', contract: 'invalidation', identity: ['attributes', 'childList', 'subtree', 'characterData'], function: 'observeMutation' },
@@ -142,8 +141,8 @@ export class Vocabulary {
                 condition('disabled', 'element', 'disabled', { observations: [{ type: 'mutation', of: 'root', attributes: ['disabled'], childList: true, subtree: true }] }),
                 condition('readonly', 'element', 'readOnly', { observations: [{ type: 'mutation', of: 'receiver', attributes: ['readonly', 'type'] }] }),
                 condition('text-editable', 'element', 'textEditable', { changes: 'partly-observable', misses: 'the document\'s design mode', observations: [{ type: 'mutation', of: 'roots', attributes: ['disabled', 'readonly', 'type', 'contenteditable', 'inert'], childList: true, subtree: true }] }),
-                condition('focus', 'element', 'focused', { observations: [FOCUS] }),
-                condition('focus-within', 'element', 'focusWithin', { observations: [FOCUS] }),
+                condition('focus', 'element', 'focused', { verb: 'has', observations: [FOCUS] }),
+                condition('focus-within', 'element', 'focusWithin', { verb: 'has', observations: [FOCUS] }),
                 condition('hover', 'element', 'hover', { changes: 'partly-observable', misses: 'an element moving under a pointer that does not move, where the browser fires no pointer event for it', observations: [{ type: 'event', of: 'document', types: ['pointerover', 'pointerout'] }] }),
                 condition('popover-open', 'element', 'popoverOpen', { observations: [POPOVERS] }),
                 condition('checked', 'element', 'checked', {
@@ -152,7 +151,11 @@ export class Vocabulary {
                     observations: [{ type: 'event', of: 'root', types: ['input', 'change', 'reset'], capture: true }, { type: 'mutation', of: 'root', attributes: ['checked', 'selected'], childList: true, subtree: true }],
                 }),
                 condition('visible', 'document', 'visible', { observations: [{ type: 'visibility', of: 'receiver' }] }),
-                condition('focus', 'document', 'hasFocus', { observations: [{ type: 'event', of: 'window', types: ['focus', 'blur'] }] }),
+                condition('focus', 'document', 'hasFocus', { verb: 'has', observations: [{ type: 'event', of: 'window', types: ['focus', 'blur'] }] }),
+
+                // The capabilities the window's browser offers, each the presence of the API it names, which says nothing of whether a particular use of it succeeds.
+                condition('share', 'window', 'supportsShare', { verb: 'supports', changes: 'constant' }),
+                condition('clipboard', 'window', 'supportsClipboard', { verb: 'supports', changes: 'constant' }),
 
                 // The ARIA conditions of an element's ARIA view, each its own attribute's value read under its own contract, never its native state.
                 condition('checked', 'aria', 'ariaChecked', { observations: [{ type: 'mutation', of: 'receiver', attributes: ['aria-checked'] }] }),
@@ -183,11 +186,12 @@ export class Vocabulary {
                 property('last', 'list<T>', 'T?', { changes: 'derived', reads: 'derived' }),
 
                 operation('matchesMedia', 'window', 'boolean', { form: 'infix', parameters: [valueParameter('query', 'string')], observations: [{ type: 'media', of: 'window', query: { argument: 'query' } }] }),
-                operation('supports', 'window', 'boolean', { form: 'infix', changes: 'constant', parameters: [valueParameter('feature', 'string', { fixed: true, selects: 'feature' })] }),
                 operation('attribute', 'element', 'string?', { form: 'indexer', isDefault: true, parameters: [valueParameter('name', 'string')], observations: [{ type: 'mutation', of: 'receiver', attributes: [{ argument: 'name' }] }] }),
                 operation('class', 'element', 'boolean', { form: 'indexer', parameters: [valueParameter('name', 'string')], observations: [{ type: 'mutation', of: 'receiver', attributes: ['class'] }] }),
-                // A condition's own declaration carries it out, its function, how it changes and the observations that cover it, so declaring the call on any receiver selects the condition's own receivers.
+                // The verbs that ask a condition: the condition's own declaration carries it out, its function, how it changes and the observations that cover it, so declaring each on any receiver selects the condition's own receivers.
                 operation('is', 'any', 'boolean', { function: null, changes: 'derived', reads: 'derived', parameters: [valueParameter('name', 'string', { fixed: true, selects: 'condition' })] }),
+                operation('has', 'any', 'boolean', { function: null, changes: 'derived', reads: 'derived', parameters: [valueParameter('name', 'string', { fixed: true, selects: 'condition' })] }),
+                operation('supports', 'any', 'boolean', { function: null, changes: 'derived', reads: 'derived', parameters: [valueParameter('name', 'string', { fixed: true, selects: 'condition' })] }),
                 operation('style', 'element', 'string?', { ...STYLE, form: 'indexer', parameters: [valueParameter('property', 'string')], observations: [RESIZE, ATTRIBUTES] }),
                 operation('intersects', 'element', 'boolean?', { reads: 'maintained', form: 'infix', input: 'options', parameters: [valueParameter('root', 'element?', { default: null, nulls: 'accept', omitted: 'the window' }), valueParameter('margin', 'number', { default: 0 })], observations: [{ type: 'intersection', of: 'receiver', root: { argument: 'root' }, margin: { argument: 'margin' } }] }),
                 operation('overlaps', 'element', 'boolean?', { ...GEOMETRY, form: 'infix', input: 'options', parameters: [valueParameter('other', 'element'), valueParameter('margin', 'number', { default: 0 })], observations: [RESIZE, { type: 'resize', of: { argument: 'other' } }, SCROLLING, WINDOW_RESIZE] }),

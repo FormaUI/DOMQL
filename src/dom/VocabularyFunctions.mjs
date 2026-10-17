@@ -81,7 +81,8 @@ export class VocabularyFunctions {
             last: items => items.at(-1) ?? null,
 
             matchesMedia: (window, { query }) => window.matchMedia(query).matches,
-            supports: (window, { feature }) => VocabularyFunctions.#supports(window, feature),
+            supportsShare: window => typeof window.navigator.share === 'function',
+            supportsClipboard: window => window.navigator.clipboard !== undefined,
             attribute: (element, { name }) => element.getAttribute(name),
             // A class is one token, as a class list takes one: never empty, and holding none of the ASCII whitespace that separates its tokens.
             class: (element, { name }) => {
@@ -226,10 +227,6 @@ export class VocabularyFunctions {
 
     static #isTextControl(element) {
         return element.localName === 'textarea' || element.localName === 'input';
-    }
-
-    static #supports(window, feature) {
-        return feature === 'share' ? typeof window.navigator.share === 'function' : window.navigator.clipboard !== undefined;
     }
 
     /** The largest or smallest of the numbers an expression produces, null where it produces none. */

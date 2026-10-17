@@ -319,16 +319,16 @@ describe('QueryEvaluator', () => {
             const button = document.createElement('button');
             document.body.append(button);
 
-            expect(read('@button.is("focus")', { button })).toBe(false);
+            expect(read('@button.has("focus")', { button })).toBe(false);
 
             button.focus();
 
-            expect(read('@button.is("focus")', { button })).toBe(true);
+            expect(read('@button.has("focus")', { button })).toBe(true);
         });
 
         it('answers the document predicates', () => {
             expect(read('@document.is("visible")')).toBeTypeOf('boolean');
-            expect(read('@document.is("focus")')).toBeTypeOf('boolean');
+            expect(read('@document.has("focus")')).toBeTypeOf('boolean');
         });
 
         it('gives a member the document and the window it is read in where an argument names a root', () => {
@@ -394,11 +394,11 @@ describe('QueryEvaluator', () => {
 
         it('test the current value inside an object expression and an expression argument', () => {
             expect(read('@panel { attached: self.attached, empty: self.hasChildren }', { panel })).toEqual({ attached: true, empty: true });
-            expect(read('@panel.children.where(self.attached and self.is("focus")).count', { panel })).toBe(0);
+            expect(read('@panel.children.where(self.attached and self.has("focus")).count', { panel })).toBe(0);
         });
 
         it('read a test by a name the bindings hold, a condition and a member by name', () => {
-            expect(read('@panel.is(@state) or @panel[@other]', { panel, state: 'focus', other: 'attached' })).toBe(true);
+            expect(read('@panel.has(@state) or @panel[@other]', { panel, state: 'focus', other: 'attached' })).toBe(true);
         });
 
         it('answer whether a subject is null with is null, never null itself', () => {
@@ -574,7 +574,7 @@ describe('QueryEvaluator', () => {
             expect(read('@window.size.width')).toBeTypeOf('number');
             expect(read('@window.devicePixelRatio')).toBeTypeOf('number');
             expect(read('@window matchesMedia "(min-width: 0px)"')).toBe(true);
-            expect(read('@window { share: self supports "share" }').share).toBeTypeOf('boolean');
+            expect(read('@window { share: self.supports("share") }').share).toBeTypeOf('boolean');
         });
 
         it('reads the window it is given', () => {
@@ -770,7 +770,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('stand where each member is written, inside the items of a list and the operands of an or', () => {
-            const evaluation = evaluate('@panel.all("i") { h: self.rect?.height, on: self.attached or self.is("focus") }', { panel });
+            const evaluation = evaluate('@panel.all("i") { h: self.rect?.height, on: self.attached or self.has("focus") }', { panel });
 
             expect(evaluation.dependencies.map(dependency => [dependency.member, dependency.pointer])).toEqual([
                 ['all', '/query/target'],
@@ -828,8 +828,8 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('include the predicates an or reached, and none it did not need', () => {
-            const reached = evaluate('@panel.attached or @panel.is("focus")', { panel });
-            const both = evaluate('@panel.is("focus") or @panel.attached', { panel });
+            const reached = evaluate('@panel.attached or @panel.has("focus")', { panel });
+            const both = evaluate('@panel.has("focus") or @panel.attached', { panel });
 
             expect(membersOf(reached)).toEqual(['attached']);
             expect(membersOf(both)).toEqual(['focus', 'attached']);

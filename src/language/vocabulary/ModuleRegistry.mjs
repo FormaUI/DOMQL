@@ -20,9 +20,6 @@ export class ModuleRegistry {
     /** @type {Map<string, object>} */
     #eventTypes = new Map();
 
-    /** @type {Set<string>} */
-    #features = new Set();
-
     /** @type {Map<string, object>} */
     #observationTypes = new Map();
 
@@ -148,8 +145,6 @@ export class ModuleRegistry {
             this.#eventTypes.set(event.name, event);
         }
 
-        module.features.forEach(feature => this.#features.add(feature));
-
         for (const type of module.observationTypes) {
             this.#observationTypes.set(type.name, type);
             this.#owners.set(type, module.name);
@@ -210,11 +205,6 @@ export class ModuleRegistry {
     /** The event type declared so, or undefined. */
     getEventType(name) {
         return this.#eventTypes.get(name);
-    }
-
-    /** Whether a module declared the feature. */
-    hasFeature(name) {
-        return this.#features.has(name);
     }
 
     /** The type of observation declared so, or undefined. */

@@ -6,7 +6,7 @@ describe('Vocabulary', () => {
     const registry = new ModuleRegistry([Vocabulary.module]);
     const names = [
         'size', 'devicePixelRatio', 'rect', 'clientSize', 'grid', 'selection', 'children', 'parent', 'count', 'first', 'last',
-        'matchesMedia', 'supports', 'attribute', 'style', 'intersects', 'overlaps', 'matches', 'closest',
+        'matchesMedia', 'is', 'has', 'supports', 'attribute', 'style', 'intersects', 'overlaps', 'matches', 'closest',
         'all', 'at', 'max', 'min', 'sum', 'where', 'on',
     ];
 
@@ -14,13 +14,12 @@ describe('Vocabulary', () => {
         expect(names.filter(name => registry.getMembers(name).length === 0)).toEqual([]);
     });
 
-    it('declares is as the one call that tests a condition, of any receiver, carried out by the condition it selects, and no member for has', () => {
-        const [is] = registry.getMembers('is');
+    it.each(['is', 'has', 'supports'])('declares %s as the one call that asks a condition of its verb, of any receiver, carried out by the condition it selects', verb => {
+        const [declaration] = registry.getMembers(verb);
 
-        expect(registry.getMembers('is')).toHaveLength(1);
-        expect(is).toMatchObject({ kind: 'operation', form: 'call', on: 'any', result: 'boolean', changes: 'derived', reads: 'derived' });
-        expect(is.parameters[0]).toMatchObject({ name: 'name', type: 'string', fixed: true, selects: 'condition' });
-        expect(registry.getMembers('has')).toEqual([]);
+        expect(registry.getMembers(verb)).toHaveLength(1);
+        expect(declaration).toMatchObject({ kind: 'operation', form: 'call', on: 'any', result: 'boolean', changes: 'derived', reads: 'derived' });
+        expect(declaration.parameters[0]).toMatchObject({ name: 'name', type: 'string', fixed: true, selects: 'condition' });
     });
 
     it('gives every member observation coverage and, where partial, what it misses', () => {
@@ -43,9 +42,12 @@ describe('Vocabulary', () => {
     });
 
     it('declares the conditions of elements and of the document, each tested with is, the state the browser sets rather than one that follows from structure', () => {
-        const conditions = Vocabulary.module.conditions.map(condition => `${condition.on}.${condition.name}`);
+        const conditions = Vocabulary.module.conditions.map(condition => `${condition.on}.${condition.verb}("${condition.name}")`);
 
-        expect(conditions).toEqual(['element.disabled', 'element.readonly', 'element.text-editable', 'element.focus', 'element.focus-within', 'element.hover', 'element.popover-open', 'element.checked', 'document.visible', 'document.focus', 'aria.checked', 'aria.disabled']);
+        expect(conditions).toEqual([
+            'element.is("disabled")', 'element.is("readonly")', 'element.is("text-editable")', 'element.has("focus")', 'element.has("focus-within")', 'element.is("hover")', 'element.is("popover-open")', 'element.is("checked")',
+            'document.is("visible")', 'document.has("focus")', 'window.supports("share")', 'window.supports("clipboard")', 'aria.is("checked")', 'aria.is("disabled")',
+        ]);
     });
 
 describe('observations', () => {

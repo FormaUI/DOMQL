@@ -88,7 +88,7 @@ describe('DomqlModule', () => {
 
     it('refuses what a module does not declare, predicates among them, a test being a member that answers a Boolean', () => {
         expect(messageOf(() => new DomqlModule('charts', { predicates: [] }))).toContain("'predicates' is none of them; a test is a member that answers a Boolean");
-        expect(messageOf(() => new DomqlModule('charts', { member: [] }))).toContain("A module declares members, types, eventTypes, features, observationTypes, conversions, conditions, and 'member' is none of them");
+        expect(messageOf(() => new DomqlModule('charts', { member: [] }))).toContain("A module declares members, types, eventTypes, observationTypes, conversions, conditions, and 'member' is none of them");
         expect(() => new DomqlModule('charts', { members: [declaration({ name: 'charts', result: 'boolean' })] })).not.toThrow();
     });
 
@@ -101,7 +101,7 @@ describe('DomqlModule', () => {
     });
 
     it('refuses contents, lists and functions of the wrong shape with an error that names them', () => {
-        expect(messageOf(() => new DomqlModule('charts', null))).toContain("A module's contents are an object declaring members, types, eventTypes, features, observationTypes");
+        expect(messageOf(() => new DomqlModule('charts', null))).toContain("A module's contents are an object declaring members, types, eventTypes, observationTypes");
         expect(messageOf(() => new DomqlModule('charts', { members: {} }))).toContain("A module's members are a list");
         expect(messageOf(() => new DomqlModule('charts', { types: 'chart' }))).toContain("A module's types are a list");
         expect(messageOf(() => new DomqlModule('charts', { members: [null] }))).toContain('A member is an object declaring');
@@ -113,16 +113,17 @@ describe('DomqlModule', () => {
         const member = overrides => declaration({ name: 'charts', kind: 'operation', input: 'direct', parameters: [parameter({ type: 'string', ...overrides })] });
 
         expect(messageOf(() => new DomqlModule('charts', { members: [member({ fixed: 'yes' })] }))).toContain('declares whether it is fixed as a Boolean');
-        expect(messageOf(() => new DomqlModule('charts', { members: [member({ selects: 'feature' })] }))).toContain('selects nothing, since it is not fixed');
-        expect(messageOf(() => new DomqlModule('charts', { members: [member({ type: 'number', fixed: true, selects: 'feature' })] }))).toContain('is a value parameter of type string');
-        expect(() => new DomqlModule('charts', { members: [member({ fixed: true, selects: 'feature' })] })).not.toThrow();
+        expect(messageOf(() => new DomqlModule('charts', { members: [member({ selects: 'eventType' })] }))).toContain('selects nothing, since it is not fixed');
+        expect(messageOf(() => new DomqlModule('charts', { members: [member({ type: 'number', fixed: true, selects: 'eventType' })] }))).toContain('is a value parameter of type string');
+        expect(() => new DomqlModule('charts', { members: [member({ fixed: true, selects: 'eventType' })] })).not.toThrow();
     });
 
     it('refuses a member that selects a member, which an access by name reads', () => {
         const selecting = selects => declaration({ name: 'charts', kind: 'operation', input: 'direct', parameters: [parameter({ type: 'string', fixed: true, selects })] });
 
-        expect(messageOf(() => new DomqlModule('charts', { members: [selecting('member')] }))).toContain('declares what it selects, one of eventType, feature');
-        expect(() => new DomqlModule('charts', { members: [selecting('feature')] })).not.toThrow();
+        expect(messageOf(() => new DomqlModule('charts', { members: [selecting('member')] }))).toContain('declares what it selects, one of eventType, condition');
+        expect(messageOf(() => new DomqlModule('charts', { members: [selecting('feature')] }))).toContain('declares what it selects, one of eventType, condition');
+        expect(() => new DomqlModule('charts', { members: [selecting('eventType')] })).not.toThrow();
     });
 
     it('refuses a member that selects a predicate, which no member is', () => {
@@ -237,7 +238,7 @@ describe('conditions', () => {
     const declaring = (conditions, functions = null) => new DomqlModule('lit', { conditions }, functions);
 
     it('are kept as data, each a name, its receivers, its function and its own contract', () => {
-        expect(declaring([condition()]).conditions).toEqual([condition()]);
+        expect(declaring([condition()]).conditions).toEqual([{ verb: 'is', ...condition() }]);
         const { observations, ...constant } = condition({ changes: 'constant' });
 
         expect(observations).toHaveLength(1);
@@ -254,7 +255,8 @@ describe('conditions', () => {
         ['an observable change no observation covers', { observations: [] }, 'It changes as observable, so it names the observations that cover its changes'],
         ['a partly observable change that names no misses', { changes: 'partly-observable' }, 'A partly observable member states the changes it misses'],
         ['an observation of an argument, which a condition takes none of', { observations: [{ type: 'mutation', of: { argument: 'name' } }] }, "observes the receiver, its root, its roots, the window, the document or an argument of the member"],
-        ['a key it does not take', { result: 'boolean' }, "A condition declares name, function, on, changes, reads, misses, observations, and 'result' is none of them"],
+        ['a key it does not take', { result: 'boolean' }, "A condition declares name, verb, function, on, changes, reads, misses, observations, and 'result' is none of them"],
+        ['a verb that asks no condition', { verb: 'does' }, 'A condition is asked by one verb, is, has, supports, is where it declares none'],
     ])('refuse %s', (_, overrides, message) => {
         expect(messageOf(() => declaring([condition(overrides)]))).toContain(message);
     });
@@ -263,8 +265,10 @@ describe('conditions', () => {
         expect(messageOf(() => declaring([condition()], {}))).toContain("The function 'isLit' it names is not among the module's functions");
     });
 
-    it('are tested through a member whose fixed argument selects one, which names no function and derives how it changes', () => {
-        const selecting = overrides => new DomqlModule('lit', { members: [declaration({ name: 'lit', kind: 'operation', form: 'indexer', function: undefined, changes: 'derived', reads: 'derived', result: 'boolean', parameters: [parameter({ name: 'name', type: 'string', fixed: true, selects: 'condition' })], ...overrides })] });
+    it('are asked through a verb whose fixed argument selects one, which names no function and derives how it changes', () => {
+        expect(messageOf(() => new DomqlModule('lit', { members: [declaration({ name: 'lit', kind: 'operation', form: 'call', input: 'direct', function: undefined, changes: 'derived', reads: 'derived', result: 'boolean', parameters: [parameter({ name: 'name', type: 'string', fixed: true, selects: 'condition' })] })] }))).toContain('It selects a condition, so it is one of the verbs that ask one, is, has, supports');
+
+        const selecting = overrides => new DomqlModule('lit', { members: [declaration({ name: 'is', kind: 'operation', form: 'indexer', function: undefined, changes: 'derived', reads: 'derived', result: 'boolean', parameters: [parameter({ name: 'name', type: 'string', fixed: true, selects: 'condition' })], ...overrides })] });
 
         expect(selecting({}).members[0].function).toBeUndefined();
         expect(messageOf(() => selecting({ function: 'lit' }))).toContain('It selects a condition, which carries it out, so it names no function and changes and reads as derived');
