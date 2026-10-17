@@ -17,9 +17,9 @@ export class ParsedTexts {
     /** @type {WeakMap<object, TextLocations>} */
     static #locations = new WeakMap();
 
-    /** Where in its text each part of the parsed definition came from, or null for a definition not parsed from text. */
+    /** Where each part of the definition came from: in its text, for one parsed from text, or in the definition its caller supplied, where validation moved a part; null otherwise. */
     static locationsOf(definition) {
-        return ParsedTexts.#locations.get(definition) ?? null;
+        return ParsedTexts.#locations.get(definition) ?? DefinitionValidator.locationsOf(definition);
     }
 
     /** The text the definition was parsed from, or null for a definition not parsed from text. */

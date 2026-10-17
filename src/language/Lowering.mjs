@@ -97,6 +97,9 @@ export class Lowering {
                 return this.#lowerChain(child);
             case 'object':
                 return this.#lowerObject(child, undefined, SyntaxTree.startOf(child));
+            case 'interpolated-string':
+                // Its text and its interpolations in the order written, each run of text the characters it stands for.
+                return this.#span({ kind: 'interpolatedString', parts: children.slice(1, -1).map(part => (SyntaxTree.isToken(part) ? { kind: 'text', value: part.value } : { kind: 'expression', expression: this.#lower(part.children[1]) })) }, child);
             default:
                 throw new TypeError(`No definition is lowered from a ${child.kind}`);
         }

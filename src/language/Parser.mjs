@@ -20,7 +20,7 @@ const TOKEN_DESCRIPTIONS = {
 const CHAIN_CONTINUATIONS = new Set(['.', '?.', '[', '?[', ':', '?:', '{']);
 
 /** The tokens that, after a space, make the name before them a member written without its receiver, which no local is: an argument. */
-const ARGUMENT_STARTS = new Set(['self', 'literal']);
+const ARGUMENT_STARTS = new Set(['self', 'literal', 'interpolated-string-start']);
 
 /** The tokens that make an access optional. */
 const OPTIONAL_ACCESSES = new Set(['?.', '?[', '?:']);
@@ -601,9 +601,9 @@ export class Parser {
         for (let index = this.#index; index < this.#tokens.length; index++) {
             const token = this.#tokens[index];
 
-            if (token.type === '(' || token.type === '(?' || token.type === '[' || token.type === '?[' || token.type === '{') {
+            if (token.type === '(' || token.type === '(?' || token.type === '[' || token.type === '?[' || token.type === '{' || token.type === 'hole-start') {
                 depth++;
-            } else if (token.type === ')' || token.type === ']' || token.type === '}') {
+            } else if (token.type === ')' || token.type === ']' || token.type === '}' || token.type === 'hole-end') {
                 depth--;
 
                 if (depth === 0) {
@@ -670,9 +670,50 @@ export class Parser {
                 return this.#take();
             case '{':
                 return this.#parseObject();
+            case 'interpolated-string-start':
+                return this.#parseInterpolatedString();
             default:
                 throw this.#unexpected('a value');
         }
+    }
+
+    /** Reads an interpolated string: its `$"`, its runs of text and its interpolations, in the order written, and its closing quote. */
+    #parseInterpolatedString() {
+        const children = [this.#take()];
+
+        for (;;) {
+            switch (this.#token.type) {
+                case 'interpolated-text':
+                    children.push(this.#take());
+                    break;
+                case 'hole-start':
+                    children.push(this.#parseInterpolation());
+                    break;
+                case 'interpolated-string-end':
+                    children.push(this.#take());
+
+                    return Parser.#node('interpolated-string', children);
+                default:
+                    throw this.#unexpected(`'"' closing the interpolated string`);
+            }
+        }
+    }
+
+    /** Reads an interpolation: the `{` that opens it, the one expression it holds and the `}` that closes it. */
+    #parseInterpolation() {
+        const open = this.#take();
+
+        if (this.#token.type === 'hole-end') {
+            throw this.#fail("An interpolation holds an expression between '{' and '}'", open.start);
+        }
+
+        const expression = this.#parseExpression();
+
+        if (this.#token.type !== 'hole-end') {
+            throw this.#unexpected("'}' closing the interpolation");
+        }
+
+        return Parser.#node('interpolation', [open, expression, this.#take()]);
     }
 
     /** Whether the current token continues a chain: an access, a bracket property access, an indexer, each optional or not, or an object expression. */

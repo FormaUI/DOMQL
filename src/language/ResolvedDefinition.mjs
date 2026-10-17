@@ -120,6 +120,13 @@ export class ResolvedDefinition {
                     }
                 }
                 break;
+            case 'interpolatedString':
+                node.parts.forEach((part, index) => {
+                    if (part.kind === 'expression') {
+                        this.#index(part.expression, `${pointer}/parts/${index}/expression`);
+                    }
+                });
+                break;
             case 'and':
             case 'or':
             case 'comparison':

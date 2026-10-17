@@ -23,8 +23,15 @@ describe('SyntaxTree', () => {
         'a/* the value */to/* its type */"number"',
         '{ say = "say \\"hi\\" \\\\ // not a comment" }',
         'list:item[i]?.size // trailing comment with no line feed',
+        '$"a {{b}} {  c ?? "}" /* } */ } and {$"{ { d = 1 }.d}"}\\u{7B}"',
     ])('reconstructs its text exactly, whitespace and comments included: %j', text => {
         expect(SyntaxTree.textOf(treeOf(text))).toBe(text);
+    });
+
+    it('reads an interpolated string as its start, its runs of text, the tokens around and within each hole, and its end, a hole\'s own braces told from its object expressions\'', () => {
+        const tokens = Tokenizer.scan('$"a {{ {b { c = 1 }.c} d"').map(token => token.type === 'interpolated-text' ? [token.type, token.value] : token.type);
+
+        expect(tokens).toEqual(['interpolated-string-start', ['interpolated-text', 'a { '], 'hole-start', 'name', '{', 'name', '=', 'literal', '}', '.', 'name', 'hole-end', ['interpolated-text', ' d'], 'interpolated-string-end', 'end']);
     });
 
     it('holds every character of the text in one token or in the trivia before one, the end of the text in the end token', () => {
@@ -73,6 +80,7 @@ describe('SyntaxTree', () => {
             'panel { let rows = self.all("i"), first = rows:[0]?:["data-key"], name = self[name], open = self.matches(".x") }',
             '-a * 2 + b % 3 - c / d',
             '0 < a <= 1 and b > c >= d',
+            '$"a {b}"',
         ];
         const kinds = new Set(texts.flatMap(text => kindsOf(treeOf(text))));
         const types = new Set(texts.flatMap(text => Tokenizer.scan(text).map(token => token.type)).concat(Tokenizer.scan('a = 1').map(token => token.type)));

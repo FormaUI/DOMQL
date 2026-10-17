@@ -3,6 +3,7 @@
  */
 
 import { ObjectUtils } from '../common/ObjectUtils.mjs';
+import { DefinitionLocations } from './DefinitionLocations.mjs';
 import { DomqlError } from './DomqlError.mjs';
 import { Names } from './Names.mjs';
 import { Specification } from './Specification.mjs';
@@ -22,6 +23,7 @@ const NODE_PROPERTIES = {
     optionalChain: { properties: ['kind', 'target'], required: ['target'] },
     equality: { properties: ['kind', 'left', 'right'], required: ['left', 'right'] },
     comparison: { properties: ['kind', 'operands', 'operators'], required: ['operands', 'operators'] },
+    interpolatedString: { properties: ['kind', 'parts'], required: ['parts'] },
     conditional: { properties: ['kind', 'condition', 'binding', 'consequent', 'alternative'], required: ['consequent', 'alternative'] },
     arithmetic: { properties: ['kind', 'operator', 'left', 'right'], required: ['operator', 'left', 'right'] },
     negate: { properties: ['kind', 'operand'], required: ['operand'] },
@@ -38,12 +40,18 @@ const NODE_PROPERTIES = {
 const CHAIN_KINDS = new Set(['member', 'call', 'indexer', 'object']);
 
 /** The kinds of node a cast's target can be, as text writes one: a receiver and its accesses, a coalescing operator, another cast, or an optional chain. */
-const CAST_TARGET_KINDS = new Set(['self', 'parameter', 'local', 'literal', 'object', 'member', 'call', 'indexer', 'optionalChain', 'coalescing', 'cast']);
+const CAST_TARGET_KINDS = new Set(['self', 'parameter', 'local', 'literal', 'interpolatedString', 'object', 'member', 'call', 'indexer', 'optionalChain', 'coalescing', 'cast']);
 
 /** The operators an arithmetic node holds. */
 const ARITHMETIC_OPERATORS = ['+', '-', '*', '/', '%'];
 
 /** The direction each comparison operator points, which every operator of a chain shares. */
+/** The properties each kind of part of an interpolated string has. */
+const INTERPOLATION_PARTS = Object.freeze({
+    text: { properties: ['kind', 'value'], required: ['value'] },
+    expression: { properties: ['kind', 'expression'], required: ['expression'] },
+});
+
 const COMPARISON_DIRECTIONS = Object.freeze({ '<': 'ascending', '<=': 'ascending', '>': 'descending', '>=': 'descending' });
 
 /** The kinds of node `try` attempts: the operations with a rejection of their own, which an attempt answers null for. */
@@ -56,7 +64,16 @@ const ENTRY_PROPERTIES = { properties: ['name', 'value'], required: ['name', 'va
 const CurrentValueAvailability = Object.freeze({ absent: 'absent', present: 'present', unknown: 'unknown' });
 
 export class DefinitionValidator {
+    /** Where in the definition its caller supplied each part of a canonical copy came from, for each copy whose validation moved a part. @type {WeakMap<object, DefinitionLocations>} */
+    static #suppliedLocations = new WeakMap();
+
     #locations;
+
+    /** The index each part of an interpolated string had in the definition being validated, by the canonical node, for each node whose parts validation moved. @type {WeakMap<object, number[]>} */
+    #partIndexes = new WeakMap();
+
+    /** Whether validation moved a part of the definition, which its locations then say. */
+    #hasMovedParts = false;
 
     /** The names of the locals in scope where the node being validated stands. @type {Set<string>} */
     #localNames = new Set();
@@ -80,7 +97,19 @@ export class DefinitionValidator {
             this.#fail('/version', `A definition is of version ${Specification.definitionVersion}`);
         }
 
-        return Object.freeze({ version: Specification.definitionVersion, query: this.#validateNode(definition.query, '/query', CurrentValueAvailability.absent) });
+        const validated = Object.freeze({ version: Specification.definitionVersion, query: this.#validateNode(definition.query, '/query', CurrentValueAvailability.absent) });
+
+        // A definition parsed from text has its text's locations; one a caller supplied, where a part moved, has locations that name its parts as the caller did.
+        if (this.#locations === null && this.#hasMovedParts) {
+            DefinitionValidator.#suppliedLocations.set(validated, new DefinitionLocations(validated, this.#partIndexes));
+        }
+
+        return validated;
+    }
+
+    /** Where in the definition its caller supplied each part of the canonical copy came from, or null where validation moved none, so each part's pointer is the caller's. */
+    static locationsOf(definition) {
+        return DefinitionValidator.#suppliedLocations.get(definition) ?? null;
     }
 
     #validateNode(node, pointer, currentValueAvailability) {
@@ -90,7 +119,7 @@ export class DefinitionValidator {
         }
 
         if (!ObjectUtils.isNonArrayObject(node) || !Object.hasOwn(NODE_PROPERTIES, node.kind)) {
-            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, indexer, object, optionalChain, equality, comparison, arithmetic, negate, conditional, coalescing, not, cast, conversion, try, and or or');
+            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, indexer, object, optionalChain, equality, comparison, interpolatedString, arithmetic, negate, conditional, coalescing, not, cast, conversion, try, and or or');
         }
 
         this.#requireProperties(node, pointer, NODE_PROPERTIES[node.kind]);
@@ -140,6 +169,8 @@ export class DefinitionValidator {
                 });
             case 'comparison':
                 return this.#validateComparison(node, pointer, currentValueAvailability);
+            case 'interpolatedString':
+                return this.#validateInterpolatedString(node, pointer, currentValueAvailability);
             case 'arithmetic':
                 if (!ARITHMETIC_OPERATORS.includes(node.operator)) {
                     this.#fail(`${pointer}/operator`, `An arithmetic operator is ${ARITHMETIC_OPERATORS.join(', ')}`);
@@ -310,6 +341,61 @@ export class DefinitionValidator {
             operands: Object.freeze(node.operands.map((operand, index) => this.#validateNode(operand, `${pointer}/operands/${index}`, currentValueAvailability))),
             operators: Object.freeze([...node.operators]),
         });
+    }
+
+    /**
+     * Validates an interpolated string: its parts, each text, a string, or an expression, which has the current value the string has.
+     * Adjacent text is one part and empty text none, so a string written in text and its definition hold the same parts.
+     */
+    #validateInterpolatedString(node, pointer, currentValueAvailability) {
+        this.#requireArray(node.parts, `${pointer}/parts`);
+
+        const parts = [];
+        const indexes = [];
+
+        node.parts.forEach((part, index) => {
+            const partPointer = `${pointer}/parts/${index}`;
+
+            if (!ObjectUtils.isNonArrayObject(part) || !Object.hasOwn(INTERPOLATION_PARTS, part.kind)) {
+                this.#fail(partPointer, 'A part of an interpolated string is an object whose kind is text or expression');
+            }
+
+            this.#requireProperties(part, partPointer, INTERPOLATION_PARTS[part.kind]);
+
+            if (part.kind === 'expression') {
+                parts.push(Object.freeze({ kind: 'expression', expression: this.#validateNode(part.expression, `${partPointer}/expression`, currentValueAvailability) }));
+                indexes.push(index);
+
+                return;
+            }
+
+            if (typeof part.value !== 'string') {
+                this.#fail(`${partPointer}/value`, 'The text of an interpolated string is a string');
+            }
+
+            if (part.value === '') {
+                return;
+            }
+
+            const previous = parts.at(-1);
+
+            if (previous?.kind === 'text') {
+                parts[parts.length - 1] = Object.freeze({ kind: 'text', value: previous.value + part.value });
+            } else {
+                parts.push(Object.freeze({ kind: 'text', value: part.value }));
+                indexes.push(index);
+            }
+        });
+
+        const validated = Object.freeze({ kind: 'interpolatedString', parts: Object.freeze(parts) });
+
+        // A part joined into the text before it, or empty and dropped, moves each after it, which a diagnostic still names by the index the caller gave it.
+        if (indexes.some((original, index) => original !== index)) {
+            this.#partIndexes.set(validated, indexes);
+            this.#hasMovedParts = true;
+        }
+
+        return validated;
     }
 
     #validateLiteral(node, pointer) {

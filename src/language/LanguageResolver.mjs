@@ -97,6 +97,14 @@ export class LanguageResolver {
                 this.#requireNumber(this.#resolveNode(node.operand, `${pointer}/operand`, scope), "What '-' negates", `${pointer}/operand`);
 
                 return { type: Type.createNamedType('number'), kind: 'query', isFixed: false };
+            case 'interpolatedString':
+                node.parts.forEach((part, index) => {
+                    if (part.kind === 'expression') {
+                        this.#requireInterpolated(this.#resolveNode(part.expression, `${pointer}/parts/${index}/expression`, scope), `${pointer}/parts/${index}/expression`);
+                    }
+                });
+
+                return { type: Type.createNamedType('string'), kind: 'query', isFixed: false };
             case 'comparison':
                 // Each operand is named by the operator it stands after, the first by the one after it.
                 node.operands.forEach((operand, index) => {
@@ -578,6 +586,29 @@ export class LanguageResolver {
 
         if (type.kind !== 'named' || type.name !== 'number') {
             this.#fail(`${what} is a number, and this one is ${type}; a conversion makes a number of text, as in … to "number"`, pointer);
+        }
+    }
+
+    /** Refuses what an interpolation inserts no text for: what is no value, a value that can be null, which a fallback or a test removes first, and a value of any type but a string or a number, a Boolean's text given by `to`. */
+    #requireInterpolated(result, pointer) {
+        const what = 'An interpolation';
+
+        this.#requireValue(result, what, pointer);
+
+        const { type } = result;
+
+        if (type.kind === 'never') {
+            return;
+        }
+
+        if (type.isNullable || type.kind === 'null') {
+            this.#fail(`${what} can be null: give it a fallback, as in (… ?? "…"), or test it first`, pointer);
+        }
+
+        if (type.kind !== 'named' || (type.name !== 'string' && type.name !== 'number')) {
+            const hint = type.kind === 'named' && type.name === 'boolean' ? '; give its text with … to "string", or choose it with a conditional' : '';
+
+            this.#fail(`${what} inserts a string or a number, and this one is ${type}${hint}`, pointer);
         }
     }
 

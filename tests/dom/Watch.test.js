@@ -418,6 +418,30 @@ describe('Watch', () => {
         });
     });
 
+    describe('an interpolated string', () => {
+        it('follows what its holes read, reporting its text only where the text changes', async () => {
+            panel.setAttribute('data-a', 'x');
+            watch('$"<{panel:["data-a"] ?? "-"}|{panel:["data-b"] ?? "-"}>"', { panel });
+            await settle();
+
+            panel.setAttribute('data-a', 'y');
+            await settle();
+            panel.setAttribute('data-c', 'unread');
+            await settle();
+            panel.removeAttribute('data-a');
+            await settle();
+
+            expect(snapshots).toEqual(['<x|->', '<y|->', '<-|->']);
+        });
+
+        it('evaluates a local its holes share once, and a branch no condition selects never', () => {
+            const before = evaluations;
+
+            expect(isolated.query('panel { let t = self.tally, text = $"{t}-{t}-{if false then self.tally else 0}" }', { panel }).evaluate().text).toBe(`${before + 1}-${before + 1}-0`);
+            expect(evaluations).toBe(before + 1);
+        });
+    });
+
     describe('a comparison', () => {
         it('evaluates each operand once, and none after the first comparison that is false', () => {
             const before = evaluations;

@@ -477,6 +477,31 @@ export class QueryEvaluator {
 
                 return (evaluator, currentValue) => !QueryEvaluator.#isTruthy(operand(evaluator, currentValue));
             }
+            case 'interpolatedString': {
+                const parts = node.parts.map(part => (part.kind === 'text' ? part.value : { expression: part.expression, evaluate: this.#getCompiledFunction(part.expression) }));
+
+                // Each interpolation is evaluated once, from left to right, and its value inserted as its text: a string as it is and a number as the built-in conversion writes it, negative zero as "0".
+                return (evaluator, currentValue) => {
+                    let text = '';
+
+                    for (const part of parts) {
+                        if (typeof part === 'string') {
+                            text += part;
+                            continue;
+                        }
+
+                        const value = part.evaluate(evaluator, currentValue);
+
+                        if (typeof value !== 'string' && typeof value !== 'number') {
+                            throw DomqlError.evaluation(`An interpolation inserts a string or a number, and is given ${QueryEvaluator.#describe(value)}`, evaluator.#locate(evaluator.#pointerOf(part.expression)));
+                        }
+
+                        text += String(value);
+                    }
+
+                    return text;
+                };
+            }
             case 'comparison': {
                 const operands = node.operands.map(operand => this.#getCompiledFunction(operand));
                 const compares = node.operators.map(operator => COMPARISONS[operator]);

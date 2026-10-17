@@ -99,6 +99,14 @@ export class TextLocations {
 
         node.operands?.forEach((operand, index) => this.#collect(operand, `${pointer}/operands/${index}`, spans));
 
+        if (node.kind === 'interpolatedString') {
+            node.parts.forEach((part, index) => {
+                if (part.kind === 'expression') {
+                    this.#collect(part.expression, `${pointer}/parts/${index}/expression`, spans);
+                }
+            });
+        }
+
         for (const entriesProperty of ['locals', 'fields']) {
             node[entriesProperty]?.forEach((entry, index) => {
                 const entryPointer = `${pointer}/${entriesProperty}/${index}`;

@@ -97,6 +97,7 @@ const DOCUMENTS = {
         { about: 'coalescing operators', each: true, results: { 2: false } },
         { about: 'casts', each: true, context: COMPARED },
         { about: 'conversions', each: true, results: { 0: 12, 1: 12, 3: '3' } },
+        { about: 'interpolated strings', results: { 0: { label: '12 unread in 3 rows', title: '{panel} panel' } } },
         { about: 'attempts', each: true, results: { 0: { count: 12 } } },
         { about: 'a result that tells missing from malformed', results: { 0: { count: { status: 'valid', value: 12 } } } },
         { about: 'locals' },
@@ -124,6 +125,7 @@ const DOCUMENTS = {
         { about: 'an attempt with a fallback', results: { 0: { count: 12 } } },
         { about: 'a result that tells missing from malformed', results: { 0: { count: { status: 'valid', value: 12 } } } },
         { about: 'arithmetic' },
+        { about: 'interpolated text', results: { 0: { summary: '3 items, 12 unread' } } },
         { about: 'a shadow tree', results: { 0: 1 } },
     ],
     'docs/domql-design.md': [

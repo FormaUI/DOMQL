@@ -7,14 +7,15 @@ import { Names } from './Names.mjs';
 
 /**
  * The types a token is, which tooling reads as they are: `invalid` for text that is no token, and `end` for the end of the text, after its last trivia.
+ * An interpolated string is read as its `$"`, its runs of text, the `{` and `}` around each of its holes and its closing quote, the tokens of each hole's expression between them.
  * A contract within DOMQL until a public tooling API stabilizes it.
  */
-export const TOKEN_TYPES = Object.freeze(['name', 'literal', 'keyword', 'self', 'invalid', 'end', '.', '?.', '?[', '?:', '??', '(?', '==', '!=', '<', '<=', '>', '>=', '=', '+', '-', '*', '/', '%', ',', ':', '(', ')', '{', '}', '[', ']']);
+export const TOKEN_TYPES = Object.freeze(['name', 'literal', 'keyword', 'self', 'invalid', 'end', 'interpolated-string-start', 'interpolated-text', 'hole-start', 'hole-end', 'interpolated-string-end', '.', '?.', '?[', '?:', '??', '(?', '==', '!=', '<', '<=', '>', '>=', '=', '+', '-', '*', '/', '%', ',', ':', '(', ')', '{', '}', '[', ']']);
 
 /**
  * @typedef {object} Token
- * @property {'name' | 'literal' | 'keyword' | 'self' | 'invalid' | 'end' | '.' | '?.' | '?[' | '?:' | '??' | '(?' | '==' | '!=' | '<' | '<=' | '>' | '>=' | '=' | '+' | '-' | '*' | '/' | '%' | ',' | ':' | '(' | ')' | '{' | '}' | '[' | ']'} type
- * @property {unknown} [value] A name's or a keyword's text, or a literal's value.
+ * @property {'name' | 'literal' | 'keyword' | 'self' | 'invalid' | 'end' | 'interpolated-string-start' | 'interpolated-text' | 'hole-start' | 'hole-end' | 'interpolated-string-end' | '.' | '?.' | '?[' | '?:' | '??' | '(?' | '==' | '!=' | '<' | '<=' | '>' | '>=' | '=' | '+' | '-' | '*' | '/' | '%' | ',' | ':' | '(' | ')' | '{' | '}' | '[' | ']'} type
+ * @property {unknown} [value] A name's or a keyword's text, a literal's value, or the text a run of an interpolated string's text stands for.
  * @property {number} start
  * @property {number} end
  * @property {number} leading Where the trivia before it begins, at its start where there is none, so every character of the text belongs to one token or to the trivia before one.
@@ -22,13 +23,13 @@ export const TOKEN_TYPES = Object.freeze(['name', 'literal', 'keyword', 'self', 
  * @property {{ message: string, offset: number }} [diagnostic] Why an invalid token is no token, and where the text first fails.
  */
 
-/** The tokens of one character, the arithmetic operators among them: `-` is always an operator, negation or subtraction, so no number begins with it, and `/` is one wherever no comment begins. */
 /** The character each escape a letter or a sign names stands for, after its backslash. */
 const ESCAPES = Object.freeze({ '"': '"', '\\': '\\', n: '\n', r: '\r', t: '\t', e: '\u001B' });
 
 /** A Unicode escape after its backslash: `u` and one to six hexadecimal digits in braces. */
 const UNICODE_ESCAPE = /u\{([0-9A-Fa-f]{1,6})\}/y;
 
+/** The tokens of one character, the arithmetic operators among them: `-` is always an operator, negation or subtraction, so no number begins with it, and `/` is one wherever no comment begins. */
 const PUNCTUATION = new Set(['.', ',', ':', '(', ')', '{', '}', '[', ']', '+', '-', '*', '/', '%']);
 const NAME = /[A-Za-z][A-Za-z0-9]*/y;
 const NUMBER = /(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?/y;
@@ -37,6 +38,12 @@ const SPACE = /\s/;
 export class Tokenizer {
     #text;
     #offset = 0;
+
+    /**
+     * What is being read, innermost last: the text of an interpolated string, with where its `$"` begins, or the expression of one of its holes, with how many braces its own object expressions have opened, so its `}` is told from theirs.
+     * @type {({ kind: 'text', start: number } | { kind: 'hole', depth: number })[]}
+     */
+    #modes = [];
 
     /** @param {string} text The query text. */
     constructor(text) {
@@ -79,6 +86,16 @@ export class Tokenizer {
     }
 
     #read() {
+        // An interpolated string's text holds no trivia: what stands between its tokens is its own text.
+        if (this.#modes.at(-1)?.kind === 'text') {
+            const token = this.#readText();
+
+            token.leading = token.start;
+            token.spaced = false;
+
+            return token;
+        }
+
         const leading = this.#offset;
         const token = this.#skipTrivia() ?? this.#readToken();
 
@@ -102,6 +119,26 @@ export class Tokenizer {
             this.#offset += 2;
 
             return { type: '(?', start, end: this.#offset };
+        }
+
+        if (character === '$') {
+            return this.#readDollar(start);
+        }
+
+        const mode = this.#modes.at(-1);
+
+        // A brace in a hole opens or closes an object expression of its expression, and the `}` no object expression is open for closes the hole.
+        if (mode?.kind === 'hole' && (character === '{' || character === '}')) {
+            if (character === '{') {
+                mode.depth++;
+            } else if (mode.depth > 0) {
+                mode.depth--;
+            } else {
+                this.#modes.pop();
+                this.#offset++;
+
+                return { type: 'hole-end', start, end: this.#offset };
+            }
         }
 
         if (PUNCTUATION.has(character)) {
@@ -239,9 +276,99 @@ export class Tokenizer {
             }
         }
 
-        const unclosed = diagnostic ?? { message: 'A string is never closed', offset: start };
+        // In a hole, a quote begins a string of the hole's own expression, so one never closed is most often the interpolated string's own quote written before the hole's `}`.
+        const message = this.#modes.at(-1)?.kind === 'hole' ? "A string is never closed: an interpolation is closed with '}' before its string's closing quote" : 'A string is never closed';
+        const unclosed = diagnostic ?? { message, offset: start };
 
         return this.#invalid(start, this.#text.length, unclosed.message, unclosed.offset);
+    }
+
+    /** Reads what `$` begins: an interpolated string's `$"`, where the quote follows it directly, and otherwise text that is no token, a space between them saying where it stands. */
+    #readDollar(start) {
+        if (this.#text[start + 1] === '"') {
+            this.#offset = start + 2;
+            this.#modes.push({ kind: 'text', start });
+
+            return { type: 'interpolated-string-start', start, end: this.#offset };
+        }
+
+        let offset = start + 1;
+
+        while (offset < this.#text.length && SPACE.test(this.#text[offset])) {
+            offset++;
+        }
+
+        const message = offset > start + 1 && this.#text[offset] === '"' ? `An interpolated string starts with '$"', with no space between them` : "Unexpected '$'";
+
+        return this.#invalid(start, start + 1, message, start);
+    }
+
+    /**
+     * Reads at the offset in an interpolated string's text: its closing quote, the `{` that opens a hole, or a run of its text up to either, an escape read whole as the character it stands for, so the brace of `\u{…}` opens no hole,
+     * and a doubled brace as the brace itself. A lone `}` and an escape the language has none of make the run invalid, as text never closed does, which ends the string at the end of the text.
+     */
+    #readText() {
+        const start = this.#offset;
+        const mode = this.#modes.at(-1);
+
+        if (this.#text[start] === '"') {
+            this.#modes.pop();
+            this.#offset = start + 1;
+
+            return { type: 'interpolated-string-end', start, end: this.#offset };
+        }
+
+        if (this.#text[start] === '{' && this.#text[start + 1] !== '{') {
+            this.#modes.push({ kind: 'hole', depth: 0 });
+            this.#offset = start + 1;
+
+            return { type: 'hole-start', start, end: this.#offset };
+        }
+
+        let value = '';
+        let offset = start;
+        let diagnostic = null;
+
+        while (offset < this.#text.length && this.#text[offset] !== '"') {
+            const character = this.#text[offset];
+
+            if ((character === '{' || character === '}') && this.#text[offset + 1] === character) {
+                value += character;
+                offset += 2;
+            } else if (character === '{') {
+                break;
+            } else if (character === '}') {
+                diagnostic ??= { message: "A literal '}' in an interpolated string is written '}}'", offset };
+                offset++;
+            } else if (character === '\\') {
+                const escape = this.#readEscape(offset);
+
+                if (escape.message !== undefined) {
+                    diagnostic ??= { message: escape.message, offset };
+                    offset++;
+                } else {
+                    value += escape.character;
+                    offset = escape.end;
+                }
+            } else {
+                value += character;
+                offset++;
+            }
+        }
+
+        if (offset >= this.#text.length) {
+            this.#modes.pop();
+
+            return this.#invalid(start, this.#text.length, diagnostic?.message ?? 'An interpolated string is never closed', diagnostic?.offset ?? mode.start);
+        }
+
+        if (diagnostic !== null) {
+            return this.#invalid(start, offset, diagnostic.message, diagnostic.offset);
+        }
+
+        this.#offset = offset;
+
+        return { type: 'interpolated-text', value, start, end: offset };
     }
 
     /** Reads the escape whose backslash is at the offset: the character it stands for and where it ends, or the message that says why it is none the language has. */

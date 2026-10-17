@@ -622,6 +622,18 @@ panel {
 
 Arithmetic takes numbers alone: a value that can be null, such as a size an element without a layout box has none of, is an error until it takes a fallback with `??` or a test, so missing data never becomes zero, and text becomes a number only through `to`, which binds tighter than arithmetic. `*`, `/` and `%` bind tighter than `+` and `-`, each level left to right. Dividing by zero, or a result too large for a number, fails the evaluation rather than giving infinity. A comparison answers a Boolean, and a chain of them pointing one way tests a range, as `0 < width <= 600`, which evaluates `width` once; it binds looser than arithmetic and tighter than `and` and `or`, and is grouped beside `==` or `??`, as `(a < b) == c`.
 
+### Build text from values
+
+Write `$` before a string to insert values into it, each expression in braces:
+
+```domql
+panel {
+    summary = $"{self.children.count} items, {self:["data-count"] ?? "none"} unread"
+}
+```
+
+A hole inserts a string as it is and a number as `to "string"` writes it. A value that can be null needs a fallback, as `?? "none"` gives the attribute above, and a Boolean takes `to "string"` or a conditional, so no `null` or `true` reaches the text by accident. Write a literal brace twice, `{{` or `}}`, and begin a hole that starts with an object expression with a space, `{ { x = 1 }.x}`.
+
 ### Cross a shadow boundary
 
 Selectors do not enter shadow roots automatically. Access the open shadow root explicitly:

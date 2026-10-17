@@ -37,6 +37,8 @@ export const NODE_KINDS = Object.freeze([
     'member-chain',
     'receiver',
     'object',
+    'interpolated-string',
+    'interpolation',
     'local',
     'field',
 ]);

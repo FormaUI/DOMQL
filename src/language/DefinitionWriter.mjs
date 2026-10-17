@@ -61,6 +61,8 @@ export class DefinitionWriter {
                 return DefinitionWriter.#write(node.target, level);
             case 'equality':
                 return DefinitionWriter.#equality(node, '==', level);
+            case 'interpolatedString':
+                return DefinitionWriter.#interpolatedString(node);
             case 'comparison':
                 // A chain is written as one, an operator between each two of its operands.
                 return node.operands.map((operand, index) => `${index === 0 ? '' : ` ${node.operators[index - 1]} `}${DefinitionWriter.#within(operand, PRECEDENCE.additive, level)}`).join('');
@@ -114,10 +116,33 @@ export class DefinitionWriter {
      */
     static #literal(value) {
         if (typeof value === 'string') {
-            return `"${value.replaceAll(ESCAPED_CHARACTERS, character => ESCAPED[character] ?? `\\u{${character.codePointAt(0).toString(16).toUpperCase()}}`)}"`;
+            return `"${DefinitionWriter.#stringText(value)}"`;
         }
 
         return Object.is(value, -0) ? '-0' : JSON.stringify(value);
+    }
+
+    /** A string's characters as a string writes them between its quotes, each escape as the canonical text writes it. */
+    static #stringText(value) {
+        return value.replaceAll(ESCAPED_CHARACTERS, character => ESCAPED[character] ?? `\\u{${character.codePointAt(0).toString(16).toUpperCase()}}`);
+    }
+
+    /**
+     * An interpolated string: its text as a string's, each brace doubled, and each interpolation's expression on one line, as a diagnostic quotes it, so no layout breaks the string,
+     * with a space after its `{` where the expression begins with one, whose two braces would read as a brace of the text.
+     */
+    static #interpolatedString(node) {
+        const parts = node.parts.map(part => {
+            if (part.kind === 'text') {
+                return DefinitionWriter.#stringText(part.value.replaceAll(/[{}]/g, '$&$&'));
+            }
+
+            const expression = DefinitionWriter.#write(part.expression, null);
+
+            return `{${expression.startsWith('{') ? ' ' : ''}${expression}}`;
+        });
+
+        return `$"${parts.join('')}"`;
     }
 
     /** An object expression's braces and entries, its locals first: on one line, or with a line for each entry where it is laid out on lines and is more than one field on one line. */
