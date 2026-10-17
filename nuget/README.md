@@ -407,7 +407,7 @@ domql.query(`
 
 A list keeps the order of its source, here the document's, and neither projecting nor filtering it reorders it.
 
-A member after a list operates on the list itself. Use `count`, `first`, `last` and `at(index)` to inspect it. Use `where` to keep items that satisfy a Boolean expression:
+A member after a list operates on the list itself. Use `count`, `first`, `last` and `at(index)` to inspect it. Use `where` to keep items whose expression is truthy:
 
 ```js
 domql.query(`
@@ -502,13 +502,20 @@ Use `and`, `or` and `not` for Boolean logic:
 @input.disabled or (@input.readOnly and not @input.textEditable)
 ```
 
-`not` binds more tightly than `and`, which binds more tightly than `or`. Evaluation stops as soon as an operand determines the answer.
+`not` binds more tightly than `and`, which binds more tightly than `or`. Evaluation stops as soon as an operand determines the answer: the operands after it are still validated, but are not evaluated or observed and cannot fail at run time.
 
-Boolean operators and conditional tests require non-null Booleans. Give a nullable Boolean a meaning before combining it with another condition:
+Only `null` and `false` are falsey; every other value is truthy, including `0`, `""` and an empty list. A condition, an operand of `and`, `or` or `not`, and the expression of `where` can be any value. `and` and `or` return the operand that decides them, so they also choose values:
 
 ```text
-(@panel.first("input")?.disabled ?? false) or @busy
+@panel:["data-label"] or "untitled"
+@panel { let input: self.first("input"), width: input and input.rect?.width }
 ```
+
+In the second line, `input.rect` reads the input with a plain `.`, because the right side of `and` runs only when `input` is truthy. DOMQL narrows locals, `if let` names, parameters and `self` this way, but not members, which are read again wherever they are written.
+
+`or` falls back for `null` and `false`, and `??` for `null` alone: `false or true` is `true`, and `false ?? true` is `false`.
+
+Unlike Lua, DOMQL types every expression, so `and` and `or` must give values of one type. `self.disabled and self` could give `false` or an element, and is refused; write `if self.disabled then self else null` if `null` is an acceptable alternative. Use a conditional whenever the chosen value may itself be `false` or `null`.
 
 Mixing `??` with `==`, `!=`, `not`, `and` or `or` requires parentheses around one of the expressions.
 
@@ -524,9 +531,9 @@ Use `if`, `then` and `else` to choose between values. Add `elseif` for another c
 }
 ```
 
-Conditions are tested in order, and only the selected branch is evaluated. Branches must have compatible types; the result is nullable if either branch can be null. Group a conditional when using it as a condition, an operand or the start of a member chain.
+Conditions are tested in order, and only the selected branch is evaluated; the others are still validated, but are not evaluated or observed and cannot fail at run time. Branches must have compatible types; the result is nullable if either branch can be null. Group a conditional when using it as a condition, an operand or the start of a member chain.
 
-Use `if let` to name a value and choose by whether it is null. The name is available in the `then` branch alone, where it cannot be null:
+Use `if let` to name a value and choose by whether it is truthy. The name is available in the `then` branch alone, where it cannot be null:
 
 ```text
 if let row: @cell.closest(".row")
@@ -534,7 +541,7 @@ then { key: row:["data-key"], top: row.rect?.top }
 else null
 ```
 
-`if let` tests presence, so `0`, `false` and empty text take the `then` branch. It pairs with `try`: `if let count: try @panel:["data-count"] to "number" then … else …` converts once and uses the number in its branch.
+`if let` tests truthiness as `if` does, so `0`, empty text and an empty list take the `then` branch, and `false` takes `else`. It pairs with `try`: `if let count: try @panel:["data-count"] to "number" then … else …` converts once and uses the number in its branch.
 
 ### Cast a node
 

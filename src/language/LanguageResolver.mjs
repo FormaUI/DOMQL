@@ -12,6 +12,9 @@ const DATA_TYPE_NAMES = new Set(['number', 'string', 'boolean']);
 /** How each form of a declaration is written, and the node that writes it. */
 const FORM_NODE_KINDS = { access: 'member', call: 'call', infix: 'infixCall', indexer: 'indexer' };
 
+/** No facts, the set a scope starts with: what narrows a stable reference on a path. */
+const NO_FACTS = new Map();
+
 export class LanguageResolver {
     #moduleRegistry;
     #bindings;
@@ -42,7 +45,7 @@ export class LanguageResolver {
 
     /** Resolves and types the definition, answering what it resolved to or throwing where it cannot. */
     resolveDefinition(definition) {
-        const result = this.#resolveNode(definition.query, '/query', { current: null, locals: new Map() });
+        const result = this.#resolveNode(definition.query, '/query', { current: null, currentKey: {}, locals: new Map(), facts: NO_FACTS });
 
         const resultType = result.kind === 'subscription' && result.type.kind === 'event' ? result.type.itemType : result.type;
 
@@ -62,13 +65,13 @@ export class LanguageResolver {
             case 'literal':
                 return this.#resolveLiteral(node);
             case 'parameter':
-                return this.#resolveParameter(node, pointer);
+                return this.#resolveParameter(node, pointer, scope);
             case 'self':
                 if (scope.current === null) {
                     this.#fail("'self' is the current value, and there is none here", pointer);
                 }
 
-                return { type: scope.current, kind: 'query', isFixed: false };
+                return { type: scope.facts.get(scope.currentKey) ?? scope.current, kind: 'query', isFixed: false };
             case 'local':
                 return this.#resolveLocal(node, pointer, scope);
             case 'member':
@@ -193,33 +196,31 @@ export class LanguageResolver {
     }
 
     /**
-     * Resolves a conditional: a Boolean condition, or a binding, any value, whose name the consequent alone sees, bound to that value without null; and two branches of one type, nullable where either is.
-     * The whole is resolved before any of it is evaluated.
+     * Resolves a conditional: a condition, any value, or a binding, any value, whose name the consequent alone sees, bound to that value where it is truthy; and two branches of one type, nullable where either is.
+     * The consequent sees what the condition's being truthy guarantees of the stable references it tests, and the alternative what its being falsey does. The whole is resolved before any of it is evaluated.
      */
     #resolveConditional(node, pointer, scope) {
-        let consequentScope = scope;
+        const test = node.binding === undefined ? node.condition : node.binding.value;
+        const testPointer = node.binding === undefined ? `${pointer}/condition` : `${pointer}/binding/value`;
+        const tested = this.#resolveNode(test, testPointer, scope);
 
-        if (node.binding === undefined) {
-            const condition = this.#resolveNode(node.condition, `${pointer}/condition`, scope);
+        this.#requireValue(tested, node.binding === undefined ? "The condition of 'if'" : "What 'if let' binds", testPointer);
 
-            this.#requireBoolean(condition, node.condition, "The condition of 'if'", `${pointer}/condition`);
-        } else {
-            const valuePointer = `${pointer}/binding/value`;
-            const bound = this.#resolveNode(node.binding.value, valuePointer, scope);
+        const truthyScope = LanguageResolver.#withFacts(scope, this.#factsOf(test, scope, true));
+        const falseyScope = LanguageResolver.#withFacts(scope, this.#factsOf(test, scope, false));
+        let consequentScope = truthyScope;
 
-            if (bound.kind !== 'query') {
-                this.#fail(`What 'if let' binds is a value, and this one is ${LanguageResolver.#descriptionOf(bound.kind)}`, valuePointer);
-            }
+        if (node.binding !== undefined) {
+            // The consequent is taken where the value is truthy, so it sees the value without null, fixed where the value is fixed; a value that is always falsey is never bound, and is a never there.
+            const isFalsey = tested.isFixed && !LanguageResolver.#isTruthy(tested.value);
+            const type = isFalsey ? Type.never : LanguageResolver.#truthyPartOf(tested.type);
+            const result = tested.isFixed && !isFalsey ? { type, kind: 'query', isFixed: true, value: tested.value } : { type, kind: 'query', isFixed: false };
 
-            // The consequent is taken where the value is not null, so it sees the value without null, fixed where the value is fixed and not null; a value that is always null is never bound, and is a never there.
-            const type = bound.type.kind === 'null' ? Type.never : bound.type.toNonNullable();
-            const result = bound.isFixed && bound.value !== null ? { type, kind: 'query', isFixed: true, value: bound.value } : { type, kind: 'query', isFixed: false };
-
-            consequentScope = LanguageResolver.#consequentScopeOf(node, scope, result);
+            consequentScope = LanguageResolver.#consequentScopeOf(node, truthyScope, result);
         }
 
         const branches = ['consequent', 'alternative'].map(branch => {
-            const result = this.#resolveNode(node[branch], `${pointer}/${branch}`, branch === 'consequent' ? consequentScope : scope);
+            const result = this.#resolveNode(node[branch], `${pointer}/${branch}`, branch === 'consequent' ? consequentScope : falseyScope);
 
             if (result.kind !== 'query') {
                 this.#fail(`A branch of 'if' is a value, and this one is ${LanguageResolver.#descriptionOf(result.kind)}`, `${pointer}/${branch}`);
@@ -236,15 +237,189 @@ export class LanguageResolver {
         return { type, kind: 'query', isFixed: false };
     }
 
-    /** Resolves an and or an or: every expression it combines, each a Boolean that cannot be null, so the whole is validated before any of it is evaluated, and answers a Boolean. */
+    /**
+     * Resolves an and or an or: every value it combines, each seeing what the operands before it guarantee where it is reached, truthy ones for `and` and falsey ones for `or`, so the whole is validated before any of it is evaluated.
+     * It answers the operand that decides it: `and` the falsey part of an operand before the last, or the last, and `or` the truthy part of one, or the last; values of more than one type no type holds, which is refused.
+     * Where fixed operands decide it, it is the one that does, fixed.
+     */
     #resolveLogical(node, pointer, scope) {
+        const passesWhenTruthy = node.kind === 'and';
+        const results = [];
+        let passed = NO_FACTS;
+
         node.operands.forEach((operand, index) => {
             const operandPointer = `${pointer}/operands/${index}`;
+            const operandScope = LanguageResolver.#withFacts(scope, passed);
+            const result = this.#resolveNode(operand, operandPointer, operandScope);
 
-            this.#requireBoolean(this.#resolveNode(operand, operandPointer, scope), operand, `An operand of '${node.kind}'`, operandPointer);
+            this.#requireValue(result, `An operand of '${node.kind}'`, operandPointer);
+            results.push(result);
+            passed = LanguageResolver.#unionOf(passed, this.#factsOf(operand, operandScope, passesWhenTruthy));
         });
 
-        return { type: Type.createNamedType('boolean'), kind: 'query', isFixed: false };
+        const last = results.length - 1;
+
+        // Operands whose values are fixed decide it before anything is evaluated, the operand that decides it giving its value and its type.
+        for (let index = 0; index <= last && results[index].isFixed; index++) {
+            if (index === last || LanguageResolver.#isTruthy(results[index].value) !== passesWhenTruthy) {
+                return results[index];
+            }
+        }
+
+        const parts = results.map((result, index) => (index === last ? result.type : LanguageResolver.#partOf(result, !passesWhenTruthy)));
+        const type = parts.reduce((merged, part) => (merged === null ? null : Type.merge(merged, part)));
+
+        if (type === null) {
+            const described = [...new Set(parts.flatMap((part, index) => LanguageResolver.#describePart(part, index === last ? null : !passesWhenTruthy)))];
+            const rewrite = node.kind === 'and' && node.operands.length === 2
+                ? `write 'if ${DefinitionWriter.write(node.operands[0])} then ${DefinitionWriter.write(node.operands[1])} else null' if null is an acceptable alternative`
+                : "a conditional, 'if … then … else …', chooses between values of one type";
+
+            this.#fail(`What '${node.kind}' gives is ${described.join(' or ')}, which no one type holds; ${rewrite}`, pointer);
+        }
+
+        return { type, kind: 'query', isFixed: false };
+    }
+
+    /** Whether a value is truthy: every value is but null and false. */
+    static #isTruthy(value) {
+        return value !== null && value !== false;
+    }
+
+    /** The type a value of the type has where it is truthy: the type without null, a Boolean staying one, since no type tells true from false. */
+    static #truthyPartOf(type) {
+        return type.kind === 'null' ? Type.never : type.toNonNullable();
+    }
+
+    /** The type a value of the type has where it is falsey: a Boolean where it is one, null where it can be null, and never where it is always truthy. */
+    static #falseyPartOf(type) {
+        if (type.kind === 'named' && type.name === 'boolean') {
+            return type;
+        }
+
+        return type.isNullable ? Type.null : Type.never;
+    }
+
+    /** The part of a result that is truthy, or falsey, told from its value where the value is fixed. */
+    static #partOf(result, isTruthy) {
+        if (result.isFixed) {
+            return LanguageResolver.#isTruthy(result.value) === isTruthy ? result.type : Type.never;
+        }
+
+        return isTruthy ? LanguageResolver.#truthyPartOf(result.type) : LanguageResolver.#falseyPartOf(result.type);
+    }
+
+    /** How a refusal names the part of an operand's type: a Boolean's truthy part as true and its falsey one as false, with null where it can be null; the last operand's, of no part, as its type. */
+    static #describePart(part, isTruthy) {
+        if (part.kind === 'never') {
+            return [];
+        }
+
+        if (isTruthy === null || !(part.kind === 'named' && part.name === 'boolean')) {
+            return [String(part)];
+        }
+
+        return isTruthy ? ['true'] : part.isNullable ? ['false', 'null'] : ['false'];
+    }
+
+    /**
+     * What the node's being truthy, or falsey, guarantees of the stable references it tests, each by its identity: a local, a conditional binding, a parameter or the current value.
+     * A reference itself tells its own truthiness, `== null` whether it is null, `not` the opposite, and `and` and `or` what every operand tells on the path taken, or only what each path that reaches the outcome shares.
+     */
+    #factsOf(node, scope, isTruthy) {
+        switch (node.kind) {
+            case 'local':
+            case 'parameter':
+            case 'self': {
+                const reference = this.#referenceOf(node, scope);
+
+                return reference === null ? NO_FACTS : new Map([[reference.key, isTruthy ? LanguageResolver.#truthyPartOf(reference.type) : LanguageResolver.#falseyPartOf(reference.type)]]);
+            }
+            case 'equality': {
+                const isNull = side => side.kind === 'literal' && side.value === null;
+                const tested = isNull(node.right) ? node.left : isNull(node.left) ? node.right : null;
+                const reference = tested === null ? null : this.#referenceOf(tested, scope);
+
+                if (reference === null) {
+                    return NO_FACTS;
+                }
+
+                return new Map([[reference.key, isTruthy ? Type.null : LanguageResolver.#truthyPartOf(reference.type)]]);
+            }
+            case 'not':
+                return this.#factsOf(node.operand, scope, !isTruthy);
+            case 'and':
+            case 'or': {
+                const passesWhenTruthy = node.kind === 'and';
+                const isEveryPassed = isTruthy === passesWhenTruthy;
+                const stops = [];
+                let passed = NO_FACTS;
+
+                for (const operand of node.operands) {
+                    const operandScope = LanguageResolver.#withFacts(scope, passed);
+
+                    if (!isEveryPassed) {
+                        stops.push(LanguageResolver.#unionOf(passed, this.#factsOf(operand, operandScope, !passesWhenTruthy)));
+                    }
+
+                    passed = LanguageResolver.#unionOf(passed, this.#factsOf(operand, operandScope, passesWhenTruthy));
+                }
+
+                return isEveryPassed ? passed : LanguageResolver.#commonOf(stops);
+            }
+            default:
+                return NO_FACTS;
+        }
+    }
+
+    /** The identity and the type, where it is resolved, of a stable reference, or null for one that is none: a member's value is read anew where it is used, so it tells nothing of a later read. */
+    #referenceOf(node, scope) {
+        switch (node.kind) {
+            case 'local': {
+                const local = scope.locals.get(node.name);
+
+                return local === undefined || local.result === null ? null : { key: local, type: scope.facts.get(local) ?? local.result.type };
+            }
+            case 'parameter': {
+                if (node.name === 'document' || node.name === 'window' || !this.#bindings.has(node.name)) {
+                    return null;
+                }
+
+                const key = `@${node.name}`;
+
+                return { key, type: scope.facts.get(key) ?? this.#bindings.getType(node.name) };
+            }
+            case 'self':
+                return scope.current === null ? null : { key: scope.currentKey, type: scope.facts.get(scope.currentKey) ?? scope.current };
+            default:
+                return null;
+        }
+    }
+
+    /** The scope with the facts added, a later fact on a reference narrowing it further. */
+    static #withFacts(scope, facts) {
+        return facts.size === 0 ? scope : { ...scope, facts: LanguageResolver.#unionOf(scope.facts, facts) };
+    }
+
+    /** Both sets of facts, the second's type for a reference both hold, since it was found where the first holds. */
+    static #unionOf(first, second) {
+        return second.size === 0 ? first : first.size === 0 ? second : new Map([...first, ...second]);
+    }
+
+    /** The facts every set holds, each reference typed as any of them allows; a reference one set lacks tells nothing. */
+    static #commonOf(sets) {
+        const [first, ...rest] = sets;
+        const common = new Map();
+
+        for (const [key, type] of first) {
+            const merged = rest.reduce((sum, set) => (sum === null || !set.has(key) ? null : Type.merge(sum, set.get(key))), type);
+
+            if (merged !== null) {
+                common.set(key, merged);
+            }
+        }
+
+        return common;
     }
 
     /**
@@ -329,36 +504,25 @@ export class LanguageResolver {
         return { ...scope, locals: new Map(scope.locals).set(node.binding.name, { result, value: node.binding.value, scope, binding: node }) };
     }
 
-    /** Resolves a negation: what it negates, a Boolean that cannot be null, and answers a Boolean. */
+    /** Resolves a negation: what it negates, any value, and answers a Boolean, true where that value is falsey. */
     #resolveNot(node, pointer, scope) {
         // An equality is negated as `!=` writes it, so the member a refusal gives is negated too.
         const operand = node.operand.kind === 'equality' ? this.#resolveEquality(node.operand, `${pointer}/operand`, scope, true) : this.#resolveNode(node.operand, `${pointer}/operand`, scope);
 
-        this.#requireBoolean(operand, node.operand, "What 'not' negates", `${pointer}/operand`);
+        this.#requireValue(operand, "What 'not' negates", `${pointer}/operand`);
 
         return { type: Type.createNamedType('boolean'), kind: 'query', isFixed: false };
     }
 
-    /** Refuses what is no Boolean that cannot be null where one stands: null is never false, so a nullable one says what absence means with `??`. */
-    #requireBoolean(result, node, what, pointer) {
+    /** Refuses what is no value where one is tested for its truthiness, an event source, an action or a behavior, and a value whose type no receiver gives, which tells nothing of whether it can be falsey. */
+    #requireValue(result, what, pointer) {
         if (result.kind !== 'query') {
-            this.#fail(`${what} is a Boolean, and this one is ${LanguageResolver.#descriptionOf(result.kind)}`, pointer);
+            this.#fail(`${what} is a value, and this one is ${LanguageResolver.#descriptionOf(result.kind)}`, pointer);
         }
 
-        const { type } = result;
-
-        // A never, which a member of the items of an empty list answers, is checked once a value reveals its type.
-        if (type.kind === 'never' || (type.kind === 'named' && type.name === 'boolean' && !type.isNullable)) {
-            return;
+        if (LanguageResolver.#holdsTypeParameter(result.type)) {
+            this.#fail(`${what} produces ${result.type}, a type no receiver gives`, pointer);
         }
-
-        if (type.isNullable && (type.kind === 'null' || (type.kind === 'named' && type.name === 'boolean'))) {
-            const text = DefinitionWriter.write({ kind: 'coalescing', value: node, fallback: { kind: 'literal', value: false } });
-
-            this.#fail(`${what} is a Boolean that cannot be null, and this one is ${type}: write '(${text})', or '?? true', to say what its absence means`, pointer);
-        }
-
-        this.#fail(`${what} is a Boolean, and this one is ${type}`, pointer);
     }
 
     /** Resolves a local: what the one in scope with its name resolved to where it was written. A name no local in scope has is refused, with the form of the current value's member of that name where it has one. */
@@ -374,7 +538,9 @@ export class LanguageResolver {
         // A binding's value is evaluated once, by its conditional, which a use of its name reads; either records the expression its value came from.
         this.#resolutions.set(pointer, local.binding === undefined ? { kind: 'local', name: node.name, value: local.value } : { kind: 'binding', conditional: local.binding, value: local.value });
 
-        return local.result;
+        const narrowed = scope.facts.get(local);
+
+        return narrowed === undefined ? local.result : { ...local.result, type: narrowed };
     }
 
     /** How the member of the type with the name is written with `self` as its receiver, or null where the type has none. */
@@ -403,7 +569,7 @@ export class LanguageResolver {
         return { type, kind: 'query', isFixed: true, value };
     }
 
-    #resolveParameter(node, pointer) {
+    #resolveParameter(node, pointer, scope) {
         if (node.name === 'document' || node.name === 'window') {
             return { type: Type.createNamedType(node.name), kind: 'query', isFixed: false };
         }
@@ -412,7 +578,7 @@ export class LanguageResolver {
             this.#fail(`The parameter '@${node.name}' is not bound`, pointer);
         }
 
-        return { type: this.#bindings.getType(node.name), kind: 'query', isFixed: true, value: this.#bindings.get(node.name) };
+        return { type: scope.facts.get(`@${node.name}`) ?? this.#bindings.getType(node.name), kind: 'query', isFixed: true, value: this.#bindings.get(node.name) };
     }
 
     #resolveMember(node, pointer, scope) {
@@ -782,17 +948,22 @@ export class LanguageResolver {
             const expected = Type.parse(parameter.type).resolveTypeParameters(typeArguments);
             let result;
 
-            if (parameter.kind === 'expression') {
+            if (parameter.kind === 'expression' || parameter.kind === 'predicate') {
                 const isOfUnknownType = LanguageResolver.#isOfUnknownType(receiverType);
 
                 if (receiverType.kind !== 'list' && !isOfUnknownType) {
                     this.#fail(`'${declaration.name}' evaluates its expression against the items of a list, and ${receiverType.toNonNullable()} has none`, valuePointer);
                 }
 
-                result = this.#resolveNode(given.node, valuePointer, { current: isOfUnknownType ? Type.never : receiverType.itemType.toNonNullable(), locals: scope.locals });
+                result = this.#resolveNode(given.node, valuePointer, { current: isOfUnknownType ? Type.never : receiverType.itemType.toNonNullable(), currentKey: {}, locals: scope.locals, facts: scope.facts });
                 this.#requireQuery(result, parameter, declaration, valuePointer);
 
-                if (!result.type.isAssignableTo(expected)) {
+                // A predicate takes any value, which its function receives as its truthiness, but none whose type no receiver gives.
+                if (parameter.kind === 'predicate' && LanguageResolver.#holdsTypeParameter(result.type)) {
+                    this.#fail(`The expression of '${declaration.name}' produces ${result.type}, a type no receiver gives`, valuePointer);
+                }
+
+                if (parameter.kind === 'expression' && !result.type.isAssignableTo(expected)) {
                     this.#fail(`The expression of '${declaration.name}' must produce ${expected} and produces ${result.type}`, valuePointer);
                 }
             } else {
@@ -923,8 +1094,11 @@ export class LanguageResolver {
         const kind = target?.kind === 'action' || target?.kind === 'subscription' ? target.kind : 'query';
 
         let current = scope.current;
+        let currentKey = scope.currentKey;
 
         if (target !== null) {
+            currentKey = {};
+
             // An object expression following null is never applied, so its fields are resolved against no value.
             if (target.type.kind === 'null') {
                 current = Type.never;
@@ -938,13 +1112,13 @@ export class LanguageResolver {
 
         node.locals?.forEach((local, index) => {
             const valuePointer = `${pointer}/locals/${index}/value`;
-            const result = this.#resolveNode(local.value, valuePointer, { current, locals });
+            const result = this.#resolveNode(local.value, valuePointer, { current, currentKey, locals, facts: scope.facts });
 
             if (result.kind !== 'query') {
                 this.#fail(`The local '${local.name}' is ${LanguageResolver.#descriptionOf(result.kind)}, and a local is a value`, valuePointer);
             }
 
-            locals = new Map(locals).set(local.name, { result, value: local.value, scope: { current, locals } });
+            locals = new Map(locals).set(local.name, { result, value: local.value, scope: { current, currentKey, locals, facts: scope.facts } });
         });
 
         const fieldTypes = new Map();
@@ -952,7 +1126,7 @@ export class LanguageResolver {
         node.fields.forEach((field, index) => {
             const fieldPointer = `${pointer}/fields/${index}`;
             const { name } = field;
-            const result = this.#resolveNode(field.value, `${fieldPointer}/value`, { current, locals });
+            const result = this.#resolveNode(field.value, `${fieldPointer}/value`, { current, currentKey, locals, facts: scope.facts });
 
             if (result.kind !== 'query') {
                 this.#fail(`The field '${name}' is ${LanguageResolver.#descriptionOf(result.kind)}, and a field is a value`, `${fieldPointer}/value`);

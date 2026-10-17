@@ -22,7 +22,7 @@ const CHANGE_CATEGORIES = ['constant', 'observable', 'partly-observable', 'unobs
 const READING_MODES = ['fresh', 'maintained', 'captured', 'derived'];
 const NULL_POLICIES = ['propagate', 'accept'];
 const SELECTION_KINDS = ['eventType', 'feature', 'state'];
-const PARAMETER_KINDS = ['value', 'expression'];
+const PARAMETER_KINDS = ['value', 'expression', 'predicate'];
 
 /** What an observation type provides: a signal that an answer may have changed, or a sampled value a member reads. */
 const OBSERVATION_CONTRACTS = ['invalidation', 'maintained'];
@@ -565,8 +565,13 @@ export class DomqlModule {
             fail(`The required parameter '${parameter.name}' declares no default`, memberName);
         }
 
-        if (parameter.kind === 'expression' && parameter.context !== 'item') {
-            fail(`The expression parameter '${parameter.name}' declares its evaluation context, item`, memberName);
+        if ((parameter.kind === 'expression' || parameter.kind === 'predicate') && parameter.context !== 'item') {
+            fail(`The ${parameter.kind} parameter '${parameter.name}' declares its evaluation context, item`, memberName);
+        }
+
+        // A predicate's expression gives any value, and its function receives that value's truthiness.
+        if (parameter.kind === 'predicate' && parameter.type !== 'boolean') {
+            fail(`The predicate parameter '${parameter.name}' is of type boolean, the truthiness its function receives`, memberName);
         }
 
         if (parameter.fixed !== undefined && typeof parameter.fixed !== 'boolean') {

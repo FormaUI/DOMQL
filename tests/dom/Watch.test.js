@@ -487,6 +487,33 @@ describe('Watch', () => {
         });
     });
 
+    describe('an and and an or', () => {
+        it('follow the left operand, and the right only while the left passes evaluation on to it', async () => {
+            watch('{ level: (try @panel:["data-on"] to "number") or @panel.level }', { panel });
+            await settle();
+            gauges.get(panel).sample = { pending: false, value: 5 };
+            gauges.get(panel).notify();
+            await settle();
+
+            expect(snapshots.at(-1)).toEqual({ level: 5 });
+
+            panel.setAttribute('data-on', '2');
+            await settle();
+
+            expect(snapshots.at(-1)).toEqual({ level: 2 });
+            expect(gauges.get(panel).stopped).toBe(1);
+
+            panel.removeAttribute('data-on');
+            await settle();
+            gauges.get(panel).sample = { pending: false, value: 7 };
+            gauges.get(panel).notify();
+            await settle();
+
+            expect(snapshots.at(-1)).toEqual({ level: 7 });
+            expect(failures).toEqual([]);
+        });
+    });
+
     describe('a local', () => {
         it('holds what it reads only while an evaluation uses it: from when a branch first reaches it until none does', async () => {
             watch('@panel { let level: self.level, value: if self:attribute["data-on"] == null then 0 else level }', { panel });

@@ -58,6 +58,10 @@ describe('LanguageResolver', () => {
             ['a field', '@panel { v: self.loose }'],
             ['an argument', '@panel.children.at(@panel.loose)'],
             ['an expression', '@panel.children.where(self.loose).count'],
+            ['an operand of and', '@panel.loose and 1'],
+            ['a condition', 'if @panel.loose then 1 else 2'],
+            ['what not negates', 'not @panel.loose'],
+            ['a conditional binding', 'if let v: @panel.loose then 1 else 2'],
             ['a receiver', '@panel.loose.count'],
             ['a subject', '@panel.loose.attached'],
         ])('refuses a type parameter no receiver gives an argument as %s, so its value never reaches a result', (_, text) => {
@@ -456,7 +460,7 @@ describe('LanguageResolver', () => {
 
         it('points into a definition that has no text', () => {
             const definition = {
-                version: 16,
+                version: 17,
                 query: { kind: 'member', target: { kind: 'parameter', name: 'panel' }, name: 'nonsense', arguments: [] },
             };
 
@@ -541,6 +545,43 @@ describe('LanguageResolver', () => {
         });
     });
 
+    describe('narrowing', () => {
+        const local = (name, text) => `@panel { let ${name}: self.first(".a"), let other: self.first(".b"), r: ${text} }`;
+
+        it.each([
+            ['the right operand of an and, where the left is the local', local('a', 'a and a.rect'), '{ r: rectangle? }'],
+            ['the right operand of an and, where the left says the local is not null', local('a', 'a != null and a.attached'), '{ r: boolean }'],
+            ['the right operand of an or, where the left says the local is null', local('a', 'a == null or a.attached'), '{ r: boolean }'],
+            ['the right operand of an or, where the left negates the local', local('a', 'not a or a.attached'), '{ r: boolean }'],
+            ['the consequent, where the condition is the local', local('a', 'if a then a.attached else false'), '{ r: boolean }'],
+            ['the alternative, where the condition says the local is null', local('a', 'if a == null then false else a.attached'), '{ r: boolean }'],
+            ['the consequent, where an and of conditions holds both', local('a', 'if a != null and other != null then a.attached and other.attached else false'), '{ r: boolean }'],
+            ['the consequent, where every path of an or holds the local', local('a', 'if (a != null and other != null) or (a != null and @panel.attached) then a.attached else false'), '{ r: boolean }'],
+            ['a later elseif, where an earlier condition says the local is null', local('a', 'if a == null then 0 elseif a.attached then 1 else 2'), '{ r: number }'],
+            ['the consequent of a binding, where its value is the local', local('a', 'if let b: a then a.attached and b.attached else false'), '{ r: boolean }'],
+        ])('narrows a local in %s', (_, text, type) => {
+            expect(resolve(text).type.toString()).toBe(type);
+        });
+
+        it.each([
+            ['an or, which says neither is not null', local('a', 'if a != null or other != null then a.attached else false'), '/query/fields/0/value/consequent'],
+            ['the alternative of a condition that is the local', local('a', 'if a then false else a.attached'), '/query/fields/0/value/alternative'],
+            ['a member read anew, whose text is the same', '@panel.first(".a") and @panel.first(".a").attached', '/query/operands/1'],
+            ['another local of the same name, in another object expression', '@panel { x: { let a: self.first(".a"), v: a and a.attached }, y: { let a: self.first(".b"), v: a.attached } }', '/query/fields/1/value/fields/0/value'],
+        ])('narrows nothing through %s', (_, text, pointer) => {
+            const error = failure(text);
+
+            expect(error.message).toContain("write '");
+            expect(error.message).toContain('?.attached');
+            expect(error.location.pointer).toBe(pointer);
+        });
+
+        it('keeps what it knows of a local in the object expressions and the expressions nested where it holds', () => {
+            expect(resolve('@panel { let a: self.first(".a"), v: a and @panel.children { w: a.attached, u: self.attached } }').type.toString()).toBe('{ v: list<{ w: boolean, u: boolean }>? }');
+            expect(resolve('@panel { let a: self.first(".a"), v: a and @panel.children.where(a.attached).count }').type.toString()).toBe('{ v: number? }');
+        });
+    });
+
     describe('logical expressions', () => {
         it('type an and, an or and a not as a Boolean', () => {
             expect(resolve('@panel.attached and @panel.focused').type.toString()).toBe('boolean');
@@ -548,10 +589,39 @@ describe('LanguageResolver', () => {
             expect(resolve('not @panel.attached').type.toString()).toBe('boolean');
         });
 
-        it('refuse an operand that can be null, giving the fallback to write', () => {
-            expect(failure('@panel.attached or (@panel.parent as "element")?.attached').message).toContain(`An operand of 'or' is a Boolean that cannot be null, and this one is boolean?: write '((@panel.parent as "element")?.attached ?? false)', or '?? true', to say what its absence means`);
-            expect(failure('@panel.attached and null').message).toContain("and this one is null: write '(null ?? false)'");
-            expect(failure('not @off', { off: null }).message).toContain("What 'not' negates is a Boolean that cannot be null, and this one is null");
+        it('type an and and an or as the operands that can decide them: the falsey part of each before the last, for and, the truthy part for or, and the last', () => {
+            expect(resolve('@panel.attached or (@panel.parent as "element")?.attached').type.toString()).toBe('boolean?');
+            expect(resolve('@panel.first(".a") and 5').type.toString()).toBe('number?');
+            expect(resolve('(@panel.first(".a") or @panel).attached').type.toString()).toBe('boolean');
+            expect(resolve('@panel.children.count and @panel.size').type.toString()).toBe('size?');
+            expect(resolve('@panel.rect and true').type.toString()).toBe('boolean?');
+            expect(resolve('@name or "default"', { name: null }).type.toString()).toBe('string');
+            expect(resolve('not @off', { off: null }).type.toString()).toBe('boolean');
+            expect(resolve('not @panel.first(".a")').type.toString()).toBe('boolean');
+        });
+
+        it('type an and or an or whose fixed operands decide it as the operand that does', () => {
+            expect(resolve('true and "value"').type.toString()).toBe('string');
+            expect(resolve('false or "fallback"').type.toString()).toBe('string');
+            expect(resolve('true and false or "fallback"').type.toString()).toBe('string');
+            expect(resolve('@on and @panel.children.count', { on: true, panel }).type.toString()).toBe('number');
+            expect(resolve('@on and @panel.children.count', { on: false, panel }).type.toString()).toBe('boolean');
+        });
+
+        it.each([
+            ['a Boolean and an element', '@panel.attached and @panel', "What 'and' gives is false or element, which no one type holds; write 'if @panel.attached then @panel else null' if null is an acceptable alternative"],
+            ['a Boolean or a number', '@panel.attached or 3', "What 'or' gives is true or number, which no one type holds; a conditional, 'if … then … else …', chooses between values of one type"],
+            ['a nullable Boolean and a string', '(@panel.parent as "element")?.attached and "x"', "What 'and' gives is false or null or string"],
+        ])('refuse an and or an or of %s, whose values no one type holds', (_, text, message) => {
+            const error = failure(text);
+
+            expect(error.message).toContain(message);
+            expect(error.location.pointer).toBe('/query');
+        });
+
+        it('refuse an operand that is no value', () => {
+            expect(failure('(@panel on "click") and true').message).toContain("An operand of 'and' is a value, and this one is an event source");
+            expect(failure('not (@panel on "click")').message).toContain("What 'not' negates is a value, and this one is an event source");
         });
 
         it('resolve every operand with its own location, the current value of each the one around the expression', () => {
@@ -566,17 +636,6 @@ describe('LanguageResolver', () => {
 
             expect(error.message).toContain("'nonsense' is no member of the vocabulary");
             expect(error.location.pointer).toBe('/query/operands/1');
-        });
-
-        it.each([
-            ['a string, as the earlier shorthand of names gives', '@panel.attached and "visible"', '/query/operands/1', 'string'],
-            ['a number', '@panel.attached or 3', '/query/operands/1', 'number'],
-            ['a structure', '@panel.rect and true', '/query/operands/0', 'rectangle?'],
-        ])('refuse an operand that is %s, naming its type', (_, text, pointer, type) => {
-            const error = failure(text);
-
-            expect(error.message).toContain(`An operand of '${text.includes(' or ') ? 'or' : 'and'}' is a Boolean, and this one is ${type}`);
-            expect(error.location.pointer).toBe(pointer);
         });
 
         it('count every operand when a watch asks what can be followed', () => {
@@ -634,13 +693,15 @@ describe('LanguageResolver', () => {
             expect(failure('if @wide then { a: 1 } else { b: 1 }', { panel, wide: true }).message).toContain('{ a: number } and { b: number }');
         });
 
-        it('refuse a condition that is no Boolean, or one that can be null', () => {
-            const error = failure('if @panel.size then 1 else 2');
+        it('take a condition of any value, and refuse one that is no value', () => {
+            expect(resolve('if @panel.size then 1 else 2').type.toString()).toBe('number');
+            expect(resolve('if (@panel.parent as "element")?.attached then 1 else 2').type.toString()).toBe('number');
+            expect(resolve('if @panel.children then 1 else 2').type.toString()).toBe('number');
 
-            expect(error.message).toContain("The condition of 'if' is a Boolean, and this one is size?");
+            const error = failure('if (@panel on "click") then 1 else 2');
+
+            expect(error.message).toContain("The condition of 'if' is a value, and this one is an event source");
             expect(error.location.pointer).toBe('/query/condition');
-            expect(failure('if (@panel.parent as "element")?.attached then 1 else 2').message).toContain("The condition of 'if' is a Boolean that cannot be null, and this one is boolean?");
-            expect(resolve('if ((@panel.parent as "element")?.attached) ?? false then 1 else 2').type.toString()).toBe('number');
         });
 
         it('validate a branch that evaluation might never reach', () => {

@@ -714,6 +714,16 @@ describe('QueryEvaluator evaluation', () => {
             expect(consequents(evaluate('@panel { width: if @on then @panel.size?.width else 0 }', { panel, on: false }).identities.fields.width)).toEqual([false]);
         });
 
+        it('are recorded for the operand an and or an or gave', () => {
+            const { definition } = domql.query('@a or @b and @c', { a: null, b: 2, c: 3 });
+            const evaluation = evaluate('@a or @b and @c', { a: null, b: 2, c: 3 });
+            const [[or, operand]] = [...evaluation.identities.branches].filter(([node]) => node.kind === 'or');
+
+            expect(evaluation.value).toBe(3);
+            expect(or.operands.indexOf(operand)).toBe(1);
+            expect(definition.query.kind).toBe('or');
+        });
+
         it('record an elseif as the conditional nested in the alternative it is', () => {
             expect(consequents(evaluate('if @a then 1 elseif @b then 2 else 3', { a: false, b: true }).identities)).toEqual([false, true]);
         });

@@ -384,13 +384,14 @@ export class QueryEvaluator {
                 if (node.binding !== undefined) {
                     const bind = this.#getCompiledFunction(node.binding.value);
 
-                    // The value is evaluated once; where it is not null, the consequent reads it through the name it is bound to, and the branch taken is recorded for the value's place in the result.
+                    // The value is evaluated once; where it is truthy, the consequent reads it through the name it is bound to, and the branch taken is recorded for the value's place in the result.
                     return (evaluator, currentValue) => {
                         const value = bind(evaluator, currentValue);
+                        const isTruthy = QueryEvaluator.#isTruthy(value);
 
-                        (evaluator.#selections ??= new Map()).set(node, value === null ? node.alternative : node.consequent);
+                        (evaluator.#selections ??= new Map()).set(node, isTruthy ? node.consequent : node.alternative);
 
-                        if (value === null) {
+                        if (!isTruthy) {
                             return alternative(evaluator, currentValue);
                         }
 
@@ -414,7 +415,7 @@ export class QueryEvaluator {
 
                 // The branch the condition selects is recorded for the value's place in the result.
                 return (evaluator, currentValue) => {
-                    const isTrue = condition(evaluator, currentValue) === true;
+                    const isTrue = QueryEvaluator.#isTruthy(condition(evaluator, currentValue));
 
                     (evaluator.#selections ??= new Map()).set(node, isTrue ? node.consequent : node.alternative);
 
@@ -436,36 +437,29 @@ export class QueryEvaluator {
                     return answer === null ? fallback(evaluator, currentValue) : answer;
                 };
             }
-            case 'and': {
-                const operands = node.operands.map(operand => this.#getCompiledFunction(operand));
-
-                return (evaluator, currentValue) => {
-                    for (const operand of operands) {
-                        if (operand(evaluator, currentValue) !== true) {
-                            return false;
-                        }
-                    }
-
-                    return true;
-                };
-            }
+            case 'and':
             case 'or': {
                 const operands = node.operands.map(operand => this.#getCompiledFunction(operand));
+                const decidesWhenTruthy = node.kind === 'or';
+                const last = operands.length - 1;
 
+                // The first operand that decides it, falsey for `and` and truthy for `or`, or else the last, is its value as it is, and the operand it is is recorded for the value's place in the result.
                 return (evaluator, currentValue) => {
-                    for (const operand of operands) {
-                        if (operand(evaluator, currentValue) === true) {
-                            return true;
+                    for (let index = 0; ; index++) {
+                        const value = operands[index](evaluator, currentValue);
+
+                        if (index === last || QueryEvaluator.#isTruthy(value) === decidesWhenTruthy) {
+                            (evaluator.#selections ??= new Map()).set(node, node.operands[index]);
+
+                            return value;
                         }
                     }
-
-                    return false;
                 };
             }
             case 'not': {
                 const operand = this.#getCompiledFunction(node.operand);
 
-                return (evaluator, currentValue) => operand(evaluator, currentValue) !== true;
+                return (evaluator, currentValue) => !QueryEvaluator.#isTruthy(operand(evaluator, currentValue));
             }
             case 'cast':
                 return this.#compileCast(node, false);
@@ -667,6 +661,10 @@ export class QueryEvaluator {
                     const { evaluate } = plan;
 
                     args[plan.name] = item => evaluate(evaluator, item);
+                } else if (plan.kind === 'predicate') {
+                    const { evaluate } = plan;
+
+                    args[plan.name] = item => QueryEvaluator.#isTruthy(evaluate(evaluator, item));
                 } else {
                     const value = plan.evaluate(evaluator, currentValue);
 
@@ -953,6 +951,8 @@ export class QueryEvaluator {
                 args[parameter.name] = argument.isDefault ? parameter.default : argument.value;
             } else if (parameter.kind === 'expression') {
                 args[parameter.name] = item => this.#evaluateNode(argument.node, item);
+            } else if (parameter.kind === 'predicate') {
+                args[parameter.name] = item => QueryEvaluator.#isTruthy(this.#evaluateNode(argument.node, item));
             } else {
                 const value = this.#evaluateNode(argument.node, currentValue);
 
@@ -1346,6 +1346,11 @@ export class QueryEvaluator {
         }
 
         return fields;
+    }
+
+    /** Whether a value is truthy: every value is but null and false. */
+    static #isTruthy(value) {
+        return value !== null && value !== false;
     }
 
     /** What kind of node the value is, for a message, or what it is where it is no node. */

@@ -20,6 +20,11 @@ function expressionParameter(type) {
     return { name: 'expression', kind: 'expression', type, context: 'item', required: true, fixed: false, nulls: 'accept' };
 }
 
+/** A required predicate, an expression evaluated against each item whose truthiness its function receives. */
+function predicateParameter() {
+    return { name: 'expression', kind: 'predicate', type: 'boolean', context: 'item', required: true, fixed: false, nulls: 'accept' };
+}
+
 /** A property or an operation; an operation is a call unless it says it is named, and takes its one parameter directly unless it says it takes options. */
 function member(kind, name, on, result, { function: implementation = name, parameters = [], changes = 'observable', reads = 'fresh', misses, observations, form, input, isDefault = false } = {}) {
     const declaration = { name, function: implementation, kind, on, parameters, result, changes, reads };
@@ -167,7 +172,7 @@ export class Vocabulary {
                 operation('max', 'list<T>', 'number?', { changes: 'derived', reads: 'derived', parameters: [expressionParameter('number?')] }),
                 operation('min', 'list<T>', 'number?', { changes: 'derived', reads: 'derived', parameters: [expressionParameter('number?')] }),
                 operation('sum', 'list<T>', 'number', { changes: 'derived', reads: 'derived', parameters: [expressionParameter('number?')] }),
-                operation('where', 'list<T>', 'list<T>', { changes: 'derived', reads: 'derived', parameters: [expressionParameter('boolean?')] }),
+                operation('where', 'list<T>', 'list<T>', { changes: 'derived', reads: 'derived', parameters: [predicateParameter()] }),
 
                 { ...operation('on', ['element', 'document', 'window'], 'event<@selected>', { form: 'infix', changes: 'constant', reads: 'captured', parameters: [valueParameter('type', 'string', { fixed: true, selects: 'eventType' })] }), kind: 'source' },
             ],

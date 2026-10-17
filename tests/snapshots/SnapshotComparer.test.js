@@ -165,6 +165,16 @@ describe('SnapshotComparer', () => {
                 expect(snapshotComparer.reconcile(previous, selecting(query, query.consequent), freeze({ a: 103, b: 100 }), selecting(query, query.consequent))).toEqual({ a: 103, b: 100 });
             });
 
+            it('compares what an and or an or gave as the operand it gave, within that operand\'s tolerance, and exactly where the operand has none', () => {
+                const resolved = resolvedOf('@element.steady or @element.wobble.width', { element }, { tolerance: 2 });
+                const snapshotComparer = new SnapshotComparer(resolved);
+                const { query } = resolved.definition;
+
+                expect(snapshotComparer.reconcile(100, selecting(query, query.operands[1]), 101.5, selecting(query, query.operands[1]))).toBe(100);
+                expect(snapshotComparer.reconcile(100, selecting(query, query.operands[0]), 101.5, selecting(query, query.operands[0]))).toBe(101.5);
+                expect(snapshotComparer.reconcile(100, selecting(query, query.operands[0]), 101.5, selecting(query, query.operands[1]))).toBe(101.5);
+            });
+
             it('compares a number exactly where the two values came from different branches', () => {
                 const resolved = resolvedOf('if @wide then @element.wobble.width else @other.wobble.width', { element, other: element, wide: true }, { tolerance: 2 });
                 const snapshotComparer = new SnapshotComparer(resolved);

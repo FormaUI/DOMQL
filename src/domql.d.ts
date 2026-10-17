@@ -345,8 +345,9 @@ export interface DomqlConversionContext {
 /** A parameter of a member. */
 export interface DomqlParameterDeclaration {
     name: string;
-    kind: 'value' | 'expression';
-    /** The parameter's type, in DOMQL's notation. */
+    /** A value, an expression evaluated against each item, or a predicate, an expression of any value whose truthiness its function receives. */
+    kind: 'value' | 'expression' | 'predicate';
+    /** The parameter's type, in DOMQL's notation; a predicate's is `boolean`, what its function receives. */
     type: string;
     required: boolean;
     default?: unknown;
@@ -356,7 +357,7 @@ export interface DomqlParameterDeclaration {
     selects?: 'eventType' | 'feature' | 'state';
     /** Whether a null argument makes the call answer null, or is accepted. */
     nulls: 'propagate' | 'accept';
-    /** What an expression argument is evaluated against. */
+    /** What an expression or a predicate argument is evaluated against. */
     context?: 'item';
     /** What the member does where an optional argument is left out, said in words for its documentation. */
     omitted?: string;

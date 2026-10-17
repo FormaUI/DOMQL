@@ -4,6 +4,9 @@
 
 import { ObjectUtils } from '../common/ObjectUtils.mjs';
 
+/** The kinds of expression whose value is the value of one of the expressions it holds, which it selected as it was evaluated. */
+const SELECTING_KINDS = new Set(['conditional', 'coalescing', 'and', 'or']);
+
 export class SnapshotComparer {
     #resolvedDefinition;
 
@@ -35,8 +38,8 @@ export class SnapshotComparer {
             return this.#reconcileNode(node.target, previous, previousIdentities, next, nextIdentities);
         }
 
-        // A conditional and a coalescing each give the value of the side they selected, compared as that side is where both values came from it.
-        if (node.kind === 'conditional' || node.kind === 'coalescing') {
+        // A conditional, a coalescing, an and and an or each give the value of the side they selected, compared as that side is where both values came from it.
+        if (SELECTING_KINDS.has(node.kind)) {
             const branch = SnapshotComparer.#branchOf(node, previousIdentities, nextIdentities);
 
             return branch === null
@@ -133,7 +136,7 @@ export class SnapshotComparer {
         return nextElements.map(element => previousIndexByElement.get(element) ?? -1);
     }
 
-    /** The tolerance of the member that produced the value, which a field of its value shares, through the expression a local names and the branch a conditional selected for both values; null for a value that is no member's. */
+    /** The tolerance of the member that produced the value, which a field of its value shares, through the expression a local names and the side a conditional, a coalescing, an and or an or selected for both values; null for a value that is no member's. */
     #toleranceOf(node, previousIdentities, nextIdentities) {
         if (node.kind === 'local') {
             return this.#toleranceOf(this.#resolvedDefinition.resolutionOf(node).value, previousIdentities, nextIdentities);
@@ -143,7 +146,7 @@ export class SnapshotComparer {
             return this.#toleranceOf(node.target, previousIdentities, nextIdentities);
         }
 
-        if (node.kind === 'conditional' || node.kind === 'coalescing') {
+        if (SELECTING_KINDS.has(node.kind)) {
             const branch = SnapshotComparer.#branchOf(node, previousIdentities, nextIdentities);
 
             return branch === null ? null : this.#toleranceOf(branch, previousIdentities, nextIdentities);
