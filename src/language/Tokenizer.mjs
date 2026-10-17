@@ -1,17 +1,25 @@
 /**
- * Tokenizer — the tokens of a DOMQL text
+ * Tokenizer — the tokens of a DOMQL text: strictly, as a query reads them, refusing the first text that is no token, or tolerantly, as tooling reads any text, an invalid token standing for each such text with its diagnostic
  */
 
 import { DomqlError } from './DomqlError.mjs';
 import { Names } from './Names.mjs';
 
 /**
+ * The types a token is, which tooling reads as they are: `invalid` for text that is no token, and `end` for the end of the text, after its last trivia.
+ * A contract within DOMQL until a public tooling API stabilizes it.
+ */
+export const TOKEN_TYPES = Object.freeze(['name', 'parameter', 'literal', 'keyword', 'self', 'invalid', 'end', '.', '?.', '?[', '?:', '??', '(?', '==', '!=', ',', ':', '(', ')', '{', '}', '[', ']']);
+
+/**
  * @typedef {object} Token
- * @property {'name' | 'parameter' | 'literal' | 'keyword' | 'self' | 'end' | '.' | '?.' | '?[' | '?:' | '??' | '(?' | '==' | '!=' | ',' | ':' | '(' | ')' | '{' | '}' | '[' | ']'} type
+ * @property {'name' | 'parameter' | 'literal' | 'keyword' | 'self' | 'invalid' | 'end' | '.' | '?.' | '?[' | '?:' | '??' | '(?' | '==' | '!=' | ',' | ':' | '(' | ')' | '{' | '}' | '[' | ']'} type
  * @property {unknown} [value] A name's, a parameter's or a keyword's text, or a literal's value.
  * @property {number} start
  * @property {number} end
+ * @property {number} leading Where the trivia before it begins, at its start where there is none, so every character of the text belongs to one token or to the trivia before one.
  * @property {boolean} spaced Whether trivia, whitespace or a comment, comes before it, which tells an argument written after a name from one of the name's own.
+ * @property {{ message: string, offset: number }} [diagnostic] Why an invalid token is no token, and where the text first fails.
  */
 
 const PUNCTUATION = new Set(['.', ',', ':', '(', ')', '{', '}', '[', ']']);
@@ -28,8 +36,29 @@ export class Tokenizer {
         this.#text = text;
     }
 
-    /** Reads every token of the text, ending with an `end` token. */
+    /**
+     * Every token of the text, ending with an `end` token, read tolerantly: text that is no token is an invalid token holding its diagnostic, and reading goes on after it, so the tokens cover the whole text whatever it holds.
+     * @param {string} text
+     * @returns {Token[]}
+     */
+    static scan(text) {
+        return new Tokenizer(text).#readAll();
+    }
+
+    /** Reads every token of the text, ending with an `end` token, refusing the first text that is no token with its diagnostic. */
     tokenize() {
+        const tokens = this.#readAll();
+
+        for (const token of tokens) {
+            if (token.type === 'invalid') {
+                throw DomqlError.syntax(token.diagnostic.message, this.#text, token.diagnostic.offset);
+            }
+        }
+
+        return tokens;
+    }
+
+    #readAll() {
         /** @type {Token[]} */
         const tokens = [];
 
@@ -43,13 +72,13 @@ export class Tokenizer {
     }
 
     #read() {
-        const before = this.#offset;
+        const leading = this.#offset;
+        const token = this.#skipTrivia() ?? this.#readToken();
 
-        this.#skipTrivia();
+        token.leading = leading;
+        token.spaced = token.start > leading;
 
-        const spaced = this.#offset > before;
-
-        return { ...this.#readToken(), spaced };
+        return token;
     }
 
     #readToken() {
@@ -101,7 +130,7 @@ export class Tokenizer {
 
             // A hyphen right after a name is never a negative number, which whitespace or a parenthesis comes before.
             if (this.#text[this.#offset] === '-') {
-                throw DomqlError.syntax(`A name holds no hyphen: '${name}-…' is written in camelCase, as clientSize is`, this.#text, this.#offset);
+                return this.#invalid(start, this.#offset + 1, `A name holds no hyphen: '${name}-…' is written in camelCase, as clientSize is`, this.#offset);
             }
 
             if (Names.isLiteral(name)) {
@@ -118,12 +147,13 @@ export class Tokenizer {
 
         // A single `=` or `!` is no operator; an equality is written `==` or `!=`, and a negation `not`.
         if (character === '=' || character === '!') {
-            throw DomqlError.syntax(`Unexpected '${character}': an equality is written '==' or '!=', and a negation 'not'`, this.#text, start);
+            return this.#invalid(start, start + 1, `Unexpected '${character}': an equality is written '==' or '!=', and a negation 'not'`, start);
         }
 
-        throw DomqlError.syntax(`Unexpected '${character}'`, this.#text, start);
+        return this.#invalid(start, start + 1, `Unexpected '${character}'`, start);
     }
 
+    /** Moves past the trivia before a token, answering an invalid token for a block comment never closed, which runs to the end of the text. */
     #skipTrivia() {
         while (this.#offset < this.#text.length) {
             const character = this.#text[this.#offset];
@@ -137,14 +167,16 @@ export class Tokenizer {
                 const commentEnd = this.#text.indexOf('*/', this.#offset + 2);
 
                 if (commentEnd === -1) {
-                    throw DomqlError.syntax('A block comment is never closed', this.#text, this.#offset);
+                    return this.#invalid(this.#offset, this.#text.length, 'A block comment is never closed', this.#offset);
                 }
 
                 this.#offset = commentEnd + 2;
             } else {
-                return;
+                return null;
             }
         }
+
+        return null;
     }
 
     /** Reads a parameter, its `@` and its name one token, so nothing comes between them. */
@@ -152,7 +184,7 @@ export class Tokenizer {
         NAME.lastIndex = start + 1;
 
         if (!NAME.test(this.#text)) {
-            throw DomqlError.syntax("A parameter is written as '@' and its name, with nothing between them, as '@panel'", this.#text, start + 1);
+            return this.#invalid(start, start + 1, "A parameter is written as '@' and its name, with nothing between them, as '@panel'", start + 1);
         }
 
         this.#offset = NAME.lastIndex;
@@ -160,19 +192,21 @@ export class Tokenizer {
         const name = this.#text.slice(start + 1, this.#offset);
 
         if (this.#text[this.#offset] === '-') {
-            throw DomqlError.syntax(`A name holds no hyphen: '${name}-…' is written in camelCase, as clientSize is`, this.#text, this.#offset);
+            return this.#invalid(start, this.#offset + 1, `A name holds no hyphen: '${name}-…' is written in camelCase, as clientSize is`, this.#offset);
         }
 
         if (!Names.isName(name)) {
-            throw DomqlError.syntax(`'@${name}' names no parameter: '${name}' is a reserved word`, this.#text, start + 1);
+            return this.#invalid(start, this.#offset, `'@${name}' names no parameter: '${name}' is a reserved word`, start + 1);
         }
 
         return { type: 'parameter', value: name, start, end: this.#offset };
     }
 
+    /** Reads a string, invalid where it escapes a character no escape is for, at the first such escape, or where it is never closed, running then to the end of the text. */
     #readString(start) {
         let value = '';
         let offset = start + 1;
+        let diagnostic = null;
 
         while (offset < this.#text.length) {
             const character = this.#text[offset];
@@ -180,14 +214,16 @@ export class Tokenizer {
             if (character === '"') {
                 this.#offset = offset + 1;
 
-                return { type: 'literal', value, start, end: this.#offset };
+                return diagnostic === null ? { type: 'literal', value, start, end: this.#offset } : this.#invalid(start, this.#offset, diagnostic.message, diagnostic.offset);
             }
 
             if (character === '\\') {
                 const escaped = this.#text[offset + 1];
 
                 if (escaped !== '"' && escaped !== '\\') {
-                    throw DomqlError.syntax('A string escapes only \\" and \\\\', this.#text, offset);
+                    diagnostic ??= { message: 'A string escapes only \\" and \\\\', offset };
+                    offset++;
+                    continue;
                 }
 
                 value += escaped;
@@ -198,18 +234,27 @@ export class Tokenizer {
             }
         }
 
-        throw DomqlError.syntax('A string is never closed', this.#text, start);
+        const unclosed = diagnostic ?? { message: 'A string is never closed', offset: start };
+
+        return this.#invalid(start, this.#text.length, unclosed.message, unclosed.offset);
     }
 
     #readNumber(start) {
         NUMBER.lastIndex = start;
 
         if (!NUMBER.test(this.#text)) {
-            throw DomqlError.syntax('A number is written as in JSON', this.#text, start);
+            return this.#invalid(start, start + 1, 'A number is written as in JSON', start);
         }
 
         this.#offset = NUMBER.lastIndex;
 
         return { type: 'literal', value: Number(this.#text.slice(start, this.#offset)), start, end: this.#offset };
+    }
+
+    /** An invalid token over the text from the start to the end, which reading goes on after, with the message and the offset its diagnostic gives. */
+    #invalid(start, end, message, offset) {
+        this.#offset = end;
+
+        return { type: 'invalid', start, end, diagnostic: { message, offset } };
     }
 }

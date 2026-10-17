@@ -3,6 +3,7 @@
  */
 
 import { DefinitionValidator } from './DefinitionValidator.mjs';
+import { Lowering } from './Lowering.mjs';
 import { Parser } from './Parser.mjs';
 import { TextLocations } from './TextLocations.mjs';
 
@@ -21,6 +22,11 @@ export class ParsedTexts {
         return ParsedTexts.#locations.get(definition) ?? null;
     }
 
+    /** The text the definition was parsed from, or null for a definition not parsed from text. */
+    static textOf(definition) {
+        return ParsedTexts.#locations.get(definition)?.text ?? null;
+    }
+
     /** The validated, frozen definition the text parses into, kept for the next parse of the same text. */
     static parse(text) {
         const kept = ParsedTexts.#definitions.get(text);
@@ -32,7 +38,8 @@ export class ParsedTexts {
             return kept;
         }
 
-        const { definition, spans } = new Parser(text).parse();
+        // The tree is lowered and let go: a kept definition holds its locations, never its tokens or their trivia.
+        const { definition, spans } = Lowering.lower(new Parser(text).parse());
         const locations = new TextLocations(text, definition, spans);
         const validated = new DefinitionValidator(locations).validate(definition);
 

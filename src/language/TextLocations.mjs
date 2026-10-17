@@ -21,6 +21,11 @@ export class TextLocations {
         this.#collect(definition.query, '/query', spans);
     }
 
+    /** The text the definition was read from, from which its syntax tree is read again where a tool asks for it, since no query keeps one. */
+    get text() {
+        return this.#text;
+    }
+
     /** The text position the pointer's part began at, or the nearest enclosing part's. */
     locate(pointer) {
         for (let current = pointer; ; current = current.slice(0, current.lastIndexOf('/'))) {
