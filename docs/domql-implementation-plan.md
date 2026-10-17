@@ -69,6 +69,7 @@ The open decisions are taken a group at a time, in this order, each group one ki
 What a query can say that it cannot yet.
 
 - **A flat-tree parent.** A parent across slots, beside the tree's own `parent` and `root`, waits until its uses and its meaning are clear.
+- **Binding the value a test of a conversion converts.** `try X to "T"` answers a Boolean, so a query that tests a value and then uses it converts it twice, `if try count to "number" then count to "number" else 0`. A conditional that binds the converted value, written as `if let number: try count to "number" then number else 0`, would carry the conversion out once, take its branch by whether it succeeded, and bind the value in the branch that did; it would be a form of the conditional of its own, a standalone `try` still answering a Boolean, and needs a contract of its own before it is built: where the binding is visible, what its type is in each branch, and how it meets the existing rules for locals and conditionals.
 - **An infix call's receiver null policy.** An infix call propagates a null receiver; a policy declared as a parameter's is, accepting null with a meaning of its own or refusing a nullable receiver when the query is prepared, is designed when a member needs one, since no built-in infix call does.
 
 #### 2. Evaluation cost
