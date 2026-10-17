@@ -79,6 +79,13 @@ describe('domql', () => {
             expect(definition.query.left).toEqual(infixCall('matches', literal('.open'), call('closest', literal('[data-group]'), parameter('panel'))));
         });
 
+        it('refuses an argument that begins with a keyword, saying it is grouped and promising nothing of what the group holds', () => {
+            expect(getError(() => domql.query('@x matches not @flag')).message).toContain("An argument that begins with 'not' is written in parentheses, as in '… matches (not …)'");
+            expect(getError(() => domql.query('self matches try')).message).toContain("An argument that begins with 'try' is written in parentheses, as in '… matches (try …)'");
+            expect(domql.query('@x matches (not @flag)').definition.query.argument).toEqual(not(parameter('flag')));
+            expect(domql.query('@x intersects and @y').definition.query.kind).toBe('and');
+        });
+
         it('ends an infix call\'s argument at a comma, so each field keeps its own', () => {
             const { definition } = domql.query('@target { open: self matches ".open", selected: self matches ".x" }');
 
@@ -860,6 +867,9 @@ describe('domql', () => {
             ['an equality that chains', '@a == @b == @c', 1, 10],
             ['a negation after !=', '@a != not @b', 1, 7],
             ['a single equals sign', '@a = 1', 1, 4],
+            ['an infix call\'s argument that begins with not', '@x matches not @flag', 1, 12],
+            ['an infix call\'s argument that begins with try', '@x matches try @v to "string"', 1, 12],
+            ['an infix call\'s argument that begins with if', '@x matches if @a then ".a" else ".b"', 1, 12],
             ['a single exclamation mark', '@a ! @b', 1, 4],
             ['a group never closed', '(@first or @second', 1, 19],
             ['a group closing nothing', '@first)', 1, 7],

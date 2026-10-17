@@ -20,6 +20,9 @@ const TOKEN_DESCRIPTIONS = {
 /** The tokens a chain input starts with, and so the argument of an infix call. */
 const CHAIN_INPUT_STARTS = new Set(['self', 'parameter', 'literal', 'name', '{', '(', '(?']);
 
+/** The keywords that begin an expression which is no chain input: a negation, a test of a conversion and a conditional. */
+const EXPRESSION_KEYWORDS = new Set(['not', 'try', 'if']);
+
 /** The tokens that continue a chain after what is before them. */
 const CHAIN_CONTINUATIONS = new Set(['.', '?.', '[', '?[', ':', '?:', '{']);
 
@@ -738,6 +741,11 @@ export class Parser {
         // A name a colon follows names the next field, which a comma comes before.
         if (this.#token.type === 'name' && this.#tokens[this.#index + 1].type === ':') {
             throw this.#unexpected("',' before the next field");
+        }
+
+        // An expression that begins with a keyword is no chain input, so as an argument it is grouped; the message says so, and promises nothing of what the group holds.
+        if (EXPRESSION_KEYWORDS.has(this.#token.value) && this.#token.type === 'keyword') {
+            throw DomqlError.syntax(`An argument that begins with '${this.#token.value}' is written in parentheses, as in '… ${name} (${this.#token.value} …)'`, this.#text, this.#token.start);
         }
 
         // An argument that can be left out is, where a conversion follows the infix call.
