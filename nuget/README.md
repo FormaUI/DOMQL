@@ -90,10 +90,10 @@ const panel = document.getElementById('panel');
 
 const query = domql.query(`
     panel {
-        count = self.children.count,
-        items = self.all("[data-key]") {
-            key = self:["data-key"],
-            selected = self.aria:["selected"] == "true"
+        count = context.children.count,
+        items = context.all("[data-key]") {
+            key = context:["data-key"],
+            selected = context.aria:["selected"] == "true"
         }
     }
 `, { panel });
@@ -118,7 +118,7 @@ Three parts of the query are worth understanding first:
 
 - `panel` reads the binding supplied in `{ panel }`. It is not an ID lookup. A name reads a local of that name where one is in scope, and otherwise the binding of that name.
 - An object expression chooses output fields. Here, the outer result has `count` and `items`.
-- An object expression after a list runs for each item. Inside it, `self` refers to that item.
+- An object expression after a list runs for each item. Inside it, `context` refers to that item.
 
 `domql.query` creates the query without reading the DOM. `evaluate()` resolves it as needed and reads the current values synchronously. The returned snapshot is immutable and contains no live element references.
 
@@ -161,7 +161,7 @@ Some values need an initial sample from a browser observer, such as whether an e
 
 ```js
 const visibleItems = await domql.query(
-    'panel.all("[data-key]").where(self.intersects()).count',
+    'panel.all("[data-key]").where(context.intersects()).count',
     { panel }
 ).evaluateAsync();
 // 3: every item of the example panel is in view
@@ -180,8 +180,8 @@ Keep a toolbar in step with the panel's selection, whichever code selects an ite
 ```js
 const selection = domql.query(`
     panel.children
-        .where(self.aria:["selected"] == "true") {
-            key = self:["data-key"]
+        .where(context.aria:["selected"] == "true") {
+            key = context:["data-key"]
         }
 `, { panel }).watch();
 
@@ -248,8 +248,8 @@ list.innerHTML = '<li data-key="b1">Apples</li><li data-key="b2">Pears</li>';
 
 const live = domql.query(`
     list.children {
-        key = self:["data-key"],
-        selected = self.aria:["selected"] == "true"
+        key = context:["data-key"],
+        selected = context.aria:["selected"] == "true"
     }
 `, { list }).watch({ updateStrategy: 'liveState' });
 
@@ -291,7 +291,7 @@ An event subscription turns each event into a record of what happened and the st
 ```js
 const activations = domql.query(`
     panel.on("click") {
-        let item = self.target?.closest("[data-key]"),
+        let item = context.target?.closest("[data-key]"),
 
         key = item?:["data-key"],
         wasSelected = item?.aria:["selected"] == "true",
@@ -356,7 +356,7 @@ window:media["(min-width: 40em)"]
 
 The key can be any expression of the type the indexer takes, such as a binding, `panel:attribute[name]`. An element's default indexer is `attribute`, so `panel:["data-key"]` reads the attribute too, and a list's is `item`, so `panel.children:[0]` is its first child. Use `?:` when the receiver can be null: `panel.first(".row")?:["data-key"]` is null when there is no row, and its key is not evaluated.
 
-All DOMQL names are case-sensitive and use names such as `clientSize`, `rectRelativeTo` and `devicePixelRatio`. Any word names a field, a local, a function, a parameter or a member, a keyword, `true`, `null`, `self`, `document` and `window` among them, as `{ end = selection.end }` and `record.then` do. Where a value stands, such a word keeps its own meaning, so a local or a field it names is read as `@end`, and a caller's binding it names as `~end`. Strings passed to browser APIs, including selectors and attribute names, follow the browser's rules. A string escapes `\"`, `\\`, `\n`, `\r`, `\t` and `\e`, the escape character, and names any character by its code point with `\u{…}`, as `"\u{A0}"` writes a no-break space, which is hard to tell from a space when written as itself.
+All DOMQL names are case-sensitive and use names such as `clientSize`, `rectRelativeTo` and `devicePixelRatio`. Any word names a field, a local, a function, a parameter or a member, a keyword, `true`, `null`, `context`, `document` and `window` among them, as `{ end = selection.end }` and `record.then` do. Where a value stands, such a word keeps its own meaning, so a local or a field it names is read as `@end`, and a caller's binding it names as `~end`. Strings passed to browser APIs, including selectors and attribute names, follow the browser's rules. A string escapes `\"`, `\\`, `\n`, `\r`, `\t` and `\e`, the escape character, and names any character by its code point with `\u{…}`, as `"\u{A0}"` writes a no-break space, which is hard to tell from a space when written as itself.
 
 Calls take their arguments by position, separated by commas, as many as the member's signature declares. When a member takes options, pass one object whose fields supply its parameters. This query checks for an intersection with a margin around the panel and needs `evaluateAsync()`:
 
@@ -367,7 +367,7 @@ sentinel.intersects({ root = panel, margin = 200 })
 A call whose receiver can be null is written with `?.`, which skips the call, its argument included, and answers null where the receiver is null. This asks whether the nearest group is open, and is false where there is none:
 
 ```domql
-self.closest("[data-group]")?.matches(".open") ?? false
+context.closest("[data-group]")?.matches(".open") ?? false
 ```
 
 Using the wrong call form produces an error that shows the expected form.
@@ -379,9 +379,9 @@ An object expression gives each result field a name:
 ```js
 domql.query(`
     panel {
-        count = self.children.count,
-        attached = self.attached,
-        hasChildren = self.hasChildren
+        count = context.children.count,
+        attached = context.attached,
+        hasChildren = context.hasChildren
     }
 `, { panel }).evaluate();
 // { count: 3, attached: true, hasChildren: true }
@@ -393,13 +393,13 @@ Raw DOM nodes cannot appear in a result. For example, `panel.children` reads a l
 
 ### Project and filter lists
 
-An object expression after a list runs for each item, with `self` referring to that item:
+An object expression after a list runs for each item, with `context` referring to that item:
 
 ```js
 domql.query(`
     panel.all("[data-key]") {
-        key = self:["data-key"],
-        selected = self.aria:["selected"] == "true"
+        key = context:["data-key"],
+        selected = context.aria:["selected"] == "true"
     }
 `, { panel }).evaluate();
 // [
@@ -411,12 +411,12 @@ domql.query(`
 
 A list keeps the order of its source, here the document's, and neither projecting nor filtering it reorders it.
 
-A member after a list operates on the list itself. Use `count`, `first`, `last` and its default indexer, `:[index]`, as `self.children:[2]` for the third child, to inspect it. Use `where` to keep items whose expression is truthy:
+A member after a list operates on the list itself. Use `count`, `first`, `last` and its default indexer, `:[index]`, as `context.children:[2]` for the third child, to inspect it. Use `where` to keep items whose expression is truthy:
 
 ```js
 domql.query(`
     panel.all("[data-key]")
-        .where(self.aria:["selected"] == "true")
+        .where(context.aria:["selected"] == "true")
         .count
 `, { panel }).evaluate();
 // 1
@@ -428,7 +428,7 @@ domql.query(`
 
 ```js
 domql.query(
-    'panel.all("[data-key]").max(self.rect?.height)',
+    'panel.all("[data-key]").max(context.rect?.height)',
     { panel }
 ).evaluate();
 // 64
@@ -443,10 +443,10 @@ Declare a local with `let` before the output fields, then refer to it by name:
 ```js
 domql.query(`
     panel {
-        let items = self.all("[data-key]"),
+        let items = context.all("[data-key]"),
 
         count = items.count,
-        tallest = items.max(self.rect?.height)
+        tallest = items.max(context.rect?.height)
     }
 `, { panel }).evaluate();
 // { count: 3, tallest: 64 }
@@ -456,7 +456,7 @@ A field's name can be read by the fields after it, as `{ count = rows.count, lab
 
 Locals are not included in the result. A local is evaluated on first use, at most once for each value its object expression applies to. Unused locals are not evaluated.
 
-`self` inside a local refers to the value where the local is declared. A bare name refers to a local or an earlier field, and otherwise to the caller's binding; use `self.rect`, for example, to read a member of the current value. Write `~` before a name to read the caller's binding of it even where a local or a field shares the name, as `~panel` does inside `{ let panel = …, original = ~panel.children.count }`, or where a reserved word names it, as `~as`.
+`context` refers to the value the expression is evaluated against, as the element an object expression follows is for its fields, and `~` alone refers to it too, so `~.rect` reads `context.rect`. `context` inside a local refers to the value where the local is declared. A bare name refers to a local or an earlier field, and otherwise to the caller's binding; use `context.rect`, for example, to read a member of the evaluation context. Write `~` before a name to read the caller's binding of it even where a local or a field shares the name, as `~panel` does inside `{ let panel = …, original = ~panel.children.count }`, or where a reserved word names it, as `~as`.
 
 ### Name the steps of a calculation
 
@@ -468,7 +468,7 @@ let count = rows.count
 return {
     count = count,
     summary = $"{count} rows",
-    tallest = rows.max(self.rect?.height)
+    tallest = rows.max(context.rect?.height)
 }
 ```
 
@@ -488,7 +488,7 @@ return {
 }
 ```
 
-A function's body is a body like any other, an expression alone or locals and a `return`, and it sees the locals and `self` where it is declared, never those of the place that calls it. Each call is checked against its own arguments, so one function serves an element in one call and an element that may be missing in another, and a function is only ever called: it is never passed to a member, stored in a field or returned.
+A function's body is a body like any other, an expression alone or locals and a `return`, and it sees the locals and `context` where it is declared, never those of the place that calls it. Each call is checked against its own arguments, so one function serves an element in one call and an element that may be missing in another, and a function is only ever called: it is never passed to a member, stored in a field or returned.
 
 ### Handle missing values
 
@@ -531,10 +531,10 @@ Null does not hide an invalid query. An unknown member or incompatible argument 
 An element's state that the user or the browser changes, such as whether it is checked, disabled or focused, is a condition. Test it with `.is`, which follows the browser's own rules, and the matching ARIA state with `.aria.is`:
 
 ```domql
-control { checked = self.is("checked"), ariaChecked = self.aria.is("checked") }
+control { checked = context.is("checked"), ariaChecked = context.aria.is("checked") }
 ```
 
-Ask a possession with `.has`, as `self.has("focus")`, and a capability with `.supports`, as `window.supports("share")`. `.is("checked")` is true for a checked checkbox or radio button, or a selected option, as `:checked` matches. `.aria.is("checked")` is true only where `aria-checked` is `"true"`; read `self.aria:["checked"]`, the attribute's own text as `self:["aria-checked"]` reads it, or null where it is absent, to tell `"mixed"` from `"false"`. The two never stand in for each other, so write `self.is("checked") or self.aria.is("checked")` where either counts. Elements are asked `is("disabled")`, `is("readonly")`, `is("text-editable")`, `is("hover")`, `is("popover-open")`, `is("checked")`, `has("focus")` and `has("focus-within")`; the document `is("visible")` and `has("focus")`; and the window `supports("share")` and `supports("clipboard")`.
+Ask a possession with `.has`, as `context.has("focus")`, and a capability with `.supports`, as `window.supports("share")`. `.is("checked")` is true for a checked checkbox or radio button, or a selected option, as `:checked` matches. `.aria.is("checked")` is true only where `aria-checked` is `"true"`; read `context.aria:["checked"]`, the attribute's own text as `context:["aria-checked"]` reads it, or null where it is absent, to tell `"mixed"` from `"false"`. The two never stand in for each other, so write `context.is("checked") or context.aria.is("checked")` where either counts. Elements are asked `is("disabled")`, `is("readonly")`, `is("text-editable")`, `is("hover")`, `is("popover-open")`, `is("checked")`, `has("focus")` and `has("focus-within")`; the document `is("visible")` and `has("focus")`; and the window `supports("share")` and `supports("clipboard")`.
 
 ### Compare and combine conditions
 
@@ -556,14 +556,14 @@ Only `null` and `false` are falsey; every other value is truthy, including `0`, 
 
 ```domql
 panel:["data-label"] or "untitled"
-panel { let input = self.first("input"), width = input and input.rect?.width }
+panel { let input = context.first("input"), width = input and input.rect?.width }
 ```
 
-In the second line, `input.rect` reads the input with a plain `.`, because the right side of `and` runs only when `input` is truthy. DOMQL narrows locals, `if let` names, parameters and `self` this way, but not members, which are read again wherever they are written.
+In the second line, `input.rect` reads the input with a plain `.`, because the right side of `and` runs only when `input` is truthy. DOMQL narrows locals, `if let` names, parameters and `context` this way, but not members, which are read again wherever they are written.
 
 `or` falls back for `null` and `false`, and `??` for `null` alone: `false or true` is `true`, and `false ?? true` is `false`.
 
-Unlike Lua, DOMQL types every expression, so `and` and `or` must give values of one type. `self.is("disabled") and self` could give `false` or an element, and is refused; write `if self.is("disabled") then self else null end` if `null` is an acceptable alternative. Use a conditional whenever the chosen value may itself be `false` or `null`.
+Unlike Lua, DOMQL types every expression, so `and` and `or` must give values of one type. `context.is("disabled") and context` could give `false` or an element, and is refused; write `if context.is("disabled") then context else null end` if `null` is an acceptable alternative. Use a conditional whenever the chosen value may itself be `false` or `null`.
 
 Mixing `??` with `==`, `!=`, `not`, `and` or `or` requires parentheses around one of the expressions.
 
@@ -573,8 +573,8 @@ Use `if`, `then` and `else` to choose between values. Add `elseif` for another c
 
 ```domql
 input {
-    state = if self.is("disabled") then "locked"
-           elseif self.is("readonly") then "read"
+    state = if context.is("disabled") then "locked"
+           elseif context.is("readonly") then "read"
            else "open" end
 }
 ```
@@ -608,7 +608,7 @@ Attributes hold text. Use `to` to convert a value to another type, such as the u
 
 ```js
 domql.query(
-    'panel.all("[data-key]").sum(self:["data-unread"] to "number" ?? 0)',
+    'panel.all("[data-key]").sum(context:["data-unread"] to "number" ?? 0)',
     { panel }
 ).evaluate();
 // 7
@@ -619,7 +619,7 @@ domql.query(
 To handle text that does not convert yourself, attempt the conversion with `try`, which answers null where the conversion rejects the value:
 
 ```domql
-panel { count = try self:["data-count"] to "number" ?? 0 }
+panel { count = try context:["data-count"] to "number" ?? 0 }
 ```
 
 A missing attribute and malformed text both give null, so `?? 0` supplies zero, and valid text converts to its number. A fault in a conversion, such as one that throws, is still an error.
@@ -628,7 +628,7 @@ A conversion never answers null for text it accepts, so where text is present, a
 
 ```domql
 panel {
-    let count = self:["data-count"],
+    let count = context:["data-count"],
     count = if let n = try count to "number" then { status = "valid", value = n }
     elseif count == null then { status = "missing", value = null }
     else { status = "malformed", value = null } end
@@ -647,10 +647,10 @@ Use `+`, `-`, `*`, `/` and `%` to derive the values a result needs from those a 
 
 ```domql
 panel {
-    remaining = (self.clientSize?.width ?? 0) - (self.first("[data-key]")?.rect?.width ?? 0),
-    half = (self.rect?.width ?? 0) / 2,
-    unreadAfterNext = (self.first("[data-unread]")?:["data-unread"] to "number" ?? 0) + 1,
-    fits = 0 < (self.clientSize?.width ?? 0) - 32 <= 400
+    remaining = (context.clientSize?.width ?? 0) - (context.first("[data-key]")?.rect?.width ?? 0),
+    half = (context.rect?.width ?? 0) / 2,
+    unreadAfterNext = (context.first("[data-unread]")?:["data-unread"] to "number" ?? 0) + 1,
+    fits = 0 < (context.clientSize?.width ?? 0) - 32 <= 400
 }
 ```
 
@@ -662,7 +662,7 @@ Write `$` before a string to insert values into it, each expression in braces:
 
 ```domql
 panel {
-    summary = $"{self.children.count} items, {self:["data-count"] ?? "none"} unread"
+    summary = $"{context.children.count} items, {context:["data-count"] ?? "none"} unread"
 }
 ```
 
@@ -699,7 +699,7 @@ Bindings can contain DOM elements or supported data. Bind a target as null when 
 ```js
 const optional = domql.query(`
     {
-        panel = panel { size = self.size },
+        panel = panel { size = context.size },
         ids = ids
     }
 `, { panel: null, ids: [] });
@@ -710,7 +710,7 @@ optional.evaluate();
 
 A binding's type comes from its value. Null bindings and empty lists can leave a type unknown; applicable property checks are deferred until the type is known, while calls are still checked against the vocabulary. Use optional access when reading a member from a nullable binding.
 
-Keep independent results in a top-level object, as above. If you instead write `panel { size = self.size, ids = ids }`, the entire result is null while `panel` is null.
+Keep independent results in a top-level object, as above. If you instead write `panel { size = context.size, ids = ids }`, the entire result is null while `panel` is null.
 
 ## API and errors
 
@@ -820,7 +820,7 @@ const metricsModule = domql.createModule('metrics', {
 
 domql.registerModule(metricsModule);
 
-domql.query('panel.metrics { childCount = self.childCount }', { panel }).evaluate();
+domql.query('panel.metrics { childCount = context.childCount }', { panel }).evaluate();
 // { childCount: 3 }
 ```
 

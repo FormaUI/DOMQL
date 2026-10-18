@@ -1,6 +1,6 @@
 const activations = domql.query(`
     panel.on("click") {
-        let item = self.target?.closest("[data-key]"),
+        let item = context.target?.closest("[data-key]"),
 
         key = item?:["data-key"],
         wasSelected = item?.aria:["selected"] == "true",

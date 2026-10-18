@@ -15,7 +15,7 @@ const NODE_PROPERTIES = {
     literal: { properties: ['kind', 'value'], required: ['value'] },
     parameter: { properties: ['kind', 'name'], required: ['name'] },
     root: { properties: ['kind', 'name'], required: ['name'] },
-    self: { properties: ['kind'], required: [] },
+    context: { properties: ['kind'], required: [] },
     local: { properties: ['kind', 'name'], required: ['name'] },
     member: { properties: ['kind', 'target', 'name', 'optional'], required: ['target', 'name'] },
     call: { properties: ['kind', 'target', 'name', 'optional', 'arguments'], required: ['target', 'name', 'arguments'] },
@@ -44,7 +44,7 @@ const NODE_PROPERTIES = {
 const CHAIN_KINDS = new Set(['member', 'call', 'indexer', 'object']);
 
 /** The kinds of node a cast's target can be, as text writes one: a receiver and its accesses, a coalescing operator, another cast, or an optional chain. */
-const CAST_TARGET_KINDS = new Set(['self', 'parameter', 'root', 'local', 'literal', 'interpolatedString', 'functionCall', 'object', 'member', 'call', 'indexer', 'optionalChain', 'coalescing', 'cast']);
+const CAST_TARGET_KINDS = new Set(['context', 'parameter', 'root', 'local', 'literal', 'interpolatedString', 'functionCall', 'object', 'member', 'call', 'indexer', 'optionalChain', 'coalescing', 'cast']);
 
 /** The operators an arithmetic node holds. */
 const ARITHMETIC_OPERATORS = ['+', '-', '*', '/', '%'];
@@ -64,7 +64,7 @@ const ATTEMPTED_KINDS = new Set(['conversion', 'cast']);
 /** What a local and a field of an object expression each hold: a name, always written, and a value. */
 const ENTRY_PROPERTIES = { properties: ['name', 'value'], required: ['name', 'value'] };
 
-/** Where a node's current value stands: absent at the top level, present in an object expression following a value, unknown in an argument. */
+/** Where a node's evaluation context stands: absent at the top level, present in an object expression following a value, unknown in an argument. */
 const CurrentValueAvailability = Object.freeze({ absent: 'absent', present: 'present', unknown: 'unknown' });
 
 export class DefinitionValidator {
@@ -137,7 +137,7 @@ export class DefinitionValidator {
         }
 
         if (!ObjectUtils.isNonArrayObject(node) || !Object.hasOwn(NODE_PROPERTIES, node.kind)) {
-            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, root, self, local, member, call, indexer, object, optionalChain, equality, comparison, interpolatedString, body, function, functionCall, arithmetic, negate, conditional, coalescing, not, cast, conversion, try, and or or');
+            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, root, context, local, member, call, indexer, object, optionalChain, equality, comparison, interpolatedString, body, function, functionCall, arithmetic, negate, conditional, coalescing, not, cast, conversion, try, and or or');
         }
 
         this.#requireProperties(node, pointer, NODE_PROPERTIES[node.kind]);
@@ -177,12 +177,12 @@ export class DefinitionValidator {
                 }
 
                 return Object.freeze({ kind: 'root', name: node.name });
-            case 'self':
+            case 'context':
                 if (currentValueAvailability === CurrentValueAvailability.absent) {
-                    this.#fail(pointer, "'self' is the current value, and the top level has none; a chain there starts with a parameter, a literal or an object expression");
+                    this.#fail(pointer, "'context' is the evaluation context, and the top level has none; a chain there starts with a parameter, a literal or an object expression");
                 }
 
-                return Object.freeze({ kind: 'self' });
+                return Object.freeze({ kind: 'context' });
             case 'local':
                 this.#requireName(node.name, `${pointer}/name`);
 
@@ -403,7 +403,7 @@ export class DefinitionValidator {
         return Object.freeze({ kind: 'optionalChain', target });
     }
 
-    /** Validates an and or an or: two or more expressions it combines, each with the current value the and or the or has. */
+    /** Validates an and or an or: two or more expressions it combines, each with the evaluation context the and or the or has. */
     #validateLogical(node, pointer, currentValueAvailability) {
         this.#requireArray(node.operands, `${pointer}/operands`);
 
@@ -414,7 +414,7 @@ export class DefinitionValidator {
         return Object.freeze({ kind: node.kind, operands: Object.freeze(node.operands.map((operand, index) => this.#validateNode(operand, `${pointer}/operands/${index}`, currentValueAvailability))) });
     }
 
-    /** Validates a comparison: two or more operands, each with the current value the comparison has, and between each two of them a comparison operator, every one pointing one way. */
+    /** Validates a comparison: two or more operands, each with the evaluation context the comparison has, and between each two of them a comparison operator, every one pointing one way. */
     #validateComparison(node, pointer, currentValueAvailability) {
         this.#requireArray(node.operands, `${pointer}/operands`);
 
@@ -446,7 +446,7 @@ export class DefinitionValidator {
     }
 
     /**
-     * Validates an interpolated string: its parts, each text, a string, or an expression, which has the current value the string has.
+     * Validates an interpolated string: its parts, each text, a string, or an expression, which has the evaluation context the string has.
      * Adjacent text is one part and empty text none, so a string written in text and its definition hold the same parts.
      */
     #validateInterpolatedString(node, pointer, currentValueAvailability) {
@@ -501,7 +501,7 @@ export class DefinitionValidator {
     }
 
     /**
-     * Validates a body: its bindings, each with its name and value, in scope after its value, through the bindings after it and the result, and seen by no value before it, and its result, each with the current value the body has.
+     * Validates a body: its bindings, each with its name and value, in scope after its value, through the bindings after it and the result, and seen by no value before it, and its result, each with the evaluation context the body has.
      * A body's binding may reuse a name an enclosing scope has, which it hides, and two of one body never share one.
      */
     #validateBody(node, pointer, currentValueAvailability) {
@@ -552,7 +552,7 @@ export class DefinitionValidator {
     }
 
     /**
-     * Validates a function: its parameters, each a name of its own, and its body, which sees them and the locals in scope where the function is declared, with the current value it has there.
+     * Validates a function: its parameters, each a name of its own, and its body, which sees them and the locals in scope where the function is declared, with the evaluation context it has there.
      * Its own local and those declared after it stay later names in its body, so it calls neither, directly or through another function.
      */
     #validateFunction(node, pointer, currentValueAvailability) {
@@ -630,7 +630,7 @@ export class DefinitionValidator {
         return Object.freeze({ kind: 'literal', value });
     }
 
-    /** Validates a property access, a call or an indexer: its name, its receiver, whether it is optional, which it is within an optional chain alone, and a call's arguments or an indexer's key, each a simple expression whose current value its declaration decides. */
+    /** Validates a property access, a call or an indexer: its name, its receiver, whether it is optional, which it is within an optional chain alone, and a call's arguments or an indexer's key, each a simple expression whose evaluation context its declaration decides. */
     #validateMember(node, pointer, currentValueAvailability) {
         this.#refuseBlockReceiver(node.target, pointer);
 

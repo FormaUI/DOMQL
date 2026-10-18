@@ -61,7 +61,7 @@ describe('Geometry in a browser', () => {
         it('follow a transform', () => {
             const box = add('position: absolute; left: 0; top: 0; width: 100px; height: 50px; transform: translate(15px, 25px)');
 
-            expect(read('box.rect { left = self.left, top = self.top, width = self.width, height = self.height }', { box })).toEqual({ left: 15, top: 25, width: 100, height: 50 });
+            expect(read('box.rect { left = context.left, top = context.top, width = context.width, height = context.height }', { box })).toEqual({ left: 15, top: 25, width: 100, height: 50 });
         });
 
         it('are the browser\'s bounding box for an element split across lines, whether or not its lines have an area', () => {
@@ -83,8 +83,8 @@ describe('Geometry in a browser', () => {
 
             [48, 64, 48].forEach(height => add(`height: ${height}px`, list));
 
-            expect(read('list.children.max(self.rect?.height)', { list })).toBe(64);
-            expect(read('list.children.sum(self.rect?.height)', { list })).toBe(160);
+            expect(read('list.children.max(context.rect?.height)', { list })).toBe(64);
+            expect(read('list.children.sum(context.rect?.height)', { list })).toBe(160);
         });
     });
 
@@ -201,7 +201,7 @@ describe('Geometry in a browser', () => {
             input.focus();
             input.setSelectionRange(2, 7);
 
-            expect(read('input.selection { start = self.start, finish = self.end }', { input })).toEqual({ start: 2, finish: 7 });
+            expect(read('input.selection { start = context.start, finish = context.end }', { input })).toEqual({ start: 2, finish: 7 });
             expect(read('input.hasSelection', { input })).toBe(true);
             expect(read('input:attribute["value"]', { input })).toBeNull();
         });

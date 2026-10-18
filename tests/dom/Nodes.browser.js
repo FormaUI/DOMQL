@@ -205,7 +205,7 @@ describe('Nodes in a browser', () => {
     });
 
     describe('shadow.elements', () => {
-        const ids = 'slot.shadow.elements { id = self:attribute["id"] }';
+        const ids = 'slot.shadow.elements { id = context:attribute["id"] }';
 
         /** A host whose open shadow root holds the markup, with the light children given. */
         const host = (markup, light = '') => {

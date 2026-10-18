@@ -108,10 +108,10 @@ Accepting partial observation is an option of the watch, chosen when the caller 
 
 A watch's dependencies are what its last evaluation actually read: each member applied to its receiver and arguments, with that member's observations, each held through a session as the evaluation reaches it. Dependencies belong to the complete query.
 
-- **Every evaluation holds its dependencies afresh:** it takes over the session of the evaluation before it wherever it reaches the same observation again, acquires the observations it reaches for the first time, and the sessions it no longer reaches are disposed. What a watch observes therefore follows the document: in `table.all("tbody tr").max(self.rect?.height)`, the watch depends on what the selector matches within the table, and on the height of each row it matched. A row added starts being observed after the evaluation the addition causes, and a row removed stops being observed.
-- **A value argument is a dependency of its own.** `target.intersects({ root = panel })` depends on the intersection of the target with the panel; `self.intersects({ root = self.parent as "element" })` also depends on which element is the parent, and a new parent is observed after the evaluation its change causes.
+- **Every evaluation holds its dependencies afresh:** it takes over the session of the evaluation before it wherever it reaches the same observation again, acquires the observations it reaches for the first time, and the sessions it no longer reaches are disposed. What a watch observes therefore follows the document: in `table.all("tbody tr").max(context.rect?.height)`, the watch depends on what the selector matches within the table, and on the height of each row it matched. A row added starts being observed after the evaluation the addition causes, and a row removed stops being observed.
+- **A value argument is a dependency of its own.** `target.intersects({ root = panel })` depends on the intersection of the target with the panel; `context.intersects({ root = context.parent as "element" })` also depends on which element is the parent, and a new parent is observed after the evaluation its change causes.
 - **An expression argument contributes its dependencies for every item** it was evaluated against.
-- **A chain that met null depends on what it read before the null,** so `self.closest(".row")` finding nothing still depends on the ancestors it searched, and the watch evaluates again when one starts to match.
+- **A chain that met null depends on what it read before the null,** so `context.closest(".row")` finding nothing still depends on the ancestors it searched, and the watch evaluates again when one starts to match.
 - **A watch keeps its bindings.** A query `with` other bindings starts a watch of its own. When the replacement watch is ready before the old watch is disposed, shared observations with matching targets and identifying arguments remain running throughout the replacement.
 
 Invalidation, evaluation and delivery each keep their own schedule. An observation invalidates the watch at once. The watch evaluates at the next animation frame, once however many observations fired, or, under `immediate`, without waiting for an animation frame, where its caller needs a change handled as soon as it is reported, such as at mutation delivery: the first invalidation queues an evaluation in a microtask, and the invalidations received before that evaluation begins share it, so the records one delivery of mutations brings evaluate once, and an invalidation received after it begins, or while it runs, asks for another. Separate native callbacks each reach a microtask of their own, so a resize the browser reports for each element in its own callback evaluates once for each; the frame schedule evaluates once for them all. When the caller receives the snapshot is the caller's own. Watches that depend on the same target through the same observation share one observation.
@@ -294,7 +294,7 @@ A tool can check a query text known when the code is written against the metadat
 
 - **What it keeps.** The definition's meaning, and the order of its locals and fields as declared; comments and the original layout are discarded, as a definition holds neither.
 - **What it needs.** Neither bindings nor a registered vocabulary: it parses and checks structure as `domql.query` does, and resolves nothing.
-- **The layout.** Four spaces of indentation for each level of an object expression; an object expression of one field and no locals on one line where its value is, `{ size = self.size }`, and any other with one line for each entry; a conditional with an `elseif`, or whose branches give their results with `return`, on one line for each clause and one for its `end`, each branch's bindings and result a level within it; a body's bindings and result each on a line of their own, a `do` block's a level within its `do` and its `end`; a string's line feed, carriage return, tab and escape character as `\n`, `\r`, `\t` and `\e`, and every other control, format or separator character in it but the space as `\u{…}`; an interpolated string's text as a string's with each brace doubled, and each hole's expression on one line, with a space after its `{` only where the expression begins with one; one space on each side of `and`, `or`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `??`, `+`, `-`, `*`, `/`, `%`, `as` and `to`, and none between a negation's `-` and what it negates; and no trailing comma.
+- **The layout.** Four spaces of indentation for each level of an object expression; an object expression of one field and no locals on one line where its value is, `{ size = context.size }`, and any other with one line for each entry; a conditional with an `elseif`, or whose branches give their results with `return`, on one line for each clause and one for its `end`, each branch's bindings and result a level within it; a body's bindings and result each on a line of their own, a `do` block's a level within its `do` and its `end`; a string's line feed, carriage return, tab and escape character as `\n`, `\r`, `\t` and `\e`, and every other control, format or separator character in it but the space as `\u{…}`; an interpolated string's text as a string's with each brace doubled, and each hole's expression on one line, with a space after its `{` only where the expression begins with one; one space on each side of `and`, `or`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `??`, `+`, `-`, `*`, `/`, `%`, `as` and `to`, and none between a negation's `-` and what it negates; and no trailing comma.
 - **It is stable.** Formatting text already formatted gives the same text.
 
 ## Callers
@@ -363,8 +363,8 @@ JavaScript makes a query from text, and binds its definition anew:
 // From text, binding its parameters by name.
 const panelQuery = domql.query(`
     panel {
-        size = self.size,
-        hasFocus = self.has("focus-within")
+        size = context.size,
+        hasFocus = context.has("focus-within")
     }
 `, { panel });
 
@@ -385,19 +385,19 @@ public sealed record PanelState(double? Width, bool HasFocus);
 DomqlQuery<PanelState> typed = Domql.Query<PanelState>(
     """
     panel {
-        width = self.size?.width,
-        hasFocus = self.has("focus-within")
+        width = context.size?.width,
+        hasFocus = context.has("focus-within")
     }
     """,
     ("panel", panel));
 
-DomqlQuery untyped = Domql.Query("panel { size = self.size }", ("panel", panel));
+DomqlQuery untyped = Domql.Query("panel { size = context.size }", ("panel", panel));
 ```
 
 A binding declares no type: every value is typed from itself, a null, an empty list and a list holding nulls among them, so a query is made for an element that is not there yet as it is for one that is.
 
 ```js
-const query = domql.query("{ panel = panel { size = self.size }, ids = ids }", { panel: null, ids: [] });
+const query = domql.query("{ panel = panel { size = context.size }, ids = ids }", { panel: null, ids: [] });
 
 const another = query.with({ panel: otherPanel, ids: [1, 2] });
 ```

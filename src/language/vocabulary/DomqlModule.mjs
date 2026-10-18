@@ -9,7 +9,7 @@ import { Type } from '../Type.mjs';
 
 const MEMBER_KINDS = ['property', 'operation', 'source', 'action', 'behavior'];
 
-/** How a member that is no property is written: called, `self.closest(".row")`, or a named indexer, `self:attribute["data-key"]`. */
+/** How a member that is no property is written: called, `context.closest(".row")`, or a named indexer, `context:attribute["data-key"]`. */
 const FORMS = ['call', 'indexer'];
 
 /** What a member's arguments supply: its parameters, in order, or every parameter, as the fields of one options object. */

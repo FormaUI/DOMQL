@@ -10,12 +10,12 @@ import { Names } from './Names.mjs';
  * An interpolated string is read as its `$"`, its runs of text, the `{` and `}` around each of its holes and its closing quote, the tokens of each hole's expression between them.
  * A contract within DOMQL until a public tooling API stabilizes it.
  */
-export const TOKEN_TYPES = Object.freeze(['name', 'literal', 'keyword', 'self', 'invalid', 'end', 'interpolated-string-start', 'interpolated-text', 'hole-start', 'hole-end', 'interpolated-string-end', 'external', 'reserved-reference', '.', '?.', '?[', '?:', '??', '(?', '==', '!=', '<', '<=', '>', '>=', '=', '+', '-', '*', '/', '%', ',', ':', '(', ')', '{', '}', '[', ']']);
+export const TOKEN_TYPES = Object.freeze(['name', 'literal', 'keyword', 'context', 'invalid', 'end', 'interpolated-string-start', 'interpolated-text', 'hole-start', 'hole-end', 'interpolated-string-end', 'external', 'reserved-reference', '.', '?.', '?[', '?:', '??', '(?', '==', '!=', '<', '<=', '>', '>=', '=', '+', '-', '*', '/', '%', ',', ':', '(', ')', '{', '}', '[', ']']);
 
 /**
  * @typedef {object} Token
- * @property {'name' | 'literal' | 'keyword' | 'self' | 'invalid' | 'end' | 'interpolated-string-start' | 'interpolated-text' | 'hole-start' | 'hole-end' | 'interpolated-string-end' | 'external' | 'reserved-reference' | '.' | '?.' | '?[' | '?:' | '??' | '(?' | '==' | '!=' | '<' | '<=' | '>' | '>=' | '=' | '+' | '-' | '*' | '/' | '%' | ',' | ':' | '(' | ')' | '{' | '}' | '[' | ']'} type
- * @property {unknown} [value] A name's or a keyword's text, the name `~` reads the caller's binding of, the reserved word `@` reads the local or the field of, a literal's value, or the text a run of an interpolated string's text stands for.
+ * @property {'name' | 'literal' | 'keyword' | 'context' | 'invalid' | 'end' | 'interpolated-string-start' | 'interpolated-text' | 'hole-start' | 'hole-end' | 'interpolated-string-end' | 'external' | 'reserved-reference' | '.' | '?.' | '?[' | '?:' | '??' | '(?' | '==' | '!=' | '<' | '<=' | '>' | '>=' | '=' | '+' | '-' | '*' | '/' | '%' | ',' | ':' | '(' | ')' | '{' | '}' | '[' | ']'} type
+ * @property {unknown} [value] A name's or a keyword's text, the evaluation context's spelling, `context` or `~`, the name `~` reads the caller's binding of, the reserved word `@` reads the local or the field of, a literal's value, or the text a run of an interpolated string's text stands for.
  * @property {number} start
  * @property {number} end
  * @property {number} leading Where the trivia before it begins, at its start where there is none, so every character of the text belongs to one token or to the trivia before one.
@@ -186,9 +186,9 @@ export class Tokenizer {
                 return { type: 'literal', value: Names.literalValueOf(name), start, end: this.#offset };
             }
 
-            // `self` is a keyword, given a token type of its own for the parser, which reads it where a value stands.
-            if (name === 'self') {
-                return { type: 'self', start, end: this.#offset };
+            // `context` is a keyword, given a token type of its own for the parser, which reads it where a value stands.
+            if (name === 'context') {
+                return { type: 'context', value: name, start, end: this.#offset };
             }
 
             return { type: Names.isKeyword(name) ? 'keyword' : 'name', value: name, start, end: this.#offset };
@@ -262,12 +262,17 @@ export class Tokenizer {
         return { type: 'reserved-reference', value: name, start, end: this.#offset };
     }
 
-    /** Reads what `~` begins: the caller's binding of the name written directly after it, whatever local or field shares its name and a reserved word included, as `~as` reads the binding `as`; invalid where no name follows it directly. */
+    /**
+     * Reads what `~` begins: the caller's binding of the name written directly after it, whatever local or field shares its name and a reserved word included, as `~as` reads the binding `as`,
+     * or, with no name directly after it, the evaluation context, as `context` is, so `~.size` reads `context.size`.
+     */
     #readExternal(start) {
         NAME.lastIndex = start + 1;
 
         if (!NAME.test(this.#text)) {
-            return this.#invalid(start, start + 1, "'~' reads the caller's binding of the name written directly after it, as ~panel", start);
+            this.#offset = start + 1;
+
+            return { type: 'context', value: '~', start, end: this.#offset };
         }
 
         const name = this.#text.slice(start + 1, NAME.lastIndex);

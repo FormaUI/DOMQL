@@ -69,9 +69,9 @@ export class LanguageResolver {
                 return this.#resolveParameter(node, pointer, scope);
             case 'root':
                 return { type: Type.createNamedType(node.name), kind: 'query', isFixed: false };
-            case 'self':
+            case 'context':
                 if (scope.current === null) {
-                    this.#fail("'self' is the current value, and there is none here", pointer);
+                    this.#fail("'context' is the evaluation context, and there is none here", pointer);
                 }
 
                 return { type: scope.facts.get(scope.currentKey) ?? scope.current, kind: 'query', isFixed: false };
@@ -84,7 +84,7 @@ export class LanguageResolver {
             case 'equality':
                 return this.#resolveEquality(node, pointer, scope, false);
             case 'arithmetic':
-                // A subtraction of a bare name from a property access may be one name written with a hyphen, as `self.client-size` is, which a failure to find the member suggests.
+                // A subtraction of a bare name from a property access may be one name written with a hyphen, as `context.client-size` is, which a failure to find the member suggests.
                 const access = node.left.kind === 'optionalChain' ? node.left.target : node.left;
 
                 if (node.operator === '-' && access.kind === 'member' && typeof access.name === 'string' && (node.right.kind === 'parameter' || node.right.kind === 'local')) {
@@ -383,14 +383,14 @@ export class LanguageResolver {
     }
 
     /**
-     * What the node's being truthy, or falsey, guarantees of the stable references it tests, each by its identity: a local, a conditional binding, a parameter or the current value.
+     * What the node's being truthy, or falsey, guarantees of the stable references it tests, each by its identity: a local, a conditional binding, a parameter or the evaluation context.
      * A reference itself tells its own truthiness, `== null` whether it is null, `not` the opposite, and `and` and `or` what every operand tells on the path taken, or only what each path that reaches the outcome shares.
      */
     #factsOf(node, scope, isTruthy) {
         switch (node.kind) {
             case 'local':
             case 'parameter':
-            case 'self': {
+            case 'context': {
                 const reference = this.#referenceOf(node, scope);
 
                 return reference === null ? NO_FACTS : new Map([[reference.key, isTruthy ? LanguageResolver.#truthyPartOf(reference.type) : LanguageResolver.#falseyPartOf(reference.type)]]);
@@ -449,7 +449,7 @@ export class LanguageResolver {
 
                 return { key, type: scope.facts.get(key) ?? this.#bindings.getType(node.name) };
             }
-            case 'self':
+            case 'context':
                 return scope.current === null ? null : { key: scope.currentKey, type: scope.facts.get(scope.currentKey) ?? scope.current };
             default:
                 return null;
@@ -669,7 +669,7 @@ export class LanguageResolver {
         return isFixed && result.isFixed ? result : { type: result.type, kind: result.kind, isFixed: false };
     }
 
-    /** The local a function declaration gives its name: the function, where it is declared, and the scope it captures, its locals and its current value. */
+    /** The local a function declaration gives its name: the function, where it is declared, and the scope it captures, its locals and its evaluation context. */
     static #functionLocalOf(node, pointer, scope) {
         return { function: node, pointer, scope, result: { type: Type.never, kind: 'function', isFixed: false }, value: node };
     }
@@ -684,7 +684,7 @@ export class LanguageResolver {
         if (local === undefined) {
             const form = scope.current === null ? null : this.#memberForm(scope.current, node.name);
 
-            this.#fail(`No function named '${node.name}' is in scope${form === null ? '' : `; write '${form}' for the member of the current value`}`, pointer);
+            this.#fail(`No function named '${node.name}' is in scope${form === null ? '' : `; write '${form}' for the member of the evaluation context`}`, pointer);
         }
 
         if (local.function === undefined) {
@@ -731,7 +731,7 @@ export class LanguageResolver {
         return { type: result.type, kind: 'query', isFixed: false };
     }
 
-    /** Resolves a local: what the one in scope with its name resolved to where it was written. A name no local in scope has is refused, with the form of the current value's member of that name where it has one. */
+    /** Resolves a local: what the one in scope with its name resolved to where it was written. A name no local in scope has is refused, with the form of the evaluation context's member of that name where it has one. */
     #resolveLocal(node, pointer, scope) {
         const local = scope.locals.get(node.name);
 
@@ -742,7 +742,7 @@ export class LanguageResolver {
         if (local === undefined) {
             const form = scope.current === null ? null : this.#memberForm(scope.current, node.name);
 
-            this.#fail(`No local named '${node.name}' is in scope${form === null ? '' : `; write '${form}' for the member of the current value`}`, pointer);
+            this.#fail(`No local named '${node.name}' is in scope${form === null ? '' : `; write '${form}' for the member of the evaluation context`}`, pointer);
         }
 
         // A binding's value is evaluated once, by its conditional, which a use of its name reads; either records the expression its value came from.
@@ -779,8 +779,8 @@ export class LanguageResolver {
         return `. Did you mean '${this.#memberForm(receiverType, name, receiver)}'?`;
     }
 
-    /** How the member of the type with the name is written after the receiver, `self` unless another is given, or null where the type has none. */
-    #memberForm(type, name, receiver = 'self') {
+    /** How the member of the type with the name is written after the receiver, `context` unless another is given, or null where the type has none. */
+    #memberForm(type, name, receiver = 'context') {
         if (this.#fieldTypeOf(type, name) !== null) {
             return `${receiver}.${name}`;
         }
@@ -814,7 +814,7 @@ export class LanguageResolver {
         if (!this.#bindings.has(node.name)) {
             const form = scope.current === null ? null : this.#memberForm(scope.current, node.name);
 
-            this.#fail(`No local in scope or binding is named '${node.name}'${form === null ? '' : `; write '${form}' for the member of the current value`}`, pointer);
+            this.#fail(`No local in scope or binding is named '${node.name}'${form === null ? '' : `; write '${form}' for the member of the evaluation context`}`, pointer);
         }
 
         return { type: scope.facts.get(`@${node.name}`) ?? this.#bindings.getType(node.name), kind: 'query', isFixed: true, value: this.#bindings.get(node.name) };
@@ -1465,7 +1465,7 @@ export class LanguageResolver {
             }
         }
 
-        // Each local is resolved where it is written, against the current value and the locals before it, and every field sees them all.
+        // Each local is resolved where it is written, against the evaluation context and the locals before it, and every field sees them all.
         let locals = scope.locals;
 
         node.locals?.forEach((local, index) => {

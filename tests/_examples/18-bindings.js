@@ -1,6 +1,6 @@
 const optional = domql.query(`
     {
-        panel = panel { size = self.size },
+        panel = panel { size = context.size },
         ids = ids
     }
 `, { panel: null, ids: [] });

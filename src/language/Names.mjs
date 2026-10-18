@@ -5,7 +5,7 @@
 /** A letter followed by letters and digits, which is also a JavaScript identifier. */
 const PATTERN = /^[A-Za-z][A-Za-z0-9]*$/;
 const LITERALS = new Map([['true', true], ['false', false], ['null', null]]);
-const KEYWORDS = new Set(['self', 'not', 'try', 'as', 'to', 'and', 'or', 'if', 'then', 'elseif', 'else', 'let', 'do', 'end', 'return', 'function']);
+const KEYWORDS = new Set(['context', 'not', 'try', 'as', 'to', 'and', 'or', 'if', 'then', 'elseif', 'else', 'let', 'do', 'end', 'return', 'function']);
 
 /** The roots, which their names stand for where an expression stands. */
 const ROOTS = new Set(['document', 'window']);

@@ -2,10 +2,10 @@ const panel = document.getElementById('panel');
 
 const query = domql.query(`
     panel {
-        count = self.children.count,
-        items = self.all("[data-key]") {
-            key = self:["data-key"],
-            selected = self.aria:["selected"] == "true"
+        count = context.children.count,
+        items = context.all("[data-key]") {
+            key = context:["data-key"],
+            selected = context.aria:["selected"] == "true"
         }
     }
 `, { panel });

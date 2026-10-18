@@ -166,7 +166,7 @@ export type DomqlDefinitionNode =
     | { readonly kind: 'literal'; readonly value: string | number | boolean | null }
     | { readonly kind: 'parameter'; readonly name: string }
     | { readonly kind: 'root'; readonly name: 'document' | 'window' }
-    | { readonly kind: 'self' }
+    | { readonly kind: 'context' }
     | { readonly kind: 'local'; readonly name: string }
     | { readonly kind: 'member'; readonly target: DomqlDefinitionNode; readonly name: string | DomqlDefinitionNode; readonly optional?: true }
     | { readonly kind: 'call'; readonly target: DomqlDefinitionNode; readonly name: string; readonly optional?: true; readonly arguments: readonly DomqlDefinitionNode[] }
@@ -383,7 +383,7 @@ export interface DomqlMemberDeclaration {
     /** The key of the function that carries it out, among the module's functions; a member whose argument selects a condition names none, since the condition carries it out. */
     function?: string;
     kind: 'property' | 'operation' | 'source' | 'action' | 'behavior';
-    /** How a member that is no property is written: called, `self.closest(".row")`, the default, or a named indexer, `self:attribute["data-key"]`, an operation whose one required value parameter is its key. A property declares none. */
+    /** How a member that is no property is written: called, `context.closest(".row")`, the default, or a named indexer, `context:attribute["data-key"]`, an operation whose one required value parameter is its key. A property declares none. */
     form?: 'call' | 'indexer';
     /** What its arguments supply, where it has parameters: its parameters, in order, the required ones before the optional ones, or every parameter, as the fields of one options object; an indexer's is positional. */
     input?: 'positional' | 'options';

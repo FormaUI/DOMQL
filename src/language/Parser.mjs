@@ -20,7 +20,7 @@ const TOKEN_DESCRIPTIONS = {
 const CHAIN_CONTINUATIONS = new Set(['.', '?.', '[', '?[', ':', '?:', '{']);
 
 /** The tokens that, after a space, make the name before them a member written without its receiver, which no local is: an argument. */
-const ARGUMENT_STARTS = new Set(['self', 'literal', 'interpolated-string-start', 'external', 'reserved-reference']);
+const ARGUMENT_STARTS = new Set(['context', 'literal', 'interpolated-string-start', 'external', 'reserved-reference']);
 
 /** The keywords that close or divide a construct, whose own messages say what it lacks where a value would stand. */
 const STRUCTURAL_KEYWORDS = new Set(['then', 'elseif', 'else', 'end']);
@@ -335,7 +335,7 @@ export class Parser {
         const letKeyword = this.#take();
 
         if (!this.#startsEntry()) {
-            this.#refuseName('A binding takes its value after =', 'A binding is written with let, its name and = before its value, as if let key = self:["data-key"] then …', 'if let ');
+            this.#refuseName('A binding takes its value after =', 'A binding is written with let, its name and = before its value, as if let key = context:["data-key"] then …', 'if let ');
         }
 
         return Parser.#node('conditional-binding', [letKeyword, this.#take(), this.#take(), this.#parseSimpleValueExpression()]);
@@ -458,7 +458,7 @@ export class Parser {
     /** Refuses what an equality operand cannot start with: an equality or a comparison operator, which compares the value written before it, and a conditional, which is grouped where it is an operand. */
     #refuseOperandStart(start) {
         if (this.#isEqualityOperator() || this.#isComparisonOperator()) {
-            throw this.#fail(`'${this.#token.type}' compares the value written before it: write 'self ${this.#token.type} …' to compare the current value`, start);
+            throw this.#fail(`'${this.#token.type}' compares the value written before it: write 'context ${this.#token.type} …' to compare the evaluation context`, start);
         }
 
         if (this.#isKeyword('if')) {
@@ -607,6 +607,11 @@ export class Parser {
 
         if (this.#tokens[this.#index + 1].type === '=') {
             throw this.#unexpected("',' before the next field");
+        }
+
+        // `~` alone is the evaluation context, so a name a space parts from it was most likely the caller's binding of that name.
+        if (value.type === 'context' && value.value === '~') {
+            throw this.#fail(`'~' reads the caller's binding of the name written directly after it: write '~${this.#token.value}', with no space`, value.start);
         }
 
         const written = this.#text.slice(start, this.#tokens[this.#index - 1].end);
@@ -767,7 +772,7 @@ export class Parser {
     /** Reads a receiver within an optional enclosed access: an input, or a grouped cast, its own target's accesses optional as the enclosed access's are, where its target is no group that keeps its own rules. */
     #parseReceiver() {
         if (this.#token.type === '(?') {
-            throw this.#fail('The receiver of an optional enclosed access is `self`, a parameter, a literal, a local, an object expression or a grouped cast, as in (?panel.first(".row").rect)', this.#token.start);
+            throw this.#fail('The receiver of an optional enclosed access is `context`, a parameter, a literal, a local, an object expression or a grouped cast, as in (?panel.first(".row").rect)', this.#token.start);
         }
 
         if (this.#token.type !== '(') {
@@ -869,7 +874,7 @@ export class Parser {
     }
 
     /**
-     * Reads an input: `self`, a literal, a name, which the lowering reads as a local, a field, a root or a binding, a reserved word after `@`, which it reads as a local or a field, a binding after `~`, or an object expression.
+     * Reads an input: `context`, a literal, a name, which the lowering reads as a local, a field, a root or a binding, a reserved word after `@`, which it reads as a local or a field, a binding after `~`, or an object expression.
      * A keyword alone keeps its meaning, so one where a value stands gives the form with `@` for the local or the field of its name.
      */
     #parseInput() {
@@ -877,7 +882,7 @@ export class Parser {
         const next = this.#tokens[this.#index + 1];
 
         if (this.#startsConversion()) {
-            throw this.#fail(`'to' converts the value written before it: write 'self to ${this.#text.slice(next.start, next.end)}' to convert the current value`, token.start);
+            throw this.#fail(`'to' converts the value written before it: write 'context to ${this.#text.slice(next.start, next.end)}' to convert the evaluation context`, token.start);
         }
 
         // A name that starts a chain is a local, a field or a binding, which takes no argument, so one an argument follows after a space is a member written without its receiver; parentheses after it call the local function of its name.
@@ -891,12 +896,12 @@ export class Parser {
             }
 
             if (token.type === 'name' && next.spaced && ARGUMENT_STARTS.has(next.type)) {
-                throw this.#fail(`'${token.value}' follows no receiver: write 'self.${token.value}(…)' for a member of the current value`, token.start);
+                throw this.#fail(`'${token.value}' follows no receiver: write 'context.${token.value}(…)' for a member of the evaluation context`, token.start);
             }
         }
 
         switch (token.type) {
-            case 'self':
+            case 'context':
             case 'literal':
             case 'name':
             case 'external':
@@ -1071,9 +1076,9 @@ export class Parser {
         return !(afterColon.type === '[' || (this.#isWord(afterColon) && this.#tokens[this.#index + 3]?.type === '['));
     }
 
-    /** Whether the token writes a word: a name, a keyword, `self` or the word of a literal, which a declaration and a member's name take as they are, whatever the word means where an expression stands. */
+    /** Whether the token writes a word: a name, a keyword, `context`, which `~` alone writes too but is no word, or the word of a literal, which a declaration and a member's name take as they are, whatever the word means where an expression stands. */
     #isWord(token) {
-        return token.type === 'name' || token.type === 'keyword' || token.type === 'self' || (token.type === 'literal' && (typeof token.value === 'boolean' || token.value === null));
+        return token.type === 'name' || token.type === 'keyword' || (token.type === 'context' && token.value === 'context') || (token.type === 'literal' && (typeof token.value === 'boolean' || token.value === null));
     }
 
     /** The word a token writes, as its text spells it. */
@@ -1125,7 +1130,7 @@ export class Parser {
         }
 
         if (this.#token.type === '}') {
-            const example = locals > 0 ? '{ let r = self.rect, width = r.width }' : '{ size = self.size }';
+            const example = locals > 0 ? '{ let r = context.rect, width = r.width }' : '{ size = context.size }';
 
             throw this.#fail(`An object expression holds at least one field${locals > 0 ? ' after its locals' : ''}, as ${example}`, this.#token.start);
         }
@@ -1163,7 +1168,7 @@ export class Parser {
         }
 
         if (!this.#startsEntry()) {
-            this.#refuseName('A field takes its value after =', 'A field is written with its name and = before its value, as size = self.size', '');
+            this.#refuseName('A field takes its value after =', 'A field is written with its name and = before its value, as size = context.size', '');
         }
 
         return Parser.#node('field', [this.#take(), this.#take(), this.#parseExpression()]);

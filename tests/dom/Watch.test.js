@@ -177,7 +177,7 @@ describe('Watch', () => {
         });
 
         it('are delivered as snapshots that share what did not change', async () => {
-            watch('panel { id = self:attribute["id"], items = self.children { n = self:attribute["data-n"] } }', { panel });
+            watch('panel { id = context:attribute["id"], items = context.children { n = context:attribute["data-n"] } }', { panel });
             await settle();
             await change(panel.children[1], 7);
 
@@ -191,7 +191,7 @@ describe('Watch', () => {
         });
 
         it('are followed through the elements the query now reads: one added is observed, one removed is not', async () => {
-            watch('panel.children { n = self:attribute["data-n"] }', { panel });
+            watch('panel.children { n = context:attribute["data-n"] }', { panel });
             await settle();
 
             const added = document.createElement('i');
@@ -420,7 +420,7 @@ describe('Watch', () => {
 
     describe('a field the entries after it read', () => {
         it('reuses the value its evaluation gave, evaluating it once each time the watch runs, and updates every field that reads it', async () => {
-            watch('panel { count = self.tally, again = count + 1, twice = count * 2 }', { panel });
+            watch('panel { count = context.tally, again = count + 1, twice = count * 2 }', { panel });
             await settle();
 
             expect(evaluations).toBe(1);
@@ -484,7 +484,7 @@ describe('Watch', () => {
         it('evaluates a local its holes share once, and a branch no condition selects never', () => {
             const before = evaluations;
 
-            expect(isolated.query('panel { let t = self.tally, text = $"{t}-{t}-{if false then self.tally else 0 end}" }', { panel }).evaluate().text).toBe(`${before + 1}-${before + 1}-0`);
+            expect(isolated.query('panel { let t = context.tally, text = $"{t}-{t}-{if false then context.tally else 0 end}" }', { panel }).evaluate().text).toBe(`${before + 1}-${before + 1}-0`);
             expect(evaluations).toBe(before + 1);
         });
     });
@@ -538,7 +538,7 @@ describe('Watch', () => {
         });
 
         it('lets an attempted conversion fall back for malformed text without failing, and give the converted value once the text converts', async () => {
-            const watched = watch('panel { value = try self:["data-n"] to "number" ?? 0 }', { panel });
+            const watched = watch('panel { value = try context:["data-n"] to "number" ?? 0 }', { panel });
 
             await settle();
             await change(panel, 'two');
@@ -684,7 +684,7 @@ describe('Watch', () => {
             expect(snapshots).toEqual([{ a: 1 }]);
 
             // A watch of the list reads the second child's gauge once it has been added to what is read.
-            const listed = watch('panel.children { level = self.level }', { panel });
+            const listed = watch('panel.children { level = context.level }', { panel });
 
             await settle();
             gauges.get(first).notify();
@@ -731,7 +731,7 @@ describe('Watch', () => {
 
     describe('a local', () => {
         it('holds what it reads only while an evaluation uses it: from when a branch first reaches it until none does', async () => {
-            watch('panel { let level = self.level, value = if self:attribute["data-on"] == null then 0 else level end }', { panel });
+            watch('panel { let level = context.level, value = if context:attribute["data-on"] == null then 0 else level end }', { panel });
             await settle();
 
             expect(snapshots).toEqual([{ value: 0 }]);
@@ -956,7 +956,7 @@ describe('Watch', () => {
 
         it('pass from evaluation to evaluation through failures, keep reporting, and are all let go when the watch is disposed', async () => {
             const probes = registerProbe();
-            const watched = watch('panel.children { p = self.probe }', { panel });
+            const watched = watch('panel.children { p = context.probe }', { panel });
             const [first, second] = [...panel.children];
 
             await watched.refreshAsync();
@@ -1358,7 +1358,7 @@ describe('Watch', () => {
         };
 
         it('hands its change handler one object, kept current in place, with the change set just applied to it', async () => {
-            const { watched, calls } = watchLive('panel { n = self:attribute["data-n"], rows = self.children { n = self:attribute["data-n"] } }', { panel });
+            const { watched, calls } = watchLive('panel { n = context:attribute["data-n"], rows = context.children { n = context:attribute["data-n"] } }', { panel });
 
             await settle();
             await change(panel.children[1], 7);
@@ -1375,7 +1375,7 @@ describe('Watch', () => {
 
         it('keeps the object of each item as its element moves, and adds and removes items in place', async () => {
             const [first, second] = panel.children;
-            const { watched } = watchLive('{ rows = panel.children { n = self:attribute["data-n"] } }', { panel });
+            const { watched } = watchLive('{ rows = panel.children { n = context:attribute["data-n"] } }', { panel });
 
             await settle();
 
@@ -1406,7 +1406,7 @@ describe('Watch', () => {
             first.setAttribute('data-n', '0');
             second.setAttribute('data-n', '0');
 
-            const { watched } = watchLive('{ rows = panel.children { n = self:attribute["data-n"] } }', { panel });
+            const { watched } = watchLive('{ rows = panel.children { n = context:attribute["data-n"] } }', { panel });
 
             await settle();
 
@@ -1469,7 +1469,7 @@ describe('Watch', () => {
 
         it('is refused for a result that is no object or list, or that can be null', () => {
             expect(() => watch('panel:attribute["data-n"]', { panel }, { updateStrategy: 'liveState' })).toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringContaining('Live state keeps one object current') }));
-            expect(() => watch('item { n = self:attribute["data-n"] }', { item: null }, { updateStrategy: 'liveState' })).toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringContaining('put it in a top-level object expression') }));
+            expect(() => watch('item { n = context:attribute["data-n"] }', { item: null }, { updateStrategy: 'liveState' })).toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringContaining('put it in a top-level object expression') }));
         });
 
         it('is held only by a watch that keeps live state', async () => {

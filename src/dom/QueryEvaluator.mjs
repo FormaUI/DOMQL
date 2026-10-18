@@ -83,7 +83,7 @@ export class QueryEvaluator {
     static #fieldTypesByStructure = new WeakMap();
 
     /**
-     * The function each node of a resolved definition compiles to, by the definition and then the node, with the registry they were compiled against: built once, it holds what the node's evaluation needs that no evaluation changes, and takes the evaluator, which holds what one does, and the current value.
+     * The function each node of a resolved definition compiles to, by the definition and then the node, with the registry they were compiled against: built once, it holds what the node's evaluation needs that no evaluation changes, and takes the evaluator, which holds what one does, and the evaluation context.
      * @type {WeakMap<object, { registry: object, functions: Map<object, (evaluator: QueryEvaluator, current: unknown) => unknown> }>}
      */
     static #compilationCache = new WeakMap();
@@ -348,7 +348,7 @@ export class QueryEvaluator {
         return compiledFunction;
     }
 
-    /** The node as a function of the evaluator and the current value, each kind evaluated as its section of the specification sets out, the nodes it holds compiled with it. */
+    /** The node as a function of the evaluator and the evaluation context, each kind evaluated as its section of the specification sets out, the nodes it holds compiled with it. */
     #compileNode(node) {
         switch (node.kind) {
             case 'literal': {
@@ -360,7 +360,7 @@ export class QueryEvaluator {
                 return evaluator => evaluator.#parameterBindings.get(node.name);
             case 'root':
                 return node.name === 'window' ? evaluator => evaluator.#environment.window : evaluator => evaluator.#environment.document;
-            case 'self':
+            case 'context':
                 return (evaluator, currentValue) => currentValue;
             case 'local': {
                 const resolution = this.#resolvedDefinition.resolutionOf(node);
@@ -472,7 +472,7 @@ export class QueryEvaluator {
                 return (evaluator, currentValue) => !QueryEvaluator.#isTruthy(operand(evaluator, currentValue));
             }
             case 'function':
-                // A function's value is its closure: the locals and the current value where it is declared, which each call evaluates its body in.
+                // A function's value is its closure: the locals and the evaluation context where it is declared, which each call evaluates its body in.
                 return (evaluator, currentValue) => ({ function: node, frame: evaluator.#localsFrame, currentValue });
             case 'functionCall': {
                 const { body, parameters } = this.#resolvedDefinition.resolutionOf(node);
@@ -499,7 +499,7 @@ export class QueryEvaluator {
                 const bindings = node.bindings.map(binding => ({ name: binding.name, evaluate: this.#getCompiledFunction(binding.value) }));
                 const result = this.#getCompiledFunction(node.result);
 
-                // Each binding is evaluated once, in order, whenever the body runs, an unused one included, each seeing those before it, and then the result, all against the body's current value.
+                // Each binding is evaluated once, in order, whenever the body runs, an unused one included, each seeing those before it, and then the result, all against the body's evaluation context.
                 return (evaluator, currentValue) => {
                     const frame = { node, item: currentValue, values: new Map(), enclosing: evaluator.#localsFrame };
                     const enclosingSelections = evaluator.#selections;
@@ -1025,7 +1025,7 @@ export class QueryEvaluator {
     }
 
     /**
-     * The value of the local the node names: evaluated at its first use in the application of the object expression that holds it, against that application's current value and the locals in scope where it is written, and the same value at every later use there.
+     * The value of the local the node names: evaluated at its first use in the application of the object expression that holds it, against that application's evaluation context and the locals in scope where it is written, and the same value at every later use there.
      * The selections its evaluation made are recorded at every place in the result it is used.
      */
     #evaluateLocal(node) {

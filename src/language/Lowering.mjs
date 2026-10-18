@@ -142,8 +142,8 @@ export class Lowering {
 
     #lowerToken(token) {
         switch (token.type) {
-            case 'self':
-                return this.#span({ kind: 'self' }, token);
+            case 'context':
+                return this.#span({ kind: 'context' }, token);
             case 'literal':
                 return this.#span({ kind: 'literal', value: token.value }, token);
             case 'name':

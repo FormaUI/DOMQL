@@ -35,17 +35,17 @@ describe('LanguageResolver', () => {
 
         it('types a list property and an aggregate over its items', () => {
             expect(resolve('panel.children.count').type.toString()).toBe('number');
-            expect(resolve('panel.children.sum(self.size?.width)').type.toString()).toBe('number');
-            expect(resolve('panel.children.max(self.size?.width)').type.toString()).toBe('number?');
+            expect(resolve('panel.children.sum(context.size?.width)').type.toString()).toBe('number');
+            expect(resolve('panel.children.max(context.size?.width)').type.toString()).toBe('number?');
         });
 
         it('keeps the item type through where, first and at', () => {
-            expect(resolve('panel.children.where(self.attached).first?.size').type.toString()).toBe('size?');
+            expect(resolve('panel.children.where(context.attached).first?.size').type.toString()).toBe('size?');
             expect(resolve('panel.children:[0]?.size').type.toString()).toBe('size?');
         });
 
         it('types an object expression by its written field names', () => {
-            expect(resolve('panel { size = self.size, hasFocus = self.has("focus") }').type.toString()).toBe('{ size: size?, hasFocus: boolean }');
+            expect(resolve('panel { size = context.size, hasFocus = context.has("focus") }').type.toString()).toBe('{ size: size?, hasFocus: boolean }');
         });
 
         it('types a bound value by the type it has', () => {
@@ -55,9 +55,9 @@ describe('LanguageResolver', () => {
 
         it.each([
             ['the result', 'panel.loose'],
-            ['a field', 'panel { v = self.loose }'],
+            ['a field', 'panel { v = context.loose }'],
             ['an argument', 'panel.children:[panel.loose]'],
-            ['an expression', 'panel.children.where(self.loose).count'],
+            ['an expression', 'panel.children.where(context.loose).count'],
             ['an operand of and', 'panel.loose and 1'],
             ['a condition', 'if panel.loose then 1 else 2 end'],
             ['what not negates', 'not panel.loose'],
@@ -80,14 +80,14 @@ describe('LanguageResolver', () => {
         });
 
         it('resolves an event source as a subscription', () => {
-            const resolved = resolve('document.on("keydown") { key = self.key }');
+            const resolved = resolve('document.on("keydown") { key = context.key }');
 
             expect(resolved.kind).toBe('subscription');
             expect(resolved.type.toString()).toBe('event<{ key: string }>');
         });
 
         it('shapes the events of a source by the fields of its payload', () => {
-            const resolved = resolve('panel.on("click") { clientX = self.clientX, button = self.button }');
+            const resolved = resolve('panel.on("click") { clientX = context.clientX, button = context.button }');
 
             expect(resolved.kind).toBe('subscription');
             expect(resolved.type.toString()).toBe('event<{ clientX: number, button: number }>');
@@ -95,7 +95,7 @@ describe('LanguageResolver', () => {
 
         it('refuses an answer that is no data', () => {
             expect(failure('panel.parent').message).toContain('no data');
-            expect(failure('panel.on("click") { target = self.target }').message).toContain('no data');
+            expect(failure('panel.on("click") { target = context.target }').message).toContain('no data');
         });
 
         it('refuses a member after an event source', () => {
@@ -138,7 +138,7 @@ describe('LanguageResolver', () => {
         });
 
         it('shapes the result of an action by the object expression that follows it, which stays an action request', () => {
-            const resolved = resolveWith('panel.pick() { id = self:attribute["id"] }');
+            const resolved = resolveWith('panel.pick() { id = context:attribute["id"] }');
 
             expect(resolved.kind).toBe('action');
             expect(resolved.type.toString()).toBe('{ id: string? }');
@@ -150,7 +150,7 @@ describe('LanguageResolver', () => {
 
         it('resolves a behavior as a behavior request, which takes no object expression', () => {
             expect(resolveWith('panel.focusTrap()').kind).toBe('behavior');
-            expect(failureWith('panel.focusTrap() { id = self:attribute["id"] }').message).toContain('A behavior request ends its chain and takes no object expression');
+            expect(failureWith('panel.focusTrap() { id = context:attribute["id"] }').message).toContain('A behavior request ends its chain and takes no object expression');
         });
 
         it('refuses a member after an action, and an action or a behavior inside a query', () => {
@@ -184,7 +184,7 @@ describe('LanguageResolver', () => {
         });
 
         it('refuses an expression on a receiver that has no items', () => {
-            expect(failure('panel.sum(self.size?.width)').message).toContain('not available');
+            expect(failure('panel.sum(context.size?.width)').message).toContain('not available');
         });
     });
 
@@ -359,11 +359,11 @@ describe('LanguageResolver', () => {
         });
 
         it('lets an aggregate expression produce null per item', () => {
-            expect(resolve('panel.children.sum(self.size?.width)').type.toString()).toBe('number');
+            expect(resolve('panel.children.sum(context.size?.width)').type.toString()).toBe('number');
         });
 
         it('refuses an aggregate expression of another type', () => {
-            expect(failure('panel.children.sum(self:attribute["id"])').message).toContain('must produce number?');
+            expect(failure('panel.children.sum(context:attribute["id"])').message).toContain('must produce number?');
         });
     });
 
@@ -371,7 +371,7 @@ describe('LanguageResolver', () => {
         it('resolves a bracket property access to the type the properties its names name share', () => {
             expect(resolve('panel["children"].count').type.toString()).toBe('number');
             expect(resolve('panel[name]', { panel, name: 'size' }).type.toString()).toBe('size?');
-            expect(resolve('panel { let name = if wide then "size" else "clientSize" end, s = self[name] }', { panel, wide: true }).type.toString()).toBe('{ s: size? }');
+            expect(resolve('panel { let name = if wide then "size" else "clientSize" end, s = context[name] }', { panel, wide: true }).type.toString()).toBe('{ s: size? }');
             expect(resolve('panel[null ?? "size"]').type.toString()).toBe('size?');
         });
 
@@ -398,7 +398,7 @@ describe('LanguageResolver', () => {
         it.each([
             ['an and that can give false', 'panel[wide and "size"]', { wide: false }, "A bracket property access reads a string, and 'wide and \"size\"' can be false"],
             ['a name an and and an or reach that no property has', 'panel[wide and "nonsense" or "size"]', { wide: true }, "'nonsense' is no member of the vocabulary"],
-            ['an and of a Boolean member and a name, whose values no one type holds', 'panel { v = self[self.attached and "size" or "clientSize"] }', {}, "What 'and' gives is false or string"],
+            ['an and of a Boolean member and a name, whose values no one type holds', 'panel { v = context[context.attached and "size" or "clientSize"] }', {}, "What 'and' gives is false or string"],
             ['a value that is no name', 'panel[count]', { count: 5 }, 'A bracket property access reads a name determined when the query is prepared'],
             ['a fallback whose names go unasked, which is validated all the same', 'panel["size" ?? panel.nonsense]', {}, "'nonsense' is no member of the vocabulary"],
         ])('refuses a bracket property access through %s', (_, text, bindings, message) => {
@@ -419,14 +419,14 @@ describe('LanguageResolver', () => {
         });
 
         it('resolves an event type and a feature', () => {
-            expect(resolve('document.on("keydown") { key = self.key }').type.toString()).toBe('event<{ key: string }>');
+            expect(resolve('document.on("keydown") { key = context.key }').type.toString()).toBe('event<{ key: string }>');
             expect(resolve('window.supports("share")').type.toString()).toBe('boolean');
         });
 
         it('resolves a feature held in a local whose value is a literal or a bound parameter, and refuses one whose value reads the document', () => {
-            expect(resolve('window { let feature = "share", supportsShare = self.supports(feature) }').type.toString()).toBe('{ supportsShare: boolean }');
-            expect(resolve('window { let feature = chosen, supportsShare = self.supports(feature) }', { chosen: 'share' }).type.toString()).toBe('{ supportsShare: boolean }');
-            expect(failure('window { let feature = if panel.attached then "share" else "clipboard" end, supportsShare = self.supports(feature) }', { panel }).message).toContain('a string the query\'s preparation settles');
+            expect(resolve('window { let feature = "share", supportsShare = context.supports(feature) }').type.toString()).toBe('{ supportsShare: boolean }');
+            expect(resolve('window { let feature = chosen, supportsShare = context.supports(feature) }', { chosen: 'share' }).type.toString()).toBe('{ supportsShare: boolean }');
+            expect(failure('window { let feature = if panel.attached then "share" else "clipboard" end, supportsShare = context.supports(feature) }', { panel }).message).toContain('a string the query\'s preparation settles');
         });
 
         it.each([
@@ -436,7 +436,7 @@ describe('LanguageResolver', () => {
             ['a conditional binding', 'let chosen = if let f = feature then f else "nothing" end\nreturn window.supports(chosen)', { feature: 'share' }],
             ['a coalescing operator whose value is null', 'window.supports(feature ?? "share")', { feature: null }],
             ['a coalescing operator whose value is not', 'window.supports(feature ?? "nothing")', { feature: 'share' }],
-            ['a local holding one of them', 'window { let f = wide and "share" or "nothing", supported = self.supports(f) }', { wide: true }],
+            ['a local holding one of them', 'window { let f = wide and "share" or "nothing", supported = context.supports(f) }', { wide: true }],
         ])('resolves a feature %s settles when the query is prepared, the side it does not take left unselected', (_, text, bindings) => {
             expect(() => resolve(text, bindings)).not.toThrow();
         });
@@ -474,7 +474,7 @@ describe('LanguageResolver', () => {
 
                 return new LanguageResolver(registry, DomqlQuery.bindingsOf(query), null, {}).resolveDefinition(query.definition);
             };
-            const events = resolveWith('panel.on("chart-selected") { value = self.value }');
+            const events = resolveWith('panel.on("chart-selected") { value = context.value }');
             const test = resolveWith('panel.charts');
 
             expect(events.type.toString()).toBe('event<{ value: number }>');
@@ -531,7 +531,7 @@ describe('LanguageResolver', () => {
 
         it('points into a definition that has no text', () => {
             const definition = {
-                version: 26,
+                version: 27,
                 query: { kind: 'member', target: { kind: 'parameter', name: 'panel' }, name: 'nonsense', arguments: [] },
             };
 
@@ -571,7 +571,7 @@ describe('LanguageResolver', () => {
             expect(failure('panel.rect == panel.rect').message).toContain("'==' compares a value of rectangle with null alone");
             expect(failure('panel.children == panel.children').message).toContain('a value of list<element> with null alone');
             expect(failure('window == window').message).toContain('a value of window with null alone');
-            expect(failure('panel.on("click") { x = self.clientX } == null').message).toContain("'==' compares values, and this is an event source");
+            expect(failure('panel.on("click") { x = context.clientX } == null').message).toContain("'==' compares values, and this is an event source");
         });
 
         it('give the test to write for a value compared with the name of one of its Boolean members or its conditions, and nothing for any other', () => {
@@ -617,12 +617,12 @@ describe('LanguageResolver', () => {
         it('test for null with is null, a Boolean that is never null, whatever its subject', () => {
             expect(resolve('panel.parent == null').type.toString()).toBe('boolean');
             expect(resolve('null == null').type.toString()).toBe('boolean');
-            expect(failure('panel.on("click") { clientX = self.clientX } == null').message).toContain('event source');
+            expect(failure('panel.on("click") { clientX = context.clientX } == null').message).toContain('event source');
         });
     });
 
     describe('narrowing', () => {
-        const local = (name, text) => `panel { let ${name} = self.first(".a"), let other = self.first(".b"), r = ${text} }`;
+        const local = (name, text) => `panel { let ${name} = context.first(".a"), let other = context.first(".b"), r = ${text} }`;
 
         it.each([
             ['the right operand of an and, where the left is the local', local('a', 'a and a.rect'), '{ r: rectangle? }'],
@@ -643,7 +643,7 @@ describe('LanguageResolver', () => {
             ['an or, which says neither is not null', local('a', 'if a != null or other != null then a.attached else false end'), '/query/fields/0/value/consequent'],
             ['the alternative of a condition that is the local', local('a', 'if a then false else a.attached end'), '/query/fields/0/value/alternative'],
             ['a member read anew, whose text is the same', 'panel.first(".a") and panel.first(".a").attached', '/query/operands/1'],
-            ['another local of the same name, in another object expression', 'panel { x = { let a = self.first(".a"), v = a and a.attached }, y = { let a = self.first(".b"), v = a.attached } }', '/query/fields/1/value/fields/0/value'],
+            ['another local of the same name, in another object expression', 'panel { x = { let a = context.first(".a"), v = a and a.attached }, y = { let a = context.first(".b"), v = a.attached } }', '/query/fields/1/value/fields/0/value'],
         ])('narrows nothing through %s', (_, text, pointer) => {
             const error = failure(text);
 
@@ -653,8 +653,8 @@ describe('LanguageResolver', () => {
         });
 
         it('keeps what it knows of a local in the object expressions and the expressions nested where it holds', () => {
-            expect(resolve('panel { let a = self.first(".a"), v = a and panel.children { w = a.attached, u = self.attached } }').type.toString()).toBe('{ v: list<{ w: boolean, u: boolean }>? }');
-            expect(resolve('panel { let a = self.first(".a"), v = a and panel.children.where(a.attached).count }').type.toString()).toBe('{ v: number? }');
+            expect(resolve('panel { let a = context.first(".a"), v = a and panel.children { w = a.attached, u = context.attached } }').type.toString()).toBe('{ v: list<{ w: boolean, u: boolean }>? }');
+            expect(resolve('panel { let a = context.first(".a"), v = a and panel.children.where(a.attached).count }').type.toString()).toBe('{ v: number? }');
         });
     });
 
@@ -700,8 +700,8 @@ describe('LanguageResolver', () => {
             expect(failure('not panel.on("click")').message).toContain("What 'not' negates is a value, and this one is an event source");
         });
 
-        it('resolve every operand with its own location, the current value of each the one around the expression', () => {
-            const resolved = resolve('panel { both = self.attached and (self.is("disabled") or self.has("focus")) }');
+        it('resolve every operand with its own location, the evaluation context of each the one around the expression', () => {
+            const resolved = resolve('panel { both = context.attached and (context.is("disabled") or context.has("focus")) }');
 
             expect(resolved.getResolution('/query/fields/0/value/operands/0').declaration.name).toBe('attached');
             expect(resolved.getResolution('/query/fields/0/value/operands/1/operands/1').contract.name).toBe('focus');
@@ -728,24 +728,24 @@ describe('LanguageResolver', () => {
 
     describe('locals', () => {
         it('type a use of a local as the value it names', () => {
-            expect(resolve('panel { let size = self.size, width = size?.width }').type.toString()).toBe('{ width: number? }');
-            expect(resolve('panel { let rows = self.children, rows = rows { key = self:attribute["data-key"] } }').type.toString()).toBe('{ rows: list<{ key: string? }> }');
+            expect(resolve('panel { let size = context.size, width = size?.width }').type.toString()).toBe('{ width: number? }');
+            expect(resolve('panel { let rows = context.children, rows = rows { key = context:attribute["data-key"] } }').type.toString()).toBe('{ rows: list<{ key: string? }> }');
         });
 
-        it('resolve a local where it is written, whatever current value its use has', () => {
-            expect(resolve('panel { let size = self.size, rows = self.children { size = size } }').type.toString()).toBe('{ rows: list<{ size: size? }> }');
+        it('resolve a local where it is written, whatever evaluation context its use has', () => {
+            expect(resolve('panel { let size = context.size, rows = context.children { size = size } }').type.toString()).toBe('{ rows: list<{ size: size? }> }');
         });
 
         it('let a local hold what is no data, which no field can', () => {
-            expect(resolve('panel { let first = self.children:[0], key = first?:attribute["data-key"] }').type.toString()).toBe('{ key: string? }');
+            expect(resolve('panel { let first = context.children:[0], key = first?:attribute["data-key"] }').type.toString()).toBe('{ key: string? }');
         });
 
         it('validate a local no field uses', () => {
-            expect(failure('panel { let wrong = self.nonsense, a = 1 }').location.pointer).toBe('/query/locals/0/value');
+            expect(failure('panel { let wrong = context.nonsense, a = 1 }').location.pointer).toBe('/query/locals/0/value');
         });
 
         it('refuse a local that is no value', () => {
-            expect(failure('panel { let clicks = self.on("click"), a = 1 }').message).toContain("The local 'clicks' is an event source, and a local is a value");
+            expect(failure('panel { let clicks = context.on("click"), a = 1 }').message).toContain("The local 'clicks' is an event source, and a local is a value");
         });
     });
 
@@ -792,7 +792,7 @@ describe('LanguageResolver', () => {
 
     describe('the resolved definition', () => {
         it('names each field of each object expression once, as it is written', () => {
-            const resolved = resolve('panel { size = self.size, kind = self:attribute["role"], attached = self.attached, clientSize = self["clientSize"], rows = self.all("i") { rect = self.rect } }');
+            const resolved = resolve('panel { size = context.size, kind = context:attribute["role"], attached = context.attached, clientSize = context["clientSize"], rows = context.all("i") { rect = context.rect } }');
             const { query } = resolved.definition;
 
             expect(resolved.fieldNamesOf(query)).toEqual(['size', 'kind', 'attached', 'clientSize', 'rows']);
@@ -800,7 +800,7 @@ describe('LanguageResolver', () => {
         });
 
         it('finds each node, by the node itself, with its pointer and its resolution', () => {
-            const resolved = resolve('panel.all("i") { h = self.size?.height, on = self.attached or self.has("focus") }');
+            const resolved = resolve('panel.all("i") { h = context.size?.height, on = context.attached or context.has("focus") }');
             const { query } = resolved.definition;
             const [chain, on] = query.fields.map(field => field.value);
             const height = chain.target;

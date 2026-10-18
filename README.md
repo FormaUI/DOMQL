@@ -16,11 +16,12 @@ DOMQL is a FormaUI product, developed alongside [Forma](https://github.com/Forma
 - **Handle missing values.** Use optional access, fallbacks and conditionals directly in your query. Only `null` and `false` are falsey, and `and` and `or` return the operand that decides them, so `panel:["data-label"] or "untitled"` gives a label or a default.
 - **Name the steps.** Write a query as locals and the `return` that gives its result, as `let width = panel.rect?.width ?? 0` and then `return width / 2`, or a `do … end` block wherever a value stands; every conditional ends with `end`. An argument holds a simple expression, so a block or a conditional of locals is bound to a local first, as `let adjusted = do … end` and then `calculate(adjusted)`.
 - **Reuse a calculation.** Declare a function as a local and call it by name, as `let measure = function(box) box.rect?.width ?? 0 end` and then `measure(panel)`; each call is checked against its own arguments.
-- **Calculate and compare.** Derive values with `+`, `-`, `*`, `/` and `%`, as `(self.clientSize?.width ?? 0) - 24`, and test them with `<`, `<=`, `>` and `>=`, chained for a range, as `0 < width <= 600`. Both take numbers alone, so a value that can be missing takes a fallback first, and division by zero is an error, never infinity.
-- **Build text.** Insert values into text with an interpolated string, as `$"{self.children.count} items"`, which takes strings and numbers alone, so a missing value takes a fallback first, as `{name ?? "Unknown"}`.
+- **Calculate and compare.** Derive values with `+`, `-`, `*`, `/` and `%`, as `(context.clientSize?.width ?? 0) - 24`, and test them with `<`, `<=`, `>` and `>=`, chained for a range, as `0 < width <= 600`. Both take numbers alone, so a value that can be missing takes a fallback first, and division by zero is an error, never infinity.
+- **Build text.** Insert values into text with an interpolated string, as `$"{context.children.count} items"`, which takes strings and numbers alone, so a missing value takes a fallback first, as `{name ?? "Unknown"}`.
 - **Write any character.** Strings take `\n`, `\t`, `\e` and the other common escapes, and `\u{…}` names any character by its code point, as `"\u{200B}"` writes a zero-width space you could not see otherwise.
 - **Convert values explicitly.** Read attribute text as a number or a Boolean with `to`, or attempt it with `try … to "number"`, which answers null for text that does not convert; with `to` alone, such text is an error, never a silent default. Casts work the same way: `as` fails for a node of another kind, and `try … as` answers null.
 - **Reuse queries.** Evaluate again, bind different targets, or store and exchange definitions as JSON. A binding is read by its name, or as `~name` where a local or a field shares that name or a reserved word names it.
+- **Read the evaluation context.** `context` is the value an expression is evaluated against, the element an object expression follows or each item of a list, and `~` alone is the same, as `panel { width = ~.rect?.width }` reads the panel's width.
 - **Name anything.** Fields, locals, functions and members take any name, `end`, `to` and `null` among them, as `{ end = selection.end }` does; written alone such a word keeps its meaning, so a local or a field it names is read as `@end`. A field's name is read by the fields after it, as `{ count = rows.count, label = $"{count} rows" }` does.
 - **Catch invalid requests early.** DOMQL checks bindings, member names, arguments and types before evaluation.
 - **Read events as data.** Subscribe to an event source and choose the fields each event delivers.
@@ -48,10 +49,10 @@ const panel = document.getElementById('panel');
 
 const query = domql.query(`
     panel {
-        count = self.children.count,
-        items = self.all("[data-key]") {
-            key = self:["data-key"],
-            selected = self.aria:["selected"] == "true"
+        count = context.children.count,
+        items = context.all("[data-key]") {
+            key = context:["data-key"],
+            selected = context.aria:["selected"] == "true"
         }
     }
 `, { panel });
@@ -72,7 +73,7 @@ The result is plain data:
 }
 ```
 
-`panel` is the element you supplied in `{ panel }`. Inside each object expression, `self` refers to the current element. The field names you write become the field names in the result; after a list, the object expression runs for each item.
+`panel` is the element you supplied in `{ panel }`. Inside each object expression, `context` refers to the current element. The field names you write become the field names in the result; after a list, the object expression runs for each item.
 
 Snapshots are immutable and contain no live DOM references. You can retain a snapshot, serialize it or pass it to another part of your application.
 
@@ -131,7 +132,7 @@ Build on the same panel to count selected items:
 ```js
 const selectedCount = domql.query(`
     panel.all("[data-key]")
-        .where(self.aria:["selected"] == "true")
+        .where(context.aria:["selected"] == "true")
         .count
 `, { panel }).evaluate();
 ```
