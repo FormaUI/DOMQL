@@ -356,7 +356,7 @@ window:media["(min-width: 40em)"]
 
 The key can be any expression of the type the indexer takes, such as a binding, `panel:attribute[name]`. An element's default indexer is `attribute`, so `panel:["data-key"]` reads the attribute too, and a list's is `item`, so `panel.children:[0]` is its first child. Use `?:` when the receiver can be null: `panel.first(".row")?:["data-key"]` is null when there is no row, and its key is not evaluated.
 
-All DOMQL names are case-sensitive and use names such as `clientSize`, `rectRelativeTo` and `devicePixelRatio`. A keyword cannot name a field or a local, but after a dot or a colon it can name a member, so `record.then` reads a field named `then`. Strings passed to browser APIs, including selectors and attribute names, follow the browser's rules. A string escapes `\"`, `\\`, `\n`, `\r`, `\t` and `\e`, the escape character, and names any character by its code point with `\u{…}`, as `"\u{A0}"` writes a no-break space, which is hard to tell from a space when written as itself.
+All DOMQL names are case-sensitive and use names such as `clientSize`, `rectRelativeTo` and `devicePixelRatio`. Any word names a field, a local, a function, a parameter or a member, a keyword, `true`, `null`, `self`, `document` and `window` among them, as `{ end = selection.end }` and `record.then` do. Where a value stands, such a word keeps its own meaning, so a local or a field it names is read as `@end`, and a caller's binding it names as `~end`. Strings passed to browser APIs, including selectors and attribute names, follow the browser's rules. A string escapes `\"`, `\\`, `\n`, `\r`, `\t` and `\e`, the escape character, and names any character by its code point with `\u{…}`, as `"\u{A0}"` writes a no-break space, which is hard to tell from a space when written as itself.
 
 Calls take their arguments by position, separated by commas, as many as the member's signature declares. When a member takes options, pass one object whose fields supply its parameters. This query checks for an intersection with a margin around the panel and needs `evaluateAsync()`:
 
@@ -452,9 +452,11 @@ domql.query(`
 // { count: 3, tallest: 64 }
 ```
 
+A field's name can be read by the fields after it, as `{ count = rows.count, label = $"{count} rows" }` does, which reuses the field's value; there it hides a local or a binding of the same name, which `~count` still reads for the binding.
+
 Locals are not included in the result. A local is evaluated on first use, at most once for each value its object expression applies to. Unused locals are not evaluated.
 
-`self` inside a local refers to the value where the local is declared. A bare name refers to a local; use `self.rect`, for example, to read a member of the current value. Write `~` before a name to read the caller's binding of it even where a local shares the name, as `~panel` does inside `{ let panel = …, original = ~panel.children.count }`, or where a reserved word names it, as `~as`.
+`self` inside a local refers to the value where the local is declared. A bare name refers to a local or an earlier field, and otherwise to the caller's binding; use `self.rect`, for example, to read a member of the current value. Write `~` before a name to read the caller's binding of it even where a local or a field shares the name, as `~panel` does inside `{ let panel = …, original = ~panel.children.count }`, or where a reserved word names it, as `~as`.
 
 ### Name the steps of a calculation
 
@@ -481,8 +483,8 @@ Declare a function as the value of a local, and call it by name with its argumen
 ```domql
 let half = function(box) (box?.rect?.width ?? 0) / 2 end
 return {
-    panel = half(panel),
-    input = half(panel.first("input"))
+    input = half(panel.first("input")),
+    panel = half(panel)
 }
 ```
 

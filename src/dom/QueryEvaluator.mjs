@@ -357,15 +357,9 @@ export class QueryEvaluator {
                 return () => value;
             }
             case 'parameter':
-                if (node.name === 'window') {
-                    return evaluator => evaluator.#environment.window;
-                }
-
-                if (node.name === 'document') {
-                    return evaluator => evaluator.#environment.document;
-                }
-
                 return evaluator => evaluator.#parameterBindings.get(node.name);
+            case 'root':
+                return node.name === 'window' ? evaluator => evaluator.#environment.window : evaluator => evaluator.#environment.document;
             case 'self':
                 return (evaluator, currentValue) => currentValue;
             case 'local': {
@@ -825,7 +819,13 @@ export class QueryEvaluator {
         const hasTarget = node.target !== undefined;
         const target = hasTarget ? this.#getCompiledFunction(node.target) : null;
         const names = this.#resolvedDefinition.fieldNamesOf(node);
-        const fields = node.fields.map((field, index) => ({ name: names[index], evaluate: this.#getCompiledFunction(field.value) }));
+        // A field the entries after it read is in scope for them, by the name the definition gives it.
+        const fields = node.fields.map((field, index) => ({
+            name: names[index],
+            local: field.name,
+            isRead: node.fields.slice(index + 1).some(later => QueryEvaluator.#readsLocal(later.value, field.name)),
+            evaluate: this.#getCompiledFunction(field.value),
+        }));
 
         return (evaluator, currentValue) => {
             const value = hasTarget ? target(evaluator, currentValue) : currentValue;
@@ -851,7 +851,23 @@ export class QueryEvaluator {
         };
     }
 
-    /** The object the fields give the item, evaluated against it in order with the expression's locals in scope, with the selections made for each field; a field's name is a name, so it is assigned as it is. */
+    /** Whether the node reads a local or a field of the name anywhere within it. */
+    static #readsLocal(node, name) {
+        if (Array.isArray(node)) {
+            return node.some(item => QueryEvaluator.#readsLocal(item, name));
+        }
+
+        if (node === null || typeof node !== 'object') {
+            return false;
+        }
+
+        return (node.kind === 'local' && node.name === name) || Object.values(node).some(value => QueryEvaluator.#readsLocal(value, name));
+    }
+
+    /**
+     * The object the fields give the item, evaluated against it in order with the expression's locals in scope, with the selections made for each field; a field's name is a name, so it is assigned as it is.
+     * A field the entries after it read is in scope for them from its evaluation on, holding its value and the selections it made, so a read of it evaluates nothing again.
+     */
     #applyFields(node, fields, item) {
         const object = {};
         const enclosingSelections = this.#selections;
@@ -872,6 +888,10 @@ export class QueryEvaluator {
 
                 if (this.#selections !== null) {
                     (fieldSelections ??= new Map()).set(field.name, this.#selections);
+                }
+
+                if (field.isRead) {
+                    this.#localsFrame = { node: { bindings: [{ name: field.local }] }, item, values: new Map([[field.local, { value, selections: this.#selections }]]), enclosing: this.#localsFrame };
                 }
             }
         } finally {

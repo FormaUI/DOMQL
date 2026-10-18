@@ -165,6 +165,7 @@ export interface DomqlDefinition {
 export type DomqlDefinitionNode =
     | { readonly kind: 'literal'; readonly value: string | number | boolean | null }
     | { readonly kind: 'parameter'; readonly name: string }
+    | { readonly kind: 'root'; readonly name: 'document' | 'window' }
     | { readonly kind: 'self' }
     | { readonly kind: 'local'; readonly name: string }
     | { readonly kind: 'member'; readonly target: DomqlDefinitionNode; readonly name: string | DomqlDefinitionNode; readonly optional?: true }

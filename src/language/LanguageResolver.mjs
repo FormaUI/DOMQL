@@ -4,6 +4,7 @@
 
 import { DefinitionWriter } from './DefinitionWriter.mjs';
 import { DomqlError } from './DomqlError.mjs';
+import { Names } from './Names.mjs';
 import { ResolvedDefinition } from './ResolvedDefinition.mjs';
 import { Type } from './Type.mjs';
 
@@ -66,6 +67,8 @@ export class LanguageResolver {
                 return this.#resolveLiteral(node);
             case 'parameter':
                 return this.#resolveParameter(node, pointer, scope);
+            case 'root':
+                return { type: Type.createNamedType(node.name), kind: 'query', isFixed: false };
             case 'self':
                 if (scope.current === null) {
                     this.#fail("'self' is the current value, and there is none here", pointer);
@@ -438,7 +441,7 @@ export class LanguageResolver {
                 return local === undefined || local.result === null ? null : { key: local, type: scope.facts.get(local) ?? local.result.type };
             }
             case 'parameter': {
-                if (node.name === 'document' || node.name === 'window' || !this.#bindings.has(node.name)) {
+                if (!this.#bindings.has(node.name)) {
                     return null;
                 }
 
@@ -803,13 +806,9 @@ export class LanguageResolver {
     }
 
     #resolveParameter(node, pointer, scope) {
-        if (node.name === 'document' || node.name === 'window') {
-            return { type: Type.createNamedType(node.name), kind: 'query', isFixed: false };
-        }
-
         // A name no local in scope has reads the caller's binding, and one the caller did not bind may be a member written without its receiver; where a local of its name is in scope, it was written with `~`, which reads no local.
         if (!this.#bindings.has(node.name) && scope.locals.has(node.name)) {
-            this.#fail(`No binding is named '${node.name}', and '~${node.name}' reads the caller's binding alone: write '${node.name}' for the local of that name`, pointer);
+            this.#fail(`No binding is named '${node.name}', and '~${node.name}' reads the caller's binding alone: write '${Names.isReservedWord(node.name) ? '@' : ''}${node.name}' for the local or field of that name`, pointer);
         }
 
         if (!this.#bindings.has(node.name)) {
@@ -937,7 +936,7 @@ export class LanguageResolver {
             case 'literal':
                 return LanguageResolver.#possibleOf(node.value);
             case 'parameter':
-                return node.name === 'document' || node.name === 'window' ? null : LanguageResolver.#possibleOf(this.#bindings.get(node.name));
+                return LanguageResolver.#possibleOf(this.#bindings.get(node.name));
             case 'local': {
                 const local = scope.locals.get(node.name);
                 const possible = local === undefined ? null : this.#possibleNamesOf(local.value, local.scope);
@@ -1503,6 +1502,9 @@ export class LanguageResolver {
             }
 
             fieldTypes.set(name, result.type);
+
+            // A field is in scope after its value, through the fields after it, its value read as it was evaluated.
+            locals = new Map(locals).set(name, { result, value: field.value, scope: { current, currentKey, locals, facts: scope.facts } });
         });
 
         const objectType = Type.createObjectType(fieldTypes);

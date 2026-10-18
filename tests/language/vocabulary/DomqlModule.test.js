@@ -17,13 +17,13 @@ describe('DomqlModule', () => {
         expect(messageOf(() => new DomqlModule('chart-tools', {}))).toContain('named as a name is');
     });
 
-    it('names a property, a call, an indexer and a field of a structured type with a keyword, read after a dot or a colon, and none with a literal\'s word', () => {
+    it('names a property, a call, an indexer and a field of a structured type with any word, a keyword and a literal\'s word among them, read after a dot or a colon', () => {
         const types = [{ name: 'chart', fields: { else: 'number' } }];
         const key = [parameter({ name: 'key', type: 'string' })];
 
         expect(() => new DomqlModule('charts', { types, members: [declaration({ name: 'then', on: 'chart' }), declaration({ name: 'if', function: 'ask', kind: 'operation', input: 'positional', on: 'chart', parameters: key })] })).not.toThrow();
         expect(() => new DomqlModule('charts', { types, members: [declaration({ name: 'if', function: 'ask', kind: 'operation', form: 'indexer', input: 'positional', on: 'chart', parameters: key })] })).not.toThrow();
-        expect(messageOf(() => new DomqlModule('charts', { types, members: [declaration({ name: 'null', on: 'chart' })] }))).toContain('named as a name is');
+        expect(() => new DomqlModule('charts', { types, members: [declaration({ name: 'null', on: 'chart' })] })).not.toThrow();
     });
 
     it('keeps the DOMQL name and the function key apart', () => {

@@ -98,8 +98,10 @@ describe('SyntaxTree', () => {
         ['a string never closed', 'a:["key', '"key', 'A string is never closed'],
         ['an escape no escape is for', '"a\\qb" == x', '"a\\qb"', 'A string escapes only'],
         ['a block comment never closed', 'a /* open', '/* open', 'A block comment is never closed'],
-        ['an @ with no name after it', '@ panel', '@', "'@' names nothing: a binding is named by its name alone"],
-        ['an @ before a name, which a binding is named without', '@panel.size', '@panel', "A binding is named by its name alone: write 'panel', with no '@'"],
+        ['an @ with a space after it', '@ to', '@', "A reserved word follows '@' directly, as @to"],
+        ['an @ at the end of the text', 'a + @', '@', "A reserved word follows '@' directly, as @to"],
+        ['an @ before what is no word', '@"to"', '@', "'@' and what follows it are no reserved reference"],
+        ['an @ before a name that is no reserved word, which is written alone', '@panel.size', '@panel', "'panel' is no reserved word, so it is written alone: write 'panel', with no '@'"],
     ])('scans text that is no token, %s, into an invalid token with its diagnostic, reading on after it', (_, text, invalidText, message) => {
         const tokens = Tokenizer.scan(text);
         const invalid = tokens.find(token => token.type === 'invalid');

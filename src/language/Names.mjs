@@ -1,37 +1,37 @@
 /**
- * Names — DOMQL's names: how one is spelled, and the words none can be
+ * Names — DOMQL's names: how one is spelled, and the words that keep a meaning of their own where an expression stands
  */
 
 /** A letter followed by letters and digits, which is also a JavaScript identifier. */
 const PATTERN = /^[A-Za-z][A-Za-z0-9]*$/;
 const LITERALS = new Map([['true', true], ['false', false], ['null', null]]);
-const KEYWORDS = new Set(['self', 'not', 'try', 'as', 'and', 'or', 'if', 'then', 'elseif', 'else', 'let', 'do', 'end', 'return', 'function']);
+const KEYWORDS = new Set(['self', 'not', 'try', 'as', 'to', 'and', 'or', 'if', 'then', 'elseif', 'else', 'let', 'do', 'end', 'return', 'function']);
+
+/** The roots, which their names stand for where an expression stands. */
+const ROOTS = new Set(['document', 'window']);
 
 export class Names {
-    /** The words no name can be: those that write a literal, and the keywords. */
-    static reservedWords = Object.freeze([...LITERALS.keys(), ...KEYWORDS]);
+    /** The words that keep their meaning where an expression stands, which a reference to a local or a field of their name writes after `@`: those that write a literal, the keywords and the roots. */
+    static reservedWords = Object.freeze([...LITERALS.keys(), ...KEYWORDS, ...ROOTS]);
 
-    /** Whether the text is a name: a letter followed by letters and digits, and no reserved word. */
+    /** Whether the text is a name: a letter followed by letters and digits, a reserved word among them, since a declaration's position tells it from the word. */
     static isName(text) {
-        return typeof text === 'string' && PATTERN.test(text) && !LITERALS.has(text) && !KEYWORDS.has(text);
+        return typeof text === 'string' && PATTERN.test(text);
     }
 
-    /**
-     * Whether the text names a member a property access or a call reads after its dot, or an indexer after its colon: a letter followed by letters and digits, and no word that writes a literal.
-     * A keyword names one there, where only a member's name stands, as `selection.end` reads the field `end`.
-     */
-    static isMemberName(text) {
-        return typeof text === 'string' && PATTERN.test(text) && !LITERALS.has(text);
-    }
-
-    /** Whether the text names a caller's binding: a letter followed by letters and digits, a reserved word among them, which a query reads as `~` and the name, but `self`, the current value, which no binding takes. */
-    static isBindingName(text) {
-        return typeof text === 'string' && PATTERN.test(text) && text !== 'self';
+    /** Whether the word is reserved: one a reference to a local or a field of its name writes after `@`, since written alone it keeps its own meaning. */
+    static isReservedWord(word) {
+        return LITERALS.has(word) || KEYWORDS.has(word) || ROOTS.has(word);
     }
 
     /** Whether the word is a keyword. */
     static isKeyword(word) {
         return KEYWORDS.has(word);
+    }
+
+    /** Whether the word names a root. */
+    static isRoot(word) {
+        return ROOTS.has(word);
     }
 
     /** Whether the word writes a literal. */

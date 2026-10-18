@@ -49,7 +49,7 @@ export class DefinitionWriter {
     /** The parameters a name written alone would not read: those a reserved word names, and those a local of their name stands in scope of or is declared after in their scope, which the text writes with `~`. @type {WeakSet<object>} */
     static #externals = new WeakSet();
 
-    /** Marks each parameter in the node that the text writes with `~`, following the locals each object expression and the name each conditional binding brings into scope, and those declared later in it. */
+    /** Marks each parameter in the node that the text writes with `~`, one a reserved word names or a local or a field in scope hides, following the locals and the fields each object expression and the name each conditional binding brings into scope, and those declared later in it. */
     static #markExternals(node, inScope, later) {
         if (Array.isArray(node)) {
             node.forEach(item => DefinitionWriter.#markExternals(item, inScope, later));
@@ -63,7 +63,7 @@ export class DefinitionWriter {
 
         switch (node.kind) {
             case 'parameter':
-                if (node.name !== 'document' && node.name !== 'window' && (!Names.isName(node.name) || inScope.has(node.name) || later.has(node.name))) {
+                if (Names.isReservedWord(node.name) || inScope.has(node.name) || later.has(node.name)) {
                     DefinitionWriter.#externals.add(node);
                 }
 
@@ -78,7 +78,11 @@ export class DefinitionWriter {
                     DefinitionWriter.#markExternals(local.value, scope, new Set([...later, ...names.slice(index)]));
                     scope = new Set([...scope, local.name]);
                 });
-                node.fields.forEach(field => DefinitionWriter.#markExternals(field.value, scope, later));
+                // A field is in scope after its value, through the fields after it.
+                node.fields.forEach(field => {
+                    DefinitionWriter.#markExternals(field.value, scope, later);
+                    scope = new Set([...scope, field.name]);
+                });
 
                 return;
             }
@@ -122,8 +126,10 @@ export class DefinitionWriter {
                 return DefinitionWriter.#externals.has(node) ? `~${node.name}` : node.name;
             case 'self':
                 return 'self';
-            case 'local':
+            case 'root':
                 return node.name;
+            case 'local':
+                return DefinitionWriter.#reference(node.name);
             case 'member':
                 return typeof node.name === 'string'
                     ? `${DefinitionWriter.#within(node.target, CHAIN_PRECEDENCE, level)}${DefinitionWriter.#dot(node)}${node.name}`
@@ -146,7 +152,7 @@ export class DefinitionWriter {
             case 'function':
                 return DefinitionWriter.#function(node, level);
             case 'functionCall':
-                return `${node.name}(${DefinitionWriter.#arguments(node, level)})`;
+                return `${DefinitionWriter.#reference(node.name)}(${DefinitionWriter.#arguments(node, level)})`;
             case 'body':
                 // A do block: on one line, or its bindings and its return a level within it, its `end` back at its own.
                 return level === null ? `do ${DefinitionWriter.#bodyText(node, null)} end` : `do\n${INDENTATION.repeat(level + 1)}${DefinitionWriter.#bodyText(node, level + 1)}\n${INDENTATION.repeat(level)}end`;
@@ -274,6 +280,11 @@ export class DefinitionWriter {
         }
 
         return PRECEDENCE[node.kind] ?? CHAIN_PRECEDENCE;
+    }
+
+    /** A reference to a local or a field: its name, after `@` where a reserved word names it, which written alone keeps its own meaning. */
+    static #reference(name) {
+        return Names.isReservedWord(name) ? `@${name}` : name;
     }
 
     /** A call's arguments, separated by commas. */

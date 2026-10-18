@@ -8,9 +8,6 @@ import { DomqlError } from './DomqlError.mjs';
 import { Names } from './Names.mjs';
 import { Type } from './Type.mjs';
 
-/** The roots, predefined parameters no binding takes. */
-const ROOTS = new Set(['document', 'window']);
-
 export class ParameterBindings {
     /** @type {Map<string, unknown>} */
     #values = new Map();
@@ -25,17 +22,9 @@ export class ParameterBindings {
         }
 
         for (const [name, value] of Object.entries(parameters)) {
-            if (name === 'self') {
-                throw DomqlError.structure("'self' is the current value, which no binding takes", { binding: name });
-            }
-
-            // A binding a reserved word names is read as `~` and its name.
-            if (!Names.isBindingName(name)) {
+            // A binding a reserved word names is read as `~` and its name, which written alone keeps its own meaning.
+            if (!Names.isName(name)) {
                 throw DomqlError.structure('A binding is named by a letter followed by letters and digits', { binding: name });
-            }
-
-            if (ROOTS.has(name)) {
-                throw DomqlError.structure(`'${name}' names a root, which no binding takes`, { binding: name });
             }
 
             // A node is bound as its kind, asked once; anything else is data, checked and typed through its items and fields.

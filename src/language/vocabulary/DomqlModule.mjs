@@ -260,7 +260,7 @@ export class DomqlModule {
 
         for (const [name, notation] of fields) {
             // A field of a structured type is read after a dot, so a keyword names one.
-            if (!Names.isMemberName(name) || !DomqlModule.#isTypeNotation(notation)) {
+            if (!Names.isName(name) || !DomqlModule.#isTypeNotation(notation)) {
                 fail(`The field '${name}' is not a name with a type`, type.name);
             }
         }
@@ -450,7 +450,7 @@ export class DomqlModule {
         const name = member.name;
 
         // A member is read after a dot or, an indexer, after a colon, where only a member's name stands, so a keyword names one.
-        if (!Names.isMemberName(name) || !MEMBER_KINDS.includes(member.kind)) {
+        if (!Names.isName(name) || !MEMBER_KINDS.includes(member.kind)) {
             fail(`A member is named as a name is, a keyword among them, and is one of ${MEMBER_KINDS.join(', ')}`, String(name));
         }
 

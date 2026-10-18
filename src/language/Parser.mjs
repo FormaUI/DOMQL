@@ -20,7 +20,10 @@ const TOKEN_DESCRIPTIONS = {
 const CHAIN_CONTINUATIONS = new Set(['.', '?.', '[', '?[', ':', '?:', '{']);
 
 /** The tokens that, after a space, make the name before them a member written without its receiver, which no local is: an argument. */
-const ARGUMENT_STARTS = new Set(['self', 'literal', 'interpolated-string-start', 'external']);
+const ARGUMENT_STARTS = new Set(['self', 'literal', 'interpolated-string-start', 'external', 'reserved-reference']);
+
+/** The keywords that close or divide a construct, whose own messages say what it lacks where a value would stand. */
+const STRUCTURAL_KEYWORDS = new Set(['then', 'elseif', 'else', 'end']);
 
 /** The tokens that make an access optional. */
 const OPTIONAL_ACCESSES = new Set(['?.', '?[', '?:']);
@@ -142,8 +145,12 @@ export class Parser {
         // A comma stands between two parameters alone, so one before ')' is refused.
         if (this.#token.type !== ')') {
             for (;;) {
-                if (this.#token.type !== 'name') {
-                    throw this.#unexpected(this.#token.type === 'keyword' ? "a parameter's name, which no reserved word is" : "a parameter's name");
+                if (this.#token.type === 'reserved-reference') {
+                    throw this.#fail(`A parameter is declared as it is written, with no '@': write '${this.#token.value}'`, this.#token.start);
+                }
+
+                if (!this.#isWord(this.#token)) {
+                    throw this.#unexpected("a parameter's name");
                 }
 
                 children.push(this.#take());
@@ -177,11 +184,11 @@ export class Parser {
         return Parser.#node('function-expression', children);
     }
 
-    /** Reads a call of a local function: its name, and its arguments in parentheses. */
-    #parseFunctionCall() {
+    /** Reads a call of a local function, the name it is written by given: its name, or a reserved word after `@`, and its arguments in parentheses. */
+    #parseFunctionCall(written) {
         const name = this.#take();
 
-        return Parser.#node('function-call', [name, ...this.#parseArguments(name.value, false)]);
+        return Parser.#node('function-call', [name, ...this.#parseArguments(written, false)]);
     }
 
     /** Refuses an optional enclosed access opening a call's parentheses: `(?` is one token, so the call's parenthesis cannot also open the access that is its argument. */
@@ -581,16 +588,16 @@ export class Parser {
     }
 
     /**
-     * Whether `to` follows the value, which converts it; `to` is a name everywhere else. Any other name there is refused: one a colon follows names the next field, which a comma comes before,
+     * Whether the keyword `to` follows the value, which converts it. A name there is refused: one a colon follows names the next field, which a comma comes before,
      * and any other is a member written after its receiver without the dot or the colon that joins it, so the message gives the call to write, of the receiver in a group where it is a cast or a conversion, which a chain continues from only so.
      */
     #isConversion(value, start) {
-        if (this.#token.type !== 'name') {
-            return false;
+        if (this.#isKeyword('to')) {
+            return true;
         }
 
-        if (this.#token.value === 'to') {
-            return true;
+        if (this.#token.type !== 'name') {
+            return false;
         }
 
         // A name on a line of its own after a body local's value ends that value, and its body says what the name begins.
@@ -609,11 +616,11 @@ export class Parser {
         throw this.#fail(`A member follows its receiver after a dot, or after a colon for an indexer: write '${receiver}.${this.#token.value}(…)'`, this.#token.start);
     }
 
-    /** Whether the current name is `to` with a quoted type after it, which only a conversion writes, so no local an argument or a chain starts with. */
+    /** Whether the keyword `to` and a quoted type stand here, which only a conversion writes, after the value it converts. */
     #startsConversion() {
         const next = this.#tokens[this.#index + 1];
 
-        return this.#token.type === 'name' && this.#token.value === 'to' && next.type === 'literal' && typeof next.value === 'string';
+        return this.#isKeyword('to') && next.type === 'literal' && typeof next.value === 'string';
     }
 
     /** Reads a conversion after the value it converts: `to` and the quoted name of the type it converts to. It ends its chain, and another conversion may follow it. */
@@ -826,7 +833,7 @@ export class Parser {
                 }
             } else if (depth === 1 && token.type === '??') {
                 return false;
-            } else if (depth === 1 && token.type === 'keyword') {
+            } else if (depth === 1 && token.type === 'keyword' && token.value !== 'to') {
                 if (token.value !== 'as') {
                     return false;
                 }
@@ -861,25 +868,29 @@ export class Parser {
         return { children, accesses: children.length - 1 };
     }
 
-    /** Reads an input: `self`, a literal, a name, which the lowering reads as a local or a binding, or an object expression. */
+    /**
+     * Reads an input: `self`, a literal, a name, which the lowering reads as a local, a field, a root or a binding, a reserved word after `@`, which it reads as a local or a field, a binding after `~`, or an object expression.
+     * A keyword alone keeps its meaning, so one where a value stands gives the form with `@` for the local or the field of its name.
+     */
     #parseInput() {
         const token = this.#token;
+        const next = this.#tokens[this.#index + 1];
 
-        // A name that starts a chain is a local or a binding, which takes no argument, so one an argument follows after a space is a member written without its receiver; parentheses after it call the local function of its name.
-        if (token.type === 'name') {
-            const next = this.#tokens[this.#index + 1];
+        if (this.#startsConversion()) {
+            throw this.#fail(`'to' converts the value written before it: write 'self to ${this.#text.slice(next.start, next.end)}' to convert the current value`, token.start);
+        }
 
-            if (this.#startsConversion()) {
-                throw this.#fail(`'to' converts the value written before it: write 'self to ${this.#text.slice(next.start, next.end)}' to convert the current value`, token.start);
-            }
+        // A name that starts a chain is a local, a field or a binding, which takes no argument, so one an argument follows after a space is a member written without its receiver; parentheses after it call the local function of its name.
+        if (token.type === 'name' || token.type === 'reserved-reference') {
+            const written = token.type === 'name' ? token.value : `@${token.value}`;
 
-            this.#refuseEnclosedAccessArgument(next, token.value);
+            this.#refuseEnclosedAccessArgument(next, written);
 
             if (next.type === '(') {
-                return this.#parseFunctionCall();
+                return this.#parseFunctionCall(written);
             }
 
-            if (next.spaced && ARGUMENT_STARTS.has(next.type)) {
+            if (token.type === 'name' && next.spaced && ARGUMENT_STARTS.has(next.type)) {
                 throw this.#fail(`'${token.value}' follows no receiver: write 'self.${token.value}(…)' for a member of the current value`, token.start);
             }
         }
@@ -889,11 +900,18 @@ export class Parser {
             case 'literal':
             case 'name':
             case 'external':
+            case 'reserved-reference':
                 return this.#take();
             case '{':
                 return this.#parseObject();
             case 'interpolated-string-start':
                 return this.#parseInterpolatedString();
+            case 'keyword':
+                if (!STRUCTURAL_KEYWORDS.has(token.value)) {
+                    throw this.#fail(`Found '${token.value}', a keyword: write '@${token.value}' for the local or field of that name`, token.start);
+                }
+
+                throw this.#unexpected('a value');
             default:
                 throw this.#unexpected('a value');
         }
@@ -950,14 +968,18 @@ export class Parser {
     #parseIndexer() {
         const children = [this.#take()];
 
-        // After a colon only an indexer's name or a default indexer's bracket stands, so a keyword names an indexer there, `self` among them.
-        const isNamed = this.#token.type === 'name' || this.#token.type === 'keyword' || this.#token.type === 'self';
+        // After a colon only an indexer's name or a default indexer's bracket stands, so any word names an indexer there, a reserved word among them, written as it is.
+        const isNamed = this.#isWord(this.#token);
+
+        if (this.#token.type === 'reserved-reference') {
+            throw this.#fail(`An indexer is named as it is written after its colon, with no '@': write ':${this.#token.value}[…]'`, this.#token.start);
+        }
 
         if (!isNamed && this.#token.type !== '[') {
             throw this.#unexpected('the name of an indexer, or its key in brackets for the default one, as in :attribute["id"] or :["id"]');
         }
 
-        const name = isNamed ? Parser.#memberNameOf(this.#token) : null;
+        const name = isNamed ? this.#wordOf(this.#token) : null;
         const written = name === null ? 'The default indexer' : `The indexer '${name}'`;
 
         if (name !== null) {
@@ -1004,9 +1026,13 @@ export class Parser {
 
     /** Reads a member after its dot, or the `?.` of an optional access: a dot property access, or a member call where parentheses follow the name. */
     #parseDotPropertyAccessOrMemberCall(dot) {
-        // After a dot only a member's name stands, so a keyword there names one, `self` among them.
-        const nameToken = this.#token.type === 'keyword' || this.#token.type === 'self' ? this.#take() : this.#expect('name');
-        const name = Parser.#memberNameOf(nameToken);
+        // After a dot only a member's name stands, so any word names one there, a reserved word among them, written as it is.
+        if (this.#token.type === 'reserved-reference') {
+            throw this.#fail(`A member is named as it is written after its dot, with no '@': write '.${this.#token.value}'`, this.#token.start);
+        }
+
+        const nameToken = this.#isWord(this.#token) ? this.#take() : this.#expect('name');
+        const name = this.#wordOf(nameToken);
 
         this.#refuseEnclosedAccessArgument(this.#token, `.${name}`);
 
@@ -1029,20 +1055,30 @@ export class Parser {
         return this.#startsEntry() || this.#startsColonEntry();
     }
 
-    /** Whether a name and `=` begin what stands here, as a field, a local's name or a binding's does. */
+    /** Whether a word and `=` begin what stands here, as a field, a local's name or a binding's does, whatever the word, a reserved word among them. */
     #startsEntry() {
-        return this.#token.type === 'name' && this.#tokens[this.#index + 1]?.type === '=';
+        return this.#isWord(this.#token) && this.#tokens[this.#index + 1]?.type === '=';
     }
 
-    /** Whether a name and a colon begin what stands here, as no field, local or binding writes its value, rather than an indexer of a binding the name reads. */
+    /** Whether a word and a colon begin what stands here, as no field, local or binding writes its value, rather than an indexer of what the word reads, whose colon a key in brackets follows, or an indexer's name and then one. */
     #startsColonEntry() {
-        if (this.#token.type !== 'name' || this.#tokens[this.#index + 1]?.type !== ':') {
+        if (!this.#isWord(this.#token) || this.#tokens[this.#index + 1]?.type !== ':') {
             return false;
         }
 
         const afterColon = this.#tokens[this.#index + 2];
 
-        return !(afterColon.type === '[' || (afterColon.type === 'name' && this.#tokens[this.#index + 3]?.type === '['));
+        return !(afterColon.type === '[' || (this.#isWord(afterColon) && this.#tokens[this.#index + 3]?.type === '['));
+    }
+
+    /** Whether the token writes a word: a name, a keyword, `self` or the word of a literal, which a declaration and a member's name take as they are, whatever the word means where an expression stands. */
+    #isWord(token) {
+        return token.type === 'name' || token.type === 'keyword' || token.type === 'self' || (token.type === 'literal' && (typeof token.value === 'boolean' || token.value === null));
+    }
+
+    /** The word a token writes, as its text spells it. */
+    #wordOf(token) {
+        return this.#text.slice(token.start, token.end);
     }
 
     /** Reads operands joined by the operator, answering the operand alone where there is one. */
@@ -1134,24 +1170,22 @@ export class Parser {
     }
 
     /**
-     * Refuses what stands where a field, a local or a binding is named: a literal or a keyword `=` or a colon follows names nothing; a name a colon follows gives its value as `=` does, which the colon message says
-     * with the form to write, its prefix written before the name; and anything else is written as the message gives.
+     * Refuses what stands where a field, a local or a binding is named: a reserved word after `@`, since a declaration writes its name as it is; a word a colon follows, which gives its value as `=` does,
+     * as the colon message says with the form to write, its prefix written before the word; a number or a string `=` or a colon follows, which names nothing; and anything else is written as the message gives.
      */
     #refuseName(colonMessage, message, prefix) {
         const token = this.#token;
 
-        if (this.#startsColonEntry()) {
-            throw this.#fail(`${colonMessage}: write '${prefix}${token.value} = …'`, this.#tokens[this.#index + 1].start);
+        if (token.type === 'reserved-reference') {
+            throw this.#fail(`A name is declared as it is written, with no '@': write '${prefix}${token.value} = …'`, token.start);
         }
 
-        if (this.#tokens[this.#index + 1]?.type === '=' || this.#tokens[this.#index + 1]?.type === ':') {
-            if (token.type === 'literal') {
-                throw this.#fail(`'${this.#text.slice(token.start, token.end)}' is a literal, and names nothing`, token.start);
-            }
+        if (this.#startsColonEntry()) {
+            throw this.#fail(`${colonMessage}: write '${prefix}${this.#wordOf(token)} = …'`, this.#tokens[this.#index + 1].start);
+        }
 
-            if (token.type === 'keyword' || token.type === 'self') {
-                throw this.#fail(`'${this.#text.slice(token.start, token.end)}' is a keyword, and names nothing`, token.start);
-            }
+        if (token.type === 'literal' && (this.#tokens[this.#index + 1]?.type === '=' || this.#tokens[this.#index + 1]?.type === ':')) {
+            throw this.#fail(`'${this.#wordOf(token)}' is a literal, and names nothing`, token.start);
         }
 
         throw this.#fail(message, token.start);
@@ -1161,7 +1195,7 @@ export class Parser {
         return this.#tokens[this.#index];
     }
 
-    /** Whether a local starts here: `let`, which `=` or a colon after it would make a field's name instead, a keyword that names nothing. */
+    /** Whether a local starts here: `let`, which `=` or a colon after it would make a field's name instead. */
     #isLocal() {
         const next = this.#tokens[this.#index + 1]?.type;
 
@@ -1221,11 +1255,6 @@ export class Parser {
 
     static #node(kind, children) {
         return { kind, children };
-    }
-
-    /** The name a member's or an indexer's name token writes: a name's or a keyword's text, `self` among them. */
-    static #memberNameOf(token) {
-        return token.type === 'self' ? 'self' : token.value;
     }
 
     /** The quoted type a conversion's or a cast's node names. */

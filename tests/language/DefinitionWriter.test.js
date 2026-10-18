@@ -97,12 +97,12 @@ describe('DefinitionWriter', () => {
         '(a to "string").length',
         'panel.parent as "element" to "string"',
         '{ from = 1, to = 2 }',
-        'panel { let to = self.size, width = to.width }',
+        'panel { let to = self.size, width = @to.width }',
         'range.to to "string"',
         'range.to() to "string"',
         'sentinel.intersects() to "string"',
         'panel:media[query]to"string"',
-        'panel:attribute[to] to "number"',
+        'panel:attribute[~to] to "number"',
         'try a to "number"',
         'try panel:attribute["data-n"] to "number" ?? 0',
         'try (a to "string") to "number"',
@@ -270,7 +270,7 @@ describe('DefinitionWriter', () => {
             const { domql: other } = await import('#domql/domql.js');
 
             expect(() => format('panel {')).toThrow(expect.objectContaining({ kind: 'syntax' }));
-            expect(() => domql.format({ version: 25, query: { kind: 'nonsense' } })).toThrow(expect.objectContaining({ kind: 'structure' }));
+            expect(() => domql.format({ version: 26, query: { kind: 'nonsense' } })).toThrow(expect.objectContaining({ kind: 'structure' }));
             expect(() => domql.format(other.query('panel'))).toThrow(expect.objectContaining({ kind: 'structure', message: expect.stringContaining('query.definition') }));
         });
     });

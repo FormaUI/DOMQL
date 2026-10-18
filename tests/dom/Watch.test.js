@@ -418,6 +418,21 @@ describe('Watch', () => {
         });
     });
 
+    describe('a field the entries after it read', () => {
+        it('reuses the value its evaluation gave, evaluating it once each time the watch runs, and updates every field that reads it', async () => {
+            watch('panel { count = self.tally, again = count + 1, twice = count * 2 }', { panel });
+            await settle();
+
+            expect(evaluations).toBe(1);
+
+            panel.setAttribute('data-n', '2');
+            await settle();
+
+            expect(evaluations).toBe(2);
+            expect(snapshots).toEqual([{ count: 1, again: 2, twice: 2 }, { count: 2, again: 3, twice: 4 }]);
+        });
+    });
+
     describe('a function', () => {
         it('follows what each call reads, the branch a changed condition selects in it, and captures made anew at each evaluation', async () => {
             panel.setAttribute('data-a', '1');

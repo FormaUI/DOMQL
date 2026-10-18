@@ -10,12 +10,12 @@ import { Names } from './Names.mjs';
  * An interpolated string is read as its `$"`, its runs of text, the `{` and `}` around each of its holes and its closing quote, the tokens of each hole's expression between them.
  * A contract within DOMQL until a public tooling API stabilizes it.
  */
-export const TOKEN_TYPES = Object.freeze(['name', 'literal', 'keyword', 'self', 'invalid', 'end', 'interpolated-string-start', 'interpolated-text', 'hole-start', 'hole-end', 'interpolated-string-end', 'external', '.', '?.', '?[', '?:', '??', '(?', '==', '!=', '<', '<=', '>', '>=', '=', '+', '-', '*', '/', '%', ',', ':', '(', ')', '{', '}', '[', ']']);
+export const TOKEN_TYPES = Object.freeze(['name', 'literal', 'keyword', 'self', 'invalid', 'end', 'interpolated-string-start', 'interpolated-text', 'hole-start', 'hole-end', 'interpolated-string-end', 'external', 'reserved-reference', '.', '?.', '?[', '?:', '??', '(?', '==', '!=', '<', '<=', '>', '>=', '=', '+', '-', '*', '/', '%', ',', ':', '(', ')', '{', '}', '[', ']']);
 
 /**
  * @typedef {object} Token
- * @property {'name' | 'literal' | 'keyword' | 'self' | 'invalid' | 'end' | 'interpolated-string-start' | 'interpolated-text' | 'hole-start' | 'hole-end' | 'interpolated-string-end' | 'external' | '.' | '?.' | '?[' | '?:' | '??' | '(?' | '==' | '!=' | '<' | '<=' | '>' | '>=' | '=' | '+' | '-' | '*' | '/' | '%' | ',' | ':' | '(' | ')' | '{' | '}' | '[' | ']'} type
- * @property {unknown} [value] A name's or a keyword's text, the name `~` reads the caller's binding of, a literal's value, or the text a run of an interpolated string's text stands for.
+ * @property {'name' | 'literal' | 'keyword' | 'self' | 'invalid' | 'end' | 'interpolated-string-start' | 'interpolated-text' | 'hole-start' | 'hole-end' | 'interpolated-string-end' | 'external' | 'reserved-reference' | '.' | '?.' | '?[' | '?:' | '??' | '(?' | '==' | '!=' | '<' | '<=' | '>' | '>=' | '=' | '+' | '-' | '*' | '/' | '%' | ',' | ':' | '(' | ')' | '{' | '}' | '[' | ']'} type
+ * @property {unknown} [value] A name's or a keyword's text, the name `~` reads the caller's binding of, the reserved word `@` reads the local or the field of, a literal's value, or the text a run of an interpolated string's text stands for.
  * @property {number} start
  * @property {number} end
  * @property {number} leading Where the trivia before it begins, at its start where there is none, so every character of the text belongs to one token or to the trivia before one.
@@ -235,23 +235,34 @@ export class Tokenizer {
         return null;
     }
 
-    /** Reads what `@` begins, which names nothing, since a binding is named by its name alone: an invalid token over the `@` and the name after it, whose diagnostic gives the name to write. */
+    /**
+     * Reads what `@` begins: a reference to the local or the field a reserved word names, written directly after it, as `@to` reads the local `to`, since the word alone keeps its own meaning;
+     * invalid where no reserved word follows it directly, a name that is none being written alone.
+     */
     #readAt(start) {
         NAME.lastIndex = start + 1;
 
         if (!NAME.test(this.#text)) {
-            return this.#invalid(start, start + 1, "'@' names nothing: a binding is named by its name alone, as panel", start);
+            const next = this.#text[start + 1];
+            const message = next === undefined || SPACE.test(next)
+                ? "A reserved word follows '@' directly, as @to"
+                : "'@' and what follows it are no reserved reference, which writes a reserved word directly after '@', as @to";
+
+            return this.#invalid(start, start + 1, message, start);
         }
 
         const name = this.#text.slice(start + 1, NAME.lastIndex);
 
-        return this.#invalid(start, NAME.lastIndex, `A binding is named by its name alone: write '${name}', with no '@'`, start);
+        if (!Names.isReservedWord(name)) {
+            return this.#invalid(start, NAME.lastIndex, `'${name}' is no reserved word, so it is written alone: write '${name}', with no '@'`, start);
+        }
+
+        this.#offset = NAME.lastIndex;
+
+        return { type: 'reserved-reference', value: name, start, end: this.#offset };
     }
 
-    /**
-     * Reads what `~` begins: the caller's binding of the name written directly after it, whatever local shares its name and a reserved word included, as `~as` reads the binding `as`;
-     * invalid where no name follows it directly, and for `self` and the roots, which no binding takes.
-     */
+    /** Reads what `~` begins: the caller's binding of the name written directly after it, whatever local or field shares its name and a reserved word included, as `~as` reads the binding `as`; invalid where no name follows it directly. */
     #readExternal(start) {
         NAME.lastIndex = start + 1;
 
@@ -260,14 +271,6 @@ export class Tokenizer {
         }
 
         const name = this.#text.slice(start + 1, NAME.lastIndex);
-
-        if (name === 'self') {
-            return this.#invalid(start, NAME.lastIndex, "'self' is the current value, which no binding takes", start);
-        }
-
-        if (name === 'document' || name === 'window') {
-            return this.#invalid(start, NAME.lastIndex, `'${name}' names a root, which no binding takes`, start);
-        }
 
         this.#offset = NAME.lastIndex;
 

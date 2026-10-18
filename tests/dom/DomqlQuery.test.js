@@ -326,7 +326,8 @@ describe('DomqlQuery', () => {
     describe('a selection', () => {
         it('selects a field a keyword names, as an access after a dot reads one', () => {
             expect(isolated.query('r', { r: { then: 5 } }).select('then').evaluate()).toBe(5);
-            expect(() => isolated.query('r', { r: { then: 5 } }).select('null')).toThrow(expect.objectContaining({ kind: 'structure' }));
+            expect(isolated.query('r', { r: { null: 6 } }).select('null').evaluate()).toBe(6);
+            expect(() => isolated.query('r', { r: { then: 5 } }).select('a-b')).toThrow(expect.objectContaining({ kind: 'structure' }));
         });
 
         it('evaluates the whole query and answers the part, null past a null or an index out of range', () => {

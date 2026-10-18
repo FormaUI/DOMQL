@@ -14,6 +14,7 @@ import { Specification } from './Specification.mjs';
 const NODE_PROPERTIES = {
     literal: { properties: ['kind', 'value'], required: ['value'] },
     parameter: { properties: ['kind', 'name'], required: ['name'] },
+    root: { properties: ['kind', 'name'], required: ['name'] },
     self: { properties: ['kind'], required: [] },
     local: { properties: ['kind', 'name'], required: ['name'] },
     member: { properties: ['kind', 'target', 'name', 'optional'], required: ['target', 'name'] },
@@ -43,7 +44,7 @@ const NODE_PROPERTIES = {
 const CHAIN_KINDS = new Set(['member', 'call', 'indexer', 'object']);
 
 /** The kinds of node a cast's target can be, as text writes one: a receiver and its accesses, a coalescing operator, another cast, or an optional chain. */
-const CAST_TARGET_KINDS = new Set(['self', 'parameter', 'local', 'literal', 'interpolatedString', 'functionCall', 'object', 'member', 'call', 'indexer', 'optionalChain', 'coalescing', 'cast']);
+const CAST_TARGET_KINDS = new Set(['self', 'parameter', 'root', 'local', 'literal', 'interpolatedString', 'functionCall', 'object', 'member', 'call', 'indexer', 'optionalChain', 'coalescing', 'cast']);
 
 /** The operators an arithmetic node holds. */
 const ARITHMETIC_OPERATORS = ['+', '-', '*', '/', '%'];
@@ -78,7 +79,7 @@ export class DefinitionValidator {
     /** Whether validation moved a part of the definition, which its locations then say. */
     #hasMovedParts = false;
 
-    /** The names of the locals in scope where the node being validated stands. @type {Set<string>} */
+    /** The names of the locals and the fields in scope where the node being validated stands. @type {Set<string>} */
     #localNames = new Set();
 
     /** The names of the locals declared later in a scope the node being validated stands in, the local whose value it is among them, which no parameter there may name. @type {Set<string>} */
@@ -136,7 +137,7 @@ export class DefinitionValidator {
         }
 
         if (!ObjectUtils.isNonArrayObject(node) || !Object.hasOwn(NODE_PROPERTIES, node.kind)) {
-            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, indexer, object, optionalChain, equality, comparison, interpolatedString, body, function, functionCall, arithmetic, negate, conditional, coalescing, not, cast, conversion, try, and or or');
+            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, root, self, local, member, call, indexer, object, optionalChain, equality, comparison, interpolatedString, body, function, functionCall, arithmetic, negate, conditional, coalescing, not, cast, conversion, try, and or or');
         }
 
         this.#requireProperties(node, pointer, NODE_PROPERTIES[node.kind]);
@@ -160,8 +161,8 @@ export class DefinitionValidator {
             case 'literal':
                 return this.#validateLiteral(node, pointer);
             case 'parameter':
-                if (!Names.isBindingName(node.name)) {
-                    this.#fail(`${pointer}/name`, node.name === 'self' ? "'self' is the current value, which no binding takes" : 'A binding is named by a letter followed by letters and digits');
+                if (!Names.isName(node.name)) {
+                    this.#fail(`${pointer}/name`, 'A binding is named by a letter followed by letters and digits');
                 }
 
                 // A name a text wrote alone reads the local in scope of its name, so one before a later local of its name reads nothing; `~` and a definition's parameter read the caller's binding wherever they stand.
@@ -170,6 +171,12 @@ export class DefinitionValidator {
                 }
 
                 return Object.freeze({ kind: 'parameter', name: node.name });
+            case 'root':
+                if (!Names.isRoot(node.name)) {
+                    this.#fail(`${pointer}/name`, 'A root is document or window');
+                }
+
+                return Object.freeze({ kind: 'root', name: node.name });
             case 'self':
                 if (currentValueAvailability === CurrentValueAvailability.absent) {
                     this.#fail(pointer, "'self' is the current value, and the top level has none; a chain there starts with a parameter, a literal or an object expression");
@@ -178,6 +185,11 @@ export class DefinitionValidator {
                 return Object.freeze({ kind: 'self' });
             case 'local':
                 this.#requireName(node.name, `${pointer}/name`);
+
+                // A local is read where one of its name, or a field, is in scope, which `@` and a reserved word name as a name written alone does any other.
+                if (!this.#localNames.has(node.name)) {
+                    this.#fail(pointer, `No local or field named '${node.name}' is in scope. Use '~${node.name}' to read the caller's binding.`);
+                }
 
                 return Object.freeze({ kind: 'local', name: node.name });
             case 'member':
@@ -250,7 +262,7 @@ export class DefinitionValidator {
 
     /**
      * Validates a conditional: a condition or a binding, exactly one of them, its consequent and its alternative.
-     * A binding's name is a name no local in scope has, in scope in the consequent alone, never in its own value or the alternative.
+     * A binding's name is any name, which hides a local or a field of its name outside it, in scope in the consequent alone, never in its own value or the alternative.
      */
     #validateConditional(node, pointer, currentValueAvailability) {
         if ((node.condition === undefined) === (node.binding === undefined)) {
@@ -286,13 +298,8 @@ export class DefinitionValidator {
 
         const { name } = node.binding;
 
-        this.#requireLocalName(name, bindingPointer);
 
         const value = this.#validateWithLater([name], () => this.#validateNode(node.binding.value, `${bindingPointer}/value`, currentValueAvailability));
-
-        if (this.#localNames.has(name)) {
-            this.#fail(bindingPointer, `A local named '${name}' is already in scope, and a name means one thing wherever it is visible`);
-        }
 
         const enclosingLocalNames = this.#localNames;
 
@@ -518,7 +525,6 @@ export class DefinitionValidator {
 
                 this.#requireProperties(binding, bindingPointer, ENTRY_PROPERTIES);
                 this.#requireName(binding.name, `${bindingPointer}/name`);
-                this.#requireLocalName(binding.name, bindingPointer);
 
                 if (bound.has(binding.name)) {
                     this.#fail(bindingPointer, `Two locals of one body are named '${binding.name}'`);
@@ -559,7 +565,6 @@ export class DefinitionValidator {
             const parameterPointer = `${pointer}/parameters/${index}`;
 
             this.#requireName(parameter, parameterPointer);
-            this.#requireLocalName(parameter, parameterPointer);
 
             if (seen.has(parameter)) {
                 this.#fail(parameterPointer, `Two parameters of one function are named '${parameter}'`);
@@ -631,9 +636,9 @@ export class DefinitionValidator {
 
         const name = node.kind === 'member' && ObjectUtils.isNonArrayObject(node.name) ? this.#validateNameExpression(node.name, `${pointer}/name`, currentValueAvailability) : node.name;
 
-        // A name a bracket property access's expression gave is checked as that expression, and a default indexer has none; any other is a member's name, which a keyword can be.
-        if (name === node.name && !(node.kind === 'indexer' && name === undefined) && !Names.isMemberName(name)) {
-            this.#fail(`${pointer}/name`, 'A member is named by a letter followed by letters and digits, and no literal: true, false or null');
+        // A name a bracket property access's expression gave is checked as that expression, and a default indexer has none; any other is a member's name, which any word can be, a reserved word among them.
+        if (name === node.name && !(node.kind === 'indexer' && name === undefined) && !Names.isName(name)) {
+            this.#fail(`${pointer}/name`, 'A member is named by a letter followed by letters and digits');
         }
 
         if (node.optional !== undefined) {
@@ -673,7 +678,7 @@ export class DefinitionValidator {
         try {
             const expression = this.#validateSimpleExpression(node, pointer, currentValueAvailability, 'The name a bracket property access reads');
 
-            return expression.kind === 'literal' && Names.isMemberName(expression.value) ? expression.value : expression;
+            return expression.kind === 'literal' && Names.isName(expression.value) ? expression.value : expression;
         } finally {
             this.#chain = enclosingChain;
         }
@@ -718,7 +723,9 @@ export class DefinitionValidator {
                     this.#fail(fieldPointer, `Two fields of one object expression are named '${name}'`);
                 }
 
+                // A field is in scope after its value, through the fields after it, hiding a local or a field of its name outside it.
                 names.add(name);
+                this.#localNames = new Set(this.#localNames).add(name);
 
                 return Object.freeze({ name, value });
             });
@@ -734,26 +741,27 @@ export class DefinitionValidator {
         }
     }
 
-    /** Validates an object expression's locals in order, each seeing those before it, and leaves every one in scope for its fields; no local reuses a name in scope. */
+    /** Validates an object expression's locals in order, each seeing those before it, and leaves every one in scope for its fields; a local may hide one of its name outside its object expression, and two of one never share a name. */
     #validateLocals(locals, pointer, currentValueAvailability) {
         this.#requireArray(locals, pointer);
 
         const names = locals.map(local => local?.name);
+        const declared = new Set();
 
         return locals.map((local, index) => {
             const localPointer = `${pointer}/${index}`;
             this.#requireProperties(local, localPointer, ENTRY_PROPERTIES);
             this.#requireName(local.name, `${localPointer}/name`);
-            this.#requireLocalName(local.name, localPointer);
 
             // A local's value and the locals before it see neither it nor the locals after it, whose names no parameter there reads.
             const value = this.#validateWithLater(names.slice(index), () => this.#validateLocalValue(local.value, `${localPointer}/value`, currentValueAvailability));
             const { name } = local;
 
-            if (this.#localNames.has(name)) {
-                this.#fail(localPointer, `A local named '${name}' is already in scope, and a name means one thing wherever it is visible`);
+            if (declared.has(name)) {
+                this.#fail(localPointer, `Two locals of one object expression are named '${name}'`);
             }
 
+            declared.add(name);
             this.#localNames = new Set(this.#localNames).add(name);
 
             return Object.freeze({ name, value });
@@ -774,23 +782,16 @@ export class DefinitionValidator {
     }
 
     /**
-     * Refuses a parameter that text could not write: one named as a local in scope where it stands, which the name reads there instead, and one named as a local declared later in its scope,
+     * Refuses a parameter that text could not write: one named as a local or a field in scope where it stands, which the name reads there instead, and one named as a local declared later in its scope,
      * the local whose value it is among them, which a name reads only after its declaration and never as a binding of that name before it.
      */
     #requireBindingName(name, pointer) {
         if (this.#localNames.has(name)) {
-            this.#fail(pointer, `'${name}' names the local in scope here, so no binding of that name is read where it is`);
+            this.#fail(pointer, `'${name}' names the local or field in scope here, so no binding of that name is read where it is`);
         }
 
         if (this.#laterNames.has(name)) {
             this.#fail(pointer, `'${name}' is used before the local of that name is declared in its scope: a local is read after its declaration, and the name reads no binding before it`);
-        }
-    }
-
-    /** Refuses a local named as a root, which its name stands for everywhere. */
-    #requireLocalName(name, pointer) {
-        if (name === 'document' || name === 'window') {
-            this.#fail(pointer, `'${name}' names a root, which no local takes`);
         }
     }
 
@@ -820,7 +821,7 @@ export class DefinitionValidator {
 
     #requireName(value, pointer) {
         if (!Names.isName(value)) {
-            this.#fail(pointer, `A name is a letter followed by letters and digits, and no reserved word: ${Names.reservedWords.join(', ')}`);
+            this.#fail(pointer, 'A name is a letter followed by letters and digits');
         }
     }
 
