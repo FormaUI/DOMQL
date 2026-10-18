@@ -46,7 +46,7 @@ export class LanguageResolver {
 
     /** Resolves and types the definition, answering what it resolved to or throwing where it cannot. */
     resolveDefinition(definition) {
-        const result = this.#resolveNode(definition.query, '/query', { current: null, currentKey: {}, locals: new Map(), facts: NO_FACTS });
+        const result = this.#resolveNode(definition.query, '/query', { contextType: null, contextKey: {}, locals: new Map(), facts: NO_FACTS });
 
         const resultType = result.kind === 'subscription' && result.type.kind === 'event' ? result.type.itemType : result.type;
 
@@ -70,11 +70,11 @@ export class LanguageResolver {
             case 'root':
                 return { type: Type.createNamedType(node.name), kind: 'query', isFixed: false };
             case 'context':
-                if (scope.current === null) {
+                if (scope.contextType === null) {
                     this.#fail("'context' is the evaluation context, and there is none here", pointer);
                 }
 
-                return { type: scope.facts.get(scope.currentKey) ?? scope.current, kind: 'query', isFixed: false };
+                return { type: scope.facts.get(scope.contextKey) ?? scope.contextType, kind: 'query', isFixed: false };
             case 'local':
                 return this.#resolveLocal(node, pointer, scope);
             case 'member':
@@ -450,7 +450,7 @@ export class LanguageResolver {
                 return { key, type: scope.facts.get(key) ?? this.#bindings.getType(node.name) };
             }
             case 'context':
-                return scope.current === null ? null : { key: scope.currentKey, type: scope.facts.get(scope.currentKey) ?? scope.current };
+                return scope.contextType === null ? null : { key: scope.contextKey, type: scope.facts.get(scope.contextKey) ?? scope.contextType };
             default:
                 return null;
         }
@@ -682,7 +682,7 @@ export class LanguageResolver {
         const local = scope.locals.get(node.name);
 
         if (local === undefined) {
-            const form = scope.current === null ? null : this.#memberForm(scope.current, node.name);
+            const form = scope.contextType === null ? null : this.#memberForm(scope.contextType, node.name);
 
             this.#fail(`No function named '${node.name}' is in scope${form === null ? '' : `; write '${form}' for the member of the evaluation context`}`, pointer);
         }
@@ -740,7 +740,7 @@ export class LanguageResolver {
         }
 
         if (local === undefined) {
-            const form = scope.current === null ? null : this.#memberForm(scope.current, node.name);
+            const form = scope.contextType === null ? null : this.#memberForm(scope.contextType, node.name);
 
             this.#fail(`No local named '${node.name}' is in scope${form === null ? '' : `; write '${form}' for the member of the evaluation context`}`, pointer);
         }
@@ -812,7 +812,7 @@ export class LanguageResolver {
         }
 
         if (!this.#bindings.has(node.name)) {
-            const form = scope.current === null ? null : this.#memberForm(scope.current, node.name);
+            const form = scope.contextType === null ? null : this.#memberForm(scope.contextType, node.name);
 
             this.#fail(`No local in scope or binding is named '${node.name}'${form === null ? '' : `; write '${form}' for the member of the evaluation context`}`, pointer);
         }
@@ -1296,7 +1296,7 @@ export class LanguageResolver {
                     this.#fail(`'${declaration.name}' evaluates its expression against the items of a list, and ${receiverType.toNonNullable()} has none`, valuePointer);
                 }
 
-                result = this.#resolveNode(given.node, valuePointer, { current: isOfUnknownType ? Type.never : receiverType.itemType.toNonNullable(), currentKey: {}, locals: scope.locals, facts: scope.facts });
+                result = this.#resolveNode(given.node, valuePointer, { contextType: isOfUnknownType ? Type.never : receiverType.itemType.toNonNullable(), contextKey: {}, locals: scope.locals, facts: scope.facts });
                 this.#requireQuery(result, parameter, declaration, valuePointer);
 
                 // A predicate takes any value, which its function receives as its truthiness, but none whose type no receiver gives.
@@ -1451,17 +1451,17 @@ export class LanguageResolver {
         // An object expression that follows an action shapes its result, and the request stays an action; one that follows an event source keeps it a subscription.
         const kind = target?.kind === 'action' || target?.kind === 'subscription' ? target.kind : 'query';
 
-        let current = scope.current;
-        let currentKey = scope.currentKey;
+        let contextType = scope.contextType;
+        let contextKey = scope.contextKey;
 
         if (target !== null) {
-            currentKey = {};
+            contextKey = {};
 
             // An object expression following null is never applied, so its fields are resolved against no value.
             if (target.type.kind === 'null') {
-                current = Type.never;
+                contextType = Type.never;
             } else {
-                current = target.type.kind === 'list' || target.type.kind === 'event' ? target.type.itemType.toNonNullable() : target.type.toNonNullable();
+                contextType = target.type.kind === 'list' || target.type.kind === 'event' ? target.type.itemType.toNonNullable() : target.type.toNonNullable();
             }
         }
 
@@ -1472,18 +1472,18 @@ export class LanguageResolver {
             const valuePointer = `${pointer}/locals/${index}/value`;
 
             if (local.value.kind === 'function') {
-                locals = new Map(locals).set(local.name, LanguageResolver.#functionLocalOf(local.value, valuePointer, { current, currentKey, locals, facts: scope.facts }));
+                locals = new Map(locals).set(local.name, LanguageResolver.#functionLocalOf(local.value, valuePointer, { contextType, contextKey, locals, facts: scope.facts }));
 
                 return;
             }
 
-            const result = this.#resolveNode(local.value, valuePointer, { current, currentKey, locals, facts: scope.facts });
+            const result = this.#resolveNode(local.value, valuePointer, { contextType, contextKey, locals, facts: scope.facts });
 
             if (result.kind !== 'query') {
                 this.#fail(`The local '${local.name}' is ${LanguageResolver.#descriptionOf(result.kind)}, and a local is a value`, valuePointer);
             }
 
-            locals = new Map(locals).set(local.name, { result, value: local.value, scope: { current, currentKey, locals, facts: scope.facts } });
+            locals = new Map(locals).set(local.name, { result, value: local.value, scope: { contextType, contextKey, locals, facts: scope.facts } });
         });
 
         const fieldTypes = new Map();
@@ -1491,7 +1491,7 @@ export class LanguageResolver {
         node.fields.forEach((field, index) => {
             const fieldPointer = `${pointer}/fields/${index}`;
             const { name } = field;
-            const result = this.#resolveNode(field.value, `${fieldPointer}/value`, { current, currentKey, locals, facts: scope.facts });
+            const result = this.#resolveNode(field.value, `${fieldPointer}/value`, { contextType, contextKey, locals, facts: scope.facts });
 
             if (result.kind !== 'query') {
                 this.#fail(`The field '${name}' is ${LanguageResolver.#descriptionOf(result.kind)}, and a field is a value`, `${fieldPointer}/value`);
@@ -1504,7 +1504,7 @@ export class LanguageResolver {
             fieldTypes.set(name, result.type);
 
             // A field is in scope after its value, through the fields after it, its value read as it was evaluated.
-            locals = new Map(locals).set(name, { result, value: field.value, scope: { current, currentKey, locals, facts: scope.facts } });
+            locals = new Map(locals).set(name, { result, value: field.value, scope: { contextType, contextKey, locals, facts: scope.facts } });
         });
 
         const objectType = Type.createObjectType(fieldTypes);

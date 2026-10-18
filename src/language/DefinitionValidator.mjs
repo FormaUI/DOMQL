@@ -65,7 +65,7 @@ const ATTEMPTED_KINDS = new Set(['conversion', 'cast']);
 const ENTRY_PROPERTIES = { properties: ['name', 'value'], required: ['name', 'value'] };
 
 /** Where a node's evaluation context stands: absent at the top level, present in an object expression following a value, unknown in an argument. */
-const CurrentValueAvailability = Object.freeze({ absent: 'absent', present: 'present', unknown: 'unknown' });
+const EvaluationContextAvailability = Object.freeze({ absent: 'absent', present: 'present', unknown: 'unknown' });
 
 export class DefinitionValidator {
     /** Where in the definition its caller supplied each part of a canonical copy came from, for each copy whose validation moved a part. @type {WeakMap<object, DefinitionLocations>} */
@@ -115,7 +115,7 @@ export class DefinitionValidator {
             this.#fail('/version', `A definition is of version ${Specification.definitionVersion}`);
         }
 
-        const validated = Object.freeze({ version: Specification.definitionVersion, query: this.#validateNode(definition.query, '/query', CurrentValueAvailability.absent) });
+        const validated = Object.freeze({ version: Specification.definitionVersion, query: this.#validateNode(definition.query, '/query', EvaluationContextAvailability.absent) });
 
         // A definition parsed from text has its text's locations; one a caller supplied, where a part moved, has locations that name its parts as the caller did.
         if (this.#locations === null && this.#hasMovedParts) {
@@ -130,7 +130,7 @@ export class DefinitionValidator {
         return DefinitionValidator.#suppliedLocations.get(definition) ?? null;
     }
 
-    #validateNode(node, pointer, currentValueAvailability) {
+    #validateNode(node, pointer, evaluationContextAvailability) {
         // A member that takes an argument is written as a call or an indexer, so an infix call is no node, and the message says which nodes take its place.
         if (ObjectUtils.isNonArrayObject(node) && node.kind === 'infixCall') {
             this.#fail(pointer, 'An infixCall is no node: an operation is a call node, or an indexer node for a named or default indexer');
@@ -150,13 +150,13 @@ export class DefinitionValidator {
         }
 
         try {
-            return this.#validateKind(node, pointer, currentValueAvailability);
+            return this.#validateKind(node, pointer, evaluationContextAvailability);
         } finally {
             this.#chain = enclosingChain;
         }
     }
 
-    #validateKind(node, pointer, currentValueAvailability) {
+    #validateKind(node, pointer, evaluationContextAvailability) {
         switch (node.kind) {
             case 'literal':
                 return this.#validateLiteral(node, pointer);
@@ -178,7 +178,7 @@ export class DefinitionValidator {
 
                 return Object.freeze({ kind: 'root', name: node.name });
             case 'context':
-                if (currentValueAvailability === CurrentValueAvailability.absent) {
+                if (evaluationContextAvailability === EvaluationContextAvailability.absent) {
                     this.#fail(pointer, "'context' is the evaluation context, and the top level has none; a chain there starts with a parameter, a literal or an object expression");
                 }
 
@@ -195,17 +195,17 @@ export class DefinitionValidator {
             case 'member':
             case 'call':
             case 'indexer':
-                return this.#validateMember(node, pointer, currentValueAvailability);
+                return this.#validateMember(node, pointer, evaluationContextAvailability);
             case 'equality':
                 return Object.freeze({
                     kind: 'equality',
-                    left: this.#validateNode(node.left, `${pointer}/left`, currentValueAvailability),
-                    right: this.#validateNode(node.right, `${pointer}/right`, currentValueAvailability),
+                    left: this.#validateNode(node.left, `${pointer}/left`, evaluationContextAvailability),
+                    right: this.#validateNode(node.right, `${pointer}/right`, evaluationContextAvailability),
                 });
             case 'comparison':
-                return this.#validateComparison(node, pointer, currentValueAvailability);
+                return this.#validateComparison(node, pointer, evaluationContextAvailability);
             case 'interpolatedString':
-                return this.#validateInterpolatedString(node, pointer, currentValueAvailability);
+                return this.#validateInterpolatedString(node, pointer, evaluationContextAvailability);
             case 'arithmetic':
                 if (!ARITHMETIC_OPERATORS.includes(node.operator)) {
                     this.#fail(`${pointer}/operator`, `An arithmetic operator is ${ARITHMETIC_OPERATORS.join(', ')}`);
@@ -214,49 +214,49 @@ export class DefinitionValidator {
                 return Object.freeze({
                     kind: 'arithmetic',
                     operator: node.operator,
-                    left: this.#validateNode(node.left, `${pointer}/left`, currentValueAvailability),
-                    right: this.#validateNode(node.right, `${pointer}/right`, currentValueAvailability),
+                    left: this.#validateNode(node.left, `${pointer}/left`, evaluationContextAvailability),
+                    right: this.#validateNode(node.right, `${pointer}/right`, evaluationContextAvailability),
                 });
             case 'negate':
-                return Object.freeze({ kind: 'negate', operand: this.#validateNode(node.operand, `${pointer}/operand`, currentValueAvailability) });
+                return Object.freeze({ kind: 'negate', operand: this.#validateNode(node.operand, `${pointer}/operand`, evaluationContextAvailability) });
             case 'conditional':
-                return this.#validateConditional(node, pointer, currentValueAvailability);
+                return this.#validateConditional(node, pointer, evaluationContextAvailability);
             case 'body':
-                return this.#validateBody(node, pointer, currentValueAvailability);
+                return this.#validateBody(node, pointer, evaluationContextAvailability);
             case 'function':
                 this.#fail(pointer, 'A function is the value of a local, as let name = function(…) … end, and stands nowhere else');
                 break;
             case 'functionCall':
-                return this.#validateFunctionCall(node, pointer, currentValueAvailability);
+                return this.#validateFunctionCall(node, pointer, evaluationContextAvailability);
             case 'and':
             case 'or':
-                return this.#validateLogical(node, pointer, currentValueAvailability);
+                return this.#validateLogical(node, pointer, evaluationContextAvailability);
             case 'optionalChain':
-                return this.#validateOptionalChain(node, pointer, currentValueAvailability);
+                return this.#validateOptionalChain(node, pointer, evaluationContextAvailability);
             case 'not':
-                return Object.freeze({ kind: 'not', operand: this.#validateNode(node.operand, `${pointer}/operand`, currentValueAvailability) });
+                return Object.freeze({ kind: 'not', operand: this.#validateNode(node.operand, `${pointer}/operand`, evaluationContextAvailability) });
             case 'cast':
-                return this.#validateCast(node, pointer, currentValueAvailability);
+                return this.#validateCast(node, pointer, evaluationContextAvailability);
             case 'conversion':
                 if (typeof node.type !== 'string') {
                     this.#fail(`${pointer}/type`, 'A conversion names the type it converts to by a string');
                 }
 
-                return Object.freeze({ kind: 'conversion', type: node.type, target: this.#validateNode(node.target, `${pointer}/target`, currentValueAvailability) });
+                return Object.freeze({ kind: 'conversion', type: node.type, target: this.#validateNode(node.target, `${pointer}/target`, evaluationContextAvailability) });
             case 'try':
                 if (!ATTEMPTED_KINDS.has(node.target?.kind)) {
                     this.#fail(`${pointer}/target`, "What 'try' attempts is a conversion or a cast");
                 }
 
-                return Object.freeze({ kind: 'try', target: this.#validateNode(node.target, `${pointer}/target`, currentValueAvailability) });
+                return Object.freeze({ kind: 'try', target: this.#validateNode(node.target, `${pointer}/target`, evaluationContextAvailability) });
             case 'coalescing':
                 return Object.freeze({
                     kind: 'coalescing',
-                    value: this.#validateNode(node.value, `${pointer}/value`, currentValueAvailability),
-                    fallback: this.#validateNode(node.fallback, `${pointer}/fallback`, currentValueAvailability),
+                    value: this.#validateNode(node.value, `${pointer}/value`, evaluationContextAvailability),
+                    fallback: this.#validateNode(node.fallback, `${pointer}/fallback`, evaluationContextAvailability),
                 });
             default:
-                return this.#validateObject(node, pointer, currentValueAvailability);
+                return this.#validateObject(node, pointer, evaluationContextAvailability);
         }
     }
 
@@ -264,13 +264,13 @@ export class DefinitionValidator {
      * Validates a conditional: a condition or a binding, exactly one of them, its consequent and its alternative.
      * A binding's name is any name, which hides a local or a field of its name outside it, in scope in the consequent alone, never in its own value or the alternative.
      */
-    #validateConditional(node, pointer, currentValueAvailability) {
+    #validateConditional(node, pointer, evaluationContextAvailability) {
         if ((node.condition === undefined) === (node.binding === undefined)) {
             this.#fail(pointer, 'A conditional holds a condition or a binding, one of them');
         }
 
         if (this.#simpleExpression !== null) {
-            return this.#validateSimpleConditional(node, pointer, currentValueAvailability);
+            return this.#validateSimpleConditional(node, pointer, evaluationContextAvailability);
         }
 
         // Every branch of one conditional is a body, whose `return` gives its result, or none is; an `elseif` continues its style, and the alternative of one whose branches are expressions may hold a conditional of either, as `else if … end` writes one.
@@ -285,9 +285,9 @@ export class DefinitionValidator {
         if (node.condition !== undefined) {
             return Object.freeze({
                 kind: 'conditional',
-                condition: this.#validateNode(node.condition, `${pointer}/condition`, currentValueAvailability),
-                consequent: this.#validateNode(node.consequent, `${pointer}/consequent`, currentValueAvailability),
-                alternative: this.#validateNode(node.alternative, `${pointer}/alternative`, currentValueAvailability),
+                condition: this.#validateNode(node.condition, `${pointer}/condition`, evaluationContextAvailability),
+                consequent: this.#validateNode(node.consequent, `${pointer}/consequent`, evaluationContextAvailability),
+                alternative: this.#validateNode(node.alternative, `${pointer}/alternative`, evaluationContextAvailability),
             });
         }
 
@@ -299,7 +299,7 @@ export class DefinitionValidator {
         const { name } = node.binding;
 
 
-        const value = this.#validateWithLater([name], () => this.#validateNode(node.binding.value, `${bindingPointer}/value`, currentValueAvailability));
+        const value = this.#validateWithLater([name], () => this.#validateNode(node.binding.value, `${bindingPointer}/value`, evaluationContextAvailability));
 
         const enclosingLocalNames = this.#localNames;
 
@@ -308,7 +308,7 @@ export class DefinitionValidator {
         let consequent;
 
         try {
-            consequent = this.#validateNode(node.consequent, `${pointer}/consequent`, currentValueAvailability);
+            consequent = this.#validateNode(node.consequent, `${pointer}/consequent`, evaluationContextAvailability);
         } finally {
             this.#localNames = enclosingLocalNames;
         }
@@ -317,7 +317,7 @@ export class DefinitionValidator {
             kind: 'conditional',
             binding: Object.freeze({ name, value }),
             consequent,
-            alternative: this.#validateNode(node.alternative, `${pointer}/alternative`, currentValueAvailability),
+            alternative: this.#validateNode(node.alternative, `${pointer}/alternative`, evaluationContextAvailability),
         });
     }
 
@@ -325,7 +325,7 @@ export class DefinitionValidator {
      * Validates a conditional within a simple expression: a test and two branches, each a simple value expression, so it binds no value, its branches give their values without `return` or locals,
      * and it holds no other conditional, an `elseif` among them, through any path, a group, a call, an indexer or an interpolation included.
      */
-    #validateSimpleConditional(node, pointer, currentValueAvailability) {
+    #validateSimpleConditional(node, pointer, evaluationContextAvailability) {
         const simpleExpression = this.#simpleExpression;
         const { holder } = simpleExpression;
 
@@ -348,9 +348,9 @@ export class DefinitionValidator {
         try {
             return Object.freeze({
                 kind: 'conditional',
-                condition: this.#validateNode(node.condition, `${pointer}/condition`, currentValueAvailability),
-                consequent: this.#validateNode(node.consequent, `${pointer}/consequent`, currentValueAvailability),
-                alternative: this.#validateNode(node.alternative, `${pointer}/alternative`, currentValueAvailability),
+                condition: this.#validateNode(node.condition, `${pointer}/condition`, evaluationContextAvailability),
+                consequent: this.#validateNode(node.consequent, `${pointer}/consequent`, evaluationContextAvailability),
+                alternative: this.#validateNode(node.alternative, `${pointer}/alternative`, evaluationContextAvailability),
             });
         } finally {
             this.#simpleExpression = simpleExpression;
@@ -361,25 +361,25 @@ export class DefinitionValidator {
      * Validates a simple expression the holder names: the node and everything within it, which hold no do block, no local, no conditional binding, no `return`, and no conditional beyond an if branch and an else branch of simple value expressions.
      * A simple expression within another keeps the conditional that holds it.
      */
-    #validateSimpleExpression(node, pointer, currentValueAvailability, holder) {
+    #validateSimpleExpression(node, pointer, evaluationContextAvailability, holder) {
         const enclosingSimpleExpression = this.#simpleExpression;
 
         this.#simpleExpression = { holder, isInConditional: enclosingSimpleExpression?.isInConditional ?? false };
 
         try {
-            return this.#validateNode(node, pointer, currentValueAvailability);
+            return this.#validateNode(node, pointer, evaluationContextAvailability);
         } finally {
             this.#simpleExpression = enclosingSimpleExpression;
         }
     }
 
     /** Validates a cast: the quoted type it casts to, and its target, which is a receiver and its accesses, a coalescing operator, another cast, or an optional chain, as text can write one. */
-    #validateCast(node, pointer, currentValueAvailability) {
+    #validateCast(node, pointer, evaluationContextAvailability) {
         if (typeof node.type !== 'string') {
             this.#fail(`${pointer}/type`, 'A cast names the type it casts to by a string');
         }
 
-        const target = this.#validateNode(node.target, `${pointer}/target`, currentValueAvailability);
+        const target = this.#validateNode(node.target, `${pointer}/target`, evaluationContextAvailability);
 
         if (!CAST_TARGET_KINDS.has(target.kind) || (target.kind === 'object' && target.target !== undefined)) {
             this.#fail(`${pointer}/target`, "A cast's target is a receiver and the members after it, a coalescing operator in parentheses, or an optional enclosed access");
@@ -389,12 +389,12 @@ export class DefinitionValidator {
     }
 
     /** Validates an optional chain: the chain whose optional accesses end at it, at least one of them, since a chain with none is the chain alone. */
-    #validateOptionalChain(node, pointer, currentValueAvailability) {
+    #validateOptionalChain(node, pointer, evaluationContextAvailability) {
         const chain = { hasOptional: false };
 
         this.#chain = chain;
 
-        const target = this.#validateNode(node.target, `${pointer}/target`, currentValueAvailability);
+        const target = this.#validateNode(node.target, `${pointer}/target`, evaluationContextAvailability);
 
         if (!chain.hasOptional) {
             this.#fail(pointer, 'An optional chain holds a chain with an optional access, written ?.');
@@ -404,18 +404,18 @@ export class DefinitionValidator {
     }
 
     /** Validates an and or an or: two or more expressions it combines, each with the evaluation context the and or the or has. */
-    #validateLogical(node, pointer, currentValueAvailability) {
+    #validateLogical(node, pointer, evaluationContextAvailability) {
         this.#requireArray(node.operands, `${pointer}/operands`);
 
         if (node.operands.length < 2) {
             this.#fail(`${pointer}/operands`, `An ${node.kind} combines two or more expressions`);
         }
 
-        return Object.freeze({ kind: node.kind, operands: Object.freeze(node.operands.map((operand, index) => this.#validateNode(operand, `${pointer}/operands/${index}`, currentValueAvailability))) });
+        return Object.freeze({ kind: node.kind, operands: Object.freeze(node.operands.map((operand, index) => this.#validateNode(operand, `${pointer}/operands/${index}`, evaluationContextAvailability))) });
     }
 
     /** Validates a comparison: two or more operands, each with the evaluation context the comparison has, and between each two of them a comparison operator, every one pointing one way. */
-    #validateComparison(node, pointer, currentValueAvailability) {
+    #validateComparison(node, pointer, evaluationContextAvailability) {
         this.#requireArray(node.operands, `${pointer}/operands`);
 
         if (node.operands.length < 2) {
@@ -440,7 +440,7 @@ export class DefinitionValidator {
 
         return Object.freeze({
             kind: 'comparison',
-            operands: Object.freeze(node.operands.map((operand, index) => this.#validateNode(operand, `${pointer}/operands/${index}`, currentValueAvailability))),
+            operands: Object.freeze(node.operands.map((operand, index) => this.#validateNode(operand, `${pointer}/operands/${index}`, evaluationContextAvailability))),
             operators: Object.freeze([...node.operators]),
         });
     }
@@ -449,7 +449,7 @@ export class DefinitionValidator {
      * Validates an interpolated string: its parts, each text, a string, or an expression, which has the evaluation context the string has.
      * Adjacent text is one part and empty text none, so a string written in text and its definition hold the same parts.
      */
-    #validateInterpolatedString(node, pointer, currentValueAvailability) {
+    #validateInterpolatedString(node, pointer, evaluationContextAvailability) {
         this.#requireArray(node.parts, `${pointer}/parts`);
 
         const parts = [];
@@ -465,7 +465,7 @@ export class DefinitionValidator {
             this.#requireProperties(part, partPointer, INTERPOLATION_PARTS[part.kind]);
 
             if (part.kind === 'expression') {
-                parts.push(Object.freeze({ kind: 'expression', expression: this.#validateSimpleExpression(part.expression, `${partPointer}/expression`, currentValueAvailability, "An interpolation's expression") }));
+                parts.push(Object.freeze({ kind: 'expression', expression: this.#validateSimpleExpression(part.expression, `${partPointer}/expression`, evaluationContextAvailability, "An interpolation's expression") }));
                 indexes.push(index);
 
                 return;
@@ -504,7 +504,7 @@ export class DefinitionValidator {
      * Validates a body: its bindings, each with its name and value, in scope after its value, through the bindings after it and the result, and seen by no value before it, and its result, each with the evaluation context the body has.
      * A body's binding may reuse a name an enclosing scope has, which it hides, and two of one body never share one.
      */
-    #validateBody(node, pointer, currentValueAvailability) {
+    #validateBody(node, pointer, evaluationContextAvailability) {
         if (this.#simpleExpression !== null) {
             this.#fail(pointer, `${this.#simpleExpression.holder} is a simple expression, which holds no do block: bind the block's value to a local first, and use the local`);
         }
@@ -532,14 +532,14 @@ export class DefinitionValidator {
 
                 bound.add(binding.name);
 
-                const value = this.#validateWithLater(names.slice(index), () => this.#validateLocalValue(binding.value, `${bindingPointer}/value`, currentValueAvailability));
+                const value = this.#validateWithLater(names.slice(index), () => this.#validateLocalValue(binding.value, `${bindingPointer}/value`, evaluationContextAvailability));
 
                 this.#localNames = new Set(this.#localNames).add(binding.name);
 
                 return Object.freeze({ name: binding.name, value });
             });
 
-            return Object.freeze({ kind: 'body', bindings: Object.freeze(bindings), result: this.#validateNode(node.result, `${pointer}/result`, currentValueAvailability) });
+            return Object.freeze({ kind: 'body', bindings: Object.freeze(bindings), result: this.#validateNode(node.result, `${pointer}/result`, evaluationContextAvailability) });
         } finally {
             this.#localNames = enclosingLocalNames;
             this.#chain = enclosingChain;
@@ -547,15 +547,15 @@ export class DefinitionValidator {
     }
 
     /** Validates a local's value, which a function may be, as no other node's is. */
-    #validateLocalValue(value, pointer, currentValueAvailability) {
-        return value?.kind === 'function' ? this.#validateFunction(value, pointer, currentValueAvailability) : this.#validateNode(value, pointer, currentValueAvailability);
+    #validateLocalValue(value, pointer, evaluationContextAvailability) {
+        return value?.kind === 'function' ? this.#validateFunction(value, pointer, evaluationContextAvailability) : this.#validateNode(value, pointer, evaluationContextAvailability);
     }
 
     /**
      * Validates a function: its parameters, each a name of its own, and its body, which sees them and the locals in scope where the function is declared, with the evaluation context it has there.
      * Its own local and those declared after it stay later names in its body, so it calls neither, directly or through another function.
      */
-    #validateFunction(node, pointer, currentValueAvailability) {
+    #validateFunction(node, pointer, evaluationContextAvailability) {
         this.#requireProperties(node, pointer, NODE_PROPERTIES.function);
         this.#requireArray(node.parameters, `${pointer}/parameters`);
 
@@ -580,7 +580,7 @@ export class DefinitionValidator {
         this.#chain = null;
 
         try {
-            return Object.freeze({ kind: 'function', parameters: Object.freeze([...node.parameters]), body: this.#validateNode(node.body, `${pointer}/body`, currentValueAvailability) });
+            return Object.freeze({ kind: 'function', parameters: Object.freeze([...node.parameters]), body: this.#validateNode(node.body, `${pointer}/body`, evaluationContextAvailability) });
         } finally {
             this.#localNames = enclosingLocalNames;
             this.#chain = enclosingChain;
@@ -588,7 +588,7 @@ export class DefinitionValidator {
     }
 
     /** Validates a call of a local function: its name, which no function calls before its local is declared, itself included, and its arguments. */
-    #validateFunctionCall(node, pointer, currentValueAvailability) {
+    #validateFunctionCall(node, pointer, evaluationContextAvailability) {
         this.#requireName(node.name, `${pointer}/name`);
 
         if (this.#laterNames.has(node.name)) {
@@ -600,17 +600,17 @@ export class DefinitionValidator {
         this.#chain = null;
 
         try {
-            return Object.freeze({ kind: 'functionCall', name: node.name, arguments: this.#validateArguments(node.arguments, `${pointer}/arguments`, currentValueAvailability) });
+            return Object.freeze({ kind: 'functionCall', name: node.name, arguments: this.#validateArguments(node.arguments, `${pointer}/arguments`, evaluationContextAvailability) });
         } finally {
             this.#chain = enclosingChain;
         }
     }
 
     /** Validates a call's arguments, each a simple expression. */
-    #validateArguments(argumentNodes, pointer, currentValueAvailability) {
+    #validateArguments(argumentNodes, pointer, evaluationContextAvailability) {
         this.#requireArray(argumentNodes, pointer);
 
-        return Object.freeze(argumentNodes.map((argument, index) => this.#validateSimpleExpression(argument, `${pointer}/${index}`, currentValueAvailability, 'An argument')));
+        return Object.freeze(argumentNodes.map((argument, index) => this.#validateSimpleExpression(argument, `${pointer}/${index}`, evaluationContextAvailability, 'An argument')));
     }
 
     /** Refuses a conditional or a body as the receiver of a chain, whose value a local holds first. */
@@ -631,10 +631,10 @@ export class DefinitionValidator {
     }
 
     /** Validates a property access, a call or an indexer: its name, its receiver, whether it is optional, which it is within an optional chain alone, and a call's arguments or an indexer's key, each a simple expression whose evaluation context its declaration decides. */
-    #validateMember(node, pointer, currentValueAvailability) {
+    #validateMember(node, pointer, evaluationContextAvailability) {
         this.#refuseBlockReceiver(node.target, pointer);
 
-        const name = node.kind === 'member' && ObjectUtils.isNonArrayObject(node.name) ? this.#validateNameExpression(node.name, `${pointer}/name`, currentValueAvailability) : node.name;
+        const name = node.kind === 'member' && ObjectUtils.isNonArrayObject(node.name) ? this.#validateNameExpression(node.name, `${pointer}/name`, evaluationContextAvailability) : node.name;
 
         // A name a bracket property access's expression gave is checked as that expression, and a default indexer has none; any other is a member's name, which any word can be, a reserved word among them.
         if (name === node.name && !(node.kind === 'indexer' && name === undefined) && !Names.isName(name)) {
@@ -653,7 +653,7 @@ export class DefinitionValidator {
             this.#chain.hasOptional = true;
         }
 
-        const target = this.#validateNode(node.target, `${pointer}/target`, currentValueAvailability);
+        const target = this.#validateNode(node.target, `${pointer}/target`, evaluationContextAvailability);
         const access = Object.freeze({ kind: node.kind, target, ...(name === undefined ? {} : { name }), ...(node.optional === true ? { optional: true } : {}) });
 
         if (node.kind === 'member') {
@@ -663,20 +663,20 @@ export class DefinitionValidator {
         this.#chain = null;
 
         if (node.kind === 'call') {
-            return Object.freeze({ ...access, arguments: this.#validateArguments(node.arguments, `${pointer}/arguments`, CurrentValueAvailability.unknown) });
+            return Object.freeze({ ...access, arguments: this.#validateArguments(node.arguments, `${pointer}/arguments`, EvaluationContextAvailability.unknown) });
         }
 
-        return Object.freeze({ ...access, argument: this.#validateSimpleExpression(node.argument, `${pointer}/argument`, CurrentValueAvailability.unknown, "An indexer's key") });
+        return Object.freeze({ ...access, argument: this.#validateSimpleExpression(node.argument, `${pointer}/argument`, EvaluationContextAvailability.unknown, "An indexer's key") });
     }
 
     /** Validates the expression a bracket property access holds, which continues no chain; a string literal that is a name is the name itself, as `.` writes it, so an access has one definition. */
-    #validateNameExpression(node, pointer, currentValueAvailability) {
+    #validateNameExpression(node, pointer, evaluationContextAvailability) {
         const enclosingChain = this.#chain;
 
         this.#chain = null;
 
         try {
-            const expression = this.#validateSimpleExpression(node, pointer, currentValueAvailability, 'The name a bracket property access reads');
+            const expression = this.#validateSimpleExpression(node, pointer, evaluationContextAvailability, 'The name a bracket property access reads');
 
             return expression.kind === 'literal' && Names.isName(expression.value) ? expression.value : expression;
         } finally {
@@ -684,10 +684,10 @@ export class DefinitionValidator {
         }
     }
 
-    #validateObject(node, pointer, currentValueAvailability) {
+    #validateObject(node, pointer, evaluationContextAvailability) {
         this.#refuseBlockReceiver(node.target, pointer);
 
-        const target = node.target === undefined ? undefined : this.#validateNode(node.target, `${pointer}/target`, currentValueAvailability);
+        const target = node.target === undefined ? undefined : this.#validateNode(node.target, `${pointer}/target`, evaluationContextAvailability);
 
         this.#requireArray(node.fields, `${pointer}/fields`);
 
@@ -695,7 +695,7 @@ export class DefinitionValidator {
             this.#fail(pointer, 'An object expression names at least one field');
         }
 
-        const fieldCurrentValueAvailability = target === undefined ? currentValueAvailability : CurrentValueAvailability.present;
+        const fieldEvaluationContextAvailability = target === undefined ? evaluationContextAvailability : EvaluationContextAvailability.present;
         const enclosingLocalNames = this.#localNames;
 
         // An object expression's entries continue no chain of the one it follows.
@@ -706,7 +706,7 @@ export class DefinitionValidator {
                 this.#fail(`${pointer}/locals/0`, `${this.#simpleExpression.holder} is a simple expression, whose object expressions hold no locals: bind each value to a local before the expression, and use the local`);
             }
 
-            const locals = node.locals === undefined ? [] : this.#validateLocals(node.locals, `${pointer}/locals`, fieldCurrentValueAvailability);
+            const locals = node.locals === undefined ? [] : this.#validateLocals(node.locals, `${pointer}/locals`, fieldEvaluationContextAvailability);
 
             /** @type {Set<string>} */
             const names = new Set();
@@ -716,7 +716,7 @@ export class DefinitionValidator {
                 this.#requireProperties(field, fieldPointer, ENTRY_PROPERTIES);
                 this.#requireName(field.name, `${fieldPointer}/name`);
 
-                const value = this.#validateNode(field.value, `${fieldPointer}/value`, fieldCurrentValueAvailability);
+                const value = this.#validateNode(field.value, `${fieldPointer}/value`, fieldEvaluationContextAvailability);
                 const { name } = field;
 
                 if (names.has(name)) {
@@ -742,7 +742,7 @@ export class DefinitionValidator {
     }
 
     /** Validates an object expression's locals in order, each seeing those before it, and leaves every one in scope for its fields; a local may hide one of its name outside its object expression, and two of one never share a name. */
-    #validateLocals(locals, pointer, currentValueAvailability) {
+    #validateLocals(locals, pointer, evaluationContextAvailability) {
         this.#requireArray(locals, pointer);
 
         const names = locals.map(local => local?.name);
@@ -754,7 +754,7 @@ export class DefinitionValidator {
             this.#requireName(local.name, `${localPointer}/name`);
 
             // A local's value and the locals before it see neither it nor the locals after it, whose names no parameter there reads.
-            const value = this.#validateWithLater(names.slice(index), () => this.#validateLocalValue(local.value, `${localPointer}/value`, currentValueAvailability));
+            const value = this.#validateWithLater(names.slice(index), () => this.#validateLocalValue(local.value, `${localPointer}/value`, evaluationContextAvailability));
             const { name } = local;
 
             if (declared.has(name)) {

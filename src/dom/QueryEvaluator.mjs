@@ -88,7 +88,7 @@ export class QueryEvaluator {
      */
     static #compilationCache = new WeakMap();
 
-    /** The functions this evaluator's nodes compile to. @type {Map<object, (evaluator: QueryEvaluator, current: unknown) => unknown>} */
+    /** The functions this evaluator's nodes compile to. @type {Map<object, (evaluator: QueryEvaluator, evaluationContext: unknown) => unknown>} */
     #compiledFunctions;
 
     #moduleRegistry;
@@ -332,8 +332,8 @@ export class QueryEvaluator {
         return this.#evaluateResult();
     }
 
-    #evaluateNode(node, currentValue) {
-        return this.#getCompiledFunction(node)(this, currentValue);
+    #evaluateNode(node, evaluationContext) {
+        return this.#getCompiledFunction(node)(this, evaluationContext);
     }
 
     /** The function the node compiles to, built the first time it is asked for and kept for every evaluation of its resolved definition. */
@@ -361,7 +361,7 @@ export class QueryEvaluator {
             case 'root':
                 return node.name === 'window' ? evaluator => evaluator.#environment.window : evaluator => evaluator.#environment.document;
             case 'context':
-                return (evaluator, currentValue) => currentValue;
+                return (evaluator, evaluationContext) => evaluationContext;
             case 'local': {
                 const resolution = this.#resolvedDefinition.resolutionOf(node);
 
@@ -381,10 +381,10 @@ export class QueryEvaluator {
                 const left = this.#getCompiledFunction(node.left);
                 const right = this.#getCompiledFunction(node.right);
 
-                return (evaluator, currentValue) => {
-                    const value = left(evaluator, currentValue);
+                return (evaluator, evaluationContext) => {
+                    const value = left(evaluator, evaluationContext);
 
-                    return value === right(evaluator, currentValue);
+                    return value === right(evaluator, evaluationContext);
                 };
             }
             case 'conditional': {
@@ -395,14 +395,14 @@ export class QueryEvaluator {
                     const bind = this.#getCompiledFunction(node.binding.value);
 
                     // The value is evaluated once; where it is truthy, the consequent reads it through the name it is bound to, and the branch taken is recorded for the value's place in the result.
-                    return (evaluator, currentValue) => {
-                        const value = bind(evaluator, currentValue);
+                    return (evaluator, evaluationContext) => {
+                        const value = bind(evaluator, evaluationContext);
                         const isTruthy = QueryEvaluator.#isTruthy(value);
 
                         (evaluator.#selections ??= new Map()).set(node, isTruthy ? node.consequent : node.alternative);
 
                         if (!isTruthy) {
-                            return alternative(evaluator, currentValue);
+                            return alternative(evaluator, evaluationContext);
                         }
 
                         const enclosing = evaluator.#boundValues.get(node);
@@ -410,7 +410,7 @@ export class QueryEvaluator {
                         evaluator.#boundValues.set(node, value);
 
                         try {
-                            return consequent(evaluator, currentValue);
+                            return consequent(evaluator, evaluationContext);
                         } finally {
                             if (enclosing === undefined) {
                                 evaluator.#boundValues.delete(node);
@@ -424,12 +424,12 @@ export class QueryEvaluator {
                 const condition = this.#getCompiledFunction(node.condition);
 
                 // The branch the condition selects is recorded for the value's place in the result.
-                return (evaluator, currentValue) => {
-                    const isTrue = QueryEvaluator.#isTruthy(condition(evaluator, currentValue));
+                return (evaluator, evaluationContext) => {
+                    const isTrue = QueryEvaluator.#isTruthy(condition(evaluator, evaluationContext));
 
                     (evaluator.#selections ??= new Map()).set(node, isTrue ? node.consequent : node.alternative);
 
-                    return (isTrue ? consequent : alternative)(evaluator, currentValue);
+                    return (isTrue ? consequent : alternative)(evaluator, evaluationContext);
                 };
             }
             case 'optionalChain':
@@ -439,12 +439,12 @@ export class QueryEvaluator {
                 const value = this.#getCompiledFunction(node.value);
                 const fallback = this.#getCompiledFunction(node.fallback);
 
-                return (evaluator, currentValue) => {
-                    const answer = value(evaluator, currentValue);
+                return (evaluator, evaluationContext) => {
+                    const answer = value(evaluator, evaluationContext);
 
                     (evaluator.#selections ??= new Map()).set(node, answer === null ? node.fallback : node.value);
 
-                    return answer === null ? fallback(evaluator, currentValue) : answer;
+                    return answer === null ? fallback(evaluator, evaluationContext) : answer;
                 };
             }
             case 'and':
@@ -454,9 +454,9 @@ export class QueryEvaluator {
                 const last = operands.length - 1;
 
                 // The first operand that decides it, falsey for `and` and truthy for `or`, or else the last, is its value as it is, and the operand it is is recorded for the value's place in the result.
-                return (evaluator, currentValue) => {
+                return (evaluator, evaluationContext) => {
                     for (let index = 0; ; index++) {
-                        const value = operands[index](evaluator, currentValue);
+                        const value = operands[index](evaluator, evaluationContext);
 
                         if (index === last || QueryEvaluator.#isTruthy(value) === decidesWhenTruthy) {
                             (evaluator.#selections ??= new Map()).set(node, node.operands[index]);
@@ -469,11 +469,11 @@ export class QueryEvaluator {
             case 'not': {
                 const operand = this.#getCompiledFunction(node.operand);
 
-                return (evaluator, currentValue) => !QueryEvaluator.#isTruthy(operand(evaluator, currentValue));
+                return (evaluator, evaluationContext) => !QueryEvaluator.#isTruthy(operand(evaluator, evaluationContext));
             }
             case 'function':
                 // A function's value is its closure: the locals and the evaluation context where it is declared, which each call evaluates its body in.
-                return (evaluator, currentValue) => ({ function: node, frame: evaluator.#localsFrame, currentValue });
+                return (evaluator, evaluationContext) => ({ function: node, frame: evaluator.#localsFrame, evaluationContext });
             case 'functionCall': {
                 const { body, parameters } = this.#resolvedDefinition.resolutionOf(node);
                 const evaluateBody = this.#getCompiledFunction(body);
@@ -481,15 +481,15 @@ export class QueryEvaluator {
                 const local = { name: node.name };
 
                 // The arguments are evaluated once each, left to right, in the caller's scope, and the body in the closure's, its parameters bound to them, so no local of the caller's is visible in it.
-                return (evaluator, currentValue) => {
+                return (evaluator, evaluationContext) => {
                     const closure = evaluator.#evaluateLocal(local);
-                    const values = new Map(parameters.map((parameter, index) => [parameter, { value: evaluateArguments[index](evaluator, currentValue), selections: null }]));
+                    const values = new Map(parameters.map((parameter, index) => [parameter, { value: evaluateArguments[index](evaluator, evaluationContext), selections: null }]));
                     const enclosingFrame = evaluator.#localsFrame;
 
-                    evaluator.#localsFrame = { node: { bindings: parameters.map(parameter => ({ name: parameter })) }, item: closure.currentValue, values, enclosing: closure.frame };
+                    evaluator.#localsFrame = { node: { bindings: parameters.map(parameter => ({ name: parameter })) }, item: closure.evaluationContext, values, enclosing: closure.frame };
 
                     try {
-                        return evaluateBody(evaluator, closure.currentValue);
+                        return evaluateBody(evaluator, closure.evaluationContext);
                     } finally {
                         evaluator.#localsFrame = enclosingFrame;
                     }
@@ -500,8 +500,8 @@ export class QueryEvaluator {
                 const result = this.#getCompiledFunction(node.result);
 
                 // Each binding is evaluated once, in order, whenever the body runs, an unused one included, each seeing those before it, and then the result, all against the body's evaluation context.
-                return (evaluator, currentValue) => {
-                    const frame = { node, item: currentValue, values: new Map(), enclosing: evaluator.#localsFrame };
+                return (evaluator, evaluationContext) => {
+                    const frame = { node, item: evaluationContext, values: new Map(), enclosing: evaluator.#localsFrame };
                     const enclosingSelections = evaluator.#selections;
 
                     evaluator.#localsFrame = frame;
@@ -510,14 +510,14 @@ export class QueryEvaluator {
                         for (const binding of bindings) {
                             evaluator.#selections = null;
 
-                            const value = binding.evaluate(evaluator, currentValue);
+                            const value = binding.evaluate(evaluator, evaluationContext);
 
                             frame.values.set(binding.name, { value, selections: evaluator.#selections });
                         }
 
                         evaluator.#selections = enclosingSelections;
 
-                        return result(evaluator, currentValue);
+                        return result(evaluator, evaluationContext);
                     } finally {
                         evaluator.#localsFrame = frame.enclosing;
                     }
@@ -527,7 +527,7 @@ export class QueryEvaluator {
                 const parts = node.parts.map(part => (part.kind === 'text' ? part.value : { expression: part.expression, evaluate: this.#getCompiledFunction(part.expression) }));
 
                 // Each interpolation is evaluated once, from left to right, and its value inserted as its text: a string as it is and a number as the built-in conversion writes it, negative zero as "0".
-                return (evaluator, currentValue) => {
+                return (evaluator, evaluationContext) => {
                     let text = '';
 
                     for (const part of parts) {
@@ -536,7 +536,7 @@ export class QueryEvaluator {
                             continue;
                         }
 
-                        const value = part.evaluate(evaluator, currentValue);
+                        const value = part.evaluate(evaluator, evaluationContext);
 
                         if (typeof value !== 'string' && typeof value !== 'number') {
                             throw DomqlError.evaluation(`An interpolation inserts a string or a number, and is given ${QueryEvaluator.#describe(value)}`, evaluator.#locate(evaluator.#pointerOf(part.expression)));
@@ -553,11 +553,11 @@ export class QueryEvaluator {
                 const compares = node.operators.map(operator => COMPARISONS[operator]);
 
                 // Each operand is evaluated once, left to right, the one between two operators compared with both, and the first comparison that is false answers false without evaluating the operands after it.
-                return (evaluator, currentValue) => {
-                    let left = operands[0](evaluator, currentValue);
+                return (evaluator, evaluationContext) => {
+                    let left = operands[0](evaluator, evaluationContext);
 
                     for (let index = 0; index < compares.length; index++) {
-                        const right = operands[index + 1](evaluator, currentValue);
+                        const right = operands[index + 1](evaluator, evaluationContext);
 
                         if (typeof left !== 'number' || typeof right !== 'number') {
                             throw DomqlError.evaluation(`'${node.operators[index]}' compares numbers, and is given ${QueryEvaluator.#describe(typeof left !== 'number' ? left : right)}`, evaluator.#locate(evaluator.#pointerOf(node)));
@@ -579,9 +579,9 @@ export class QueryEvaluator {
                 const right = this.#getCompiledFunction(node.right);
                 const operate = ARITHMETIC[node.operator];
 
-                return (evaluator, currentValue) => {
-                    const leftValue = left(evaluator, currentValue);
-                    const rightValue = right(evaluator, currentValue);
+                return (evaluator, evaluationContext) => {
+                    const leftValue = left(evaluator, evaluationContext);
+                    const rightValue = right(evaluator, evaluationContext);
 
                     return evaluator.#arithmeticResult(node, operate(leftValue, rightValue), leftValue, rightValue);
                 };
@@ -589,8 +589,8 @@ export class QueryEvaluator {
             case 'negate': {
                 const operand = this.#getCompiledFunction(node.operand);
 
-                return (evaluator, currentValue) => {
-                    const value = operand(evaluator, currentValue);
+                return (evaluator, evaluationContext) => {
+                    const value = operand(evaluator, evaluationContext);
 
                     return evaluator.#arithmeticResult(node, -value, value, 0);
                 };
@@ -615,8 +615,8 @@ export class QueryEvaluator {
         const target = this.#getCompiledFunction(node.target);
         const { type } = node;
 
-        return (evaluator, currentValue) => {
-            const value = target(evaluator, currentValue);
+        return (evaluator, evaluationContext) => {
+            const value = target(evaluator, evaluationContext);
 
             if (value === null || evaluator.#conformsNamed(value, type)) {
                 return value;
@@ -645,8 +645,8 @@ export class QueryEvaluator {
         const name = DomqlModule.conversionNameOf(declaration);
         const attempt = QueryEvaluator.#compileConversionAttempt(declaration, type, this.#moduleRegistry);
 
-        return (evaluator, currentValue) => {
-            const value = target(evaluator, currentValue);
+        return (evaluator, evaluationContext) => {
+            const value = target(evaluator, evaluationContext);
 
             if (value === null) {
                 return null;
@@ -724,7 +724,7 @@ export class QueryEvaluator {
         const resolution = this.#resolvedDefinition.resolutionOf(node);
 
         if (resolution === undefined || resolution.kind === 'byName' || (resolution.kind !== 'field' && resolution.declaration === null)) {
-            return (evaluator, currentValue) => evaluator.#evaluateMember(node, currentValue);
+            return (evaluator, evaluationContext) => evaluator.#evaluateMember(node, evaluationContext);
         }
 
         const target = this.#getCompiledFunction(node.target);
@@ -732,12 +732,12 @@ export class QueryEvaluator {
         if (resolution.kind === 'field') {
             const { name } = resolution;
 
-            return (evaluator, currentValue) => {
+            return (evaluator, evaluationContext) => {
                 if (evaluator.#projectionContext !== null && node === evaluator.#projectionContext.node) {
                     return evaluator.#projectionContext.value;
                 }
 
-                const receiver = target(evaluator, currentValue);
+                const receiver = target(evaluator, evaluationContext);
 
                 return receiver === null ? null : receiver[name] ?? null;
             };
@@ -751,19 +751,19 @@ export class QueryEvaluator {
         const copyStructures = QueryEvaluator.#compileStructureCopy(type, this.#moduleRegistry);
         const evaluateArguments = this.#compileArguments(resolution);
 
-        return (evaluator, currentValue) => {
+        return (evaluator, evaluationContext) => {
             // A projection stands the event or the result where its member is, so that member is never read again.
             if (evaluator.#projectionContext !== null && node === evaluator.#projectionContext.node) {
                 return evaluator.#projectionContext.value;
             }
 
-            const receiver = target(evaluator, currentValue);
+            const receiver = target(evaluator, evaluationContext);
 
             if (receiver === null) {
                 return null;
             }
 
-            const args = evaluateArguments(evaluator, currentValue);
+            const args = evaluateArguments(evaluator, evaluationContext);
 
             return args === null ? null : evaluator.#invokeImplementation(declaration, implementation, conforms, copyStructures, receiver, args, type, node);
         };
@@ -785,7 +785,7 @@ export class QueryEvaluator {
             return { name: parameter.name, kind: parameter.kind, evaluate: this.#getCompiledFunction(argument.node), propagatesNull: parameter.nulls === 'propagate' };
         });
 
-        return (evaluator, currentValue) => {
+        return (evaluator, evaluationContext) => {
             const args = {};
 
             for (const plan of argumentPlans) {
@@ -800,7 +800,7 @@ export class QueryEvaluator {
 
                     args[plan.name] = item => QueryEvaluator.#isTruthy(evaluate(evaluator, item));
                 } else {
-                    const value = plan.evaluate(evaluator, currentValue);
+                    const value = plan.evaluate(evaluator, evaluationContext);
 
                     if (value === null && plan.propagatesNull) {
                         return null;
@@ -827,8 +827,8 @@ export class QueryEvaluator {
             evaluate: this.#getCompiledFunction(field.value),
         }));
 
-        return (evaluator, currentValue) => {
-            const value = hasTarget ? target(evaluator, currentValue) : currentValue;
+        return (evaluator, evaluationContext) => {
+            const value = hasTarget ? target(evaluator, evaluationContext) : evaluationContext;
 
             if (!(hasTarget && Array.isArray(value))) {
                 return value === null && hasTarget ? null : evaluator.#applyFields(node, fields, value);
@@ -1064,13 +1064,13 @@ export class QueryEvaluator {
         return cachedLocal.value;
     }
 
-    #evaluateMember(node, currentValue) {
+    #evaluateMember(node, evaluationContext) {
         // A projection stands the event or the result where its member is, so that member is never read again.
         if (node === this.#projectionContext?.node) {
             return this.#projectionContext.value;
         }
 
-        const receiver = this.#evaluateNode(node.target, currentValue);
+        const receiver = this.#evaluateNode(node.target, evaluationContext);
 
         if (receiver === null) {
             return null;
@@ -1079,24 +1079,24 @@ export class QueryEvaluator {
         const resolution = this.#resolvedDefinition.resolutionOf(node);
 
         if (resolution.kind !== 'byName') {
-            return this.#readResolvedMember(resolution, receiver, node, currentValue);
+            return this.#readResolvedMember(resolution, receiver, node, evaluationContext);
         }
 
         // A bracket property access computes its name once and reads the property it selects, which is recorded for the value's place in the result.
-        const name = this.#evaluateNode(node.name, currentValue);
+        const name = this.#evaluateNode(node.name, evaluationContext);
 
         (this.#selections ??= new Map()).set(node, name);
 
-        return this.#readResolvedMember(resolution.candidates.get(name), receiver, node, currentValue);
+        return this.#readResolvedMember(resolution.candidates.get(name), receiver, node, evaluationContext);
     }
 
     /** Reads the member the resolution names of the receiver: a field of its data, or the declaration's function with the arguments it is given. */
-    #readResolvedMember(resolution, receiver, node, currentValue) {
+    #readResolvedMember(resolution, receiver, node, evaluationContext) {
         if (resolution.kind === 'field') {
             return receiver[resolution.name] ?? null;
         }
 
-        const args = this.#evaluateArguments(resolution, currentValue);
+        const args = this.#evaluateArguments(resolution, evaluationContext);
 
         return args === null ? null : this.#invokeMember(resolution.contract ?? resolution.declaration, receiver, args, resolution.type, node);
     }
@@ -1124,7 +1124,7 @@ export class QueryEvaluator {
     }
 
     /** The arguments by parameter name, or null where a null argument makes the call answer null. */
-    #evaluateArguments(resolution, currentValue) {
+    #evaluateArguments(resolution, evaluationContext) {
         const args = {};
 
         for (const argument of resolution.arguments) {
@@ -1137,7 +1137,7 @@ export class QueryEvaluator {
             } else if (parameter.kind === 'predicate') {
                 args[parameter.name] = item => QueryEvaluator.#isTruthy(this.#evaluateNode(argument.node, item));
             } else {
-                const value = this.#evaluateNode(argument.node, currentValue);
+                const value = this.#evaluateNode(argument.node, evaluationContext);
 
                 if (value === null && parameter.nulls === 'propagate') {
                     return null;
