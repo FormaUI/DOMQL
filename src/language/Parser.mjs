@@ -20,7 +20,7 @@ const TOKEN_DESCRIPTIONS = {
 const CHAIN_CONTINUATIONS = new Set(['.', '?.', '[', '?[', ':', '?:', '{']);
 
 /** The tokens that, after a space, make the name before them a member written without its receiver, which no local is: an argument. */
-const ARGUMENT_STARTS = new Set(['context', 'literal', 'interpolated-string-start', 'external', 'reserved-reference']);
+const ARGUMENT_STARTS = new Set(['context', 'literal', 'interpolated-string-start', 'query-parameter', 'reserved-reference']);
 
 /** The keywords that close or divide a construct, whose own messages say what it lacks where a value would stand. */
 const STRUCTURAL_KEYWORDS = new Set(['then', 'elseif', 'else', 'end']);
@@ -90,7 +90,7 @@ export class Parser {
 
             // An expression alone is its body's result, so a `return` after it follows what no binding holds.
             if (this.#isKeyword('return')) {
-                throw this.#fail("Only local bindings may precede a body's result.", start);
+                throw this.#fail("Only locals may precede a body's result.", start);
             }
 
             return expression;
@@ -116,7 +116,7 @@ export class Parser {
                 this.#parseExpression();
 
                 if (this.#isKeyword('return')) {
-                    throw this.#fail("Only local bindings may precede a body's result.", start);
+                    throw this.#fail("Only locals may precede a body's result.", start);
                 }
             }
 
@@ -246,7 +246,11 @@ export class Parser {
             throw this.#unexpected("'end' closing the do block");
         }
 
-        return Parser.#node('do-expression', [doKeyword, body, this.#take()]);
+        const node = Parser.#node('do-expression', [doKeyword, body, this.#take()]);
+
+        this.#refuseChainFrom('do-expression');
+
+        return node;
     }
 
     /** Reads a simple value expression: a disjunction, or an or-operand alone, a coalescing operator among them, which stands beside neither `and` nor `or`. */
@@ -313,15 +317,19 @@ export class Parser {
                     throw this.#unexpected("'end' closing the conditional");
                 }
 
-                // Every branch of one conditional gives its result with `return`, or none does.
+                // Every branch of one conditional gives its result with `return`, or none does; an `else` whose expression is a conditional, `else if … end`, follows branches of expressions in either style, and branches that return in theirs, as an `elseif` would.
                 const isExplicit = branch => !SyntaxTree.isToken(branch) && branch.kind === 'body';
-                const differing = branches.find(branch => isExplicit(branch) !== isExplicit(branches[0]));
+                const fits = branch => (branch === alternative && !SyntaxTree.isToken(branch) && branch.kind === 'conditional-expression'
+                    ? !isExplicit(branches[0]) || isExplicit(branch.children[3])
+                    : isExplicit(branch) === isExplicit(branches[0]));
+                const differing = branches.find(branch => !fits(branch));
 
                 if (differing !== undefined) {
                     throw this.#fail('All branches of this conditional must give their results with return, or none of them', SyntaxTree.startOf(isExplicit(differing) ? branches[0] : differing));
                 }
 
                 children.push(this.#take());
+                this.#refuseChainFrom('conditional-expression');
 
                 return Parser.#node('conditional-expression', children);
             } else {
@@ -335,7 +343,7 @@ export class Parser {
         const letKeyword = this.#take();
 
         if (!this.#startsEntry()) {
-            this.#refuseName('A binding takes its value after =', 'A binding is written with let, its name and = before its value, as if let key = context:["data-key"] then …', 'if let ');
+            this.#refuseName('A conditional binding takes its value after =', 'A conditional binding is written with let, its name and = before its value, as if let key = context:["data-key"] then …', 'if let ');
         }
 
         return Parser.#node('conditional-binding', [letKeyword, this.#take(), this.#take(), this.#parseSimpleValueExpression()]);
@@ -504,7 +512,7 @@ export class Parser {
         return node;
     }
 
-    /** Refuses binary arithmetic no group holds as a side of `??`, which stands apart from it, as it does from `and`, `or` and an equality; a negation is no binary arithmetic, so `value ?? -1` stands. */
+    /** Refuses binary arithmetic no group holds as a side of `??`, which stands apart from it, as it does from `and`, `or` and an equality; an arithmetic negation is no binary arithmetic, so `value ?? -1` stands. */
     #refuseArithmeticBeside(side, isValue) {
         if (side.kind !== 'additive' && side.kind !== 'multiplicative') {
             return;
@@ -617,8 +625,11 @@ export class Parser {
         const written = this.#text.slice(start, this.#tokens[this.#index - 1].end);
         const kind = Parser.#kindOf(value);
         const receiver = kind === 'cast' || kind === 'conversion' ? `(${written})` : written;
+        // A name an argument or an options object follows is a call written without its dot, and any other a property access.
+        const next = this.#tokens[this.#index + 1];
+        const arguments_ = next.type === '(' || next.type === '{' || ARGUMENT_STARTS.has(next.type) ? '(…)' : '';
 
-        throw this.#fail(`A member follows its receiver after a dot, or after a colon for an indexer: write '${receiver}.${this.#token.value}(…)'`, this.#token.start);
+        throw this.#fail(`A member follows its receiver after a dot, or after a colon for an indexer: write '${receiver}.${this.#token.value}${arguments_}'`, this.#token.start);
     }
 
     /** Whether the keyword `to` and a quoted type stand here, which only a conversion writes, after the value it converts. */
@@ -661,10 +672,7 @@ export class Parser {
         const first = this.#parseChainInput();
         const grouped = Parser.#kindOf(first);
 
-        // A conditional and a do block answer a value no chain continues from, grouped or not, which a local holds first.
-        if ((grouped === 'conditional-expression' || grouped === 'do-expression') && this.#continuesChain()) {
-            throw this.#fail(`${grouped === 'do-expression' ? 'A do block' : 'A conditional'} is never the receiver of a chain: bind its value to a local first, and continue from the local`, this.#token.start);
-        }
+        this.#refuseChainFrom(grouped);
         const children = [first];
         let isOptional = false;
         let hasObject = false;
@@ -772,7 +780,7 @@ export class Parser {
     /** Reads a receiver within an optional enclosed access: an input, or a grouped cast, its own target's accesses optional as the enclosed access's are, where its target is no group that keeps its own rules. */
     #parseReceiver() {
         if (this.#token.type === '(?') {
-            throw this.#fail('The receiver of an optional enclosed access is `context`, a parameter, a literal, a local, an object expression or a grouped cast, as in (?panel.first(".row").rect)', this.#token.start);
+            throw this.#fail('The receiver of an optional enclosed access is an input or a grouped cast, and no other optional enclosed access, as in (?panel.first(".row").rect)', this.#token.start);
         }
 
         if (this.#token.type !== '(') {
@@ -828,9 +836,9 @@ export class Parser {
         for (let index = this.#index; index < this.#tokens.length; index++) {
             const token = this.#tokens[index];
 
-            if (token.type === '(' || token.type === '(?' || token.type === '[' || token.type === '?[' || token.type === '{' || token.type === 'hole-start') {
+            if (token.type === '(' || token.type === '(?' || token.type === '[' || token.type === '?[' || token.type === '{' || token.type === 'interpolation-start') {
                 depth++;
-            } else if (token.type === ')' || token.type === ']' || token.type === '}' || token.type === 'hole-end') {
+            } else if (token.type === ')' || token.type === ']' || token.type === '}' || token.type === 'interpolation-end') {
                 depth--;
 
                 if (depth === 0) {
@@ -904,7 +912,7 @@ export class Parser {
             case 'context':
             case 'literal':
             case 'name':
-            case 'external':
+            case 'query-parameter':
             case 'reserved-reference':
                 return this.#take();
             case '{':
@@ -931,7 +939,7 @@ export class Parser {
                 case 'interpolated-text':
                     children.push(this.#take());
                     break;
-                case 'hole-start':
+                case 'interpolation-start':
                     children.push(this.#parseInterpolation());
                     break;
                 case 'interpolated-string-end':
@@ -948,17 +956,24 @@ export class Parser {
     #parseInterpolation() {
         const open = this.#take();
 
-        if (this.#token.type === 'hole-end') {
+        if (this.#token.type === 'interpolation-end') {
             throw this.#fail("An interpolation holds an expression between '{' and '}'", open.start);
         }
 
         const expression = this.#parseExpression();
 
-        if (this.#token.type !== 'hole-end') {
+        if (this.#token.type !== 'interpolation-end') {
             throw this.#unexpected("'}' closing the interpolation");
         }
 
         return Parser.#node('interpolation', [open, expression, this.#take()]);
+    }
+
+    /** Refuses a chain continuing from the conditional or the do block of the kind just read, grouped or not, whose value is no receiver: a local holds it first. */
+    #refuseChainFrom(kind) {
+        if ((kind === 'conditional-expression' || kind === 'do-expression') && this.#continuesChain()) {
+            throw this.#fail(`${kind === 'do-expression' ? 'A do block' : 'A conditional'} is never the receiver of a chain: bind its value to a local first, and continue from the local`, this.#token.start);
+        }
     }
 
     /** Whether the current token continues a chain: an access, a bracket property access, an indexer, each optional or not, or an object expression. */

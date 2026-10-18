@@ -133,11 +133,11 @@ export class EventListener {
         try {
             sourceHandle = start(receiver, args, environment, deliver);
         } catch (error) {
-            throw DomqlError.evaluation(`The source '${name}' failed to start listening`, location, { cause: error });
+            throw DomqlError.evaluation(`The event source '${name}' failed to start listening`, location, { cause: error });
         }
 
         if (typeof sourceHandle?.stop !== 'function') {
-            throw DomqlError.evaluation(`The source '${name}' started listening and answered nothing that stops it`, location);
+            throw DomqlError.evaluation(`The event source '${name}' started listening and answered nothing that stops it`, location);
         }
 
         return sourceHandle;

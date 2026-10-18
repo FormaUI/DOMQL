@@ -285,13 +285,20 @@ export class VocabularyFunctions {
         return false;
     }
 
-    /** Whether the element's own or nearest ancestor's `contenteditable` makes its content editable, or the document's design mode does. */
+    /**
+     * Whether the element's content is editable by the nearest `contenteditable` of a state, its own or an ancestor's, `true`, an empty value or `plaintext-only` making it so and `false` not,
+     * an invalid value, `inherit` among them, inheriting as the attribute does natively, or otherwise by the document's design mode.
+     */
     static #isContentEditable(element) {
         for (let current = element; current !== null; current = current.parentElement) {
-            const value = current.getAttribute('contenteditable');
+            const value = current.getAttribute('contenteditable')?.toLowerCase();
 
-            if (value !== null && value.toLowerCase() !== 'inherit') {
-                return EDITABLE_VALUES.has(value.toLowerCase());
+            if (value === 'false') {
+                return false;
+            }
+
+            if (EDITABLE_VALUES.has(value)) {
+                return true;
             }
         }
 

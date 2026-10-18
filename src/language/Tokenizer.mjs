@@ -7,14 +7,14 @@ import { Names } from './Names.mjs';
 
 /**
  * The types a token is, which tooling reads as they are: `invalid` for text that is no token, and `end` for the end of the text, after its last trivia.
- * An interpolated string is read as its `$"`, its runs of text, the `{` and `}` around each of its holes and its closing quote, the tokens of each hole's expression between them.
+ * An interpolated string is read as its `$"`, its runs of text, the `{` and `}` around each of its interpolations and its closing quote, the tokens of each interpolation's expression between them.
  * A contract within DOMQL until a public tooling API stabilizes it.
  */
-export const TOKEN_TYPES = Object.freeze(['name', 'literal', 'keyword', 'context', 'invalid', 'end', 'interpolated-string-start', 'interpolated-text', 'hole-start', 'hole-end', 'interpolated-string-end', 'external', 'reserved-reference', '.', '?.', '?[', '?:', '??', '(?', '==', '!=', '<', '<=', '>', '>=', '=', '+', '-', '*', '/', '%', ',', ':', '(', ')', '{', '}', '[', ']']);
+export const TOKEN_TYPES = Object.freeze(['name', 'literal', 'keyword', 'context', 'invalid', 'end', 'interpolated-string-start', 'interpolated-text', 'interpolation-start', 'interpolation-end', 'interpolated-string-end', 'query-parameter', 'reserved-reference', '.', '?.', '?[', '?:', '??', '(?', '==', '!=', '<', '<=', '>', '>=', '=', '+', '-', '*', '/', '%', ',', ':', '(', ')', '{', '}', '[', ']']);
 
 /**
  * @typedef {object} Token
- * @property {'name' | 'literal' | 'keyword' | 'context' | 'invalid' | 'end' | 'interpolated-string-start' | 'interpolated-text' | 'hole-start' | 'hole-end' | 'interpolated-string-end' | 'external' | 'reserved-reference' | '.' | '?.' | '?[' | '?:' | '??' | '(?' | '==' | '!=' | '<' | '<=' | '>' | '>=' | '=' | '+' | '-' | '*' | '/' | '%' | ',' | ':' | '(' | ')' | '{' | '}' | '[' | ']'} type
+ * @property {'name' | 'literal' | 'keyword' | 'context' | 'invalid' | 'end' | 'interpolated-string-start' | 'interpolated-text' | 'interpolation-start' | 'interpolation-end' | 'interpolated-string-end' | 'query-parameter' | 'reserved-reference' | '.' | '?.' | '?[' | '?:' | '??' | '(?' | '==' | '!=' | '<' | '<=' | '>' | '>=' | '=' | '+' | '-' | '*' | '/' | '%' | ',' | ':' | '(' | ')' | '{' | '}' | '[' | ']'} type
  * @property {unknown} [value] A name's or a keyword's text, the evaluation context's spelling, `context` or `~`, the name `~` reads the caller's binding of, the reserved word `@` reads the local or the field of, a literal's value, or the text a run of an interpolated string's text stands for.
  * @property {number} start
  * @property {number} end
@@ -40,8 +40,8 @@ export class Tokenizer {
     #offset = 0;
 
     /**
-     * What is being read, innermost last: the text of an interpolated string, with where its `$"` begins, or the expression of one of its holes, with how many braces its own object expressions have opened, so its `}` is told from theirs.
-     * @type {({ kind: 'text', start: number } | { kind: 'hole', depth: number })[]}
+     * What is being read, innermost last: the text of an interpolated string, with where its `$"` begins, or the expression of one of its interpolations, with how many braces its own object expressions have opened, so its `}` is told from theirs.
+     * @type {({ kind: 'text', start: number } | { kind: 'interpolation', depth: number })[]}
      */
     #modes = [];
 
@@ -127,8 +127,8 @@ export class Tokenizer {
 
         const mode = this.#modes.at(-1);
 
-        // A brace in a hole opens or closes an object expression of its expression, and the `}` no object expression is open for closes the hole.
-        if (mode?.kind === 'hole' && (character === '{' || character === '}')) {
+        // A brace in an interpolation opens or closes an object expression of its expression, and the `}` no object expression is open for closes the interpolation.
+        if (mode?.kind === 'interpolation' && (character === '{' || character === '}')) {
             if (character === '{') {
                 mode.depth++;
             } else if (mode.depth > 0) {
@@ -137,7 +137,7 @@ export class Tokenizer {
                 this.#modes.pop();
                 this.#offset++;
 
-                return { type: 'hole-end', start, end: this.#offset };
+                return { type: 'interpolation-end', start, end: this.#offset };
             }
         }
 
@@ -164,7 +164,7 @@ export class Tokenizer {
         }
 
         if (character === '~') {
-            return this.#readExternal(start);
+            return this.#readQueryParameter(start);
         }
 
         if (character === '"') {
@@ -266,7 +266,7 @@ export class Tokenizer {
      * Reads what `~` begins: the caller's binding of the name written directly after it, whatever local or field shares its name and a reserved word included, as `~as` reads the binding `as`,
      * or, with no name directly after it, the evaluation context, as `context` is, so `~.size` reads `context.size`.
      */
-    #readExternal(start) {
+    #readQueryParameter(start) {
         NAME.lastIndex = start + 1;
 
         if (!NAME.test(this.#text)) {
@@ -279,7 +279,7 @@ export class Tokenizer {
 
         this.#offset = NAME.lastIndex;
 
-        return { type: 'external', value: name, start, end: this.#offset };
+        return { type: 'query-parameter', value: name, start, end: this.#offset };
     }
 
     /** Reads a string, invalid where an escape in it is none the language has, at the first such escape, or where it is never closed, running then to the end of the text. */
@@ -314,8 +314,8 @@ export class Tokenizer {
             }
         }
 
-        // In a hole, a quote begins a string of the hole's own expression, so one never closed is most often the interpolated string's own quote written before the hole's `}`.
-        const message = this.#modes.at(-1)?.kind === 'hole' ? "A string is never closed: an interpolation is closed with '}' before its string's closing quote" : 'A string is never closed';
+        // In an interpolation, a quote begins a string of the interpolation's own expression, so one never closed is most often the interpolated string's own quote written before the interpolation's `}`.
+        const message = this.#modes.at(-1)?.kind === 'interpolation' ? "A string is never closed: an interpolation is closed with '}' before its string's closing quote" : 'A string is never closed';
         const unclosed = diagnostic ?? { message, offset: start };
 
         return this.#invalid(start, this.#text.length, unclosed.message, unclosed.offset);
@@ -342,7 +342,7 @@ export class Tokenizer {
     }
 
     /**
-     * Reads at the offset in an interpolated string's text: its closing quote, the `{` that opens a hole, or a run of its text up to either, an escape read whole as the character it stands for, so the brace of `\u{…}` opens no hole,
+     * Reads at the offset in an interpolated string's text: its closing quote, the `{` that opens an interpolation, or a run of its text up to either, an escape read whole as the character it stands for, so the brace of `\u{…}` opens no interpolation,
      * and a doubled brace as the brace itself. A lone `}` and an escape the language has none of make the run invalid, as text never closed does, which ends the string at the end of the text.
      */
     #readText() {
@@ -357,10 +357,10 @@ export class Tokenizer {
         }
 
         if (this.#text[start] === '{' && this.#text[start + 1] !== '{') {
-            this.#modes.push({ kind: 'hole', depth: 0 });
+            this.#modes.push({ kind: 'interpolation', depth: 0 });
             this.#offset = start + 1;
 
-            return { type: 'hole-start', start, end: this.#offset };
+            return { type: 'interpolation-start', start, end: this.#offset };
         }
 
         let value = '';

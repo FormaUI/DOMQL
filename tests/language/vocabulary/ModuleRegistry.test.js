@@ -28,7 +28,7 @@ describe('ModuleRegistry', () => {
         expect(failing({ members: [declaration({ name: 'charts', result: 'chart' })] })).toContain("'chart' names the type 'chart', which neither DOMQL nor a module registered with it declares");
         expect(failing({ members: [declaration({ name: 'charts', result: 'list<chart?>' })] })).toContain("'list<chart?>' names the type 'chart'");
         expect(failing({ types: [{ name: 'chart', fields: { axis: 'axis' } }] })).toContain("names the type 'axis'");
-        expect(failing({ eventTypes: [{ name: 'chartclick', payload: 'chartEvent' }] })).toContain("names the type 'chartEvent'");
+        expect(failing({ eventTypes: [{ name: 'chartclick', data: 'chartEvent' }] })).toContain("names the type 'chartEvent'");
         expect(failing({ members: [declaration({ name: 'charts', kind: 'operation', input: 'positional', parameters: [{ name: 'range', kind: 'value', type: 'range', required: true, nulls: 'propagate' }] })] })).toContain("names the type 'range'");
     });
 
@@ -83,7 +83,7 @@ describe('ModuleRegistry', () => {
     });
 
     it('refuses an event or a type declared twice', () => {
-        const events = new DomqlModule('twice', { eventTypes: [{ name: 'click', payload: 'domEvent' }] });
+        const events = new DomqlModule('twice', { eventTypes: [{ name: 'click', data: 'domEvent' }] });
 
         expect(messageOf(() => new ModuleRegistry([Vocabulary.module, events]))).toContain("'click' is declared already");
     });
@@ -184,7 +184,7 @@ describe('conditions', () => {
         expect(registry.getOwner(registry.getConditions('lit')[0])).toBe('lit');
     });
 
-    it('take any name on the module\'s own types, and a single one named for the module on any other, as members do', () => {
+    it('take any name on the module\'s own types, and the module\'s name on any other, as members do', () => {
         const own = new DomqlModule('glow', { types: [{ name: 'glowView', fields: { level: 'number' } }], conditions: [lit({ name: 'bright', on: 'glowView' }), lit({ name: 'dim', on: 'glowView' })] });
 
         expect(registering(own)().getConditions('dim')).toHaveLength(1);

@@ -86,7 +86,7 @@ describe('LanguageResolver', () => {
             expect(resolved.type.toString()).toBe('event<{ key: string }>');
         });
 
-        it('shapes the events of a source by the fields of its payload', () => {
+        it('shapes the events of an event source by the fields of their event data', () => {
             const resolved = resolve('panel.on("click") { clientX = context.clientX, button = context.button }');
 
             expect(resolved.kind).toBe('subscription');
@@ -463,7 +463,7 @@ describe('LanguageResolver', () => {
         it('resolves against the types, Boolean members and events a registered module contributes', () => {
             const module = new DomqlModule('charts', {
                 types: [{ name: 'chartEvent', fields: { value: 'number' } }],
-                eventTypes: [{ name: 'chart-selected', payload: 'chartEvent' }],
+                eventTypes: [{ name: 'chart-selected', data: 'chartEvent' }],
                 members: [{ name: 'charts', function: 'charts', kind: 'property', on: 'element', parameters: [], result: 'boolean', changes: 'constant', reads: 'fresh' }],
             });
 
@@ -531,7 +531,7 @@ describe('LanguageResolver', () => {
 
         it('points into a definition that has no text', () => {
             const definition = {
-                version: 27,
+                version: 28,
                 query: { kind: 'member', target: { kind: 'parameter', name: 'panel' }, name: 'nonsense', arguments: [] },
             };
 

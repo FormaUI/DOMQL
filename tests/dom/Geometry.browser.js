@@ -161,7 +161,7 @@ describe('Geometry in a browser', () => {
         });
     });
 
-    describe('state the browser decides', () => {
+    describe('conditions the browser decides', () => {
         it('knows when an element is disabled through its fieldset', () => {
             document.body.innerHTML = '<fieldset disabled><legend><input id="inLegend"></legend><input id="outside"></fieldset><input id="free">';
 

@@ -39,9 +39,9 @@ export class ParsedTexts {
         }
 
         // The tree is lowered and let go: a kept definition holds its locations, never its tokens or their trivia.
-        const { definition, spans, externals } = Lowering.lower(new Parser(text).parse());
+        const { definition, spans, queryParameters } = Lowering.lower(new Parser(text).parse());
         const locations = new TextLocations(text, definition, spans);
-        const validated = new DefinitionValidator(locations, externals).validate(definition);
+        const validated = new DefinitionValidator(locations, queryParameters).validate(definition);
 
         ParsedTexts.#locations.set(validated, locations);
 

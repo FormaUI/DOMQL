@@ -168,7 +168,7 @@ export class SnapshotComparer {
         let resolution = this.#resolvedDefinition.resolutionOf(node);
 
         // A bracket property access gave the value of the property it selected, compared within that one's tolerance where both values came from it.
-        if (resolution?.kind === 'byName') {
+        if (resolution?.kind === 'bracketPropertyAccess') {
             const name = SnapshotComparer.#branchOf(node, previousIdentities, nextIdentities);
 
             if (name === null) {

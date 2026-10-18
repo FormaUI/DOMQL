@@ -11,7 +11,7 @@ describe('BrowserModule', () => {
         expect(module.members.map(member => member.name)).toEqual(Vocabulary.module.members.map(member => member.name));
     });
 
-    it('carries out every member, conversion and state and starts every observation type the vocabulary declares', () => {
+    it('carries out every member, conversion and condition and starts every observation type the vocabulary declares', () => {
         for (const key of declared) {
             expect(module.functions[key], key).toBeTypeOf('function');
         }

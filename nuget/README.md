@@ -666,7 +666,7 @@ panel {
 }
 ```
 
-A hole inserts a string as it is and a number as `to "string"` writes it. A value that can be null needs a fallback, as `?? "none"` gives the attribute above, and a Boolean takes `to "string"` or a conditional, so no `null` or `true` reaches the text by accident. Write a literal brace twice, `{{` or `}}`, and begin a hole that starts with an object expression with a space, `{ { x = 1 }.x}`.
+An interpolation inserts a string as it is and a number as `to "string"` writes it. A value that can be null needs a fallback, as `?? "none"` gives the attribute above, and a Boolean takes `to "string"` or a conditional, so no `null` or `true` reaches the text by accident. Write a literal brace twice, `{{` or `}}`, and begin an interpolation that starts with an object expression with a space, `{ { x = 1 }.x}`.
 
 ### Cross a shadow boundary
 

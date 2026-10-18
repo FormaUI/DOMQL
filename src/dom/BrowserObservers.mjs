@@ -31,12 +31,19 @@ export class BrowserObservers {
     }
 
     /**
-     * The size of an element, as its border box or its content box, or of the window. Its `client` box is DOMQL's combined mode: the client box changes where either the border box or the content box does,
-     * so it observes both, one native observer each, since an observer watches an element for one box; one that fails to start lets go of the one started before it.
+     * The size of an element, as its border box or its content box, or of the window, its layout viewport, which a scrollbar appearing or going resizes with no `resize` of the window, so its visual viewport's is heard too.
+     * Its `client` box is DOMQL's combined mode: the client box changes where either the border box or the content box does, so it observes both, one native observer each, since an observer watches an element for one box;
+     * one that fails to start lets go of the one started before it.
      */
     static #observeResize({ target, arguments: { box = 'border-box' } }, notify, { window }) {
         if (target === window) {
-            return BrowserObservers.#listen(target, ['resize'], false, notify);
+            const listeners = [BrowserObservers.#listen(target, ['resize'], false, notify)];
+
+            if (window.visualViewport) {
+                listeners.push(BrowserObservers.#listen(window.visualViewport, ['resize'], false, notify));
+            }
+
+            return { stop: () => listeners.forEach(listener => listener.stop()) };
         }
 
         const observers = [];

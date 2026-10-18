@@ -11,7 +11,7 @@ const ESCAPED = Object.freeze({ '"': '\\"', '\\': '\\\\', '\n': '\\n', '\r': '\\
 const ESCAPED_CHARACTERS = /["\\\p{Cc}\p{Cf}\p{Zl}\p{Zp}]|(?! )\p{Zs}/gu;
 
 /** How tightly each kind of expression binds, the loosest lowest: one written where a tighter one stands is parenthesized. An optional chain is a cast's target as it is, and is grouped where a chain continues from it, since its short-circuit ends where it does. */
-const PRECEDENCE = { conditional: 0, body: 0, function: 0, coalescing: 1, or: 2, and: 3, not: 4, equality: 5, comparison: 5, additive: 6, multiplicative: 7, negate: 8, try: 9, conversion: 10, cast: 11, optionalChain: 12 };
+const PRECEDENCE = { conditional: 0, body: 0, do: 0, function: 0, coalescing: 1, or: 2, and: 3, not: 4, equality: 5, comparison: 5, additive: 6, multiplicative: 7, negate: 8, try: 9, conversion: 10, cast: 11, optionalChain: 12 };
 
 /** How tightly a chain binds that no optional chain holds: a property access, a call, an indexer, an object expression, `context`, a local, a literal or a parameter. */
 const CHAIN_PRECEDENCE = 13;
@@ -25,7 +25,7 @@ export class DefinitionWriter {
      * @param {object} node A node of a definition.
      */
     static write(node) {
-        DefinitionWriter.#markExternals(node, new Set(), new Set());
+        DefinitionWriter.#markQueryParameters(node, new Set(), new Set());
 
         return DefinitionWriter.#write(node, null);
     }
@@ -35,7 +35,7 @@ export class DefinitionWriter {
      * @param {object} node A node of a definition.
      */
     static format(node) {
-        DefinitionWriter.#markExternals(node, new Set(), new Set());
+        DefinitionWriter.#markQueryParameters(node, new Set(), new Set());
 
         // A query that is a body writes its bindings and its return alone, which a do block elsewhere encloses.
         return node.kind === 'body' ? DefinitionWriter.#bodyText(node, 0) : DefinitionWriter.#write(node, 0);
@@ -47,12 +47,12 @@ export class DefinitionWriter {
      * @param {number | null} level
      */
     /** The parameters a name written alone would not read: those a reserved word names, and those a local of their name stands in scope of or is declared after in their scope, which the text writes with `~`. @type {WeakSet<object>} */
-    static #externals = new WeakSet();
+    static #queryParameters = new WeakSet();
 
     /** Marks each parameter in the node that the text writes with `~`, one a reserved word names or a local or a field in scope hides, following the locals and the fields each object expression and the name each conditional binding brings into scope, and those declared later in it. */
-    static #markExternals(node, inScope, later) {
+    static #markQueryParameters(node, inScope, later) {
         if (Array.isArray(node)) {
-            node.forEach(item => DefinitionWriter.#markExternals(item, inScope, later));
+            node.forEach(item => DefinitionWriter.#markQueryParameters(item, inScope, later));
 
             return;
         }
@@ -64,49 +64,50 @@ export class DefinitionWriter {
         switch (node.kind) {
             case 'parameter':
                 if (Names.isReservedWord(node.name) || inScope.has(node.name) || later.has(node.name)) {
-                    DefinitionWriter.#externals.add(node);
+                    DefinitionWriter.#queryParameters.add(node);
                 }
 
                 return;
             case 'object': {
-                DefinitionWriter.#markExternals(node.target, inScope, later);
+                DefinitionWriter.#markQueryParameters(node.target, inScope, later);
 
                 const names = (node.locals ?? []).map(local => local.name);
                 let scope = inScope;
 
                 node.locals?.forEach((local, index) => {
-                    DefinitionWriter.#markExternals(local.value, scope, new Set([...later, ...names.slice(index)]));
+                    DefinitionWriter.#markQueryParameters(local.value, scope, new Set([...later, ...names.slice(index)]));
                     scope = new Set([...scope, local.name]);
                 });
                 // A field is in scope after its value, through the fields after it.
                 node.fields.forEach(field => {
-                    DefinitionWriter.#markExternals(field.value, scope, later);
+                    DefinitionWriter.#markQueryParameters(field.value, scope, later);
                     scope = new Set([...scope, field.name]);
                 });
 
                 return;
             }
             case 'function':
-                DefinitionWriter.#markExternals(node.body, new Set([...inScope, ...node.parameters]), later);
+                DefinitionWriter.#markQueryParameters(node.body, new Set([...inScope, ...node.parameters]), later);
 
                 return;
             case 'body': {
-                const names = node.bindings.map(binding => binding.name);
+                const names = node.locals.map(local => local.name);
                 let scope = inScope;
 
-                node.bindings.forEach((binding, index) => {
-                    DefinitionWriter.#markExternals(binding.value, scope, new Set([...later, ...names.slice(index)]));
-                    scope = new Set([...scope, binding.name]);
+                node.locals.forEach((local, index) => {
+                    DefinitionWriter.#markQueryParameters(local.value, scope, new Set([...later, ...names.slice(index)]));
+                    scope = new Set([...scope, local.name]);
                 });
-                DefinitionWriter.#markExternals(node.result, scope, later);
+                DefinitionWriter.#markQueryParameters(node.result, scope, later);
 
                 return;
             }
             case 'conditional':
                 if (node.binding !== undefined) {
-                    DefinitionWriter.#markExternals(node.binding.value, inScope, later);
-                    DefinitionWriter.#markExternals(node.consequent, new Set([...inScope, node.binding.name]), later);
-                    DefinitionWriter.#markExternals(node.alternative, inScope, later);
+                    // A binding's value reads no name of its own, which a text writes with `~` for the caller's binding, as a local's value does.
+                    DefinitionWriter.#markQueryParameters(node.binding.value, inScope, new Set([...later, node.binding.name]));
+                    DefinitionWriter.#markQueryParameters(node.consequent, new Set([...inScope, node.binding.name]), later);
+                    DefinitionWriter.#markQueryParameters(node.alternative, inScope, later);
 
                     return;
                 }
@@ -115,7 +116,7 @@ export class DefinitionWriter {
                 break;
         }
 
-        Object.values(node).forEach(value => DefinitionWriter.#markExternals(value, inScope, later));
+        Object.values(node).forEach(value => DefinitionWriter.#markQueryParameters(value, inScope, later));
     }
 
     static #write(node, level) {
@@ -123,7 +124,7 @@ export class DefinitionWriter {
             case 'literal':
                 return DefinitionWriter.#literal(node.value);
             case 'parameter':
-                return DefinitionWriter.#externals.has(node) ? `~${node.name}` : node.name;
+                return DefinitionWriter.#queryParameters.has(node) ? `~${node.name}` : node.name;
             case 'context':
                 return 'context';
             case 'root':
@@ -153,9 +154,11 @@ export class DefinitionWriter {
                 return DefinitionWriter.#function(node, level);
             case 'functionCall':
                 return `${DefinitionWriter.#reference(node.name)}(${DefinitionWriter.#arguments(node, level)})`;
+            case 'do':
+                return DefinitionWriter.#block('do', node.body, level);
             case 'body':
-                // A do block: on one line, or its bindings and its return a level within it, its `end` back at its own.
-                return level === null ? `do ${DefinitionWriter.#bodyText(node, null)} end` : `do\n${INDENTATION.repeat(level + 1)}${DefinitionWriter.#bodyText(node, level + 1)}\n${INDENTATION.repeat(level)}end`;
+                // A query's body, which a do block, a function and a conditional's branch each write their own way.
+                return DefinitionWriter.#bodyText(node, level);
             case 'coalescing':
                 // A coalescing operator associates to the right, so a fallback that is one is written as it is.
                 return `${DefinitionWriter.#within(node.value, PRECEDENCE.negate, level)} ?? ${node.fallback.kind === 'coalescing' ? DefinitionWriter.#write(node.fallback, level) : DefinitionWriter.#within(node.fallback, PRECEDENCE.negate, level)}`;
@@ -166,7 +169,7 @@ export class DefinitionWriter {
                 return `${DefinitionWriter.#within(node.left, precedence, level)} ${node.operator} ${DefinitionWriter.#within(node.right, precedence + 1, level)}`;
             }
             case 'negate': {
-                // A negated negative number, or a negation, is grouped, so the signs never run together.
+                // A negated negative number, or an arithmetic negation, is grouped, so the signs never run together.
                 const { operand } = node;
                 const runsTogether = operand.kind === 'negate' || (operand.kind === 'literal' && typeof operand.value === 'number' && (operand.value < 0 || Object.is(operand.value, -0)));
 
@@ -267,7 +270,7 @@ export class DefinitionWriter {
     }
 
     /**
-     * How tightly the node binds: an arithmetic node by its operator's level, a negative number as a negation, since its `-` is one in text, so what follows it, a conversion or an access, groups it,
+     * How tightly the node binds: an arithmetic node by its operator's level, a negative number as an arithmetic negation, since its `-` is one in text, so what follows it, a conversion or an access, groups it,
      * and any other by its kind's.
      */
     static #precedenceOf(node) {
@@ -292,25 +295,30 @@ export class DefinitionWriter {
         return node.arguments.map(argument => DefinitionWriter.#write(argument, level)).join(', ');
     }
 
-    /** A function: its parameters, and a body of one expression on its line, or a body that returns its result on the lines a level within it, its `end` back at the function's own; on one line where the level is null. */
+    /** A function: its parameters, and its body as a block writes it. */
     static #function(node, level) {
-        const header = `function(${node.parameters.join(', ')})`;
+        return DefinitionWriter.#block(`function(${node.parameters.join(', ')})`, node.body, level);
+    }
 
-        if (node.body.kind !== 'body') {
-            const body = level === null ? null : DefinitionWriter.#write(node.body, level + 1);
+    /**
+     * A block, a function or a do block, after its header: a body of one expression on its line, or a body that returns its result on the lines a level within it, its `end` back at the block's own; on one line where the level is null.
+     * A body of one expression laid out on lines of its own goes a level within the block, as one that returns does.
+     */
+    static #block(header, body, level) {
+        if (body.kind !== 'body') {
+            const written = level === null ? null : DefinitionWriter.#write(body, level + 1);
 
-            // A body of one expression laid out on lines of its own goes a level within the function, as one that returns does.
-            return body === null || !body.includes('\n') ? `${header} ${DefinitionWriter.#write(node.body, level)} end` : `${header}\n${INDENTATION.repeat(level + 1)}${body}\n${INDENTATION.repeat(level)}end`;
+            return written === null || !written.includes('\n') ? `${header} ${DefinitionWriter.#write(body, level)} end` : `${header}\n${INDENTATION.repeat(level + 1)}${written}\n${INDENTATION.repeat(level)}end`;
         }
 
         return level === null
-            ? `${header} ${DefinitionWriter.#bodyText(node.body, null)} end`
-            : `${header}\n${INDENTATION.repeat(level + 1)}${DefinitionWriter.#bodyText(node.body, level + 1)}\n${INDENTATION.repeat(level)}end`;
+            ? `${header} ${DefinitionWriter.#bodyText(body, null)} end`
+            : `${header}\n${INDENTATION.repeat(level + 1)}${DefinitionWriter.#bodyText(body, level + 1)}\n${INDENTATION.repeat(level)}end`;
     }
 
-    /** A body's bindings and the `return` that gives its result, each on a line of the level's indentation, or on one line where the level is null. */
+    /** A body's locals and the `return` that gives its result, each on a line of the level's indentation, or on one line where the level is null. */
     static #bodyText(node, level) {
-        const entries = [...node.bindings.map(binding => `let ${binding.name} = ${DefinitionWriter.#write(binding.value, level)}`), `return ${DefinitionWriter.#write(node.result, level)}`];
+        const entries = [...node.locals.map(local => `let ${local.name} = ${DefinitionWriter.#write(local.value, level)}`), `return ${DefinitionWriter.#write(node.result, level)}`];
 
         return entries.join(level === null ? ' ' : `\n${INDENTATION.repeat(level)}`);
     }
@@ -344,7 +352,8 @@ export class DefinitionWriter {
                 return DefinitionWriter.#bodyText(branch, branchLevel);
             }
 
-            return isAlternative ? DefinitionWriter.#write(branch, branchLevel) : DefinitionWriter.#within(branch, PRECEDENCE.coalescing, branchLevel);
+            // A do block closes itself with its `end`, so it is a branch as it is; a conditional in a consequent is grouped.
+            return isAlternative || branch.kind === 'do' ? DefinitionWriter.#write(branch, branchLevel) : DefinitionWriter.#within(branch, PRECEDENCE.coalescing, branchLevel);
         };
         const hasBody = clauses.some(clause => clause.branch.kind === 'body');
 

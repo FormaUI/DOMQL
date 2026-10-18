@@ -23,7 +23,7 @@ export class Lowering {
     #localNames = new Set();
 
     /** The parameters written with `~`, which read the caller's binding wherever they stand, whatever local shares their name. @type {WeakSet<object>} */
-    #externals = new WeakSet();
+    #queryParameters = new WeakSet();
 
     /**
      * The definition the tree writes, the span of text each of its nodes, fields, locals and bindings came from, which the tree is no longer needed for, and the parameters written with `~`.
@@ -33,7 +33,7 @@ export class Lowering {
         const lowering = new Lowering(tree.text);
         const query = lowering.#lower(tree.children[0]);
 
-        return { definition: { version: Specification.definitionVersion, query }, spans: lowering.#spans, externals: lowering.#externals };
+        return { definition: { version: Specification.definitionVersion, query }, spans: lowering.#spans, queryParameters: lowering.#queryParameters };
     }
 
     /** @param {string} text The text the tree was read from. */
@@ -69,12 +69,9 @@ export class Lowering {
             }
             case 'function-call':
                 return this.#span({ kind: 'functionCall', name: children[0].value, arguments: this.#argumentsOf(children.slice(2, -1)) }, child);
-            case 'do-expression': {
-                // A do block of an expression alone is a body of no locals.
-                const inner = children[1];
-
-                return !SyntaxTree.isToken(inner) && inner.kind === 'body' ? this.#lower(inner) : this.#span({ kind: 'body', bindings: [], result: this.#lower(inner) }, child);
-            }
+            case 'do-expression':
+                // A do block holds its body, an expression alone or locals and the `return` that gives its result.
+                return this.#span({ kind: 'do', body: this.#lower(children[1]) }, child);
             case 'disjunction':
             case 'conjunction':
                 return this.#span({ kind: child.kind === 'disjunction' ? 'or' : 'and', operands: children.filter((_, index) => index % 2 === 0).map(operand => this.#lower(operand)) }, child);
@@ -102,7 +99,7 @@ export class Lowering {
                 return value;
             }
             case 'arithmetic-negation': {
-                // A negation of a numeric literal is the negative literal, negative zero included, as the text writes it.
+                // An arithmetic negation of a numeric literal is the negative literal, negative zero included, as the text writes it.
                 const [, operand] = children;
 
                 if (SyntaxTree.isToken(operand) && operand.type === 'literal' && typeof operand.value === 'number') {
@@ -156,10 +153,10 @@ export class Lowering {
             case 'reserved-reference':
                 // A reserved word after `@` is the local or the field of its name, which validation finds in scope or refuses.
                 return this.#span({ kind: 'local', name: token.value }, token);
-            case 'external': {
+            case 'query-parameter': {
                 const parameter = this.#span({ kind: 'parameter', name: token.value }, token);
 
-                this.#externals.add(parameter);
+                this.#queryParameters.add(parameter);
 
                 return parameter;
             }
@@ -172,17 +169,17 @@ export class Lowering {
     #lowerBody(body) {
         const { children } = body;
         const enclosingLocalNames = this.#localNames;
-        const bindings = [];
+        const locals = [];
 
         try {
             for (const part of children.slice(0, -2)) {
-                const binding = this.#span({ name: this.#wordOf(part.children[1]), value: this.#lower(part.children[3]) }, part);
+                const local = this.#span({ name: this.#wordOf(part.children[1]), value: this.#lower(part.children[3]) }, part);
 
-                bindings.push(binding);
-                this.#localNames = new Set(this.#localNames).add(binding.name);
+                locals.push(local);
+                this.#localNames = new Set(this.#localNames).add(local.name);
             }
 
-            return this.#span({ kind: 'body', bindings, result: this.#lower(children.at(-1)) }, body);
+            return this.#span({ kind: 'body', locals, result: this.#lower(children.at(-1)) }, body);
         } finally {
             this.#localNames = enclosingLocalNames;
         }

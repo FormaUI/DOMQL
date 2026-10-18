@@ -145,8 +145,11 @@ export class ResolvedDefinition {
                 }
                 break;
             case 'body':
-                node.bindings.forEach((binding, index) => this.#index(binding.value, `${pointer}/bindings/${index}/value`));
+                node.locals.forEach((local, index) => this.#index(local.value, `${pointer}/locals/${index}/value`));
                 this.#index(node.result, `${pointer}/result`);
+                break;
+            case 'do':
+                this.#index(node.body, `${pointer}/body`);
                 break;
             case 'function':
                 this.#index(node.body, `${pointer}/body`);

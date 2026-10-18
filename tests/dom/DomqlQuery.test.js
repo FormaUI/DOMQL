@@ -52,8 +52,8 @@ describe('DomqlQuery', () => {
             },
         }));
         isolated.registerModule(isolated.createModule('beat', {
-            eventTypes: [{ name: 'beat', payload: 'number' }],
-            members: [{ name: 'beat', function: 'beat', kind: 'source', on: 'element', parameters: [], result: 'event<number>', changes: 'unobserved', reads: 'fresh' }],
+            eventTypes: [{ name: 'beat', data: 'number' }],
+            members: [{ name: 'beat', function: 'beat', kind: 'eventSource', on: 'element', parameters: [], result: 'event<number>', changes: 'unobserved', reads: 'fresh' }],
         }, { beat: () => (calls.push('beat'), { stop: () => calls.push('stop') }) }));
     });
 

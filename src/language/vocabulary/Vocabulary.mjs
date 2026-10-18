@@ -112,17 +112,17 @@ export class Vocabulary {
             ],
 
             eventTypes: [
-                { name: 'click', payload: 'pointerEvent' },
-                { name: 'pointerdown', payload: 'pointerEvent' },
-                { name: 'pointerup', payload: 'pointerEvent' },
-                { name: 'keydown', payload: 'keyboardEvent' },
-                { name: 'keyup', payload: 'keyboardEvent' },
-                { name: 'drop', payload: 'dragEvent' },
-                { name: 'focus', payload: 'domEvent' },
-                { name: 'blur', payload: 'domEvent' },
-                { name: 'input', payload: 'domEvent' },
-                { name: 'scroll', payload: 'domEvent' },
-                { name: 'resize', payload: 'domEvent' },
+                { name: 'click', data: 'pointerEvent' },
+                { name: 'pointerdown', data: 'pointerEvent' },
+                { name: 'pointerup', data: 'pointerEvent' },
+                { name: 'keydown', data: 'keyboardEvent' },
+                { name: 'keyup', data: 'keyboardEvent' },
+                { name: 'drop', data: 'dragEvent' },
+                { name: 'focus', data: 'domEvent' },
+                { name: 'blur', data: 'domEvent' },
+                { name: 'input', data: 'domEvent' },
+                { name: 'scroll', data: 'domEvent' },
+                { name: 'resize', data: 'domEvent' },
             ],
 
             observationTypes: [
@@ -207,7 +207,7 @@ export class Vocabulary {
                 operation('sum', 'list<T>', 'number', { changes: 'derived', reads: 'derived', parameters: [expressionParameter('number?')] }),
                 operation('where', 'list<T>', 'list<T>', { changes: 'derived', reads: 'derived', parameters: [predicateParameter()] }),
 
-                { ...operation('on', ['element', 'document', 'window'], 'event<@selected>', { changes: 'constant', reads: 'captured', parameters: [valueParameter('type', 'string', { fixed: true, selects: 'eventType' })] }), kind: 'source' },
+                { ...operation('on', ['element', 'document', 'window'], 'event<@selected>', { changes: 'constant', reads: 'captured', parameters: [valueParameter('type', 'string', { fixed: true, selects: 'eventType' })] }), kind: 'eventSource' },
             ],
 
             conversions: [

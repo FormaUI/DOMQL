@@ -5,6 +5,7 @@
     "scripts": {
         "test": "vitest run",
         "test:browser": "vitest run --config vitest.browser.config.js",
+        "test:scrollbars": "vitest run --config vitest.scrollbars.config.js",
         "bench": "vitest bench --run",
         "scale": "vitest run --config vitest.scale.config.js"
     },

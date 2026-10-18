@@ -7,7 +7,7 @@ import { DomqlError } from '../DomqlError.mjs';
 import { Names } from '../Names.mjs';
 import { Type } from '../Type.mjs';
 
-const MEMBER_KINDS = ['property', 'operation', 'source', 'action', 'behavior'];
+const MEMBER_KINDS = ['property', 'operation', 'eventSource', 'action', 'behavior'];
 
 /** How a member that is no property is written: called, `context.closest(".row")`, or a named indexer, `context:attribute["data-key"]`. */
 const FORMS = ['call', 'indexer'];
@@ -49,7 +49,7 @@ const CONTENTS = ['members', 'types', 'eventTypes', 'observationTypes', 'convers
 const MEMBER_KEYS = ['name', 'function', 'kind', 'form', 'input', 'default', 'on', 'parameters', 'result', 'changes', 'reads', 'misses', 'tolerance', 'observations'];
 const PARAMETER_KEYS = ['name', 'kind', 'type', 'required', 'default', 'fixed', 'selects', 'nulls', 'context', 'omitted'];
 const TYPE_KEYS = ['name', 'fields'];
-const EVENT_TYPE_KEYS = ['name', 'payload'];
+const EVENT_TYPE_KEYS = ['name', 'data'];
 const OBSERVATION_TYPE_KEYS = ['name', 'contract', 'identity', 'shared', 'function'];
 const CONDITION_KEYS = ['name', 'verb', 'function', 'on', 'changes', 'reads', 'misses', 'observations'];
 
@@ -115,10 +115,10 @@ export class DomqlModule {
             }
         }
 
-        // A module declares what it lists alone, and one that names predicates is told that a test is a Boolean member.
+        // A module declares what it lists alone, and one that names predicates is told that a test is a Boolean member and a condition what its verb asks.
         for (const key of Object.keys(contents)) {
             if (!CONTENTS.includes(key)) {
-                fail(`A module declares ${CONTENTS.join(', ')}, and '${key}' is none of them${key === 'predicates' ? '; a test is a member that answers a Boolean' : ''}`);
+                fail(`A module declares ${CONTENTS.join(', ')}, and '${key}' is none of them${key === 'predicates' ? '; a test is a member that answers a Boolean, and a condition one that is, has or supports asks by its name' : ''}`);
             }
         }
 
@@ -271,7 +271,7 @@ export class DomqlModule {
     static #validateEventType(eventType, fail) {
         DomqlModule.#validateKeys(eventType, EVENT_TYPE_KEYS, 'An event type', fail);
 
-        if (typeof eventType?.name !== 'string' || !/^[A-Za-z][A-Za-z0-9:-]*$/.test(eventType.name) || !DomqlModule.#isTypeNotation(eventType.payload)) {
+        if (typeof eventType?.name !== 'string' || !/^[A-Za-z][A-Za-z0-9:-]*$/.test(eventType.name) || !DomqlModule.#isTypeNotation(eventType.data)) {
             fail('An event type declares the name of the browser event and the type of its event data', eventType?.name);
         }
 

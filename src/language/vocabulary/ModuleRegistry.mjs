@@ -91,7 +91,7 @@ export class ModuleRegistry {
         }
 
         module.conditions.forEach((condition, index) => {
-            // A module adds conditions to its own types, and a single condition named for itself to any other, as it does members.
+            // A module adds conditions to its own types, and conditions named for itself to any other, as it does members.
             if (!module.isBuiltIn && ![condition.on].flat().every(text => ownTypes.has(ModuleRegistry.#outerTypeNameOf(text))) && condition.name !== module.name) {
                 fail(`A condition outside its module's own types is named for the module, '${module.name}'`, condition.name);
             }
@@ -242,7 +242,7 @@ export class ModuleRegistry {
         return this.#modules.get(this.#owners.get(declaration))?.functions?.[declaration.function];
     }
 
-    /** A module outside the built-in module adds members to its own types, and a single member named for itself to any other. */
+    /** A module outside the built-in module adds members to its own types, and members named for itself to any other. */
     #checkNamespace(module, declaration, ownTypes, fail) {
         if (module.isBuiltIn) {
             return;
@@ -270,7 +270,7 @@ export class ModuleRegistry {
             Object.values(type.fields).forEach(notation => check(notation, type.name));
         }
 
-        module.eventTypes.forEach(eventType => check(eventType.payload, eventType.name));
+        module.eventTypes.forEach(eventType => check(eventType.data, eventType.name));
 
         for (const condition of module.conditions) {
             [condition.on].flat().filter(notation => notation !== 'any').forEach(notation => check(notation, condition.name));

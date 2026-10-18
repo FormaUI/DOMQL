@@ -177,7 +177,8 @@ export type DomqlDefinitionNode =
     | { readonly kind: 'not'; readonly operand: DomqlDefinitionNode }
     | { readonly kind: 'function'; readonly parameters: readonly string[]; readonly body: DomqlDefinitionNode }
     | { readonly kind: 'functionCall'; readonly name: string; readonly arguments: readonly DomqlDefinitionNode[] }
-    | { readonly kind: 'body'; readonly bindings: readonly { readonly name: string; readonly value: DomqlDefinitionNode }[]; readonly result: DomqlDefinitionNode }
+    | { readonly kind: 'body'; readonly locals: readonly DomqlDefinitionLocal[]; readonly result: DomqlDefinitionNode }
+    | { readonly kind: 'do'; readonly body: DomqlDefinitionNode }
     | { readonly kind: 'interpolatedString'; readonly parts: readonly ({ readonly kind: 'text'; readonly value: string } | { readonly kind: 'expression'; readonly expression: DomqlDefinitionNode })[] }
     | { readonly kind: 'comparison'; readonly operands: readonly DomqlDefinitionNode[]; readonly operators: readonly ('<' | '<=' | '>' | '>=')[] }
     | { readonly kind: 'arithmetic'; readonly operator: '+' | '-' | '*' | '/' | '%'; readonly left: DomqlDefinitionNode; readonly right: DomqlDefinitionNode }
@@ -189,7 +190,7 @@ export type DomqlDefinitionNode =
     | { readonly kind: 'conditional'; readonly condition?: DomqlDefinitionNode; readonly binding?: { readonly name: string; readonly value: DomqlDefinitionNode }; readonly consequent: DomqlDefinitionNode; readonly alternative: DomqlDefinitionNode }
     | { readonly kind: 'and' | 'or'; readonly operands: readonly DomqlDefinitionNode[] };
 
-/** A local of an object expression: its name, which a `local` node uses, and the value it names, never output. */
+/** A local of a body or an object expression: its name, which a `local` node uses, and the value it names, never output. */
 export interface DomqlDefinitionLocal {
     readonly name: string;
     readonly value: DomqlDefinitionNode;
@@ -376,13 +377,13 @@ export interface DomqlParameterDeclaration {
     omitted?: string;
 }
 
-/** A property, operation, source, action or behavior a module adds. */
+/** A property, operation, event source, action or behavior a module adds. */
 export interface DomqlMemberDeclaration {
     /** The DOMQL name. */
     name: string;
     /** The key of the function that carries it out, among the module's functions; a member whose argument selects a condition names none, since the condition carries it out. */
     function?: string;
-    kind: 'property' | 'operation' | 'source' | 'action' | 'behavior';
+    kind: 'property' | 'operation' | 'eventSource' | 'action' | 'behavior';
     /** How a member that is no property is written: called, `context.closest(".row")`, the default, or a named indexer, `context:attribute["data-key"]`, an operation whose one required value parameter is its key. A property declares none. */
     form?: 'call' | 'indexer';
     /** What its arguments supply, where it has parameters: its parameters, in order, the required ones before the optional ones, or every parameter, as the fields of one options object; an indexer's is positional. */
@@ -410,7 +411,7 @@ export interface DomqlModuleContents {
     /** The structured types it declares, each with its fields' types. */
     types?: { name: string; fields: Record<string, string> }[];
     /** The event types it declares, each with the type of its event data. */
-    eventTypes?: { name: string; payload: string }[];
+    eventTypes?: { name: string; data: string }[];
     /** The types of observation it declares. */
     observationTypes?: DomqlObservationTypeDeclaration[];
     /** The conversions it declares, each to or from one of its own types outside the built-in module, and one for each source and target. */
@@ -421,7 +422,7 @@ export interface DomqlModuleContents {
 
 /**
  * A condition: a Boolean of its receivers, which its verb asks by name, as `.is("name")` does, carried out by its own function under its own contract, so one condition's observability is no other's.
- * A module names a condition freely on its own types, and on any other names a single one for itself, as it does members; a name is declared once for any receiver.
+ * A module names a condition freely on its own types, and on any other names it for itself, as it does members; a name is declared once for overlapping receivers, whatever its verb.
  */
 export interface DomqlConditionDeclaration {
     /** Its name, words of letters and digits joined by hyphens, as `focus-within` is. */
@@ -444,7 +445,7 @@ export interface DomqlConditionDeclaration {
  * The functions that carry a module's members, observation types, conversions and conditions out, by the key each declaration names.
  * A member takes its receiver, its arguments by name and the environment, and a member that reads maintained values also their values, in the order its declaration names the observations; it is not called while one of them is pending.
  * A structure a member or an action answers is taken by its declared fields alone, read as the value offers them, getters included.
- * A source takes its receiver, its arguments and the environment, and the function it delivers each event to, and returns an object whose `stop` ends the listening.
+ * An event source takes its receiver, its arguments and the environment, and the function it delivers each event to, and returns an object whose `stop` ends the listening.
  * An action takes its receiver, its arguments, the environment and `{ signal }`, and returns its result or a promise of it.
  * A behavior takes its receiver, its arguments, the environment and `{ reportError }`, starts before it returns, and returns an object whose `update(receiver, args)` applies new arguments and whose `dispose` ends it.
  * An observation type takes the request, the function it calls when something may have changed and the environment, and returns an object whose `stop` ends the observation and, for a maintained one, whose `sample` returns its latest sample as `{ pending, value }`, pending until the first arrives.
@@ -458,7 +459,7 @@ export interface DomqlModule {
     readonly name: string;
     readonly members: readonly DomqlMemberDeclaration[];
     readonly types: readonly { readonly name: string; readonly fields: Readonly<Record<string, string>> }[];
-    readonly eventTypes: readonly { readonly name: string; readonly payload: string }[];
+    readonly eventTypes: readonly { readonly name: string; readonly data: string }[];
     readonly observationTypes: readonly DomqlObservationTypeDeclaration[];
     readonly conversions: readonly DomqlConversionDeclaration[];
     readonly conditions: readonly DomqlConditionDeclaration[];

@@ -273,7 +273,7 @@ describe('QueryEvaluator', () => {
     });
 
     describe('bracket property access', () => {
-        it('reads what a name names, as direct access does', () => {
+        it('reads what a name names, as a dot property access does', () => {
             expect(read('panel["children"].count', { panel })).toBe(3);
             expect(read('panel["size"]?.width', { panel })).toBe(640);
             expect(read('panel { size = context["size"], clientSize = context["clientSize"] }', { panel }).size).toEqual({ width: 640, height: 480 });
@@ -293,7 +293,7 @@ describe('QueryEvaluator', () => {
         });
     });
 
-    describe('predicates', () => {
+    describe('tests and conditions', () => {
         it('answers is and has', () => {
             document.body.insertAdjacentHTML('beforeend', '<button id="b" disabled></button><input id="i" readonly><textarea id="t"></textarea><div id="e" contenteditable="true"><span id="s"></span></div><div inert><div id="n" contenteditable="true"></div></div>');
             const element = id => document.getElementById(id);
@@ -326,7 +326,7 @@ describe('QueryEvaluator', () => {
             expect(read('button.has("focus")', { button })).toBe(true);
         });
 
-        it('answers the document predicates', () => {
+        it('answers the document\'s conditions', () => {
             expect(read('document.is("visible")')).toBeTypeOf('boolean');
             expect(read('document.has("focus")')).toBeTypeOf('boolean');
         });
@@ -827,7 +827,7 @@ describe('QueryEvaluator evaluation', () => {
             expect(membersOf(evaluate('if on then panel.size else panel.clientSize end', { panel, on: false }))).toEqual(['clientSize']);
         });
 
-        it('include the predicates an or reached, and none it did not need', () => {
+        it('include the tests an or reached, and none it did not need', () => {
             const reached = evaluate('panel.attached or panel.has("focus")', { panel });
             const both = evaluate('panel.has("focus") or panel.attached', { panel });
 
@@ -1141,10 +1141,10 @@ describe('QueryEvaluator projection', () => {
     });
 
     /** A module whose source `ticks` delivers events of the type it declares, and records each start. */
-    const ticks = payload => new DomqlModule('ticks', {
+    const ticks = data => new DomqlModule('ticks', {
         types: [{ name: 'tick', fields: { at: 'number', label: 'string?' } }],
-        eventTypes: [{ name: 'tick', payload }],
-        members: [{ name: 'ticks', function: 'ticks', kind: 'source', on: 'element', input: 'positional', parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, fixed: true, selects: 'eventType', nulls: 'propagate' }], result: 'event<@selected>', changes: 'constant', reads: 'captured' }],
+        eventTypes: [{ name: 'tick', data }],
+        members: [{ name: 'ticks', function: 'ticks', kind: 'eventSource', on: 'element', input: 'positional', parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, fixed: true, selects: 'eventType', nulls: 'propagate' }], result: 'event<@selected>', changes: 'constant', reads: 'captured' }],
     }, {
         ticks: () => {
             started.push(true);
@@ -1204,7 +1204,7 @@ describe('QueryEvaluator projection', () => {
         it('fails a capture where the event carries no value a field that is not nullable admits', () => {
             const { capture } = evaluatorOf('panel.ticks("tick") { at = context.at }', { panel }, [ticks('tick')]).resolveSource();
 
-            expect(failureOf(() => capture({ at: 'soon' }))).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The source 'ticks' delivered an event whose 'at' is \"soon\", and its type declares number") });
+            expect(failureOf(() => capture({ at: 'soon' }))).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The event source 'ticks' delivered an event whose 'at' is \"soon\", and its type declares number") });
             expect(failureOf(() => capture(null))).toMatchObject({ kind: 'evaluation' });
         });
 
@@ -1212,7 +1212,7 @@ describe('QueryEvaluator projection', () => {
             const { capture } = evaluatorOf('panel.ticks("tick")', { panel }, [ticks('number')]).resolveSource();
 
             expect(capture(5)).toBe(5);
-            expect(failureOf(() => capture('five'))).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The source 'ticks' delivered \"five\", and its event data is number") });
+            expect(failureOf(() => capture('five'))).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The event source 'ticks' delivered \"five\", and its event data is number") });
         });
 
         it('captures a native event with its target, and null for a target that is no element', () => {

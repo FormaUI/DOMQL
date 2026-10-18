@@ -31,7 +31,7 @@ describe('SyntaxTree', () => {
     it('reads an interpolated string as its start, its runs of text, the tokens around and within each hole, and its end, a hole\'s own braces told from its object expressions\'', () => {
         const tokens = Tokenizer.scan('$"a {{ {b { c = 1 }.c} d"').map(token => token.type === 'interpolated-text' ? [token.type, token.value] : token.type);
 
-        expect(tokens).toEqual(['interpolated-string-start', ['interpolated-text', 'a { '], 'hole-start', 'name', '{', 'name', '=', 'literal', '}', '.', 'name', 'hole-end', ['interpolated-text', ' d'], 'interpolated-string-end', 'end']);
+        expect(tokens).toEqual(['interpolated-string-start', ['interpolated-text', 'a { '], 'interpolation-start', 'name', '{', 'name', '=', 'literal', '}', '.', 'name', 'interpolation-end', ['interpolated-text', ' d'], 'interpolated-string-end', 'end']);
     });
 
     it('holds every character of the text in one token or in the trivia before one, the end of the text in the end token', () => {

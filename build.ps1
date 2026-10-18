@@ -65,6 +65,11 @@ if ($Browser) {
     if ($LASTEXITCODE -ne 0) {
         throw 'The browser tests failed.'
     }
+
+    npm run test:scrollbars --prefix $tests
+    if ($LASTEXITCODE -ne 0) {
+        throw 'The browser tests of scrollbars failed.'
+    }
 }
 
 # The package project computes the package's version, and the bundle is given it, so the two never disagree.

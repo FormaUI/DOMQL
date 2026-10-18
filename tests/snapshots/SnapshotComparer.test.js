@@ -270,7 +270,7 @@ describe('SnapshotComparer', () => {
             it('follows a branch through the field of its value a chain reads from the local holding it', () => {
                 const resolved = resolvedOf('let size = if wide then element.wobble else element.wobble end\nreturn size.width', { element, wide: true }, { tolerance: 2 });
                 const snapshotComparer = new SnapshotComparer(resolved);
-                const conditional = resolved.definition.query.bindings[0].value;
+                const conditional = resolved.definition.query.locals[0].value;
 
                 expect(snapshotComparer.reconcile(100, selecting(conditional, conditional.consequent), 101.5, selecting(conditional, conditional.consequent))).toBe(100);
             });

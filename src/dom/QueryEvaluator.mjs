@@ -34,12 +34,13 @@ import { QueryEvaluation } from './QueryEvaluation.mjs';
  */
 
 /**
- * The locals of one application of an object expression: the values of those evaluated so far, inside the frame of the application enclosing it.
+ * The names one scope declares, as it runs, inside the frame of the scope enclosing it: an application of an object expression, whose locals are evaluated at their first use, a run of a body, whose locals it evaluates in order,
+ * a call of a local function, its parameters holding its arguments, or a field the fields after it read, holding its value.
  * @typedef {object} LocalsFrame
- * @property {object} node The object expression whose locals the frame holds.
- * @property {unknown} item What the expression is applied to, which its locals are evaluated against.
- * @property {Map<string, { value: unknown, selections: Map<object, object | string> | null }>} values Each local evaluated so far, by its name, with the selections its evaluation made.
- * @property {LocalsFrame | null} enclosing The frame of the application enclosing this one, or null for the outermost.
+ * @property {{ locals: { name: string, value?: object }[] }} node What declares the names: the object expression or the body, or for a call's parameters and a field, a list of them alone.
+ * @property {unknown} item The evaluation context the scope runs against, which a local evaluated at its first use is evaluated against.
+ * @property {Map<string, { value: unknown, selections: Map<object, object | string> | null }>} values Each name's value evaluated so far, with the selections its evaluation made.
+ * @property {LocalsFrame | null} enclosing The frame of the scope enclosing this one, or null for the outermost.
  */
 
 
@@ -110,7 +111,7 @@ export class QueryEvaluator {
      */
     #selections = null;
 
-    /** The frame of locals of the innermost application of an object expression that has any, with the value of each evaluated so far, inside those of the applications enclosing it; null outside every one. @type {LocalsFrame | null} */
+    /** The frame of the innermost scope that declares names, with the value of each evaluated so far, inside those of the scopes enclosing it; null outside every one. @type {LocalsFrame | null} */
     #localsFrame = null;
 
     /** The value each conditional with a binding bound, while its consequent is evaluated, which the uses of its name read. @type {Map<object, unknown>} */
@@ -486,7 +487,7 @@ export class QueryEvaluator {
                     const values = new Map(parameters.map((parameter, index) => [parameter, { value: evaluateArguments[index](evaluator, evaluationContext), selections: null }]));
                     const enclosingFrame = evaluator.#localsFrame;
 
-                    evaluator.#localsFrame = { node: { bindings: parameters.map(parameter => ({ name: parameter })) }, item: closure.evaluationContext, values, enclosing: closure.frame };
+                    evaluator.#localsFrame = { node: { locals: parameters.map(parameter => ({ name: parameter })) }, item: closure.evaluationContext, values, enclosing: closure.frame };
 
                     try {
                         return evaluateBody(evaluator, closure.evaluationContext);
@@ -495,11 +496,13 @@ export class QueryEvaluator {
                     }
                 };
             }
+            case 'do':
+                return this.#getCompiledFunction(node.body);
             case 'body': {
-                const bindings = node.bindings.map(binding => ({ name: binding.name, evaluate: this.#getCompiledFunction(binding.value) }));
+                const locals = node.locals.map(local => ({ name: local.name, evaluate: this.#getCompiledFunction(local.value) }));
                 const result = this.#getCompiledFunction(node.result);
 
-                // Each binding is evaluated once, in order, whenever the body runs, an unused one included, each seeing those before it, and then the result, all against the body's evaluation context.
+                // Each local is evaluated once, in order, whenever the body runs, an unused one included, each seeing those before it, and then the result, all against the body's evaluation context.
                 return (evaluator, evaluationContext) => {
                     const frame = { node, item: evaluationContext, values: new Map(), enclosing: evaluator.#localsFrame };
                     const enclosingSelections = evaluator.#selections;
@@ -507,12 +510,12 @@ export class QueryEvaluator {
                     evaluator.#localsFrame = frame;
 
                     try {
-                        for (const binding of bindings) {
+                        for (const local of locals) {
                             evaluator.#selections = null;
 
-                            const value = binding.evaluate(evaluator, evaluationContext);
+                            const value = local.evaluate(evaluator, evaluationContext);
 
-                            frame.values.set(binding.name, { value, selections: evaluator.#selections });
+                            frame.values.set(local.name, { value, selections: evaluator.#selections });
                         }
 
                         evaluator.#selections = enclosingSelections;
@@ -723,7 +726,7 @@ export class QueryEvaluator {
     #compileMember(node) {
         const resolution = this.#resolvedDefinition.resolutionOf(node);
 
-        if (resolution === undefined || resolution.kind === 'byName' || (resolution.kind !== 'field' && resolution.declaration === null)) {
+        if (resolution === undefined || resolution.kind === 'bracketPropertyAccess' || (resolution.kind !== 'field' && resolution.declaration === null)) {
             return (evaluator, evaluationContext) => evaluator.#evaluateMember(node, evaluationContext);
         }
 
@@ -891,7 +894,7 @@ export class QueryEvaluator {
                 }
 
                 if (field.isRead) {
-                    this.#localsFrame = { node: { bindings: [{ name: field.local }] }, item, values: new Map([[field.local, { value, selections: this.#selections }]]), enclosing: this.#localsFrame };
+                    this.#localsFrame = { node: { locals: [{ name: field.local }] }, item, values: new Map([[field.local, { value, selections: this.#selections }]]), enclosing: this.#localsFrame };
                 }
             }
         } finally {
@@ -1032,7 +1035,7 @@ export class QueryEvaluator {
         let frame = this.#localsFrame;
 
         // A frame is an object expression's, whose locals are evaluated at their first use, or a body's, whose bindings it evaluated in order before its result.
-        while (!(frame.node.locals ?? frame.node.bindings).some(local => local.name === node.name)) {
+        while (!frame.node.locals.some(local => local.name === node.name)) {
             frame = frame.enclosing;
         }
 
@@ -1078,7 +1081,7 @@ export class QueryEvaluator {
 
         const resolution = this.#resolvedDefinition.resolutionOf(node);
 
-        if (resolution.kind !== 'byName') {
+        if (resolution.kind !== 'bracketPropertyAccess') {
             return this.#readResolvedMember(resolution, receiver, node, evaluationContext);
         }
 
@@ -1418,7 +1421,7 @@ export class QueryEvaluator {
 
         if (structure === undefined) {
             if (!this.#conforms(event, itemType)) {
-                this.#fail(`The source '${declaration.name}' delivered ${QueryEvaluator.#describe(event)}, and its event data is ${itemType}`, pointer);
+                this.#fail(`The event source '${declaration.name}' delivered ${QueryEvaluator.#describe(event)}, and its event data is ${itemType}`, pointer);
             }
 
             return event;
@@ -1436,7 +1439,7 @@ export class QueryEvaluator {
             } else if (fieldType.isNullable) {
                 captured[name] = null;
             } else {
-                this.#fail(`The source '${declaration.name}' delivered an event whose '${name}' is ${QueryEvaluator.#describe(value)}, and its type declares ${fieldType}`, pointer);
+                this.#fail(`The event source '${declaration.name}' delivered an event whose '${name}' is ${QueryEvaluator.#describe(value)}, and its type declares ${fieldType}`, pointer);
             }
         }
 

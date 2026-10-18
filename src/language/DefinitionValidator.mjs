@@ -26,7 +26,8 @@ const NODE_PROPERTIES = {
     comparison: { properties: ['kind', 'operands', 'operators'], required: ['operands', 'operators'] },
     interpolatedString: { properties: ['kind', 'parts'], required: ['parts'] },
     conditional: { properties: ['kind', 'condition', 'binding', 'consequent', 'alternative'], required: ['consequent', 'alternative'] },
-    body: { properties: ['kind', 'bindings', 'result'], required: ['bindings', 'result'] },
+    body: { properties: ['kind', 'locals', 'result'], required: ['locals', 'result'] },
+    do: { properties: ['kind', 'body'], required: ['body'] },
     function: { properties: ['kind', 'parameters', 'body'], required: ['parameters', 'body'] },
     functionCall: { properties: ['kind', 'name', 'arguments'], required: ['name', 'arguments'] },
     arithmetic: { properties: ['kind', 'operator', 'left', 'right'], required: ['operator', 'left', 'right'] },
@@ -43,8 +44,11 @@ const NODE_PROPERTIES = {
 /** The kinds of node that continue a chain through their target, and so carry its optional chain to the access their target is. */
 const CHAIN_KINDS = new Set(['member', 'call', 'indexer', 'object']);
 
-/** The kinds of node a cast's target can be, as text writes one: a receiver and its accesses, a coalescing operator, another cast, or an optional chain. */
-const CAST_TARGET_KINDS = new Set(['context', 'parameter', 'root', 'local', 'literal', 'interpolatedString', 'functionCall', 'object', 'member', 'call', 'indexer', 'optionalChain', 'coalescing', 'cast']);
+/** The kinds of node a cast's target starts from, its receiver, as text writes one: an input, an object expression following no value among them, or a grouped cast. */
+const CAST_RECEIVER_KINDS = new Set(['context', 'parameter', 'root', 'local', 'literal', 'interpolatedString', 'functionCall', 'object', 'cast']);
+
+/** The kinds of node that are accesses of a cast's target, after its receiver. */
+const CAST_ACCESS_KINDS = new Set(['member', 'call', 'indexer']);
 
 /** The operators an arithmetic node holds. */
 const ARITHMETIC_OPERATORS = ['+', '-', '*', '/', '%'];
@@ -96,15 +100,15 @@ export class DefinitionValidator {
     #simpleExpression = null;
 
     /** The parameters of a definition parsed from text that were written with `~`, which read the caller's binding wherever they stand; null for a definition not parsed from text. @type {WeakSet<object> | null} */
-    #externals;
+    #queryParameters;
 
     /**
      * @param {TextLocations | null} locations Where in a text each part of the definition came from, for one parsed from text.
-     * @param {WeakSet<object> | null} externals The parameters a text wrote with `~`, for one parsed from text.
+     * @param {WeakSet<object> | null} queryParameters The parameters a text wrote with `~`, for one parsed from text.
      */
-    constructor(locations = null, externals = null) {
+    constructor(locations = null, queryParameters = null) {
         this.#locations = locations;
-        this.#externals = externals;
+        this.#queryParameters = queryParameters;
     }
 
     /** Checks the definition's structure, returning its canonical, frozen copy. */
@@ -115,7 +119,7 @@ export class DefinitionValidator {
             this.#fail('/version', `A definition is of version ${Specification.definitionVersion}`);
         }
 
-        const validated = Object.freeze({ version: Specification.definitionVersion, query: this.#validateNode(definition.query, '/query', EvaluationContextAvailability.absent) });
+        const validated = Object.freeze({ version: Specification.definitionVersion, query: this.#validateBodyOrExpression(definition.query, '/query', EvaluationContextAvailability.absent) });
 
         // A definition parsed from text has its text's locations; one a caller supplied, where a part moved, has locations that name its parts as the caller did.
         if (this.#locations === null && this.#hasMovedParts) {
@@ -137,7 +141,7 @@ export class DefinitionValidator {
         }
 
         if (!ObjectUtils.isNonArrayObject(node) || !Object.hasOwn(NODE_PROPERTIES, node.kind)) {
-            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, root, context, local, member, call, indexer, object, optionalChain, equality, comparison, interpolatedString, body, function, functionCall, arithmetic, negate, conditional, coalescing, not, cast, conversion, try, and or or');
+            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, root, context, local, member, call, indexer, object, optionalChain, equality, comparison, interpolatedString, body, do, function, functionCall, arithmetic, negate, conditional, coalescing, not, cast, conversion, try, and or or');
         }
 
         this.#requireProperties(node, pointer, NODE_PROPERTIES[node.kind]);
@@ -162,11 +166,11 @@ export class DefinitionValidator {
                 return this.#validateLiteral(node, pointer);
             case 'parameter':
                 if (!Names.isName(node.name)) {
-                    this.#fail(`${pointer}/name`, 'A binding is named by a letter followed by letters and digits');
+                    this.#fail(`${pointer}/name`, 'A parameter is named by a letter followed by letters and digits');
                 }
 
                 // A name a text wrote alone reads the local in scope of its name, so one before a later local of its name reads nothing; `~` and a definition's parameter read the caller's binding wherever they stand.
-                if (this.#locations !== null && !this.#externals?.has(node)) {
+                if (this.#locations !== null && !this.#queryParameters?.has(node)) {
                     this.#requireBindingName(node.name, pointer);
                 }
 
@@ -179,7 +183,7 @@ export class DefinitionValidator {
                 return Object.freeze({ kind: 'root', name: node.name });
             case 'context':
                 if (evaluationContextAvailability === EvaluationContextAvailability.absent) {
-                    this.#fail(pointer, "'context' is the evaluation context, and the top level has none; a chain there starts with a parameter, a literal or an object expression");
+                    this.#fail(pointer, "'context' is the evaluation context, and the top level has none; a chain there starts from a parameter, a root, a local, a literal or another input");
                 }
 
                 return Object.freeze({ kind: 'context' });
@@ -222,7 +226,14 @@ export class DefinitionValidator {
             case 'conditional':
                 return this.#validateConditional(node, pointer, evaluationContextAvailability);
             case 'body':
-                return this.#validateBody(node, pointer, evaluationContextAvailability);
+                this.#fail(pointer, "A body is a query's, a do block's, a function's or a conditional branch's, and stands nowhere else");
+                break;
+            case 'do':
+                if (this.#simpleExpression !== null) {
+                    this.#fail(pointer, `${this.#simpleExpression.holder} is a simple expression, which holds no do block: bind the block's value to a local first, and use the local`);
+                }
+
+                return Object.freeze({ kind: 'do', body: this.#validateBodyOrExpression(node.body, `${pointer}/body`, evaluationContextAvailability) });
             case 'function':
                 this.#fail(pointer, 'A function is the value of a local, as let name = function(…) … end, and stands nowhere else');
                 break;
@@ -266,7 +277,7 @@ export class DefinitionValidator {
      */
     #validateConditional(node, pointer, evaluationContextAvailability) {
         if ((node.condition === undefined) === (node.binding === undefined)) {
-            this.#fail(pointer, 'A conditional holds a condition or a binding, one of them');
+            this.#fail(pointer, 'A conditional holds a condition or a conditional binding, one of them');
         }
 
         if (this.#simpleExpression !== null) {
@@ -286,8 +297,8 @@ export class DefinitionValidator {
             return Object.freeze({
                 kind: 'conditional',
                 condition: this.#validateNode(node.condition, `${pointer}/condition`, evaluationContextAvailability),
-                consequent: this.#validateNode(node.consequent, `${pointer}/consequent`, evaluationContextAvailability),
-                alternative: this.#validateNode(node.alternative, `${pointer}/alternative`, evaluationContextAvailability),
+                consequent: this.#validateBodyOrExpression(node.consequent, `${pointer}/consequent`, evaluationContextAvailability),
+                alternative: this.#validateBodyOrExpression(node.alternative, `${pointer}/alternative`, evaluationContextAvailability),
             });
         }
 
@@ -308,7 +319,7 @@ export class DefinitionValidator {
         let consequent;
 
         try {
-            consequent = this.#validateNode(node.consequent, `${pointer}/consequent`, evaluationContextAvailability);
+            consequent = this.#validateBodyOrExpression(node.consequent, `${pointer}/consequent`, evaluationContextAvailability);
         } finally {
             this.#localNames = enclosingLocalNames;
         }
@@ -317,12 +328,12 @@ export class DefinitionValidator {
             kind: 'conditional',
             binding: Object.freeze({ name, value }),
             consequent,
-            alternative: this.#validateNode(node.alternative, `${pointer}/alternative`, evaluationContextAvailability),
+            alternative: this.#validateBodyOrExpression(node.alternative, `${pointer}/alternative`, evaluationContextAvailability),
         });
     }
 
     /**
-     * Validates a conditional within a simple expression: a test and two branches, each a simple value expression, so it binds no value, its branches give their values without `return` or locals,
+     * Validates a conditional within a simple expression: a condition and two branches, each a simple value expression, so it binds no value, its branches give their values without `return` or locals,
      * and it holds no other conditional, an `elseif` among them, through any path, a group, a call, an indexer or an interpolation included.
      */
     #validateSimpleConditional(node, pointer, evaluationContextAvailability) {
@@ -381,11 +392,29 @@ export class DefinitionValidator {
 
         const target = this.#validateNode(node.target, `${pointer}/target`, evaluationContextAvailability);
 
-        if (!CAST_TARGET_KINDS.has(target.kind) || (target.kind === 'object' && target.target !== undefined)) {
+        if (!DefinitionValidator.#isCastTarget(target)) {
             this.#fail(`${pointer}/target`, "A cast's target is a receiver and the members after it, a coalescing operator in parentheses, or an optional enclosed access");
         }
 
         return Object.freeze({ kind: 'cast', type: node.type, target });
+    }
+
+    /**
+     * Whether the node is a cast's target as text writes one: a coalescing operator or a cast, each grouped as it is, or a receiver and the accesses after it, an optional chain of them included,
+     * the receiver an input or a grouped cast, so every target a definition gives is written as text that parses.
+     */
+    static #isCastTarget(node) {
+        if (node.kind === 'coalescing' || node.kind === 'cast') {
+            return true;
+        }
+
+        let receiver = node.kind === 'optionalChain' ? node.target : node;
+
+        while (CAST_ACCESS_KINDS.has(receiver.kind)) {
+            receiver = receiver.target;
+        }
+
+        return CAST_RECEIVER_KINDS.has(receiver.kind) && !(receiver.kind === 'object' && receiver.target !== undefined);
     }
 
     /** Validates an optional chain: the chain whose optional accesses end at it, at least one of them, since a chain with none is the chain alone. */
@@ -500,46 +529,48 @@ export class DefinitionValidator {
         return validated;
     }
 
+    /** Validates what a body stands for, a query's, a do block's, a function's or a conditional branch's: a body, or the expression alone it is. */
+    #validateBodyOrExpression(node, pointer, evaluationContextAvailability) {
+        return ObjectUtils.isNonArrayObject(node) && node.kind === 'body' ? this.#validateBody(node, pointer, evaluationContextAvailability) : this.#validateNode(node, pointer, evaluationContextAvailability);
+    }
+
     /**
-     * Validates a body: its bindings, each with its name and value, in scope after its value, through the bindings after it and the result, and seen by no value before it, and its result, each with the evaluation context the body has.
-     * A body's binding may reuse a name an enclosing scope has, which it hides, and two of one body never share one.
+     * Validates a body: its locals, each with its name and value, in scope after its value, through the locals after it and the result, and seen by no value before it, and its result, each with the evaluation context the body has.
+     * A body's local may reuse a name an enclosing scope has, which it hides, and two of one body never share one.
      */
     #validateBody(node, pointer, evaluationContextAvailability) {
-        if (this.#simpleExpression !== null) {
-            this.#fail(pointer, `${this.#simpleExpression.holder} is a simple expression, which holds no do block: bind the block's value to a local first, and use the local`);
-        }
+        this.#requireProperties(node, pointer, NODE_PROPERTIES.body);
+        this.#requireArray(node.locals, `${pointer}/locals`);
 
-        this.#requireArray(node.bindings, `${pointer}/bindings`);
-
-        const names = node.bindings.map(binding => binding?.name);
+        const names = node.locals.map(local => local?.name);
         const enclosingLocalNames = this.#localNames;
         const enclosingChain = this.#chain;
-        const bound = new Set();
+        const declared = new Set();
 
-        // A body's bindings and its result continue no chain of what holds it.
+        // A body's locals and its result continue no chain of what holds it.
         this.#chain = null;
 
         try {
-            const bindings = node.bindings.map((binding, index) => {
-                const bindingPointer = `${pointer}/bindings/${index}`;
+            const locals = node.locals.map((local, index) => {
+                const localPointer = `${pointer}/locals/${index}`;
 
-                this.#requireProperties(binding, bindingPointer, ENTRY_PROPERTIES);
-                this.#requireName(binding.name, `${bindingPointer}/name`);
+                this.#requireProperties(local, localPointer, ENTRY_PROPERTIES);
+                this.#requireName(local.name, `${localPointer}/name`);
 
-                if (bound.has(binding.name)) {
-                    this.#fail(bindingPointer, `Two locals of one body are named '${binding.name}'`);
+                if (declared.has(local.name)) {
+                    this.#fail(localPointer, `Two locals of one body are named '${local.name}'`);
                 }
 
-                bound.add(binding.name);
+                declared.add(local.name);
 
-                const value = this.#validateWithLater(names.slice(index), () => this.#validateLocalValue(binding.value, `${bindingPointer}/value`, evaluationContextAvailability));
+                const value = this.#validateWithLater(names.slice(index), () => this.#validateLocalValue(local.value, `${localPointer}/value`, evaluationContextAvailability));
 
-                this.#localNames = new Set(this.#localNames).add(binding.name);
+                this.#localNames = new Set(this.#localNames).add(local.name);
 
-                return Object.freeze({ name: binding.name, value });
+                return Object.freeze({ name: local.name, value });
             });
 
-            return Object.freeze({ kind: 'body', bindings: Object.freeze(bindings), result: this.#validateNode(node.result, `${pointer}/result`, evaluationContextAvailability) });
+            return Object.freeze({ kind: 'body', locals: Object.freeze(locals), result: this.#validateNode(node.result, `${pointer}/result`, evaluationContextAvailability) });
         } finally {
             this.#localNames = enclosingLocalNames;
             this.#chain = enclosingChain;
@@ -580,7 +611,7 @@ export class DefinitionValidator {
         this.#chain = null;
 
         try {
-            return Object.freeze({ kind: 'function', parameters: Object.freeze([...node.parameters]), body: this.#validateNode(node.body, `${pointer}/body`, evaluationContextAvailability) });
+            return Object.freeze({ kind: 'function', parameters: Object.freeze([...node.parameters]), body: this.#validateBodyOrExpression(node.body, `${pointer}/body`, evaluationContextAvailability) });
         } finally {
             this.#localNames = enclosingLocalNames;
             this.#chain = enclosingChain;
@@ -615,8 +646,8 @@ export class DefinitionValidator {
 
     /** Refuses a conditional or a body as the receiver of a chain, whose value a local holds first. */
     #refuseBlockReceiver(target, pointer) {
-        if (target?.kind === 'conditional' || target?.kind === 'body') {
-            this.#fail(`${pointer}/target`, `${target.kind === 'body' ? 'A do block' : 'A conditional'} is never the receiver of a chain: bind its value to a local first, and continue from the local`);
+        if (target?.kind === 'conditional' || target?.kind === 'do') {
+            this.#fail(`${pointer}/target`, `${target.kind === 'do' ? 'A do block' : 'A conditional'} is never the receiver of a chain: bind its value to a local first, and continue from the local`);
         }
     }
 

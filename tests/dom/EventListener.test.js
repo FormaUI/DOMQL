@@ -94,8 +94,8 @@ describe('EventListener', () => {
     /** Registers a module whose source `beats` the function starts, delivering events that carry a number. */
     const registerBeats = start => isolated.registerModule(isolated.createModule('beats', {
         types: [{ name: 'beat', fields: { n: 'number' } }],
-        eventTypes: [{ name: 'beat', payload: 'beat' }],
-        members: [{ name: 'beats', function: 'beats', kind: 'source', on: 'element', input: 'positional', parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, fixed: true, selects: 'eventType', nulls: 'propagate' }], result: 'event<@selected>', changes: 'constant', reads: 'captured' }],
+        eventTypes: [{ name: 'beat', data: 'beat' }],
+        members: [{ name: 'beats', function: 'beats', kind: 'eventSource', on: 'element', input: 'positional', parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, fixed: true, selects: 'eventType', nulls: 'propagate' }], result: 'event<@selected>', changes: 'constant', reads: 'captured' }],
     }, { beats: start }));
 
     /** Dispatches an input event at the element, which bubbles to the panel. */
@@ -209,7 +209,7 @@ describe('EventListener', () => {
 
             const [first, second] = panel.children;
 
-            expect(() => subscribe('item.beats("beat") { n = context.n }', { item: first })).toThrow(expect.objectContaining({ kind: 'evaluation', message: expect.stringContaining("The source 'beats' failed to start listening"), cause: expect.objectContaining({ message: 'closed' }) }));
+            expect(() => subscribe('item.beats("beat") { n = context.n }', { item: first })).toThrow(expect.objectContaining({ kind: 'evaluation', message: expect.stringContaining("The event source 'beats' failed to start listening"), cause: expect.objectContaining({ message: 'closed' }) }));
             expect(() => subscribe('item.beats("beat") { n = context.n }', { item: second })).toThrow(expect.objectContaining({ kind: 'evaluation', message: expect.stringContaining('answered nothing that stops it') }));
         });
 
@@ -226,7 +226,7 @@ describe('EventListener', () => {
                 error = failure;
             }
 
-            expect(error).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The source 'beats' failed to start listening") });
+            expect(error).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The event source 'beats' failed to start listening") });
             expect(error.cause).toBeNull();
         });
 
@@ -328,7 +328,7 @@ describe('EventListener', () => {
             deliver({ n: 2 });
 
             expect(failures).toHaveLength(1);
-            expect(failures[0].message).toContain("The source 'beats' delivered an event whose 'n' is \"one\", and its type declares number");
+            expect(failures[0].message).toContain("The event source 'beats' delivered an event whose 'n' is \"one\", and its type declares number");
             expect(results).toEqual([{ n: 2 }]);
             expect(listener.status).toBe('ready');
         });

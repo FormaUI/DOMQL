@@ -86,8 +86,13 @@ const COMPARED = '(%) != null';
  */
 const DOCUMENTS = {
     'docs/domql-specification.md': [
+        { about: 'a query at a glance' },
+        { about: 'shadow trees', each: true, context: COMPARED },
         { about: 'an object expression' },
+        { about: 'fields named by reserved words', results: { 0: { true: true, context: true } } },
+        { about: 'a reserved reference', results: { 0: { value: 3 } } },
         { about: 'the forms of a member', each: true, context: 'cell { value = % }' },
+        { about: 'bracket property access' },
         { about: 'a simple expression' },
         { about: 'tests', each: true },
         { about: 'equalities', each: true },
@@ -98,16 +103,14 @@ const DOCUMENTS = {
         { about: 'coalescing operators', each: true, results: { 2: false } },
         { about: 'casts', each: true, context: COMPARED },
         { about: 'conversions', each: true, results: { 0: 12, 1: 12, 3: '3' } },
-        { about: 'interpolated strings', results: { 0: { label: '12 unread in 3 rows', title: '{panel} panel' } } },
         { about: 'attempts', each: true, results: { 0: { count: 12 } } },
         { about: 'a result that tells missing from malformed', results: { 0: { count: { status: 'valid', value: 12 } } } },
+        { about: 'interpolated strings', results: { 0: { label: '12 unread in 3 rows', title: '{panel} panel' } } },
         { about: 'a body' },
-        { about: 'a function' },
         { about: 'locals' },
-        { about: 'shadow trees', each: true, context: COMPARED },
+        { about: 'a function' },
         { about: 'an action and a behavior request', each: true, modules: [scrollModule] },
         { about: 'a subscription' },
-        { about: 'bracket property access' },
         { about: 'a complete query' },
     ],
     'nuget/README.md': [
