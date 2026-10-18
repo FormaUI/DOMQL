@@ -470,7 +470,7 @@ return {
 }
 ```
 
-`do … end` writes a body wherever an expression stands, as `doubled = do let half = width / 2 = half * 4 end` does in a field, and each branch of a conditional, `if … then … else … end`, is one too: within one conditional, every branch gives its result with `return` or none does. A body's bindings run once each, in order, whether or not anything uses them, while an object expression's locals run only where a field reads them. `=` gives the result of its own body, so a `do` block's `=` gives that block's value, never the query's.
+`do … end` writes a body wherever an expression stands, as `doubled = do let half = width / 2 return half * 4 end` does in a field, and each branch of a conditional, `if … then … else … end`, is one too: within one conditional, every branch gives its result with `return` or none does. A body's bindings run once each, in order, whether or not anything uses them, while an object expression's locals run only where a field reads them. `return` completes its own body, so a `do` block's `return` gives that block's value, never the query's.
 
 ### Handle missing values
 
