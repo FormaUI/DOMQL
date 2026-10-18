@@ -201,7 +201,7 @@ describe('Geometry in a browser', () => {
             input.focus();
             input.setSelectionRange(2, 7);
 
-            expect(read('input.selection { start = self.start, end = self.end }', { input })).toEqual({ start: 2, end: 7 });
+            expect(read('input.selection { start = self.start, finish = self.end }', { input })).toEqual({ start: 2, finish: 7 });
             expect(read('input.hasSelection', { input })).toBe(true);
             expect(read('input:attribute["value"]', { input })).toBeNull();
         });

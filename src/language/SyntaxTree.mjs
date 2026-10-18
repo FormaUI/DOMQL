@@ -14,6 +14,9 @@
 export const NODE_KINDS = Object.freeze([
     'query',
     'conditional-expression',
+    'body',
+    'body-binding',
+    'do-expression',
     'conditional-binding',
     'disjunction',
     'conjunction',

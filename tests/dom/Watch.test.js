@@ -418,6 +418,20 @@ describe('Watch', () => {
         });
     });
 
+    describe('a body', () => {
+        it('evaluates every binding once each time it runs, an unused one included, following what each read', async () => {
+            const before = evaluations;
+
+            watch('let unused = panel.tally\n= 1', { panel }, { schedule: 'immediate' });
+            await settle();
+            panel.setAttribute('data-x', '1');
+            await settle();
+
+            expect(evaluations).toBe(before + 2);
+            expect(snapshots).toEqual([1]);
+        });
+    });
+
     describe('an interpolated string', () => {
         it('follows what its holes read, reporting its text only where the text changes', async () => {
             panel.setAttribute('data-a', 'x');
@@ -437,7 +451,7 @@ describe('Watch', () => {
         it('evaluates a local its holes share once, and a branch no condition selects never', () => {
             const before = evaluations;
 
-            expect(isolated.query('panel { let t = self.tally, text = $"{t}-{t}-{if false then self.tally else 0}" }', { panel }).evaluate().text).toBe(`${before + 1}-${before + 1}-0`);
+            expect(isolated.query('panel { let t = self.tally, text = $"{t}-{t}-{if false then self.tally else 0 end}" }', { panel }).evaluate().text).toBe(`${before + 1}-${before + 1}-0`);
             expect(evaluations).toBe(before + 1);
         });
     });
@@ -507,7 +521,7 @@ describe('Watch', () => {
         });
 
         it('follows a conditional binding through the value it binds and the branch it takes', async () => {
-            watch('if let n = try panel:["data-n"] to "number" then { n = n } else { n = -1 }', { panel });
+            watch('if let n = try panel:["data-n"] to "number" then { n = n } else { n = -1 } end', { panel });
             await settle();
             await change(panel, 'two');
             await change(panel, 5);
@@ -684,7 +698,7 @@ describe('Watch', () => {
 
     describe('a local', () => {
         it('holds what it reads only while an evaluation uses it: from when a branch first reaches it until none does', async () => {
-            watch('panel { let level = self.level, value = if self:attribute["data-on"] == null then 0 else level }', { panel });
+            watch('panel { let level = self.level, value = if self:attribute["data-on"] == null then 0 else level end }', { panel });
             await settle();
 
             expect(snapshots).toEqual([{ value: 0 }]);
@@ -770,7 +784,7 @@ describe('Watch', () => {
         it('follows what its name reads and the property it selects, holding the one it no longer selects no longer', async () => {
             const item = panel.querySelector('i');
 
-            watch('{ v = item[if item:attribute["data-on"] == null then "level" else "tally"] }', { item });
+            watch('{ v = item[if item:attribute["data-on"] == null then "level" else "tally" end] }', { item });
             await settle();
             gauges.get(item).sample = { pending: false, value: 4 };
             gauges.get(item).notify();

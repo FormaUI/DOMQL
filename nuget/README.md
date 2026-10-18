@@ -456,6 +456,22 @@ Locals are not included in the result. A local is evaluated on first use, at mos
 
 `self` inside a local refers to the value where the local is declared. A bare name refers to a local; use `self.rect`, for example, to read a member of the current value. Write `~` before a name to read the caller's binding of it even where a local shares the name, as `~panel` does inside `{ let panel = …, original = ~panel.children.count }`, or where a reserved word names it, as `~as`.
 
+### Name the steps of a calculation
+
+Write a query as a body when it builds on intermediate values: bindings, each `let`, a name and `=`, and then `=` and the result.
+
+```domql
+let rows = panel.all("[data-key]")
+let count = rows.count
+= {
+    count = count,
+    summary = $"{count} rows",
+    tallest = rows.max(self.rect?.height)
+}
+```
+
+`do … end` writes a body wherever an expression stands, as `doubled = do let half = width / 2 = half * 4 end` does in a field, and each branch of a conditional, `if … then … else … end`, is one too: within one conditional, every branch introduces its result with `=` or none does. A body's bindings run once each, in order, whether or not anything uses them, while an object expression's locals run only where a field reads them. `=` gives the result of its own body, so a `do` block's `=` gives that block's value, never the query's.
+
 ### Handle missing values
 
 Null means a value is missing or unavailable. Use `?.` to read through a value that may be null and `??` to supply a fallback:
@@ -529,7 +545,7 @@ In the second line, `input.rect` reads the input with a plain `.`, because the r
 
 `or` falls back for `null` and `false`, and `??` for `null` alone: `false or true` is `true`, and `false ?? true` is `false`.
 
-Unlike Lua, DOMQL types every expression, so `and` and `or` must give values of one type. `self.is("disabled") and self` could give `false` or an element, and is refused; write `if self.is("disabled") then self else null` if `null` is an acceptable alternative. Use a conditional whenever the chosen value may itself be `false` or `null`.
+Unlike Lua, DOMQL types every expression, so `and` and `or` must give values of one type. `self.is("disabled") and self` could give `false` or an element, and is refused; write `if self.is("disabled") then self else null end` if `null` is an acceptable alternative. Use a conditional whenever the chosen value may itself be `false` or `null`.
 
 Mixing `??` with `==`, `!=`, `not`, `and` or `or` requires parentheses around one of the expressions.
 
@@ -541,7 +557,7 @@ Use `if`, `then` and `else` to choose between values. Add `elseif` for another c
 input {
     state = if self.is("disabled") then "locked"
            elseif self.is("readonly") then "read"
-           else "open"
+           else "open" end
 }
 ```
 
@@ -552,10 +568,10 @@ Use `if let` to name a value and choose by whether it is truthy. The name is ava
 ```domql
 if let row = cell.closest(".row")
 then { key = row:["data-key"], top = row.rect?.top }
-else null
+else null end
 ```
 
-`if let` tests truthiness as `if` does, so `0`, empty text and an empty list take the `then` branch, and `false` takes `else`. It pairs with `try`: `if let count = try panel:["data-count"] to "number" then … else …` converts once and uses the number in its branch.
+`if let` tests truthiness as `if` does, so `0`, empty text and an empty list take the `then` branch, and `false` takes `else`. It pairs with `try`: `if let count = try panel:["data-count"] to "number" then … else … end` converts once and uses the number in its branch.
 
 ### Cast a node
 
@@ -597,7 +613,7 @@ panel {
     let count = self:["data-count"],
     count = if let n = try count to "number" then { status = "valid", value = n }
     elseif count == null then { status = "missing", value = null }
-    else { status = "malformed", value = null }
+    else { status = "malformed", value = null } end
 }
 ```
 

@@ -37,6 +37,9 @@ export class Parser {
     #tokens;
     #index = 0;
 
+    /** How many bodies' bindings are being read, where a name on a new line after a value is a statement no body holds rather than a member written without its dot. */
+    #bodyBindingsBeingRead = 0;
+
     /** The coalescing operators read where no group holds them, which no `and`, `or` or equality may stand beside. @type {WeakSet<SyntaxNode>} */
     #ungroupedCoalescings = new WeakSet();
 
@@ -50,23 +53,106 @@ export class Parser {
     }
 
     /**
-     * Reads the text into its syntax tree, whose query node holds the expression and the end of the text, with the trivia before it.
+     * Reads the text into its syntax tree, whose query node holds the body, an expression alone or bindings and the result `=` introduces, and the end of the text, with the trivia before it.
      * @returns {import('./SyntaxTree.mjs').QueryNode}
      */
     parse() {
-        const expression = this.#parseExpression();
+        const body = this.#parseBody();
         const end = this.#expect('end');
 
-        return { kind: 'query', text: this.#text, children: [expression, end] };
+        return { kind: 'query', text: this.#text, children: [body, end] };
     }
 
-    /** Reads an expression: a conditional, or what a condition is. */
+    /** Reads an expression: a conditional, a do block, or what a condition is. */
     #parseExpression() {
         if (this.#isKeyword('if')) {
             return this.#parseConditionalExpression([this.#take()]);
         }
 
+        if (this.#isKeyword('do')) {
+            return this.#parseDoExpression();
+        }
+
         return this.#parseCondition();
+    }
+
+    /**
+     * Reads a body: an expression alone, or the bindings evaluated in order, each `let`, a name, `=` and a value, and the `=` that introduces its result, which nothing follows; `= value` alone is a body of no bindings.
+     * What closes it, the end of the text, `end`, `elseif` or `else`, is its holder's to read.
+     */
+    #parseBody() {
+        if (!this.#isKeyword('let') && this.#token.type !== '=') {
+            return this.#parseExpression();
+        }
+
+        const children = [];
+
+        this.#bodyBindingsBeingRead++;
+
+        try {
+            while (this.#isKeyword('let')) {
+                children.push(this.#parseBodyBinding());
+            }
+        } finally {
+            this.#bodyBindingsBeingRead--;
+        }
+
+        // After its bindings a body's result follows its `=`; an expression there is one a marked result follows, which only a binding may precede, or the result its `=` was left off.
+        if (this.#token.type !== '=') {
+            const start = this.#token.start;
+
+            if (this.#token.type !== 'end' && !this.#isKeyword('end') && !this.#isKeyword('elseif') && !this.#isKeyword('else')) {
+                this.#parseExpression();
+
+                if (this.#token.type === '=') {
+                    throw this.#fail("Only local bindings may precede a body's result.", start);
+                }
+            }
+
+            throw this.#fail("Introduce the body's result with =.", start);
+        }
+
+        const marker = this.#take();
+
+        if (this.#token.type === 'end' || this.#isKeyword('end') || this.#isKeyword('elseif') || this.#isKeyword('else')) {
+            throw this.#fail("'=' introduces its body's result: write the value after it, as in '= width'", marker.start);
+        }
+
+        children.push(marker, this.#parseExpression());
+
+        if (this.#isKeyword('let') || this.#token.type === '=') {
+            throw this.#fail("Nothing follows a body's result, which ends it", this.#token.start);
+        }
+
+        return Parser.#node('body', children);
+    }
+
+    /** Reads a binding of a body after its `let`: its name, `=` and the value it binds. */
+    #parseBodyBinding() {
+        const letKeyword = this.#take();
+
+        if (!this.#startsEntry()) {
+            this.#refuseName('A binding takes its value after =', 'A binding is written with let, its name and = before its value, as let width = …', 'let ');
+        }
+
+        return Parser.#node('body-binding', [letKeyword, this.#take(), this.#take(), this.#parseExpression()]);
+    }
+
+    /** Reads a do block: `do`, the body it evaluates where execution reaches it, and the `end` that closes it. */
+    #parseDoExpression() {
+        const doKeyword = this.#take();
+
+        if (this.#isKeyword('end')) {
+            throw this.#fail("A do block holds a body: write 'do = … end'", this.#token.start);
+        }
+
+        const body = this.#parseBody();
+
+        if (!this.#isKeyword('end')) {
+            throw this.#unexpected("'end' closing the do block");
+        }
+
+        return Parser.#node('do-expression', [doKeyword, body, this.#take()]);
     }
 
     /** Reads what a condition is: a disjunction, or an or-operand alone, a coalescing operator among them, which stands beside neither `and` nor `or`. */
@@ -101,9 +187,11 @@ export class Parser {
      * and the alternative `else` gives, which every conditional ends with.
      */
     #parseConditionalExpression(children) {
+        const branches = [];
+
         for (;;) {
             if (this.#isKeyword('if')) {
-                throw this.#fail('A conditional that is a condition is enclosed in parentheses: write if (if … then … else …) then …', this.#token.start);
+                throw this.#fail('A conditional that is a condition is enclosed in parentheses: write if (if … then … else … end) then …', this.#token.start);
             }
 
             children.push(this.#isKeyword('let') ? this.#parseBinding() : this.#parseCondition());
@@ -112,12 +200,34 @@ export class Parser {
                 throw this.#unexpected("'then' after the condition");
             }
 
-            children.push(this.#take(), this.#parseExpression());
+            const thenKeyword = this.#take();
+            const consequent = this.#parseBody();
+
+            children.push(thenKeyword, consequent);
+            branches.push(consequent);
 
             if (this.#isKeyword('elseif')) {
                 children.push(this.#take());
             } else if (this.#isKeyword('else')) {
-                children.push(this.#take(), this.#parseExpression());
+                const elseKeyword = this.#take();
+                const alternative = this.#parseBody();
+
+                children.push(elseKeyword, alternative);
+                branches.push(alternative);
+
+                if (!this.#isKeyword('end')) {
+                    throw this.#unexpected("'end' closing the conditional");
+                }
+
+                // Every branch of one conditional introduces its result with `=`, or none does.
+                const isExplicit = branch => !SyntaxTree.isToken(branch) && branch.kind === 'body';
+                const differing = branches.find(branch => isExplicit(branch) !== isExplicit(branches[0]));
+
+                if (differing !== undefined) {
+                    throw this.#fail('All branches of this conditional must introduce their results with =', SyntaxTree.startOf(isExplicit(differing) ? branches[0] : differing));
+                }
+
+                children.push(this.#take());
 
                 return Parser.#node('conditional-expression', children);
             } else {
@@ -258,7 +368,11 @@ export class Parser {
         }
 
         if (this.#isKeyword('if')) {
-            throw this.#fail('A conditional that is an operand is enclosed in parentheses: write (if … then … else …)', start);
+            throw this.#fail('A conditional that is an operand is enclosed in parentheses: write (if … then … else … end)', start);
+        }
+
+        if (this.#isKeyword('do')) {
+            throw this.#fail('A do block that is an operand is enclosed in parentheses: write (do … end)', start);
         }
     }
 
@@ -388,7 +502,15 @@ export class Parser {
             return true;
         }
 
-        if (this.#tokens[this.#index + 1].type === '=') {
+        // A name on a line of its own after a binding's value ends that value, and its body says what the name begins.
+        if (this.#bodyBindingsBeingRead > 0 && this.#text.slice(this.#tokens[this.#index - 1].end, this.#token.start).includes('\n')) {
+            return false;
+        }
+
+        // A name the `=` of a field follows on its line is the next field, a comma missing before it; an `=` beginning the next line introduces a body's result instead.
+        const next = this.#tokens[this.#index + 1];
+
+        if (next.type === '=' && !this.#text.slice(this.#token.end, next.start).includes('\n')) {
             throw this.#unexpected("',' before the next field");
         }
 
@@ -438,6 +560,11 @@ export class Parser {
         const input = this.#token.type === '(' ? 'parenthesizedExpression' : this.#token.type === '(?' ? 'optionalEnclosedAccess' : 'input';
         const first = this.#parseChainInput();
         const grouped = Parser.#kindOf(first);
+
+        // A conditional and a do block answer a value no chain continues from, grouped or not, which a local holds first.
+        if ((grouped === 'conditional-expression' || grouped === 'do-expression') && this.#continuesChain()) {
+            throw this.#fail(`${grouped === 'do-expression' ? 'A do block' : 'A conditional'} is never the receiver of a chain: bind its value to a local first, and continue from the local`, this.#token.start);
+        }
         const children = [first];
         let isOptional = false;
         let hasObject = false;
@@ -1008,6 +1135,11 @@ export class Parser {
 
             if (previous?.type === '<' || previous?.type === '>') {
                 return this.#fail(`'${previous.type}=' is one operator, written with nothing between its signs`, previous.start);
+            }
+
+            // An `=` that begins a line after an expression is a body's result after an expression no binding holds.
+            if (previous !== undefined && this.#text.slice(previous.end, token.start).includes('\n')) {
+                return this.#fail("Only local bindings may precede a body's result.", token.start);
             }
 
             return this.#fail("Unexpected '=' in an expression. Use '==' to compare values.", token.start);

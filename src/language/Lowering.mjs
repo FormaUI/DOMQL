@@ -43,6 +43,14 @@ export class Lowering {
         switch (child.kind) {
             case 'conditional-expression':
                 return this.#lowerConditional(children, 0, SyntaxTree.endOf(child));
+            case 'body':
+                return this.#lowerBody(child);
+            case 'do-expression': {
+                // A do block of an expression alone is a body of no bindings.
+                const inner = children[1];
+
+                return !SyntaxTree.isToken(inner) && inner.kind === 'body' ? this.#lower(inner) : this.#span({ kind: 'body', bindings: [], result: this.#lower(inner) }, child);
+            }
             case 'disjunction':
             case 'conjunction':
                 return this.#span({ kind: child.kind === 'disjunction' ? 'or' : 'and', operands: children.filter((_, index) => index % 2 === 0).map(operand => this.#lower(operand)) }, child);
@@ -126,6 +134,26 @@ export class Lowering {
             }
             default:
                 throw new TypeError(`No definition is lowered from the token '${token.type}'`);
+        }
+    }
+
+    /** A body: its bindings in order, each in scope after its value, through the bindings after it and the result, which its `return` gives. */
+    #lowerBody(body) {
+        const { children } = body;
+        const enclosingLocalNames = this.#localNames;
+        const bindings = [];
+
+        try {
+            for (const part of children.slice(0, -2)) {
+                const binding = this.#span({ name: part.children[1].value, value: this.#lower(part.children[3]) }, part);
+
+                bindings.push(binding);
+                this.#localNames = new Set(this.#localNames).add(binding.name);
+            }
+
+            return this.#span({ kind: 'body', bindings, result: this.#lower(children.at(-1)) }, body);
+        } finally {
+            this.#localNames = enclosingLocalNames;
         }
     }
 

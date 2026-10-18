@@ -120,6 +120,10 @@ export class ResolvedDefinition {
                     }
                 }
                 break;
+            case 'body':
+                node.bindings.forEach((binding, index) => this.#index(binding.value, `${pointer}/bindings/${index}/value`));
+                this.#index(node.result, `${pointer}/result`);
+                break;
             case 'interpolatedString':
                 node.parts.forEach((part, index) => {
                     if (part.kind === 'expression') {

@@ -25,6 +25,7 @@ const NODE_PROPERTIES = {
     comparison: { properties: ['kind', 'operands', 'operators'], required: ['operands', 'operators'] },
     interpolatedString: { properties: ['kind', 'parts'], required: ['parts'] },
     conditional: { properties: ['kind', 'condition', 'binding', 'consequent', 'alternative'], required: ['consequent', 'alternative'] },
+    body: { properties: ['kind', 'bindings', 'result'], required: ['bindings', 'result'] },
     arithmetic: { properties: ['kind', 'operator', 'left', 'right'], required: ['operator', 'left', 'right'] },
     negate: { properties: ['kind', 'operand'], required: ['operand'] },
     coalescing: { properties: ['kind', 'value', 'fallback'], required: ['value', 'fallback'] },
@@ -126,7 +127,7 @@ export class DefinitionValidator {
         }
 
         if (!ObjectUtils.isNonArrayObject(node) || !Object.hasOwn(NODE_PROPERTIES, node.kind)) {
-            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, indexer, object, optionalChain, equality, comparison, interpolatedString, arithmetic, negate, conditional, coalescing, not, cast, conversion, try, and or or');
+            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, indexer, object, optionalChain, equality, comparison, interpolatedString, body, arithmetic, negate, conditional, coalescing, not, cast, conversion, try, and or or');
         }
 
         this.#requireProperties(node, pointer, NODE_PROPERTIES[node.kind]);
@@ -199,6 +200,8 @@ export class DefinitionValidator {
                 return Object.freeze({ kind: 'negate', operand: this.#validateNode(node.operand, `${pointer}/operand`, currentValueAvailability) });
             case 'conditional':
                 return this.#validateConditional(node, pointer, currentValueAvailability);
+            case 'body':
+                return this.#validateBody(node, pointer, currentValueAvailability);
             case 'and':
             case 'or':
                 return this.#validateLogical(node, pointer, currentValueAvailability);
@@ -238,6 +241,15 @@ export class DefinitionValidator {
     #validateConditional(node, pointer, currentValueAvailability) {
         if ((node.condition === undefined) === (node.binding === undefined)) {
             this.#fail(pointer, 'A conditional holds a condition or a binding, one of them');
+        }
+
+        // Every branch of one conditional is a body, whose result `=` introduces, or none is; an `elseif` continues its style, and the alternative of one whose branches are expressions may hold a conditional of either, as `else if … end` writes one.
+        const isExplicit = node.consequent?.kind === 'body';
+        const alternative = node.alternative;
+        const isConsistent = alternative?.kind === 'conditional' ? !isExplicit || alternative.consequent?.kind === 'body' : (alternative?.kind === 'body') === isExplicit;
+
+        if (!isConsistent) {
+            this.#fail(pointer, 'All branches of this conditional must introduce their results with =');
         }
 
         if (node.condition !== undefined) {
@@ -411,6 +423,56 @@ export class DefinitionValidator {
         return validated;
     }
 
+    /**
+     * Validates a body: its bindings, each with its name and value, in scope after its value, through the bindings after it and the result, and seen by no value before it, and its result, each with the current value the body has.
+     * A body's binding may reuse a name an enclosing scope has, which it hides, and two of one body never share one.
+     */
+    #validateBody(node, pointer, currentValueAvailability) {
+        this.#requireArray(node.bindings, `${pointer}/bindings`);
+
+        const names = node.bindings.map(binding => binding?.name);
+        const enclosingLocalNames = this.#localNames;
+        const enclosingChain = this.#chain;
+        const bound = new Set();
+
+        // A body's bindings and its result continue no chain of what holds it.
+        this.#chain = null;
+
+        try {
+            const bindings = node.bindings.map((binding, index) => {
+                const bindingPointer = `${pointer}/bindings/${index}`;
+
+                this.#requireProperties(binding, bindingPointer, ENTRY_PROPERTIES);
+                this.#requireName(binding.name, `${bindingPointer}/name`);
+                this.#requireLocalName(binding.name, bindingPointer);
+
+                if (bound.has(binding.name)) {
+                    this.#fail(bindingPointer, `Two bindings of one body are named '${binding.name}'`);
+                }
+
+                bound.add(binding.name);
+
+                const value = this.#validateWithLater(names.slice(index), () => this.#validateNode(binding.value, `${bindingPointer}/value`, currentValueAvailability));
+
+                this.#localNames = new Set(this.#localNames).add(binding.name);
+
+                return Object.freeze({ name: binding.name, value });
+            });
+
+            return Object.freeze({ kind: 'body', bindings: Object.freeze(bindings), result: this.#validateNode(node.result, `${pointer}/result`, currentValueAvailability) });
+        } finally {
+            this.#localNames = enclosingLocalNames;
+            this.#chain = enclosingChain;
+        }
+    }
+
+    /** Refuses a conditional or a body as the receiver of a chain, whose value a local holds first. */
+    #refuseBlockReceiver(target, pointer) {
+        if (target?.kind === 'conditional' || target?.kind === 'body') {
+            this.#fail(`${pointer}/target`, `${target.kind === 'body' ? 'A do block' : 'A conditional'} is never the receiver of a chain: bind its value to a local first, and continue from the local`);
+        }
+    }
+
     #validateLiteral(node, pointer) {
         const { value } = node;
 
@@ -423,6 +485,8 @@ export class DefinitionValidator {
 
     /** Validates a property access, a call or an indexer: its name, its receiver, whether it is optional, which it is within an optional chain alone, and the one argument a call or an indexer takes, whose current value its declaration decides. */
     #validateMember(node, pointer, currentValueAvailability) {
+        this.#refuseBlockReceiver(node.target, pointer);
+
         const name = node.kind === 'member' && ObjectUtils.isNonArrayObject(node.name) ? this.#validateNameExpression(node.name, `${pointer}/name`, currentValueAvailability) : node.name;
 
         // A name a bracket property access's expression gave is checked as that expression, and a default indexer has none; any other is a member's name, which a keyword can be.
@@ -472,6 +536,8 @@ export class DefinitionValidator {
     }
 
     #validateObject(node, pointer, currentValueAvailability) {
+        this.#refuseBlockReceiver(node.target, pointer);
+
         const target = node.target === undefined ? undefined : this.#validateNode(node.target, `${pointer}/target`, currentValueAvailability);
 
         this.#requireArray(node.fields, `${pointer}/fields`);

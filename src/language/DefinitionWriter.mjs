@@ -11,7 +11,7 @@ const ESCAPED = Object.freeze({ '"': '\\"', '\\': '\\\\', '\n': '\\n', '\r': '\\
 const ESCAPED_CHARACTERS = /["\\\p{Cc}\p{Cf}\p{Zl}\p{Zp}]|(?! )\p{Zs}/gu;
 
 /** How tightly each kind of expression binds, the loosest lowest: one written where a tighter one stands is parenthesized. An optional chain is a cast's target as it is, and is grouped where a chain continues from it, since its short-circuit ends where it does. */
-const PRECEDENCE = { conditional: 0, coalescing: 1, or: 2, and: 3, not: 4, equality: 5, comparison: 5, additive: 6, multiplicative: 7, negate: 8, try: 9, conversion: 10, cast: 11, optionalChain: 12 };
+const PRECEDENCE = { conditional: 0, body: 0, coalescing: 1, or: 2, and: 3, not: 4, equality: 5, comparison: 5, additive: 6, multiplicative: 7, negate: 8, try: 9, conversion: 10, cast: 11, optionalChain: 12 };
 
 /** How tightly a chain binds that no optional chain holds: a property access, a call, an indexer, an object expression, `self`, a local, a literal or a parameter. */
 const CHAIN_PRECEDENCE = 13;
@@ -37,7 +37,8 @@ export class DefinitionWriter {
     static format(node) {
         DefinitionWriter.#markExternals(node, new Set(), new Set());
 
-        return DefinitionWriter.#write(node, 0);
+        // A query that is a body writes its bindings and its return alone, which a do block elsewhere encloses.
+        return node.kind === 'body' ? DefinitionWriter.#bodyText(node, 0) : DefinitionWriter.#write(node, 0);
     }
 
     /**
@@ -78,6 +79,18 @@ export class DefinitionWriter {
                     scope = new Set([...scope, local.name]);
                 });
                 node.fields.forEach(field => DefinitionWriter.#markExternals(field.value, scope, later));
+
+                return;
+            }
+            case 'body': {
+                const names = node.bindings.map(binding => binding.name);
+                let scope = inScope;
+
+                node.bindings.forEach((binding, index) => {
+                    DefinitionWriter.#markExternals(binding.value, scope, new Set([...later, ...names.slice(index)]));
+                    scope = new Set([...scope, binding.name]);
+                });
+                DefinitionWriter.#markExternals(node.result, scope, later);
 
                 return;
             }
@@ -126,6 +139,9 @@ export class DefinitionWriter {
                 return node.operands.map((operand, index) => `${index === 0 ? '' : ` ${node.operators[index - 1]} `}${DefinitionWriter.#within(operand, PRECEDENCE.additive, level)}`).join('');
             case 'conditional':
                 return DefinitionWriter.#conditional(node, level);
+            case 'body':
+                // A do block: on one line, or its bindings and its return a level within it, its `end` back at its own.
+                return level === null ? `do ${DefinitionWriter.#bodyText(node, null)} end` : `do\n${INDENTATION.repeat(level + 1)}${DefinitionWriter.#bodyText(node, level + 1)}\n${INDENTATION.repeat(level)}end`;
             case 'coalescing':
                 // A coalescing operator associates to the right, so a fallback that is one is written as it is.
                 return `${DefinitionWriter.#within(node.value, PRECEDENCE.negate, level)} ?? ${node.fallback.kind === 'coalescing' ? DefinitionWriter.#write(node.fallback, level) : DefinitionWriter.#within(node.fallback, PRECEDENCE.negate, level)}`;
@@ -252,7 +268,17 @@ export class DefinitionWriter {
         return PRECEDENCE[node.kind] ?? CHAIN_PRECEDENCE;
     }
 
-    /** A conditional's clauses, each a condition or a binding: a conditional nested in its alternative is written as an `elseif`, and one in its condition or consequent in parentheses; laid out on lines, one with an `elseif` has a line for each clause. */
+    /** A body's bindings and the result `=` introduces, each on a line of the level's indentation, or on one line where the level is null. */
+    static #bodyText(node, level) {
+        const entries = [...node.bindings.map(binding => `let ${binding.name} = ${DefinitionWriter.#write(binding.value, level)}`), `= ${DefinitionWriter.#write(node.result, level)}`];
+
+        return entries.join(level === null ? ' ' : `\n${INDENTATION.repeat(level)}`);
+    }
+
+    /**
+     * A conditional's clauses, each a condition or a binding, and the `end` that closes them: a conditional of its own style nested in its alternative is written as an `elseif`, and one in its condition or consequent in parentheses; every branch introduces its result with `=` where the branches are bodies.
+     * On one line where the level is null, or where it has no `elseif` and its branches are expressions; otherwise each clause begins a line, its branch after it where the branches are expressions and on the lines a level within it where they are bodies.
+     */
     static #conditional(node, level) {
         const clauses = [];
         let current = node;
@@ -262,17 +288,37 @@ export class DefinitionWriter {
                 ? DefinitionWriter.#within(current.condition, PRECEDENCE.coalescing, level)
                 : `let ${current.binding.name} = ${DefinitionWriter.#within(current.binding.value, PRECEDENCE.coalescing, level)}`;
 
-            clauses.push(`${clauses.length === 0 ? 'if' : 'elseif'} ${test} then ${DefinitionWriter.#within(current.consequent, PRECEDENCE.coalescing, level)}`);
+            clauses.push({ header: `${clauses.length === 0 ? 'if' : 'elseif'} ${test} then`, branch: current.consequent, isAlternative: false });
 
-            if (current.alternative.kind !== 'conditional') {
-                clauses.push(`else ${DefinitionWriter.#write(current.alternative, level)}`);
+            // An alternative that is a conditional of the same style is an `elseif`; one of the other is the expression an implicit conditional's `else` gives.
+            if (current.alternative.kind !== 'conditional' || (current.alternative.consequent.kind === 'body') !== (current.consequent.kind === 'body')) {
+                clauses.push({ header: 'else', branch: current.alternative, isAlternative: true });
                 break;
             }
 
             current = current.alternative;
         }
 
-        return clauses.join(level === null || clauses.length === 2 ? ' ' : `\n${INDENTATION.repeat(level)}`);
+        const branchText = ({ branch, isAlternative }, branchLevel) => {
+            if (branch.kind === 'body') {
+                return DefinitionWriter.#bodyText(branch, branchLevel);
+            }
+
+            return isAlternative ? DefinitionWriter.#write(branch, branchLevel) : DefinitionWriter.#within(branch, PRECEDENCE.coalescing, branchLevel);
+        };
+        const hasBody = clauses.some(clause => clause.branch.kind === 'body');
+
+        if (level === null || (clauses.length === 2 && !hasBody)) {
+            return `${clauses.map(clause => `${clause.header} ${branchText(clause, level)}`).join(' ')} end`;
+        }
+
+        const lineBreak = `\n${INDENTATION.repeat(level)}`;
+
+        if (!hasBody) {
+            return [...clauses.map(clause => `${clause.header} ${branchText(clause, level)}`), 'end'].join(lineBreak);
+        }
+
+        return [...clauses.map(clause => `${clause.header}\n${INDENTATION.repeat(level + 1)}${branchText(clause, level + 1)}`), 'end'].join(lineBreak);
     }
 
     /** The text of the node where an expression of at least the given precedence stands: in parentheses where its own precedence is lower. */

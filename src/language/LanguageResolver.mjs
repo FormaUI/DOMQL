@@ -116,6 +116,8 @@ export class LanguageResolver {
                 return { type: Type.createNamedType('boolean'), kind: 'query', isFixed: false };
             case 'conditional':
                 return this.#resolveConditional(node, pointer, scope);
+            case 'body':
+                return this.#resolveBody(node, pointer, scope);
             case 'optionalChain':
                 return this.#resolveOptionalChain(node, pointer, scope);
             case 'coalescing':
@@ -325,8 +327,8 @@ export class LanguageResolver {
         if (type === null) {
             const described = [...new Set(parts.flatMap((part, index) => LanguageResolver.#describePart(part, index === last ? null : !passesWhenTruthy)))];
             const rewrite = node.kind === 'and' && node.operands.length === 2
-                ? `write 'if ${DefinitionWriter.write(node.operands[0])} then ${DefinitionWriter.write(node.operands[1])} else null' if null is an acceptable alternative`
-                : "a conditional, 'if … then … else …', chooses between values of one type";
+                ? `write 'if ${DefinitionWriter.write(node.operands[0])} then ${DefinitionWriter.write(node.operands[1])} else null end' if null is an acceptable alternative`
+                : "a conditional, 'if … then … else … end', chooses between values of one type";
 
             this.#fail(`What '${node.kind}' gives is ${described.join(' or ')}, which no one type holds; ${rewrite}`, pointer);
         }
@@ -621,6 +623,37 @@ export class LanguageResolver {
         if (LanguageResolver.#holdsTypeParameter(result.type)) {
             this.#fail(`${what} produces ${result.type}, a type no receiver gives`, pointer);
         }
+    }
+
+    /**
+     * Resolves a body: each binding against the scope and the bindings before it, a value, and the result against them all, its type the result's.
+     * It is fixed only where every binding and its result are, so a read a binding makes, used or not, is never discarded.
+     */
+    #resolveBody(node, pointer, scope) {
+        let locals = scope.locals;
+        let isFixed = true;
+
+        node.bindings.forEach((binding, index) => {
+            const valuePointer = `${pointer}/bindings/${index}/value`;
+            const bindingScope = { ...scope, locals };
+            const result = this.#resolveNode(binding.value, valuePointer, bindingScope);
+
+            if (result.kind !== 'query') {
+                this.#fail(`The binding '${binding.name}' is ${LanguageResolver.#descriptionOf(result.kind)}, and a binding is a value`, valuePointer);
+            }
+
+            isFixed &&= result.isFixed;
+            locals = new Map(locals).set(binding.name, { result, value: binding.value, scope: bindingScope });
+        });
+
+        const result = this.#resolveNode(node.result, `${pointer}/result`, { ...scope, locals });
+
+        // A body gives a value, as a field holds one: an event source, an action and a behavior are requests of their own.
+        if (result.kind !== 'query') {
+            this.#fail(`A body gives a value, and its result is ${LanguageResolver.#descriptionOf(result.kind)}`, `${pointer}/result`);
+        }
+
+        return isFixed && result.isFixed ? result : { type: result.type, kind: result.kind, isFixed: false };
     }
 
     /** Resolves a local: what the one in scope with its name resolved to where it was written. A name no local in scope has is refused, with the form of the current value's member of that name where it has one. */

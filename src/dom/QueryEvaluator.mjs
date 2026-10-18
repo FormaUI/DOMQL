@@ -477,6 +477,34 @@ export class QueryEvaluator {
 
                 return (evaluator, currentValue) => !QueryEvaluator.#isTruthy(operand(evaluator, currentValue));
             }
+            case 'body': {
+                const bindings = node.bindings.map(binding => ({ name: binding.name, evaluate: this.#getCompiledFunction(binding.value) }));
+                const result = this.#getCompiledFunction(node.result);
+
+                // Each binding is evaluated once, in order, whenever the body runs, an unused one included, each seeing those before it, and then the result, all against the body's current value.
+                return (evaluator, currentValue) => {
+                    const frame = { node, item: currentValue, values: new Map(), enclosing: evaluator.#localsFrame };
+                    const enclosingSelections = evaluator.#selections;
+
+                    evaluator.#localsFrame = frame;
+
+                    try {
+                        for (const binding of bindings) {
+                            evaluator.#selections = null;
+
+                            const value = binding.evaluate(evaluator, currentValue);
+
+                            frame.values.set(binding.name, { value, selections: evaluator.#selections });
+                        }
+
+                        evaluator.#selections = enclosingSelections;
+
+                        return result(evaluator, currentValue);
+                    } finally {
+                        evaluator.#localsFrame = frame.enclosing;
+                    }
+                };
+            }
             case 'interpolatedString': {
                 const parts = node.parts.map(part => (part.kind === 'text' ? part.value : { expression: part.expression, evaluate: this.#getCompiledFunction(part.expression) }));
 
@@ -959,7 +987,8 @@ export class QueryEvaluator {
     #evaluateLocal(node) {
         let frame = this.#localsFrame;
 
-        while (!frame.node.locals.some(local => local.name === node.name)) {
+        // A frame is an object expression's, whose locals are evaluated at their first use, or a body's, whose bindings it evaluated in order before its result.
+        while (!(frame.node.locals ?? frame.node.bindings).some(local => local.name === node.name)) {
             frame = frame.enclosing;
         }
 

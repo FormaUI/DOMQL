@@ -107,7 +107,11 @@ export class TextLocations {
             });
         }
 
-        for (const entriesProperty of ['locals', 'fields']) {
+        if (node.kind === 'body') {
+            this.#collect(node.result, `${pointer}/result`, spans);
+        }
+
+        for (const entriesProperty of ['locals', 'fields', 'bindings']) {
             node[entriesProperty]?.forEach((entry, index) => {
                 const entryPointer = `${pointer}/${entriesProperty}/${index}`;
                 const entrySpan = spans.get(entry);

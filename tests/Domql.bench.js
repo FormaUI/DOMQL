@@ -11,7 +11,7 @@ const SIZES = [100, 1000, 10000, 100000];
 const ROWS_TEXT = 'table.all("tr") { key = self:attribute["data-key"], selected = self.matches(".selected"), box = self.rect { width = self.width, height = self.height } }';
 
 /** Each row as data again, its fields reading locals and choosing by conditionals. */
-const LOCALS_TEXT = 'table.all("tr") { let key = self:attribute["data-key"], let box = self.rect, key = key, state = if self.matches(".selected") then "selected" else "plain", width = box?.width, height = if key == null then 0 else box?.height }';
+const LOCALS_TEXT = 'table.all("tr") { let key = self:attribute["data-key"], let box = self.rect, key = key, state = if self.matches(".selected") then "selected" else "plain" end, width = box?.width, height = if key == null then 0 else box?.height end }';
 
 /** A table of rows, in the document, each with a key. */
 const createTable = rows => {

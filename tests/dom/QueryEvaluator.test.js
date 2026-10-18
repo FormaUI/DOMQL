@@ -281,7 +281,7 @@ describe('QueryEvaluator', () => {
 
         it('takes the name from a bound string, a local, a conditional and a coalescing operator', () => {
             expect(read('panel[name]?.width', { panel, name: 'size' })).toBe(640);
-            expect(read('panel { let name = if wide then "size" else "clientSize", width = self[name]?.width }', { panel, wide: true })).toEqual({ width: 640 });
+            expect(read('panel { let name = if wide then "size" else "clientSize" end, width = self[name]?.width }', { panel, wide: true })).toEqual({ width: 640 });
             expect(read('panel[name ?? "size"]?.width', { panel, name: null })).toBe(640);
         });
 
@@ -346,7 +346,7 @@ describe('QueryEvaluator', () => {
             document.body.append(input);
             input.setSelectionRange(1, 3);
 
-            expect(read('input.selection { start = self.start, end = self.end }', { input })).toEqual({ start: 1, end: 3 });
+            expect(read('input.selection { start = self.start, finish = self.end }', { input })).toEqual({ start: 1, finish: 3 });
             expect(read('input.hasSelection', { input })).toBe(true);
 
             input.setSelectionRange(2, 2);
@@ -439,32 +439,32 @@ describe('QueryEvaluator', () => {
             [true, 'consequent'],
             [false, 'alternative'],
         ])('select by a condition of %s the %s', (condition, branch) => {
-            expect(read('if condition then "consequent" else "alternative"', { condition: condition })).toBe(branch);
+            expect(read('if condition then "consequent" else "alternative" end', { condition: condition })).toBe(branch);
         });
 
         it('move to the next clause where a condition is false, and to the alternative where none is true', () => {
             const bindings = (a, b) => ({ a: a, b: b });
 
-            expect(read('if a then 1 elseif b then 2 else 3', bindings(false, true))).toBe(2);
-            expect(read('if a then 1 elseif b then 2 else 3', bindings(false, false))).toBe(3);
-            expect(read('if a then 1 elseif b then 2 else 3', bindings(true, true))).toBe(1);
-            expect(read('if a ?? false then 1 elseif b then 2 else 3', bindings(null, true))).toBe(2);
+            expect(read('if a then 1 elseif b then 2 else 3 end', bindings(false, true))).toBe(2);
+            expect(read('if a then 1 elseif b then 2 else 3 end', bindings(false, false))).toBe(3);
+            expect(read('if a then 1 elseif b then 2 else 3 end', bindings(true, true))).toBe(1);
+            expect(read('if a ?? false then 1 elseif b then 2 else 3 end', bindings(null, true))).toBe(2);
         });
 
         it('evaluate only the branch the condition selects', () => {
             const { module, record } = probes();
 
-            expect(readWith(module, 'if panel.yes then panel.yes else panel.no', { panel })).toBe(true);
+            expect(readWith(module, 'if panel.yes then panel.yes else panel.no end', { panel })).toBe(true);
             expect(record).toEqual({ yes: 2, no: 0 });
         });
 
         it('keep the value of the selected branch, false and null included', () => {
-            expect(read('if on then false else true', { on: true })).toBe(false);
-            expect(read('if on then null else 1', { on: true })).toBeNull();
+            expect(read('if on then false else true end', { on: true })).toBe(false);
+            expect(read('if on then null else 1 end', { on: true })).toBeNull();
         });
 
-        it('start a chain from a group, reading from the element the condition selects', () => {
-            expect(read('(if first then panel else other):attribute["id"]', { first: false, panel, other: items[0] })).toBe(items[0].getAttribute('id'));
+        it('give a local the element the condition selects, which a chain continues from', () => {
+            expect(read('let target = if first then panel else other end\n= target:attribute["id"]', { first: false, panel, other: items[0] })).toBe(items[0].getAttribute('id'));
         });
     });
 
@@ -488,14 +488,14 @@ describe('QueryEvaluator', () => {
             const { module, record } = counting();
 
             expect(readWith(module, 'panel { let n = self.counted, a = 1 }', { panel })).toEqual({ a: 1 });
-            expect(readWith(module, 'panel { let n = self.counted, a = if on then n else 0 }', { panel, on: false })).toEqual({ a: 0 });
+            expect(readWith(module, 'panel { let n = self.counted, a = if on then n else 0 end }', { panel, on: false })).toEqual({ a: 0 });
             expect(record.reads).toBe(0);
         });
 
         it('evaluate a local at its first use, wherever that is', () => {
             const { module, record } = counting();
 
-            expect(readWith(module, 'panel { let n = self.counted, a = if on then n else 0, b = n }', { panel, on: false })).toEqual({ a: 0, b: 1 });
+            expect(readWith(module, 'panel { let n = self.counted, a = if on then n else 0 end, b = n }', { panel, on: false })).toEqual({ a: 0, b: 1 });
             expect(record.reads).toBe(1);
         });
 
@@ -710,8 +710,8 @@ describe('QueryEvaluator evaluation', () => {
         const consequents = identities => [...identities.branches].map(([conditional, branch]) => branch === conditional.consequent);
 
         it('are recorded beside the identities of the place in the result each conditional gave', () => {
-            expect(consequents(evaluate('if on then 1 else 2', { on: true }).identities)).toEqual([true]);
-            expect(consequents(evaluate('panel { width = if on then panel.size?.width else 0 }', { panel, on: false }).identities.fields.width)).toEqual([false]);
+            expect(consequents(evaluate('if on then 1 else 2 end', { on: true }).identities)).toEqual([true]);
+            expect(consequents(evaluate('panel { width = if on then panel.size?.width else 0 end }', { panel, on: false }).identities.fields.width)).toEqual([false]);
         });
 
         it('are recorded for the operand an and or an or gave', () => {
@@ -725,13 +725,13 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('record an elseif as the conditional nested in the alternative it is', () => {
-            expect(consequents(evaluate('if a then 1 elseif b then 2 else 3', { a: false, b: true }).identities)).toEqual([false, true]);
+            expect(consequents(evaluate('if a then 1 elseif b then 2 else 3 end', { a: false, b: true }).identities)).toEqual([false, true]);
         });
 
         it('are recorded for each item, which can select a different branch', () => {
             rows[1].setAttribute('data-on', '');
 
-            const { items } = evaluate('panel.children { pick = if (self:attribute["data-on"]) == null then 2 else 1 }', { panel }).identities;
+            const { items } = evaluate('panel.children { pick = if (self:attribute["data-on"]) == null then 2 else 1 end }', { panel }).identities;
 
             expect(items.map(item => consequents(item.fields.pick))).toEqual([[true], [false], [true]]);
         });
@@ -741,7 +741,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are recorded at every place a local is used, which its conditionals gave', () => {
-            const { fields } = evaluate('panel { let w = if on then 1 else 2, a = w, b = w }', { panel, on: true }).identities;
+            const { fields } = evaluate('panel { let w = if on then 1 else 2 end, a = w, b = w }', { panel, on: true }).identities;
 
             expect(consequents(fields.a)).toEqual([true]);
             expect(consequents(fields.b)).toEqual([true]);
@@ -823,8 +823,8 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('include only those of the branch a conditional evaluated', () => {
-            expect(membersOf(evaluate('if on then panel.size else panel.clientSize', { panel, on: true }))).toEqual(['size']);
-            expect(membersOf(evaluate('if on then panel.size else panel.clientSize', { panel, on: false }))).toEqual(['clientSize']);
+            expect(membersOf(evaluate('if on then panel.size else panel.clientSize end', { panel, on: true }))).toEqual(['size']);
+            expect(membersOf(evaluate('if on then panel.size else panel.clientSize end', { panel, on: false }))).toEqual(['clientSize']);
         });
 
         it('include the predicates an or reached, and none it did not need', () => {

@@ -17,7 +17,7 @@ describe('SyntaxTree', () => {
         '  panel.size  ',
         '// A panel.\npanel { /* its\nfirst item */ open = self.first(".item") /* inline */.matches(/**/".open") // whether it is open\n}\n',
         'panel {\n    let rows = self.all("tr"),\n\n    count = rows.count,\n    first = rows:[0]?:["data-key"]\n}',
-        'if let n = a to "number" then n elseif b then 1 else (?panel.parent.rect).width',
+        'if let n = a to "number" then n elseif b then 1 else (?panel.parent.rect).width end',
         '\t(a ?? b)\tas "element"',
         '(?(panel.parent as "element").rect.width) == null and not x != y or (try v to"number" ?? 0)',
         'a/* the value */to/* its type */"number"',
@@ -61,7 +61,7 @@ describe('SyntaxTree', () => {
         expect(kindsOf(treeOf('a == b and c'))).toEqual(['query', 'conjunction', 'equality']);
         expect(kindsOf(treeOf('panel.closest(".row")?.rect { top = self.top }'))).toEqual(['query', 'chain', 'function-call', 'dot-property-access', 'object', 'field', 'chain', 'dot-property-access']);
         expect(kindsOf(treeOf('(?a.b) ?? (c as "node")'))).toEqual(['query', 'coalescing', 'optional-enclosed-access', 'member-chain', 'dot-property-access', 'parenthesized-expression', 'cast']);
-        expect(kindsOf(treeOf('if let v = a then v else 0'))).toEqual(['query', 'conditional-expression', 'conditional-binding']);
+        expect(kindsOf(treeOf('if let v = a then v else 0 end'))).toEqual(['query', 'conditional-expression', 'conditional-binding']);
         expect(kindsOf(treeOf('panel[name]?:attribute["id"]'))).toEqual(['query', 'chain', 'bracket-property-access', 'indexer']);
     });
 
@@ -74,13 +74,14 @@ describe('SyntaxTree', () => {
 
     it('publishes every node kind the parser builds and every token type the tokenizer reads', () => {
         const texts = [
-            'if let v = a then v elseif not b then 1 else 2',
+            'if let v = a then v elseif not b then 1 else 2 end',
             'a == b and c != d or (try e to "number" ?? 0)',
             '(?(panel.parent as "element").rect.width) ?? panel.closest(".row")?.rect { top = self.top }',
             'panel { let rows = self.all("i"), first = rows:[0]?:["data-key"], name = self[name], open = self.matches(".x") }',
             '-a * 2 + b % 3 - c / d',
             '0 < a <= 1 and b > c >= d',
             '$"a {b}"',
+            'let a = 1\n= do let b = a = b end',
         ];
         const kinds = new Set(texts.flatMap(text => kindsOf(treeOf(text))));
         const types = new Set(texts.flatMap(text => Tokenizer.scan(text).map(token => token.type)).concat(Tokenizer.scan('a = 1').map(token => token.type)));

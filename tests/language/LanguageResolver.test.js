@@ -59,9 +59,9 @@ describe('LanguageResolver', () => {
             ['an argument', 'panel.children:[panel.loose]'],
             ['an expression', 'panel.children.where(self.loose).count'],
             ['an operand of and', 'panel.loose and 1'],
-            ['a condition', 'if panel.loose then 1 else 2'],
+            ['a condition', 'if panel.loose then 1 else 2 end'],
             ['what not negates', 'not panel.loose'],
-            ['a conditional binding', 'if let v = panel.loose then 1 else 2'],
+            ['a conditional binding', 'if let v = panel.loose then 1 else 2 end'],
             ['a receiver', 'panel.loose.count'],
             ['a subject', 'panel.loose.attached'],
         ])('refuses a type parameter no receiver gives an argument as %s, so its value never reaches a result', (_, text) => {
@@ -255,7 +255,7 @@ describe('LanguageResolver', () => {
             expect(heldType('panel.root')).toBe('node');
             expect(heldType('panel.root.host')).toBe('element?');
             expect(resolve('document.all("p").count').type.toString()).toBe('number');
-            expect(heldType('if wide then panel else document', { panel, wide: true })).toBe('node');
+            expect(heldType('if wide then panel else document end', { panel, wide: true })).toBe('node');
         });
 
         it('types an element\'s shadow view by its own members, which are no element\'s, and refuses it as data', () => {
@@ -344,14 +344,14 @@ describe('LanguageResolver', () => {
         it('resolves a bracket property access to the type the properties its names name share', () => {
             expect(resolve('panel["children"].count').type.toString()).toBe('number');
             expect(resolve('panel[name]', { panel, name: 'size' }).type.toString()).toBe('size?');
-            expect(resolve('panel { let name = if wide then "size" else "clientSize", s = self[name] }', { panel, wide: true }).type.toString()).toBe('{ s: size? }');
+            expect(resolve('panel { let name = if wide then "size" else "clientSize" end, s = self[name] }', { panel, wide: true }).type.toString()).toBe('{ s: size? }');
             expect(resolve('panel[null ?? "size"]').type.toString()).toBe('size?');
         });
 
         it('determines the names a conditional binding gives as its value does, without null, in its consequent', () => {
-            expect(resolve('panel[if let name = chosen then name else "clientSize"]', { panel, chosen: 'size' }).type.toString()).toBe('size?');
-            expect(resolve('if let name = chosen then panel[name] else null', { panel, chosen: 'size' }).type.toString()).toBe('size?');
-            expect(failure('if let name = panel:["data-name"] then panel[name] else null', { panel }).message).toContain('A bracket property access reads a name determined when the query is prepared');
+            expect(resolve('panel[if let name = chosen then name else "clientSize" end]', { panel, chosen: 'size' }).type.toString()).toBe('size?');
+            expect(resolve('if let name = chosen then panel[name] else null end', { panel, chosen: 'size' }).type.toString()).toBe('size?');
+            expect(failure('if let name = panel:["data-name"] then panel[name] else null end', { panel }).message).toContain('A bracket property access reads a name determined when the query is prepared');
         });
 
         it.each([
@@ -361,8 +361,8 @@ describe('LanguageResolver', () => {
             ['an or gives past a falsey middle operand, which passes evaluation on', 'panel[wide and label or "rect"]', { wide: true, label: null }, 'rectangle?'],
             ['an or gives from a truthy middle operand', 'panel[wide and label or "rect"]', { wide: true, label: 'size' }, 'size?'],
             ['an or gives past a null operand', 'panel[first or second]', { first: null, second: 'size' }, 'size?'],
-            ['a conditional whose fixed condition selects one branch, the other left unread', 'panel[if wide then "size" else "nonsense"]', { wide: true }, 'size?'],
-            ['a conditional whose condition is read when the query is evaluated, either branch possible', 'panel[if panel.attached then "size" else "clientSize"]', {}, 'size?'],
+            ['a conditional whose fixed condition selects one branch, the other left unread', 'panel[if wide then "size" else "nonsense" end]', { wide: true }, 'size?'],
+            ['a conditional whose condition is read when the query is evaluated, either branch possible', 'panel[if panel.attached then "size" else "clientSize" end]', {}, 'size?'],
             ['a coalescing operator whose value cannot be null, its fallback never asked for names', 'panel["size" ?? panel:["x"]]', {}, 'size?'],
         ])('resolves a bracket property access to the names %s', (_, text, bindings, type) => {
             expect(resolve(text, { panel, ...bindings }).type.toString()).toBe(type);
@@ -382,7 +382,7 @@ describe('LanguageResolver', () => {
             expect(failure('panel[panel:attribute["data-name"]]').message).toContain('A bracket property access reads a name determined when the query is prepared');
             expect(failure('panel[name]', { panel, name: null }).message).toContain("A bracket property access reads a string, and 'name' can be null");
             expect(failure('panel["depth"]').message).toContain("'depth' is no member of the vocabulary");
-            expect(failure('panel[if panel.attached then "size" else "children"]', { panel }).message).toContain('are of one type, and these are size?, list<element>');
+            expect(failure('panel[if panel.attached then "size" else "children" end]', { panel }).message).toContain('are of one type, and these are size?, list<element>');
         });
 
         it('refuses a bracket property access of a receiver that can be null, giving the optional form', () => {
@@ -399,14 +399,14 @@ describe('LanguageResolver', () => {
         it('resolves a feature held in a local whose value is a literal or a bound parameter, and refuses one whose value reads the document', () => {
             expect(resolve('window { let feature = "share", supportsShare = self.supports(feature) }').type.toString()).toBe('{ supportsShare: boolean }');
             expect(resolve('window { let feature = chosen, supportsShare = self.supports(feature) }', { chosen: 'share' }).type.toString()).toBe('{ supportsShare: boolean }');
-            expect(failure('window { let feature = if panel.attached then "share" else "clipboard", supportsShare = self.supports(feature) }', { panel }).message).toContain('a string the query\'s preparation settles');
+            expect(failure('window { let feature = if panel.attached then "share" else "clipboard" end, supportsShare = self.supports(feature) }', { panel }).message).toContain('a string the query\'s preparation settles');
         });
 
         it.each([
             ['an and and an or', 'window.supports(wide and "share" or "clipboard")', { wide: true }],
             ['an and and an or, the other way', 'window.supports(wide and "clipboard" or "share")', { wide: false }],
-            ['a conditional', 'window.supports(if wide then "share" else "nothing")', { wide: true }],
-            ['a conditional binding', 'window.supports(if let f = feature then f else "nothing")', { feature: 'share' }],
+            ['a conditional', 'window.supports(if wide then "share" else "nothing" end)', { wide: true }],
+            ['a conditional binding', 'window.supports(if let f = feature then f else "nothing" end)', { feature: 'share' }],
             ['a coalescing operator whose value is null', 'window.supports(feature ?? "share")', { feature: null }],
             ['a coalescing operator whose value is not', 'window.supports(feature ?? "nothing")', { feature: 'share' }],
             ['a local holding one of them', 'window { let f = wide and "share" or "nothing", supported = self.supports(f) }', { wide: true }],
@@ -416,14 +416,14 @@ describe('LanguageResolver', () => {
 
         it('refuses a feature an expression settles to a name the vocabulary lacks, and one that reads the document to settle', () => {
             expect(failure('window.supports(wide and "share" or "nothing")', { wide: false }).message).toContain("'nothing' is no condition 'supports' asks; it asks share, clipboard");
-            expect(failure('window.supports(if panel.attached then "share" else "share")', { panel }).message).toContain("a string the query's preparation settles");
+            expect(failure('window.supports(if panel.attached then "share" else "share" end)', { panel }).message).toContain("a string the query's preparation settles");
             expect(failure('window.supports(panel:["data-f"] ?? "share")', { panel }).message).toContain("a string the query's preparation settles");
         });
 
         it('resolves a feature a conditional binding holds where its value is a literal or a bound parameter, and refuses one any other expression gives', () => {
-            expect(resolve('if let feature = "share" then window.supports(feature) else false').type.toString()).toBe('boolean');
-            expect(resolve('if let feature = chosen then window.supports(feature) else false', { chosen: 'share' }).type.toString()).toBe('boolean');
-            expect(failure('if let feature = panel:["data-f"] then window.supports(feature) else false', { panel }).message).toContain('a string the query\'s preparation settles');
+            expect(resolve('if let feature = "share" then window.supports(feature) else false end').type.toString()).toBe('boolean');
+            expect(resolve('if let feature = chosen then window.supports(feature) else false end', { chosen: 'share' }).type.toString()).toBe('boolean');
+            expect(failure('if let feature = panel:["data-f"] then window.supports(feature) else false end', { panel }).message).toContain('a string the query\'s preparation settles');
         });
 
         it('refuses an event type or a feature the vocabulary does not declare', () => {
@@ -504,7 +504,7 @@ describe('LanguageResolver', () => {
 
         it('points into a definition that has no text', () => {
             const definition = {
-                version: 22,
+                version: 23,
                 query: { kind: 'member', target: { kind: 'parameter', name: 'panel' }, name: 'nonsense', arguments: [] },
             };
 
@@ -602,19 +602,19 @@ describe('LanguageResolver', () => {
             ['the right operand of an and, where the left says the local is not null', local('a', 'a != null and a.attached'), '{ r: boolean }'],
             ['the right operand of an or, where the left says the local is null', local('a', 'a == null or a.attached'), '{ r: boolean }'],
             ['the right operand of an or, where the left negates the local', local('a', 'not a or a.attached'), '{ r: boolean }'],
-            ['the consequent, where the condition is the local', local('a', 'if a then a.attached else false'), '{ r: boolean }'],
-            ['the alternative, where the condition says the local is null', local('a', 'if a == null then false else a.attached'), '{ r: boolean }'],
-            ['the consequent, where an and of conditions holds both', local('a', 'if a != null and other != null then a.attached and other.attached else false'), '{ r: boolean }'],
-            ['the consequent, where every path of an or holds the local', local('a', 'if (a != null and other != null) or (a != null and panel.attached) then a.attached else false'), '{ r: boolean }'],
-            ['a later elseif, where an earlier condition says the local is null', local('a', 'if a == null then 0 elseif a.attached then 1 else 2'), '{ r: number }'],
-            ['the consequent of a binding, where its value is the local', local('a', 'if let b = a then a.attached and b.attached else false'), '{ r: boolean }'],
+            ['the consequent, where the condition is the local', local('a', 'if a then a.attached else false end'), '{ r: boolean }'],
+            ['the alternative, where the condition says the local is null', local('a', 'if a == null then false else a.attached end'), '{ r: boolean }'],
+            ['the consequent, where an and of conditions holds both', local('a', 'if a != null and other != null then a.attached and other.attached else false end'), '{ r: boolean }'],
+            ['the consequent, where every path of an or holds the local', local('a', 'if (a != null and other != null) or (a != null and panel.attached) then a.attached else false end'), '{ r: boolean }'],
+            ['a later elseif, where an earlier condition says the local is null', local('a', 'if a == null then 0 elseif a.attached then 1 else 2 end'), '{ r: number }'],
+            ['the consequent of a binding, where its value is the local', local('a', 'if let b = a then a.attached and b.attached else false end'), '{ r: boolean }'],
         ])('narrows a local in %s', (_, text, type) => {
             expect(resolve(text).type.toString()).toBe(type);
         });
 
         it.each([
-            ['an or, which says neither is not null', local('a', 'if a != null or other != null then a.attached else false'), '/query/fields/0/value/consequent'],
-            ['the alternative of a condition that is the local', local('a', 'if a then false else a.attached'), '/query/fields/0/value/alternative'],
+            ['an or, which says neither is not null', local('a', 'if a != null or other != null then a.attached else false end'), '/query/fields/0/value/consequent'],
+            ['the alternative of a condition that is the local', local('a', 'if a then false else a.attached end'), '/query/fields/0/value/alternative'],
             ['a member read anew, whose text is the same', 'panel.first(".a") and panel.first(".a").attached', '/query/operands/1'],
             ['another local of the same name, in another object expression', 'panel { x = { let a = self.first(".a"), v = a and a.attached }, y = { let a = self.first(".b"), v = a.attached } }', '/query/fields/1/value/fields/0/value'],
         ])('narrows nothing through %s', (_, text, pointer) => {
@@ -658,8 +658,8 @@ describe('LanguageResolver', () => {
         });
 
         it.each([
-            ['a Boolean and an element', 'panel.attached and panel', "What 'and' gives is false or element, which no one type holds; write 'if panel.attached then panel else null' if null is an acceptable alternative"],
-            ['a Boolean or a number', 'panel.attached or 3', "What 'or' gives is true or number, which no one type holds; a conditional, 'if … then … else …', chooses between values of one type"],
+            ['a Boolean and an element', 'panel.attached and panel', "What 'and' gives is false or element, which no one type holds; write 'if panel.attached then panel else null end' if null is an acceptable alternative"],
+            ['a Boolean or a number', 'panel.attached or 3', "What 'or' gives is true or number, which no one type holds; a conditional, 'if … then … else … end', chooses between values of one type"],
             ['a nullable Boolean and a string', '(panel.parent as "element")?.attached and "x"', "What 'and' gives is false or null or string"],
         ])('refuse an and or an or of %s, whose values no one type holds', (_, text, message) => {
             const error = failure(text);
@@ -724,37 +724,37 @@ describe('LanguageResolver', () => {
 
     describe('conditionals', () => {
         it('type a conditional by its branches, nullable where either is', () => {
-            expect(resolve('if wide then 1 else 2', { panel, wide: true }).type.toString()).toBe('number');
-            expect(resolve('if wide then panel.size?.width else 0', { panel, wide: true }).type.toString()).toBe('number?');
-            expect(resolve('if wide then "on" else null', { panel, wide: true }).type.toString()).toBe('string?');
-            expect(resolve('if wide then { width = 1 } else { width = panel.size?.width }', { panel, wide: true }).type.toString()).toBe('{ width: number? }');
+            expect(resolve('if wide then 1 else 2 end', { panel, wide: true }).type.toString()).toBe('number');
+            expect(resolve('if wide then panel.size?.width else 0 end', { panel, wide: true }).type.toString()).toBe('number?');
+            expect(resolve('if wide then "on" else null end', { panel, wide: true }).type.toString()).toBe('string?');
+            expect(resolve('if wide then { width = 1 } else { width = panel.size?.width } end', { panel, wide: true }).type.toString()).toBe('{ width: number? }');
         });
 
         it('type an elseif as the conditional it is nested in the alternative', () => {
-            expect(resolve('if a then 1 elseif b then null else 3', { a: true, b: false }).type.toString()).toBe('number?');
+            expect(resolve('if a then 1 elseif b then null else 3 end', { a: true, b: false }).type.toString()).toBe('number?');
         });
 
         it('refuse branches of different types, naming both', () => {
-            const error = failure('if wide then 1 else "one"', { panel, wide: true });
+            const error = failure('if wide then 1 else "one" end', { panel, wide: true });
 
             expect(error.message).toContain("The branches of 'if' are of one type, and these are number and string");
             expect(error.location.pointer).toBe('/query/alternative');
-            expect(failure('if wide then { a = 1 } else { b = 1 }', { panel, wide: true }).message).toContain('{ a: number } and { b: number }');
+            expect(failure('if wide then { a = 1 } else { b = 1 } end', { panel, wide: true }).message).toContain('{ a: number } and { b: number }');
         });
 
         it('take a condition of any value, and refuse one that is no value', () => {
-            expect(resolve('if panel.size then 1 else 2').type.toString()).toBe('number');
-            expect(resolve('if (panel.parent as "element")?.attached then 1 else 2').type.toString()).toBe('number');
-            expect(resolve('if panel.children then 1 else 2').type.toString()).toBe('number');
+            expect(resolve('if panel.size then 1 else 2 end').type.toString()).toBe('number');
+            expect(resolve('if (panel.parent as "element")?.attached then 1 else 2 end').type.toString()).toBe('number');
+            expect(resolve('if panel.children then 1 else 2 end').type.toString()).toBe('number');
 
-            const error = failure('if panel.on("click") then 1 else 2');
+            const error = failure('if panel.on("click") then 1 else 2 end');
 
             expect(error.message).toContain("The condition of 'if' is a value, and this one is an event source");
             expect(error.location.pointer).toBe('/query/condition');
         });
 
         it('validate a branch that evaluation might never reach', () => {
-            expect(failure('if wide then 1 else panel.nonsense', { panel, wide: true }).location.pointer).toBe('/query/alternative');
+            expect(failure('if wide then 1 else panel.nonsense end', { panel, wide: true }).location.pointer).toBe('/query/alternative');
         });
 
         it('type is null as a Boolean that is never null, whatever its subject', () => {
