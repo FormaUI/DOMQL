@@ -34,7 +34,7 @@ describe('DefinitionWriter', () => {
         'panel.matches(panel:attribute["for"])',
         'panel.rectRelativeTo(panel.parent)?.top',
         'if panel.attached then "here" elseif panel == null then "gone" else "away" end',
-        'let target = if a then panel else other end\n= target.size',
+        'let target = if a then panel else other end\nreturn target.size',
         '(if a then true else false end) and b',
         'if (if a then b else c end) then 1 else 2 end',
         'if a then (if b then 1 else 2 end) else 3 end',

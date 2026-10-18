@@ -422,7 +422,7 @@ describe('Watch', () => {
         it('evaluates every binding once each time it runs, an unused one included, following what each read', async () => {
             const before = evaluations;
 
-            watch('let unused = panel.tally\n= 1', { panel }, { schedule: 'immediate' });
+            watch('let unused = panel.tally\nreturn 1', { panel }, { schedule: 'immediate' });
             await settle();
             panel.setAttribute('data-x', '1');
             await settle();

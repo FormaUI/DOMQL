@@ -272,7 +272,7 @@ describe('domql', () => {
 
         it('stand where an expression stands, grouped where it is an operand, and start no chain, which a local holding the value does', () => {
             expect(getError(() => domql.query('(if wide then panel else sidebar end).rect.width')).message).toContain('A conditional is never the receiver of a chain: bind its value to a local first');
-            expect(domql.query('let target = if wide then panel else sidebar end\n= target.rect.width').definition.query.result).toEqual(member('width', member('rect', { kind: 'local', name: 'target' })));
+            expect(domql.query('let target = if wide then panel else sidebar end\nreturn target.rect.width').definition.query.result).toEqual(member('width', member('rect', { kind: 'local', name: 'target' })));
             expect(domql.query('(if a then true else false end) and b').definition.query.kind).toBe('and');
             expect(domql.query('panel { state = if self.is("disabled") then "locked" else "open" end }').definition.query.fields[0].value.kind).toBe('conditional');
         });
@@ -3200,74 +3200,74 @@ describe('domql bodies', () => {
     const member = (name, target) => ({ kind: 'member', target, name });
     const conditional = (condition, consequent, alternative) => ({ kind: 'conditional', condition, consequent, alternative });
 
-    it('gives the result = introduces, after its bindings in order, a query, a do block and a branch alike', () => {
-        expect(evaluate('let width = w\nlet padding = 12\n= width - padding * 2', { w: 100 })).toBe(76);
-        expect(evaluate('= 4')).toBe(4);
-        expect(evaluate('{ doubled = do\n    let width = w\n    = width * 2\nend }', { w: 5 })).toEqual({ doubled: 10 });
+    it('gives the result its return gives, after its bindings in order, a query, a do block and a branch alike', () => {
+        expect(evaluate('let width = w\nlet padding = 12\nreturn width - padding * 2', { w: 100 })).toBe(76);
+        expect(evaluate('return 4')).toBe(4);
+        expect(evaluate('{ doubled = do\n    let width = w\n    return width * 2\nend }', { w: 5 })).toEqual({ doubled: 10 });
         expect(evaluate('do 7 end')).toBe(7);
-        expect(evaluate('let available = w\n    - padding * 2\nlet doubled = available * 2\n= doubled', { w: 100, padding: 12 })).toBe(152);
+        expect(evaluate('let available = w\n    - padding * 2\nlet doubled = available * 2\nreturn doubled', { w: 100, padding: 12 })).toBe(152);
     });
 
-    it('gives each marker\'s result to its own body, a branch\'s to its conditional and the conditional\'s to the binding that holds it', () => {
-        expect(evaluate('let x = if wide then\n    let n = 3\n    = n * 2\nelse\n    = 0\nend\n= x + 1', { wide: true })).toBe(7);
-        expect(evaluate('if wide then\n    let width = w\n    = if doubled then width * 2 else width end\nelse\n    = 0\nend', { wide: true, doubled: true, w: 5 })).toBe(10);
-        expect(evaluate('if wide then\n    let width = w\n    = width\nelseif compact then\n    = 100\nelse\n    = 0\nend', { wide: false, compact: true, w: 5 })).toBe(100);
+    it('gives each return\'s result to its own body, a branch\'s to its conditional and the conditional\'s to the binding that holds it', () => {
+        expect(evaluate('let x = if wide then\n    let n = 3\n    return n * 2\nelse\n    return 0\nend\nreturn x + 1', { wide: true })).toBe(7);
+        expect(evaluate('if wide then\n    let width = w\n    return if doubled then width * 2 else width end\nelse\n    return 0\nend', { wide: true, doubled: true, w: 5 })).toBe(10);
+        expect(evaluate('if wide then\n    let width = w\n    return width\nelseif compact then\n    return 100\nelse\n    return 0\nend', { wide: false, compact: true, w: 5 })).toBe(100);
         expect(evaluate('if wide then 1 else 2 end', { wide: false })).toBe(2);
     });
 
-    it('records a body of its bindings and its result, = and a do block of an expression alone with none', () => {
-        expect(queryOf('let a = 1\n= a')).toEqual({ kind: 'body', bindings: [{ name: 'a', value: literal(1) }], result: { kind: 'local', name: 'a' } });
+    it('records a body of its bindings and its result, a return and a do block of an expression alone with none', () => {
+        expect(queryOf('let a = 1\nreturn a')).toEqual({ kind: 'body', bindings: [{ name: 'a', value: literal(1) }], result: { kind: 'local', name: 'a' } });
         expect(queryOf('do 7 end')).toEqual({ kind: 'body', bindings: [], result: literal(7) });
-        expect(queryOf('= 7')).toEqual({ kind: 'body', bindings: [], result: literal(7) });
+        expect(queryOf('return 7')).toEqual({ kind: 'body', bindings: [], result: literal(7) });
         expect(queryOf('if a then 1 else 2 end')).toEqual(conditional(parameter('a'), literal(1), literal(2)));
     });
 
     it('evaluates every binding once, in order, an unused one included, where an object expression\'s unused local never runs', () => {
-        expect(getError(() => evaluate('let unused = 1 / zero\n= 1', { zero: 0 })).message).toContain("'/' divides by zero");
+        expect(getError(() => evaluate('let unused = 1 / zero\nreturn 1', { zero: 0 })).message).toContain("'/' divides by zero");
         expect(evaluate('{ let unused = 1 / zero, a = 1 }', { zero: 0 })).toEqual({ a: 1 });
     });
 
     it('scopes each binding after its value, a nested body hiding an enclosing name, two of one body never sharing one', () => {
-        expect(getError(() => domql.query('let a = b\nlet b = 1\n= a')).message).toContain("'b' is used before the local of that name is declared in its scope");
-        expect(getError(() => domql.query('let a = a\n= a', { a: 1 })).message).toContain("'a' is used before the local of that name is declared in its scope");
-        expect(getError(() => domql.query('let a = 1\nlet a = 2\n= a')).message).toContain("Two bindings of one body are named 'a'");
-        expect(evaluate('let a = ~a + 1\n= a', { a: 1 })).toBe(2);
-        expect(evaluate('let w = 1\n= (do let w = 2 = w end) + w')).toBe(3);
+        expect(getError(() => domql.query('let a = b\nlet b = 1\nreturn a')).message).toContain("'b' is used before the local of that name is declared in its scope");
+        expect(getError(() => domql.query('let a = a\nreturn a', { a: 1 })).message).toContain("'a' is used before the local of that name is declared in its scope");
+        expect(getError(() => domql.query('let a = 1\nlet a = 2\nreturn a')).message).toContain("Two bindings of one body are named 'a'");
+        expect(evaluate('let a = ~a + 1\nreturn a', { a: 1 })).toBe(2);
+        expect(evaluate('let w = 1\nreturn (do let w = 2 return w end) + w')).toBe(3);
     });
 
     it('gives a value, refusing a result that is an event source before anything is subscribed to', () => {
         const panel = document.createElement('div');
-        const error = getError(() => domql.query('let k = "x"\n= panel.on("click") { key = k }', { panel }).resolve());
+        const error = getError(() => domql.query('let k = "x"\nreturn panel.on("click") { key = k }', { panel }).resolve());
 
         expect(error).toMatchObject({ kind: 'validation', message: expect.stringContaining('A body gives a value, and its result is an event source'), location: { pointer: '/query/result' } });
-        expect(getError(() => domql.query('let k = "x"\n= panel.on("click") { key = k }', { panel }).subscribe(() => {})).kind).toBe('validation');
+        expect(getError(() => domql.query('let k = "x"\nreturn panel.on("click") { key = k }', { panel }).subscribe(() => {})).kind).toBe('validation');
     });
 
     it('narrows a binding a test guards, and settles a fixed argument only where every binding and its result do', () => {
         const input = document.createElement('input');
 
         input.disabled = true;
-        expect(evaluate('let p = input.parent\n= if p != null then p.children.count else 0 end', { input })).toBe(0);
-        expect(evaluate('input.is(do let state = "disabled" = state end)', { input })).toBe(true);
-        expect(getError(() => domql.query('input.is(do let unused = input.rect = "disabled" end)', { input }).resolve()).kind).toBe('validation');
+        expect(evaluate('let p = input.parent\nreturn if p != null then p.children.count else 0 end', { input })).toBe(0);
+        expect(evaluate('input.is(do let state = "disabled" return state end)', { input })).toBe(true);
+        expect(getError(() => domql.query('input.is(do let unused = input.rect return "disabled" end)', { input }).resolve()).kind).toBe('validation');
     });
 
     it.each([
-        ['branches of two styles', 'if wide then\n    let w = 5\n    = w * 2\nelse\n    0\nend', 'All branches of this conditional must introduce their results with =', 5, 5],
-        ['an elseif of the other style', 'if a then 1 elseif b then = 2 else 3 end', 'All branches of this conditional must introduce their results with =', 1, 11],
-        ['an expression standing before the result', 'a\n-b\n= 1', "Only local bindings may precede a body's result.", 3, 1],
-        ['an expression before a marked result', 'panel.rect.width\n= 42', "Only local bindings may precede a body's result.", 2, 1],
-        ['an expression after its bindings that a marked result follows', 'let a = 1\na\n= a', "Only local bindings may precede a body's result.", 2, 1],
-        ['bindings whose result has no =', 'let a = 1\na', "Introduce the body's result with =.", 2, 1],
-        ['bindings with no result', 'if c then let a = 1 else 2 end', "Introduce the body's result with =.", 1, 21],
-        ['a binding after its result', 'let a = 1\n= a\nlet b = 2', "Nothing follows a body's result, which ends it", 3, 1],
-        ['a second result', 'let a = 1\n= a\n= 2', "Nothing follows a body's result, which ends it", 3, 1],
-        ['a result marker with no value', 'let a = 1\n=', "'=' introduces its body's result: write the value after it, as in '= width'", 2, 1],
+        ['branches of two styles', 'if wide then\n    let w = 5\n    return w * 2\nelse\n    0\nend', 'All branches of this conditional must give their results with return, or none of them', 5, 5],
+        ['an elseif of the other style', 'if a then 1 elseif b then return 2 else 3 end', 'All branches of this conditional must give their results with return, or none of them', 1, 11],
+        ['an expression standing before the result', 'a\n-b\nreturn 1', "Only local bindings may precede a body's result.", 1, 1],
+        ['an expression before a returned result', 'panel.rect.width\nreturn 42', "Only local bindings may precede a body's result.", 1, 1],
+        ['an expression after its bindings that a return follows', 'let a = 1\na\nreturn a', "Only local bindings may precede a body's result.", 2, 1],
+        ['bindings whose result has no return', 'let a = 1\na', "Introduce the body's result with return.", 2, 1],
+        ['bindings with no result', 'if c then let a = 1 else 2 end', "Introduce the body's result with return.", 1, 21],
+        ['a binding after its result', 'let a = 1\nreturn a\nlet b = 2', "Nothing follows a body's result, which ends it", 3, 1],
+        ['a second result', 'let a = 1\nreturn a\nreturn 2', "Nothing follows a body's result, which ends it", 3, 1],
+        ['a return with no value', 'let a = 1\nreturn', "'return' gives its body's result: write the value after it, as in 'return width'", 2, 1],
         ['a conditional without its end', 'if a then 1 else 2', "Expected 'end' closing the conditional", 1, 19],
-        ['a do block without its end', 'do = 1', "Expected 'end' closing the do block", 1, 7],
-        ['a do block holding nothing', 'do end', "A do block holds a body: write 'do = … end'", 1, 4],
-        ['a do block that is an operand', '1 + do = 2 end', 'A do block that is an operand is enclosed in parentheses: write (do … end)', 1, 5],
-        ['a do block that starts a chain', '(do = panel end).rect', 'A do block is never the receiver of a chain: bind its value to a local first', 1, 17],
+        ['a do block without its end', 'do return 1', "Expected 'end' closing the do block", 1, 12],
+        ['a do block holding nothing', 'do end', "A do block holds a body: write 'do return … end'", 1, 4],
+        ['a do block that is an operand', '1 + do return 2 end', 'A do block that is an operand is enclosed in parentheses: write (do … end)', 1, 5],
+        ['a do block that starts a chain', '(do return panel end).rect', 'A do block is never the receiver of a chain: bind its value to a local first', 1, 22],
         ['a conditional that starts a chain', '(if a then b else c end).rect', 'A conditional is never the receiver of a chain: bind its value to a local first', 1, 25],
     ])('refuses %s, naming where', (_, text, message, line, column) => {
         const error = getError(() => domql.query(text));
@@ -3277,12 +3277,12 @@ describe('domql bodies', () => {
         expect(error.location).toMatchObject({ line, column });
     });
 
-    it('refuses a result among an object expression\'s fields, and a keyword naming a binding, a single = in an expression keeping its own message', () => {
-        expect(getError(() => domql.query('{ a = 1, = 2 }')).kind).toBe('syntax');
-        expect(getError(() => domql.query('let end = 1\n= 1')).kind).toBe('syntax');
+    it('refuses a return among an object expression\'s fields, and a keyword naming a binding or a field, a single = in an expression keeping its own message', () => {
+        expect(getError(() => domql.query('{ a = 1, return 2 }')).kind).toBe('syntax');
+        expect(getError(() => domql.query('let end = 1\nreturn 1')).kind).toBe('syntax');
         expect(getError(() => domql.query('{ do = 1 }')).kind).toBe('syntax');
+        expect(getError(() => domql.query('{ return = 1 }')).kind).toBe('syntax');
         expect(getError(() => domql.query('a = 1')).message).toContain("Unexpected '=' in an expression. Use '==' to compare values.");
-        expect(domql.query('{ return = 1 }').evaluate()).toEqual({ return: 1 });
     });
 
     it.each([
@@ -3301,13 +3301,13 @@ describe('domql bodies', () => {
     });
 
     it.each([
-        ['a query that is a body', 'let a=1 let b=a*2 = b', 'let a = 1\nlet b = a * 2\n= b'],
-        ['a do block in a field', '{ doubled = do let width = w = width * 2 end }', '{\n    doubled = do\n        let width = w\n        = width * 2\n    end\n}'],
-        ['a conditional of explicit results, each on its own lines', 'if a then let x = 1 = x elseif b then = 2 else = 3 end', 'if a then\n    let x = 1\n    = x\nelseif b then\n    = 2\nelse\n    = 3\nend'],
+        ['a query that is a body', 'let a=1 let b=a*2 return b', 'let a = 1\nlet b = a * 2\nreturn b'],
+        ['a do block in a field', '{ doubled = do let width = w return width * 2 end }', '{\n    doubled = do\n        let width = w\n        return width * 2\n    end\n}'],
+        ['a conditional of explicit results, each on its own lines', 'if a then let x = 1 return x elseif b then return 2 else return 3 end', 'if a then\n    let x = 1\n    return x\nelseif b then\n    return 2\nelse\n    return 3\nend'],
         ['a conditional of implicit results, on one line', 'if a then 1 else 2 end', 'if a then 1 else 2 end'],
-        ['an implicit conditional whose alternative is an explicit one, kept apart', 'if a then 1 else if b then = 2 else = 3 end end', 'if a then 1 else if b then\n    = 2\nelse\n    = 3\nend end'],
-        ['a do block on one line where a hole holds it', '$"{do let a = 1 = a end}"', '$"{do let a = 1 = a end}"'],
-        ['a do block that is an operand, grouped', '(do = 2 end) + 1', '(do\n    = 2\nend) + 1'],
+        ['an implicit conditional whose alternative is an explicit one, kept apart', 'if a then 1 else if b then return 2 else return 3 end end', 'if a then 1 else if b then\n    return 2\nelse\n    return 3\nend end'],
+        ['a do block on one line where a hole holds it', '$"{do let a = 1 return a end}"', '$"{do let a = 1 return a end}"'],
+        ['a do block that is an operand, grouped', '(do return 2 end) + 1', '(do\n    return 2\nend) + 1'],
     ])('writes %s', (_, text, formatted) => {
         expect(domql.format(text)).toBe(formatted);
         expect(domql.format(formatted)).toBe(formatted);

@@ -268,7 +268,7 @@ describe('SnapshotComparer', () => {
             });
 
             it('follows a branch through the field of its value a chain reads from the local holding it', () => {
-                const resolved = resolvedOf('let size = if wide then element.wobble else element.wobble end\n= size.width', { element, wide: true }, { tolerance: 2 });
+                const resolved = resolvedOf('let size = if wide then element.wobble else element.wobble end\nreturn size.width', { element, wide: true }, { tolerance: 2 });
                 const snapshotComparer = new SnapshotComparer(resolved);
                 const conditional = resolved.definition.query.bindings[0].value;
 

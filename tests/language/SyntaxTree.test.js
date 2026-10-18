@@ -81,7 +81,7 @@ describe('SyntaxTree', () => {
             '-a * 2 + b % 3 - c / d',
             '0 < a <= 1 and b > c >= d',
             '$"a {b}"',
-            'let a = 1\n= do let b = a = b end',
+            'let a = 1\nreturn do let b = a return b end',
         ];
         const kinds = new Set(texts.flatMap(text => kindsOf(treeOf(text))));
         const types = new Set(texts.flatMap(text => Tokenizer.scan(text).map(token => token.type)).concat(Tokenizer.scan('a = 1').map(token => token.type)));

@@ -268,15 +268,15 @@ export class DefinitionWriter {
         return PRECEDENCE[node.kind] ?? CHAIN_PRECEDENCE;
     }
 
-    /** A body's bindings and the result `=` introduces, each on a line of the level's indentation, or on one line where the level is null. */
+    /** A body's bindings and the `return` that gives its result, each on a line of the level's indentation, or on one line where the level is null. */
     static #bodyText(node, level) {
-        const entries = [...node.bindings.map(binding => `let ${binding.name} = ${DefinitionWriter.#write(binding.value, level)}`), `= ${DefinitionWriter.#write(node.result, level)}`];
+        const entries = [...node.bindings.map(binding => `let ${binding.name} = ${DefinitionWriter.#write(binding.value, level)}`), `return ${DefinitionWriter.#write(node.result, level)}`];
 
         return entries.join(level === null ? ' ' : `\n${INDENTATION.repeat(level)}`);
     }
 
     /**
-     * A conditional's clauses, each a condition or a binding, and the `end` that closes them: a conditional of its own style nested in its alternative is written as an `elseif`, and one in its condition or consequent in parentheses; every branch introduces its result with `=` where the branches are bodies.
+     * A conditional's clauses, each a condition or a binding, and the `end` that closes them: a conditional of its own style nested in its alternative is written as an `elseif`, and one in its condition or consequent in parentheses; every branch gives its result with `return` where the branches are bodies.
      * On one line where the level is null, or where it has no `elseif` and its branches are expressions; otherwise each clause begins a line, its branch after it where the branches are expressions and on the lines a level within it where they are bodies.
      */
     static #conditional(node, level) {

@@ -14,7 +14,7 @@ DOMQL is a FormaUI product, developed alongside [Forma](https://github.com/Forma
 - **Work with collections.** Project items, filter them, count them and calculate summaries.
 - **Keep results current.** Watch for changes and receive immutable snapshots or an object updated in place.
 - **Handle missing values.** Use optional access, fallbacks and conditionals directly in your query. Only `null` and `false` are falsey, and `and` and `or` return the operand that decides them, so `panel:["data-label"] or "untitled"` gives a label or a default.
-- **Name the steps.** Write a query as bindings and the result `=` introduces, as `let width = panel.rect?.width ?? 0` and then `= width / 2`, or a `do … end` block wherever a value stands; every conditional ends with `end`.
+- **Name the steps.** Write a query as bindings and the `return` that gives its result, as `let width = panel.rect?.width ?? 0` and then `return width / 2`, or a `do … end` block wherever a value stands; every conditional ends with `end`.
 - **Calculate and compare.** Derive values with `+`, `-`, `*`, `/` and `%`, as `(self.clientSize?.width ?? 0) - 24`, and test them with `<`, `<=`, `>` and `>=`, chained for a range, as `0 < width <= 600`. Both take numbers alone, so a value that can be missing takes a fallback first, and division by zero is an error, never infinity.
 - **Build text.** Insert values into text with an interpolated string, as `$"{self.children.count} items"`, which takes strings and numbers alone, so a missing value takes a fallback first, as `{name ?? "Unknown"}`.
 - **Write any character.** Strings take `\n`, `\t`, `\e` and the other common escapes, and `\u{…}` names any character by its code point, as `"\u{200B}"` writes a zero-width space you could not see otherwise.

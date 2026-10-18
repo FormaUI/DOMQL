@@ -17,7 +17,7 @@ In this notation, `[...]` means optional, `{...}` means repetition, `|` separate
 ```ebnf
 query                     = body end-of-input
 
-body                      = { body-binding } "=" expression
+body                      = { body-binding } "return" expression
                           | expression
 body-binding              = "let" identifier "=" expression
 
@@ -106,7 +106,7 @@ name                      = letter { letter | digit }
 reserved-word             = "true" | "false" | "null" | keyword
 keyword                   = "self" | "not" | "try" | "as" | "and" | "or"
                           | "if" | "then" | "elseif" | "else" | "let"
-                          | "do" | "end"
+                          | "do" | "end" | "return"
 
 number                    = integer [ fraction ] [ exponent ]
 integer                   = "0" | nonzero-digit { digit }
@@ -326,7 +326,7 @@ panel:["data-label"] or "untitled"
 
 ### Conditionals
 
-A conditional chooses between two values: `if` a condition `then` its consequent `else` its alternative, closed by `end`, taking the consequent where the condition is truthy; each branch is a [body](#bodies), an expression alone or bindings and the result `=` introduces, and every branch of one conditional introduces its result with `=`, or none does. Further conditions, each with `elseif`, are tested in order before the alternative. A clause can bind a value in place of its condition, `if let name = value`, and takes its consequent where that value is truthy.
+A conditional chooses between two values: `if` a condition `then` its consequent `else` its alternative, closed by `end`, taking the consequent where the condition is truthy; each branch is a [body](#bodies), an expression alone or bindings and the `return` that gives its result, and every branch of one conditional gives its result with `return`, or none does. Further conditions, each with `elseif`, are tested in order before the alternative. A clause can bind a value in place of its condition, `if let name = value`, and takes its consequent where that value is truthy.
 
 ```domql
 if wide then panel else sidebar end
@@ -340,7 +340,7 @@ panel { state = if self.is("disabled") then "locked" else "open" end }
 - **Conditional bindings.** `if let name = value then … else … end` evaluates its value once and takes its consequent where the value is truthy, with the name bound to it, and moves to the next clause where it is null or false. `0`, empty text and an empty list take the consequent; a value that is always falsey never does, and a value that cannot be null still moves on where it is false. The name has the value's type without null, a Boolean staying a Boolean, and it is visible throughout its consequent, nested expressions included, and nowhere else: neither in the value it binds, nor in the alternative, nor in a later `elseif`. In the value it binds, its name is a structure error rather than the caller's binding of that name, as a local's is in its own value, so `if let k = k then …` is refused; in the alternative and a later clause, the name is the caller's binding again. It is named as a local is, so it never reuses the name of a local in scope. The value is any value, and an event source, an action or a behavior is a validation error. `elseif let` binds as `if let` does.
 - **Branches.** Every branch is mandatory, and they are of one type, compared structurally for object types, which may differ in nullability: a conditional is nullable wherever a branch is, so `number` and `number?`, or `number` and `null`, give `number?`, while `number` and `string` are a validation error naming both.
 - **Evaluation.** Only the selected branch is evaluated, and its value is kept as it is, false and null included. The branches not selected are unreached: they are still validated, but are not evaluated or observed and cannot produce runtime failures. A watch follows what was evaluated: each condition and bound value up to the clause taken, and that clause's branch.
-- **Grouping.** A consequent and an alternative each take a whole body, an ungrouped conditional included, and `end` closes the conditional, so `if a then b else c and d end` holds the `and` in its alternative. A conditional that is a condition, an operand of `and` or `or`, or an operand of an equality is grouped: `if (if a then b else c end) then 1 else 2 end`. A conditional is never the receiver of a chain, grouped or not, so `(if wide then panel else sidebar end).rect?.width` is a syntax error: a local holds the value first, as `let target = if wide then panel else sidebar end` before `= target.rect?.width`. A conditional has no `?:` form.
+- **Grouping.** A consequent and an alternative each take a whole body, an ungrouped conditional included, and `end` closes the conditional, so `if a then b else c and d end` holds the `and` in its alternative. A conditional that is a condition, an operand of `and` or `or`, or an operand of an equality is grouped: `if (if a then b else c end) then 1 else 2 end`. A conditional is never the receiver of a chain, grouped or not, so `(if wide then panel else sidebar end).rect?.width` is a syntax error: a local holds the value first, as `let target = if wide then panel else sidebar end` before `return target.rect?.width`. A conditional has no `?:` form.
 - **Every clause writes its whole condition or binding,** so an `elseif` inherits nothing from the clause before it.
 
 ### Coalescing operators
@@ -446,31 +446,31 @@ panel {
 
 ### Bodies
 
-A **body** gives one value. It is an expression alone, or the steps of a calculation, **bindings**, each `let`, a name, `=` and a value, and then `=` and the expression that gives its result. A query is a body, a `do … end` block is one wherever an expression stands, and so is each branch of a conditional.
+A **body** gives one value. It is an expression alone, or the steps of a calculation, **bindings**, each `let`, a name, `=` and a value, and then `return` and the expression that gives its result. A query is a body, a `do … end` block is one wherever an expression stands, and so is each branch of a conditional.
 
 ```domql
 let width = panel.rect?.width ?? 0
 let padding = 12
-= {
+return {
     wide = width - padding * 2 >= 600,
     doubled = do
         let half = width / 2
-        = half * 4
+        return half * 4
     end
 }
 ```
 
-- **Two forms.** A body of one expression is that expression, as `panel.rect?.width` and the branches of `if wide then 1 else 2 end` are. A body with bindings before its result introduces the result with `=`, which a body may also do with none, as `= 0` does. Only local bindings stand before the result, since a calculation no binding names would compute a value nothing uses: `let` begins each binding and `=` the result, so an expression standing before the result, as `panel.rect.width` before `= 42`, is a syntax error, while one a binding's value continues on the next line, as `let available = width` before `- padding * 2`, is that binding's.
-- **One result, at the end.** A body holds one result, a value, so a result that is an event source, an action or a behavior is a validation error, and nothing follows it: a binding or a second `=` after it is a syntax error, and so is an `=` with no value. The result may be any expression, conditionals and `do` blocks among them, each of which gives its own body's value.
-- **Each marker its body's.** `=` introduces the value of the body it ends, never an enclosing one's, and ends nothing early: in `let x = if wide then let n = 3 = n * 2 else = 0 end` and `= x + 1` after it, the branch gives 6, `x` holds it, and the query gives 7.
-- **One style for a conditional's branches.** Within one conditional, every branch introduces its result with `=`, the first, each `elseif` and the `else`, or none does, so a branch with bindings makes `=` every branch's; a conditional of both is a syntax error, `All branches of this conditional must introduce their results with =`. A conditional nested in a branch chooses its own style, and an `else` whose expression is a conditional, `else if … end`, holds one of either.
-- **Where `=` stands.** At the end of a query's body, a `do` block's and a conditional branch's, and nowhere else, so `=` among an object expression's fields begins no result. An `=` in an expression still says `==` compares values.
-- **Scope.** A binding is visible after its value, through the bindings after it, the result and everything nested in them, and never before it, so none depends on itself and `let a = b let b = 1 = a` is a structure error, a name written alone reading no binding before the local of its name. A nested body may hide a name an enclosing scope has; two bindings of one body never share one. A binding is named as a local is, never by a reserved word, `document` or `window`, holds a value and is never assigned again.
+- **Two forms.** A body of one expression is that expression, as `panel.rect?.width` and the branches of `if wide then 1 else 2 end` are. A body with bindings before its result gives the result with `return`, which a body may also do with none, as `return 0` does. Only local bindings stand before the result, since a calculation no binding names would compute a value nothing uses: `let` begins each binding and `return` the result, so an expression standing before the result, as `panel.rect.width` before `return 42`, is a syntax error, while one a binding's value continues on the next line, as `let available = width` before `- padding * 2`, is that binding's.
+- **One result, at the end.** A body holds one result, a value, so a result that is an event source, an action or a behavior is a validation error, and nothing follows it: a binding or a second `return` after it is a syntax error, and so is a `return` with no value. The result may be any expression, conditionals and `do` blocks among them, each of which gives its own body's value.
+- **Each `return` its body's.** `return` completes the body it ends and gives that body's value, never an enclosing one's: in `let x = if wide then let n = 3 return n * 2 else return 0 end` and `return x + 1` after it, the branch gives 6, `x` holds it, and the query gives 7. A `do` block's `return` gives the block's value, and evaluation goes on after it.
+- **One style for a conditional's branches.** Within one conditional, every branch gives its result with `return`, the first, each `elseif` and the `else`, or none does, so a branch with bindings makes `return` every branch's; a conditional of both is a syntax error, `All branches of this conditional must give their results with return, or none of them`. A conditional nested in a branch chooses its own style, and an `else` whose expression is a conditional, `else if … end`, holds one of either.
+- **Where `return` stands.** At the end of a query's body, a `do` block's and a conditional branch's, and nowhere else, so `return` among an object expression's fields is a syntax error.
+- **Scope.** A binding is visible after its value, through the bindings after it, the result and everything nested in them, and never before it, so none depends on itself and `let a = b let b = 1 return a` is a structure error, a name written alone reading no binding before the local of its name. A nested body may hide a name an enclosing scope has; two bindings of one body never share one. A binding is named as a local is, never by a reserved word, `document` or `window`, holds a value and is never assigned again.
 - **Evaluation.** A body's bindings are evaluated once each, in order, every time the body runs, an unused one included, and then its result, so a binding that fails fails the body even where nothing reads it, and a watch follows what every binding read. An object expression's locals are evaluated at their first use instead, so a local nothing uses never runs: a body is an ordered calculation, and locals are values its fields may ask for.
 - **A value, never a receiver.** A `do` block is grouped where it is an operand, as a conditional is, and neither is ever the receiver of a chain, grouped or not: a binding holds the value and the chain continues from it.
-- **Fixed arguments.** A `do` block settles a fixed argument only where every binding it evaluates and its result do, so a read a binding makes is never discarded: `self.is(do let state = "disabled" = state end)` asks the condition, while a binding that reads the document makes the block no fixed argument.
-- **Definition.** A body introduced with `=` is a `body` node of its bindings and its result, as a `do` block is, one of an expression alone holding no bindings; a body of one expression is that expression's own node. A conditional's branches are all `body` nodes or none, an implicit conditional's alternative excepted where it is a conditional of either style.
-- **Canonical text.** A body's bindings and its result each begin a line; a conditional of implicit results stays on one line where it has no `elseif`, and one of explicit results writes each branch on the lines a level within its clause, every branch with its `=`, and its `end` on a line of its own.
+- **Fixed arguments.** A `do` block settles a fixed argument only where every binding it evaluates and its result do, so a read a binding makes is never discarded: `self.is(do let state = "disabled" return state end)` asks the condition, while a binding that reads the document makes the block no fixed argument.
+- **Definition.** A body that gives its result with `return` is a `body` node of its bindings and its result, as a `do` block is, one of an expression alone holding no bindings; a body of one expression is that expression's own node. A conditional's branches are all `body` nodes or none, an implicit conditional's alternative excepted where it is a conditional of either style.
+- **Canonical text.** A body's bindings and its result each begin a line; a conditional of implicit results stays on one line where it has no `elseif`, and one whose branches return writes each branch on the lines a level within its clause, every branch with its `return`, and its `end` on a line of its own.
 
 ### Locals
 
@@ -717,9 +717,9 @@ An optional access of null is null and ends its chain, a coalescing operator ans
 | A division or a remainder by zero, or an arithmetic result no finite number holds | An evaluation error at the operation |
 | A comparison chain whose operators point two ways | A syntax error at the operator that turns it |
 | `~` before no name, or before `self` or a root | A syntax error |
-| A conditional without its `end`, a conditional whose branches introduce their results in two styles, anything after a body's result, or an `=` with no value | A syntax error |
-| Bindings whose body's result has no `=` | A syntax error: `Introduce the body's result with =.` |
-| An expression no binding holds before a body's marked result | A syntax error: `Only local bindings may precede a body's result.` |
+| A conditional without its `end`, a conditional whose branches give their results in two styles, anything after a body's result, or a `return` with no value | A syntax error |
+| Bindings whose body's result has no `return` | A syntax error: `Introduce the body's result with return.` |
+| An expression no binding holds before a body's `return` | A syntax error: `Only local bindings may precede a body's result.` |
 | A conditional or a `do` block that is the receiver of a chain | A syntax error, or a structure error in a definition, saying to bind its value first |
 | An interpolated string with a space after its `$`, a hole with no expression, or a lone `}` in its text | A syntax error at what is written so |
 | An interpolation of a value that can be null, or of no string or number | A validation error naming the hole, and the fallback or the conversion to give it |

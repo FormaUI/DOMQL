@@ -458,19 +458,19 @@ Locals are not included in the result. A local is evaluated on first use, at mos
 
 ### Name the steps of a calculation
 
-Write a query as a body when it builds on intermediate values: bindings, each `let`, a name and `=`, and then `=` and the result.
+Write a query as a body when it builds on intermediate values: bindings, each `let`, a name and `=`, and then `return` and the result.
 
 ```domql
 let rows = panel.all("[data-key]")
 let count = rows.count
-= {
+return {
     count = count,
     summary = $"{count} rows",
     tallest = rows.max(self.rect?.height)
 }
 ```
 
-`do … end` writes a body wherever an expression stands, as `doubled = do let half = width / 2 = half * 4 end` does in a field, and each branch of a conditional, `if … then … else … end`, is one too: within one conditional, every branch introduces its result with `=` or none does. A body's bindings run once each, in order, whether or not anything uses them, while an object expression's locals run only where a field reads them. `=` gives the result of its own body, so a `do` block's `=` gives that block's value, never the query's.
+`do … end` writes a body wherever an expression stands, as `doubled = do let half = width / 2 = half * 4 end` does in a field, and each branch of a conditional, `if … then … else … end`, is one too: within one conditional, every branch gives its result with `return` or none does. A body's bindings run once each, in order, whether or not anything uses them, while an object expression's locals run only where a field reads them. `=` gives the result of its own body, so a `do` block's `=` gives that block's value, never the query's.
 
 ### Handle missing values
 

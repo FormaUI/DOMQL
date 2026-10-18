@@ -243,13 +243,13 @@ export class DefinitionValidator {
             this.#fail(pointer, 'A conditional holds a condition or a binding, one of them');
         }
 
-        // Every branch of one conditional is a body, whose result `=` introduces, or none is; an `elseif` continues its style, and the alternative of one whose branches are expressions may hold a conditional of either, as `else if … end` writes one.
+        // Every branch of one conditional is a body, whose `return` gives its result, or none is; an `elseif` continues its style, and the alternative of one whose branches are expressions may hold a conditional of either, as `else if … end` writes one.
         const isExplicit = node.consequent?.kind === 'body';
         const alternative = node.alternative;
         const isConsistent = alternative?.kind === 'conditional' ? !isExplicit || alternative.consequent?.kind === 'body' : (alternative?.kind === 'body') === isExplicit;
 
         if (!isConsistent) {
-            this.#fail(pointer, 'All branches of this conditional must introduce their results with =');
+            this.#fail(pointer, 'All branches of this conditional must give their results with return, or none of them');
         }
 
         if (node.condition !== undefined) {

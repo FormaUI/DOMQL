@@ -53,7 +53,7 @@ export class Parser {
     }
 
     /**
-     * Reads the text into its syntax tree, whose query node holds the body, an expression alone or bindings and the result `=` introduces, and the end of the text, with the trivia before it.
+     * Reads the text into its syntax tree, whose query node holds the body, an expression alone or bindings and the `return` that gives its result, and the end of the text, with the trivia before it.
      * @returns {import('./SyntaxTree.mjs').QueryNode}
      */
     parse() {
@@ -77,12 +77,20 @@ export class Parser {
     }
 
     /**
-     * Reads a body: an expression alone, or the bindings evaluated in order, each `let`, a name, `=` and a value, and the `=` that introduces its result, which nothing follows; `= value` alone is a body of no bindings.
+     * Reads a body: an expression alone, or the bindings evaluated in order, each `let`, a name, `=` and a value, and the `return` that gives its result, which completes the body and nothing follows; `return value` alone is a body of no bindings.
      * What closes it, the end of the text, `end`, `elseif` or `else`, is its holder's to read.
      */
     #parseBody() {
-        if (!this.#isKeyword('let') && this.#token.type !== '=') {
-            return this.#parseExpression();
+        if (!this.#isKeyword('let') && !this.#isKeyword('return')) {
+            const start = this.#token.start;
+            const expression = this.#parseExpression();
+
+            // An expression alone is its body's result, so a `return` after it follows what no binding holds.
+            if (this.#isKeyword('return')) {
+                throw this.#fail("Only local bindings may precede a body's result.", start);
+            }
+
+            return expression;
         }
 
         const children = [];
@@ -97,30 +105,30 @@ export class Parser {
             this.#bodyBindingsBeingRead--;
         }
 
-        // After its bindings a body's result follows its `=`; an expression there is one a marked result follows, which only a binding may precede, or the result its `=` was left off.
-        if (this.#token.type !== '=') {
+        // After its bindings a body's result follows its `return`; an expression there is one a `return` follows, which only a binding may precede, or the result its `return` was left off.
+        if (!this.#isKeyword('return')) {
             const start = this.#token.start;
 
             if (this.#token.type !== 'end' && !this.#isKeyword('end') && !this.#isKeyword('elseif') && !this.#isKeyword('else')) {
                 this.#parseExpression();
 
-                if (this.#token.type === '=') {
+                if (this.#isKeyword('return')) {
                     throw this.#fail("Only local bindings may precede a body's result.", start);
                 }
             }
 
-            throw this.#fail("Introduce the body's result with =.", start);
+            throw this.#fail("Introduce the body's result with return.", start);
         }
 
-        const marker = this.#take();
+        const returnKeyword = this.#take();
 
         if (this.#token.type === 'end' || this.#isKeyword('end') || this.#isKeyword('elseif') || this.#isKeyword('else')) {
-            throw this.#fail("'=' introduces its body's result: write the value after it, as in '= width'", marker.start);
+            throw this.#fail("'return' gives its body's result: write the value after it, as in 'return width'", returnKeyword.start);
         }
 
-        children.push(marker, this.#parseExpression());
+        children.push(returnKeyword, this.#parseExpression());
 
-        if (this.#isKeyword('let') || this.#token.type === '=') {
+        if (this.#isKeyword('let') || this.#isKeyword('return')) {
             throw this.#fail("Nothing follows a body's result, which ends it", this.#token.start);
         }
 
@@ -143,7 +151,7 @@ export class Parser {
         const doKeyword = this.#take();
 
         if (this.#isKeyword('end')) {
-            throw this.#fail("A do block holds a body: write 'do = … end'", this.#token.start);
+            throw this.#fail("A do block holds a body: write 'do return … end'", this.#token.start);
         }
 
         const body = this.#parseBody();
@@ -219,12 +227,12 @@ export class Parser {
                     throw this.#unexpected("'end' closing the conditional");
                 }
 
-                // Every branch of one conditional introduces its result with `=`, or none does.
+                // Every branch of one conditional gives its result with `return`, or none does.
                 const isExplicit = branch => !SyntaxTree.isToken(branch) && branch.kind === 'body';
                 const differing = branches.find(branch => isExplicit(branch) !== isExplicit(branches[0]));
 
                 if (differing !== undefined) {
-                    throw this.#fail('All branches of this conditional must introduce their results with =', SyntaxTree.startOf(isExplicit(differing) ? branches[0] : differing));
+                    throw this.#fail('All branches of this conditional must give their results with return, or none of them', SyntaxTree.startOf(isExplicit(differing) ? branches[0] : differing));
                 }
 
                 children.push(this.#take());
@@ -507,10 +515,7 @@ export class Parser {
             return false;
         }
 
-        // A name the `=` of a field follows on its line is the next field, a comma missing before it; an `=` beginning the next line introduces a body's result instead.
-        const next = this.#tokens[this.#index + 1];
-
-        if (next.type === '=' && !this.#text.slice(this.#token.end, next.start).includes('\n')) {
+        if (this.#tokens[this.#index + 1].type === '=') {
             throw this.#unexpected("',' before the next field");
         }
 
@@ -1135,11 +1140,6 @@ export class Parser {
 
             if (previous?.type === '<' || previous?.type === '>') {
                 return this.#fail(`'${previous.type}=' is one operator, written with nothing between its signs`, previous.start);
-            }
-
-            // An `=` that begins a line after an expression is a body's result after an expression no binding holds.
-            if (previous !== undefined && this.#text.slice(previous.end, token.start).includes('\n')) {
-                return this.#fail("Only local bindings may precede a body's result.", token.start);
             }
 
             return this.#fail("Unexpected '=' in an expression. Use '==' to compare values.", token.start);

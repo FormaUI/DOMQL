@@ -464,7 +464,7 @@ describe('QueryEvaluator', () => {
         });
 
         it('give a local the element the condition selects, which a chain continues from', () => {
-            expect(read('let target = if first then panel else other end\n= target:attribute["id"]', { first: false, panel, other: items[0] })).toBe(items[0].getAttribute('id'));
+            expect(read('let target = if first then panel else other end\nreturn target:attribute["id"]', { first: false, panel, other: items[0] })).toBe(items[0].getAttribute('id'));
         });
     });
 
