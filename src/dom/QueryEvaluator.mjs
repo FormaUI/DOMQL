@@ -477,6 +477,30 @@ export class QueryEvaluator {
 
                 return (evaluator, currentValue) => !QueryEvaluator.#isTruthy(operand(evaluator, currentValue));
             }
+            case 'function':
+                // A function's value is its closure: the locals and the current value where it is declared, which each call evaluates its body in.
+                return (evaluator, currentValue) => ({ function: node, frame: evaluator.#localsFrame, currentValue });
+            case 'functionCall': {
+                const { body, parameters } = this.#resolvedDefinition.resolutionOf(node);
+                const evaluateBody = this.#getCompiledFunction(body);
+                const evaluateArguments = node.arguments.map(argument => this.#getCompiledFunction(argument));
+                const local = { name: node.name };
+
+                // The arguments are evaluated once each, left to right, in the caller's scope, and the body in the closure's, its parameters bound to them, so no local of the caller's is visible in it.
+                return (evaluator, currentValue) => {
+                    const closure = evaluator.#evaluateLocal(local);
+                    const values = new Map(parameters.map((parameter, index) => [parameter, { value: evaluateArguments[index](evaluator, currentValue), selections: null }]));
+                    const enclosingFrame = evaluator.#localsFrame;
+
+                    evaluator.#localsFrame = { node: { bindings: parameters.map(parameter => ({ name: parameter })) }, item: closure.currentValue, values, enclosing: closure.frame };
+
+                    try {
+                        return evaluateBody(evaluator, closure.currentValue);
+                    } finally {
+                        evaluator.#localsFrame = enclosingFrame;
+                    }
+                };
+            }
             case 'body': {
                 const bindings = node.bindings.map(binding => ({ name: binding.name, evaluate: this.#getCompiledFunction(binding.value) }));
                 const result = this.#getCompiledFunction(node.result);
@@ -1473,7 +1497,9 @@ export class QueryEvaluator {
     }
 
     #locate(pointer) {
-        return this.#locations?.locate(pointer) ?? { pointer };
+        const source = this.#resolvedDefinition.sourcePointerOf(pointer);
+
+        return this.#locations?.locate(source) ?? { pointer: source };
     }
 
     /** The fields of the declared structure, in order, each with its type. */

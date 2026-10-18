@@ -83,6 +83,24 @@ describe('domql evaluateAsync in a browser', () => {
             expect(watch.status).toBe('ready');
         });
 
+        it('follows what a function call reads, the branch a changed condition selects in its body, and what it captures, made anew at each evaluation', async () => {
+            const snapshots = [];
+            const watch = domql.query('let wide = item:["data-wide"] == "yes"\nlet measure = function(box) if wide then box.size?.width ?? 0 else box.size?.height ?? 0 end end\nreturn measure(item)', { item: inside }).watch();
+
+            watch.subscribe('change', (sender, args) => snapshots.push(args.value));
+            watches.push(watch);
+            await frame();
+
+            inside.style.height = '60px';
+            await frame();
+            inside.setAttribute('data-wide', 'yes');
+            await frame();
+            inside.style.width = '150px';
+            await frame();
+
+            expect(snapshots).toEqual([40, 60, 200, 150]);
+        });
+
         it('follows a box through its own size and the structure around it, and misses a move nothing it observes causes until a refresh', async () => {
             const snapshots = [];
             const watch = domql.query('item.rect?.top', { item: outside }).watch({ acceptPartialObservation: true });

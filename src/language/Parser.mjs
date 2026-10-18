@@ -73,6 +73,10 @@ export class Parser {
             return this.#parseDoExpression();
         }
 
+        if (this.#isKeyword('function')) {
+            return this.#parseFunctionExpression();
+        }
+
         return this.#parseCondition();
     }
 
@@ -144,6 +148,74 @@ export class Parser {
         }
 
         return Parser.#node('body-binding', [letKeyword, this.#take(), this.#take(), this.#parseExpression()]);
+    }
+
+    /** Reads a function: `function`, its parameters' names in parentheses, separated by commas, the body a call evaluates and the `end` that closes it. */
+    #parseFunctionExpression() {
+        const children = [this.#take(), this.#expect('(')];
+
+        // A comma stands between two parameters alone, so one before ')' is refused.
+        if (this.#token.type !== ')') {
+            for (;;) {
+                if (this.#token.type !== 'name') {
+                    throw this.#unexpected(this.#token.type === 'keyword' ? "a parameter's name, which no reserved word is" : "a parameter's name");
+                }
+
+                children.push(this.#take());
+
+                if (this.#token.type !== ',') {
+                    break;
+                }
+
+                children.push(this.#take());
+            }
+
+            if (this.#token.type !== ')') {
+                throw this.#unexpected("',' before the next parameter, or ')' closing them");
+            }
+        }
+
+        children.push(this.#take());
+
+        if (this.#isKeyword('end')) {
+            throw this.#fail("A function holds a body: write 'function(…) return … end' or the expression it gives", this.#token.start);
+        }
+
+        children.push(this.#parseBody());
+
+        if (!this.#isKeyword('end')) {
+            throw this.#unexpected("'end' closing the function");
+        }
+
+        children.push(this.#take());
+
+        return Parser.#node('function-expression', children);
+    }
+
+    /** Reads a call of a local function: its name, and its arguments in parentheses, separated by commas, as many as it declares parameters. */
+    #parseLocalFunctionCall() {
+        const children = [this.#take(), this.#take()];
+
+        // A comma stands between two arguments alone, so one before ')' is refused.
+        if (this.#token.type !== ')') {
+            for (;;) {
+                children.push(this.#parseExpression());
+
+                if (this.#token.type !== ',') {
+                    break;
+                }
+
+                children.push(this.#take());
+            }
+
+            if (this.#token.type !== ')') {
+                throw this.#unexpected("',' before the next argument, or ')' closing them");
+            }
+        }
+
+        children.push(this.#take());
+
+        return Parser.#node('local-function-call', children);
     }
 
     /** Reads a do block: `do`, the body it evaluates where execution reaches it, and the `end` that closes it. */
@@ -381,6 +453,10 @@ export class Parser {
 
         if (this.#isKeyword('do')) {
             throw this.#fail('A do block that is an operand is enclosed in parentheses: write (do … end)', start);
+        }
+
+        if (this.#isKeyword('function')) {
+            throw this.#fail('A function is the value of a local: write let name = function(…) … end, and call it by its name', start);
         }
     }
 
@@ -782,7 +858,7 @@ export class Parser {
     #parseInput() {
         const token = this.#token;
 
-        // A name that starts a chain is a local or a binding, which takes no argument, so one an argument follows is a member written without its receiver.
+        // A name that starts a chain is a local or a binding, which takes no argument, so one an argument follows after a space is a member written without its receiver; parentheses after it call the local function of its name.
         if (token.type === 'name') {
             const next = this.#tokens[this.#index + 1];
 
@@ -790,7 +866,11 @@ export class Parser {
                 throw this.#fail(`'to' converts the value written before it: write 'self to ${this.#text.slice(next.start, next.end)}' to convert the current value`, token.start);
             }
 
-            if (next.type === '(' || (next.spaced && ARGUMENT_STARTS.has(next.type))) {
+            if (next.type === '(') {
+                return this.#parseLocalFunctionCall();
+            }
+
+            if (next.spaced && ARGUMENT_STARTS.has(next.type)) {
                 throw this.#fail(`'${token.value}' follows no receiver: write 'self.${token.value}(…)' for a member of the current value`, token.start);
             }
         }

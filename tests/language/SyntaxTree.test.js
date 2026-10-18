@@ -81,6 +81,7 @@ describe('SyntaxTree', () => {
             '-a * 2 + b % 3 - c / d',
             '0 < a <= 1 and b > c >= d',
             '$"a {b}"',
+            'let f = function(x, y) x end\nreturn f(1, 2)',
             'let a = 1\nreturn do let b = a return b end',
         ];
         const kinds = new Set(texts.flatMap(text => kindsOf(treeOf(text))));

@@ -26,6 +26,8 @@ const NODE_PROPERTIES = {
     interpolatedString: { properties: ['kind', 'parts'], required: ['parts'] },
     conditional: { properties: ['kind', 'condition', 'binding', 'consequent', 'alternative'], required: ['consequent', 'alternative'] },
     body: { properties: ['kind', 'bindings', 'result'], required: ['bindings', 'result'] },
+    function: { properties: ['kind', 'parameters', 'body'], required: ['parameters', 'body'] },
+    functionCall: { properties: ['kind', 'name', 'arguments'], required: ['name', 'arguments'] },
     arithmetic: { properties: ['kind', 'operator', 'left', 'right'], required: ['operator', 'left', 'right'] },
     negate: { properties: ['kind', 'operand'], required: ['operand'] },
     coalescing: { properties: ['kind', 'value', 'fallback'], required: ['value', 'fallback'] },
@@ -41,7 +43,7 @@ const NODE_PROPERTIES = {
 const CHAIN_KINDS = new Set(['member', 'call', 'indexer', 'object']);
 
 /** The kinds of node a cast's target can be, as text writes one: a receiver and its accesses, a coalescing operator, another cast, or an optional chain. */
-const CAST_TARGET_KINDS = new Set(['self', 'parameter', 'local', 'literal', 'interpolatedString', 'object', 'member', 'call', 'indexer', 'optionalChain', 'coalescing', 'cast']);
+const CAST_TARGET_KINDS = new Set(['self', 'parameter', 'local', 'literal', 'interpolatedString', 'functionCall', 'object', 'member', 'call', 'indexer', 'optionalChain', 'coalescing', 'cast']);
 
 /** The operators an arithmetic node holds. */
 const ARITHMETIC_OPERATORS = ['+', '-', '*', '/', '%'];
@@ -127,7 +129,7 @@ export class DefinitionValidator {
         }
 
         if (!ObjectUtils.isNonArrayObject(node) || !Object.hasOwn(NODE_PROPERTIES, node.kind)) {
-            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, indexer, object, optionalChain, equality, comparison, interpolatedString, body, arithmetic, negate, conditional, coalescing, not, cast, conversion, try, and or or');
+            this.#fail(pointer, 'A node is an object whose kind is literal, parameter, self, local, member, call, indexer, object, optionalChain, equality, comparison, interpolatedString, body, function, functionCall, arithmetic, negate, conditional, coalescing, not, cast, conversion, try, and or or');
         }
 
         this.#requireProperties(node, pointer, NODE_PROPERTIES[node.kind]);
@@ -202,6 +204,11 @@ export class DefinitionValidator {
                 return this.#validateConditional(node, pointer, currentValueAvailability);
             case 'body':
                 return this.#validateBody(node, pointer, currentValueAvailability);
+            case 'function':
+                this.#fail(pointer, 'A function is the value of a local, as let name = function(…) … end, and stands nowhere else');
+                break;
+            case 'functionCall':
+                return this.#validateFunctionCall(node, pointer, currentValueAvailability);
             case 'and':
             case 'or':
                 return this.#validateLogical(node, pointer, currentValueAvailability);
@@ -452,7 +459,7 @@ export class DefinitionValidator {
 
                 bound.add(binding.name);
 
-                const value = this.#validateWithLater(names.slice(index), () => this.#validateNode(binding.value, `${bindingPointer}/value`, currentValueAvailability));
+                const value = this.#validateWithLater(names.slice(index), () => this.#validateLocalValue(binding.value, `${bindingPointer}/value`, currentValueAvailability));
 
                 this.#localNames = new Set(this.#localNames).add(binding.name);
 
@@ -462,6 +469,69 @@ export class DefinitionValidator {
             return Object.freeze({ kind: 'body', bindings: Object.freeze(bindings), result: this.#validateNode(node.result, `${pointer}/result`, currentValueAvailability) });
         } finally {
             this.#localNames = enclosingLocalNames;
+            this.#chain = enclosingChain;
+        }
+    }
+
+    /** Validates a local's value, which a function may be, as no other node's is. */
+    #validateLocalValue(value, pointer, currentValueAvailability) {
+        return value?.kind === 'function' ? this.#validateFunction(value, pointer, currentValueAvailability) : this.#validateNode(value, pointer, currentValueAvailability);
+    }
+
+    /**
+     * Validates a function: its parameters, each a name of its own, and its body, which sees them and the locals in scope where the function is declared, with the current value it has there.
+     * Its own local and those declared after it stay later names in its body, so it calls neither, directly or through another function.
+     */
+    #validateFunction(node, pointer, currentValueAvailability) {
+        this.#requireProperties(node, pointer, NODE_PROPERTIES.function);
+        this.#requireArray(node.parameters, `${pointer}/parameters`);
+
+        const seen = new Set();
+
+        node.parameters.forEach((parameter, index) => {
+            const parameterPointer = `${pointer}/parameters/${index}`;
+
+            this.#requireName(parameter, parameterPointer);
+            this.#requireLocalName(parameter, parameterPointer);
+
+            if (seen.has(parameter)) {
+                this.#fail(parameterPointer, `Two parameters of one function are named '${parameter}'`);
+            }
+
+            seen.add(parameter);
+        });
+
+        const enclosingLocalNames = this.#localNames;
+        const enclosingChain = this.#chain;
+
+        this.#localNames = new Set([...this.#localNames, ...node.parameters]);
+        this.#chain = null;
+
+        try {
+            return Object.freeze({ kind: 'function', parameters: Object.freeze([...node.parameters]), body: this.#validateNode(node.body, `${pointer}/body`, currentValueAvailability) });
+        } finally {
+            this.#localNames = enclosingLocalNames;
+            this.#chain = enclosingChain;
+        }
+    }
+
+    /** Validates a call of a local function: its name, which no function calls before its local is declared, itself included, and its arguments. */
+    #validateFunctionCall(node, pointer, currentValueAvailability) {
+        this.#requireName(node.name, `${pointer}/name`);
+
+        if (this.#laterNames.has(node.name)) {
+            this.#fail(pointer, `'${node.name}' is called before the local of that name is declared in its scope, so no function calls itself or one declared after it`);
+        }
+
+        this.#requireArray(node.arguments, `${pointer}/arguments`);
+
+        const enclosingChain = this.#chain;
+
+        this.#chain = null;
+
+        try {
+            return Object.freeze({ kind: 'functionCall', name: node.name, arguments: Object.freeze(node.arguments.map((argument, index) => this.#validateNode(argument, `${pointer}/arguments/${index}`, currentValueAvailability))) });
+        } finally {
             this.#chain = enclosingChain;
         }
     }
@@ -599,7 +669,7 @@ export class DefinitionValidator {
             this.#requireLocalName(local.name, localPointer);
 
             // A local's value and the locals before it see neither it nor the locals after it, whose names no parameter there reads.
-            const value = this.#validateWithLater(names.slice(index), () => this.#validateNode(local.value, `${localPointer}/value`, currentValueAvailability));
+            const value = this.#validateWithLater(names.slice(index), () => this.#validateLocalValue(local.value, `${localPointer}/value`, currentValueAvailability));
             const { name } = local;
 
             if (this.#localNames.has(name)) {

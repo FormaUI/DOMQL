@@ -472,6 +472,20 @@ return {
 
 `do … end` writes a body wherever an expression stands, as `doubled = do let half = width / 2 return half * 4 end` does in a field, and each branch of a conditional, `if … then … else … end`, is one too: within one conditional, every branch gives its result with `return` or none does. A body's bindings run once each, in order, whether or not anything uses them, while an object expression's locals run only where a field reads them. `return` completes its own body, so a `do` block's `return` gives that block's value, never the query's.
 
+### Reuse a calculation with a function
+
+Declare a function as the value of a local, and call it by name with its arguments:
+
+```domql
+let half = function(box) (box?.rect?.width ?? 0) / 2 end
+return {
+    panel = half(panel),
+    input = half(panel.first("input"))
+}
+```
+
+A function's body is a body like any other, an expression alone or bindings and a `return`, and it sees the locals and `self` where it is declared, never those of the place that calls it. Each call is checked against its own arguments, so one function serves an element in one call and an element that may be missing in another, and a function is only ever called: it is never passed to a member, stored in a field or returned.
+
 ### Handle missing values
 
 Null means a value is missing or unavailable. Use `?.` to read through a value that may be null and `??` to supply a fallback:

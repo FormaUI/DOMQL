@@ -45,6 +45,22 @@ export class Lowering {
                 return this.#lowerConditional(children, 0, SyntaxTree.endOf(child));
             case 'body':
                 return this.#lowerBody(child);
+            case 'function-expression': {
+                // Its parameters are in scope in its body alone, beside the locals in scope where it is declared.
+                const close = children.findIndex(part => SyntaxTree.isToken(part) && part.type === ')');
+                const parameters = children.slice(2, close).filter(part => part.type === 'name').map(part => part.value);
+                const enclosingLocalNames = this.#localNames;
+
+                this.#localNames = new Set([...this.#localNames, ...parameters]);
+
+                try {
+                    return this.#span({ kind: 'function', parameters, body: this.#lower(children.at(-2)) }, child);
+                } finally {
+                    this.#localNames = enclosingLocalNames;
+                }
+            }
+            case 'local-function-call':
+                return this.#span({ kind: 'functionCall', name: children[0].value, arguments: children.slice(2, -1).filter(part => !(SyntaxTree.isToken(part) && part.type === ',')).map(argument => this.#lower(argument)) }, child);
             case 'do-expression': {
                 // A do block of an expression alone is a body of no bindings.
                 const inner = children[1];

@@ -504,7 +504,7 @@ describe('LanguageResolver', () => {
 
         it('points into a definition that has no text', () => {
             const definition = {
-                version: 23,
+                version: 24,
                 query: { kind: 'member', target: { kind: 'parameter', name: 'panel' }, name: 'nonsense', arguments: [] },
             };
 

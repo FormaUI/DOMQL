@@ -418,6 +418,24 @@ describe('Watch', () => {
         });
     });
 
+    describe('a function', () => {
+        it('follows what each call reads, the branch a changed condition selects in it, and captures made anew at each evaluation', async () => {
+            panel.setAttribute('data-a', '1');
+            panel.setAttribute('data-b', '2');
+            watch('let read = function(name) if panel:["data-on"] == "a" then panel:["data-a"] ?? "-" else panel:[name] ?? "-" end end\nreturn { b = read("data-b") }', { panel });
+            await settle();
+
+            panel.setAttribute('data-b', '3');
+            await settle();
+            panel.setAttribute('data-on', 'a');
+            await settle();
+            panel.setAttribute('data-a', '4');
+            await settle();
+
+            expect(snapshots).toEqual([{ b: '2' }, { b: '3' }, { b: '1' }, { b: '4' }]);
+        });
+    });
+
     describe('a body', () => {
         it('evaluates every binding once each time it runs, an unused one included, following what each read', async () => {
             const before = evaluations;

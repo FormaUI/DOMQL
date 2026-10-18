@@ -57,7 +57,7 @@ export class LanguageResolver {
             this.#checkWatch();
         }
 
-        return new ResolvedDefinition(definition, result.kind, result.type, this.#resolutions, this.#usedDeclarations);
+        return new ResolvedDefinition(definition, result.kind, result.type, this.#resolutions, this.#usedDeclarations, this.#instances);
     }
 
     #resolveNode(node, pointer, scope) {
@@ -118,6 +118,8 @@ export class LanguageResolver {
                 return this.#resolveConditional(node, pointer, scope);
             case 'body':
                 return this.#resolveBody(node, pointer, scope);
+            case 'functionCall':
+                return this.#resolveFunctionCall(node, pointer, scope);
             case 'optionalChain':
                 return this.#resolveOptionalChain(node, pointer, scope);
             case 'coalescing':
@@ -636,6 +638,14 @@ export class LanguageResolver {
         node.bindings.forEach((binding, index) => {
             const valuePointer = `${pointer}/bindings/${index}/value`;
             const bindingScope = { ...scope, locals };
+
+            // A function is resolved where it is called, against that call's arguments, so its local holds the scope it was declared in.
+            if (binding.value.kind === 'function') {
+                locals = new Map(locals).set(binding.name, LanguageResolver.#functionLocalOf(binding.value, valuePointer, bindingScope));
+
+                return;
+            }
+
             const result = this.#resolveNode(binding.value, valuePointer, bindingScope);
 
             if (result.kind !== 'query') {
@@ -656,9 +666,75 @@ export class LanguageResolver {
         return isFixed && result.isFixed ? result : { type: result.type, kind: result.kind, isFixed: false };
     }
 
+    /** The local a function declaration gives its name: the function, where it is declared, and the scope it captures, its locals and its current value. */
+    static #functionLocalOf(node, pointer, scope) {
+        return { function: node, pointer, scope, result: { type: Type.never, kind: 'function', isFixed: false }, value: node };
+    }
+
+    /**
+     * Resolves a call of a local function: its arguments against the caller's scope, as many as the function declares, and then a copy of its body of its own, against the scope the function captured and its parameters, typed as this call's arguments.
+     * A local call settles no fixed argument.
+     */
+    #resolveFunctionCall(node, pointer, scope) {
+        const local = scope.locals.get(node.name);
+
+        if (local === undefined) {
+            const form = scope.current === null ? null : this.#memberForm(scope.current, node.name);
+
+            this.#fail(`No function named '${node.name}' is in scope${form === null ? '' : `; write '${form}' for the member of the current value`}`, pointer);
+        }
+
+        if (local.function === undefined) {
+            this.#fail(`'${node.name}' is a local holding a value, and no function, so it is called with no arguments`, pointer);
+        }
+
+        const { parameters, body } = local.function;
+
+        if (node.arguments.length !== parameters.length) {
+            this.#fail(`'${node.name}' takes ${parameters.length === 1 ? 'one argument' : `${parameters.length} arguments`}, and is given ${node.arguments.length}`, pointer);
+        }
+
+        const results = node.arguments.map((argument, index) => {
+            const argumentPointer = `${pointer}/arguments/${index}`;
+            const result = this.#resolveNode(argument, argumentPointer, scope);
+
+            if (result.kind !== 'query') {
+                this.#fail(`An argument of '${node.name}' is ${LanguageResolver.#descriptionOf(result.kind)}, and an argument is a value`, argumentPointer);
+            }
+
+            return result;
+        });
+
+        let locals = local.scope.locals;
+
+        parameters.forEach((parameter, index) => {
+            locals = new Map(locals).set(parameter, { result: results[index], value: node.arguments[index], scope });
+        });
+
+        // The copy is this call's own, so the same function serves calls of different types, each resolution kept under the call's pointer.
+        const instance = structuredClone(body);
+        const instancePointer = `${pointer}/body`;
+
+        this.#instances.push({ node: instance, pointer: instancePointer, source: `${local.pointer}/body` });
+
+        const result = this.#resolveNode(instance, instancePointer, { ...local.scope, locals });
+
+        if (result.kind !== 'query') {
+            this.#fail(`'${node.name}' gives ${LanguageResolver.#descriptionOf(result.kind)}, and a function gives a value`, instancePointer);
+        }
+
+        this.#resolutions.set(pointer, { kind: 'functionCall', body: instance, parameters });
+
+        return { type: result.type, kind: 'query', isFixed: false };
+    }
+
     /** Resolves a local: what the one in scope with its name resolved to where it was written. A name no local in scope has is refused, with the form of the current value's member of that name where it has one. */
     #resolveLocal(node, pointer, scope) {
         const local = scope.locals.get(node.name);
+
+        if (local?.function !== undefined) {
+            this.#fail(`'${node.name}' is a function, which is called and never passed, held or compared: write '${node.name}(…)' with its arguments`, pointer);
+        }
 
         if (local === undefined) {
             const form = scope.current === null ? null : this.#memberForm(scope.current, node.name);
@@ -1369,6 +1445,13 @@ export class LanguageResolver {
 
         node.locals?.forEach((local, index) => {
             const valuePointer = `${pointer}/locals/${index}/value`;
+
+            if (local.value.kind === 'function') {
+                locals = new Map(locals).set(local.name, LanguageResolver.#functionLocalOf(local.value, valuePointer, { current, currentKey, locals, facts: scope.facts }));
+
+                return;
+            }
+
             const result = this.#resolveNode(local.value, valuePointer, { current, currentKey, locals, facts: scope.facts });
 
             if (result.kind !== 'query') {
@@ -1469,8 +1552,13 @@ export class LanguageResolver {
     }
 
     #fail(message, pointer) {
-        throw DomqlError.validation(message, this.#locations?.locate(pointer) ?? { pointer });
+        const source = ResolvedDefinition.sourcePointerOf(pointer, this.#instances);
+
+        throw DomqlError.validation(message, this.#locations?.locate(source) ?? { pointer: source });
     }
+
+    /** The copy of a function's body each call resolves, with the pointer it is resolved under and the pointer of the body it copies. @type {{ node: object, pointer: string, source: string }[]} */
+    #instances = [];
 
     /** What a request of the kind is, for a message: a subscription is an event source. */
     static #descriptionOf(kind) {

@@ -21,14 +21,41 @@ export class ResolvedDefinition {
      * @param {import('./Type.mjs').Type} type The type of its result.
      * @param {Map<string, object>} resolutions What each member node, by its JSON Pointer, resolved to.
      * @param {object[]} usedDeclarations The declarations the request uses, each with the pointer that used it and the name a message gives it, qualified by the type its declaration is for.
+     * @param {{ node: object, pointer: string, source: string }[]} instances The copy of a function's body each call resolved, with the pointer it was resolved under and the pointer of the body it copies.
      */
-    constructor(definition, kind, type, resolutions, usedDeclarations) {
+    constructor(definition, kind, type, resolutions, usedDeclarations, instances = []) {
         this.#definition = definition;
         this.#kind = kind;
         this.#type = type;
         this.#resolutions = resolutions;
         this.#usedDeclarations = Object.freeze([...usedDeclarations]);
+        this.#instances = instances;
         this.#index(definition.query, '/query');
+        instances.forEach(instance => this.#index(instance.node, instance.pointer));
+    }
+
+    /** @type {{ node: object, pointer: string, source: string }[]} */
+    #instances;
+
+    /** The pointer into the definition a pointer names, a pointer into a call's copy of a function's body naming the part of the body it copies. */
+    sourcePointerOf(pointer) {
+        return ResolvedDefinition.sourcePointerOf(pointer, this.#instances);
+    }
+
+    /** The pointer into the definition a pointer names among the instances, each call's copy of a function's body taken back to the body it copies, a copy within a copy as many times as it is one. */
+    static sourcePointerOf(pointer, instances) {
+        let source = pointer;
+
+        for (let instance = ResolvedDefinition.#instanceOf(source, instances); instance !== undefined; instance = ResolvedDefinition.#instanceOf(source, instances)) {
+            source = `${instance.source}${source.slice(instance.pointer.length)}`;
+        }
+
+        return source;
+    }
+
+    /** The instance whose pointer the pointer is or lies beneath, the innermost one, which is resolved after the one it lies in. */
+    static #instanceOf(pointer, instances) {
+        return instances.findLast(instance => pointer === instance.pointer || pointer.startsWith(`${instance.pointer}/`));
     }
 
     /** The request's definition. */
@@ -123,6 +150,12 @@ export class ResolvedDefinition {
             case 'body':
                 node.bindings.forEach((binding, index) => this.#index(binding.value, `${pointer}/bindings/${index}/value`));
                 this.#index(node.result, `${pointer}/result`);
+                break;
+            case 'function':
+                this.#index(node.body, `${pointer}/body`);
+                break;
+            case 'functionCall':
+                node.arguments.forEach((argument, index) => this.#index(argument, `${pointer}/arguments/${index}`));
                 break;
             case 'interpolatedString':
                 node.parts.forEach((part, index) => {

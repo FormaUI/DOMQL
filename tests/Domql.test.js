@@ -32,7 +32,7 @@ describe('domql', () => {
             const query = domql.query('panel { size = self.size, hasFocus = self.has("focus-within") }');
 
             expect(query.definition).toEqual({
-                version: 23,
+                version: 24,
                 query: {
                     kind: 'object',
                     target: parameter('panel'),
@@ -199,7 +199,7 @@ describe('domql', () => {
             ['an equality of the current value at the top level', equality(self, literal(null)), '/query/left'],
             ['a predicate, which an equality and a member replace', { kind: 'predicate', verb: 'is', target: parameter('panel'), name: literal(null) }, '/query'],
         ])('refuse a definition with %s', (_, query, pointer) => {
-            const error = getError(() => domql.query({ version: 23, query }, { panel: document.body }));
+            const error = getError(() => domql.query({ version: 24, query }, { panel: document.body }));
 
             expect(error.kind).toBe('structure');
             expect(error.location.pointer).toBe(pointer);
@@ -248,7 +248,7 @@ describe('domql', () => {
             ['an or whose operands are no array', { kind: 'or', operands: parameter('panel') }, '/query/operands'],
             ['an operand that tests the current value at the top level', { kind: 'or', operands: [member('visible'), parameter('panel')] }, '/query/operands/0/target'],
         ])('refuse a definition with %s', (_, query, pointer) => {
-            const error = getError(() => domql.query({ version: 23, query }, { panel: document.body }));
+            const error = getError(() => domql.query({ version: 24, query }, { panel: document.body }));
 
             expect(error.kind).toBe('structure');
             expect(error.location.pointer).toBe(pointer);
@@ -287,7 +287,7 @@ describe('domql', () => {
             ['a conditional without its alternative', { kind: 'conditional', condition: parameter('a'), consequent: literal(1) }, '/query'],
             ['a conditional whose branch is no node', conditional(parameter('a'), literal(1), 'else'), '/query/alternative'],
         ])('refuse a definition with %s', (_, query, pointer) => {
-            const error = getError(() => domql.query({ version: 23, query }, { panel: document.body }));
+            const error = getError(() => domql.query({ version: 24, query }, { panel: document.body }));
 
             expect(error.kind).toBe('structure');
             expect(error.location.pointer).toBe(pointer);
@@ -330,7 +330,7 @@ describe('domql', () => {
             ['a call named by an expression, which only a bracket property access is', { kind: 'call', target: parameter('panel'), name: literal('closest') }, '/query/name'],
             ['an optional access of an argument the chain it is passed to holds', chain(optional(call('closest', optional(member('key', parameter('row'))), parameter('panel')))), '/query/target/argument'],
         ])('refuse a definition with %s', (_, query, pointer) => {
-            const error = getError(() => domql.query({ version: 23, query }));
+            const error = getError(() => domql.query({ version: 24, query }));
 
             expect(error.kind).toBe('structure');
             expect(error.location.pointer).toBe(pointer);
@@ -399,7 +399,7 @@ describe('domql', () => {
             const parsed = domql.query('panel[if wide then "size" else "clientSize" end]?.width');
 
             expect(domql.query(parsed.definition).definition).toEqual(parsed.definition);
-            expect(domql.query({ version: 23, query: member(literal('size'), parameter('panel')) }).definition.query).toEqual(member('size', parameter('panel')));
+            expect(domql.query({ version: 24, query: member(literal('size'), parameter('panel')) }).definition.query).toEqual(member('size', parameter('panel')));
         });
 
         it.each([
@@ -482,7 +482,7 @@ describe('domql', () => {
             ['a type that is no string', cast(5, parameter('a')), '/query/type'],
             ['a target that is an infixCall, which is no node', cast('element', infixCall('matches', literal('.row'), parameter('a'))), '/query/target'],
         ])('refuse a definition of a cast with %s', (_, query, pointer) => {
-            const error = getError(() => domql.query({ version: 23, query }));
+            const error = getError(() => domql.query({ version: 24, query }));
 
             expect(error.kind).toBe('structure');
             expect(error.location.pointer).toBe(pointer);
@@ -525,8 +525,8 @@ describe('domql', () => {
             expect(domql.query('to.size').definition.query).toEqual(member('size', parameter('to')));
             expect(domql.query('range:to[1]').definition.query).toEqual(indexer('to', literal(1), parameter('range')));
             expect(domql.query('panel { let to = ".x", open = self.matches(to) }').definition.query.fields[0].value).toEqual(call('matches', { kind: 'local', name: 'to' }));
-            expect(domql.query({ version: 23, query: member('to', parameter('to')) }).definition.query).toEqual(member('to', parameter('to')));
-            expect(domql.query({ version: 23, query: { kind: 'object', target: parameter('to'), locals: [{ name: 'to', value: literal(1) }], fields: [{ name: 'to', value: { kind: 'local', name: 'to' } }] } }).definition.query.fields[0].name).toBe('to');
+            expect(domql.query({ version: 24, query: member('to', parameter('to')) }).definition.query).toEqual(member('to', parameter('to')));
+            expect(domql.query({ version: 24, query: { kind: 'object', target: parameter('to'), locals: [{ name: 'to', value: literal(1) }], fields: [{ name: 'to', value: { kind: 'local', name: 'to' } }] } }).definition.query.fields[0].name).toBe('to');
         });
 
         it.each([
@@ -547,7 +547,7 @@ describe('domql', () => {
             ['a type that is no string', conversion(5, parameter('a')), '/query/type'],
             ['no target', { kind: 'conversion', type: 'number' }, '/query'],
         ])('refuse a definition of a conversion with %s', (_, query, pointer) => {
-            const error = getError(() => domql.query({ version: 23, query }));
+            const error = getError(() => domql.query({ version: 24, query }));
 
             expect(error.kind).toBe('structure');
             expect(error.location.pointer).toBe(pointer);
@@ -613,7 +613,7 @@ describe('domql', () => {
             ['a conversion that says it is attempted', { ...conversion('number', parameter('a')), attempt: true }, '/query'],
             ['a cast of an attempt', cast('element', attempt(cast('node', parameter('a')))), '/query/target'],
         ])('refuse a definition of %s, since try attempts a conversion or a cast', (_, query, pointer) => {
-            const error = getError(() => domql.query({ version: 23, query }));
+            const error = getError(() => domql.query({ version: 24, query }));
 
             expect(error.kind).toBe('structure');
             expect(error.location.pointer).toBe(pointer);
@@ -647,7 +647,7 @@ describe('domql', () => {
             ['a binding named as no name is', { kind: 'conditional', binding: { name: 'try', value: literal(1) }, consequent: literal(1), alternative: literal(2) }, '/query/binding/name'],
             ['a binding a local in scope names', { kind: 'object', target: parameter('panel'), locals: [{ name: 'n', value: literal(1) }], fields: [{ name: 'v', value: binding('n', literal(2), local('n'), literal(0)) }] }, '/query/fields/0/value/binding'],
         ])('refuse a definition of a conditional with %s', (_, query, pointer) => {
-            const error = getError(() => domql.query({ version: 23, query }));
+            const error = getError(() => domql.query({ version: 24, query }));
 
             expect(error.kind).toBe('structure');
             expect(error.location.pointer).toBe(pointer);
@@ -670,7 +670,7 @@ describe('domql', () => {
             expect(domql.query('panel:["data-key"]').definition.query).toEqual({ kind: 'indexer', target: parameter('panel'), argument: literal('data-key') });
             expect(domql.query('panel?:[name]').definition.query).toEqual(chain({ kind: 'indexer', target: parameter('panel'), argument: parameter('name'), optional: true }));
             expect(domql.query('(?panel.first(".row"):["id"])').definition).toEqual(domql.query('panel?.first(".row")?:["id"]').definition);
-            expect(domql.query({ version: 23, query: { kind: 'indexer', target: parameter('panel'), argument: literal('id') } }).definition.query).toEqual({ kind: 'indexer', target: parameter('panel'), argument: literal('id') });
+            expect(domql.query({ version: 24, query: { kind: 'indexer', target: parameter('panel'), argument: literal('id') } }).definition.query).toEqual({ kind: 'indexer', target: parameter('panel'), argument: literal('id') });
         });
 
         it('leave a bracket after a member a bracket property access of what it answers', () => {
@@ -708,7 +708,7 @@ describe('domql', () => {
             ['no key', { kind: 'indexer', target: parameter('panel'), name: 'attribute' }, '/query'],
             ['an optional receiver outside an optional chain', indexer('attribute', literal('id'), parameter('panel'), true), '/query'],
         ])('refuse a definition of an indexer with %s', (_, query, pointer) => {
-            const error = getError(() => domql.query({ version: 23, query }));
+            const error = getError(() => domql.query({ version: 24, query }));
 
             expect(error.kind).toBe('structure');
             expect(error.location.pointer).toBe(pointer);
@@ -793,7 +793,7 @@ describe('domql', () => {
             ['a coalescing without its fallback', { kind: 'coalescing', value: parameter('a') }, '/query'],
             ['a coalescing whose fallback is no node', coalescing(parameter('a'), 0), '/query/fallback'],
         ])('refuse a definition with %s', (_, query, pointer) => {
-            const error = getError(() => domql.query({ version: 23, query }));
+            const error = getError(() => domql.query({ version: 24, query }));
 
             expect(error.kind).toBe('structure');
             expect(error.location.pointer).toBe(pointer);
@@ -825,7 +825,7 @@ describe('domql', () => {
         });
 
         it('leave out of a definition the locals an object expression has none of', () => {
-            const definition = { version: 23, query: { kind: 'object', target: parameter('panel'), locals: [], fields: [{ name: 'size', value: member('size') }] } };
+            const definition = { version: 24, query: { kind: 'object', target: parameter('panel'), locals: [], fields: [{ name: 'size', value: member('size') }] } };
 
             expect(domql.query('panel { size = self.size }').definition.query).not.toHaveProperty('locals');
             expect(domql.query(definition, { panel: document.body }).definition.query).not.toHaveProperty('locals');
@@ -850,7 +850,7 @@ describe('domql', () => {
             ['a local without its value', { kind: 'object', target: parameter('panel'), locals: [{ name: 'n' }], fields: [{ name: 'a', value: literal(1) }] }, '/query/locals/0'],
             ['a use of a local named by no name', { kind: 'local', name: 'if' }, '/query/name'],
         ])('refuse a definition with %s', (_, query, pointer) => {
-            const error = getError(() => domql.query({ version: 23, query }, { panel: document.body }));
+            const error = getError(() => domql.query({ version: 24, query }, { panel: document.body }));
 
             expect(error.kind).toBe('structure');
             expect(error.location.pointer).toBe(pointer);
@@ -901,7 +901,6 @@ describe('domql', () => {
     describe('syntax', () => {
         it.each([
             ['two fields with no comma between them', 'panel {\n    size = self.size\n    clientSize = self.clientSize\n}', 3, 5],
-            ['a call with no receiver', 'panel { row = first(".row") }', 1, 15],
             ['a member given an argument with no receiver and no parentheses', 'panel { open = matches ".open" }', 1, 16],
             ['a null test with no subject', 'panel { open = == null }', 1, 16],
             ['a null test with no subject at the top level', '== null', 1, 1],
@@ -979,7 +978,7 @@ describe('domql', () => {
             expect(domql.query('{ a = r.then, b = r?.else, c = r.self, d = r["end"] }', { r: record }).evaluate()).toEqual({ a: 1, b: 2, c: 3, d: 4 });
             expect(domql.query('r["end"]').definition.query).toEqual(member('end', parameter('r')));
             expect(domql.format('r.if')).toBe('r.if');
-            expect(domql.query({ version: 23, query: member('self', parameter('panel')) }).definition.query.name).toBe('self');
+            expect(domql.query({ version: 24, query: member('self', parameter('panel')) }).definition.query.name).toBe('self');
             expect(getError(() => domql.query('panel.null')).kind).toBe('syntax');
             expect(domql.query('panel:end["x"]').definition.query).toMatchObject({ kind: 'indexer', name: 'end' });
             expect(domql.query('panel?:if["x"]').definition.query.target).toMatchObject({ kind: 'indexer', name: 'if', optional: true });
@@ -1017,7 +1016,7 @@ describe('domql', () => {
         });
 
         it('copies and freezes the definition it is given', () => {
-            const definition = { version: 23, query: { kind: 'object', target: parameter('panel'), fields: [{ name: 'size', value: member('size') }] } };
+            const definition = { version: 24, query: { kind: 'object', target: parameter('panel'), fields: [{ name: 'size', value: member('size') }] } };
             const query = domql.query(definition);
 
             definition.query.fields.push({ name: 'clientSize', value: member('clientSize') });
@@ -1028,21 +1027,21 @@ describe('domql', () => {
 
         it.each([
             ['a version other than 11', { version: 10, query: parameter('panel') }, '/version'],
-            ['a field without a name', { version: 23, query: { kind: 'object', target: parameter('panel'), fields: [{ value: member('size') }] } }, '/query/fields/0'],
-            ['an object expression without a field', { version: 23, query: { kind: 'object', target: parameter('panel'), fields: [] } }, '/query'],
-            ['a property no part has', { version: 23, query: { ...parameter('panel'), extra: true } }, '/query'],
-            ['an unknown kind', { version: 23, query: { kind: 'phrase', name: 'size' } }, '/query'],
-            ['a member without a receiver', { version: 23, query: { kind: 'member', name: 'size' } }, '/query'],
-            ['a call without a receiver', { version: 23, query: { kind: 'call', name: 'closest' } }, '/query'],
-            ['a property access holding an argument', { version: 23, query: { kind: 'member', target: parameter('panel'), name: 'size', argument: literal(1) } }, '/query'],
-            ['a member holding the arguments of an earlier version', { version: 23, query: { kind: 'member', target: parameter('panel'), name: 'size', arguments: [] } }, '/query'],
-            ['self at the top level', { version: 23, query: member('size', self) }, '/query/target'],
-            ['a name that is no name', { version: 23, query: parameter('2panel') }, '/query/name'],
-            ['a name ending in a hyphen', { version: 23, query: parameter('panel-') }, '/query/name'],
-            ['a reserved literal naming a member', { version: 23, query: member('true', parameter('panel')) }, '/query/name'],
-            ['a reserved literal naming a field', { version: 23, query: { kind: 'object', target: parameter('panel'), fields: [{ name: 'false', value: member('size') }] } }, '/query/fields/0/name'],
-            ['a literal that is no JSON scalar', { version: 23, query: literal(Number.NaN) }, '/query/value'],
-            ['an object expression whose fields are no array', { version: 23, query: { kind: 'object', target: parameter('panel'), fields: {} } }, '/query/fields'],
+            ['a field without a name', { version: 24, query: { kind: 'object', target: parameter('panel'), fields: [{ value: member('size') }] } }, '/query/fields/0'],
+            ['an object expression without a field', { version: 24, query: { kind: 'object', target: parameter('panel'), fields: [] } }, '/query'],
+            ['a property no part has', { version: 24, query: { ...parameter('panel'), extra: true } }, '/query'],
+            ['an unknown kind', { version: 24, query: { kind: 'phrase', name: 'size' } }, '/query'],
+            ['a member without a receiver', { version: 24, query: { kind: 'member', name: 'size' } }, '/query'],
+            ['a call without a receiver', { version: 24, query: { kind: 'call', name: 'closest' } }, '/query'],
+            ['a property access holding an argument', { version: 24, query: { kind: 'member', target: parameter('panel'), name: 'size', argument: literal(1) } }, '/query'],
+            ['a member holding the arguments of an earlier version', { version: 24, query: { kind: 'member', target: parameter('panel'), name: 'size', arguments: [] } }, '/query'],
+            ['self at the top level', { version: 24, query: member('size', self) }, '/query/target'],
+            ['a name that is no name', { version: 24, query: parameter('2panel') }, '/query/name'],
+            ['a name ending in a hyphen', { version: 24, query: parameter('panel-') }, '/query/name'],
+            ['a reserved literal naming a member', { version: 24, query: member('true', parameter('panel')) }, '/query/name'],
+            ['a reserved literal naming a field', { version: 24, query: { kind: 'object', target: parameter('panel'), fields: [{ name: 'false', value: member('size') }] } }, '/query/fields/0/name'],
+            ['a literal that is no JSON scalar', { version: 24, query: literal(Number.NaN) }, '/query/value'],
+            ['an object expression whose fields are no array', { version: 24, query: { kind: 'object', target: parameter('panel'), fields: {} } }, '/query/fields'],
         ])('rejects %s, naming its node', (_, definition, pointer) => {
             const error = getError(() => domql.query(definition));
 
@@ -3184,11 +3183,11 @@ describe('domql arithmetic', () => {
     });
 
     it('refuses a definition with an operator arithmetic has none of, and takes a negation of any number', () => {
-        const error = getError(() => domql.query({ version: 23, query: { kind: 'arithmetic', operator: '^', left: { kind: 'literal', value: 2 }, right: { kind: 'literal', value: 3 } } }));
+        const error = getError(() => domql.query({ version: 24, query: { kind: 'arithmetic', operator: '^', left: { kind: 'literal', value: 2 }, right: { kind: 'literal', value: 3 } } }));
 
         expect(error.kind).toBe('structure');
         expect(error.location.pointer).toBe('/query/operator');
-        expect(domql.query({ version: 23, query: { kind: 'negate', operand: { kind: 'literal', value: 2 } } }).evaluate()).toBe(-2);
+        expect(domql.query({ version: 24, query: { kind: 'negate', operand: { kind: 'literal', value: 2 } } }).evaluate()).toBe(-2);
     });
 });
 
@@ -3294,7 +3293,7 @@ describe('domql bodies', () => {
         ['branches of two styles', conditional(parameter('a'), { kind: 'body', bindings: [], result: literal(1) }, literal(2)), '/query'],
         ['an alternative conditional of the other style', conditional(parameter('a'), { kind: 'body', bindings: [], result: literal(1) }, conditional(parameter('b'), literal(2), literal(3))), '/query'],
     ])('refuses a definition of %s', (_, query, pointer) => {
-        const error = getError(() => domql.query({ version: 23, query }));
+        const error = getError(() => domql.query({ version: 24, query }));
 
         expect(error.kind).toBe('structure');
         expect(error.location.pointer).toBe(pointer);
@@ -3312,6 +3311,122 @@ describe('domql bodies', () => {
         expect(domql.format(text)).toBe(formatted);
         expect(domql.format(formatted)).toBe(formatted);
         expect(domql.query(formatted).definition).toEqual(domql.query(text).definition);
+    });
+});
+
+describe('domql functions', () => {
+    const evaluate = (text, bindings = {}) => domql.query(text, bindings).evaluate();
+    const queryOf = text => domql.query(text).definition.query;
+    const panelOf = count => {
+        const panel = document.createElement('div');
+
+        for (let index = 0; index < count; index++) {
+            panel.append(document.createElement('i'));
+        }
+
+        return panel;
+    };
+
+    it('calls a function a local holds by its name, with as many arguments as it declares, its body an expression alone or bindings and a return', () => {
+        expect(evaluate('let double = function(x) x * 2 end\nreturn double(3)')).toBe(6);
+        expect(evaluate('let calculate = function(x)\n    let doubled = x * 2\n    return doubled + 1\nend\nreturn calculate(5)')).toBe(11);
+        expect(evaluate('let area = function(width, height) width * height end\nreturn area(w, h)', { w: 3, h: 4 })).toBe(12);
+        expect(evaluate('let seven = function() 7 end\nreturn seven()')).toBe(7);
+        expect(evaluate('{ let double = function(x) x * 2 end, a = double(2), b = double(5) }')).toEqual({ a: 4, b: 10 });
+        expect(evaluate('let classify = function(x)\n    if x < 0 then\n        return 0\n    else\n        let doubled = x * 2\n        return doubled + 1\n    end\nend\nreturn { a = classify(-1), b = classify(3) }')).toEqual({ a: 0, b: 7 });
+    });
+
+    it('resolves its body for each call against that call\'s arguments, so one function serves several types, and a function nothing calls never', () => {
+        const panel = panelOf(2);
+
+        expect(evaluate('let same = function(x) x end\nreturn { a = same(1), b = same("s"), c = same(panel).children.count }', { panel })).toEqual({ a: 1, b: 's', c: 2 });
+        expect(evaluate('let unused = function(e) e.nothing end\nreturn 1')).toBe(1);
+        expect(getError(() => domql.query('let count = function(e) e.nothing end\nreturn count(panel)', { panel }).resolve()).message).toContain("'nothing' is no member of the vocabulary");
+    });
+
+    it('captures the locals and the current value where it is declared, never a caller\'s', () => {
+        expect(evaluate('let a = 1\nlet f = function() a end\nreturn do\n    let a = 2\n    return f()\nend')).toBe(1);
+        expect(evaluate('panel { let count = function() self.children.count end, n = count() }', { panel: panelOf(3) })).toEqual({ n: 3 });
+        expect(evaluate('panel { let outer = self, items = self.children { n = outer.children.count } }', { panel: panelOf(1) })).toEqual({ items: [{ n: 1 }] });
+    });
+
+    it('records a function as its parameters and its body, and a call as its name and arguments', () => {
+        expect(queryOf('let f = function(x, y) x end\nreturn f(1, 2)')).toEqual({
+            kind: 'body',
+            bindings: [{ name: 'f', value: { kind: 'function', parameters: ['x', 'y'], body: { kind: 'local', name: 'x' } } }],
+            result: { kind: 'functionCall', name: 'f', arguments: [{ kind: 'literal', value: 1 }, { kind: 'literal', value: 2 }] },
+        });
+    });
+
+    it.each([
+        ['a function calling itself', 'let f = function(x) f(x) end\nreturn 1', "'f' is called before the local of that name is declared in its scope, so no function calls itself or one declared after it"],
+        ['a function calling one declared after it', 'let f = function(x) g(x) end\nlet g = function(x) x end\nreturn f(1)', "'g' is called before the local of that name is declared in its scope"],
+        ['a function that is no local\'s value', '{ f = function(x) x end }', 'A function is the value of a local, as let name = function(…) … end, and stands nowhere else'],
+        ['a function a conditional chooses', 'let f = if a then function() 1 end else function() 2 end end\nreturn 1', 'A function is the value of a local'],
+        ['two parameters of one name', 'let f = function(x, x) x end\nreturn 1', "Two parameters of one function are named 'x'"],
+    ])('refuses %s when the query is created', (_, text, message) => {
+        const error = getError(() => domql.query(text));
+
+        expect(error.kind).toBe('structure');
+        expect(error.message).toContain(message);
+    });
+
+    it.each([
+        ['a function read as a value', 'let f = function(x) x end\nreturn f', "'f' is a function, which is called and never passed, held or compared: write 'f(…)' with its arguments"],
+        ['a function compared', 'let f = function(x) x end\nreturn f == f', "'f' is a function"],
+        ['a call given too many arguments', 'let f = function(x) x end\nreturn f(1, 2)', "'f' takes one argument, and is given 2"],
+        ['a call given too few', 'let f = function(x, y) x end\nreturn f(1)', "'f' takes 2 arguments, and is given 1"],
+        ['a call of a local holding a value', 'let v = 1\nreturn v(2)', "'v' is a local holding a value, and no function, so it is called with no arguments"],
+        ['a call no function answers', 'nothing(2)', "No function named 'nothing' is in scope"],
+        ['a call of what the current value has as a member', 'panel { row = first(".row") }', "No function named 'first' is in scope; write 'self.first(…)' for the member of the current value"],
+        ['a call settling a fixed argument', 'let state = function() "disabled" end\nreturn panel.is(state())', "selects from the vocabulary, so it is a string the query's preparation settles"],
+    ])('refuses %s before anything is evaluated', (_, text, message) => {
+        const error = getError(() => domql.query(text, { panel: panelOf(1) }).resolve());
+
+        expect(error.kind).toBe('validation');
+        expect(error.message).toContain(message);
+    });
+
+    it.each([
+        ['a function that is an operand', '1 + function() 1 end', 'A function is the value of a local: write let name = function(…) … end, and call it by its name'],
+        ['a keyword naming a parameter', 'let f = function(end) 1 end\nreturn 1', "a parameter's name, which no reserved word is"],
+        ['a function without its end', 'let f = function(x) x', "Expected 'end' closing the function"],
+        ['a function holding nothing', 'let f = function(x) end\nreturn 1', 'A function holds a body'],
+        ['a comma after the last parameter', 'let f = function(x,) x end\nreturn 1', "Expected a parameter's name, found ')'"],
+        ['a comma after the last argument', 'let f = function(x) x end\nreturn f(1,)', "Expected a value, found ')'"],
+    ])('refuses %s as text', (_, text, message) => {
+        const error = getError(() => domql.query(text));
+
+        expect(error.kind).toBe('syntax');
+        expect(error.message).toContain(message);
+    });
+
+    it('locates an error in a call\'s body at the function it calls', () => {
+        const error = getError(() => domql.query('let count = function(e) e.nothing end\nreturn count(panel)', { panel: panelOf(1) }).resolve());
+
+        expect(error.location).toMatchObject({ line: 1, column: 25 });
+    });
+
+    it.each([
+        ['a function of one expression, on its line', 'let f=function(x)x*2 end return f(1)', 'let f = function(x) x * 2 end\nreturn f(1)'],
+        ['a function whose body returns, on the lines within it', 'let f = function(x) let d = x * 2 return d end\nreturn f(1)', 'let f = function(x)\n    let d = x * 2\n    return d\nend\nreturn f(1)'],
+        ['a function whose one expression spans lines', 'let f = function(x) if x < 0 then return 0 else return x end end\nreturn f(1)', 'let f = function(x)\n    if x < 0 then\n        return 0\n    else\n        return x\n    end\nend\nreturn f(1)'],
+        ['a function in an object local', '{ let f = function(a, b) a + b end, s = f(1, 2) }', '{\n    let f = function(a, b) a + b end,\n    s = f(1, 2)\n}'],
+    ])('writes %s', (_, text, formatted) => {
+        expect(domql.format(text)).toBe(formatted);
+        expect(domql.format(formatted)).toBe(formatted);
+        expect(domql.query(formatted).definition).toEqual(domql.query(text).definition);
+    });
+
+    it.each([
+        ['a function that is no local\'s value', { kind: 'object', fields: [{ name: 'f', value: { kind: 'function', parameters: [], body: { kind: 'literal', value: 1 } } }] }, '/query/fields/0/value'],
+        ['a call whose arguments are no array', { kind: 'functionCall', name: 'f', arguments: {} }, '/query/arguments'],
+        ['parameters that are no array', { kind: 'body', bindings: [{ name: 'f', value: { kind: 'function', parameters: 'x', body: { kind: 'literal', value: 1 } } }], result: { kind: 'literal', value: 1 } }, '/query/bindings/0/value/parameters'],
+    ])('refuses a definition of %s', (_, query, pointer) => {
+        const error = getError(() => domql.query({ version: 24, query }));
+
+        expect(error.kind).toBe('structure');
+        expect(error.location.pointer).toBe(pointer);
     });
 });
 
@@ -3346,7 +3461,7 @@ describe('domql external bindings', () => {
 
     it('takes no binding and no parameter named self, which is the current value', () => {
         expect(getError(() => domql.query('x', { self: 1 }))).toMatchObject({ kind: 'structure', message: expect.stringContaining("'self' is the current value, which no binding takes") });
-        expect(getError(() => domql.query({ version: 23, query: { kind: 'parameter', name: 'self' } }))).toMatchObject({ kind: 'structure', location: { pointer: '/query/name' } });
+        expect(getError(() => domql.query({ version: 24, query: { kind: 'parameter', name: 'self' } }))).toMatchObject({ kind: 'structure', location: { pointer: '/query/name' } });
     });
 
     it('refuses a binding the caller did not give, never reading the local of its name instead', () => {
@@ -3367,7 +3482,7 @@ describe('domql external bindings', () => {
     });
 
     it('takes a definition\'s parameter as the caller\'s binding beside a local of its name, before it or in scope of it', () => {
-        const definition = { version: 23, query: { kind: 'object', locals: [{ name: 'a', value: { kind: 'parameter', name: 'a' } }], fields: [{ name: 'local', value: { kind: 'local', name: 'a' } }, { name: 'binding', value: { kind: 'parameter', name: 'a' } }] } };
+        const definition = { version: 24, query: { kind: 'object', locals: [{ name: 'a', value: { kind: 'parameter', name: 'a' } }], fields: [{ name: 'local', value: { kind: 'local', name: 'a' } }, { name: 'binding', value: { kind: 'parameter', name: 'a' } }] } };
 
         expect(domql.query(definition, { a: 5 }).evaluate()).toEqual({ local: 5, binding: 5 });
         expect(domql.format(definition)).toBe('{\n    let a = ~a,\n    local = a,\n    binding = ~a\n}');
@@ -3467,27 +3582,27 @@ describe('domql interpolated strings', () => {
 
     it('joins a definition\'s adjacent text and drops its empty text, leaving the caller\'s definition as it is', () => {
         const query = { kind: 'interpolatedString', parts: [{ kind: 'text', value: 'a' }, { kind: 'text', value: '' }, { kind: 'text', value: 'b' }, { kind: 'expression', expression: { kind: 'literal', value: 1 } }, { kind: 'text', value: '' }] };
-        const definition = domql.query({ version: 23, query }).definition;
+        const definition = domql.query({ version: 24, query }).definition;
 
         expect(definition.query.parts).toEqual([{ kind: 'text', value: 'ab' }, { kind: 'expression', expression: { kind: 'literal', value: 1 } }]);
         expect(query.parts).toHaveLength(5);
-        expect(domql.query({ version: 23, query }).evaluate()).toBe('ab1');
+        expect(domql.query({ version: 24, query }).evaluate()).toBe('ab1');
     });
 
     it('names a part of a definition by the index its caller gave it, however validation joined and dropped the text before it', () => {
         const hole = expression => ({ kind: 'expression', expression });
         const inner = { kind: 'interpolatedString', parts: [{ kind: 'text', value: '' }, { kind: 'text', value: '' }, hole({ kind: 'parameter', name: 'flag' })] };
         const query = { kind: 'interpolatedString', parts: [{ kind: 'text', value: 'a' }, { kind: 'text', value: '' }, { kind: 'text', value: 'b' }, hole({ kind: 'parameter', name: 'flag' }), { kind: 'text', value: '' }, hole(inner)] };
-        const error = getError(() => domql.query({ version: 23, query }, { flag: true }).resolve());
+        const error = getError(() => domql.query({ version: 24, query }, { flag: true }).resolve());
 
         expect(error.message).toContain('An interpolation inserts a string or a number, and this one is boolean');
         expect(error.location.pointer).toBe('/query/parts/3/expression');
 
         const nested = { kind: 'interpolatedString', parts: [{ kind: 'text', value: '' }, hole({ kind: 'literal', value: 'x' }), hole(inner)] };
 
-        expect(getError(() => domql.query({ version: 23, query: nested }, { flag: true }).resolve()).location.pointer).toBe('/query/parts/2/expression/parts/2/expression');
-        expect(getError(() => domql.query({ version: 23, query: { kind: 'interpolatedString', parts: [hole({ kind: 'parameter', name: 'flag' })] } }, { flag: true }).resolve()).location.pointer).toBe('/query/parts/0/expression');
-        expect(domql.query({ version: 23, query }, { flag: true }).definition.query.parts).toHaveLength(3);
+        expect(getError(() => domql.query({ version: 24, query: nested }, { flag: true }).resolve()).location.pointer).toBe('/query/parts/2/expression/parts/2/expression');
+        expect(getError(() => domql.query({ version: 24, query: { kind: 'interpolatedString', parts: [hole({ kind: 'parameter', name: 'flag' })] } }, { flag: true }).resolve()).location.pointer).toBe('/query/parts/0/expression');
+        expect(domql.query({ version: 24, query }, { flag: true }).definition.query.parts).toHaveLength(3);
     });
 
     it.each([
@@ -3497,7 +3612,7 @@ describe('domql interpolated strings', () => {
         ['an expression part without its expression', { kind: 'interpolatedString', parts: [{ kind: 'expression' }] }, '/query/parts/0', ''],
         ['an expression that is no node', { kind: 'interpolatedString', parts: [{ kind: 'expression', expression: { kind: 'sum' } }] }, '/query/parts/0/expression', 'A node is an object'],
     ])('refuses a definition of an interpolated string with %s', (_, query, pointer, message) => {
-        const error = getError(() => domql.query({ version: 23, query }));
+        const error = getError(() => domql.query({ version: 24, query }));
 
         expect(error.kind).toBe('structure');
         expect(error.location.pointer).toBe(pointer);
@@ -3567,7 +3682,7 @@ describe('domql string escapes', () => {
     });
 
     it('writes a definition\'s string with the escapes the text would read back', () => {
-        const query = domql.query({ version: 23, query: { kind: 'literal', value: 'a\u0001\u001B\n"' } });
+        const query = domql.query({ version: 24, query: { kind: 'literal', value: 'a\u0001\u001B\n"' } });
 
         expect(domql.format(query)).toBe('"a\\u{1}\\e\\n\\""');
         expect(valueOf(domql.format(query))).toBe('a\u0001\u001B\n"');
@@ -3644,7 +3759,7 @@ describe('domql comparisons', () => {
         ['an operator that orders nothing', { kind: 'comparison', operands: [{ kind: 'literal', value: 1 }, { kind: 'literal', value: 2 }], operators: ['!='] }, '/query/operators/0', 'A comparison operator is <, <=, > or >='],
         ['operators pointing two ways', { kind: 'comparison', operands: [{ kind: 'literal', value: 1 }, { kind: 'literal', value: 2 }, { kind: 'literal', value: 0 }], operators: ['<', '>'] }, '/query/operators/1', 'A comparison chain keeps one direction'],
     ])('refuses a definition of a comparison with %s', (_, query, pointer, message) => {
-        const error = getError(() => domql.query({ version: 23, query }));
+        const error = getError(() => domql.query({ version: 24, query }));
 
         expect(error.kind).toBe('structure');
         expect(error.location.pointer).toBe(pointer);
@@ -3652,7 +3767,7 @@ describe('domql comparisons', () => {
     });
 
     it('evaluates a comparison made from a definition as one written in text', () => {
-        expect(domql.query({ version: 23, query: { kind: 'comparison', operands: [{ kind: 'literal', value: 1 }, { kind: 'literal', value: 2 }, { kind: 'literal', value: 2 }], operators: ['<', '<='] } }).evaluate()).toBe(true);
+        expect(domql.query({ version: 24, query: { kind: 'comparison', operands: [{ kind: 'literal', value: 1 }, { kind: 'literal', value: 2 }, { kind: 'literal', value: 2 }], operators: ['<', '<='] } }).evaluate()).toBe(true);
     });
 });
 
@@ -3753,7 +3868,7 @@ describe('domql calls that were infix calls', () => {
     });
 
     it('refuse a definition holding an infixCall, which is no node, saying which nodes take its place', () => {
-        const error = getError(() => domql.query({ version: 23, query: { kind: 'object', target: parameter('panel'), fields: [{ name: 'open', value: infixCall('matches', literal('.open')) }] } }));
+        const error = getError(() => domql.query({ version: 24, query: { kind: 'object', target: parameter('panel'), fields: [{ name: 'open', value: infixCall('matches', literal('.open')) }] } }));
 
         expect(error.kind).toBe('structure');
         expect(error.location.pointer).toBe('/query/fields/0/value');

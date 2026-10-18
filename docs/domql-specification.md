@@ -21,13 +21,16 @@ body                      = { body-binding } "return" expression
                           | expression
 body-binding              = "let" identifier "=" expression
 
-expression                = conditional-expression | do-expression | condition
+expression                = conditional-expression | do-expression
+                          | function-expression | condition
 parenthesized-expression  = "(" expression ")"
 
 conditional-expression    = "if" conditional-clause "then" body
                             { "elseif" conditional-clause "then" body }
                             "else" body "end"
 do-expression             = "do" body "end"
+function-expression       = "function" "(" [ identifier { "," identifier } ] ")"
+                            body "end"
 conditional-clause        = conditional-binding | condition
 conditional-binding       = "let" identifier "=" condition
 
@@ -80,8 +83,9 @@ optional-enclosed-access  = "(?" member-chain ")"
 receiver                  = input | "(" cast ")"
 
 input                     = value | object | identifier | interpolated-string
-                          | external-binding
+                          | external-binding | local-function-call
 external-binding          = "~" name
+local-function-call       = identifier "(" [ expression { "," expression } ] ")"
 value                     = "self" | literal
 
 enclosed-expression       = parenthesized-expression | optional-enclosed-access
@@ -106,7 +110,7 @@ name                      = letter { letter | digit }
 reserved-word             = "true" | "false" | "null" | keyword
 keyword                   = "self" | "not" | "try" | "as" | "and" | "or"
                           | "if" | "then" | "elseif" | "else" | "let"
-                          | "do" | "end" | "return"
+                          | "do" | "end" | "return" | "function"
 
 number                    = integer [ fraction ] [ exponent ]
 integer                   = "0" | nonzero-digit { digit }
@@ -472,6 +476,29 @@ return {
 - **Definition.** A body that gives its result with `return` is a `body` node of its bindings and its result, as a `do` block is, one of an expression alone holding no bindings; a body of one expression is that expression's own node. A conditional's branches are all `body` nodes or none, an implicit conditional's alternative excepted where it is a conditional of either style.
 - **Canonical text.** A body's bindings and its result each begin a line; a conditional of implicit results stays on one line where it has no `elseif`, and one whose branches return writes each branch on the lines a level within its clause, every branch with its `return`, and its `end` on a line of its own.
 
+### Functions
+
+A **function** names a calculation a query repeats: `function`, its **parameters** in parentheses, and the body a call evaluates, closed by `end`, held by a local, and called by that local's name with its **arguments**.
+
+```domql
+let measure = function(box, padding)
+    let width = box.rect?.width ?? 0
+    return width - padding * 2
+end
+return {
+    panel = measure(panel, 12),
+    sidebar = measure(sidebar, 0)
+}
+```
+
+- **Declaring one.** A function is the value of a local, a body's binding or an object expression's local, and nowhere else: a field, an argument, an operand, a conditional's branch and a result never hold one, so `let f = if wide then function() 1 end else function() 2 end end` is a structure error. Its body follows the rules of a [body](#bodies), an expression alone, as `function(x) x * 2 end`, or bindings and a `return`, which completes the function's body and gives the call its value. Its parameters are names, two of one function never the same, visible in its body alone.
+- **Calling one.** `name(argument, …)` calls the local function of that name in scope, with as many arguments as it declares parameters, `seven()` with none; each argument is evaluated once, from left to right, in the caller's scope, and the body then evaluates with each parameter holding its argument. A call is a value a chain continues from, as `first(panel).children.count` does. An operation of a vocabulary keeps its own form, `self.closest(".row")`, with its one argument or options object. A name no local function has is a validation error, which gives the form with `self` where the current value has a member of that name, and so is a call of a local that holds a value, and a call given the wrong number of arguments.
+- **What it sees.** A function captures the locals and the current value where it is declared: its body reads them, its parameters and its own bindings, and never the caller's locals, so in `let a = 1`, `let f = function() a end` and a `do` block that binds `a` to 2 and calls `f()`, the call gives 1. A watch's evaluation captures them anew each time.
+- **Never a value.** A function is called and never passed, held in a field, compared, returned or given as an argument: a local holding one, read without a call, is a validation error. No function calls itself or one declared after it, directly or through another, since a local's value sees neither it nor the locals after it.
+- **Resolved for each call.** The declaration is checked for what no argument decides, its names, its scope and its parameters; each call resolves the body against that call's argument types, so one function serves arguments of different types, and a function nothing calls is never resolved further. A call settles no fixed argument.
+- **Watching.** A call reads what its arguments and the branches its body selects read, and a branch it does not select reads nothing.
+- **Definition.** A function is a `function` node of its parameters and its body; a call is a `functionCall` node of the function's name and its arguments.
+
 ### Locals
 
 An object expression can name a value once, as a **local**, and use it by its name in the entries after it, so a value read in several places is written and evaluated once.
@@ -720,6 +747,8 @@ An optional access of null is null and ends its chain, a coalescing operator ans
 | A conditional without its `end`, a conditional whose branches give their results in two styles, anything after a body's result, or a `return` with no value | A syntax error |
 | Bindings whose body's result has no `return` | A syntax error: `Introduce the body's result with return.` |
 | An expression no binding holds before a body's `return` | A syntax error: `Only local bindings may precede a body's result.` |
+| A function that is no local's value, a function calling itself or one declared after it, or two parameters of one name | A structure error |
+| A call no local function answers, a call of a local holding a value, a call given the wrong number of arguments, or a local holding a function read without a call | A validation error naming the function |
 | A conditional or a `do` block that is the receiver of a chain | A syntax error, or a structure error in a definition, saying to bind its value first |
 | An interpolated string with a space after its `$`, a hole with no expression, or a lone `}` in its text | A syntax error at what is written so |
 | An interpolation of a value that can be null, or of no string or number | A validation error naming the hole, and the fallback or the conversion to give it |
@@ -915,7 +944,9 @@ A document holds the definition's `version` and the `query` node. The version ch
 | `indexer` | `name`, left out for the default indexer; `argument`, its key; `target`, the receiver; and `optional`, true, where it is written with `?:` | A named indexer, or the receiver's default indexer |
 | `object` | `fields`; `locals`, where it has any; and `target`, the node the object expression follows | An object expression; without a target, one keeping the current value around it, which at the top level is absent |
 | `equality` | `left` and `right`, the two expressions it compares | An equality; `!=` is a `not` holding one |
-| `body` | `bindings`, each its `name` and its `value`, in order, and `result`, the value the body gives | A body: a query's, a `do` block's or a conditional branch's |
+| `body` | `bindings`, each its `name` and its `value`, in order, and `result`, the value the body gives | A body: a query's, a `do` block's, a function's or a conditional branch's |
+| `function` | `parameters`, the names it declares, and `body`, the body a call evaluates | A function, the value of a local alone |
+| `functionCall` | `name`, the local function's name, and `arguments`, as many as its parameters | A call of a local function |
 | `interpolatedString` | `parts`, its text and its holes in order: each `{ "kind": "text", "value": … }`, the characters the text stands for, or `{ "kind": "expression", "expression": … }` | An interpolated string; adjacent text is one part and empty text none, and a diagnostic names a part by the index the definition it was created from gave it |
 | `comparison` | `operands`, two or more expressions, and `operators`, one of `<`, `<=`, `>` and `>=` between each two | A comparison, or a chain of them |
 | `conditional` | `condition`, the expression it tests, or `binding`, the `name` it binds and the `value` it binds to it, one of them; and `consequent` and `alternative`, two expressions | A conditional, `if let` holding a binding; an `elseif` is a conditional nested in the alternative before it |
@@ -947,7 +978,7 @@ Every property access, call and indexer holds its receiver as its `target`, and 
 
 ```json
 {
-  "version": 23,
+  "version": 24,
   "query": {
     "kind": "object",
     "target": { "kind": "parameter", "name": "panel" },
@@ -975,8 +1006,8 @@ A definition names its parameters and never holds their values. An element is bo
 
 A query is validated in two stages, both before any evaluation.
 
-- **Structure,** when the query is created: the definition follows the node structures and structural validation rules this specification defines, which need no vocabulary: every field with its name, unique within its object expression; every local with its name, which no other local in scope where it is written has, and none named `document` or `window`; no name a text writes alone before a local of its name declared later in its scope, while a definition's parameter, as `~` writes one, is the caller's binding wherever it stands; no object expression without a field; every property access, call and indexer with its receiver, and every equality with both of its operands; every comparison with two or more operands and one of its four operators between each two, all pointing the first one's way; every interpolated string with its parts, each text that is a string or an expression; every body with its bindings and its result, no two bindings of one body of one name and none seen before it; no conditional or body as the receiver of a chain; every optional access within an optional chain, through the targets of property accesses, calls and object expressions alone, and every optional chain holding one; no `self` at the top level, nor in a field of an object expression there, since there is no current value for it to stand for; every `and` and `or` of two or more expressions; every arithmetic node with one of its operators and both operands, and every `negate` with its operand; every coalescing with its value and its fallback; every cast with a string type and a target its grammar takes, `self`, a parameter, a local, a literal, an object expression following nothing, a property access, a call, an optional chain, a coalescing operator or another cast; and no binding supplied under the name `document` or `window`. Text that does not follow the syntax fails here as a syntax error.
-- **Vocabulary,** when the query is prepared: every member and extension exists and is written in the form its declaration takes, every argument supplies its member's input, directly or as an options object whose fields name its parameters, every receiver, argument, expression and binding has the type its signature declares and every argument its kind, every access and call written with `.` has a receiver that cannot be null, every fixed argument is a literal, a bound parameter or a local whose value is one of them, every bracket property access gives names determined when the query is prepared, each a property of its receiver and all of one type, every local a name uses is in scope where it is used, is a value and stands in no options object, every cast names `node` or one of its kinds and has a target that can be of it, the operands of every equality are of types that fit one way or the other, one of them null where either is no string, number, Boolean or node, every operand of arithmetic and of a comparison is a number that cannot be null, every interpolation a string or a number that cannot be null, every operand of `and` and `or`, what every `not` negates and every condition is a Boolean that cannot be null, the value and the fallback of every coalescing operator are values of one type, the branches of every conditional are of one type, every expression is valid in the context its member declares, the request is used as its kind, the result holds only data, and a watch's members can be watched.
+- **Structure,** when the query is created: the definition follows the node structures and structural validation rules this specification defines, which need no vocabulary: every field with its name, unique within its object expression; every local with its name, which no other local in scope where it is written has, and none named `document` or `window`; no name a text writes alone before a local of its name declared later in its scope, while a definition's parameter, as `~` writes one, is the caller's binding wherever it stands; no object expression without a field; every property access, call and indexer with its receiver, and every equality with both of its operands; every comparison with two or more operands and one of its four operators between each two, all pointing the first one's way; every interpolated string with its parts, each text that is a string or an expression; every body with its bindings and its result, no two bindings of one body of one name and none seen before it; no conditional or body as the receiver of a chain; every function a local's value, its parameters unique names, and no call of a function before the local that holds it; every optional access within an optional chain, through the targets of property accesses, calls and object expressions alone, and every optional chain holding one; no `self` at the top level, nor in a field of an object expression there, since there is no current value for it to stand for; every `and` and `or` of two or more expressions; every arithmetic node with one of its operators and both operands, and every `negate` with its operand; every coalescing with its value and its fallback; every cast with a string type and a target its grammar takes, `self`, a parameter, a local, a literal, an object expression following nothing, a property access, a call, an optional chain, a coalescing operator or another cast; and no binding supplied under the name `document` or `window`. Text that does not follow the syntax fails here as a syntax error.
+- **Vocabulary,** when the query is prepared: every member and extension exists and is written in the form its declaration takes, every argument supplies its member's input, directly or as an options object whose fields name its parameters, every receiver, argument, expression and binding has the type its signature declares and every argument its kind, every access and call written with `.` has a receiver that cannot be null, every fixed argument is a literal, a bound parameter or a local whose value is one of them, every bracket property access gives names determined when the query is prepared, each a property of its receiver and all of one type, every local a name uses is in scope where it is used, is a value and stands in no options object, every cast names `node` or one of its kinds and has a target that can be of it, the operands of every equality are of types that fit one way or the other, one of them null where either is no string, number, Boolean or node, every operand of arithmetic and of a comparison is a number that cannot be null, every interpolation a string or a number that cannot be null, every call of a local function in scope with as many arguments as it declares, its body resolved against them, every operand of `and` and `or`, what every `not` negates and every condition is a Boolean that cannot be null, the value and the fallback of every coalescing operator are values of one type, the branches of every conditional are of one type, every expression is valid in the context its member declares, the request is used as its kind, the result holds only data, and a watch's members can be watched.
 
 A failure in either stage names where it is: its position in the text, or its node's location in the definition, as a JSON Pointer.
 

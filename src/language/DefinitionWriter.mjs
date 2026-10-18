@@ -11,7 +11,7 @@ const ESCAPED = Object.freeze({ '"': '\\"', '\\': '\\\\', '\n': '\\n', '\r': '\\
 const ESCAPED_CHARACTERS = /["\\\p{Cc}\p{Cf}\p{Zl}\p{Zp}]|(?! )\p{Zs}/gu;
 
 /** How tightly each kind of expression binds, the loosest lowest: one written where a tighter one stands is parenthesized. An optional chain is a cast's target as it is, and is grouped where a chain continues from it, since its short-circuit ends where it does. */
-const PRECEDENCE = { conditional: 0, body: 0, coalescing: 1, or: 2, and: 3, not: 4, equality: 5, comparison: 5, additive: 6, multiplicative: 7, negate: 8, try: 9, conversion: 10, cast: 11, optionalChain: 12 };
+const PRECEDENCE = { conditional: 0, body: 0, function: 0, coalescing: 1, or: 2, and: 3, not: 4, equality: 5, comparison: 5, additive: 6, multiplicative: 7, negate: 8, try: 9, conversion: 10, cast: 11, optionalChain: 12 };
 
 /** How tightly a chain binds that no optional chain holds: a property access, a call, an indexer, an object expression, `self`, a local, a literal or a parameter. */
 const CHAIN_PRECEDENCE = 13;
@@ -82,6 +82,10 @@ export class DefinitionWriter {
 
                 return;
             }
+            case 'function':
+                DefinitionWriter.#markExternals(node.body, new Set([...inScope, ...node.parameters]), later);
+
+                return;
             case 'body': {
                 const names = node.bindings.map(binding => binding.name);
                 let scope = inScope;
@@ -139,6 +143,10 @@ export class DefinitionWriter {
                 return node.operands.map((operand, index) => `${index === 0 ? '' : ` ${node.operators[index - 1]} `}${DefinitionWriter.#within(operand, PRECEDENCE.additive, level)}`).join('');
             case 'conditional':
                 return DefinitionWriter.#conditional(node, level);
+            case 'function':
+                return DefinitionWriter.#function(node, level);
+            case 'functionCall':
+                return `${node.name}(${node.arguments.map(argument => DefinitionWriter.#write(argument, level)).join(', ')})`;
             case 'body':
                 // A do block: on one line, or its bindings and its return a level within it, its `end` back at its own.
                 return level === null ? `do ${DefinitionWriter.#bodyText(node, null)} end` : `do\n${INDENTATION.repeat(level + 1)}${DefinitionWriter.#bodyText(node, level + 1)}\n${INDENTATION.repeat(level)}end`;
@@ -266,6 +274,22 @@ export class DefinitionWriter {
         }
 
         return PRECEDENCE[node.kind] ?? CHAIN_PRECEDENCE;
+    }
+
+    /** A function: its parameters, and a body of one expression on its line, or a body that returns its result on the lines a level within it, its `end` back at the function's own; on one line where the level is null. */
+    static #function(node, level) {
+        const header = `function(${node.parameters.join(', ')})`;
+
+        if (node.body.kind !== 'body') {
+            const body = level === null ? null : DefinitionWriter.#write(node.body, level + 1);
+
+            // A body of one expression laid out on lines of its own goes a level within the function, as one that returns does.
+            return body === null || !body.includes('\n') ? `${header} ${DefinitionWriter.#write(node.body, level)} end` : `${header}\n${INDENTATION.repeat(level + 1)}${body}\n${INDENTATION.repeat(level)}end`;
+        }
+
+        return level === null
+            ? `${header} ${DefinitionWriter.#bodyText(node.body, null)} end`
+            : `${header}\n${INDENTATION.repeat(level + 1)}${DefinitionWriter.#bodyText(node.body, level + 1)}\n${INDENTATION.repeat(level)}end`;
     }
 
     /** A body's bindings and the `return` that gives its result, each on a line of the level's indentation, or on one line where the level is null. */

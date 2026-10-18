@@ -174,6 +174,8 @@ export type DomqlDefinitionNode =
     | { readonly kind: 'optionalChain'; readonly target: DomqlDefinitionNode }
     | { readonly kind: 'coalescing'; readonly value: DomqlDefinitionNode; readonly fallback: DomqlDefinitionNode }
     | { readonly kind: 'not'; readonly operand: DomqlDefinitionNode }
+    | { readonly kind: 'function'; readonly parameters: readonly string[]; readonly body: DomqlDefinitionNode }
+    | { readonly kind: 'functionCall'; readonly name: string; readonly arguments: readonly DomqlDefinitionNode[] }
     | { readonly kind: 'body'; readonly bindings: readonly { readonly name: string; readonly value: DomqlDefinitionNode }[]; readonly result: DomqlDefinitionNode }
     | { readonly kind: 'interpolatedString'; readonly parts: readonly ({ readonly kind: 'text'; readonly value: string } | { readonly kind: 'expression'; readonly expression: DomqlDefinitionNode })[] }
     | { readonly kind: 'comparison'; readonly operands: readonly DomqlDefinitionNode[]; readonly operators: readonly ('<' | '<=' | '>' | '>=')[] }

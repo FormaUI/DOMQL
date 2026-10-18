@@ -111,6 +111,14 @@ export class TextLocations {
             this.#collect(node.result, `${pointer}/result`, spans);
         }
 
+        if (node.kind === 'function') {
+            this.#collect(node.body, `${pointer}/body`, spans);
+        }
+
+        if (node.kind === 'functionCall') {
+            node.arguments.forEach((argument, index) => this.#collect(argument, `${pointer}/arguments/${index}`, spans));
+        }
+
         for (const entriesProperty of ['locals', 'fields', 'bindings']) {
             node[entriesProperty]?.forEach((entry, index) => {
                 const entryPointer = `${pointer}/${entriesProperty}/${index}`;
