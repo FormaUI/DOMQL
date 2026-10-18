@@ -942,7 +942,6 @@ describe('domql', () => {
             ['a conditional without else', 'if wide then "a"', 1, 17],
             ['a conditional that is an operand without parentheses', 'a and if b then true else false', 1, 7],
             ['a keyword of the conditional naming a field', 'panel { then: self.size }', 1, 9],
-            ['a keyword of the conditional naming a member', 'panel.else', 1, 7],
             ['a conditional that is a condition without parentheses', 'if if a then b else c then 1 else 2', 1, 4],
             ['let naming a field', 'panel { let: self.size }', 1, 9],
             ['a keyword naming a local', 'panel { let if: self.size, a: 1 }', 1, 13],
@@ -971,6 +970,18 @@ describe('domql', () => {
             expect(error.kind).toBe('structure');
             expect(error.location.pointer).toBe(pointer);
             expect(error.location.line).toBe(1);
+        });
+
+        it('reads a keyword after a dot as the name of a member, a property, a call or a field, and a literal\'s word nowhere', () => {
+            const record = { then: 1, else: 2, self: 3, end: 4 };
+
+            expect(domql.query('{ a = r.then, b = r?.else, c = r.self, d = r["end"] }', { r: record }).evaluate()).toEqual({ a: 1, b: 2, c: 3, d: 4 });
+            expect(domql.query('r["end"]').definition.query).toEqual(member('end', parameter('r')));
+            expect(domql.format('r.if')).toBe('r.if');
+            expect(domql.query({ version: 22, query: member('self', parameter('panel')) }).definition.query.name).toBe('self');
+            expect(getError(() => domql.query('panel.null')).kind).toBe('syntax');
+            expect(getError(() => domql.query('panel:if["x"]')).kind).toBe('syntax');
+            expect(getError(() => domql.query('{ then = 1 }')).kind).toBe('syntax');
         });
 
         it('keeps a reserved word inside a string as an ordinary string', () => {
@@ -1026,7 +1037,7 @@ describe('domql', () => {
             ['a name ending in a hyphen', { version: 22, query: parameter('panel-') }, '/query/name'],
             ['a reserved literal naming a parameter', { version: 22, query: parameter('null') }, '/query/name'],
             ['a reserved literal naming a member', { version: 22, query: member('true', parameter('panel')) }, '/query/name'],
-            ['self naming a member', { version: 22, query: member('self', parameter('panel')) }, '/query/name'],
+            ['a keyword naming an indexer', { version: 22, query: { kind: 'indexer', target: parameter('panel'), name: 'if', argument: literal('x') } }, '/query/name'],
             ['a reserved literal naming a field', { version: 22, query: { kind: 'object', target: parameter('panel'), fields: [{ name: 'false', value: member('size') }] } }, '/query/fields/0/name'],
             ['a literal that is no JSON scalar', { version: 22, query: literal(Number.NaN) }, '/query/value'],
             ['an object expression whose fields are no array', { version: 22, query: { kind: 'object', target: parameter('panel'), fields: {} } }, '/query/fields'],

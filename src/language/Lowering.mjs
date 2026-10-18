@@ -167,18 +167,22 @@ export class Lowering {
         let node;
 
         switch (part.kind) {
-            case 'dot-property-access':
-                node = optional ? { kind: 'member', target, name: second.value, optional } : { kind: 'member', target, name: second.value };
+            case 'dot-property-access': {
+                const name = second.type === 'self' ? 'self' : second.value;
+
+                node = optional ? { kind: 'member', target, name, optional } : { kind: 'member', target, name };
                 break;
+            }
             case 'function-call': {
-                const call = optional ? { kind: 'call', target, name: second.value, optional } : { kind: 'call', target, name: second.value };
+                const name = second.type === 'self' ? 'self' : second.value;
+                const call = optional ? { kind: 'call', target, name, optional } : { kind: 'call', target, name };
 
                 node = part.children.length === 5 ? { ...call, argument: this.#lower(part.children[3]) } : call;
                 break;
             }
             case 'bracket-property-access': {
                 const expression = this.#lower(second);
-                const name = expression.kind === 'literal' && Names.isName(expression.value) ? expression.value : expression;
+                const name = expression.kind === 'literal' && Names.isMemberName(expression.value) ? expression.value : expression;
 
                 node = optional ? { kind: 'member', target, name, optional } : { kind: 'member', target, name };
                 break;

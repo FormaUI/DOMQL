@@ -324,6 +324,11 @@ describe('DomqlQuery', () => {
     });
 
     describe('a selection', () => {
+        it('selects a field a keyword names, as an access after a dot reads one', () => {
+            expect(isolated.query('r', { r: { then: 5 } }).select('then').evaluate()).toBe(5);
+            expect(() => isolated.query('r', { r: { then: 5 } }).select('null')).toThrow(expect.objectContaining({ kind: 'structure' }));
+        });
+
         it('evaluates the whole query and answers the part, null past a null or an index out of range', () => {
             const query = isolated.query('panel { n = self:attribute["data-n"], rows = self.children { n = self:attribute["data-n"] } }', { panel });
 

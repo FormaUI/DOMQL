@@ -259,7 +259,8 @@ export class DomqlModule {
         }
 
         for (const [name, notation] of fields) {
-            if (!Names.isName(name) || !DomqlModule.#isTypeNotation(notation)) {
+            // A field of a structured type is read after a dot, so a keyword names one.
+            if (!Names.isMemberName(name) || !DomqlModule.#isTypeNotation(notation)) {
                 fail(`The field '${name}' is not a name with a type`, type.name);
             }
         }
@@ -448,8 +449,9 @@ export class DomqlModule {
 
         const name = member.name;
 
-        if (!Names.isName(name) || !MEMBER_KINDS.includes(member.kind)) {
-            fail(`A member is named as a name is and is one of ${MEMBER_KINDS.join(', ')}`, String(name));
+        // A property and a call are read after a dot, where a keyword names a member, and an indexer after a colon, where it does not.
+        if (!(member.form === 'indexer' ? Names.isName(name) : Names.isMemberName(name)) || !MEMBER_KINDS.includes(member.kind)) {
+            fail(`A member is named as a name is, a keyword among them unless it is an indexer, and is one of ${MEMBER_KINDS.join(', ')}`, String(name));
         }
 
         // A member whose argument selects a condition is one of the verbs that ask one, carried out by the condition it selects, as that condition declares, so it names no function and changes as what it selects.

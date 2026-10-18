@@ -779,8 +779,9 @@ export class Parser {
 
     /** Reads a member after its dot, or the `?.` of an optional access: a dot property access, or a function call where parentheses follow the name. */
     #parseDotPropertyAccessOrFunctionCall(dot) {
-        const nameToken = this.#expect('name');
-        const name = nameToken.value;
+        // After a dot only a member's name stands, so a keyword there names one, `self` among them.
+        const nameToken = this.#token.type === 'keyword' || this.#token.type === 'self' ? this.#take() : this.#expect('name');
+        const name = Parser.#memberNameOf(nameToken);
 
         // `(?` is one token, so a call's parenthesis cannot also open the optional enclosed access that is its argument.
         if (this.#token.type === '(?' && !this.#token.spaced) {
@@ -1014,6 +1015,11 @@ export class Parser {
 
     static #node(kind, children) {
         return { kind, children };
+    }
+
+    /** The name a member's name token writes: a name's or a keyword's text, `self` among them. */
+    static #memberNameOf(token) {
+        return token.type === 'self' ? 'self' : token.value;
     }
 
     /** The quoted type a conversion's or a cast's node names. */

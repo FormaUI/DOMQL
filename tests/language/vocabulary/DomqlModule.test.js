@@ -17,6 +17,15 @@ describe('DomqlModule', () => {
         expect(messageOf(() => new DomqlModule('chart-tools', {}))).toContain('named as a name is');
     });
 
+    it('names a property, a call and a field of a structured type with a keyword, read after a dot, and never an indexer, read after a colon', () => {
+        const types = [{ name: 'chart', fields: { else: 'number' } }];
+        const key = [parameter({ name: 'key', type: 'string' })];
+
+        expect(() => new DomqlModule('charts', { types, members: [declaration({ name: 'then', on: 'chart' }), declaration({ name: 'if', function: 'ask', kind: 'operation', input: 'direct', on: 'chart', parameters: key })] })).not.toThrow();
+        expect(messageOf(() => new DomqlModule('charts', { types, members: [declaration({ name: 'if', function: 'ask', kind: 'operation', form: 'indexer', input: 'direct', on: 'chart', parameters: key })] }))).toContain('a keyword among them unless it is an indexer');
+        expect(messageOf(() => new DomqlModule('charts', { types, members: [declaration({ name: 'null', on: 'chart' })] }))).toContain('named as a name is');
+    });
+
     it('keeps the DOMQL name and the function key apart', () => {
         const module = new DomqlModule('charts', { members: [declaration({ name: 'charts', function: 'chartsKey' })] }, { chartsKey: () => 0 });
 

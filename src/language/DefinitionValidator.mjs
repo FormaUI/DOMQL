@@ -412,9 +412,11 @@ export class DefinitionValidator {
     #validateMember(node, pointer, currentValueAvailability) {
         const name = node.kind === 'member' && ObjectUtils.isNonArrayObject(node.name) ? this.#validateNameExpression(node.name, `${pointer}/name`, currentValueAvailability) : node.name;
 
-        // A name a bracket property access's expression gave is checked as that expression, and a default indexer has none; any other is a name, a call's always.
-        if (name === node.name && !(node.kind === 'indexer' && name === undefined)) {
+        // A name a bracket property access's expression gave is checked as that expression, and a default indexer has none; a property access's and a call's is a member's name, which a keyword can be, and an indexer's a name.
+        if (name === node.name && node.kind === 'indexer' && name !== undefined) {
             this.#requireName(name, `${pointer}/name`);
+        } else if (name === node.name && node.kind !== 'indexer' && !Names.isMemberName(name)) {
+            this.#fail(`${pointer}/name`, 'A member is named by a letter followed by letters and digits, and no literal: true, false or null');
         }
 
         if (node.optional !== undefined) {
@@ -452,7 +454,7 @@ export class DefinitionValidator {
         try {
             const expression = this.#validateNode(node, pointer, currentValueAvailability);
 
-            return expression.kind === 'literal' && Names.isName(expression.value) ? expression.value : expression;
+            return expression.kind === 'literal' && Names.isMemberName(expression.value) ? expression.value : expression;
         } finally {
             this.#chain = enclosingChain;
         }

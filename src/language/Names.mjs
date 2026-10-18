@@ -16,6 +16,14 @@ export class Names {
         return typeof text === 'string' && PATTERN.test(text) && !LITERALS.has(text) && !KEYWORDS.has(text);
     }
 
+    /**
+     * Whether the text names a member a property access or a call reads after its dot: a letter followed by letters and digits, and no word that writes a literal.
+     * A keyword names one there, where only a member's name stands, as `selection.end` reads the field `end`.
+     */
+    static isMemberName(text) {
+        return typeof text === 'string' && PATTERN.test(text) && !LITERALS.has(text);
+    }
+
     /** Whether the word is a keyword. */
     static isKeyword(word) {
         return KEYWORDS.has(word);

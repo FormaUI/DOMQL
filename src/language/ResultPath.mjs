@@ -12,7 +12,8 @@ export class ResultPath {
         for (const item of path) {
             const isIndex = Number.isInteger(item) && item >= 0;
 
-            if (!isIndex && !(typeof item === 'string' && Names.isName(item))) {
+            // A field a result holds is named as a member is, since a structured type's field a keyword names can reach it.
+            if (!isIndex && !Names.isMemberName(item)) {
                 throw DomqlError.structure(`A path holds the names of fields and list indices that are whole numbers and not negative, and ${JSON.stringify(item) ?? String(item)} is neither`, {});
             }
         }
