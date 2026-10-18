@@ -25,8 +25,13 @@ export class ParameterBindings {
         }
 
         for (const [name, value] of Object.entries(parameters)) {
-            if (!Names.isName(name)) {
-                throw DomqlError.structure(`A binding is named as a parameter is, a letter followed by letters and digits, and no reserved word: ${Names.reservedWords.join(', ')}`, { binding: name });
+            if (name === 'self') {
+                throw DomqlError.structure("'self' is the current value, which no binding takes", { binding: name });
+            }
+
+            // A binding a reserved word names is read as `~` and its name.
+            if (!Names.isBindingName(name)) {
+                throw DomqlError.structure('A binding is named by a letter followed by letters and digits', { binding: name });
             }
 
             if (ROOTS.has(name)) {

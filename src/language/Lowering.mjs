@@ -19,15 +19,18 @@ export class Lowering {
     /** The names of the locals in scope where the node being lowered stands, which a name reads; any other name reads the caller's binding. @type {Set<string>} */
     #localNames = new Set();
 
+    /** The parameters written with `~`, which read the caller's binding wherever they stand, whatever local shares their name. @type {WeakSet<object>} */
+    #externals = new WeakSet();
+
     /**
-     * The definition the tree writes, and the span of text each of its nodes, fields, locals and bindings came from, which the tree is no longer needed for.
+     * The definition the tree writes, the span of text each of its nodes, fields, locals and bindings came from, which the tree is no longer needed for, and the parameters written with `~`.
      * @param {import('./SyntaxTree.mjs').QueryNode} tree
      */
     static lower(tree) {
         const lowering = new Lowering();
         const query = lowering.#lower(tree.children[0]);
 
-        return { definition: { version: Specification.definitionVersion, query }, spans: lowering.#spans };
+        return { definition: { version: Specification.definitionVersion, query }, spans: lowering.#spans, externals: lowering.#externals };
     }
 
     #lower(child) {
@@ -114,6 +117,13 @@ export class Lowering {
             case 'name':
                 // A name is the local its lexical scope declares, and otherwise the caller's binding, a parameter of the definition.
                 return this.#span({ kind: this.#localNames.has(token.value) ? 'local' : 'parameter', name: token.value }, token);
+            case 'external': {
+                const parameter = this.#span({ kind: 'parameter', name: token.value }, token);
+
+                this.#externals.add(parameter);
+
+                return parameter;
+            }
             default:
                 throw new TypeError(`No definition is lowered from the token '${token.type}'`);
         }

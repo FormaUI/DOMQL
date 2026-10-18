@@ -698,7 +698,11 @@ export class LanguageResolver {
             return { type: Type.createNamedType(node.name), kind: 'query', isFixed: false };
         }
 
-        // A name no local in scope has reads the caller's binding, and one the caller did not bind may be a member written without its receiver.
+        // A name no local in scope has reads the caller's binding, and one the caller did not bind may be a member written without its receiver; where a local of its name is in scope, it was written with `~`, which reads no local.
+        if (!this.#bindings.has(node.name) && scope.locals.has(node.name)) {
+            this.#fail(`No binding is named '${node.name}', and '~${node.name}' reads the caller's binding alone: write '${node.name}' for the local of that name`, pointer);
+        }
+
         if (!this.#bindings.has(node.name)) {
             const form = scope.current === null ? null : this.#memberForm(scope.current, node.name);
 

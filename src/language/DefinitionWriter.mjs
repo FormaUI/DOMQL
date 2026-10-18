@@ -2,6 +2,8 @@
  * DefinitionWriter — a definition's node as the DOMQL text that writes it, parenthesized where its grouping needs it: on one line, as a diagnostic quotes it, or laid out on lines, as formatting gives its canonical text
  */
 
+import { Names } from './Names.mjs';
+
 /** The escape the canonical text writes for each character it escapes with a letter or the character itself; any other character it escapes it writes as a Unicode escape. */
 const ESCAPED = Object.freeze({ '"': '\\"', '\\': '\\\\', '\n': '\\n', '\r': '\\r', '\t': '\\t', '\u001B': '\\e' });
 
@@ -23,6 +25,8 @@ export class DefinitionWriter {
      * @param {object} node A node of a definition.
      */
     static write(node) {
+        DefinitionWriter.#markExternals(node, new Set(), new Set());
+
         return DefinitionWriter.#write(node, null);
     }
 
@@ -31,6 +35,8 @@ export class DefinitionWriter {
      * @param {object} node A node of a definition.
      */
     static format(node) {
+        DefinitionWriter.#markExternals(node, new Set(), new Set());
+
         return DefinitionWriter.#write(node, 0);
     }
 
@@ -39,12 +45,64 @@ export class DefinitionWriter {
      * @param {object} node
      * @param {number | null} level
      */
+    /** The parameters a name written alone would not read: those a reserved word names, and those a local of their name stands in scope of or is declared after in their scope, which the text writes with `~`. @type {WeakSet<object>} */
+    static #externals = new WeakSet();
+
+    /** Marks each parameter in the node that the text writes with `~`, following the locals each object expression and the name each conditional binding brings into scope, and those declared later in it. */
+    static #markExternals(node, inScope, later) {
+        if (Array.isArray(node)) {
+            node.forEach(item => DefinitionWriter.#markExternals(item, inScope, later));
+
+            return;
+        }
+
+        if (node === null || typeof node !== 'object') {
+            return;
+        }
+
+        switch (node.kind) {
+            case 'parameter':
+                if (node.name !== 'document' && node.name !== 'window' && (!Names.isName(node.name) || inScope.has(node.name) || later.has(node.name))) {
+                    DefinitionWriter.#externals.add(node);
+                }
+
+                return;
+            case 'object': {
+                DefinitionWriter.#markExternals(node.target, inScope, later);
+
+                const names = (node.locals ?? []).map(local => local.name);
+                let scope = inScope;
+
+                node.locals?.forEach((local, index) => {
+                    DefinitionWriter.#markExternals(local.value, scope, new Set([...later, ...names.slice(index)]));
+                    scope = new Set([...scope, local.name]);
+                });
+                node.fields.forEach(field => DefinitionWriter.#markExternals(field.value, scope, later));
+
+                return;
+            }
+            case 'conditional':
+                if (node.binding !== undefined) {
+                    DefinitionWriter.#markExternals(node.binding.value, inScope, later);
+                    DefinitionWriter.#markExternals(node.consequent, new Set([...inScope, node.binding.name]), later);
+                    DefinitionWriter.#markExternals(node.alternative, inScope, later);
+
+                    return;
+                }
+                break;
+            default:
+                break;
+        }
+
+        Object.values(node).forEach(value => DefinitionWriter.#markExternals(value, inScope, later));
+    }
+
     static #write(node, level) {
         switch (node.kind) {
             case 'literal':
                 return DefinitionWriter.#literal(node.value);
             case 'parameter':
-                return node.name;
+                return DefinitionWriter.#externals.has(node) ? `~${node.name}` : node.name;
             case 'self':
                 return 'self';
             case 'local':

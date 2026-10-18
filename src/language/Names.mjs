@@ -24,6 +24,11 @@ export class Names {
         return typeof text === 'string' && PATTERN.test(text) && !LITERALS.has(text);
     }
 
+    /** Whether the text names a caller's binding: a letter followed by letters and digits, a reserved word among them, which a query reads as `~` and the name, but `self`, the current value, which no binding takes. */
+    static isBindingName(text) {
+        return typeof text === 'string' && PATTERN.test(text) && text !== 'self';
+    }
+
     /** Whether the word is a keyword. */
     static isKeyword(word) {
         return KEYWORDS.has(word);

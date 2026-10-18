@@ -18,7 +18,7 @@ DOMQL is a FormaUI product, developed alongside [Forma](https://github.com/Forma
 - **Build text.** Insert values into text with an interpolated string, as `$"{self.children.count} items"`, which takes strings and numbers alone, so a missing value takes a fallback first, as `{name ?? "Unknown"}`.
 - **Write any character.** Strings take `\n`, `\t`, `\e` and the other common escapes, and `\u{…}` names any character by its code point, as `"\u{200B}"` writes a zero-width space you could not see otherwise.
 - **Convert values explicitly.** Read attribute text as a number or a Boolean with `to`, or attempt it with `try … to "number"`, which answers null for text that does not convert; with `to` alone, such text is an error, never a silent default. Casts work the same way: `as` fails for a node of another kind, and `try … as` answers null.
-- **Reuse queries.** Evaluate again, bind different targets, or store and exchange definitions as JSON.
+- **Reuse queries.** Evaluate again, bind different targets, or store and exchange definitions as JSON. A binding is read by its name, or as `~name` where a local shares that name.
 - **Catch invalid requests early.** DOMQL checks bindings, member names, arguments and types before evaluation.
 - **Read events as data.** Subscribe to an event source and choose the fields each event delivers.
 - **Extend the vocabulary.** Add typed members, observations, actions and behaviors through modules.

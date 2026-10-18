@@ -10,12 +10,12 @@ import { Names } from './Names.mjs';
  * An interpolated string is read as its `$"`, its runs of text, the `{` and `}` around each of its holes and its closing quote, the tokens of each hole's expression between them.
  * A contract within DOMQL until a public tooling API stabilizes it.
  */
-export const TOKEN_TYPES = Object.freeze(['name', 'literal', 'keyword', 'self', 'invalid', 'end', 'interpolated-string-start', 'interpolated-text', 'hole-start', 'hole-end', 'interpolated-string-end', '.', '?.', '?[', '?:', '??', '(?', '==', '!=', '<', '<=', '>', '>=', '=', '+', '-', '*', '/', '%', ',', ':', '(', ')', '{', '}', '[', ']']);
+export const TOKEN_TYPES = Object.freeze(['name', 'literal', 'keyword', 'self', 'invalid', 'end', 'interpolated-string-start', 'interpolated-text', 'hole-start', 'hole-end', 'interpolated-string-end', 'external', '.', '?.', '?[', '?:', '??', '(?', '==', '!=', '<', '<=', '>', '>=', '=', '+', '-', '*', '/', '%', ',', ':', '(', ')', '{', '}', '[', ']']);
 
 /**
  * @typedef {object} Token
- * @property {'name' | 'literal' | 'keyword' | 'self' | 'invalid' | 'end' | 'interpolated-string-start' | 'interpolated-text' | 'hole-start' | 'hole-end' | 'interpolated-string-end' | '.' | '?.' | '?[' | '?:' | '??' | '(?' | '==' | '!=' | '<' | '<=' | '>' | '>=' | '=' | '+' | '-' | '*' | '/' | '%' | ',' | ':' | '(' | ')' | '{' | '}' | '[' | ']'} type
- * @property {unknown} [value] A name's or a keyword's text, a literal's value, or the text a run of an interpolated string's text stands for.
+ * @property {'name' | 'literal' | 'keyword' | 'self' | 'invalid' | 'end' | 'interpolated-string-start' | 'interpolated-text' | 'hole-start' | 'hole-end' | 'interpolated-string-end' | 'external' | '.' | '?.' | '?[' | '?:' | '??' | '(?' | '==' | '!=' | '<' | '<=' | '>' | '>=' | '=' | '+' | '-' | '*' | '/' | '%' | ',' | ':' | '(' | ')' | '{' | '}' | '[' | ']'} type
+ * @property {unknown} [value] A name's or a keyword's text, the name `~` reads the caller's binding of, a literal's value, or the text a run of an interpolated string's text stands for.
  * @property {number} start
  * @property {number} end
  * @property {number} leading Where the trivia before it begins, at its start where there is none, so every character of the text belongs to one token or to the trivia before one.
@@ -163,6 +163,10 @@ export class Tokenizer {
             return this.#readAt(start);
         }
 
+        if (character === '~') {
+            return this.#readExternal(start);
+        }
+
         if (character === '"') {
             return this.#readString(start);
         }
@@ -242,6 +246,32 @@ export class Tokenizer {
         const name = this.#text.slice(start + 1, NAME.lastIndex);
 
         return this.#invalid(start, NAME.lastIndex, `A binding is named by its name alone: write '${name}', with no '@'`, start);
+    }
+
+    /**
+     * Reads what `~` begins: the caller's binding of the name written directly after it, whatever local shares its name and a reserved word included, as `~as` reads the binding `as`;
+     * invalid where no name follows it directly, and for `self` and the roots, which no binding takes.
+     */
+    #readExternal(start) {
+        NAME.lastIndex = start + 1;
+
+        if (!NAME.test(this.#text)) {
+            return this.#invalid(start, start + 1, "'~' reads the caller's binding of the name written directly after it, as ~panel", start);
+        }
+
+        const name = this.#text.slice(start + 1, NAME.lastIndex);
+
+        if (name === 'self') {
+            return this.#invalid(start, NAME.lastIndex, "'self' is the current value, which no binding takes", start);
+        }
+
+        if (name === 'document' || name === 'window') {
+            return this.#invalid(start, NAME.lastIndex, `'${name}' names a root, which no binding takes`, start);
+        }
+
+        this.#offset = NAME.lastIndex;
+
+        return { type: 'external', value: name, start, end: this.#offset };
     }
 
     /** Reads a string, invalid where an escape in it is none the language has, at the first such escape, or where it is never closed, running then to the end of the text. */

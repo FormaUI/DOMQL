@@ -84,9 +84,16 @@ export class DefinitionValidator {
     /** The optional chain the node being validated continues, with whether an access of it is optional so far; null where it continues none. @type {{ hasOptional: boolean } | null} */
     #chain = null;
 
-    /** @param {TextLocations | null} locations Where in a text each part of the definition came from, for one parsed from text. */
-    constructor(locations = null) {
+    /** The parameters of a definition parsed from text that were written with `~`, which read the caller's binding wherever they stand; null for a definition not parsed from text. @type {WeakSet<object> | null} */
+    #externals;
+
+    /**
+     * @param {TextLocations | null} locations Where in a text each part of the definition came from, for one parsed from text.
+     * @param {WeakSet<object> | null} externals The parameters a text wrote with `~`, for one parsed from text.
+     */
+    constructor(locations = null, externals = null) {
         this.#locations = locations;
+        this.#externals = externals;
     }
 
     /** Checks the definition's structure, returning its canonical, frozen copy. */
@@ -143,8 +150,14 @@ export class DefinitionValidator {
             case 'literal':
                 return this.#validateLiteral(node, pointer);
             case 'parameter':
-                this.#requireName(node.name, `${pointer}/name`);
-                this.#requireBindingName(node.name, pointer);
+                if (!Names.isBindingName(node.name)) {
+                    this.#fail(`${pointer}/name`, node.name === 'self' ? "'self' is the current value, which no binding takes" : 'A binding is named by a letter followed by letters and digits');
+                }
+
+                // A name a text wrote alone reads the local in scope of its name, so one before a later local of its name reads nothing; `~` and a definition's parameter read the caller's binding wherever they stand.
+                if (this.#locations !== null && !this.#externals?.has(node)) {
+                    this.#requireBindingName(node.name, pointer);
+                }
 
                 return Object.freeze({ kind: 'parameter', name: node.name });
             case 'self':

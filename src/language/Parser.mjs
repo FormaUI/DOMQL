@@ -20,7 +20,7 @@ const TOKEN_DESCRIPTIONS = {
 const CHAIN_CONTINUATIONS = new Set(['.', '?.', '[', '?[', ':', '?:', '{']);
 
 /** The tokens that, after a space, make the name before them a member written without its receiver, which no local is: an argument. */
-const ARGUMENT_STARTS = new Set(['self', 'literal', 'interpolated-string-start']);
+const ARGUMENT_STARTS = new Set(['self', 'literal', 'interpolated-string-start', 'external']);
 
 /** The tokens that make an access optional. */
 const OPTIONAL_ACCESSES = new Set(['?.', '?[', '?:']);
@@ -667,6 +667,7 @@ export class Parser {
             case 'self':
             case 'literal':
             case 'name':
+            case 'external':
                 return this.#take();
             case '{':
                 return this.#parseObject();

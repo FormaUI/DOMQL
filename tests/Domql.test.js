@@ -1038,7 +1038,6 @@ describe('domql', () => {
             ['self at the top level', { version: 22, query: member('size', self) }, '/query/target'],
             ['a name that is no name', { version: 22, query: parameter('2panel') }, '/query/name'],
             ['a name ending in a hyphen', { version: 22, query: parameter('panel-') }, '/query/name'],
-            ['a reserved literal naming a parameter', { version: 22, query: parameter('null') }, '/query/name'],
             ['a reserved literal naming a member', { version: 22, query: member('true', parameter('panel')) }, '/query/name'],
             ['a reserved literal naming a field', { version: 22, query: { kind: 'object', target: parameter('panel'), fields: [{ name: 'false', value: member('size') }] } }, '/query/fields/0/name'],
             ['a literal that is no JSON scalar', { version: 22, query: literal(Number.NaN) }, '/query/value'],
@@ -1185,7 +1184,6 @@ describe('domql', () => {
             ['the window', { window: 1 }],
             ['a name that is no name', { '2panel': 1 }],
             ['a name with a hyphen at its end', { 'panel-': 1 }],
-            ['a reserved literal', { null: 1 }],
             ['a function', { panel: () => {} }],
             ['an object that is no plain data', { panel: new Date() }],
             ['a number that is not finite', { panel: Number.POSITIVE_INFINITY }],
@@ -3190,6 +3188,65 @@ describe('domql arithmetic', () => {
         expect(error.kind).toBe('structure');
         expect(error.location.pointer).toBe('/query/operator');
         expect(domql.query({ version: 22, query: { kind: 'negate', operand: { kind: 'literal', value: 2 } } }).evaluate()).toBe(-2);
+    });
+});
+
+describe('domql external bindings', () => {
+    const evaluate = (text, bindings = {}) => domql.query(text, bindings).evaluate();
+
+    it('reads the caller\'s binding with ~, a reserved word\'s among them, whatever local shares its name', () => {
+        expect(evaluate('~as + ~null', { as: 2, null: 3 })).toBe(5);
+        expect(evaluate('{ let panel = 1, local = panel, binding = ~panel }', { panel: 2 })).toEqual({ local: 1, binding: 2 });
+        expect(evaluate('~record.then', { record: { then: 4 } })).toBe(4);
+        expect(domql.query('~panel').definition.query).toEqual({ kind: 'parameter', name: 'panel' });
+    });
+
+    it('reads a binding before or in the value of a local of its name, which a name written alone reads nothing in', () => {
+        expect(evaluate('{ let n = ~n + 1, value = n }', { n: 1 })).toEqual({ value: 2 });
+        expect(evaluate('{ let before = ~a, let a = 10, value = before + a }', { a: 1 })).toEqual({ value: 11 });
+        expect(getError(() => domql.query('{ let n = n + 1, value = n }', { n: 1 })).message).toContain("'n' is used before the local of that name is declared in its scope");
+    });
+
+    it.each([
+        ['a space after ~', '~ panel', "'~' reads the caller's binding of the name written directly after it, as ~panel", 1],
+        ['~ with no name', 'a + ~', "'~' reads the caller's binding of the name written directly after it", 5],
+        ['self after ~', '~self', "'self' is the current value, which no binding takes", 1],
+        ['a root after ~', '~document', "'document' names a root, which no binding takes", 1],
+    ])('refuses %s, at its ~', (_, text, message, column) => {
+        const error = getError(() => domql.query(text));
+
+        expect(error.kind).toBe('syntax');
+        expect(error.message).toContain(message);
+        expect(error.location).toMatchObject({ line: 1, column });
+    });
+
+    it('takes no binding and no parameter named self, which is the current value', () => {
+        expect(getError(() => domql.query('x', { self: 1 }))).toMatchObject({ kind: 'structure', message: expect.stringContaining("'self' is the current value, which no binding takes") });
+        expect(getError(() => domql.query({ version: 22, query: { kind: 'parameter', name: 'self' } }))).toMatchObject({ kind: 'structure', location: { pointer: '/query/name' } });
+    });
+
+    it('refuses a binding the caller did not give, never reading the local of its name instead', () => {
+        expect(getError(() => domql.query('{ let zz = 1, value = ~zz }').resolve()).message).toContain("No binding is named 'zz', and '~zz' reads the caller's binding alone: write 'zz' for the local of that name");
+        expect(getError(() => domql.query('~zz').resolve()).message).toContain("No local in scope or binding is named 'zz'");
+    });
+
+    it.each([
+        ['a binding no local shares a name with, without its ~', '~panel.size', 'panel.size'],
+        ['a binding a local in scope shares its name with', '{ let panel = 1, binding = ~panel }', '{\n    let panel = 1,\n    binding = ~panel\n}'],
+        ['a binding a later local shares its name with', '{ let before = ~a, let a = 1, value = a }', '{\n    let before = ~a,\n    let a = 1,\n    value = a\n}'],
+        ['a binding a conditional binds the name of', 'if let a = x then ~a else 0', 'if let a = x then ~a else 0'],
+        ['a binding a reserved word names', '~as', '~as'],
+    ])('writes %s', (_, text, formatted) => {
+        expect(domql.format(text)).toBe(formatted);
+        expect(domql.format(domql.query(text).definition)).toBe(formatted);
+        expect(domql.query(formatted).definition).toEqual(domql.query(text).definition);
+    });
+
+    it('takes a definition\'s parameter as the caller\'s binding beside a local of its name, before it or in scope of it', () => {
+        const definition = { version: 22, query: { kind: 'object', locals: [{ name: 'a', value: { kind: 'parameter', name: 'a' } }], fields: [{ name: 'local', value: { kind: 'local', name: 'a' } }, { name: 'binding', value: { kind: 'parameter', name: 'a' } }] } };
+
+        expect(domql.query(definition, { a: 5 }).evaluate()).toEqual({ local: 5, binding: 5 });
+        expect(domql.format(definition)).toBe('{\n    let a = ~a,\n    local = a,\n    binding = ~a\n}');
     });
 });
 
