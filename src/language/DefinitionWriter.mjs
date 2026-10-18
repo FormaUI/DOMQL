@@ -129,7 +129,7 @@ export class DefinitionWriter {
                     ? `${DefinitionWriter.#within(node.target, CHAIN_PRECEDENCE, level)}${DefinitionWriter.#dot(node)}${node.name}`
                     : `${DefinitionWriter.#within(node.target, CHAIN_PRECEDENCE, level)}${node.optional === true ? '?' : ''}[${DefinitionWriter.#write(node.name, level)}]`;
             case 'call':
-                return `${DefinitionWriter.#within(node.target, CHAIN_PRECEDENCE, level)}${DefinitionWriter.#dot(node)}${node.name}(${node.argument === undefined ? '' : DefinitionWriter.#write(node.argument, level)})`;
+                return `${DefinitionWriter.#within(node.target, CHAIN_PRECEDENCE, level)}${DefinitionWriter.#dot(node)}${node.name}(${DefinitionWriter.#arguments(node, level)})`;
             case 'indexer':
                 return `${DefinitionWriter.#within(node.target, CHAIN_PRECEDENCE, level)}${node.optional === true ? '?:' : ':'}${node.name ?? ''}[${DefinitionWriter.#write(node.argument, level)}]`;
             case 'optionalChain':
@@ -146,7 +146,7 @@ export class DefinitionWriter {
             case 'function':
                 return DefinitionWriter.#function(node, level);
             case 'functionCall':
-                return `${node.name}(${node.arguments.map(argument => DefinitionWriter.#write(argument, level)).join(', ')})`;
+                return `${node.name}(${DefinitionWriter.#arguments(node, level)})`;
             case 'body':
                 // A do block: on one line, or its bindings and its return a level within it, its `end` back at its own.
                 return level === null ? `do ${DefinitionWriter.#bodyText(node, null)} end` : `do\n${INDENTATION.repeat(level + 1)}${DefinitionWriter.#bodyText(node, level + 1)}\n${INDENTATION.repeat(level)}end`;
@@ -274,6 +274,11 @@ export class DefinitionWriter {
         }
 
         return PRECEDENCE[node.kind] ?? CHAIN_PRECEDENCE;
+    }
+
+    /** A call's arguments, separated by commas. */
+    static #arguments(node, level) {
+        return node.arguments.map(argument => DefinitionWriter.#write(argument, level)).join(', ');
     }
 
     /** A function: its parameters, and a body of one expression on its line, or a body that returns its result on the lines a level within it, its `end` back at the function's own; on one line where the level is null. */

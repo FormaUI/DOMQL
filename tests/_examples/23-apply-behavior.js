@@ -4,7 +4,7 @@ domql.registerModule(domql.createModule('highlight', {
         function: 'highlight',
         kind: 'behavior',
         on: 'element',
-        input: 'direct',
+        input: 'positional',
         parameters: [{ name: 'color', kind: 'value', type: 'string', required: true, nulls: 'propagate' }],
         result: 'null',
         changes: 'unobserved',

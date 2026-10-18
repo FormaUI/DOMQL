@@ -197,7 +197,34 @@ describe('LanguageResolver', () => {
             const error = failure('panel.overlaps(panel)');
 
             expect(error.message).toContain('as the fields of an object');
-            expect(error.location.pointer).toBe('/query/argument');
+            expect(error.location.pointer).toBe('/query/arguments/0');
+        });
+
+        it('supplies positional parameters in order, an optional one left out taking its default, and refuses more arguments than parameters', () => {
+            const registry = new ModuleRegistry([Vocabulary.module, new DomqlModule('clamp', {
+                members: [{
+                    name: 'clamp', function: 'clamp', kind: 'operation', on: 'element', input: 'positional', result: 'number', changes: 'constant', reads: 'fresh',
+                    parameters: [{ name: 'low', kind: 'value', type: 'number', required: true, nulls: 'propagate' }, { name: 'high', kind: 'value', type: 'number', required: false, default: 10, nulls: 'propagate' }],
+                }],
+            }, null)]);
+            const resolveWith = text => {
+                const query = domql.query(text, { panel });
+
+                return new LanguageResolver(registry, DomqlQuery.bindingsOf(query), null, {}).resolveDefinition(query.definition);
+            };
+
+            expect(resolveWith('panel.clamp(1, 5)').resolutionOf(domql.query('panel.clamp(1, 5)').definition.query).arguments.map(argument => argument.parameter.name)).toEqual(['low', 'high']);
+            expect(resolveWith('panel.clamp(1)').resolutionOf(domql.query('panel.clamp(1)').definition.query).arguments[1]).toMatchObject({ isDefault: true, value: 10 });
+            expect(() => resolveWith('panel.clamp(1, 5, 9)')).toThrow(expect.objectContaining({ message: expect.stringContaining("'clamp' takes at most 2 arguments, and is given 3"), location: expect.objectContaining({ pointer: '/query/arguments/2' }) }));
+            expect(() => resolveWith('panel.clamp()')).toThrow(expect.objectContaining({ message: expect.stringContaining("'clamp' requires the argument 'low'") }));
+        });
+
+        it('refuses more arguments than a member takes, and a second argument where it takes options', () => {
+            const closest = failure('panel.closest(".a", ".b")');
+
+            expect(closest.message).toContain("'closest' takes one argument, and is given 2");
+            expect(closest.location.pointer).toBe('/query/arguments/1');
+            expect(failure('panel.overlaps({ other = panel }, 1)').message).toContain("'overlaps' takes its arguments as the fields of one object, as { other = … }");
         });
 
         it('refuses an argument given to an operation that takes none', () => {
@@ -217,7 +244,7 @@ describe('LanguageResolver', () => {
             const unknown = failure('panel.overlaps({ other = panel, nonsense = 1 })');
 
             expect(unknown.message).toContain("no parameter 'nonsense'; it takes other, margin");
-            expect(unknown.location.pointer).toBe('/query/argument/fields/1');
+            expect(unknown.location.pointer).toBe('/query/arguments/0/fields/1');
             expect(failure('panel.overlaps({ margin = 1 })').message).toContain("requires the argument 'other'");
         });
 
@@ -349,7 +376,7 @@ describe('LanguageResolver', () => {
         });
 
         it('determines the names a conditional binding gives as its value does, without null, in its consequent', () => {
-            expect(resolve('panel[if let name = chosen then name else "clientSize" end]', { panel, chosen: 'size' }).type.toString()).toBe('size?');
+            expect(resolve('let key = if let name = chosen then name else "clientSize" end\nreturn panel[key]', { panel, chosen: 'size' }).type.toString()).toBe('size?');
             expect(resolve('if let name = chosen then panel[name] else null end', { panel, chosen: 'size' }).type.toString()).toBe('size?');
             expect(failure('if let name = panel:["data-name"] then panel[name] else null end', { panel }).message).toContain('A bracket property access reads a name determined when the query is prepared');
         });
@@ -406,7 +433,7 @@ describe('LanguageResolver', () => {
             ['an and and an or', 'window.supports(wide and "share" or "clipboard")', { wide: true }],
             ['an and and an or, the other way', 'window.supports(wide and "clipboard" or "share")', { wide: false }],
             ['a conditional', 'window.supports(if wide then "share" else "nothing" end)', { wide: true }],
-            ['a conditional binding', 'window.supports(if let f = feature then f else "nothing" end)', { feature: 'share' }],
+            ['a conditional binding', 'let chosen = if let f = feature then f else "nothing" end\nreturn window.supports(chosen)', { feature: 'share' }],
             ['a coalescing operator whose value is null', 'window.supports(feature ?? "share")', { feature: null }],
             ['a coalescing operator whose value is not', 'window.supports(feature ?? "nothing")', { feature: 'share' }],
             ['a local holding one of them', 'window { let f = wide and "share" or "nothing", supported = self.supports(f) }', { wide: true }],
@@ -499,12 +526,12 @@ describe('LanguageResolver', () => {
 
             expect(error.location.line).toBe(1);
             expect(error.location.column).toBe(15);
-            expect(error.location.pointer).toBe('/query/argument');
+            expect(error.location.pointer).toBe('/query/arguments/0');
         });
 
         it('points into a definition that has no text', () => {
             const definition = {
-                version: 24,
+                version: 25,
                 query: { kind: 'member', target: { kind: 'parameter', name: 'panel' }, name: 'nonsense', arguments: [] },
             };
 

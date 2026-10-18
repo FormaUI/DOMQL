@@ -333,7 +333,7 @@ describe('QueryEvaluator', () => {
 
         it('gives a member the document and the window it is read in where an argument names a root', () => {
             const module = new DomqlModule('inside', {
-                members: [{ name: 'inside', function: 'inside', kind: 'operation', on: 'element', input: 'direct', parameters: [{ name: 'of', kind: 'value', type: 'document', required: true, nulls: 'propagate' }], result: 'boolean', changes: 'unobserved', reads: 'fresh' }],
+                members: [{ name: 'inside', function: 'inside', kind: 'operation', on: 'element', input: 'positional', parameters: [{ name: 'of', kind: 'value', type: 'document', required: true, nulls: 'propagate' }], result: 'boolean', changes: 'unobserved', reads: 'fresh' }],
             }, { inside: (element, { of }) => element.ownerDocument === of && of === document });
             const panel = document.body.appendChild(document.createElement('div'));
 
@@ -954,7 +954,7 @@ describe('QueryEvaluator evaluation', () => {
             observationTypes: [{ name: 'probe', contract: 'invalidation', identity: ['names'], shared, function: 'observeProbe' }],
             members: [{
                 name: 'probe', function: 'probe', kind: 'operation', on: 'element', result: 'number', changes: 'observable', reads: 'fresh',
-                input: 'direct',
+                input: 'positional',
                 parameters: [{ name: 'names', kind: 'value', type: 'list<string>', required: false, default: [], fixed: false, nulls: 'propagate' }],
                 observations: [{ type: 'probe', of: 'receiver', names: { argument: 'names' } }],
             }],
@@ -1144,7 +1144,7 @@ describe('QueryEvaluator projection', () => {
     const ticks = payload => new DomqlModule('ticks', {
         types: [{ name: 'tick', fields: { at: 'number', label: 'string?' } }],
         eventTypes: [{ name: 'tick', payload }],
-        members: [{ name: 'ticks', function: 'ticks', kind: 'source', on: 'element', input: 'direct', parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, fixed: true, selects: 'eventType', nulls: 'propagate' }], result: 'event<@selected>', changes: 'constant', reads: 'captured' }],
+        members: [{ name: 'ticks', function: 'ticks', kind: 'source', on: 'element', input: 'positional', parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, fixed: true, selects: 'eventType', nulls: 'propagate' }], result: 'event<@selected>', changes: 'constant', reads: 'captured' }],
     }, {
         ticks: () => {
             started.push(true);

@@ -59,7 +59,7 @@ describe('SyntaxTree', () => {
     it('names each node after the grammar rule that produces it, a rule that passes an operand on giving none', () => {
         expect(kindsOf(treeOf('panel'))).toEqual(['query']);
         expect(kindsOf(treeOf('a == b and c'))).toEqual(['query', 'conjunction', 'equality']);
-        expect(kindsOf(treeOf('panel.closest(".row")?.rect { top = self.top }'))).toEqual(['query', 'chain', 'function-call', 'dot-property-access', 'object', 'field', 'chain', 'dot-property-access']);
+        expect(kindsOf(treeOf('panel.closest(".row")?.rect { top = self.top }'))).toEqual(['query', 'chain', 'member-call', 'dot-property-access', 'object', 'field', 'chain', 'dot-property-access']);
         expect(kindsOf(treeOf('(?a.b) ?? (c as "node")'))).toEqual(['query', 'coalescing', 'optional-enclosed-access', 'member-chain', 'dot-property-access', 'parenthesized-expression', 'cast']);
         expect(kindsOf(treeOf('if let v = a then v else 0 end'))).toEqual(['query', 'conditional-expression', 'conditional-binding']);
         expect(kindsOf(treeOf('panel[name]?:attribute["id"]'))).toEqual(['query', 'chain', 'bracket-property-access', 'indexer']);

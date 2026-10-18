@@ -238,7 +238,7 @@ export class LanguageResolver {
 
         const optional = left.type.isNullable ? { optional: true } : {};
         const name = node.right.kind === 'literal' ? right.value : node.right;
-        const test = declares ? { kind: 'member', target: node.left, name, ...optional } : { kind: 'call', target: node.left, name: condition.verb, argument: node.right, ...optional };
+        const test = declares ? { kind: 'member', target: node.left, name, ...optional } : { kind: 'call', target: node.left, name: condition.verb, arguments: [node.right], ...optional };
 
         return `: a test is the member that answers it, so write '${DefinitionWriter.write(isNegated ? { kind: 'not', operand: test } : test)}'`;
     }
@@ -1189,52 +1189,78 @@ export class LanguageResolver {
 
         const described = { access: 'is a property', call: 'uses call syntax', indexer: 'is an indexer' }[form];
 
-        // An indexer takes its key in brackets, which a node written another way may not give.
-        if (form === 'indexer' && node.argument === undefined) {
+        // An indexer takes one key in brackets, which a node written another way may not give.
+        if (form === 'indexer' && node.arguments?.length !== 1) {
             this.#fail(`'${node.name}' ${described}: write '${DefinitionWriter.write(node.target)}${node.optional === true ? '?:' : ':'}${node.name}[…]'`, pointer);
         }
 
-        const written = form === 'access' ? LanguageResolver.#accessOf(node) : { ...node, kind: FORM_NODE_KINDS[form] };
-
-        this.#fail(`'${node.name}' ${described}: write '${DefinitionWriter.write(written)}'`, pointer);
+        this.#fail(`'${node.name}' ${described}: write '${DefinitionWriter.write(LanguageResolver.#writtenAs(node, form))}'`, pointer);
     }
 
-    /** The argument a call or an indexer is given, as the value of each parameter it supplies: the one parameter of a direct declaration, or the fields of an options object, each by its name. */
+    /** The node written in the form: an access of its name, a call of its arguments, an indexer's one, or an indexer of its key, a call's one argument. */
+    static #writtenAs(node, form) {
+        const { target, name } = node;
+        const optional = node.optional === true ? { optional: true } : {};
+
+        switch (form) {
+            case 'access':
+                return LanguageResolver.#accessOf(node);
+            case 'call':
+                return { kind: 'call', target, name, arguments: node.kind === 'indexer' ? [node.argument] : [], ...optional };
+            default:
+                return { kind: 'indexer', target, name, argument: node.arguments[0], ...optional };
+        }
+    }
+
+    /**
+     * The arguments a call or an indexer is given, as the value of each parameter they supply: in order, the parameters of a positional declaration, an indexer's key its one,
+     * or the fields of the one options object an options declaration takes, each by its name.
+     */
     #suppliedArguments(declaration, node, pointer) {
         const { parameters } = declaration;
         const supplied = new Map();
-        const argumentPointer = `${pointer}/argument`;
+        const given = node.kind === 'indexer'
+            ? [{ node: node.argument, pointer: `${pointer}/argument` }]
+            : (node.arguments ?? []).map((argument, index) => ({ node: argument, pointer: `${pointer}/arguments/${index}` }));
 
-        if (node.argument === undefined) {
+        if (given.length === 0) {
             return supplied;
         }
 
         if (parameters.length === 0) {
-            this.#fail(`'${declaration.name}' takes no argument`, argumentPointer);
+            this.#fail(`'${declaration.name}' takes no argument`, given[0].pointer);
         }
 
         if (declaration.input !== 'options') {
-            supplied.set(parameters[0].name, { node: node.argument, pointer: argumentPointer });
+            if (given.length > parameters.length) {
+                const count = parameters.length === 1 ? 'one argument' : `${parameters.length} arguments`;
+
+                this.#fail(`'${declaration.name}' takes ${parameters.some(parameter => !parameter.required) ? 'at most ' : ''}${count}, and is given ${given.length}`, given[parameters.length].pointer);
+            }
+
+            given.forEach((argument, index) => supplied.set(parameters[index].name, argument));
 
             return supplied;
         }
 
-        if (node.argument.kind !== 'object' || node.argument.target !== undefined) {
-            this.#fail(`'${declaration.name}' takes its arguments as the fields of an object, as { ${parameters[0].name}: … }`, argumentPointer);
+        if (given.length > 1) {
+            this.#fail(`'${declaration.name}' takes its arguments as the fields of one object, as { ${parameters[0].name} = … }`, given[1].pointer);
         }
 
-        if (node.argument.locals !== undefined) {
-            this.#fail(`'${declaration.name}' takes its arguments as the fields of an object, whose fields are its parameters, so it holds no locals`, `${argumentPointer}/locals/0`);
+        const [options] = given;
+
+        if (options.node.kind !== 'object' || options.node.target !== undefined) {
+            this.#fail(`'${declaration.name}' takes its arguments as the fields of an object, as { ${parameters[0].name} = … }`, options.pointer);
         }
 
-        node.argument.fields.forEach((field, index) => {
+        options.node.fields.forEach((field, index) => {
             const parameter = parameters.find(candidate => candidate.name === field.name);
 
             if (parameter === undefined) {
-                this.#fail(`'${declaration.name}' has no parameter '${field.name}'; it takes ${parameters.map(candidate => candidate.name).join(', ')}`, `${argumentPointer}/fields/${index}`);
+                this.#fail(`'${declaration.name}' has no parameter '${field.name}'; it takes ${parameters.map(candidate => candidate.name).join(', ')}`, `${options.pointer}/fields/${index}`);
             }
 
-            supplied.set(parameter.name, { node: field.value, pointer: `${argumentPointer}/fields/${index}/value` });
+            supplied.set(parameter.name, { node: field.value, pointer: `${options.pointer}/fields/${index}/value` });
         });
 
         return supplied;

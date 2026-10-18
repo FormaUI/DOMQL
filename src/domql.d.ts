@@ -168,7 +168,7 @@ export type DomqlDefinitionNode =
     | { readonly kind: 'self' }
     | { readonly kind: 'local'; readonly name: string }
     | { readonly kind: 'member'; readonly target: DomqlDefinitionNode; readonly name: string | DomqlDefinitionNode; readonly optional?: true }
-    | { readonly kind: 'call'; readonly target: DomqlDefinitionNode; readonly name: string; readonly optional?: true; readonly argument?: DomqlDefinitionNode }
+    | { readonly kind: 'call'; readonly target: DomqlDefinitionNode; readonly name: string; readonly optional?: true; readonly arguments: readonly DomqlDefinitionNode[] }
     | { readonly kind: 'indexer'; readonly target: DomqlDefinitionNode; readonly name?: string; readonly argument: DomqlDefinitionNode; readonly optional?: true }
     | { readonly kind: 'object'; readonly target?: DomqlDefinitionNode; readonly locals?: readonly DomqlDefinitionLocal[]; readonly fields: readonly DomqlDefinitionField[] }
     | { readonly kind: 'optionalChain'; readonly target: DomqlDefinitionNode }
@@ -384,8 +384,8 @@ export interface DomqlMemberDeclaration {
     kind: 'property' | 'operation' | 'source' | 'action' | 'behavior';
     /** How a member that is no property is written: called, `self.closest(".row")`, the default, or a named indexer, `self:attribute["data-key"]`, an operation whose one required value parameter is its key. A property declares none. */
     form?: 'call' | 'indexer';
-    /** What its argument supplies, where it has parameters: its one parameter, directly, or every parameter, as the fields of an options object; an indexer's is direct. */
-    input?: 'direct' | 'options';
+    /** What its arguments supply, where it has parameters: its parameters, in order, the required ones before the optional ones, or every parameter, as the fields of one options object; an indexer's is positional. */
+    input?: 'positional' | 'options';
     /** Whether an indexer is the default of its receivers, which `:[…]` invokes, as `attribute` is an element's; a receiver has one at most. */
     default?: boolean;
     /** The types it applies to, in DOMQL's notation. */

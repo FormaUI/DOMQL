@@ -121,11 +121,8 @@ export class ResolvedDefinition {
                     this.#index(node.name, `${pointer}/name`);
                 }
                 break;
-            case 'call':
             case 'indexer':
-                if (node.argument !== undefined) {
-                    this.#index(node.argument, `${pointer}/argument`);
-                }
+                this.#index(node.argument, `${pointer}/argument`);
                 break;
             case 'object':
                 node.locals?.forEach((local, index) => this.#index(local.value, `${pointer}/locals/${index}/value`));
@@ -154,6 +151,7 @@ export class ResolvedDefinition {
             case 'function':
                 this.#index(node.body, `${pointer}/body`);
                 break;
+            case 'call':
             case 'functionCall':
                 node.arguments.forEach((argument, index) => this.#index(argument, `${pointer}/arguments/${index}`));
                 break;

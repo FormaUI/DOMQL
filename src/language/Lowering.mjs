@@ -59,10 +59,10 @@ export class Lowering {
                     this.#localNames = enclosingLocalNames;
                 }
             }
-            case 'local-function-call':
-                return this.#span({ kind: 'functionCall', name: children[0].value, arguments: children.slice(2, -1).filter(part => !(SyntaxTree.isToken(part) && part.type === ',')).map(argument => this.#lower(argument)) }, child);
+            case 'function-call':
+                return this.#span({ kind: 'functionCall', name: children[0].value, arguments: this.#argumentsOf(children.slice(2, -1)) }, child);
             case 'do-expression': {
-                // A do block of an expression alone is a body of no bindings.
+                // A do block of an expression alone is a body of no locals.
                 const inner = children[1];
 
                 return !SyntaxTree.isToken(inner) && inner.kind === 'body' ? this.#lower(inner) : this.#span({ kind: 'body', bindings: [], result: this.#lower(inner) }, child);
@@ -153,7 +153,7 @@ export class Lowering {
         }
     }
 
-    /** A body: its bindings in order, each in scope after its value, through the bindings after it and the result, which its `return` gives. */
+    /** A body: its locals in order, each in scope after its value, through the locals after it and the result, which its `return` gives. */
     #lowerBody(body) {
         const { children } = body;
         const enclosingLocalNames = this.#localNames;
@@ -227,11 +227,11 @@ export class Lowering {
                 node = optional ? { kind: 'member', target, name, optional } : { kind: 'member', target, name };
                 break;
             }
-            case 'function-call': {
+            case 'member-call': {
                 const name = second.type === 'self' ? 'self' : second.value;
-                const call = optional ? { kind: 'call', target, name, optional } : { kind: 'call', target, name };
+                const call = { kind: 'call', target, name, arguments: this.#argumentsOf(part.children.slice(3, -1)) };
 
-                node = part.children.length === 5 ? { ...call, argument: this.#lower(part.children[3]) } : call;
+                node = optional ? { ...call, optional } : call;
                 break;
             }
             case 'bracket-property-access': {
@@ -253,6 +253,11 @@ export class Lowering {
         this.#spans.set(node, { start, end: SyntaxTree.endOf(part) });
 
         return node;
+    }
+
+    /** The arguments a call's parentheses hold, the commas between them left out. */
+    #argumentsOf(parts) {
+        return parts.filter(part => !(SyntaxTree.isToken(part) && part.type === ',')).map(argument => this.#lower(argument));
     }
 
     /** The optional chain of a member chain's accesses, every one of them optional, spanning what the span node does. */

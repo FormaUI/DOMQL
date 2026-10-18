@@ -88,6 +88,7 @@ const DOCUMENTS = {
     'docs/domql-specification.md': [
         { about: 'an object expression' },
         { about: 'the forms of a member', each: true, context: 'cell { value = % }' },
+        { about: 'a simple expression' },
         { about: 'tests', each: true },
         { about: 'equalities', each: true },
         { about: 'arithmetic' },
@@ -116,7 +117,7 @@ const DOCUMENTS = {
         { about: 'named indexers', each: true },
         { about: 'a call with options' },
         { about: 'a fragment testing an ancestor', context: 'cell { value = % }' },
-        { about: 'a body of bindings' },
+        { about: 'a body of locals' },
         { about: 'a function and its calls' },
         { about: 'an optional enclosed access' },
         { about: 'a native condition and an ARIA one', results: { 0: { checked: false, ariaChecked: false } } },

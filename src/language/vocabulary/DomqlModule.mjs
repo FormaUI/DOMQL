@@ -12,8 +12,8 @@ const MEMBER_KINDS = ['property', 'operation', 'source', 'action', 'behavior'];
 /** How a member that is no property is written: called, `self.closest(".row")`, or a named indexer, `self:attribute["data-key"]`. */
 const FORMS = ['call', 'indexer'];
 
-/** What a member's argument supplies: its one parameter, directly, or every parameter, as the fields of an options object. */
-const INPUTS = ['direct', 'options'];
+/** What a member's arguments supply: its parameters, in order, or every parameter, as the fields of one options object. */
+const INPUTS = ['positional', 'options'];
 
 /** How a member changes, as the specification's categories name it, `derived` for a contract that comes from the items and expression a member selects or evaluates. */
 const CHANGE_CATEGORIES = ['constant', 'observable', 'partly-observable', 'unobserved', 'derived'];
@@ -497,13 +497,13 @@ export class DomqlModule {
 
         DomqlModule.#validateForm(member, parameters, name, fail);
 
-        // An indexer's one key is its one parameter, so its input is direct.
-        return structuredClone({ parameters: [], observations: [], ...(member.kind === 'property' ? {} : { form: 'call' }), ...(member.form === 'indexer' ? { input: 'direct' } : {}), ...member });
+        // An indexer's one key is its one parameter, so its input is positional.
+        return structuredClone({ parameters: [], observations: [], ...(member.kind === 'property' ? {} : { form: 'call' }), ...(member.form === 'indexer' ? { input: 'positional' } : {}), ...member });
     }
 
     /**
-     * Checks how the member is written and what its argument supplies: a property is accessed and takes none, and any other member is a call by default, whose input is direct for exactly one parameter or an options object,
-     * or an indexer, an operation whose one key is its one parameter, a required value parameter, so its input is direct.
+     * Checks how the member is written and what its arguments supply: a property is accessed and takes none, and any other member is a call by default, whose input is positional, its arguments supplying its parameters in order,
+     * so none that is required follows one that is optional, or an options object; or an indexer, an operation whose one key is its one parameter, a required value parameter, so its input is positional.
      */
     static #validateForm(member, parameters, name, fail) {
         if (member.default !== undefined && member.form !== 'indexer') {
@@ -534,8 +534,8 @@ export class DomqlModule {
                 fail('An indexer is an operation whose key is its one parameter, a required value parameter', name);
             }
 
-            if (member.input !== undefined && member.input !== 'direct') {
-                fail("An indexer's key supplies its one parameter, so its input is direct", name);
+            if (member.input !== undefined && member.input !== 'positional') {
+                fail("An indexer's key supplies its one parameter, so its input is positional", name);
             }
 
             if (member.default !== undefined && typeof member.default !== 'boolean') {
@@ -557,8 +557,12 @@ export class DomqlModule {
             fail(`It declares its input, ${INPUTS.join(' or ')}`, name);
         }
 
-        if (member.input === 'direct' && parameters.length !== 1) {
-            fail('A direct input supplies exactly one parameter', name);
+        // Arguments supply positional parameters in order, so one left out is one after the last given, which only an optional parameter can be.
+        const firstOptional = parameters.findIndex(parameter => !parameter.required);
+        const lateRequired = firstOptional === -1 ? undefined : parameters.slice(firstOptional).find(parameter => parameter.required);
+
+        if (member.input === 'positional' && lateRequired !== undefined) {
+            fail(`The required parameter '${lateRequired.name}' follows an optional one, and positional arguments supply parameters in order`, name);
         }
     }
 

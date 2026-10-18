@@ -29,7 +29,7 @@ const OPTIONAL_ACCESSES = new Set(['?.', '?[', '?:']);
 const COMPARISON_DIRECTIONS = Object.freeze({ '<': 'ascending', '<=': 'ascending', '>': 'descending', '>=': 'descending' });
 
 /** The kinds of node a member expression is, each beginning with the token that joins it to its receiver. */
-const MEMBER_EXPRESSIONS = new Set(['dot-property-access', 'bracket-property-access', 'function-call', 'indexer']);
+const MEMBER_EXPRESSIONS = new Set(['dot-property-access', 'bracket-property-access', 'member-call', 'indexer']);
 
 export class Parser {
     #text;
@@ -37,8 +37,8 @@ export class Parser {
     #tokens;
     #index = 0;
 
-    /** How many bodies' bindings are being read, where a name on a new line after a value is a statement no body holds rather than a member written without its dot. */
-    #bodyBindingsBeingRead = 0;
+    /** How many bodies' locals are being read, where a name on a new line after a value is a statement no body holds rather than a member written without its dot. */
+    #bodyLocalsBeingRead = 0;
 
     /** The coalescing operators read where no group holds them, which no `and`, `or` or equality may stand beside. @type {WeakSet<SyntaxNode>} */
     #ungroupedCoalescings = new WeakSet();
@@ -63,7 +63,7 @@ export class Parser {
         return { kind: 'query', text: this.#text, children: [body, end] };
     }
 
-    /** Reads an expression: a conditional, a do block, or what a condition is. */
+    /** Reads an expression: a conditional, a do block, or a simple value expression; a function stands as a local's initializer alone. */
     #parseExpression() {
         if (this.#isKeyword('if')) {
             return this.#parseConditionalExpression([this.#take()]);
@@ -73,15 +73,11 @@ export class Parser {
             return this.#parseDoExpression();
         }
 
-        if (this.#isKeyword('function')) {
-            return this.#parseFunctionExpression();
-        }
-
-        return this.#parseCondition();
+        return this.#parseSimpleValueExpression();
     }
 
     /**
-     * Reads a body: an expression alone, or the bindings evaluated in order, each `let`, a name, `=` and a value, and the `return` that gives its result, which completes the body and nothing follows; `return value` alone is a body of no bindings.
+     * Reads a body: an expression alone, or the locals evaluated in order, each `let`, a name, `=` and a value, and the `return` that gives its result, which completes the body and nothing follows; `return value` alone is a body of no locals.
      * What closes it, the end of the text, `end`, `elseif` or `else`, is its holder's to read.
      */
     #parseBody() {
@@ -99,17 +95,17 @@ export class Parser {
 
         const children = [];
 
-        this.#bodyBindingsBeingRead++;
+        this.#bodyLocalsBeingRead++;
 
         try {
             while (this.#isKeyword('let')) {
-                children.push(this.#parseBodyBinding());
+                children.push(this.#parseLocal());
             }
         } finally {
-            this.#bodyBindingsBeingRead--;
+            this.#bodyLocalsBeingRead--;
         }
 
-        // After its bindings a body's result follows its `return`; an expression there is one a `return` follows, which only a binding may precede, or the result its `return` was left off.
+        // After its locals a body's result follows its `return`; an expression there is one a `return` follows, which only a local may precede, or the result its `return` was left off.
         if (!this.#isKeyword('return')) {
             const start = this.#token.start;
 
@@ -137,17 +133,6 @@ export class Parser {
         }
 
         return Parser.#node('body', children);
-    }
-
-    /** Reads a binding of a body after its `let`: its name, `=` and the value it binds. */
-    #parseBodyBinding() {
-        const letKeyword = this.#take();
-
-        if (!this.#startsEntry()) {
-            this.#refuseName('A binding takes its value after =', 'A binding is written with let, its name and = before its value, as let width = …', 'let ');
-        }
-
-        return Parser.#node('body-binding', [letKeyword, this.#take(), this.#take(), this.#parseExpression()]);
     }
 
     /** Reads a function: `function`, its parameters' names in parentheses, separated by commas, the body a call evaluates and the `end` that closes it. */
@@ -192,13 +177,35 @@ export class Parser {
         return Parser.#node('function-expression', children);
     }
 
-    /** Reads a call of a local function: its name, and its arguments in parentheses, separated by commas, as many as it declares parameters. */
-    #parseLocalFunctionCall() {
-        const children = [this.#take(), this.#take()];
+    /** Reads a call of a local function: its name, and its arguments in parentheses. */
+    #parseFunctionCall() {
+        const name = this.#take();
 
-        // A comma stands between two arguments alone, so one before ')' is refused.
+        return Parser.#node('function-call', [name, ...this.#parseArguments(name.value, false)]);
+    }
+
+    /** Refuses an optional enclosed access opening a call's parentheses: `(?` is one token, so the call's parenthesis cannot also open the access that is its argument. */
+    #refuseEnclosedAccessArgument(token, written) {
+        if (token.type === '(?' && !token.spaced) {
+            throw this.#fail(`A call whose argument is an optional enclosed access writes it in parentheses of its own: '${written}((?…))'`, token.start);
+        }
+    }
+
+    /**
+     * Reads a call's arguments: its opening parenthesis, the arguments separated by commas, a comma standing between two of them alone, and its closing parenthesis.
+     * An argument is written as its value alone, so one written as a named one would be is refused, a member's with the options object a member taking options is given instead.
+     */
+    #parseArguments(written, isMember) {
+        const children = [this.#take()];
+
         if (this.#token.type !== ')') {
             for (;;) {
+                if (this.#startsNamedArgument()) {
+                    const options = isMember ? `; a member that takes options is given them as the fields of an object, as { ${this.#token.value} = … }` : '';
+
+                    throw this.#fail(`An argument is written as its value alone, as '${written}(…)' takes it${options}`, this.#token.start);
+                }
+
                 children.push(this.#parseExpression());
 
                 if (this.#token.type !== ',') {
@@ -215,7 +222,7 @@ export class Parser {
 
         children.push(this.#take());
 
-        return Parser.#node('local-function-call', children);
+        return children;
     }
 
     /** Reads a do block: `do`, the body it evaluates where execution reaches it, and the `end` that closes it. */
@@ -235,8 +242,8 @@ export class Parser {
         return Parser.#node('do-expression', [doKeyword, body, this.#take()]);
     }
 
-    /** Reads what a condition is: a disjunction, or an or-operand alone, a coalescing operator among them, which stands beside neither `and` nor `or`. */
-    #parseCondition() {
+    /** Reads a simple value expression: a disjunction, or an or-operand alone, a coalescing operator among them, which stands beside neither `and` nor `or`. */
+    #parseSimpleValueExpression() {
         return this.#parseLogical('or', () => this.#parseOrOperand());
     }
 
@@ -274,7 +281,7 @@ export class Parser {
                 throw this.#fail('A conditional that is a condition is enclosed in parentheses: write if (if … then … else … end) then …', this.#token.start);
             }
 
-            children.push(this.#isKeyword('let') ? this.#parseBinding() : this.#parseCondition());
+            children.push(this.#isKeyword('let') ? this.#parseBinding() : this.#parseSimpleValueExpression());
 
             if (!this.#isKeyword('then')) {
                 throw this.#unexpected("'then' after the condition");
@@ -316,7 +323,7 @@ export class Parser {
         }
     }
 
-    /** Reads a conditional's binding after its `if` or `elseif`: `let`, its name, a colon and the value it binds, a logical term or an operand, as a condition is. */
+    /** Reads a conditional's binding after its `if` or `elseif`: `let`, its name, `=` and the value it binds, a simple value expression. */
     #parseBinding() {
         const letKeyword = this.#take();
 
@@ -324,7 +331,7 @@ export class Parser {
             this.#refuseName('A binding takes its value after =', 'A binding is written with let, its name and = before its value, as if let key = self:["data-key"] then …', 'if let ');
         }
 
-        return Parser.#node('conditional-binding', [letKeyword, this.#take(), this.#take(), this.#parseCondition()]);
+        return Parser.#node('conditional-binding', [letKeyword, this.#take(), this.#take(), this.#parseSimpleValueExpression()]);
     }
 
     /**
@@ -586,8 +593,8 @@ export class Parser {
             return true;
         }
 
-        // A name on a line of its own after a binding's value ends that value, and its body says what the name begins.
-        if (this.#bodyBindingsBeingRead > 0 && this.#text.slice(this.#tokens[this.#index - 1].end, this.#token.start).includes('\n')) {
+        // A name on a line of its own after a body local's value ends that value, and its body says what the name begins.
+        if (this.#bodyLocalsBeingRead > 0 && this.#text.slice(this.#tokens[this.#index - 1].end, this.#token.start).includes('\n')) {
             return false;
         }
 
@@ -662,7 +669,7 @@ export class Parser {
                 const dot = this.#take();
 
                 this.#refuseDotBeforeBrackets(optional);
-                children.push(this.#parseDotPropertyAccessOrFunctionCall(dot));
+                children.push(this.#parseDotPropertyAccessOrMemberCall(dot));
                 isOptional ||= optional;
             } else if (this.#token.type === '{') {
                 children.push(this.#parseObject());
@@ -847,7 +854,7 @@ export class Parser {
                 const dot = this.#take();
 
                 this.#refuseDotBeforeBrackets(optional);
-                children.push(this.#parseDotPropertyAccessOrFunctionCall(dot));
+                children.push(this.#parseDotPropertyAccessOrMemberCall(dot));
             }
         }
 
@@ -866,8 +873,10 @@ export class Parser {
                 throw this.#fail(`'to' converts the value written before it: write 'self to ${this.#text.slice(next.start, next.end)}' to convert the current value`, token.start);
             }
 
+            this.#refuseEnclosedAccessArgument(next, token.value);
+
             if (next.type === '(') {
-                return this.#parseLocalFunctionCall();
+                return this.#parseFunctionCall();
             }
 
             if (next.spaced && ARGUMENT_STARTS.has(next.type)) {
@@ -993,16 +1002,13 @@ export class Parser {
         return Parser.#node('bracket-property-access', [open, expression, this.#expect(']')]);
     }
 
-    /** Reads a member after its dot, or the `?.` of an optional access: a dot property access, or a function call where parentheses follow the name. */
-    #parseDotPropertyAccessOrFunctionCall(dot) {
+    /** Reads a member after its dot, or the `?.` of an optional access: a dot property access, or a member call where parentheses follow the name. */
+    #parseDotPropertyAccessOrMemberCall(dot) {
         // After a dot only a member's name stands, so a keyword there names one, `self` among them.
         const nameToken = this.#token.type === 'keyword' || this.#token.type === 'self' ? this.#take() : this.#expect('name');
         const name = Parser.#memberNameOf(nameToken);
 
-        // `(?` is one token, so a call's parenthesis cannot also open the optional enclosed access that is its argument.
-        if (this.#token.type === '(?' && !this.#token.spaced) {
-            throw this.#fail(`A call whose argument is an optional enclosed access writes it in parentheses of its own: '.${name}((?…))'`, this.#token.start);
-        }
+        this.#refuseEnclosedAccessArgument(this.#token, `.${name}`);
 
         if (this.#token.type !== '(') {
             if (this.#token.type === 'literal') {
@@ -1012,23 +1018,7 @@ export class Parser {
             return Parser.#node('dot-property-access', [dot, nameToken]);
         }
 
-        const call = [dot, nameToken, this.#take()];
-
-        if (this.#token.type !== ')') {
-            if (this.#startsNamedArgument()) {
-                throw this.#fail(`'${name}' takes one argument, and several parameters are given as the fields of an object, as { ${this.#token.value} = … }`, this.#token.start);
-            }
-
-            call.push(this.#parseExpression());
-
-            if (this.#token.type === ',') {
-                throw this.#fail(`'${name}' takes one argument, and several parameters are given as the fields of an object, as { … }`, this.#token.start);
-            }
-        }
-
-        call.push(this.#expect(')'));
-
-        return Parser.#node('function-call', call);
+        return Parser.#node('member-call', [dot, nameToken, ...this.#parseArguments(name, true)]);
     }
 
     /**
@@ -1119,15 +1109,15 @@ export class Parser {
         return Parser.#node('object', children);
     }
 
-    /** Reads a local: `let`, its name, `=` and its value. */
+    /** Reads a local, of a body or of an object expression, whose holder reads what separates it from the next: `let`, its name, `=` and its initializer, an expression or a function. */
     #parseLocal() {
         const letKeyword = this.#take();
 
         if (!this.#startsEntry()) {
-            this.#refuseName('A local takes its value after =', 'A local is written with let, its name and = before its value, as let r = self.rect', 'let ');
+            this.#refuseName('A local takes its value after =', 'A local is written with let, its name and = before its value, as let width = …', 'let ');
         }
 
-        return Parser.#node('local', [letKeyword, this.#take(), this.#take(), this.#parseExpression()]);
+        return Parser.#node('local', [letKeyword, this.#take(), this.#take(), this.#isKeyword('function') ? this.#parseFunctionExpression() : this.#parseExpression()]);
     }
 
     /** Reads a field: its name, `=` and its value. */

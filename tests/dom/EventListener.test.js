@@ -95,7 +95,7 @@ describe('EventListener', () => {
     const registerBeats = start => isolated.registerModule(isolated.createModule('beats', {
         types: [{ name: 'beat', fields: { n: 'number' } }],
         eventTypes: [{ name: 'beat', payload: 'beat' }],
-        members: [{ name: 'beats', function: 'beats', kind: 'source', on: 'element', input: 'direct', parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, fixed: true, selects: 'eventType', nulls: 'propagate' }], result: 'event<@selected>', changes: 'constant', reads: 'captured' }],
+        members: [{ name: 'beats', function: 'beats', kind: 'source', on: 'element', input: 'positional', parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, fixed: true, selects: 'eventType', nulls: 'propagate' }], result: 'event<@selected>', changes: 'constant', reads: 'captured' }],
     }, { beats: start }));
 
     /** Dispatches an input event at the element, which bubbles to the panel. */

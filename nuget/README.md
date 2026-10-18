@@ -358,7 +358,7 @@ The key can be any expression of the type the indexer takes, such as a binding, 
 
 All DOMQL names are case-sensitive and use names such as `clientSize`, `rectRelativeTo` and `devicePixelRatio`. A keyword cannot name a field or a local, but after a dot or a colon it can name a member, so `record.then` reads a field named `then`. Strings passed to browser APIs, including selectors and attribute names, follow the browser's rules. A string escapes `\"`, `\\`, `\n`, `\r`, `\t` and `\e`, the escape character, and names any character by its code point with `\u{…}`, as `"\u{A0}"` writes a no-break space, which is hard to tell from a space when written as itself.
 
-Calls take one argument. When a member takes options, pass an object whose fields supply its parameters. This query checks for an intersection with a margin around the panel and needs `evaluateAsync()`:
+Calls take their arguments by position, separated by commas, as many as the member's signature declares. When a member takes options, pass one object whose fields supply its parameters. This query checks for an intersection with a margin around the panel and needs `evaluateAsync()`:
 
 ```domql
 sentinel.intersects({ root = panel, margin = 200 })
@@ -458,7 +458,7 @@ Locals are not included in the result. A local is evaluated on first use, at mos
 
 ### Name the steps of a calculation
 
-Write a query as a body when it builds on intermediate values: bindings, each `let`, a name and `=`, and then `return` and the result.
+Write a query as a body when it builds on intermediate values: locals, each `let`, a name and `=`, and then `return` and the result.
 
 ```domql
 let rows = panel.all("[data-key]")
@@ -470,7 +470,9 @@ return {
 }
 ```
 
-`do … end` writes a body wherever an expression stands, as `doubled = do let half = width / 2 return half * 4 end` does in a field, and each branch of a conditional, `if … then … else … end`, is one too: within one conditional, every branch gives its result with `return` or none does. A body's bindings run once each, in order, whether or not anything uses them, while an object expression's locals run only where a field reads them. `return` completes its own body, so a `do` block's `return` gives that block's value, never the query's.
+`do … end` writes a body wherever an expression stands, as `doubled = do let half = width / 2 return half * 4 end` does in a field, and each branch of a conditional, `if … then … else … end`, is one too: within one conditional, every branch gives its result with `return` or none does. A body's locals run once each, in order, whether or not anything uses them, while an object expression's locals run only where a field reads them. `return` completes its own body, so a `do` block's `return` gives that block's value, never the query's.
+
+An argument, an indexer's key, a bracket property access and an interpolation each hold a simple expression: values, operators, calls and member reads, and a conditional of one `if` branch and one `else` branch of those, as `calculate(if compact then 10 else 20 end)` is. A `do` block, a conditional that binds a value, has `elseif` or gives its branches with `return`, and an object expression with locals, are bound to a local first, and the local is passed. A function called there may use any of them in its own body.
 
 ### Reuse a calculation with a function
 
@@ -484,7 +486,7 @@ return {
 }
 ```
 
-A function's body is a body like any other, an expression alone or bindings and a `return`, and it sees the locals and `self` where it is declared, never those of the place that calls it. Each call is checked against its own arguments, so one function serves an element in one call and an element that may be missing in another, and a function is only ever called: it is never passed to a member, stored in a field or returned.
+A function's body is a body like any other, an expression alone or locals and a `return`, and it sees the locals and `self` where it is declared, never those of the place that calls it. Each call is checked against its own arguments, so one function serves an element in one call and an element that may be missing in another, and a function is only ever called: it is never passed to a member, stored in a field or returned.
 
 ### Handle missing values
 
@@ -843,7 +845,7 @@ domql.registerModule(domql.createModule('mark', {
         function: 'mark',
         kind: 'action',
         on: 'element',
-        input: 'direct',
+        input: 'positional',
         parameters: [{ name: 'label', kind: 'value', type: 'string', required: true, nulls: 'propagate' }],
         result: 'boolean',
         changes: 'unobserved',
@@ -880,7 +882,7 @@ domql.registerModule(domql.createModule('highlight', {
         function: 'highlight',
         kind: 'behavior',
         on: 'element',
-        input: 'direct',
+        input: 'positional',
         parameters: [{ name: 'color', kind: 'value', type: 'string', required: true, nulls: 'propagate' }],
         result: 'null',
         changes: 'unobserved',

@@ -25,7 +25,7 @@ function predicateParameter() {
     return { name: 'expression', kind: 'predicate', type: 'boolean', context: 'item', required: true, fixed: false, nulls: 'accept' };
 }
 
-/** A property or an operation; an operation is a call unless it says it is named, and takes its one parameter directly unless it says it takes options. */
+/** A property or an operation; an operation is a call unless it says it is named, and takes its parameters by position unless it says it takes options. */
 function member(kind, name, on, result, { function: implementation = name, parameters = [], changes = 'observable', reads = 'fresh', misses, observations, form, input, isDefault = false } = {}) {
     const declaration = { name, function: implementation, kind, on, parameters, result, changes, reads };
 
@@ -33,7 +33,7 @@ function member(kind, name, on, result, { function: implementation = name, param
         declaration.form = form ?? 'call';
 
         if (parameters.length > 0) {
-            declaration.input = input ?? 'direct';
+            declaration.input = input ?? 'positional';
         }
     }
 

@@ -115,7 +115,7 @@ export class TextLocations {
             this.#collect(node.body, `${pointer}/body`, spans);
         }
 
-        if (node.kind === 'functionCall') {
+        if (node.kind === 'functionCall' || node.kind === 'call') {
             node.arguments.forEach((argument, index) => this.#collect(argument, `${pointer}/arguments/${index}`, spans));
         }
 
