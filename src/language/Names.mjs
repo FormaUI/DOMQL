@@ -17,7 +17,7 @@ export class Names {
     }
 
     /**
-     * Whether the text names a member a property access or a call reads after its dot: a letter followed by letters and digits, and no word that writes a literal.
+     * Whether the text names a member a property access or a call reads after its dot, or an indexer after its colon: a letter followed by letters and digits, and no word that writes a literal.
      * A keyword names one there, where only a member's name stands, as `selection.end` reads the field `end`.
      */
     static isMemberName(text) {

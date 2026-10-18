@@ -449,9 +449,9 @@ export class DomqlModule {
 
         const name = member.name;
 
-        // A property and a call are read after a dot, where a keyword names a member, and an indexer after a colon, where it does not.
-        if (!(member.form === 'indexer' ? Names.isName(name) : Names.isMemberName(name)) || !MEMBER_KINDS.includes(member.kind)) {
-            fail(`A member is named as a name is, a keyword among them unless it is an indexer, and is one of ${MEMBER_KINDS.join(', ')}`, String(name));
+        // A member is read after a dot or, an indexer, after a colon, where only a member's name stands, so a keyword names one.
+        if (!Names.isMemberName(name) || !MEMBER_KINDS.includes(member.kind)) {
+            fail(`A member is named as a name is, a keyword among them, and is one of ${MEMBER_KINDS.join(', ')}`, String(name));
         }
 
         // A member whose argument selects a condition is one of the verbs that ask one, carried out by the condition it selects, as that condition declares, so it names no function and changes as what it selects.

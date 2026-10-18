@@ -131,7 +131,7 @@ A query organizes a calculation in bodies, names its intermediate values and reu
     - A local call never settles a fixed argument.
     - Creating a function reads nothing; a call contributes the reads it reaches; an unselected branch contributes none. A read query stays a read query through every call.
   - **Shown in Chromium,** as the full gate runs it: observations through function calls, a watch following the branch a changed condition selects, and fresh captures across a watch's evaluations.
-  - **Keywords.** `do`, `end`, `return` and `function` are reserved as every keyword is, so none names a field, a local or a parameter, in text or in a definition; a member read after `.` or `?.` may still be named by one, as the selection's `end` is.
+  - **Keywords.** `do`, `end`, `return` and `function` are reserved as every keyword is, so none names a field, a local or a parameter, in text or in a definition; a member read after `.` or `?.`, or an indexer after `:` or `?:`, may still be named by one, as the selection's `end` is.
   - **Definitions.** Each change that alters which definitions are accepted advances the definition's version: 19 for bare names, 23 for bodies and 24 for functions, arithmetic having taken 20, comparisons 21 and interpolated strings 22.
   - **Diagnostics** name a missing `return`, `end` or `else`, a binding after a `return`, a duplicate local or parameter, a name out of scope, a call no local function answers or given the wrong number of arguments, and a chain from a block, a conditional or a function expression, which they say to bind first.
   - The examples, the documents and the tests use the new forms, arithmetic, comparisons and interpolated strings among them; the documents' examples are checked by the gate.

@@ -972,7 +972,7 @@ describe('domql', () => {
             expect(error.location.line).toBe(1);
         });
 
-        it('reads a keyword after a dot as the name of a member, a property, a call or a field, and a literal\'s word nowhere', () => {
+        it('reads a keyword after a dot or a colon as the name of a member, a property, a call, a field or an indexer, and a literal\'s word nowhere', () => {
             const record = { then: 1, else: 2, self: 3, end: 4 };
 
             expect(domql.query('{ a = r.then, b = r?.else, c = r.self, d = r["end"] }', { r: record }).evaluate()).toEqual({ a: 1, b: 2, c: 3, d: 4 });
@@ -980,7 +980,10 @@ describe('domql', () => {
             expect(domql.format('r.if')).toBe('r.if');
             expect(domql.query({ version: 22, query: member('self', parameter('panel')) }).definition.query.name).toBe('self');
             expect(getError(() => domql.query('panel.null')).kind).toBe('syntax');
-            expect(getError(() => domql.query('panel:if["x"]')).kind).toBe('syntax');
+            expect(domql.query('panel:end["x"]').definition.query).toMatchObject({ kind: 'indexer', name: 'end' });
+            expect(domql.query('panel?:if["x"]').definition.query.target).toMatchObject({ kind: 'indexer', name: 'if', optional: true });
+            expect(domql.format('panel:end["x"]')).toBe('panel:end["x"]');
+            expect(getError(() => domql.query('panel:null["x"]')).kind).toBe('syntax');
             expect(getError(() => domql.query('{ then = 1 }')).kind).toBe('syntax');
         });
 
@@ -1037,7 +1040,6 @@ describe('domql', () => {
             ['a name ending in a hyphen', { version: 22, query: parameter('panel-') }, '/query/name'],
             ['a reserved literal naming a parameter', { version: 22, query: parameter('null') }, '/query/name'],
             ['a reserved literal naming a member', { version: 22, query: member('true', parameter('panel')) }, '/query/name'],
-            ['a keyword naming an indexer', { version: 22, query: { kind: 'indexer', target: parameter('panel'), name: 'if', argument: literal('x') } }, '/query/name'],
             ['a reserved literal naming a field', { version: 22, query: { kind: 'object', target: parameter('panel'), fields: [{ name: 'false', value: member('size') }] } }, '/query/fields/0/name'],
             ['a literal that is no JSON scalar', { version: 22, query: literal(Number.NaN) }, '/query/value'],
             ['an object expression whose fields are no array', { version: 22, query: { kind: 'object', target: parameter('panel'), fields: {} } }, '/query/fields'],

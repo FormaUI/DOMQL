@@ -728,11 +728,14 @@ export class Parser {
     #parseIndexer() {
         const children = [this.#take()];
 
-        if (this.#token.type !== 'name' && this.#token.type !== '[') {
+        // After a colon only an indexer's name or a default indexer's bracket stands, so a keyword names an indexer there, `self` among them.
+        const isNamed = this.#token.type === 'name' || this.#token.type === 'keyword' || this.#token.type === 'self';
+
+        if (!isNamed && this.#token.type !== '[') {
             throw this.#unexpected('the name of an indexer, or its key in brackets for the default one, as in :attribute["id"] or :["id"]');
         }
 
-        const name = this.#token.type === 'name' ? this.#token.value : null;
+        const name = isNamed ? Parser.#memberNameOf(this.#token) : null;
         const written = name === null ? 'The default indexer' : `The indexer '${name}'`;
 
         if (name !== null) {
@@ -1017,7 +1020,7 @@ export class Parser {
         return { kind, children };
     }
 
-    /** The name a member's name token writes: a name's or a keyword's text, `self` among them. */
+    /** The name a member's or an indexer's name token writes: a name's or a keyword's text, `self` among them. */
     static #memberNameOf(token) {
         return token.type === 'self' ? 'self' : token.value;
     }

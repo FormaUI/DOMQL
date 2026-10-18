@@ -188,9 +188,9 @@ export class Lowering {
                 break;
             }
             default: {
-                const isNamed = second.type === 'name';
+                const isNamed = second.type !== '[';
                 const argument = this.#lower(part.children[isNamed ? 3 : 2]);
-                const indexer = isNamed ? { kind: 'indexer', target, name: second.value, argument } : { kind: 'indexer', target, argument };
+                const indexer = isNamed ? { kind: 'indexer', target, name: second.type === 'self' ? 'self' : second.value, argument } : { kind: 'indexer', target, argument };
 
                 node = optional ? { ...indexer, optional } : indexer;
             }
