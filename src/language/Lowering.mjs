@@ -67,6 +67,20 @@ export class Lowering {
                     this.#localNames = enclosingLocalNames;
                 }
             }
+            case 'arrow-function': {
+                // Its parameters, one name alone or names in parentheses, are in scope in its body alone, an expression whose value is its result.
+                const arrow = children.findIndex(part => SyntaxTree.isToken(part) && part.type === '=>');
+                const parameters = children.slice(0, arrow).filter(part => part.type !== ',' && part.type !== '(' && part.type !== ')').map(part => this.#wordOf(part));
+                const enclosingLocalNames = this.#localNames;
+
+                this.#localNames = new Set([...this.#localNames, ...parameters]);
+
+                try {
+                    return this.#span({ kind: 'function', parameters, body: this.#lower(children.at(-1)), arrow: true }, child);
+                } finally {
+                    this.#localNames = enclosingLocalNames;
+                }
+            }
             case 'function-call':
                 return this.#span({ kind: 'functionCall', name: children[0].value, arguments: this.#argumentsOf(children.slice(2, -1)) }, child);
             case 'do-expression':

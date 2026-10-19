@@ -489,6 +489,42 @@ describe('Watch', () => {
         });
     });
 
+    describe('a function value', () => {
+        it('follows the condition that chooses a function, and what the function it chose reads, never what one it did not choose reads', async () => {
+            panel.setAttribute('data-a', 'x');
+            panel.setAttribute('data-b', 'y');
+            watch('let a = () => panel:["data-a"] ?? "-"\nlet b = () => panel:["data-b"] ?? "-"\nlet pick = if panel:["data-on"] == "a" then a else b end\nreturn pick()', { panel });
+            await settle();
+
+            panel.setAttribute('data-a', 'x2');
+            await settle();
+            panel.setAttribute('data-on', 'a');
+            await settle();
+            panel.setAttribute('data-b', 'y2');
+            await settle();
+            panel.setAttribute('data-a', 'x3');
+            await settle();
+
+            expect(snapshots).toEqual(['y', 'x2', 'x3']);
+        });
+
+        it('follows what a function a member is given reads while the member calls it', async () => {
+            isolated.registerModule(isolated.createModule('sortBy', {
+                members: [{
+                    name: 'sortBy', function: 'sortBy', kind: 'operation', on: 'list<T>', input: 'positional', result: 'list<T>', changes: 'derived', reads: 'derived',
+                    parameters: [{ name: 'compare', kind: 'function', parameters: ['T', 'T'], type: 'number', required: true }],
+                }],
+            }, { sortBy: (list, { compare }) => [...list].sort(compare) }));
+
+            watch('panel.children.sortBy((a, b) => (a:["data-n"] to "number" ?? 0) - (b:["data-n"] to "number" ?? 0)) { n = context:["data-n"] }', { panel });
+            await settle();
+            panel.children[1].setAttribute('data-n', '0');
+            await settle();
+
+            expect(snapshots).toEqual([[{ n: '1' }, { n: '2' }], [{ n: '0' }, { n: '1' }]]);
+        });
+    });
+
     describe('a function', () => {
         it('follows what each call reads, the branch a changed condition selects in it, and captures made anew at each evaluation', async () => {
             panel.setAttribute('data-a', '1');

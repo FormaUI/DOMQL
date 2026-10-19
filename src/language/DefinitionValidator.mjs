@@ -28,7 +28,7 @@ const NODE_PROPERTIES = {
     conditional: { properties: ['kind', 'condition', 'binding', 'consequent', 'alternative'], required: ['consequent', 'alternative'] },
     body: { properties: ['kind', 'locals', 'result'], required: ['locals', 'result'] },
     do: { properties: ['kind', 'body'], required: ['body'] },
-    function: { properties: ['kind', 'parameters', 'body'], required: ['parameters', 'body'] },
+    function: { properties: ['kind', 'parameters', 'body', 'arrow'], required: ['parameters', 'body'] },
     functionCall: { properties: ['kind', 'name', 'arguments'], required: ['name', 'arguments'] },
     arithmetic: { properties: ['kind', 'operator', 'left', 'right'], required: ['operator', 'left', 'right'] },
     negate: { properties: ['kind', 'operand'], required: ['operand'] },
@@ -238,12 +238,12 @@ export class DefinitionValidator {
                 break;
             case 'do':
                 if (this.#simpleExpression !== null) {
-                    this.#fail(pointer, `${this.#simpleExpression.holder} is a simple expression, which holds no do block: bind the block's value to a local first, and use the local`);
+                    this.#fail(pointer, `${this.#simpleExpression.holder} is a simple expression, which holds no do block: ${this.#simpleExpression.advice ?? "bind the block's value to a local first, and use the local"}`);
                 }
 
                 return Object.freeze({ kind: 'do', body: this.#validateBodyOrExpression(node.body, `${pointer}/body`, evaluationContextAvailability) });
             case 'function':
-                this.#fail(pointer, 'A function is the value of a local, as let name = function(…) … end, and stands nowhere else');
+                this.#fail(pointer, node.arrow === true ? 'An arrow function is the value of a local or an argument, and stands nowhere else' : 'A function is the value of a local, as let name = function(…) … end, and stands nowhere else');
                 break;
             case 'functionCall':
                 return this.#validateFunctionCall(node, pointer, evaluationContextAvailability);
@@ -347,22 +347,23 @@ export class DefinitionValidator {
     #validateSimpleConditional(node, pointer, evaluationContextAvailability) {
         const simpleExpression = this.#simpleExpression;
         const { holder } = simpleExpression;
+        const advice = simpleExpression.advice ?? "bind the conditional's value to a local first, and use the local";
 
         if (simpleExpression.isInConditional) {
-            this.#fail(pointer, `${holder} is a simple expression, whose conditional holds no other conditional, elseif included: bind the conditional's value to a local first, and use the local`);
+            this.#fail(pointer, `${holder} is a simple expression, whose conditional holds no other conditional, elseif included: ${advice}`);
         }
 
         if (node.binding !== undefined) {
-            this.#fail(`${pointer}/binding`, `${holder} is a simple expression, whose conditional tests a value and binds none: bind the conditional's value to a local first, and use the local`);
+            this.#fail(`${pointer}/binding`, `${holder} is a simple expression, whose conditional tests a value and binds none: ${advice}`);
         }
 
         for (const branch of ['consequent', 'alternative']) {
             if (node[branch]?.kind === 'body') {
-                this.#fail(`${pointer}/${branch}`, `${holder} is a simple expression, whose conditional gives each branch's value without return or locals, as if … then … else … end does: bind the conditional's value to a local first, and use the local`);
+                this.#fail(`${pointer}/${branch}`, `${holder} is a simple expression, whose conditional gives each branch's value without return or locals, as if … then … else … end does: ${advice}`);
             }
         }
 
-        this.#simpleExpression = { holder, isInConditional: true };
+        this.#simpleExpression = { ...simpleExpression, isInConditional: true };
 
         try {
             return Object.freeze({
@@ -378,12 +379,12 @@ export class DefinitionValidator {
 
     /**
      * Validates a simple expression the holder names: the node and everything within it, which hold no do block, no local, no conditional binding, no `return`, and no conditional beyond an if branch and an else branch of simple value expressions.
-     * A simple expression within another keeps the conditional that holds it.
+     * A simple expression within another keeps the conditional that holds it, and the advice a refusal gives where a local cannot hold what it refuses, as within an arrow function's body.
      */
-    #validateSimpleExpression(node, pointer, evaluationContextAvailability, holder) {
+    #validateSimpleExpression(node, pointer, evaluationContextAvailability, holder, advice = undefined) {
         const enclosingSimpleExpression = this.#simpleExpression;
 
-        this.#simpleExpression = { holder, isInConditional: enclosingSimpleExpression?.isInConditional ?? false };
+        this.#simpleExpression = { holder, isInConditional: enclosingSimpleExpression?.isInConditional ?? false, advice: advice ?? enclosingSimpleExpression?.advice };
 
         try {
             return this.#validateNode(node, pointer, evaluationContextAvailability);
@@ -592,11 +593,15 @@ export class DefinitionValidator {
 
     /**
      * Validates a function: its parameters, each a name of its own, and its body, which sees them and the locals in scope where the function is declared, with the evaluation context it has there.
-     * Its own local and those declared after it stay later names in its body, so it calls neither, directly or through another function.
+     * Its own local and those declared after it stay later names in its body, so it calls neither directly. An arrow function's body is one simple expression, which declares no locals.
      */
     #validateFunction(node, pointer, evaluationContextAvailability) {
         this.#requireProperties(node, pointer, NODE_PROPERTIES.function);
         this.#requireArray(node.parameters, `${pointer}/parameters`);
+
+        if (node.arrow !== undefined && node.arrow !== true) {
+            this.#fail(`${pointer}/arrow`, 'An arrow function is marked by arrow: true, and a regular function leaves it out');
+        }
 
         const seen = new Set();
 
@@ -613,15 +618,27 @@ export class DefinitionValidator {
         });
 
         const enclosingLocalNames = this.#localNames;
+        const enclosingLaterNames = this.#laterNames;
         const enclosingChain = this.#chain;
 
+        // Its parameters are declared in its own scope, so in its body each hides a local of its name declared later around it.
         this.#localNames = new Set([...this.#localNames, ...node.parameters]);
+        this.#laterNames = new Set([...this.#laterNames].filter(name => !node.parameters.includes(name)));
         this.#chain = null;
 
         try {
-            return Object.freeze({ kind: 'function', parameters: Object.freeze([...node.parameters]), body: this.#validateBodyOrExpression(node.body, `${pointer}/body`, evaluationContextAvailability) });
+            if (node.arrow !== true) {
+                return Object.freeze({ kind: 'function', parameters: Object.freeze([...node.parameters]), body: this.#validateBodyOrExpression(node.body, `${pointer}/body`, evaluationContextAvailability) });
+            }
+
+            if (node.body?.kind === 'body' || node.body?.kind === 'function') {
+                this.#fail(`${pointer}/body`, "An arrow function's body is a simple expression, which gives its result: a function that holds more is a regular function bound to a local, passed by its name");
+            }
+
+            return Object.freeze({ kind: 'function', parameters: Object.freeze([...node.parameters]), body: this.#validateSimpleExpression(node.body, `${pointer}/body`, evaluationContextAvailability, "An arrow function's body", 'a function that holds more is a regular function bound to a local, passed by its name'), arrow: true });
         } finally {
             this.#localNames = enclosingLocalNames;
+            this.#laterNames = enclosingLaterNames;
             this.#chain = enclosingChain;
         }
     }
@@ -645,11 +662,23 @@ export class DefinitionValidator {
         }
     }
 
-    /** Validates a call's arguments, each a simple expression. */
+    /** Validates a call's arguments, each a simple expression or an arrow function; a regular function is bound to a local and passed by its name. */
     #validateArguments(argumentNodes, pointer, evaluationContextAvailability) {
         this.#requireArray(argumentNodes, pointer);
 
-        return Object.freeze(argumentNodes.map((argument, index) => this.#validateSimpleExpression(argument, `${pointer}/${index}`, evaluationContextAvailability, 'An argument')));
+        return Object.freeze(argumentNodes.map((argument, index) => {
+            const argumentPointer = `${pointer}/${index}`;
+
+            if (argument?.kind !== 'function') {
+                return this.#validateSimpleExpression(argument, argumentPointer, evaluationContextAvailability, 'An argument');
+            }
+
+            if (argument.arrow !== true) {
+                this.#fail(argumentPointer, "A function declared with 'function' cannot appear directly as an argument. Bind it to a local and pass its name, or use an arrow function.");
+            }
+
+            return this.#validateFunction(argument, argumentPointer, evaluationContextAvailability);
+        }));
     }
 
     /** Refuses a conditional or a body as the receiver of a chain, whose value a local holds first. */
@@ -744,7 +773,7 @@ export class DefinitionValidator {
 
         try {
             if (node.locals !== undefined && this.#simpleExpression !== null) {
-                this.#fail(`${pointer}/locals/0`, `${this.#simpleExpression.holder} is a simple expression, whose object expressions hold no locals: bind each value to a local before the expression, and use the local`);
+                this.#fail(`${pointer}/locals/0`, `${this.#simpleExpression.holder} is a simple expression, whose object expressions hold no locals: ${this.#simpleExpression.advice ?? 'bind each value to a local before the expression, and use the local'}`);
             }
 
             const locals = node.locals === undefined ? [] : this.#validateLocals(node.locals, `${pointer}/locals`, fieldEvaluationContextAvailability);

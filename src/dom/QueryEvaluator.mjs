@@ -494,28 +494,23 @@ export class QueryEvaluator {
                 // A function's value is its closure: the locals, the evaluation context and the object root where it is declared, which each call evaluates its body in.
                 return (evaluator, evaluationContext) => ({ function: node, frame: evaluator.#localsFrame, evaluationContext, objectRoot: evaluator.#objectRoot });
             case 'functionCall': {
-                const { body, parameters } = this.#resolvedDefinition.resolutionOf(node);
-                const evaluateBody = this.#getCompiledFunction(body);
+                const { targets: resolvedTargets, binding } = this.#resolvedDefinition.resolutionOf(node);
+                const targets = this.#compileTargets(resolvedTargets);
                 const evaluateArguments = node.arguments.map(argument => this.#getCompiledFunction(argument));
                 const local = { name: node.name };
 
-                // The arguments are evaluated once each, left to right, in the caller's scope, and the body in the closure's, its parameters bound to them, so no local of the caller's is visible in it.
+                // The arguments are evaluated once each, left to right, in the caller's scope, and the body of the function the name holds in its closure's, so no local of the caller's is visible in it;
+                // where the name may hold one of several, the one it holds is recorded for the value's place in the result.
                 return (evaluator, evaluationContext) => {
-                    const closure = evaluator.#evaluateLocal(local);
-                    const values = new Map(parameters.map((parameter, index) => [parameter, { value: evaluateArguments[index](evaluator, evaluationContext), selections: null }]));
-                    const enclosingFrame = evaluator.#localsFrame;
+                    const closure = binding === undefined ? evaluator.#evaluateLocal(local) : evaluator.#boundValues.get(binding);
+                    const values = evaluateArguments.map(evaluateArgument => evaluateArgument(evaluator, evaluationContext));
+                    const target = targets.length === 1 ? targets[0] : targets.find(candidate => candidate.function === closure.function);
 
-                    const enclosingObjectRoot = evaluator.#objectRoot;
-
-                    evaluator.#localsFrame = { node: { locals: parameters.map(parameter => ({ name: parameter })) }, item: closure.evaluationContext, values, enclosing: closure.frame };
-                    evaluator.#objectRoot = closure.objectRoot;
-
-                    try {
-                        return evaluateBody(evaluator, closure.evaluationContext);
-                    } finally {
-                        evaluator.#localsFrame = enclosingFrame;
-                        evaluator.#objectRoot = enclosingObjectRoot;
+                    if (targets.length > 1) {
+                        (evaluator.#selections ??= new Map()).set(node, target.function);
                     }
+
+                    return evaluator.#callClosure(closure, target, values);
                 };
             }
             case 'do':
@@ -822,7 +817,15 @@ export class QueryEvaluator {
                 return { name: parameter.name, kind: 'constant', value: argument.isDefault ? parameter.default : argument.value, isRead, isField };
             }
 
-            return { name: parameter.name, kind: parameter.kind, evaluate: this.#getCompiledFunction(argument.node), propagatesNull: parameter.nulls === 'propagate', isOption, isRead, isField };
+            const plan = { name: parameter.name, kind: parameter.kind, evaluate: this.#getCompiledFunction(argument.node), propagatesNull: parameter.nulls === 'propagate', isOption, isRead, isField };
+
+            if (parameter.kind !== 'function') {
+                return plan;
+            }
+
+            const { targets, parameterTypes, resultType } = argument.callback;
+
+            return { ...plan, propagatesNull: false, member: resolution.declaration.name, targets: this.#compileTargets(targets), parameterTypes, resultType, pointer: argument.pointer };
         });
 
         return (evaluator, evaluationContext) => {
@@ -840,9 +843,11 @@ export class QueryEvaluator {
             try {
                 for (const plan of argumentPlans) {
                     let selections = null;
+                    let held;
 
                     if (plan.kind === 'constant') {
                         args[plan.name] = plan.value;
+                        held = plan.value;
                     } else if (plan.kind === 'expression' || plan.kind === 'predicate') {
                         // The member evaluates it when it chooses, after its options are evaluated, so an option keeps the names and the object root in scope where it is written; a positional argument's are the member's own.
                         const { evaluate } = plan;
@@ -864,16 +869,18 @@ export class QueryEvaluator {
                             return null;
                         }
 
-                        args[plan.name] = value;
+                        // A function value goes to the member as a function it calls, while the query's own names and fields hold the value itself.
+                        held = value;
+                        args[plan.name] = plan.kind === 'function' ? evaluator.#callbackOf(value, plan) : value;
                     }
 
                     if (plan.isField) {
-                        object[plan.name] = args[plan.name];
+                        object[plan.name] = held;
                         rootSelections.set(plan.name, selections);
                     }
 
                     if (plan.isRead) {
-                        evaluator.#localsFrame = { node: { locals: [{ name: plan.name }] }, item: evaluationContext, values: new Map([[plan.name, { value: args[plan.name], selections }]]), enclosing: evaluator.#localsFrame };
+                        evaluator.#localsFrame = { node: { locals: [{ name: plan.name }] }, item: evaluationContext, values: new Map([[plan.name, { value: held, selections }]]), enclosing: evaluator.#localsFrame };
                     }
                 }
 
@@ -884,6 +891,80 @@ export class QueryEvaluator {
             }
         };
     }
+
+    /** The functions a call may evaluate, each with its body compiled once: the function, its parameters and its body's compiled function. */
+    #compileTargets(targets) {
+        return targets.map(target => ({ function: target.function, parameters: target.parameters, evaluateBody: this.#getCompiledFunction(target.body) }));
+    }
+
+    /** The value of a call of the closure: the target's body, evaluated in the closure's scope, evaluation context and object root, its parameters bound to the values in order. */
+    #callClosure(closure, target, values) {
+        const { parameters } = target;
+        const enclosingFrame = this.#localsFrame;
+        const enclosingObjectRoot = this.#objectRoot;
+
+        this.#localsFrame = { node: { locals: parameters.map(parameter => ({ name: parameter })) }, item: closure.evaluationContext, values: new Map(parameters.map((parameter, index) => [parameter, { value: values[index], selections: null }])), enclosing: closure.frame };
+        this.#objectRoot = closure.objectRoot;
+
+        try {
+            return target.evaluateBody(this, closure.evaluationContext);
+        } finally {
+            this.#localsFrame = enclosingFrame;
+            this.#objectRoot = enclosingObjectRoot;
+        }
+    }
+
+    /**
+     * The function a member is given for a parameter its contract declares to take one: a call of the closure with the member's arguments, each checked against the contract's parameter types, and its result against the contract's result type.
+     * It is called while the member's invocation lasts, which closes it, and fails once that is over.
+     */
+    #callbackOf(closure, plan) {
+        const { name, member, targets, parameterTypes, resultType, pointer } = plan;
+        const target = targets.length === 1 ? targets[0] : targets.find(candidate => candidate.function === closure.function);
+        const lifetime = { isOpen: true };
+        const callback = (...values) => {
+            try {
+                if (!lifetime.isOpen) {
+                    this.#fail(`The function given as '${name}' of '${member}' is called after '${member}' returned, and a member calls the functions it is given only while its own invocation lasts`, pointer);
+                }
+
+                if (values.length !== parameterTypes.length) {
+                    this.#fail(`The function given as '${name}' of '${member}' is called with ${values.length === 1 ? 'one argument' : `${values.length} arguments`}, and its contract declares ${parameterTypes.length}`, pointer);
+                }
+
+                values.forEach((value, index) => {
+                    if (!this.#conforms(value, parameterTypes[index])) {
+                        this.#fail(`The function given as '${name}' of '${member}' is called with ${QueryEvaluator.#describe(value)}, and its contract declares ${parameterTypes[index]}`, pointer);
+                    }
+                });
+
+                const value = this.#callClosure(closure, target, values);
+
+                if (!this.#conforms(value, resultType)) {
+                    this.#fail(`The function given as '${name}' of '${member}' gave ${QueryEvaluator.#describe(value)}, and its contract declares ${resultType}`, pointer);
+                }
+
+                return value;
+            } catch (error) {
+                // A thrown value that is no object is the member's to report, as anything it throws is.
+                if (error !== null && typeof error === 'object') {
+                    this.#callbackErrors.add(error);
+                }
+
+                throw error;
+            }
+        };
+
+        this.#callbackLifetimes.set(callback, lifetime);
+
+        return callback;
+    }
+
+    /** The lifetime of each function given to a member, open while the member's invocation lasts. @type {WeakMap<Function, { isOpen: boolean }>} */
+    #callbackLifetimes = new WeakMap();
+
+    /** The errors a function given to a member raised, which reach the query as they are, not as the member's failure. @type {WeakSet<object>} */
+    #callbackErrors = new WeakSet();
 
     /** What the evaluation gives with the frame of names and the object root in scope, those of the place it was written, both restored after it. */
     #evaluateWithin(frame, objectRoot, evaluate) {
@@ -956,7 +1037,7 @@ export class QueryEvaluator {
         };
     }
 
-    /** Whether the node reads a local or a field of the name anywhere within it. */
+    /** Whether the node reads a local or a field of the name anywhere within it, or calls the function it holds. */
     static #readsLocal(node, name) {
         if (Array.isArray(node)) {
             return node.some(item => QueryEvaluator.#readsLocal(item, name));
@@ -966,7 +1047,7 @@ export class QueryEvaluator {
             return false;
         }
 
-        return (node.kind === 'local' && node.name === name) || Object.values(node).some(value => QueryEvaluator.#readsLocal(value, name));
+        return ((node.kind === 'local' || node.kind === 'functionCall') && node.name === name) || Object.values(node).some(value => QueryEvaluator.#readsLocal(value, name));
     }
 
     /**
@@ -1294,7 +1375,20 @@ export class QueryEvaluator {
         try {
             value = implementation(receiver, args, this.#environment, samples);
         } catch (error) {
+            if (this.#callbackErrors.has(error)) {
+                throw error;
+            }
+
             throw DomqlError.evaluation(`${this.#subjectOf(declaration, node)} failed: ${error?.message ?? String(error)}`, this.#locate(this.#pointerOf(node)), { cause: error });
+        } finally {
+            // A function the member was given is called only while its invocation lasts.
+            for (const name in args) {
+                const lifetime = this.#callbackLifetimes.get(args[name]);
+
+                if (lifetime !== undefined) {
+                    lifetime.isOpen = false;
+                }
+            }
         }
 
         if (!conforms(value)) {

@@ -490,6 +490,7 @@ The following forms are each one token and cannot contain whitespace:
 | `(?` | `( ?` |
 | `<=` | `< =` |
 | `>=` | `> =` |
+| `=>` | `= >` |
 | `==` | `= =` |
 | `!=` | `! =` |
 
@@ -838,11 +839,12 @@ An object means options only by its member's input: the object a positional memb
 
 An options object follows the ordinary rules of an object expression. Its options are evaluated once each, in the order they are written, whatever order the member declares its parameters in. Each written option is in scope by its name after its initializer, as [a field is](#locals-fields-as-names), so in `sentinel.intersects({ margin = 200, root = if margin > 100 then panel else null end })` the `root` option reads the `margin` written before it. Where no object expression encloses it, an options object builds the [object root](#locals-the-object-root), each option a field of it after its initializer, of the value and type it was given, an element included; inside one, `root` keeps the enclosing object root, whose fields the options never join. A default the member supplies introduces no name and no field. An option the member declares as an expression or a predicate is evaluated by the member, against the context it supplies, with the names and the object root of the place it is written; it has no single value, so reading it by its name or through `root` after its initializer is a validation error, which no enclosing name of its spelling escapes.
 
-Every parameter of a member is declared as one of three kinds, and the evaluator treats them differently; a parameter an options object supplies is the same.
+Every parameter of a member is declared as one of four kinds, and the evaluator treats them differently; a parameter an options object supplies is the same.
 
 - A **value argument** is evaluated once, where the call is written, against the same evaluation context as the chain it appears in, so its `context` is that evaluation context. In `viewport { intersects = context.first(".item")?.intersects({ root = context.parent as "element" }) }`, `context.parent` is the viewport's parent, not the item's. At the top level, where there is no evaluation context, a value argument starts from a parameter, a root, a local, a literal, an object expression or another input: `target.intersects({ root = target.parent as "element" })`.
 - An **expression argument** is evaluated by the member against each item of the list the member follows, which is its `context`. In `table.all("tbody tr").max(context.rect?.height)`, `context` is each row. The built-in vocabulary's expression parameters are those of `max`, `min` and `sum`.
 - A **predicate argument** is an expression argument of any value, and the member receives its truthiness, a Boolean, for each item it evaluates it against: in `panel.children.where(context:["data-key"])`, the element's attribute is truthy wherever it is present, empty or not. The built-in vocabulary's predicate is that of `where`.
+- A **function argument** is a function value, an arrow function written as the argument or a function passed by its name, which the member calls with arguments of the types its **callback contract** declares, taking a result of the contract's result type. Preparation checks each function the value may be against the contract, and evaluation checks the member's arguments and the function's result. The member calls it only while its own invocation lasts, and a call after that fails. The built-in vocabulary has no function parameters, so `where`, `max`, `min` and `sum` take contextual expressions, and an arrow function given to one is a validation error saying its parameter takes a contextual expression, as `rows.where(context.visible)`; a module declares them.
 
 A value argument can be declared **fixed**, where it selects something validation needs before evaluation, such as the event type whose members `on` offers or the condition `is`, `has` or `supports` asks.
 
@@ -850,7 +852,7 @@ A fixed argument is a string the query's preparation settles, without reading th
 
 A member's value is read from the document, so an expression that needs one to settle is a validation error, as `if panel.attached then "share" else "share" end` is; the side an expression does not take is validated and selects nothing, so a name only it holds is never looked up.
 
-Because the kind is part of the signature, preparation validates every kind before evaluation, and evaluation records the dependencies of value, expression and predicate arguments.
+Because the kind is part of the signature, preparation validates every kind before evaluation, and evaluation records the dependencies of value, expression, predicate and function arguments.
 
 <a id="simple-expressions"></a>
 
@@ -1960,7 +1962,7 @@ A local is not a field and is never included in the result. It may hold values t
 
 ### Functions
 
-A **function** names a calculation a query repeats: `function`, its **function parameters** in parentheses, and the body a call evaluates, closed by `end`, held by a local, and called by that local's name with its **arguments**.
+A **function** names a calculation a query repeats. It is declared in one of two forms, held by a local, called by that local's name with its **arguments**, and passed, held and returned as a value within the query.
 
 ```domql
 let measure = function(box, padding)
@@ -1977,9 +1979,25 @@ return {
 
 #### Declaring one
 
-A function is a local's initializer, of a body or of an object expression, and stands nowhere else: a field, an argument, an operand, a conditional's branch and a result never hold one, so `let f = if wide then function() 1 end else function() 2 end end` is a syntax error, and a definition holding one elsewhere a structure error.
+A **regular function** is `function`, its **function parameters** in parentheses and its body, closed by `end`. Its body follows the rules of a [body](#bodies): an expression alone, as `function(x) x * 2 end`, or locals and a `return`, which completes the body and gives the call its value.
 
-An object expression's function local is in scope within it, as any local is, and is no field. Its body follows the rules of a [body](#bodies), an expression alone, as `function(x) x * 2 end`, or locals and a `return`, which completes the function's body and gives the call its value.
+An **arrow function** is its parameters, `=>` and one simple expression, whose value is its result:
+
+```domql
+let answer = () => 42
+let isVisible = row => row.visible
+let isShown = (row) => row.visible
+let byPrice = (left, right) => left.price - right.price
+return answer()
+```
+
+Parentheses are optional for exactly one parameter and required for none or several. An arrow function declares no locals and holds no body, so `x => let y = …` and `x => do … end` are refused, and so is `x => y => x + y`, whose body is no simple expression; a function that holds more is a regular function bound to a local and passed by its name. Laying the expression out across lines changes nothing.
+
+Either form is a local's initializer, of a body or of an object expression, and an arrow function is also an argument, as `apply(row => row.visible, panel)` is. Neither stands anywhere else: a field, an operand, a conditional's branch and a result hold neither, and a regular function written directly as an argument is a syntax error:
+
+> A function declared with 'function' cannot appear directly as an argument. Bind it to a local and pass its name, or use an arrow function.
+
+A definition holding either where text could not write it is a structure error. An object expression's function local is in scope within it, as any local is, and is no field.
 
 Its function parameters are names of the function, two of one function never the same, visible in its body alone, where each hides an outer local, field or caller binding of its name; `~name` still reads the caller's binding.
 
@@ -1987,39 +2005,58 @@ Its function parameters are names of the function, two of one function never the
 
 #### Calling one
 
-`name(argument, …)` calls the local function of that name in scope, with as many arguments as it declares function parameters, `seven()` with none, each a [simple expression](#simple-expressions); each argument is evaluated once, from left to right, in the caller's scope, and the body then evaluates with each function parameter holding its argument. A call is a value a chain continues from, as `first(panel).children.count` does.
+`name(argument, …)` calls the function a local or a function parameter of that name holds, with as many arguments as it declares function parameters, `seven()` with none, each a [simple expression](#simple-expressions) or an arrow function; each argument is evaluated once, from left to right, in the caller's scope, and the body then evaluates with each function parameter holding its argument. A call is a value a chain continues from, as `first(panel).children.count` does.
 
 An operation of a vocabulary keeps its own form, `context.closest(".row")`, with the arguments its signature takes. A name no local function has is a validation error, which gives the form with `context` where the evaluation context has a member of that name, and so is a call of a local that holds a value, and a call given the wrong number of arguments.
+
+<a id="functions-as-values"></a>
+
+#### Functions as values
+
+A function's name read without a call is a **function value**, held by a local, passed as an argument and returned by a function, as either form is:
+
+```domql
+let isAttached = row => row.attached
+let shown = isAttached
+let apply = function(test, row) test(row) end
+let getTest = () => shown
+let test = getTest()
+return apply(test, panel)
+```
+
+A conditional or a coalescing operator may choose between functions, as `let pick = if wide then measure else count end` does: a call of `pick` is checked against each function it may be, and their results merge by the rules [branches](#conditionals) follow, a call whose functions give no one type a validation error. A value that may be null is never called; bind a function to call in its place first, as `let call = pick ?? count` does.
+
+A function value is used within the query, and the query's result holds data alone: a field or a result that would hold a function is a validation error, and a function is never compared, interpolated, converted or given to a member's value parameter.
 
 <a id="functions-what-it-sees"></a>
 
 #### What it sees
 
-A function captures the locals and the evaluation context where it is declared: its body reads them, its function parameters and its own locals, and never the caller's locals, so in `let a = 1`, `let f = function() a end` and a `do` block whose local `a` is 2 and that calls `f()`, the call gives 1. A watch's evaluation captures them anew each time.
+A function captures the locals, the evaluation context and the object root where it is declared: its body reads them, its function parameters and its own locals, and never the caller's locals, so in `let a = 1`, `let f = function() a end` and a `do` block whose local `a` is 2 and that calls `f()`, the call gives 1. Its function parameters are ordinary ones, so an argument never replaces the evaluation context or the object root it captured. A watch's evaluation captures them anew each time.
 
-<a id="functions-never-a-value"></a>
+<a id="functions-never-recursive"></a>
 
-#### Never a value
+#### Never recursive
 
-A function is called and never passed, held in a field, compared, returned or given as an argument: a local holding one, read without a call, is a validation error. No function calls itself or one declared after it, directly or through another, since a local's value sees neither it nor the locals after it.
+No function calls itself, directly, through another or through a function passed to it. A local's value sees neither its own local nor the locals after it, and preparation follows each call into the functions it may reach, so `let invoke = function(f) f(f) end` with `invoke(invoke)` is a validation error.
 
 <a id="functions-resolved-for-each-call"></a>
 
 #### Resolved for each call
 
-The declaration is checked for what no argument decides, its names, its scope and its function parameters; each call resolves the body against that call's argument types, so one function serves arguments of different types, and a function nothing calls is never resolved further. A call settles no fixed argument.
+The declaration is checked for what no argument decides, its names, its scope and its function parameters; each call resolves the body of each function it may call against that call's argument types, so one function serves arguments of different types, and a function nothing calls is never resolved further. A call settles no fixed argument.
 
 <a id="functions-watching"></a>
 
 #### Watching
 
-A call reads what its arguments and the branches its body selects read, and a branch it does not select reads nothing.
+A call reads what its arguments and the branches its body selects read, and a branch it does not select reads nothing. A call of a value that may be one of several functions reads what chose the function and what the one it called reads.
 
 <a id="functions-definition"></a>
 
 #### Definition
 
-A function is a `function` node of its function parameters and its body; a call is a `functionCall` node of the function's name and its arguments.
+A function is a `function` node of its function parameters and its body, and an arrow function one marked `arrow: true`, whose body is its expression and is validated as a simple expression; a call is a `functionCall` node of the name and its arguments.
 
 <a id="requests"></a>
 
@@ -2146,7 +2183,7 @@ A member declares its kind, its signature and its runtime contract. Its kind is 
 | Receiver type | Which values have this member |
 | Form | Property access, call or named indexer |
 | Input | Positional arguments or one options object |
-| Parameters | Order, name, type, argument kind, required status or default, null policy, whether it is fixed and, for a fixed one, what it selects, an event type or a condition, and for an expression or a predicate, its evaluation context, each item |
+| Parameters | Order, name, type, argument kind, required status or default, null policy, whether it is fixed and, for a fixed one, what it selects, an event type or a condition, for an expression or a predicate, its evaluation context, each item, and for a function, the types of the arguments it is called with, its type being its result's; only an operation declares a function parameter, which is required, has no null policy and is given to no observation |
 | Result type | The type the member must return |
 
 Optional and nullable are separate. An optional parameter can be omitted; a nullable parameter can receive null. Unless a vocabulary table marks a parameter optional, it is required.
@@ -3042,7 +3079,7 @@ A field is an object holding its `name` and its `value` node, both required; an 
 
 ```json
 {
-  "version": 29,
+  "version": 30,
   "query": {
     "kind": "object",
     "target": { "kind": "parameter", "name": "panel" },
@@ -3091,7 +3128,7 @@ Text must follow the syntax. A directly created definition must follow the same 
 | Interpolated strings | Every part is text containing a string, or an expression part. |
 | Bodies | Locals and one result are present; local names are unique and are not used before declaration; a body stands only as a query's, a do block's, a function's or a conditional branch's. |
 | Chain receivers | A conditional or body cannot be a chain receiver. |
-| Functions | Each is a local initializer with unique parameter names; a function cannot be called before its local is declared. |
+| Functions | Each is a local initializer, or an arrow function that is also an argument, with unique parameter names; an arrow function's body is a simple expression; a function cannot be called before its local is declared. |
 | Optional access | Each optional access is within an optional chain, following the targets of property accesses, calls, indexers and object expressions; each optional chain contains an optional access. |
 | Context | `context` cannot appear where no evaluation context is available, including a top-level object's unqualified fields. |
 | Logical expressions | `and` and `or` have at least two operands; `not` has its operand. |
@@ -3124,7 +3161,7 @@ Preparation checks the following contracts:
 | Equality | Operand types fit in at least one direction. Values other than strings, numbers, Booleans and nodes compare only with null. |
 | Arithmetic and comparisons | Every operand is a non-null number. |
 | Interpolation | Every interpolation gives a non-null string or number. |
-| Function calls | The local function exists, the argument count matches, and its body resolves against that call's argument types. |
+| Function calls | The local or function parameter holds a function, never null; the argument count matches each function it may be, whose body resolves against that call's argument types, their results merging; no call reaches a function within its own call. |
 | Conditions and logical operands | Each is a value. Truthiness determines the branch; an event source, action or behavior cannot be used as that value. |
 | Coalescing | Value and fallback have compatible types. |
 | Conditionals | Branch result types are compatible. |
@@ -3175,7 +3212,9 @@ In this section: [Absence and unavailable values](#absence-and-unavailable-value
 | A conditional without its `end`, a conditional whose branches give their results in two styles, anything after a body's result, or a `return` with no value | A syntax error |
 | Locals whose body's result has no `return` | A syntax error: `Introduce the body's result with return.` |
 | An expression no local holds before a body's `return` | A syntax error: `Only locals may precede a body's result.` |
-| A function that is no local's initializer | A syntax error in text, and a structure error in a definition |
+| A function that is no local's initializer, or an arrow function that is neither that nor an argument | A syntax error in text, and a structure error in a definition |
+| A regular function written directly as an argument | A syntax error in text, and a structure error in a definition: `A function declared with 'function' cannot appear directly as an argument. Bind it to a local and pass its name, or use an arrow function.` |
+| An arrow function whose body is no simple expression | A syntax error in text, and a structure error in a definition, saying its body is a simple expression |
 | A conditional or a `do` block that is the receiver of a chain | A syntax error, or a structure error in a definition, saying to bind its value first |
 | An interpolated string with a space after its `$`, an interpolation with no expression, or a lone `}` in its text | A syntax error at what is written so |
 
@@ -3212,7 +3251,10 @@ A module whose declarations break the declaration contract, or whose names regis
 | An equality of two values whose types fit neither way, or of a value that is no string, number, Boolean or node with one that is not null | A validation error naming the types, and the test to write where a value is compared with the name of one of its Boolean members |
 | An operand of `and`, `or` or `not`, a condition or a conditional binding of what is no value | A validation error naming what it is |
 | An arithmetic operand that can be null, or that is no number | A validation error naming the operand, and the fallback to give it |
-| A call no local function answers, a call of a local holding a value, a call given the wrong number of arguments, or a local holding a function read without a call | A validation error naming the function |
+| A call no local function answers, a call of a local holding a value or a function that may be null, a call given the wrong number of arguments, or one whose functions give no one type | A validation error naming the function |
+| A call that reaches a function within its own call, through a function passed to it | A validation error |
+| A field or a result that would hold a function, or a function given to a member's value parameter | A validation error |
+| A function given to a function parameter of another number of parameters, of a result of another type, or that may be null, or an arrow function given to a contextual-expression parameter | A validation error naming the parameter |
 | An interpolation of a value that can be null, or of no string or number | A validation error naming the interpolation, and the fallback or the conversion to give it |
 | A comparison operand that can be null, or that is no number | A validation error naming the operand, and the fallback to give it |
 | An `and` or an `or` whose operands give values no one type holds | A validation error naming them, and the conditional to write where null is an acceptable alternative |
@@ -3395,7 +3437,7 @@ simple-conditional-expression = "if" simple-value-expression "then" simple-value
                                 "else" simple-value-expression "end"
 
 local                         = "let" local-name "=" local-initializer
-local-initializer             = expression | function-expression
+local-initializer             = expression | function-expression | arrow-function
 
 function-expression           = "function" "(" [ function-parameter-list ] ")"
                                 body "end"
@@ -3460,9 +3502,11 @@ input                         = value | object | identifier | interpolated-strin
 reserved-reference            = "@" reserved-word
 query-parameter               = "~" name
 function-call                 = ( identifier | reserved-reference )
-                                "(" [ function-argument-list ] ")"
-function-argument-list        = function-argument { "," function-argument }
-function-argument             = simple-expression
+                                "(" [ argument-list ] ")"
+argument-list                 = argument { "," argument }
+argument                      = simple-expression | arrow-function
+arrow-function                = arrow-parameters "=>" simple-expression
+arrow-parameters              = function-parameter | "(" [ function-parameter-list ] ")"
 value                         = "context" | "~" | literal | root
 root                          = "document" | "window" | "root"
 
@@ -3570,7 +3614,11 @@ In this section: [Queries and values](#queries-and-values) · [Chains and member
 | Body | What a query, a do block, a function or a conditional branch holds: an expression alone, or locals and the `return` that gives its result | [Bodies](#bodies) |
 | Do block | `do … end`, a body evaluated where it stands, giving its result | [Bodies](#bodies) |
 | Local | A name declared with `let` in a body or an object expression, visible after its declaration through its scope, holding a value or a function | [Locals](#locals) |
-| Function | `function(…) … end`, a local's initializer whose body a call of the local evaluates | [Functions](#functions) |
+| Function | A calculation a call evaluates, a regular function or an arrow function, held by a local and passed as a value | [Functions](#functions) |
+| Regular function | `function(…) … end`, whose body is a body | [Functions](#functions-declaring-one) |
+| Arrow function | `parameters => expression`, whose body is one simple expression, a local's initializer or an argument | [Functions](#functions-declaring-one) |
+| Function value | A function read by its name without a call, or an arrow function written as an argument, used within the query and never part of its result | [Functions as values](#functions-as-values) |
+| Callback contract | The argument types and the result type a member declares for a function parameter, which a function given to it is checked against | [Arguments](#arguments) |
 | Function parameter | A name a function declares, holding the argument each call gives it | [Functions](#functions) |
 | Parameter | A name through which a query reads a caller-supplied value | [Bindings](#bindings) |
 | Parameter binding, or binding | The value a caller supplies for a parameter | [Bindings](#bindings) |

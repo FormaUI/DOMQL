@@ -22,7 +22,7 @@ const CHANGE_CATEGORIES = ['constant', 'observable', 'partly-observable', 'unobs
 const READING_MODES = ['fresh', 'maintained', 'captured', 'derived'];
 const NULL_POLICIES = ['propagate', 'accept'];
 const SELECTION_KINDS = ['eventType', 'condition'];
-const PARAMETER_KINDS = ['value', 'expression', 'predicate'];
+const PARAMETER_KINDS = ['value', 'expression', 'predicate', 'function'];
 
 /** What an observation type provides: a signal that an answer may have changed, or a sampled value a member reads. */
 const OBSERVATION_CONTRACTS = ['invalidation', 'maintained'];
@@ -47,7 +47,7 @@ const CONTENTS = ['members', 'types', 'eventTypes', 'observationTypes', 'convers
 
 /** The keys each kind of declaration takes, so one misspelled is refused rather than ignored. */
 const MEMBER_KEYS = ['name', 'function', 'kind', 'form', 'input', 'default', 'on', 'parameters', 'result', 'changes', 'reads', 'misses', 'tolerance', 'observations'];
-const PARAMETER_KEYS = ['name', 'kind', 'type', 'required', 'default', 'fixed', 'selects', 'nulls', 'context', 'omitted'];
+const PARAMETER_KEYS = ['name', 'kind', 'type', 'required', 'default', 'fixed', 'selects', 'nulls', 'context', 'omitted', 'parameters'];
 const TYPE_KEYS = ['name', 'fields'];
 const EVENT_TYPE_KEYS = ['name', 'data'];
 const OBSERVATION_TYPE_KEYS = ['name', 'contract', 'identity', 'shared', 'function'];
@@ -322,6 +322,13 @@ export class DomqlModule {
                 fail('An observation names its type as a name is', name);
             }
 
+            // A function a member is given lasts as long as its invocation, so no observation, which outlives it, is given one.
+            const functionArgument = Object.values(observationDeclaration).find(value => typeof value?.argument === 'string' && parameters.get(value.argument)?.kind === 'function');
+
+            if (functionArgument !== undefined) {
+                fail(`The observation '${observationDeclaration.type}' is given the function parameter '${functionArgument.argument}', whose function lasts only while the member's invocation does`, name);
+            }
+
             const isTarget = OBSERVATION_TARGETS.includes(observationDeclaration.of) || DomqlModule.#isArgumentReference(observationDeclaration.of, parameters);
 
             if (!isTarget) {
@@ -488,6 +495,11 @@ export class DomqlModule {
         for (const parameter of parameters) {
             DomqlModule.#validateParameter(parameter, name, fail);
 
+            // A function a member is given is called while the member's invocation lasts, which only an operation's query carries out at once.
+            if (parameter.kind === 'function' && member.kind !== 'operation') {
+                fail(`The function parameter '${parameter.name}' is an operation's, which calls it while its own invocation lasts`, name);
+            }
+
             if (parameterNames.has(parameter.name)) {
                 fail(`The parameter '${parameter.name}' is declared twice`, name);
             }
@@ -569,12 +581,28 @@ export class DomqlModule {
     static #validateParameter(parameter, memberName, fail) {
         DomqlModule.#validateKeys(parameter, PARAMETER_KEYS, 'A parameter', fail, memberName);
 
-        if (!Names.isName(parameter.name) || !PARAMETER_KINDS.includes(parameter.kind) || !NULL_POLICIES.includes(parameter.nulls) || typeof parameter.required !== 'boolean') {
-            fail('A parameter declares its name, its kind, whether it is required and how it handles null', memberName);
+        // A function is never null, so a function parameter declares no null policy.
+        const declaresNulls = parameter?.kind === 'function' ? parameter.nulls === undefined : NULL_POLICIES.includes(parameter?.nulls);
+
+        if (!Names.isName(parameter.name) || !PARAMETER_KINDS.includes(parameter.kind) || !declaresNulls || typeof parameter.required !== 'boolean') {
+            fail('A parameter declares its name, its kind, whether it is required and how it handles null, which a function parameter leaves out', memberName);
         }
 
         if (!DomqlModule.#isTypeNotation(parameter.type)) {
             fail(`The parameter '${parameter.name}' declares a type`, memberName);
+        }
+
+        // A function parameter's contract declares the type of each argument the member calls the function with, in order, and, as its type, the type of the result it takes from it.
+        if (parameter.kind === 'function') {
+            if (!Array.isArray(parameter.parameters) || !parameter.parameters.every(type => DomqlModule.#isTypeNotation(type))) {
+                fail(`The function parameter '${parameter.name}' declares its parameters as a list of the types it is called with`, memberName);
+            }
+
+            if (!parameter.required || parameter.fixed !== undefined || parameter.context !== undefined) {
+                fail(`The function parameter '${parameter.name}' is required, and declares neither a default, whether it is fixed, nor an evaluation context`, memberName);
+            }
+        } else if (parameter.parameters !== undefined) {
+            fail(`The parameter '${parameter.name}' declares parameters, which only a function parameter does`, memberName);
         }
 
         if (parameter.required && 'default' in parameter) {

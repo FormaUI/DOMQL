@@ -327,6 +327,18 @@ describe('SnapshotComparer', () => {
             expect(snapshotComparer.reconcile(previous, null, freeze({ a: 102.5, b: 102.5 }), null)).toEqual({ a: 102.5, b: 102.5 });
         });
 
+        it('compares what a call of one of several functions gives as the body of the one both values came from, and exactly where they came from different ones', () => {
+            const resolved = resolvedOf('let a = () => element.wobble.width\nlet b = () => element.steady\nlet pick = if wide then a else b end\nreturn pick()', { element, wide: true }, { tolerance: 2 });
+            const snapshotComparer = new SnapshotComparer(resolved);
+            const call = resolved.definition.query.result;
+            const [first, second] = resolved.resolutionOf(call).targets.map(target => target.function);
+            const calling = target => ({ branches: new Map([[call, target]]) });
+
+            expect(snapshotComparer.reconcile(100, calling(first), 101.5, calling(first))).toBe(100);
+            expect(snapshotComparer.reconcile(100, calling(second), 101.5, calling(second))).toBe(101.5);
+            expect(snapshotComparer.reconcile(100, calling(first), 101.5, calling(second))).toBe(101.5);
+        });
+
         it('compares a field read through root as the field it reads, within the tolerance of its member', () => {
             const resolved = resolvedOf('element { width = context.wobble.width, again = root.width, named = root[name] }', { element, name: 'width' }, { tolerance: 2 });
             const snapshotComparer = new SnapshotComparer(resolved);

@@ -111,6 +111,8 @@ const DOCUMENTS = {
         { about: 'the object root', results: { 0: { bar: 4, inner: { bar: 2, nearest: 2, outermost: 4 } } } },
         { about: 'a field of the object root still being built', refuses: 'validation' },
         { about: 'a function' },
+        { about: 'arrow functions', results: { 0: 42 } },
+        { about: 'functions as values', results: { 0: true } },
         { about: 'an action and a behavior request', each: true, modules: [scrollModule] },
         { about: 'a subscription' },
         { about: 'a complete query' },

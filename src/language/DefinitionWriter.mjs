@@ -295,8 +295,14 @@ export class DefinitionWriter {
         return node.arguments.map(argument => DefinitionWriter.#write(argument, level)).join(', ');
     }
 
-    /** A function: its parameters, and its body as a block writes it. */
+    /** A function: its parameters, and its body as a block writes it; an arrow function its parameters, one alone or several in parentheses, `=>` and the expression that is its body. */
     static #function(node, level) {
+        if (node.arrow === true) {
+            const parameters = node.parameters.length === 1 ? node.parameters[0] : `(${node.parameters.join(', ')})`;
+
+            return `${parameters} => ${DefinitionWriter.#write(node.body, level)}`;
+        }
+
         return DefinitionWriter.#block(`function(${node.parameters.join(', ')})`, node.body, level);
     }
 

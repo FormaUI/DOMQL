@@ -83,6 +83,7 @@ describe('SyntaxTree', () => {
             '$"a {b}"',
             'let f = function(x, y) x end\nreturn f(1, 2)',
             'let a = 1\nreturn do let b = a return b end',
+            'let g = (x, y) => x\nreturn f(z => z, g)',
         ];
         const kinds = new Set(texts.flatMap(text => kindsOf(treeOf(text))));
         const types = new Set(texts.flatMap(text => Tokenizer.scan(text).map(token => token.type)).concat(Tokenizer.scan('a = 1').map(token => token.type)));

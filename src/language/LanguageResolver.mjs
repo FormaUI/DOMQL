@@ -50,6 +50,10 @@ export class LanguageResolver {
 
         const resultType = result.kind === 'subscription' && result.type.kind === 'event' ? result.type.itemType : result.type;
 
+        if (LanguageResolver.#heldReferenceOf(resultType) === 'function') {
+            this.#fail('The result would hold a function, which is used within the query and never part of its result: call it, as name(…)', '/query');
+        }
+
         if (result.kind !== 'behavior' && !this.#isData(resultType)) {
             this.#fail(`The result would hold ${resultType}, which is no data; read the facts it needs through an object expression`, '/query');
         }
@@ -125,6 +129,9 @@ export class LanguageResolver {
                 return this.#resolveNode(node.body, `${pointer}/body`, scope);
             case 'functionCall':
                 return this.#resolveFunctionCall(node, pointer, scope);
+            case 'function':
+                // An arrow function written as an argument is a function value of its own, which captures the scope it is written in.
+                return { type: Type.createFunctionType([LanguageResolver.#functionLocalOf(node, pointer, scope)]), kind: 'query', isFixed: false };
             case 'optionalChain':
                 return this.#resolveOptionalChain(node, pointer, scope);
             case 'coalescing':
@@ -679,7 +686,8 @@ export class LanguageResolver {
     }
 
     /**
-     * Resolves a call of a local function: its arguments against the caller's scope, as many as the function declares, and then a copy of its body of its own, against the scope the function captured and its parameters, typed as this call's arguments.
+     * Resolves a call of a local function, or of a local or a parameter holding a function value: its arguments against the caller's scope, as many as each function it may be declares,
+     * and then, for each one, a copy of its body of its own, against the scope that function captured and its parameters, typed as this call's arguments, their results merged.
      * A local call settles no fixed argument.
      */
     #resolveFunctionCall(node, pointer, scope) {
@@ -691,14 +699,22 @@ export class LanguageResolver {
             this.#fail(`No function named '${node.name}' is in scope${form === null ? '' : `; write '${form}' for the member of the evaluation context`}`, pointer);
         }
 
-        if (local.function === undefined) {
+        const functions = local.function !== undefined ? [local] : (local.result?.type?.kind === 'function' ? local.result.type.functions : null);
+
+        if (functions === null) {
             this.#fail(`'${node.name}' is a local holding a value, and no function, so it is read without parentheses`, pointer);
         }
 
-        const { parameters, body } = local.function;
+        if (local.function === undefined && local.result.type.isNullable) {
+            this.#fail(`'${node.name}' may hold null, and only a function is called: bind one to call in its place first, as let call = ${node.name} ?? other`, pointer);
+        }
 
-        if (node.arguments.length !== parameters.length) {
-            this.#fail(`'${node.name}' takes ${parameters.length === 1 ? 'one argument' : `${parameters.length} arguments`}, and is given ${node.arguments.length}`, pointer);
+        for (const target of functions) {
+            const { parameters } = target.function;
+
+            if (node.arguments.length !== parameters.length) {
+                this.#fail(`'${node.name}' takes ${parameters.length === 1 ? 'one argument' : `${parameters.length} arguments`}, and is given ${node.arguments.length}`, pointer);
+            }
         }
 
         const results = node.arguments.map((argument, index) => {
@@ -712,35 +728,70 @@ export class LanguageResolver {
             return result;
         });
 
-        let locals = local.scope.locals;
+        const targets = functions.map((target, index) => this.#resolveFunctionBody(target, node.name, results, node.arguments, scope, functions.length === 1 ? `${pointer}/body` : `${pointer}/bodies/${index}`, pointer));
+        const type = targets.reduce((merged, target) => (merged === null ? null : Type.merge(merged, target.type)), Type.never);
 
-        parameters.forEach((parameter, index) => {
-            locals = new Map(locals).set(parameter, { result: results[index], value: node.arguments[index], scope });
-        });
-
-        // The copy is this call's own, so the same function serves calls of different types, each resolution kept under the call's pointer.
-        const instance = structuredClone(body);
-        const instancePointer = `${pointer}/body`;
-
-        this.#instances.push({ node: instance, pointer: instancePointer, source: `${local.pointer}/body` });
-
-        const result = this.#resolveNode(instance, instancePointer, { ...local.scope, locals });
-
-        if (result.kind !== 'query') {
-            this.#fail(`'${node.name}' gives ${LanguageResolver.#descriptionOf(result.kind)}, and a function gives a value`, instancePointer);
+        if (type === null) {
+            this.#fail(`'${node.name}' may be any of ${targets.length} functions, whose results are of no one type: ${targets.map(target => target.type).join(', ')}`, pointer);
         }
 
-        this.#resolutions.set(pointer, { kind: 'functionCall', body: instance, parameters });
+        // A conditional binding holding the function is read as its conditional bound it, and any other name as its scope holds it.
+        const binding = local.binding === undefined ? {} : { binding: local.binding };
 
-        return { type: result.type, kind: 'query', isFixed: false };
+        this.#resolutions.set(pointer, { kind: 'functionCall', targets: targets.map(({ function: declared, body, parameters }) => ({ function: declared, body, parameters })), ...binding });
+
+        return { type, kind: 'query', isFixed: false };
     }
+
+    /**
+     * Resolves a function's body for one call of it: a copy of its own, so the same function serves calls of different types, each resolution kept under the instance's pointer, against the scope the function captured
+     * and its parameters, each holding what the call gives it. A function whose body is being resolved is never called again within it, directly or through a function passed to it, which a call reaching it again would.
+     */
+    #resolveFunctionBody(target, name, argumentResults, argumentNodes, callerScope, instancePointer, callPointer) {
+        const { parameters, body } = target.function;
+
+        if (this.#functionsBeingResolved.has(target.function)) {
+            this.#fail(`'${name}' would call a function within its own call, through a function passed to it: a function never calls itself, directly or through another`, callPointer);
+        }
+
+        let locals = target.scope.locals;
+
+        parameters.forEach((parameter, index) => {
+            locals = new Map(locals).set(parameter, { result: argumentResults[index], value: argumentNodes?.[index] ?? null, scope: callerScope });
+        });
+
+        const instance = structuredClone(body);
+
+        this.#instances.push({ node: instance, pointer: instancePointer, source: `${target.pointer}/body` });
+        this.#functionsBeingResolved.add(target.function);
+
+        let result;
+
+        try {
+            result = this.#resolveNode(instance, instancePointer, { ...target.scope, locals });
+        } finally {
+            this.#functionsBeingResolved.delete(target.function);
+        }
+
+        if (result.kind !== 'query') {
+            this.#fail(`'${name}' gives ${LanguageResolver.#descriptionOf(result.kind)}, and a function gives a value`, instancePointer);
+        }
+
+        return { function: target.function, body: instance, parameters, type: result.type };
+    }
+
+    /** The functions whose bodies are being resolved, each for a call within which none is called again. @type {Set<object>} */
+    #functionsBeingResolved = new Set();
 
     /** Resolves a local: what the one in scope with its name resolved to where it was written. A name no local in scope has is refused, with the form of the evaluation context's member of that name where it has one. */
     #resolveLocal(node, pointer, scope) {
         const local = scope.locals.get(node.name);
 
+        // A function's name read without a call is a function value, which a local holds, an argument passes and a function returns.
         if (local?.function !== undefined) {
-            this.#fail(`'${node.name}' is a function, which is called and never passed, held or compared: write '${node.name}(…)' with its arguments`, pointer);
+            this.#resolutions.set(pointer, { kind: 'local', name: node.name, value: local.value });
+
+            return { type: Type.createFunctionType([local]), kind: 'query', isFixed: false };
         }
 
         if (local?.option !== undefined) {
@@ -1317,6 +1368,7 @@ export class LanguageResolver {
             const valuePointer = given.pointer;
             const expected = Type.parse(parameter.type).resolveTypeParameters(typeArguments);
             let result;
+            let callback;
 
             if (parameter.kind === 'expression' || parameter.kind === 'predicate') {
                 const isOfUnknownType = LanguageResolver.#isOfUnknownType(receiverType);
@@ -1327,6 +1379,10 @@ export class LanguageResolver {
 
                 result = this.#resolveNode(given.node, valuePointer, { contextType: isOfUnknownType ? Type.never : receiverType.itemType.toNonNullable(), contextKey: {}, locals: argumentScope.locals, facts: scope.facts, objectRoot: argumentScope.objectRoot });
                 this.#requireQuery(result, parameter, declaration, valuePointer);
+
+                if (result.type.kind === 'function') {
+                    this.#fail(`The parameter '${parameter.name}' of '${declaration.name}' takes a contextual expression, evaluated with each item as its context, as ${declaration.name}(context.…) writes one, and no function`, valuePointer);
+                }
 
                 // A predicate takes any value, which its function receives as its truthiness, but none whose type no receiver gives.
                 if (parameter.kind === 'predicate' && LanguageResolver.#holdsTypeParameter(result.type)) {
@@ -1345,6 +1401,10 @@ export class LanguageResolver {
                 if (objectExpression !== null) {
                     this.#objectRootFields.get(objectExpression).set(parameter.name, { option: parameter.kind });
                 }
+            } else if (parameter.kind === 'function') {
+                result = this.#resolveNode(given.node, valuePointer, argumentScope);
+                this.#requireQuery(result, parameter, declaration, valuePointer);
+                callback = this.#resolveCallback(result, parameter, declaration, valuePointer, typeArguments, argumentScope);
             } else {
                 result = this.#resolveNode(given.node, valuePointer, argumentScope);
                 this.#requireQuery(result, parameter, declaration, valuePointer);
@@ -1352,8 +1412,11 @@ export class LanguageResolver {
                 if (!this.#checkValue(result, expected, parameter, declaration, valuePointer)) {
                     isNullable = true;
                 }
+            }
 
-                // A value option is in scope after its value, through the options after it, read as it was evaluated; one of the outermost object is completed, and read through root after it as the value it was given, of that value's type.
+            if (parameter.kind !== 'expression' && parameter.kind !== 'predicate') {
+
+                // A value or a function option is in scope after its value, through the options after it, read as it was evaluated; one of the outermost object is completed, and read through root after it as the value it was given, of that value's type.
                 if (optionsObject !== null) {
                     argumentScope = { ...argumentScope, locals: new Map(argumentScope.locals).set(parameter.name, { result, value: given.node, scope: argumentScope }) };
                 }
@@ -1370,7 +1433,7 @@ export class LanguageResolver {
                 selected = selection.selected ?? selected;
             }
 
-            resolved.push({ parameter, isDefault: false, pointer: valuePointer, node: given.node, value: parameter.fixed === true ? result.value : undefined });
+            resolved.push({ parameter, isDefault: false, pointer: valuePointer, node: given.node, value: parameter.fixed === true ? result.value : undefined, ...(callback === undefined ? {} : { callback }) });
         }
 
         return { arguments: resolved, isNullable, selected, buildsObjectRoot: objectExpression !== null };
@@ -1380,6 +1443,10 @@ export class LanguageResolver {
     #checkValue(result, expected, parameter, declaration, pointer) {
         const actual = result.type;
         const wrong = () => this.#fail(`The argument '${parameter.name}' of '${declaration.name}' expects ${expected} and finds ${actual}`, pointer);
+
+        if (LanguageResolver.#heldReferenceOf(actual) === 'function') {
+            this.#fail(`The argument '${parameter.name}' of '${declaration.name}' takes a value, and a function is none: a function is passed to a local function, or to a parameter its member declares to take one`, pointer);
+        }
 
         if (actual.kind === 'null') {
             if (expected.isNullable) {
@@ -1552,8 +1619,14 @@ export class LanguageResolver {
                 this.#fail(`The field '${name}' is ${LanguageResolver.#descriptionOf(result.kind)}, and a field is a value`, `${fieldPointer}/value`);
             }
 
-            if (LanguageResolver.#holdsObjectRoot(result.type)) {
+            const heldReference = LanguageResolver.#heldReferenceOf(result.type);
+
+            if (heldReference === 'root') {
                 this.#fail(`The field '${name}' would hold root, the object being built, which no result holds; read its fields, as root.name`, `${fieldPointer}/value`);
+            }
+
+            if (heldReference === 'function') {
+                this.#fail(`The field '${name}' would hold a function, which is used within the query and never part of its result: call it, as name(…)`, `${fieldPointer}/value`);
             }
 
             if (!this.#isData(result.type)) {
@@ -1645,19 +1718,58 @@ export class LanguageResolver {
         return `Option '${name}' is ${kind === 'predicate' ? 'a predicate' : 'an expression'} evaluated by the member against its supplied context; it has no single value to read here`;
     }
 
-    /** Whether the type holds the object root, itself, as a list's item or as an object's field. */
-    static #holdsObjectRoot(type) {
+    /** What the type holds that no result may, itself, as a list's item or as an object's field: the object root, or a function value; null for neither. */
+    static #heldReferenceOf(type) {
         switch (type.kind) {
             case 'root':
-                return true;
+            case 'function':
+                return type.kind;
             case 'list':
             case 'event':
-                return LanguageResolver.#holdsObjectRoot(type.itemType);
+                return LanguageResolver.#heldReferenceOf(type.itemType);
             case 'object':
-                return [...type.fieldTypes.values()].some(fieldType => LanguageResolver.#holdsObjectRoot(fieldType));
+                return [...type.fieldTypes.values()].reduce((held, fieldType) => held ?? LanguageResolver.#heldReferenceOf(fieldType), null);
             default:
-                return false;
+                return null;
         }
+    }
+
+    /**
+     * Resolves a function given to a parameter its member declares to take one: each function it may be, its body resolved for the parameter types the contract declares and its result checked against the contract's result type,
+     * answered with those types, which evaluation checks the member's arguments and the function's result against. The member calls it while its own invocation lasts, with as many arguments as the contract declares.
+     */
+    #resolveCallback(result, parameter, declaration, pointer, typeArguments, scope) {
+        const { type } = result;
+
+        if (type.kind !== 'function') {
+            this.#fail(`The parameter '${parameter.name}' of '${declaration.name}' takes a function, and finds ${type}`, pointer);
+        }
+
+        if (type.isNullable) {
+            this.#fail(`The parameter '${parameter.name}' of '${declaration.name}' takes a function, and this one may be null`, pointer);
+        }
+
+        const parameterTypes = parameter.parameters.map(text => Type.parse(text).resolveTypeParameters(typeArguments));
+        const resultType = Type.parse(parameter.type).resolveTypeParameters(typeArguments);
+        const argumentResults = parameterTypes.map(parameterType => ({ type: parameterType, kind: 'query', isFixed: false }));
+
+        const targets = type.functions.map((target, index) => {
+            const count = target.function.parameters.length;
+
+            if (count !== parameterTypes.length) {
+                this.#fail(`The function given as '${parameter.name}' of '${declaration.name}' takes ${count === 1 ? 'one argument' : `${count} arguments`}, and its contract passes ${parameterTypes.length}`, pointer);
+            }
+
+            const resolved = this.#resolveFunctionBody(target, parameter.name, argumentResults, null, scope, type.functions.length === 1 ? `${pointer}/callback` : `${pointer}/callbacks/${index}`, pointer);
+
+            if (!resolved.type.isAssignableTo(resultType)) {
+                this.#fail(`The function given as '${parameter.name}' of '${declaration.name}' gives ${resolved.type}, and its contract takes ${resultType}`, pointer);
+            }
+
+            return { function: resolved.function, body: resolved.body, parameters: resolved.parameters };
+        });
+
+        return { targets, parameterTypes, resultType };
     }
 
     /** The fields of each outermost object, by the object expression that builds it and then by name, each with its value, which a field read through the object root follows. @type {WeakMap<object, Map<string, { value: object }>>} */

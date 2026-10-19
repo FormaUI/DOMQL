@@ -1,5 +1,5 @@
 /**
- * Type — a DOMQL type: a named type, a list, an event source, an object type, the object root or a type parameter, each nullable or not, the type of null, and the type no value has
+ * Type — a DOMQL type: a named type, a list, an event source, an object type, the object root, a function value or a type parameter, each nullable or not, the type of null, and the type no value has
  */
 
 const NAME = /^@?[A-Za-z][A-Za-z0-9]*$/;
@@ -9,7 +9,7 @@ export class Type {
     /** @type {Map<string, Type | null>} */
     static #parsed = new Map();
 
-    /** The type's kind: named, list, event, object, root, typeParameter, null or never. */
+    /** The type's kind: named, list, event, object, root, function, typeParameter, null or never. */
     kind;
 
     /** The type's name, for a named type or a type parameter. */
@@ -24,15 +24,19 @@ export class Type {
     /** The object expression that builds the outermost object the object root refers to, which its fields belong to; null for any other type. */
     objectExpression;
 
+    /** The functions a function value may be, each with the scope it was declared in, which a call through the value is checked against; null for any other type. @type {readonly object[] | null} */
+    functions;
+
     /** Whether the type admits null. */
     isNullable;
 
-    constructor(kind, { name = null, itemType = null, fieldTypes = null, objectExpression = null, isNullable = false } = {}) {
+    constructor(kind, { name = null, itemType = null, fieldTypes = null, objectExpression = null, functions = null, isNullable = false } = {}) {
         this.kind = kind;
         this.name = name;
         this.itemType = itemType;
         this.fieldTypes = fieldTypes;
         this.objectExpression = objectExpression;
+        this.functions = functions;
         this.isNullable = isNullable;
         Object.freeze(this);
     }
@@ -74,6 +78,11 @@ export class Type {
         return new Type('root', { fieldTypes, objectExpression, isNullable });
     }
 
+    /** A function value, which may be any of the functions, each a function the query declares with the scope it captures: no data, so no result holds one. */
+    static createFunctionType(functions, isNullable = false) {
+        return new Type('function', { functions: Object.freeze([...new Set(functions)]), isNullable });
+    }
+
     /** A type parameter a declaration's types write, whose argument matching infers. */
     static createTypeParameter(name, isNullable = false) {
         return new Type('typeParameter', { name, isNullable });
@@ -99,12 +108,12 @@ export class Type {
             return Type.null;
         }
 
-        return this.isNullable ? this : new Type(this.kind, { name: this.name, itemType: this.itemType, fieldTypes: this.fieldTypes, objectExpression: this.objectExpression, isNullable: true });
+        return this.isNullable ? this : new Type(this.kind, { name: this.name, itemType: this.itemType, fieldTypes: this.fieldTypes, objectExpression: this.objectExpression, functions: this.functions, isNullable: true });
     }
 
     /** The same type, admitting no null. */
     toNonNullable() {
-        return !this.isNullable || this.kind === 'null' ? this : new Type(this.kind, { name: this.name, itemType: this.itemType, fieldTypes: this.fieldTypes, objectExpression: this.objectExpression, isNullable: false });
+        return !this.isNullable || this.kind === 'null' ? this : new Type(this.kind, { name: this.name, itemType: this.itemType, fieldTypes: this.fieldTypes, objectExpression: this.objectExpression, functions: this.functions, isNullable: false });
     }
 
     /** Whether the two types are the same, nullability included. */
@@ -119,6 +128,10 @@ export class Type {
 
         if (this.fieldTypes !== null) {
             return this.fieldTypes.size === otherType.fieldTypes.size && [...this.fieldTypes].every(([name, fieldType]) => otherType.fieldTypes.get(name)?.equals(fieldType) === true);
+        }
+
+        if (this.functions !== null) {
+            return this.functions.length === otherType.functions.length && this.functions.every(candidate => otherType.functions.includes(candidate));
         }
 
         return true;
@@ -138,6 +151,9 @@ export class Type {
                 break;
             case 'root':
                 text = this.fieldTypes.size === 0 ? 'root { }' : `root { ${[...this.fieldTypes].map(([name, fieldType]) => `${name}: ${fieldType}`).join(', ')} }`;
+                break;
+            case 'function':
+                text = 'function';
                 break;
             case 'null':
                 return 'null';
@@ -245,6 +261,11 @@ export class Type {
             return firstType.toNonNullable().equals(secondType.toNonNullable()) ? (isNullable ? firstType.toNullable() : firstType.toNonNullable()) : null;
         }
 
+        // Function values merge into one that may be any of their functions, and with nothing else.
+        if (firstType.kind === 'function' || secondType.kind === 'function') {
+            return firstType.kind === secondType.kind ? Type.createFunctionType([...firstType.functions, ...secondType.functions], isNullable) : null;
+        }
+
         // Two kinds of node are both nodes, the least type holding either.
         if (firstType.isNode && secondType.isNode && firstType.name !== secondType.name) {
             return Type.createNamedType('node', isNullable);
@@ -302,9 +323,13 @@ export class Type {
             return false;
         }
 
-        // An object root stands where one of its object expression reads the fields it does.
+        // An object root stands where one of its object expression reads the fields it does, and a function value where one that may be any of its functions does.
         if (this.kind === 'root') {
             return this.toNonNullable().equals(otherType.toNonNullable());
+        }
+
+        if (this.kind === 'function') {
+            return this.functions.every(candidate => otherType.functions.includes(candidate));
         }
 
         return this.itemType === null || this.itemType.isAssignableTo(otherType.itemType);

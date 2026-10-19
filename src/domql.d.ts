@@ -175,7 +175,7 @@ export type DomqlDefinitionNode =
     | { readonly kind: 'optionalChain'; readonly target: DomqlDefinitionNode }
     | { readonly kind: 'coalescing'; readonly value: DomqlDefinitionNode; readonly fallback: DomqlDefinitionNode }
     | { readonly kind: 'not'; readonly operand: DomqlDefinitionNode }
-    | { readonly kind: 'function'; readonly parameters: readonly string[]; readonly body: DomqlDefinitionNode }
+    | { readonly kind: 'function'; readonly parameters: readonly string[]; readonly body: DomqlDefinitionNode; readonly arrow?: true }
     | { readonly kind: 'functionCall'; readonly name: string; readonly arguments: readonly DomqlDefinitionNode[] }
     | { readonly kind: 'body'; readonly locals: readonly DomqlDefinitionLocal[]; readonly result: DomqlDefinitionNode }
     | { readonly kind: 'do'; readonly body: DomqlDefinitionNode }
@@ -359,18 +359,23 @@ export interface DomqlConversionContext {
 /** A parameter of a member. */
 export interface DomqlParameterDeclaration {
     name: string;
-    /** A value, an expression evaluated against each item, or a predicate, an expression of any value whose truthiness its function receives. */
-    kind: 'value' | 'expression' | 'predicate';
-    /** The parameter's type, in DOMQL's notation; a predicate's is `boolean`, what its function receives. */
+    /**
+     * A value, an expression evaluated against each item, a predicate, an expression of any value whose truthiness its function receives, or a function, one the query declares,
+     * which the member's function receives as a function it calls while its own invocation lasts, and only an operation declares.
+     */
+    kind: 'value' | 'expression' | 'predicate' | 'function';
+    /** The parameter's type, in DOMQL's notation; a predicate's is `boolean`, what its function receives, and a function parameter's the type of the result it takes from the function. */
     type: string;
+    /** The types a function parameter's function is called with, in order, in DOMQL's notation; only a function parameter declares them. */
+    parameters?: string[];
     required: boolean;
     default?: unknown;
     /** Whether the argument names something the vocabulary resolves before any evaluation; a fixed parameter is a value parameter of type `string`. */
     fixed?: boolean;
     /** What a fixed parameter names, and only a fixed one. */
     selects?: 'eventType' | 'condition';
-    /** Whether a null argument makes the call answer null, or is accepted. */
-    nulls: 'propagate' | 'accept';
+    /** Whether a null argument makes the call answer null, or is accepted; a function parameter, whose function is never null, leaves it out. */
+    nulls?: 'propagate' | 'accept';
     /** What an expression or a predicate argument is evaluated against. */
     context?: 'item';
     /** What the member does where an optional argument is left out, said in words for its documentation. */

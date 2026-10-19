@@ -17,6 +17,7 @@ export const NODE_KINDS = Object.freeze([
     'body',
     'do-expression',
     'function-expression',
+    'arrow-function',
     'function-call',
     'conditional-binding',
     'disjunction',

@@ -184,6 +184,70 @@ export class Parser {
         return Parser.#node('function-expression', children);
     }
 
+    /** Whether an arrow function starts here: a parameter's name and `=>`, or the parameters' names in parentheses, separated by commas, and `=>`. */
+    #startsArrowFunction() {
+        const tokenAt = offset => this.#tokens[this.#index + offset];
+        const isWordAt = offset => tokenAt(offset) !== undefined && this.#isWord(tokenAt(offset));
+
+        if (isWordAt(0)) {
+            return tokenAt(1)?.type === '=>';
+        }
+
+        if (this.#token.type !== '(') {
+            return false;
+        }
+
+        let offset = 1;
+
+        if (tokenAt(offset)?.type !== ')') {
+            for (;;) {
+                if (!isWordAt(offset)) {
+                    return false;
+                }
+
+                offset++;
+
+                if (tokenAt(offset)?.type !== ',') {
+                    break;
+                }
+
+                offset++;
+            }
+
+            if (tokenAt(offset)?.type !== ')') {
+                return false;
+            }
+        }
+
+        return tokenAt(offset + 1)?.type === '=>';
+    }
+
+    /**
+     * Reads an arrow function: its parameters, one name alone or the names in parentheses, separated by commas, `=>`, and the one simple expression that is its body and gives its result.
+     * It declares no locals and holds no body of its own, so what more a function holds is a regular function's, bound to a local.
+     */
+    #parseArrowFunction() {
+        const children = [];
+
+        if (this.#token.type === '(') {
+            children.push(this.#take());
+
+            while (this.#token.type !== ')') {
+                children.push(this.#take());
+            }
+        }
+
+        children.push(this.#take(), this.#take());
+
+        if (this.#isKeyword('let') || this.#isKeyword('return') || this.#isKeyword('function') || this.#startsArrowFunction()) {
+            throw this.#fail("An arrow function's body is a simple expression, which gives its result: a function that holds more is a regular function bound to a local, passed by its name", this.#token.start);
+        }
+
+        children.push(this.#parseExpression());
+
+        return Parser.#node('arrow-function', children);
+    }
+
     /** Reads a call of a local function, the name it is written by given: its name, or a reserved word after `@`, and its arguments in parentheses. */
     #parseFunctionCall(written) {
         const name = this.#take();
@@ -213,7 +277,11 @@ export class Parser {
                     throw this.#fail(`An argument is written as its value alone, as '${written}(…)' takes it${options}`, this.#token.start);
                 }
 
-                children.push(this.#parseExpression());
+                if (this.#isKeyword('function')) {
+                    throw this.#fail("A function declared with 'function' cannot appear directly as an argument. Bind it to a local and pass its name, or use an arrow function.", this.#token.start);
+                }
+
+                children.push(this.#startsArrowFunction() ? this.#parseArrowFunction() : this.#parseExpression());
 
                 if (this.#token.type !== ',') {
                     break;
@@ -479,6 +547,10 @@ export class Parser {
 
         if (this.#isKeyword('function')) {
             throw this.#fail('A function is the value of a local: write let name = function(…) … end, and call it by its name', start);
+        }
+
+        if (this.#startsArrowFunction()) {
+            throw this.#fail('An arrow function is the value of a local or an argument: write let name = … => …, or pass it to a call', start);
         }
     }
 
@@ -1165,7 +1237,7 @@ export class Parser {
         return Parser.#node('object', children);
     }
 
-    /** Reads a local, of a body or of an object expression, whose holder reads what separates it from the next: `let`, its name, `=` and its initializer, an expression or a function. */
+    /** Reads a local, of a body or of an object expression, whose holder reads what separates it from the next: `let`, its name, `=` and its initializer, an expression, a function or an arrow function. */
     #parseLocal() {
         const letKeyword = this.#take();
 
@@ -1173,7 +1245,17 @@ export class Parser {
             this.#refuseName('A local takes its value after =', 'A local is written with let, its name and = before its value, as let width = …', 'let ');
         }
 
-        return Parser.#node('local', [letKeyword, this.#take(), this.#take(), this.#isKeyword('function') ? this.#parseFunctionExpression() : this.#parseExpression()]);
+        const name = this.#take();
+        const equals = this.#take();
+        let initializer;
+
+        if (this.#isKeyword('function')) {
+            initializer = this.#parseFunctionExpression();
+        } else {
+            initializer = this.#startsArrowFunction() ? this.#parseArrowFunction() : this.#parseExpression();
+        }
+
+        return Parser.#node('local', [letKeyword, name, equals, initializer]);
     }
 
     /** Reads a field: its name, `=` and its value. */

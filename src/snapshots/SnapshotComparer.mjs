@@ -55,7 +55,9 @@ export class SnapshotComparer {
         }
 
         if (node.kind === 'functionCall') {
-            return this.#reconcileNode(this.#resolvedDefinition.resolutionOf(node).body, previous, previousIdentities, next, nextIdentities);
+            const body = this.#bodyOfCall(node, previousIdentities, nextIdentities);
+
+            return body === null ? SnapshotComparer.#reconcileValue(previous, previousIdentities, next, nextIdentities, null) : this.#reconcileNode(body, previous, previousIdentities, next, nextIdentities);
         }
 
         // A conditional, a coalescing, an and and an or each give the value of the side they selected, compared as that side is where both values came from it.
@@ -181,7 +183,9 @@ export class SnapshotComparer {
         }
 
         if (node.kind === 'functionCall') {
-            return this.#toleranceOf(this.#resolvedDefinition.resolutionOf(node).body, previousIdentities, nextIdentities);
+            const body = this.#bodyOfCall(node, previousIdentities, nextIdentities);
+
+            return body === null ? null : this.#toleranceOf(body, previousIdentities, nextIdentities);
         }
 
         if (SELECTING_KINDS.has(node.kind)) {
@@ -212,6 +216,19 @@ export class SnapshotComparer {
         }
 
         return resolution?.declaration?.tolerance ?? null;
+    }
+
+    /** The body a call evaluated for both values: the one function its name may hold, or the one recorded for both where it may hold several; null where they came from different functions, which compare exactly. */
+    #bodyOfCall(node, previousIdentities, nextIdentities) {
+        const { targets } = this.#resolvedDefinition.resolutionOf(node);
+
+        if (targets.length === 1) {
+            return targets[0].body;
+        }
+
+        const called = SnapshotComparer.#branchOf(node, previousIdentities, nextIdentities);
+
+        return targets.find(target => target.function === called)?.body ?? null;
     }
 
     /** The expression of the outermost object's field the node reads, by a property access or the name a bracket property access selected for both values; null for any other node. */

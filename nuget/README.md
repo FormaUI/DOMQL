@@ -476,7 +476,7 @@ return {
 
 `do … end` writes a body wherever an expression stands, as `doubled = do let half = width / 2 return half * 4 end` does in a field, and each branch of a conditional, `if … then … else … end`, is one too: within one conditional, every branch gives its result with `return` or none does. A body's locals run once each, in order, whether or not anything uses them, while an object expression's locals run only where a field reads them. `return` completes its own body, so a `do` block's `return` gives that block's value, never the query's.
 
-An argument, an indexer's key, a bracket property access and an interpolation each hold a simple expression: values, operators, calls and member reads, and a conditional of one `if` branch and one `else` branch of those, as `calculate(if compact then 10 else 20 end)` is. A `do` block, a conditional that binds a value, has `elseif` or gives its branches with `return`, and an object expression with locals, are bound to a local first, and the local is passed. A function called there may use any of them in its own body.
+An argument, an indexer's key, a bracket property access and an interpolation each hold a simple expression, and an argument may be an arrow function instead: values, operators, calls and member reads, and a conditional of one `if` branch and one `else` branch of those, as `calculate(if compact then 10 else 20 end)` is. A `do` block, a conditional that binds a value, has `elseif` or gives its branches with `return`, and an object expression with locals, are bound to a local first, and the local is passed. A function called there may use any of them in its own body.
 
 ### Reuse a calculation with a function
 
@@ -490,7 +490,9 @@ return {
 }
 ```
 
-A function's body is a body like any other, an expression alone or locals and a `return`, and it sees the locals and `context` where it is declared, never those of the place that calls it. Each call is checked against its own arguments, so one function serves an element in one call and an element that may be missing in another, and a function is only ever called: it is never passed to a member, stored in a field or returned.
+A function's body is a body like any other, an expression alone or locals and a `return`, and it sees the locals and `context` where it is declared, never those of the place that calls it. Each call is checked against its own arguments, so one function serves an element in one call and an element that may be missing in another.
+
+An arrow function writes a short one as its parameters, `=>` and one expression, as `let half = box => (box?.rect?.width ?? 0) / 2` does, and only an arrow function is written directly as an argument, as `apply(row => row.attached, panel)` is; a function declared with `function` is bound to a local and passed by its name. A function of either form is a value within the query: a local holds it, an argument passes it, a conditional chooses between functions and a function returns one, but no field or result holds one. A module's operation can declare a parameter that takes a function, which it calls while its own invocation lasts; the built-in `where`, `max`, `min` and `sum` take a contextual expression instead, as `rows.where(context.attached)` does.
 
 ### Handle missing values
 
