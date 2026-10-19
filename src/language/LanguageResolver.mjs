@@ -46,7 +46,7 @@ export class LanguageResolver {
 
     /** Resolves and types the definition, answering what it resolved to or throwing where it cannot. */
     resolveDefinition(definition) {
-        const result = this.#resolveNode(definition.query, '/query', { contextType: null, contextKey: {}, locals: new Map(), facts: NO_FACTS });
+        const result = this.#resolveNode(definition.query, '/query', { contextType: null, contextKey: {}, locals: new Map(), facts: NO_FACTS, objectRoot: null });
 
         const resultType = result.kind === 'subscription' && result.type.kind === 'event' ? result.type.itemType : result.type;
 
@@ -68,7 +68,7 @@ export class LanguageResolver {
             case 'parameter':
                 return this.#resolveParameter(node, pointer, scope);
             case 'root':
-                return { type: Type.createNamedType(node.name), kind: 'query', isFixed: false };
+                return node.name === 'root' ? this.#resolveObjectRoot(pointer, scope) : { type: Type.createNamedType(node.name), kind: 'query', isFixed: false };
             case 'context':
                 if (scope.contextType === null) {
                     this.#fail("'context' is the evaluation context, and there is none here", pointer);
@@ -743,6 +743,10 @@ export class LanguageResolver {
             this.#fail(`'${node.name}' is a function, which is called and never passed, held or compared: write '${node.name}(…)' with its arguments`, pointer);
         }
 
+        if (local?.option !== undefined) {
+            this.#fail(LanguageResolver.#unreadableOptionMessageOf(node.name, local.option), pointer);
+        }
+
         if (local === undefined) {
             const form = scope.contextType === null ? null : this.#memberForm(scope.contextType, node.name);
 
@@ -866,6 +870,10 @@ export class LanguageResolver {
 
         if (LanguageResolver.#isOfUnknownType(receiverType)) {
             return this.#resolveOnUnknownType(node, pointer, scope, receiverType, defaults);
+        }
+
+        if (receiverType.kind === 'root') {
+            return this.#resolveObjectRootField(node, pointer, receiverType);
         }
 
         const matching = defaults.filter(declaration => LanguageResolver.#matchesReceiver(declaration, receiverType, new Map()));
@@ -1047,6 +1055,10 @@ export class LanguageResolver {
             return this.#resolveOnUnknownType(node, pointer, scope, receiverType);
         }
 
+        if (receiverType.kind === 'root') {
+            return this.#resolveObjectRootField(node, pointer, receiverType);
+        }
+
         const field = this.#fieldTypeOf(receiverType, node.name);
 
         if (field !== null) {
@@ -1098,7 +1110,7 @@ export class LanguageResolver {
         const used = contract === null ? { declaration, name: LanguageResolver.#qualifiedNameOf(declaration, receiverType) } : { declaration: contract, name: `${declaration.name}("${contract.name}")` };
 
         this.#usedDeclarations.push({ ...used, pointer });
-        this.#resolutions.set(pointer, { kind: 'member', declaration, contract, receiverType, type: declared, arguments: resolved.arguments, selected: resolved.selected });
+        this.#resolutions.set(pointer, { kind: 'member', declaration, contract, receiverType, type: declared, arguments: resolved.arguments, selected: resolved.selected, buildsObjectRoot: resolved.buildsObjectRoot });
 
         const type = receiverType.isNullable || resolved.isNullable ? declared.toNullable() : declared;
 
@@ -1277,7 +1289,20 @@ export class LanguageResolver {
         let isNullable = false;
         let selected;
 
-        for (const parameter of parameters) {
+        // An options object is an object expression: one no other encloses builds the outermost object, whose fields are its options, and any other builds within the one enclosing it; each option is in scope after its value, as a field is.
+        const optionsObject = declaration.input === 'options' && supplied.size > 0 ? (node.kind === 'indexer' ? node.argument : node.arguments[0]) : null;
+        const objectExpression = optionsObject !== null && scope.objectRoot === null ? optionsObject : null;
+        let argumentScope = scope;
+
+        if (objectExpression !== null) {
+            this.#objectRootFields.set(objectExpression, new Map());
+            argumentScope = { ...scope, objectRoot: { objectExpression, fieldTypes: new Map() } };
+        }
+
+        // The arguments are resolved in the order they are written, an options object's fields among them, and the parameters left to their defaults after them.
+        const ordered = [...[...supplied.keys()].map(name => parameters.find(parameter => parameter.name === name)), ...parameters.filter(parameter => !supplied.has(parameter.name))];
+
+        for (const parameter of ordered) {
             const given = supplied.get(parameter.name);
 
             if (given === undefined) {
@@ -1300,7 +1325,7 @@ export class LanguageResolver {
                     this.#fail(`'${declaration.name}' evaluates its expression against the items of a list, and ${receiverType.toNonNullable()} has none`, valuePointer);
                 }
 
-                result = this.#resolveNode(given.node, valuePointer, { contextType: isOfUnknownType ? Type.never : receiverType.itemType.toNonNullable(), contextKey: {}, locals: scope.locals, facts: scope.facts });
+                result = this.#resolveNode(given.node, valuePointer, { contextType: isOfUnknownType ? Type.never : receiverType.itemType.toNonNullable(), contextKey: {}, locals: argumentScope.locals, facts: scope.facts, objectRoot: argumentScope.objectRoot });
                 this.#requireQuery(result, parameter, declaration, valuePointer);
 
                 // A predicate takes any value, which its function receives as its truthiness, but none whose type no receiver gives.
@@ -1311,12 +1336,31 @@ export class LanguageResolver {
                 if (parameter.kind === 'expression' && !result.type.isAssignableTo(expected)) {
                     this.#fail(`The expression of '${declaration.name}' must produce ${expected} and produces ${result.type}`, valuePointer);
                 }
+
+                // An expression or a predicate option is evaluated by the member, and has no single value: a name or a field of it after its initializer refuses a read, hiding any enclosing name of its spelling.
+                if (optionsObject !== null) {
+                    argumentScope = { ...argumentScope, locals: new Map(argumentScope.locals).set(parameter.name, { option: parameter.kind, result: null }) };
+                }
+
+                if (objectExpression !== null) {
+                    this.#objectRootFields.get(objectExpression).set(parameter.name, { option: parameter.kind });
+                }
             } else {
-                result = this.#resolveNode(given.node, valuePointer, scope);
+                result = this.#resolveNode(given.node, valuePointer, argumentScope);
                 this.#requireQuery(result, parameter, declaration, valuePointer);
 
                 if (!this.#checkValue(result, expected, parameter, declaration, valuePointer)) {
                     isNullable = true;
+                }
+
+                // A value option is in scope after its value, through the options after it, read as it was evaluated; one of the outermost object is completed, and read through root after it as the value it was given, of that value's type.
+                if (optionsObject !== null) {
+                    argumentScope = { ...argumentScope, locals: new Map(argumentScope.locals).set(parameter.name, { result, value: given.node, scope: argumentScope }) };
+                }
+
+                if (objectExpression !== null) {
+                    this.#objectRootFields.get(objectExpression).set(parameter.name, { value: given.node });
+                    argumentScope = { ...argumentScope, objectRoot: { objectExpression, fieldTypes: new Map(argumentScope.objectRoot.fieldTypes).set(parameter.name, result.type) } };
                 }
             }
 
@@ -1329,7 +1373,7 @@ export class LanguageResolver {
             resolved.push({ parameter, isDefault: false, pointer: valuePointer, node: given.node, value: parameter.fixed === true ? result.value : undefined });
         }
 
-        return { arguments: resolved, isNullable, selected };
+        return { arguments: resolved, isNullable, selected, buildsObjectRoot: objectExpression !== null };
     }
 
     /** Checks a value argument against its parameter, answering false where a null makes the call answer null. */
@@ -1467,25 +1511,34 @@ export class LanguageResolver {
             contextType = appliedType.kind === 'null' ? Type.never : appliedType.toNonNullable();
         }
 
+        // An object expression no other encloses builds the outermost object, which the object root refers to; any other builds within that object. Its receiver was resolved outside it.
+        const objectExpression = scope.objectRoot === null ? node : null;
+        let objectRoot = objectExpression === null ? scope.objectRoot : { objectExpression, fieldTypes: new Map() };
+
+        if (objectExpression !== null) {
+            this.#objectRootFields.set(objectExpression, new Map());
+        }
+
         // Each local is resolved where it is written, against the evaluation context and the locals before it, and every field sees them all.
         let locals = scope.locals;
+        const scopeHere = () => ({ contextType, contextKey, locals, facts: scope.facts, objectRoot });
 
         node.locals?.forEach((local, index) => {
             const valuePointer = `${pointer}/locals/${index}/value`;
 
             if (local.value.kind === 'function') {
-                locals = new Map(locals).set(local.name, LanguageResolver.#functionLocalOf(local.value, valuePointer, { contextType, contextKey, locals, facts: scope.facts }));
+                locals = new Map(locals).set(local.name, LanguageResolver.#functionLocalOf(local.value, valuePointer, scopeHere()));
 
                 return;
             }
 
-            const result = this.#resolveNode(local.value, valuePointer, { contextType, contextKey, locals, facts: scope.facts });
+            const result = this.#resolveNode(local.value, valuePointer, scopeHere());
 
             if (result.kind !== 'query') {
                 this.#fail(`The local '${local.name}' is ${LanguageResolver.#descriptionOf(result.kind)}, and a local is a value`, valuePointer);
             }
 
-            locals = new Map(locals).set(local.name, { result, value: local.value, scope: { contextType, contextKey, locals, facts: scope.facts } });
+            locals = new Map(locals).set(local.name, { result, value: local.value, scope: scopeHere() });
         });
 
         const fieldTypes = new Map();
@@ -1493,10 +1546,14 @@ export class LanguageResolver {
         node.fields.forEach((field, index) => {
             const fieldPointer = `${pointer}/fields/${index}`;
             const { name } = field;
-            const result = this.#resolveNode(field.value, `${fieldPointer}/value`, { contextType, contextKey, locals, facts: scope.facts });
+            const result = this.#resolveNode(field.value, `${fieldPointer}/value`, scopeHere());
 
             if (result.kind !== 'query') {
                 this.#fail(`The field '${name}' is ${LanguageResolver.#descriptionOf(result.kind)}, and a field is a value`, `${fieldPointer}/value`);
+            }
+
+            if (LanguageResolver.#holdsObjectRoot(result.type)) {
+                this.#fail(`The field '${name}' would hold root, the object being built, which no result holds; read its fields, as root.name`, `${fieldPointer}/value`);
             }
 
             if (!this.#isData(result.type)) {
@@ -1506,7 +1563,13 @@ export class LanguageResolver {
             fieldTypes.set(name, result.type);
 
             // A field is in scope after its value, through the fields after it, its value read as it was evaluated.
-            locals = new Map(locals).set(name, { result, value: field.value, scope: { contextType, contextKey, locals, facts: scope.facts } });
+            locals = new Map(locals).set(name, { result, value: field.value, scope: scopeHere() });
+
+            // A field of the outermost object is completed, and read through a reference to the root written after it, as the value its evaluation gave.
+            if (objectExpression !== null) {
+                this.#objectRootFields.get(objectExpression).set(name, { value: field.value });
+                objectRoot = { objectExpression, fieldTypes: new Map(objectRoot.fieldTypes).set(name, result.type) };
+            }
         });
 
         const objectType = Type.createObjectType(fieldTypes);
@@ -1539,6 +1602,66 @@ export class LanguageResolver {
             this.#fail(`A watch over ${missesByName.map(([name, misses]) => `'${name}' (which misses ${misses})`).join(', ')} is refused unless the watch accepts partial observation`, partlyObservableUses[0].pointer);
         }
     }
+
+    /** Resolves the object root, a reference to the outermost object: its type identifies the object expression that builds it and the fields completed where it is written, the fields it reads. */
+    #resolveObjectRoot(pointer, scope) {
+        if (scope.objectRoot === null) {
+            this.#fail("'root' refers to the outermost object being built, and no object expression encloses it here", pointer);
+        }
+
+        return { type: Type.createRootType(scope.objectRoot.objectExpression, scope.objectRoot.fieldTypes), kind: 'query', isFixed: false };
+    }
+
+    /**
+     * Resolves a field read through the object root: one of the fields completed where the reference was written, read as an object's is, with no argument; its resolution keeps the field's value, so what reads it
+     * reuses the branches the field selected and compares it within its tolerance.
+     */
+    #resolveObjectRootField(node, pointer, receiverType) {
+        if (node.kind !== 'member') {
+            this.#fail(`'root' is read through its fields, as root.name or root[name], and '${node.name ?? ':[…]'}' ${node.kind === 'call' ? 'is called' : 'is an indexer'}`, pointer);
+        }
+
+        const option = this.#objectRootFields.get(receiverType.objectExpression).get(node.name)?.option;
+
+        if (option !== undefined) {
+            this.#fail(LanguageResolver.#unreadableOptionMessageOf(node.name, option), pointer);
+        }
+
+        const fieldType = receiverType.fieldTypes.get(node.name);
+
+        if (fieldType === undefined) {
+            const completed = [...receiverType.fieldTypes.keys()];
+
+            this.#fail(`'${node.name}' is no field of root completed where the reference to it is written; ${completed.length === 0 ? 'none is completed there' : `those completed are ${completed.join(', ')}`}`, pointer);
+        }
+
+        this.#resolutions.set(pointer, { kind: 'objectRootField', name: node.name, value: this.#objectRootFields.get(receiverType.objectExpression).get(node.name).value });
+
+        return { type: receiverType.isNullable ? fieldType.toNullable() : fieldType, kind: 'query', isFixed: false };
+    }
+
+    /** The refusal of a read of an expression or a predicate option, which the member evaluates and which has no value to read. */
+    static #unreadableOptionMessageOf(name, kind) {
+        return `Option '${name}' is ${kind === 'predicate' ? 'a predicate' : 'an expression'} evaluated by the member against its supplied context; it has no single value to read here`;
+    }
+
+    /** Whether the type holds the object root, itself, as a list's item or as an object's field. */
+    static #holdsObjectRoot(type) {
+        switch (type.kind) {
+            case 'root':
+                return true;
+            case 'list':
+            case 'event':
+                return LanguageResolver.#holdsObjectRoot(type.itemType);
+            case 'object':
+                return [...type.fieldTypes.values()].some(fieldType => LanguageResolver.#holdsObjectRoot(fieldType));
+            default:
+                return false;
+        }
+    }
+
+    /** The fields of each outermost object, by the object expression that builds it and then by name, each with its value, which a field read through the object root follows. @type {WeakMap<object, Map<string, { value: object }>>} */
+    #objectRootFields = new WeakMap();
 
     /** The type of the field a structured type or an object type declares under the name, or null. */
     #fieldTypeOf(type, name) {

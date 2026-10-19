@@ -1,5 +1,5 @@
 /**
- * Type — a DOMQL type: a named type, a list, an event source, an object type or a type parameter, each nullable or not, the type of null, and the type no value has
+ * Type — a DOMQL type: a named type, a list, an event source, an object type, the object root or a type parameter, each nullable or not, the type of null, and the type no value has
  */
 
 const NAME = /^@?[A-Za-z][A-Za-z0-9]*$/;
@@ -9,7 +9,7 @@ export class Type {
     /** @type {Map<string, Type | null>} */
     static #parsed = new Map();
 
-    /** The type's kind: named, list, event, object, typeParameter, null or never. */
+    /** The type's kind: named, list, event, object, root, typeParameter, null or never. */
     kind;
 
     /** The type's name, for a named type or a type parameter. */
@@ -18,17 +18,21 @@ export class Type {
     /** The type of a list's items, or of an event source's event data. */
     itemType;
 
-    /** An object type's field types by name. */
+    /** An object type's field types by name, or the fields of the outermost object the object root reads. */
     fieldTypes;
+
+    /** The object expression that builds the outermost object the object root refers to, which its fields belong to; null for any other type. */
+    objectExpression;
 
     /** Whether the type admits null. */
     isNullable;
 
-    constructor(kind, { name = null, itemType = null, fieldTypes = null, isNullable = false } = {}) {
+    constructor(kind, { name = null, itemType = null, fieldTypes = null, objectExpression = null, isNullable = false } = {}) {
         this.kind = kind;
         this.name = name;
         this.itemType = itemType;
         this.fieldTypes = fieldTypes;
+        this.objectExpression = objectExpression;
         this.isNullable = isNullable;
         Object.freeze(this);
     }
@@ -62,6 +66,14 @@ export class Type {
         return new Type('object', { fieldTypes, isNullable });
     }
 
+    /**
+     * The object root, a reference to the outermost object the object expression builds, through which the fields completed where the reference is written are read: its type identifies the object expression and those fields,
+     * and holds no data, so no result holds the reference.
+     */
+    static createRootType(objectExpression, fieldTypes, isNullable = false) {
+        return new Type('root', { fieldTypes, objectExpression, isNullable });
+    }
+
     /** A type parameter a declaration's types write, whose argument matching infers. */
     static createTypeParameter(name, isNullable = false) {
         return new Type('typeParameter', { name, isNullable });
@@ -87,17 +99,17 @@ export class Type {
             return Type.null;
         }
 
-        return this.isNullable ? this : new Type(this.kind, { name: this.name, itemType: this.itemType, fieldTypes: this.fieldTypes, isNullable: true });
+        return this.isNullable ? this : new Type(this.kind, { name: this.name, itemType: this.itemType, fieldTypes: this.fieldTypes, objectExpression: this.objectExpression, isNullable: true });
     }
 
     /** The same type, admitting no null. */
     toNonNullable() {
-        return !this.isNullable || this.kind === 'null' ? this : new Type(this.kind, { name: this.name, itemType: this.itemType, fieldTypes: this.fieldTypes, isNullable: false });
+        return !this.isNullable || this.kind === 'null' ? this : new Type(this.kind, { name: this.name, itemType: this.itemType, fieldTypes: this.fieldTypes, objectExpression: this.objectExpression, isNullable: false });
     }
 
     /** Whether the two types are the same, nullability included. */
     equals(otherType) {
-        if (this.kind !== otherType.kind || this.name !== otherType.name || this.isNullable !== otherType.isNullable) {
+        if (this.kind !== otherType.kind || this.name !== otherType.name || this.objectExpression !== otherType.objectExpression || this.isNullable !== otherType.isNullable) {
             return false;
         }
 
@@ -123,6 +135,9 @@ export class Type {
                 break;
             case 'object':
                 text = `{ ${[...this.fieldTypes].map(([name, fieldType]) => `${name}: ${fieldType}`).join(', ')} }`;
+                break;
+            case 'root':
+                text = this.fieldTypes.size === 0 ? 'root { }' : `root { ${[...this.fieldTypes].map(([name, fieldType]) => `${name}: ${fieldType}`).join(', ')} }`;
                 break;
             case 'null':
                 return 'null';
@@ -225,6 +240,11 @@ export class Type {
 
         const isNullable = firstType.isNullable || secondType.isNullable;
 
+        // Object roots merge where they identify one object expression and read the same fields, and with nothing else.
+        if (firstType.kind === 'root' || secondType.kind === 'root') {
+            return firstType.toNonNullable().equals(secondType.toNonNullable()) ? (isNullable ? firstType.toNullable() : firstType.toNonNullable()) : null;
+        }
+
         // Two kinds of node are both nodes, the least type holding either.
         if (firstType.isNode && secondType.isNode && firstType.name !== secondType.name) {
             return Type.createNamedType('node', isNullable);
@@ -280,6 +300,11 @@ export class Type {
 
         if (this.kind !== otherType.kind || !Type.#fitsByName(otherType, this)) {
             return false;
+        }
+
+        // An object root stands where one of its object expression reads the fields it does.
+        if (this.kind === 'root') {
+            return this.toNonNullable().equals(otherType.toNonNullable());
         }
 
         return this.itemType === null || this.itemType.isAssignableTo(otherType.itemType);

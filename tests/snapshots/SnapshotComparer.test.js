@@ -327,6 +327,17 @@ describe('SnapshotComparer', () => {
             expect(snapshotComparer.reconcile(previous, null, freeze({ a: 102.5, b: 102.5 }), null)).toEqual({ a: 102.5, b: 102.5 });
         });
 
+        it('compares a field read through root as the field it reads, within the tolerance of its member', () => {
+            const resolved = resolvedOf('element { width = context.wobble.width, again = root.width, named = root[name] }', { element, name: 'width' }, { tolerance: 2 });
+            const snapshotComparer = new SnapshotComparer(resolved);
+            const bracket = resolved.definition.query.fields[2].value;
+            const identities = { fields: { named: { branches: new Map([[bracket, 'width']]) } } };
+            const previous = freeze({ width: 100, again: 100, named: 100 });
+
+            expect(snapshotComparer.reconcile(previous, identities, freeze({ width: 101.5, again: 101.5, named: 101.5 }), identities)).toBe(previous);
+            expect(snapshotComparer.reconcile(previous, null, freeze({ width: 100, again: 100, named: 101.5 }), null).named).toBe(101.5);
+        });
+
         it('keeps a number that moved within the tolerance at the one last reported, so the drift cannot add up', () => {
             const snapshotComparer = snapshotComparerOf('element.wobble.width', { element }, { tolerance: 1 });
             let reported = 100;

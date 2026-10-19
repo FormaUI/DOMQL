@@ -23,6 +23,7 @@ DOMQL is a FormaUI product, developed alongside [Forma](https://github.com/Forma
 - **Reuse queries.** Evaluate again, bind different targets, or store and exchange definitions as JSON. A binding is read by its name, or as `~name` where a local or a field shares that name or a reserved word names it.
 - **Read the evaluation context.** `context` is the value an expression is evaluated against, the element an object expression follows or each item of a list, and `~` alone is the same, as `panel { width = ~.rect?.width }` reads the panel's width.
 - **Name anything.** Fields, locals, functions and members take any name, `end`, `to` and `null` among them, as `{ end = selection.end }` does; written alone such a word keeps its meaning, so a local or a field it names is read as `@end`. A field's name is read by the fields after it, as `{ count = rows.count, label = $"{count} rows" }` does.
+- **Read the object being built.** Inside an object expression, `root` refers to the outermost object being built, so a nested object reads its fields, as `outermost` is 4 in `{ bar = 4, inner = { bar = 2, outermost = root.bar } }`. Only fields whose initializers have completed are available, and `root` itself is never part of a result.
 - **Catch invalid requests early.** DOMQL checks bindings, member names, arguments and types before evaluation.
 - **Read events as data.** Subscribe to an event source and choose the fields each event delivers.
 - **Extend the vocabulary.** Add typed members, observations, actions and behaviors through modules.

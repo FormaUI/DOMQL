@@ -83,6 +83,9 @@ export class DefinitionValidator {
     /** Whether validation moved a part of the definition, which its locations then say. */
     #hasMovedParts = false;
 
+    /** Whether an object expression's locals or fields hold the node being validated, lexically, so an outermost object is being built where it stands. */
+    #isInObjectExpression = false;
+
     /** The names of the locals and the fields in scope where the node being validated stands. @type {Set<string>} */
     #localNames = new Set();
 
@@ -177,7 +180,12 @@ export class DefinitionValidator {
                 return Object.freeze({ kind: 'parameter', name: node.name });
             case 'root':
                 if (!Names.isRoot(node.name)) {
-                    this.#fail(`${pointer}/name`, 'A root is document or window');
+                    this.#fail(`${pointer}/name`, 'A root is document, window or root');
+                }
+
+                // The object root is a reference to the outermost object, which an object expression around the reference builds, lexically.
+                if (node.name === 'root' && !this.#isInObjectExpression) {
+                    this.#fail(pointer, "'root' refers to the outermost object being built, and no object expression encloses it here");
                 }
 
                 return Object.freeze({ kind: 'root', name: node.name });
@@ -728,9 +736,11 @@ export class DefinitionValidator {
 
         const fieldEvaluationContextAvailability = target === undefined ? evaluationContextAvailability : EvaluationContextAvailability.present;
         const enclosingLocalNames = this.#localNames;
+        const wasInObjectExpression = this.#isInObjectExpression;
 
-        // An object expression's entries continue no chain of the one it follows.
+        // An object expression's entries continue no chain of the one it follows, and are built within the outermost object.
         this.#chain = null;
+        this.#isInObjectExpression = true;
 
         try {
             if (node.locals !== undefined && this.#simpleExpression !== null) {
@@ -769,6 +779,7 @@ export class DefinitionValidator {
             });
         } finally {
             this.#localNames = enclosingLocalNames;
+            this.#isInObjectExpression = wasInObjectExpression;
         }
     }
 

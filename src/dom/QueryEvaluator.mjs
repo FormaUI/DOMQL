@@ -85,12 +85,16 @@ export class QueryEvaluator {
 
     /**
      * The function each node of a resolved definition compiles to, by the definition and then the node, with the registry they were compiled against: built once, it holds what the node's evaluation needs that no evaluation changes, and takes the evaluator, which holds what one does, and the evaluation context.
-     * @type {WeakMap<object, { registry: object, functions: Map<object, (evaluator: QueryEvaluator, current: unknown) => unknown> }>}
+     * Beside them, the function each member's arguments compile to, by the member's resolution, for the evaluations that read the member without compiling it.
+     * @type {WeakMap<object, { registry: object, functions: Map<object, (evaluator: QueryEvaluator, current: unknown) => unknown>, arguments: Map<object, (evaluator: QueryEvaluator, current: unknown) => object | null> }>}
      */
     static #compilationCache = new WeakMap();
 
     /** The functions this evaluator's nodes compile to. @type {Map<object, (evaluator: QueryEvaluator, evaluationContext: unknown) => unknown>} */
     #compiledFunctions;
+
+    /** The functions the arguments of this evaluator's members compile to, by each member's resolution. @type {Map<object, (evaluator: QueryEvaluator, evaluationContext: unknown) => object | null>} */
+    #compiledArguments;
 
     #moduleRegistry;
     #resolvedDefinition;
@@ -113,6 +117,12 @@ export class QueryEvaluator {
 
     /** The frame of the innermost scope that declares names, with the value of each evaluated so far, inside those of the scopes enclosing it; null outside every one. @type {LocalsFrame | null} */
     #localsFrame = null;
+
+    /** The outermost object being built, which `root`, the object root, refers to, filled field by field; null outside every object expression. @type {object | null} */
+    #objectRoot = null;
+
+    /** The selections each completed field of the outermost object made, by the root and then the field's name, which a read of the field through a reference to the root reuses. @type {WeakMap<object, Map<string, Map<object, object | string> | null>>} */
+    #objectRootSelections = new WeakMap();
 
     /** The value each conditional with a binding bound, while its consequent is evaluated, which the uses of its name read. @type {Map<object, unknown>} */
     #boundValues = new Map();
@@ -147,11 +157,12 @@ export class QueryEvaluator {
         let compilation = QueryEvaluator.#compilationCache.get(resolvedDefinition);
 
         if (compilation === undefined || compilation.registry !== moduleRegistry) {
-            compilation = { registry: moduleRegistry, functions: new Map() };
+            compilation = { registry: moduleRegistry, functions: new Map(), arguments: new Map() };
             QueryEvaluator.#compilationCache.set(resolvedDefinition, compilation);
         }
 
         this.#compiledFunctions = compilation.functions;
+        this.#compiledArguments = compilation.arguments;
     }
 
     /** The result of evaluating the query once: immutable data holding no reference to the document. A member maintained by an observation fails it, since its first sample cannot arrive during a synchronous evaluation. */
@@ -360,7 +371,14 @@ export class QueryEvaluator {
             case 'parameter':
                 return evaluator => evaluator.#parameterBindings.get(node.name);
             case 'root':
-                return node.name === 'window' ? evaluator => evaluator.#environment.window : evaluator => evaluator.#environment.document;
+                switch (node.name) {
+                    case 'window':
+                        return evaluator => evaluator.#environment.window;
+                    case 'document':
+                        return evaluator => evaluator.#environment.document;
+                    default:
+                        return evaluator => evaluator.#objectRoot;
+                }
             case 'context':
                 return (evaluator, evaluationContext) => evaluationContext;
             case 'local': {
@@ -473,8 +491,8 @@ export class QueryEvaluator {
                 return (evaluator, evaluationContext) => !QueryEvaluator.#isTruthy(operand(evaluator, evaluationContext));
             }
             case 'function':
-                // A function's value is its closure: the locals and the evaluation context where it is declared, which each call evaluates its body in.
-                return (evaluator, evaluationContext) => ({ function: node, frame: evaluator.#localsFrame, evaluationContext });
+                // A function's value is its closure: the locals, the evaluation context and the object root where it is declared, which each call evaluates its body in.
+                return (evaluator, evaluationContext) => ({ function: node, frame: evaluator.#localsFrame, evaluationContext, objectRoot: evaluator.#objectRoot });
             case 'functionCall': {
                 const { body, parameters } = this.#resolvedDefinition.resolutionOf(node);
                 const evaluateBody = this.#getCompiledFunction(body);
@@ -487,12 +505,16 @@ export class QueryEvaluator {
                     const values = new Map(parameters.map((parameter, index) => [parameter, { value: evaluateArguments[index](evaluator, evaluationContext), selections: null }]));
                     const enclosingFrame = evaluator.#localsFrame;
 
+                    const enclosingObjectRoot = evaluator.#objectRoot;
+
                     evaluator.#localsFrame = { node: { locals: parameters.map(parameter => ({ name: parameter })) }, item: closure.evaluationContext, values, enclosing: closure.frame };
+                    evaluator.#objectRoot = closure.objectRoot;
 
                     try {
                         return evaluateBody(evaluator, closure.evaluationContext);
                     } finally {
                         evaluator.#localsFrame = enclosingFrame;
+                        evaluator.#objectRoot = enclosingObjectRoot;
                     }
                 };
             }
@@ -726,11 +748,17 @@ export class QueryEvaluator {
     #compileMember(node) {
         const resolution = this.#resolvedDefinition.resolutionOf(node);
 
-        if (resolution === undefined || resolution.kind === 'bracketPropertyAccess' || (resolution.kind !== 'field' && resolution.declaration === null)) {
+        if (resolution === undefined || resolution.kind === 'bracketPropertyAccess' || (resolution.kind !== 'field' && resolution.kind !== 'objectRootField' && resolution.declaration === null)) {
             return (evaluator, evaluationContext) => evaluator.#evaluateMember(node, evaluationContext);
         }
 
         const target = this.#getCompiledFunction(node.target);
+
+        if (resolution.kind === 'objectRootField') {
+            const { name } = resolution;
+
+            return (evaluator, evaluationContext) => evaluator.#readObjectRootField(target(evaluator, evaluationContext), name);
+        }
 
         if (resolution.kind === 'field') {
             const { name } = resolution;
@@ -772,49 +800,123 @@ export class QueryEvaluator {
         };
     }
 
-    /** The arguments a call is given, each argument's plan made once: its default or fixed value, an expression evaluated against each item, or a value, null where it makes the call answer null. */
+    /**
+     * The arguments a call is given, in the order they are written, each argument's plan made once: its default or fixed value, an expression evaluated against each item, or a value, null where it makes the call answer null.
+     * An options object's written values are its fields: each is in scope after its evaluation for the options after it that read it, holding its value and the selections it made, and one no other object encloses
+     * builds the outermost object, which `root` refers to while its options are evaluated, each written value a field of it after its evaluation; a default is none.
+     */
     #compileArguments(resolution) {
         if (resolution.arguments.length === 0) {
             return () => NO_ARGUMENTS;
         }
 
-        const argumentPlans = resolution.arguments.map(argument => {
+        const { buildsObjectRoot } = resolution;
+        const isOptions = resolution.declaration.input === 'options';
+        const argumentPlans = resolution.arguments.map((argument, index) => {
             const { parameter } = argument;
+            const isOption = isOptions && !argument.isDefault && parameter.kind !== 'expression' && parameter.kind !== 'predicate';
+            const isRead = isOption && resolution.arguments.slice(index + 1).some(later => !later.isDefault && QueryEvaluator.#readsLocal(later.node, parameter.name));
+            const isField = isOption && buildsObjectRoot === true;
 
             if (argument.isDefault || parameter.fixed) {
-                return { name: parameter.name, kind: 'constant', value: argument.isDefault ? parameter.default : argument.value };
+                return { name: parameter.name, kind: 'constant', value: argument.isDefault ? parameter.default : argument.value, isRead, isField };
             }
 
-            return { name: parameter.name, kind: parameter.kind, evaluate: this.#getCompiledFunction(argument.node), propagatesNull: parameter.nulls === 'propagate' };
+            return { name: parameter.name, kind: parameter.kind, evaluate: this.#getCompiledFunction(argument.node), propagatesNull: parameter.nulls === 'propagate', isOption, isRead, isField };
         });
 
         return (evaluator, evaluationContext) => {
             const args = {};
+            const enclosingObjectRoot = evaluator.#objectRoot;
+            const enclosingLocals = evaluator.#localsFrame;
+            const object = buildsObjectRoot === true ? {} : null;
+            const rootSelections = object === null ? null : new Map();
 
-            for (const plan of argumentPlans) {
-                if (plan.kind === 'constant') {
-                    args[plan.name] = plan.value;
-                } else if (plan.kind === 'expression') {
-                    const { evaluate } = plan;
-
-                    args[plan.name] = item => evaluate(evaluator, item);
-                } else if (plan.kind === 'predicate') {
-                    const { evaluate } = plan;
-
-                    args[plan.name] = item => QueryEvaluator.#isTruthy(evaluate(evaluator, item));
-                } else {
-                    const value = plan.evaluate(evaluator, evaluationContext);
-
-                    if (value === null && plan.propagatesNull) {
-                        return null;
-                    }
-
-                    args[plan.name] = value;
-                }
+            if (object !== null) {
+                evaluator.#objectRoot = object;
+                evaluator.#objectRootSelections.set(object, rootSelections);
             }
 
-            return args;
+            try {
+                for (const plan of argumentPlans) {
+                    let selections = null;
+
+                    if (plan.kind === 'constant') {
+                        args[plan.name] = plan.value;
+                    } else if (plan.kind === 'expression' || plan.kind === 'predicate') {
+                        // The member evaluates it when it chooses, after its options are evaluated, so an option keeps the names and the object root in scope where it is written; a positional argument's are the member's own.
+                        const { evaluate } = plan;
+                        const frame = evaluator.#localsFrame;
+                        const objectRoot = evaluator.#objectRoot;
+                        const evaluateItem = isOptions ? item => evaluator.#evaluateWithin(frame, objectRoot, () => evaluate(evaluator, item)) : item => evaluate(evaluator, item);
+
+                        args[plan.name] = plan.kind === 'expression' ? evaluateItem : item => QueryEvaluator.#isTruthy(evaluateItem(item));
+                    } else {
+                        let value;
+
+                        if (plan.isOption) {
+                            ({ value, selections } = evaluator.#evaluateOption(plan, evaluationContext));
+                        } else {
+                            value = plan.evaluate(evaluator, evaluationContext);
+                        }
+
+                        if (value === null && plan.propagatesNull) {
+                            return null;
+                        }
+
+                        args[plan.name] = value;
+                    }
+
+                    if (plan.isField) {
+                        object[plan.name] = args[plan.name];
+                        rootSelections.set(plan.name, selections);
+                    }
+
+                    if (plan.isRead) {
+                        evaluator.#localsFrame = { node: { locals: [{ name: plan.name }] }, item: evaluationContext, values: new Map([[plan.name, { value: args[plan.name], selections }]]), enclosing: evaluator.#localsFrame };
+                    }
+                }
+
+                return args;
+            } finally {
+                evaluator.#objectRoot = enclosingObjectRoot;
+                evaluator.#localsFrame = enclosingLocals;
+            }
         };
+    }
+
+    /** What the evaluation gives with the frame of names and the object root in scope, those of the place it was written, both restored after it. */
+    #evaluateWithin(frame, objectRoot, evaluate) {
+        const enclosingLocals = this.#localsFrame;
+        const enclosingObjectRoot = this.#objectRoot;
+
+        this.#localsFrame = frame;
+        this.#objectRoot = objectRoot;
+
+        try {
+            return evaluate();
+        } finally {
+            this.#localsFrame = enclosingLocals;
+            this.#objectRoot = enclosingObjectRoot;
+        }
+    }
+
+    /** The value of a written option and the selections its evaluation made, which are made where the option is evaluated as well. */
+    #evaluateOption(plan, evaluationContext) {
+        const enclosingSelections = this.#selections;
+
+        this.#selections = null;
+
+        try {
+            const value = plan.evaluate(this, evaluationContext);
+
+            return { value, selections: this.#selections };
+        } finally {
+            const selections = this.#selections;
+
+            this.#selections = enclosingSelections;
+            selections?.forEach((selection, node) => (this.#selections ??= new Map()).set(node, selection));
+        }
     }
 
     /** An object expression, its target, its fields' names and values and whether it holds locals found once; applied to each item of a list it follows, and to the value it follows otherwise. */
@@ -875,10 +977,18 @@ export class QueryEvaluator {
         const object = {};
         const enclosingSelections = this.#selections;
         const enclosingLocals = this.#localsFrame;
+        const enclosingObjectRoot = this.#objectRoot;
+        // An application no other encloses builds the outermost object, this object, which `root` refers to in its body; any other builds within that object.
+        const rootSelections = enclosingObjectRoot === null ? new Map() : null;
         let fieldSelections = null;
 
         if (node.locals !== undefined) {
             this.#localsFrame = { node, item, values: new Map(), enclosing: enclosingLocals };
+        }
+
+        if (rootSelections !== null) {
+            this.#objectRoot = object;
+            this.#objectRootSelections.set(object, rootSelections);
         }
 
         try {
@@ -893,6 +1003,8 @@ export class QueryEvaluator {
                     (fieldSelections ??= new Map()).set(field.name, this.#selections);
                 }
 
+                rootSelections?.set(field.name, this.#selections);
+
                 if (field.isRead) {
                     this.#localsFrame = { node: { locals: [{ name: field.local }] }, item, values: new Map([[field.local, { value, selections: this.#selections }]]), enclosing: this.#localsFrame };
                 }
@@ -900,6 +1012,7 @@ export class QueryEvaluator {
         } finally {
             this.#selections = enclosingSelections;
             this.#localsFrame = enclosingLocals;
+            this.#objectRoot = enclosingObjectRoot;
         }
 
         if (fieldSelections !== null) {
@@ -1093,15 +1206,36 @@ export class QueryEvaluator {
         return this.#readResolvedMember(resolution.candidates.get(name), receiver, node, evaluationContext);
     }
 
-    /** Reads the member the resolution names of the receiver: a field of its data, or the declaration's function with the arguments it is given. */
+    /** Reads the member the resolution names of the receiver: a field of its data, a field of the outermost object, or the declaration's function with the arguments it is given. */
     #readResolvedMember(resolution, receiver, node, evaluationContext) {
         if (resolution.kind === 'field') {
             return receiver[resolution.name] ?? null;
         }
 
+        if (resolution.kind === 'objectRootField') {
+            return this.#readObjectRootField(receiver, resolution.name);
+        }
+
         const args = this.#evaluateArguments(resolution, evaluationContext);
 
         return args === null ? null : this.#invokeMember(resolution.contract ?? resolution.declaration, receiver, args, resolution.type, node);
+    }
+
+    /** A completed field of the outermost object, read through a reference to it as the value its evaluation gave, the selections it made recorded where it is read; null for no root, where a reference that can be null is. */
+    #readObjectRootField(root, name) {
+        if (root === null) {
+            return null;
+        }
+
+        const selections = this.#objectRootSelections.get(root)?.get(name) ?? null;
+
+        if (selections !== null) {
+            const recorded = (this.#selections ??= new Map());
+
+            selections.forEach((selection, node) => recorded.set(node, selection));
+        }
+
+        return root[name] ?? null;
     }
 
     /**
@@ -1126,31 +1260,16 @@ export class QueryEvaluator {
         return result;
     }
 
-    /** The arguments by parameter name, or null where a null argument makes the call answer null. */
+    /** The arguments by parameter name, or null where a null argument makes the call answer null, evaluated as a compiled member's are, their plan made once for the member's resolution. */
     #evaluateArguments(resolution, evaluationContext) {
-        const args = {};
+        let evaluateArguments = this.#compiledArguments.get(resolution);
 
-        for (const argument of resolution.arguments) {
-            const { parameter } = argument;
-
-            if (argument.isDefault || parameter.fixed) {
-                args[parameter.name] = argument.isDefault ? parameter.default : argument.value;
-            } else if (parameter.kind === 'expression') {
-                args[parameter.name] = item => this.#evaluateNode(argument.node, item);
-            } else if (parameter.kind === 'predicate') {
-                args[parameter.name] = item => QueryEvaluator.#isTruthy(this.#evaluateNode(argument.node, item));
-            } else {
-                const value = this.#evaluateNode(argument.node, evaluationContext);
-
-                if (value === null && parameter.nulls === 'propagate') {
-                    return null;
-                }
-
-                args[parameter.name] = value;
-            }
+        if (evaluateArguments === undefined) {
+            evaluateArguments = this.#compileArguments(resolution);
+            this.#compiledArguments.set(resolution, evaluateArguments);
         }
 
-        return args;
+        return evaluateArguments(this, evaluationContext);
     }
 
     /** Carries out a declaration's function, checking that its result is of the declared type. */

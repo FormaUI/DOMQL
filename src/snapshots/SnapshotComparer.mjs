@@ -34,6 +34,13 @@ export class SnapshotComparer {
             return this.#reconcileNode(this.#resolvedDefinition.resolutionOf(node).value, previous, previousIdentities, next, nextIdentities);
         }
 
+        // A field read through the object root gives the value of the field's own expression, compared as that expression is.
+        const fieldValue = this.#objectRootFieldValueOf(node, previousIdentities, nextIdentities);
+
+        if (fieldValue !== null) {
+            return this.#reconcileNode(fieldValue, previous, previousIdentities, next, nextIdentities);
+        }
+
         if (node.kind === 'optionalChain') {
             return this.#reconcileNode(node.target, previous, previousIdentities, next, nextIdentities);
         }
@@ -155,6 +162,12 @@ export class SnapshotComparer {
             return this.#toleranceOf(this.#resolvedDefinition.resolutionOf(node).value, previousIdentities, nextIdentities);
         }
 
+        const fieldValue = this.#objectRootFieldValueOf(node, previousIdentities, nextIdentities);
+
+        if (fieldValue !== null) {
+            return this.#toleranceOf(fieldValue, previousIdentities, nextIdentities);
+        }
+
         if (node.kind === 'optionalChain') {
             return this.#toleranceOf(node.target, previousIdentities, nextIdentities);
         }
@@ -199,6 +212,23 @@ export class SnapshotComparer {
         }
 
         return resolution?.declaration?.tolerance ?? null;
+    }
+
+    /** The expression of the outermost object's field the node reads, by a property access or the name a bracket property access selected for both values; null for any other node. */
+    #objectRootFieldValueOf(node, previousIdentities, nextIdentities) {
+        if (node.kind !== 'member') {
+            return null;
+        }
+
+        let resolution = this.#resolvedDefinition.resolutionOf(node);
+
+        if (resolution?.kind === 'bracketPropertyAccess') {
+            const name = SnapshotComparer.#branchOf(node, previousIdentities, nextIdentities);
+
+            resolution = name === null ? null : resolution.candidates.get(name);
+        }
+
+        return resolution?.kind === 'objectRootField' ? resolution.value : null;
     }
 
     /** The branch the conditional selected for both values, or null where they came from different branches, or either from none recorded, which compare exactly. */

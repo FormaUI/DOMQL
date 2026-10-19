@@ -108,6 +108,8 @@ const DOCUMENTS = {
         { about: 'interpolated strings', results: { 0: { label: '12 unread in 3 rows', title: '{panel} panel' } } },
         { about: 'a body' },
         { about: 'locals' },
+        { about: 'the object root', results: { 0: { bar: 4, inner: { bar: 2, nearest: 2, outermost: 4 } } } },
+        { about: 'a field of the object root still being built', refuses: 'validation' },
         { about: 'a function' },
         { about: 'an action and a behavior request', each: true, modules: [scrollModule] },
         { about: 'a subscription' },

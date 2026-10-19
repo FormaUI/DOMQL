@@ -141,9 +141,9 @@ describe('QueryEvaluator', () => {
             expect(read('inner.root.children.count', { inner })).toBe(1);
             expect(read('(host.root as "document")?.children.count', { host })).toBe(1);
             expect(read('host.root.host?:attribute["id"]', { host })).toBeNull();
-            expect(read('root.parent?.children.count', { root })).toBeNull();
-            expect(read('root.all("p").count', { root })).toBe(1);
-            expect(read('root.first("#inner")?:attribute["id"]', { root })).toBe('inner');
+            expect(read('~root.parent?.children.count', { root })).toBeNull();
+            expect(read('~root.all("p").count', { root })).toBe(1);
+            expect(read('~root.first("#inner")?:attribute["id"]', { root })).toBe('inner');
         });
 
         it('casts a node to its kind, failing for one of another kind, which an attempted cast answers null for', () => {

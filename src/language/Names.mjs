@@ -7,8 +7,8 @@ const PATTERN = /^[A-Za-z][A-Za-z0-9]*$/;
 const LITERALS = new Map([['true', true], ['false', false], ['null', null]]);
 const KEYWORDS = new Set(['context', 'not', 'try', 'as', 'to', 'and', 'or', 'if', 'then', 'elseif', 'else', 'let', 'do', 'end', 'return', 'function']);
 
-/** The roots, which their names stand for where an expression stands. */
-const ROOTS = new Set(['document', 'window']);
+/** The roots, which their names stand for where an expression stands: the document and the window the query runs against, and the object root, a reference to the outermost object being built. */
+const ROOTS = new Set(['document', 'window', 'root']);
 
 export class Names {
     /** The words that keep their meaning where an expression stands, which a reference to a local or a field of their name writes after `@`: those that write a literal, the keywords and the roots. */

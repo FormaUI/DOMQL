@@ -368,7 +368,7 @@ An equality without its left operand is an error as well; write both values, for
 
 Parameters resolve the same way inside object expressions and arguments as elsewhere. Their bindings may be nodes or data: numbers, strings, Booleans, null, lists or objects. Lists and objects may contain nodes.
 
-The roots are `document`, the document being queried, and `window`, its browser window and layout viewport. They require no caller binding. A binding may use either name; `~document` and `~window` read those bindings.
+`document` and `window` require no value from the caller: `document` is the document the query runs against, and `window` its window, which is also the layout viewport. Written inside an object expression, `root` refers to the outermost object being built, the [object root](#locals-the-object-root). A caller can still pass a value under one of these names; read it as `~document`, `~window` or `~root`.
 
 <a id="names-and-resolution-projection-example"></a>
 
@@ -394,7 +394,7 @@ An **identifier** is a name that is not reserved. Reserved words are:
 | Category | Words |
 | --- | --- |
 | Literals | `true`, `false`, `null` |
-| Roots | `document`, `window` |
+| Roots | `document`, `window`, `root` |
 | Context and operators | `context`, `not`, `try`, `as`, `to`, `and`, `or` |
 | Control flow and declarations | `if`, `then`, `elseif`, `else`, `let`, `do`, `end`, `return`, `function` |
 
@@ -468,7 +468,7 @@ The name restrictions apply to declarations in a query. Supplied data keeps all 
 | Declaration, field name or member name | The name as written, without a prefix |
 | Reference to a local or field | Its name; `@name` if reserved |
 | Reference to a caller's binding | Its name if not reserved or hidden; `~name` otherwise |
-| Root | `document` or `window` |
+| Root | `document`, `window` or `root` |
 | Evaluation context | `context` |
 
 These rules also apply to extension declarations and definitions created directly. A definition stores names without `@` or `~`; its node kind distinguishes a local reference from a parameter. `context` and bare `~` both produce a `context` node.
@@ -835,6 +835,8 @@ Options: the one argument is an object expression written in place, whose fields
 Each field follows its parameter's rules; a field the member has no parameter for is a validation error naming those it has, a required parameter must be given, and a missing optional one takes its default. Where every parameter is optional, the argument can be left out, as in `sentinel.intersects()`, and a second argument is a validation error.
 
 An object means options only by its member's input: the object a positional member is given is its parameter's value.
+
+An options object follows the ordinary rules of an object expression. Its options are evaluated once each, in the order they are written, whatever order the member declares its parameters in. Each written option is in scope by its name after its initializer, as [a field is](#locals-fields-as-names), so in `sentinel.intersects({ margin = 200, root = if margin > 100 then panel else null end })` the `root` option reads the `margin` written before it. Where no object expression encloses it, an options object builds the [object root](#locals-the-object-root), each option a field of it after its initializer, of the value and type it was given, an element included; inside one, `root` keeps the enclosing object root, whose fields the options never join. A default the member supplies introduces no name and no field. An option the member declares as an expression or a predicate is evaluated by the member, against the context it supplies, with the names and the object root of the place it is written; it has no single value, so reading it by its name or through `root` after its initializer is a validation error, which no enclosing name of its spelling escapes.
 
 Every parameter of a member is declared as one of three kinds, and the evaluator treats them differently; a parameter an options object supplies is the same.
 
@@ -1862,7 +1864,7 @@ A local in a sibling or unrelated scope does not hide a caller binding. In `{ a 
 
 #### Resolution and diagnostics
 
-A bare name reads the nearest visible local, field, conditional binding or function parameter. If none exists, it reads the parameter of that name, the caller's binding. If the caller has not bound that parameter, preparation fails. The roots' names, `document` and `window`, always read the roots.
+An [identifier](#names-and-reserved-words) reads the nearest visible local, field, conditional binding or function parameter of that name. If none is visible, it reads the value the caller passed under that name, and preparation fails if the caller passed none; a reference before a local of its name declared later in the same scope is refused instead, as [sequential scope](#locals-sequential-scope) sets out.
 
 When the evaluation context has a member of that name, the diagnostic suggests its receiver:
 
@@ -1891,6 +1893,46 @@ A field's name becomes visible after its value, throughout later fields and expr
 After `let count = 10`, the object `{ before = count, count = count + 1, after = count }` gives 10, 11 and 11.
 
 A field reference reuses the value and dependencies already obtained; it evaluates nothing again. Each application of a projection, including each list item, has its own fields. Outside the object expression, the name resumes its enclosing meaning.
+
+<a id="locals-the-object-root"></a>
+
+#### The object root
+
+Written inside an object expression, `root` refers to the outermost object being built, the object root. A nested object reads the object root's fields through it, even where a nearer field has the same name:
+
+```domql
+{
+    bar = 4,
+    inner = {
+        bar = 2,
+        nearest = bar,        // 2
+        outermost = root.bar  // 4
+    }
+}
+```
+
+- **Where it exists.** `root` must be written inside an object expression, and elsewhere is a structure error; a function declared outside every object expression cannot use it, even when it is called inside one. Each evaluation and each event builds a new object root. When `rows { … }` has no enclosing object expression, each item gets its own object root. Nested objects and projections retain the enclosing object root, and an options object follows the same rules, as [Options](#arguments-options) describes.
+- **Which fields it has.** At each reference, only fields of the object root whose initializers have already completed in the declared field order are accessible. The field currently being initialized and later fields are unavailable:
+
+```domql
+{
+    inner = {
+        value = root.inner // Error: inner is still being built.
+    }
+}
+```
+
+- **Aliases and functions.** An alias, as `let r = root`, retains the set of fields available where it was declared, even when used later. A function that uses `root` itself captures the fields available where the function is declared, while a function parameter given `root` receives those available where the call passes it.
+- **No extra work.** `root.bar` reuses the value already computed for `bar`, and nothing is evaluated again; a watch treats it as that field.
+- **Not part of a result.** A reference to the object root may be held in a local, passed to a function and returned from one, but cannot itself be included in the query's result data: `{ copy = root }` is a validation error. Read a field instead, as `root.bar`.
+
+<a id="locals-object-root-references"></a>
+
+#### Object root references
+
+A function's result keeps the fields of the reference it returns. After `let identity = function(value) value end`, `identity(root).a` reads `a` wherever `a` is available where the call passes `root`, and `{ copy = identity(root) }` is refused as `{ copy = root }` is.
+
+Where a conditional or `??` can give either of two references, both must refer to the same object root with the same fields available; nullability combines as usual, so `if wide then root else null end` gives a reference that can be null, whose fields are read with `?.`. Any other pair is a validation error, as branches of different types are.
 
 <a id="locals-captured-context"></a>
 
@@ -2954,7 +2996,7 @@ A document holds the definition's `version` and the `query` node. The version ch
 | `literal` | `value`, a JSON string, a finite number, a Boolean or null | A literal |
 | `parameter` | `name` | A parameter, the caller's binding of the name; text writes it alone where its name is no reserved word, no local, field or function parameter of its name is in scope and no local of its name is declared later in its scope, and after `~` otherwise |
 | `context` | None | The evaluation context |
-| `root` | `name`, `document` or `window` | A root |
+| `root` | `name`, `document`, `window` or `root` | A root |
 | `local` | `name` | A use of a local, a function parameter or a field, one in scope where it stands |
 | `member` | `name`, the member's name, or for a bracket property access whose expression is no string literal that is a name, that expression's node; `target`, the receiver; and `optional`, true, where it is written with `?.` or `?[` | A property access, or a bracket property access |
 | `call` | `name`; `arguments`, its arguments in order, empty where it is given none; `target`, the receiver; and `optional`, true, where it is written with `?.` | A call |
@@ -3000,7 +3042,7 @@ A field is an object holding its `name` and its `value` node, both required; an 
 
 ```json
 {
-  "version": 28,
+  "version": 29,
   "query": {
     "kind": "object",
     "target": { "kind": "parameter", "name": "panel" },
@@ -3149,6 +3191,7 @@ In this section: [Absence and unavailable values](#absence-and-unavailable-value
 | A function calling itself or one declared after it, or two parameters of one name | A structure error |
 | A body anywhere but a query's, a do block's, a function's or a conditional branch's | A structure error: `A body is a query's, a do block's, a function's or a conditional branch's, and stands nowhere else` |
 | A cast in a definition whose target is none text could write | A structure error at the target |
+| A `root` written outside every object expression | A structure error: `'root' refers to the outermost object being built, and no object expression encloses it here` |
 | A numeric literal no finite number holds, as `1e999`, in text or in a definition | A structure error: `A literal is a string, a finite number, a Boolean or null` |
 | Bindings that are no plain object, a binding not named by a letter followed by letters and digits, or one that is no node or data | A structure error naming the binding, as `A binding is named by a letter followed by letters and digits` |
 
@@ -3176,6 +3219,9 @@ A module whose declarations break the declaration contract, or whose names regis
 | Branches of different types | A validation error naming the types |
 | A receiver, an argument, an expression or a binding of the wrong type, an argument of the wrong kind, or a missing required one | A validation error naming where, the expected type and the type found |
 | A result that would contain a node or an event source | A validation error |
+| A field read through `root` whose initializer has not completed where `root` is written | A validation error naming the fields completed there |
+| A read, by its name or through `root`, of an option its member declares as an expression or a predicate | A validation error: `Option 'by' is an expression evaluated by the member against its supplied context; it has no single value to read here` |
+| A field or a result that would hold `root` | A validation error: `The field 'copy' would hold root, the object being built, which no result holds; read its fields, as root.name` |
 | A request used as another kind: reading or watching an event source, subscribing to a value, running a query, or reading an action or a behavior | A validation error |
 | An action or a behavior inside a query, an argument or another request's object expression | A validation error |
 | Watching a partly observable member without accepting partial observation | A validation error naming each such member by the type its declaration is for, as `shadow.root` and `node.root` are, and the changes it misses |
@@ -3205,7 +3251,7 @@ In this section: [What a query runs against](#what-a-query-runs-against) · [A c
 
 A query is evaluated against a document, with each parameter it names bound to something in that document or to plain data. `panel` is not found by the query: it stands for the element the caller bound under the name `panel`, which is how a query reaches a particular element without a selector for it.
 
-A query that names `panel` and `sentinel` is given those two elements, and fails to prepare when either is not bound. The roots `document` and `window` need no binding, since they are always the document being queried and its window.
+A query that names `panel` and `sentinel` is given those two elements, and fails to prepare when either is not bound. `document` and `window` need no binding, since they are always the document being queried and its window.
 
 Conceptually, a caller supplies the query's text and the bindings, and gets back a result shaped like the query:
 
@@ -3213,7 +3259,7 @@ Conceptually, a caller supplies the query's text and the bindings, and gets back
 result = evaluate(query, bindings: { panel: <the list panel>, sentinel: <the end marker> })
 ```
 
-The bindings name only what the caller chooses. The complete query below also uses `document` and `window`, which are absent from them because they are the roots, the document the query runs against and its window, which no caller chooses; a caller's binding of either name would be read as `~document` or `~window`.
+The bindings name only what the caller chooses. The complete query below also uses `document` and `window`, which are absent from them because they are the document the query runs against and its window, which no caller chooses; a caller's binding of either name would be read as `~document` or `~window`.
 
 A caller can take that result once, keep it current as the document changes, or take one at each event the query subscribes to; how it asks for each is the [design](domql-design.md)'s to say. A value query is evaluated or watched alike; subscribing needs an event source, whose projection uses the same expression language.
 
@@ -3418,7 +3464,7 @@ function-call                 = ( identifier | reserved-reference )
 function-argument-list        = function-argument { "," function-argument }
 function-argument             = simple-expression
 value                         = "context" | "~" | literal | root
-root                          = "document" | "window"
+root                          = "document" | "window" | "root"
 
 enclosed-expression           = parenthesized-expression | optional-enclosed-access
 
@@ -3529,7 +3575,8 @@ In this section: [Queries and values](#queries-and-values) · [Chains and member
 | Parameter | A name through which a query reads a caller-supplied value | [Bindings](#bindings) |
 | Parameter binding, or binding | The value a caller supplies for a parameter | [Bindings](#bindings) |
 | Query parameter | `~name`, reading the caller's binding of the name whatever local or field shares it | [Names and reserved words](#names-and-reserved-words-referring-to-the-callers-binding) |
-| Root | `document` or `window`, the document the query runs against and its window | [Names and resolution](#names-and-resolution-parameters-and-roots) |
+| Root | `document`, `window` or `root`: the document the query runs against, its window and the object root | [Names and resolution](#names-and-resolution-parameters-and-roots) |
+| Object root | The outermost object being built, which `root`, written inside an object expression, refers to, reading the fields whose initializers have completed | [The object root](#locals-the-object-root) |
 | Tree root | The root of a node's tree, read as `node.root` | [Node: root](#property-node-root) |
 | Reserved word | A word that keeps its meaning where an expression stands: a literal's word, a keyword or a root's name | [Names and reserved words](#names-and-reserved-words) |
 | Keyword | A reserved word other than the literals' words and the roots' names, as `let`, `if` and `context` | [Names and reserved words](#names-and-reserved-words) |

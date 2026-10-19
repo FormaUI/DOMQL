@@ -356,9 +356,9 @@ window:media["(min-width: 40em)"]
 
 The key can be any expression of the type the indexer takes, such as a binding, `panel:attribute[name]`. An element's default indexer is `attribute`, so `panel:["data-key"]` reads the attribute too, and a list's is `item`, so `panel.children:[0]` is its first child. Use `?:` when the receiver can be null: `panel.first(".row")?:["data-key"]` is null when there is no row, and its key is not evaluated.
 
-All DOMQL names are case-sensitive and use names such as `clientSize`, `rectRelativeTo` and `devicePixelRatio`. Any word names a field, a local, a function, a parameter or a member, a keyword, `true`, `null`, `context`, `document` and `window` among them, as `{ end = selection.end }` and `record.then` do. Where a value stands, such a word keeps its own meaning, so a local or a field it names is read as `@end`, and a caller's binding it names as `~end`. Strings passed to browser APIs, including selectors and attribute names, follow the browser's rules. A string escapes `\"`, `\\`, `\n`, `\r`, `\t` and `\e`, the escape character, and names any character by its code point with `\u{…}`, as `"\u{A0}"` writes a no-break space, which is hard to tell from a space when written as itself.
+All DOMQL names are case-sensitive and use names such as `clientSize`, `rectRelativeTo` and `devicePixelRatio`. Any word names a field, a local, a function, a parameter or a member, a keyword, `true`, `null`, `context`, `document`, `window` and `root` among them, as `{ end = selection.end }` and `record.then` do. Where a value stands, such a word keeps its own meaning, so a local or a field it names is read as `@end`, and a caller's binding it names as `~end`. Strings passed to browser APIs, including selectors and attribute names, follow the browser's rules. A string escapes `\"`, `\\`, `\n`, `\r`, `\t` and `\e`, the escape character, and names any character by its code point with `\u{…}`, as `"\u{A0}"` writes a no-break space, which is hard to tell from a space when written as itself.
 
-Calls take their arguments by position, separated by commas, as many as the member's signature declares. When a member takes options, pass one object whose fields supply its parameters. This query checks for an intersection with a margin around the panel and needs `evaluateAsync()`:
+Calls take their arguments by position, separated by commas, as many as the member's signature declares. When a member takes options, pass one object whose fields supply its parameters; like any object expression, its fields are evaluated once each, in the order written, and a later one reads an earlier one by its name. This query checks for an intersection with a margin around the panel and needs `evaluateAsync()`:
 
 ```domql
 sentinel.intersects({ root = panel, margin = 200 })
@@ -453,6 +453,8 @@ domql.query(`
 ```
 
 A field's name can be read by the fields after it, as `{ count = rows.count, label = $"{count} rows" }` does, which reuses the field's value; there it hides a local or a binding of the same name, which `~count` still reads for the binding.
+
+Inside an object expression, `root` refers to the outermost object being built, so a nested object reads its fields even where a nearer field has the same name: in `{ bar = 4, inner = { bar = 2, outermost = root.bar } }`, `outermost` is 4. Only fields whose initializers have completed are available through `root`, and `root` itself is never part of a result, so read a field, as `root.bar`, rather than writing `{ copy = root }`.
 
 Locals are not included in the result. A local is evaluated on first use, at most once for each value its object expression applies to. Unused locals are not evaluated.
 

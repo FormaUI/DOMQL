@@ -433,6 +433,62 @@ describe('Watch', () => {
         });
     });
 
+    describe('the object root', () => {
+        it('compares a field read through root as the field itself, reusing its branch and its tolerance through an alias, an argument and a returned reference', async () => {
+            const [first] = panel.children;
+            let meter = null;
+
+            // A number kept by an observation whose samples the test supplies, compared within a tolerance of 2.
+            isolated.registerModule(isolated.createModule('meter', {
+                observationTypes: [{ name: 'meter', contract: 'maintained', function: 'observeMeter' }],
+                members: [{
+                    name: 'meter', function: 'meter', kind: 'property', on: 'element', parameters: [], result: 'number', tolerance: 2,
+                    changes: 'observable', reads: 'maintained', observations: [{ type: 'meter', of: 'receiver' }],
+                }],
+            }, {
+                observeMeter: (_target, notify) => {
+                    meter = { sample: { pending: false, value: 100 }, notify };
+
+                    return { stop: () => {}, sample: () => meter.sample };
+                },
+                meter: (_receiver, _args, _environment, [sample]) => sample,
+            }));
+
+            const read = (value) => {
+                meter.sample = { pending: false, value };
+                meter.notify();
+
+                return settle();
+            };
+
+            watch([
+                '{',
+                '    let pass = function(r) r.s end,',
+                '    let back = function(r) r end,',
+                '    w = first.meter,',
+                '    s = if panel:["data-on"] == "1" then first.meter else 0 end,',
+                '    alias = do let r = root return r.s end,',
+                '    argument = pass(root),',
+                '    returned = back(root).s,',
+                '    width = back(root).w',
+                '}',
+            ].join('\n'), { panel, first });
+            await settle();
+
+            panel.setAttribute('data-on', '1');
+            await settle();
+            await read(101.5);
+            await read(103);
+            panel.removeAttribute('data-on');
+            await settle();
+
+            const all = (w, s) => ({ w, s, alias: s, argument: s, returned: s, width: w });
+
+            expect(snapshots).toEqual([all(100, 0), all(100, 100), all(103, 103), all(103, 0)]);
+            expect(failures).toEqual([]);
+        });
+    });
+
     describe('a function', () => {
         it('follows what each call reads, the branch a changed condition selects in it, and captures made anew at each evaluation', async () => {
             panel.setAttribute('data-a', '1');
