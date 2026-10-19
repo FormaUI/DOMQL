@@ -6,7 +6,7 @@ DOMQL is a small, extensible query language and JavaScript library. Use it to re
 
 DOMQL is a FormaUI product, developed alongside [Forma](https://github.com/FormaUI/Forma). It stands on its own and works independently of any UI framework.
 
-> **Preview:** `formaui-net.DOMQL` is not yet published to NuGet. [Build the package locally](#install-and-load) to try it. The package distributes a JavaScript ES module; the API in this guide runs in JavaScript.
+> **Alpha:** `formaui-net.DOMQL` is not yet published to NuGet. [Build the package locally](#install-and-load) to try it. The package distributes a JavaScript ES module; the API in this guide runs in JavaScript.
 
 ## Current capabilities
 
@@ -933,4 +933,4 @@ console.log(panel.dataset.highlight);
 - [DOMQL specification](https://github.com/FormaUI/Forma.DOMQL/blob/main/docs/domql-specification.md): the DOM's nodes and shadow trees, the built-in vocabulary, and how a query is evaluated and watched.
 - [Runtime design](https://github.com/FormaUI/Forma.DOMQL/blob/main/docs/domql-design.md): resolution, evaluation, watching, subscribing to events, actions and behaviors, and the [Lexica design](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md): modules and tooling.
 
-The specification and design describe the intended contracts. The [current capabilities](#current-capabilities) section lists what this preview implements.
+The specification and design describe the intended contracts. The [current capabilities](#current-capabilities) section lists what this alpha implements.

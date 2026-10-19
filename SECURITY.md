@@ -13,7 +13,7 @@ We will reply after reviewing your report. Reports remain private until a fix is
 
 ## Supported versions
 
-DOMQL is in preview. Only the latest version receives fixes.
+DOMQL is in alpha. Only the latest version receives fixes.
 
 ## Scope
 
