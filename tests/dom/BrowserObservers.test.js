@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { BrowserModule } from '#domql/dom/BrowserModule.mjs';
 import { BrowserObservers } from '#domql/dom/BrowserObservers.mjs';
 import { Observations } from '#domql/dom/Observations.mjs';
-import { ModuleRegistry } from '#domql/language/vocabulary/ModuleRegistry.mjs';
+import { LexicaRegistry } from '@formaui/lexica/language/vocabulary/LexicaRegistry.mjs';
 
 /** A window whose pixel ratio and media queries the test controls, since a browser's cannot be changed from inside it. */
 const createWindow = devicePixelRatio => {
@@ -33,7 +33,7 @@ const createWindow = devicePixelRatio => {
 describe('BrowserObservers', () => {
     describe('pixelRatio', () => {
         const watch = fake => {
-            const observations = new Observations(new ModuleRegistry([BrowserModule.create()]), { window: fake, document });
+            const observations = new Observations(new LexicaRegistry([BrowserModule.create()]), { window: fake, document });
             const changes = [];
             const session = observations.acquire(observations.resolve({ type: 'pixelRatio', of: 'window' }, { receiver: fake, args: {} }), () => changes.push(fake.devicePixelRatio));
 

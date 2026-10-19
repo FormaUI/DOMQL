@@ -1,14 +1,14 @@
 /**
- * BrowserModule — the built-in vocabulary with its browser reads and observations
+ * BrowserModule — DOMQL's DOM vocabulary with its browser reads and observations
  */
 
-import { Vocabulary } from '../language/vocabulary/Vocabulary.mjs';
 import { BrowserObservers } from './BrowserObservers.mjs';
+import { BrowserVocabulary } from './BrowserVocabulary.mjs';
 import { VocabularyFunctions } from './VocabularyFunctions.mjs';
 
 export class BrowserModule {
-    /** The built-in module, whose members read the window and the document they are given and whose observation types start observations of them. */
+    /** The DOM module, whose members read the window and the document they are given and whose observation types start observations of them. */
     static create() {
-        return Vocabulary.createModule({ ...VocabularyFunctions.functions, ...BrowserObservers.functions });
+        return BrowserVocabulary.createModule({ ...VocabularyFunctions.functions, ...BrowserObservers.functions });
     }
 }

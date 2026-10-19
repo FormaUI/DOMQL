@@ -976,7 +976,7 @@ describe('Watch', () => {
 
             expect(watched.status).toBe('failed');
             expect(failures.length).toBe(1);
-            expect(failures[0].name).toBe('DomqlError');
+            expect(failures[0].name).toBe('LexicaError');
             expect(failures[0].message).toContain("The member 'flaky' failed");
             expect(watched.snapshot).toEqual({ n: 1 });
 
@@ -1586,7 +1586,7 @@ describe('Watch', () => {
                 throw new Error('The watch was created');
             })();
 
-            expect(error.name).toBe('DomqlError');
+            expect(error.name).toBe('LexicaError');
             expect(error.kind).toBe('validation');
             expect(error.message).toContain('rect');
 
@@ -1597,7 +1597,7 @@ describe('Watch', () => {
             const query = isolated.query('panel:attribute["id"]', { panel });
 
             for (const options of [{ schedule: 'later' }, { updateStrategy: 'patch' }]) {
-                expect(() => query.watch(options)).toThrow(expect.objectContaining({ name: 'DomqlError', kind: 'structure' }));
+                expect(() => query.watch(options)).toThrow(expect.objectContaining({ name: 'LexicaError', kind: 'structure' }));
             }
         });
 
@@ -1605,7 +1605,7 @@ describe('Watch', () => {
             const watched = watch('panel:attribute["id"]', { panel });
 
             for (const [eventName, handler] of [['change', 3], ['error', 3], ['changed', () => {}]]) {
-                expect(() => watched.subscribe(eventName, handler)).toThrow(expect.objectContaining({ name: 'DomqlError', kind: 'structure' }));
+                expect(() => watched.subscribe(eventName, handler)).toThrow(expect.objectContaining({ name: 'LexicaError', kind: 'structure' }));
             }
         });
 
@@ -1613,7 +1613,7 @@ describe('Watch', () => {
             const subscription = isolated.query('panel.on("click") { ratio = window.devicePixelRatio }', { panel });
 
             expect(subscription.resolve({ watch: true }).kind).toBe('subscription');
-            expect(() => subscription.watch()).toThrow(expect.objectContaining({ name: 'DomqlError', kind: 'validation', message: expect.stringContaining('it listens to events.\nUse subscribe()') }));
+            expect(() => subscription.watch()).toThrow(expect.objectContaining({ name: 'LexicaError', kind: 'validation', message: expect.stringContaining('it listens to events.\nUse subscribe()') }));
         });
 
         it('is scheduled by animation frame only in a window that has them', () => {

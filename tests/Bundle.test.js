@@ -4,8 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { beforeAll, describe, it, expect } from 'vitest';
 import { bundle } from '../scripts/bundle.mjs';
 
-/** The bundle's one export statement, which names domql and DomqlError, in either order. */
-const EXPORT = /export\{([\w$]+) as (domql|DomqlError),([\w$]+) as (domql|DomqlError)\};?\s*$/;
+/** The bundle's one export statement, which names domql and LexicaError, in either order. */
+const EXPORT = /export\{([\w$]+) as (domql|LexicaError),([\w$]+) as (domql|LexicaError)\};?\s*$/;
 
 describe('Bundle', () => {
     let text;
@@ -23,15 +23,16 @@ describe('Bundle', () => {
         expect(text).not.toMatch(/\bimport\s*[({"'*\w]/);
     });
 
-    it('exports domql and DomqlError alone', () => {
+    it('exports domql and LexicaError alone', () => {
         expect(text).toMatch(EXPORT);
         expect(text.match(/\bexport\b/g)).toHaveLength(1);
-        expect(Object.keys(bundled).sort()).toEqual(['DomqlError', 'domql']);
+        expect(Object.keys(bundled).sort()).toEqual(['LexicaError', 'domql']);
     });
 
-    it('is less than half the size of the sources it bundles', async () => {
-        const sources = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'src');
-        const files = (await readdir(sources, { recursive: true, withFileTypes: true })).filter(entry => entry.isFile()).map(entry => join(entry.parentPath, entry.name));
+    it('is less than half the size of the sources it bundles, DOMQL\'s and Lexica\'s', async () => {
+        const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+        const folders = [resolve(root, 'src'), resolve(root, 'node_modules', '@formaui', 'lexica', 'src')];
+        const files = (await Promise.all(folders.map(folder => readdir(folder, { recursive: true, withFileTypes: true })))).flat().filter(entry => entry.isFile()).map(entry => join(entry.parentPath, entry.name));
         const size = (await Promise.all(files.map(file => readFile(file, 'utf8')))).reduce((total, source) => total + source.length, 0);
 
         expect(text.length).toBeLessThan(size / 2);
@@ -55,8 +56,8 @@ describe('Bundle', () => {
         expect(Object.isFrozen(bundled.domql.info)).toBe(true);
     });
 
-    it('keeps the errors the sources raise, as DomqlError', () => {
-        expect(() => bundled.domql.query('panel {')).toThrow(bundled.DomqlError);
+    it('keeps the errors the sources raise, as LexicaError', () => {
+        expect(() => bundled.domql.query('panel {')).toThrow(bundled.LexicaError);
         expect(() => bundled.domql.query('panel {')).toThrow(/A field is written with its name/);
     });
 });

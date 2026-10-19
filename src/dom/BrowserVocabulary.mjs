@@ -1,75 +1,12 @@
 /**
- * Vocabulary — the built-in vocabulary, as the specification's tables state it
+ * BrowserVocabulary — DOMQL's built-in vocabulary, the DOM vocabulary: its nodes, elements, shadow trees, ARIA views and window, their members, conditions, events and observations, as the specification's tables state them
  */
 
-import { DomqlModule } from './DomqlModule.mjs';
+import { Declarations } from '@formaui/lexica/language/vocabulary/Declarations.mjs';
+import { LexicaModule } from '@formaui/lexica/language/vocabulary/LexicaModule.mjs';
+import { Vocabulary } from '@formaui/lexica/language/vocabulary/Vocabulary.mjs';
 
-/** A value parameter, required unless it is given a default. */
-function valueParameter(name, type, options = {}) {
-    const parameter = { name, kind: 'value', type, required: !('default' in options), fixed: false, nulls: 'propagate', ...options };
-
-    if (parameter.fixed === false) {
-        delete parameter.selects;
-    }
-
-    return parameter;
-}
-
-/** An expression parameter, evaluated against each item of the list it follows and producing the type. */
-function expressionParameter(type) {
-    return { name: 'expression', kind: 'expression', type, context: 'item', required: true, fixed: false, nulls: 'accept' };
-}
-
-/** A required predicate, an expression evaluated against each item whose truthiness its function receives. */
-function predicateParameter() {
-    return { name: 'expression', kind: 'predicate', type: 'boolean', context: 'item', required: true, fixed: false, nulls: 'accept' };
-}
-
-/** A property or an operation; an operation is a call unless it says it is named, and takes its parameters by position unless it says it takes options. */
-function member(kind, name, on, result, { function: implementation = name, parameters = [], changes = 'observable', reads = 'fresh', misses, observations, form, input, isDefault = false } = {}) {
-    const declaration = { name, function: implementation, kind, on, parameters, result, changes, reads };
-
-    if (kind !== 'property') {
-        declaration.form = form ?? 'call';
-
-        if (parameters.length > 0) {
-            declaration.input = input ?? 'positional';
-        }
-    }
-
-    if (isDefault) {
-        declaration.default = true;
-    }
-
-    if (observations !== undefined) {
-        declaration.observations = observations;
-    }
-
-    if (implementation === null) {
-        delete declaration.function;
-    }
-
-    if (misses !== undefined) {
-        declaration.misses = misses;
-    }
-
-    return declaration;
-}
-
-const property = (name, on, result, options) => member('property', name, on, result, options);
-
-/** A condition: a Boolean of its receivers that its verb, `is` unless it says otherwise, asks by name, carried out by its own function under its own contract, observable unless it says otherwise. */
-const condition = (name, on, implementation, { verb = 'is', changes = 'observable', reads = 'fresh', misses, observations = [] } = {}) => ({
-    name,
-    verb,
-    function: implementation,
-    on,
-    changes,
-    reads,
-    ...(misses === undefined ? {} : { misses }),
-    observations,
-});
-const operation = (name, on, result, options) => member('operation', name, on, result, options);
+const { valueParameter, property, condition, operation } = Declarations;
 
 /** The observations the members share. */
 const RESIZE = { type: 'resize', of: 'receiver' };
@@ -91,13 +28,16 @@ const MATCHING = { changes: 'partly-observable', misses: 'pointer state such as 
 const GEOMETRY = { changes: 'partly-observable', misses: 'a move its own size, the scrolling of its scroll containers, the window\'s size and the structure of its trees do not cause, as a sibling before it growing or a margin or padding around it changing, and transforms and animations' };
 const STYLE = { changes: 'partly-observable', misses: 'rules matching from elsewhere' };
 
-export class Vocabulary {
+export class BrowserVocabulary {
+    /** The name of DOMQL's built-in module. */
+    static moduleName = 'domql';
+
     /**
-     * The built-in module: its declarations and, where they are given, the functions that carry them out.
+     * DOMQL's built-in module: its declarations and, where they are given, the functions that carry them out.
      * @param {Record<string, Function> | null} [functions] The functions the declarations name.
      */
     static createModule(functions = null) {
-        return DomqlModule.createBuiltIn({
+        return LexicaModule.createBuiltIn(BrowserVocabulary.moduleName, {
             types: [
                 { name: 'size', fields: { width: 'number', height: 'number' } },
                 { name: 'rectangle', fields: { left: 'number', top: 'number', right: 'number', bottom: 'number', width: 'number', height: 'number' } },
@@ -181,19 +121,11 @@ export class Vocabulary {
                 property('attached', 'element', 'boolean', { changes: 'partly-observable', misses: 'a detached tree inserted into a shadow root in the document', observations: [{ type: 'attachment', of: 'receiver' }] }),
                 property('hasChildren', 'element', 'boolean', { observations: [CHILDREN] }),
                 property('hasSelection', 'element', 'boolean', { changes: 'partly-observable', misses: 'selections assigned by script', observations: TEXT_SELECTION }),
-                property('count', 'list<T>', 'number', { changes: 'derived', reads: 'derived' }),
-                property('first', 'list<T>', 'T?', { changes: 'derived', reads: 'derived' }),
-                property('last', 'list<T>', 'T?', { changes: 'derived', reads: 'derived' }),
-                operation('item', 'list<T>', 'T?', { form: 'indexer', isDefault: true, changes: 'derived', reads: 'derived', parameters: [valueParameter('index', 'number')] }),
 
                 operation('media', 'window', 'boolean', { form: 'indexer', parameters: [valueParameter('query', 'string')], observations: [{ type: 'media', of: 'window', query: { argument: 'query' } }] }),
                 operation('attribute', 'element', 'string?', { form: 'indexer', isDefault: true, parameters: [valueParameter('name', 'string')], observations: [{ type: 'mutation', of: 'receiver', attributes: [{ argument: 'name' }] }] }),
                 operation('attribute', 'aria', 'string?', { function: 'ariaAttribute', form: 'indexer', isDefault: true, parameters: [valueParameter('name', 'string')], observations: [{ type: 'mutation', of: 'receiver', attributes: [{ argument: 'name', prefix: 'aria-' }] }] }),
                 operation('class', 'element', 'boolean', { form: 'indexer', parameters: [valueParameter('name', 'string')], observations: [{ type: 'mutation', of: 'receiver', attributes: ['class'] }] }),
-                // The verbs that ask a condition: the condition's own declaration carries it out, its function, how it changes and the observations that cover it, so declaring each on any receiver selects the condition's own receivers.
-                operation('is', 'any', 'boolean', { function: null, changes: 'derived', reads: 'derived', parameters: [valueParameter('name', 'string', { fixed: true, selects: 'condition' })] }),
-                operation('has', 'any', 'boolean', { function: null, changes: 'derived', reads: 'derived', parameters: [valueParameter('name', 'string', { fixed: true, selects: 'condition' })] }),
-                operation('supports', 'any', 'boolean', { function: null, changes: 'derived', reads: 'derived', parameters: [valueParameter('name', 'string', { fixed: true, selects: 'condition' })] }),
                 operation('style', 'element', 'string?', { ...STYLE, form: 'indexer', parameters: [valueParameter('property', 'string')], observations: [RESIZE, ATTRIBUTES] }),
                 operation('intersects', 'element', 'boolean?', { reads: 'maintained', input: 'options', parameters: [valueParameter('root', 'element?', { default: null, nulls: 'accept', omitted: 'the window' }), valueParameter('margin', 'number', { default: 0 })], observations: [{ type: 'intersection', of: 'receiver', root: { argument: 'root' }, margin: { argument: 'margin' } }] }),
                 operation('overlaps', 'element', 'boolean?', { ...GEOMETRY, input: 'options', parameters: [valueParameter('other', 'element'), valueParameter('margin', 'number', { default: 0 })], observations: [RESIZE, { type: 'resize', of: { argument: 'other' } }, SCROLLING, WINDOW_RESIZE] }),
@@ -202,25 +134,19 @@ export class Vocabulary {
                 operation('closest', 'element', 'element?', { ...MATCHING, parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS, POPOVERS] }),
                 operation('first', 'node', 'element?', { ...MATCHING, function: 'firstMatching', parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS, POPOVERS] }),
                 operation('all', 'node', 'list<element>', { ...MATCHING, parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS, POPOVERS] }),
-                operation('max', 'list<T>', 'number?', { changes: 'derived', reads: 'derived', parameters: [expressionParameter('number?')] }),
-                operation('min', 'list<T>', 'number?', { changes: 'derived', reads: 'derived', parameters: [expressionParameter('number?')] }),
-                operation('sum', 'list<T>', 'number', { changes: 'derived', reads: 'derived', parameters: [expressionParameter('number?')] }),
-                operation('where', 'list<T>', 'list<T>', { changes: 'derived', reads: 'derived', parameters: [predicateParameter()] }),
 
                 { ...operation('on', ['element', 'document', 'window'], 'event<@selected>', { changes: 'constant', reads: 'captured', parameters: [valueParameter('type', 'string', { fixed: true, selects: 'eventType' })] }), kind: 'eventSource' },
-            ],
-
-            conversions: [
-                { from: 'string', to: 'number', function: 'stringToNumber' },
-                { from: 'number', to: 'string', function: 'numberToString' },
-                { from: 'boolean', to: 'string', function: 'booleanToString' },
-                { from: 'string', to: 'boolean', function: 'stringToBoolean' },
             ],
         }, functions);
     }
 
-    /** The built-in module as its declarations alone, which is enough to resolve a query and carries nothing out. */
+    /** DOMQL's built-in module as its declarations alone, which is enough to resolve a query and carries nothing out. */
     static get module() {
-        return Vocabulary.createModule();
+        return BrowserVocabulary.createModule();
+    }
+
+    /** The built-in modules a query is resolved against, Lexica's and DOMQL's, DOMQL's as its declarations alone. */
+    static get modules() {
+        return [Vocabulary.module, BrowserVocabulary.module];
     }
 }

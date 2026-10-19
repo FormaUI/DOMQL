@@ -2,7 +2,7 @@
  * SnapshotComparer — compares the snapshots of a query's result, so a watch reports one that differs and shares what did not change
  */
 
-import { ObjectUtils } from '../common/ObjectUtils.mjs';
+import { ObjectUtils } from '@formaui/lexica/common/ObjectUtils.mjs';
 
 /** The kinds of expression whose value is the value of one of the expressions it holds, which it selected as it was evaluated. */
 const SELECTING_KINDS = new Set(['conditional', 'coalescing', 'and', 'or']);
@@ -10,7 +10,7 @@ const SELECTING_KINDS = new Set(['conditional', 'coalescing', 'and', 'or']);
 export class SnapshotComparer {
     #resolvedDefinition;
 
-    /** @param {import('../language/ResolvedDefinition.mjs').ResolvedDefinition} resolvedDefinition The resolved definition whose snapshots are compared. */
+    /** @param {import('@formaui/lexica/language/ResolvedDefinition.mjs').ResolvedDefinition} resolvedDefinition The resolved definition whose snapshots are compared. */
     constructor(resolvedDefinition) {
         this.#resolvedDefinition = resolvedDefinition;
     }

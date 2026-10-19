@@ -1,5 +1,5 @@
 /**
- * VocabularyFunctions — the functions that carry out the built-in vocabulary's members
+ * VocabularyFunctions — the functions that carry out the DOM vocabulary's members
  */
 
 /** The input types `readonly` applies to. */
@@ -11,12 +11,6 @@ const TEXT_INPUT_TYPES = new Set(['text', 'search', 'url', 'tel', 'email', 'pass
 /** The values of `contenteditable` that make content editable. */
 const EDITABLE_VALUES = new Set(['', 'true', 'plaintext-only']);
 
-/** The ASCII whitespace a text converted to a number is trimmed of at either end: tab, line feed, form feed, carriage return and space. */
-const SURROUNDING_ASCII_WHITESPACE = /^[\t\n\f\r ]+|[\t\n\f\r ]+$/g;
-
-/** HTML's valid floating-point number: an optional minus, digits with an optional fraction or a fraction alone, and an optional exponent whose sign is optional. */
-const VALID_FLOATING_POINT_NUMBER = /^-?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$/;
-
 export class VocabularyFunctions {
     /**
      * Each function takes the receiver, the arguments by parameter name, and the environment the request is read in; a source also takes the function it delivers each event to, and answers what stops it.
@@ -24,32 +18,6 @@ export class VocabularyFunctions {
      */
     static get functions() {
         return {
-            // A conversion takes the value, never null, and `reject`, which stops it for a value that has no conversion; it answers the converted value.
-            stringToNumber: (text, { reject }) => {
-                const trimmed = text.replace(SURROUNDING_ASCII_WHITESPACE, '');
-
-                if (!VALID_FLOATING_POINT_NUMBER.test(trimmed)) {
-                    reject(`${JSON.stringify(text)} is no number, which is written as HTML's valid floating-point number, as -12, 3.5, .5 or 1e3 are`);
-                }
-
-                const number = Number(trimmed);
-
-                if (!Number.isFinite(number)) {
-                    reject(`${JSON.stringify(text)} is too large a number to be finite`);
-                }
-
-                return number;
-            },
-            // The shortest text that reads back as the same number, as ECMAScript writes it, and negative zero as "0".
-            numberToString: number => String(number),
-            booleanToString: value => String(value),
-            stringToBoolean: (text, { reject }) => {
-                if (text !== 'true' && text !== 'false') {
-                    reject(`${JSON.stringify(text)} is no Boolean, which is written "true" or "false"`);
-                }
-
-                return text === 'true';
-            },
             windowSize: window => {
                 const documentElement = window.document.documentElement;
 
@@ -76,11 +44,6 @@ export class VocabularyFunctions {
             ariaDisabled: element => VocabularyFunctions.#isAriaTrue(element, 'aria-disabled'),
             shadowRoot: element => element.shadowRoot ?? null,
             assignedElements: element => (typeof element.assignedElements === 'function' ? element.assignedElements({ flatten: true }) : null),
-            count: items => items.length,
-            first: items => items.at(0) ?? null,
-            last: items => items.at(-1) ?? null,
-            // The item at a whole index from zero, null for any other index, a negative one included, which never counts from the end.
-            item: (items, { index }) => (Number.isInteger(index) && index >= 0 && index < items.length ? items[index] : null),
 
             media: (window, { query }) => window.matchMedia(query).matches,
             supportsShare: window => typeof window.navigator.share === 'function',
@@ -111,10 +74,6 @@ export class VocabularyFunctions {
             closest: (element, { selector }) => element.closest(selector),
             firstMatching: (node, { selector }) => node.querySelector(selector),
             all: (node, { selector }) => [...node.querySelectorAll(selector)],
-            max: (items, { expression }) => VocabularyFunctions.#extreme(items, expression, Math.max),
-            min: (items, { expression }) => VocabularyFunctions.#extreme(items, expression, Math.min),
-            sum: (items, { expression }) => VocabularyFunctions.#numbers(items, expression).reduce((total, number) => total + number, 0),
-            where: (items, { expression }) => items.filter(item => expression(item) === true),
             on: (target, { type }, _environment, deliver) => {
                 // Listening observes each event as it reaches the target, and a passive listener leaves its course to the page.
                 target.addEventListener(type, deliver, { passive: true });
@@ -230,18 +189,6 @@ export class VocabularyFunctions {
 
     static #isTextControl(element) {
         return element.localName === 'textarea' || element.localName === 'input';
-    }
-
-    /** The largest or smallest of the numbers an expression produces, null where it produces none. */
-    static #extreme(items, expression, choose) {
-        const numbers = VocabularyFunctions.#numbers(items, expression);
-
-        return numbers.length === 0 ? null : numbers.reduce((current, number) => choose(current, number));
-    }
-
-    /** The numbers an expression produces for the items, leaving out the items it produces null for. */
-    static #numbers(items, expression) {
-        return items.map(item => expression(item)).filter(number => number !== null);
     }
 
     static #isReadOnly(element) {

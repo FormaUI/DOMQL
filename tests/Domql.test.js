@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { DomqlQuery } from '#domql/dom/DomqlQuery.mjs';
 import { domql } from '#domql/domql.js';
-import { DomqlError } from '#domql/language/DomqlError.mjs';
-import { ParsedTexts } from '#domql/language/ParsedTexts.mjs';
+import { LexicaError } from '@formaui/lexica/language/LexicaError.mjs';
+import { ParsedTexts } from '@formaui/lexica/language/ParsedTexts.mjs';
 
 /** The error a call throws. */
 const getError = call => {
@@ -950,7 +950,7 @@ describe('domql', () => {
         ])('rejects %s, naming where', (_, text, line, column) => {
             const error = getError(() => domql.query(text));
 
-            expect(error.name).toBe('DomqlError');
+            expect(error.name).toBe('LexicaError');
             expect(error.kind).toBe('syntax');
             expect(error.location).toMatchObject({ line, column });
         });
@@ -1145,7 +1145,7 @@ describe('domql', () => {
         ])('refuses a list with a hole %s, which holds no value there', (_, value) => {
             const error = getError(() => domql.query('target', { target: value }));
 
-            expect(error).toBeInstanceOf(DomqlError);
+            expect(error).toBeInstanceOf(LexicaError);
             expect(error.kind).toBe('structure');
             expect(error.location).toEqual({ binding: 'target' });
         });
@@ -1275,7 +1275,7 @@ describe('domql evaluates', () => {
             const query = domql.query('window.devicePixelRatio');
             const error = getError(() => query.evaluate({ window: null }));
 
-            expect(error).toBeInstanceOf(DomqlError);
+            expect(error).toBeInstanceOf(LexicaError);
             expect(error.kind).toBe('evaluation');
             expect(error.message).toContain('without a browser window');
             expect(getError(() => query.evaluate({ window: {} })).kind).toBe('evaluation');
@@ -1827,7 +1827,7 @@ describe('domql evaluateAsync', () => {
 
         const error = await failure;
 
-        expect(error.name).toBe('DomqlError');
+        expect(error.name).toBe('LexicaError');
         expect(error.message).toContain("The member 'boom' failed");
         expect(gauges.get(item).stopped).toBe(1);
     });
@@ -1835,7 +1835,7 @@ describe('domql evaluateAsync', () => {
     it('fails without a browser window', async () => {
         const error = await isolated.query('window.devicePixelRatio').evaluateAsync({ window: null }).catch(failure => failure);
 
-        expect(error.name).toBe('DomqlError');
+        expect(error.name).toBe('LexicaError');
         expect(error.kind).toBe('evaluation');
     });
 

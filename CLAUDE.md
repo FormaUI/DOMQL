@@ -8,8 +8,10 @@ Read the documents that govern the affected contract:
 
 | Document | Authority |
 | --- | --- |
-| [Specification](docs/domql-specification.md) | Language syntax, resolution, values, requests, evaluation semantics, vocabulary contracts and definitions |
-| [Design](docs/domql-design.md) | Runtime architecture and public API: preparation, sessions, watching, snapshots, live state, events, modules and tooling |
+| [Lexica specification](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-specification.md) | The language, Lexica's, in its own repository: syntax, resolution, values, requests, vocabulary contracts, definitions and diagnostics |
+| [DOMQL specification](docs/domql-specification.md) | The DOM's nodes and shadow trees, the built-in vocabulary, evaluation and watching |
+| [Lexica design](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md) | Modules, their declarations and registration, and tooling |
+| [DOMQL design](docs/domql-design.md) | Runtime architecture and public API: preparation, sessions, watching, snapshots, live state, events, actions and behaviors |
 | [Implementation plan](docs/domql-implementation-plan.md) | Unfinished work, its status and open decisions |
 | `.editorconfig` | Code style; read it before writing C# |
 
@@ -22,11 +24,8 @@ Use these sources rather than inventing scope, status or style rules.
 | Path | Responsibility |
 | --- | --- |
 | `src/domql.js` | Entry point that composes the library's modules |
-| `src/language/` | Text queries, definitions, types, resolution, errors and locations; no browser dependency |
-| `src/language/vocabulary/` | Modules, their registry and built-in vocabulary declarations |
 | `src/dom/` | Evaluation, watches, events, actions, behaviors, observations, sessions and built-in implementations |
 | `src/snapshots/` | Computing, comparing, dispatching and applying snapshot updates using identity metadata; no DOM access |
-| `src/common/` | Object and array operations independent of the language, DOM and snapshots |
 | `tests/` | Tests mirroring the source folders |
 | `scripts/` | Bundling scripts |
 | `nuget/` | The package project, which distributes the bundle |
@@ -34,10 +33,10 @@ Use these sources rather than inventing scope, status or style rules.
 
 Add a folder when a new responsibility needs one. Keep dependencies in this direction:
 
-- `dom/` may depend on `language/`, `snapshots/` and `common/`.
-- `snapshots/` may depend on `language/` and `common/`.
-- `language/` may depend only on `common/` among the other source layers.
-- `common/` depends on none of the other layers.
+- `dom/` may depend on Lexica and `snapshots/`.
+- `snapshots/` may depend on Lexica.
+
+The language is [Lexica](https://github.com/FormaUI/Lexica), the package `@formaui/lexica`, which DOMQL imports by its name and depends on through `file:../formaui-net.Lexica`, a checkout beside this one, until a Lexica package is released. A change to the language is made there, and a change DOMQL needs of it in both repositories together.
 
 Pass the window and document into DOM code; do not read globals there. Importing the language layer and resolving a query must work without a DOM.
 
@@ -48,7 +47,7 @@ Pass the window and document into DOM code; do not read globals there. Importing
 - Keep a module's registration separate from the instances it creates, as defined in the design.
 - Use native modern browser APIs in `src/`, with no external runtime libraries or polyfills. Scripts are ES modules.
 - Keep DOMQL independent of its consumers. Source code and documentation must not describe it as serving Forma, a component framework, Blazor or a consumer's watcher or engine. Mention FormaUI as publisher and Forma as a companion product only in package metadata and README introductions.
-- Report failures at their origin as a `DomqlError` with a location. Never swallow a rejection.
+- Report failures at their origin as a `LexicaError` with a location. Never swallow a rejection.
 - State each cache's validity and release conditions. Measure the work it saves.
 
 ### Names and types
@@ -63,7 +62,7 @@ Use names that explain their role in context. Short names are fine when their me
 | Promise-returning operations end in `Async` | `evaluate` and `evaluateAsync`; no suffix on the synchronous form |
 | Optional settings use `options` | Each setting has a default and the whole object may be omitted |
 | Required inputs are separate parameters | For example, the handler passed to `subscribe` |
-| Exported declaration names start with `Domql` | Declare a class only when the bundle exports that class; otherwise use an interface for returned objects |
+| Exported declaration names start with `Domql` | Lexica's own keep Lexica's names, as `LexicaError` does. Declare a class only when the bundle exports that class; otherwise use an interface for returned objects |
 | Product and API names are consistent | `DOMQL` in prose, `Domql` in type names, `domql` for the exported object |
 | Capability modules use a consistent suffix | `{Capability}DomqlModule` |
 

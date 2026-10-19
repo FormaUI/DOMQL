@@ -2,7 +2,7 @@
 
 **A declarative approach to managing the DOM.**
 
-DOMQL is a small, extensible query language and JavaScript library. Use it to read information from the document, track changes, respond to events and update its content or state.
+DOMQL is a small, extensible query language and JavaScript library. Use it to read information from the document, track changes, respond to events and update its content or state. Its queries are written in [Lexica](https://github.com/FormaUI/Lexica), an extensible expression language, and DOMQL adds the DOM: its vocabulary, observation, watching and events.
 
 DOMQL is a FormaUI product, developed alongside [Forma](https://github.com/FormaUI/Forma). It stands on its own and works independently of any UI framework.
 
@@ -210,7 +210,9 @@ The package is written to `artifacts/`. It supplies the JavaScript bundle at `_c
 ## Documentation
 
 - [Library guide](nuget/README.md) — install DOMQL, learn the language and use the API.
-- [Language specification](docs/domql-specification.md) — precise syntax, types and vocabulary contracts.
+- [Lexica specification](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-specification.md) — the language DOMQL is written in: precise syntax, types and vocabulary contracts.
+- [DOMQL specification](docs/domql-specification.md) — the DOM's nodes and shadow trees, the built-in vocabulary, and how a query is evaluated and watched.
+- [Lexica design](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md) — how the language's modules are declared and registered, and how tooling reads its text.
 - [Runtime design](docs/domql-design.md) — runtime architecture and public API contracts.
 - [Implementation plan](docs/domql-implementation-plan.md) — remaining work and open decisions.
 - [Contributing](CONTRIBUTING.md) — report a bug, develop a change and run the checks.

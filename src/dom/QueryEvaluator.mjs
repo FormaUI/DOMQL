@@ -2,11 +2,11 @@
  * QueryEvaluator — evaluates a resolved request, answering detached data: a query as it reads now, a subscription's projection of each event its source delivers, and an action's result read through the object expression that follows it
  */
 
-import { ArrayUtils } from '../common/ArrayUtils.mjs';
-import { ObjectUtils } from '../common/ObjectUtils.mjs';
-import { DomqlError } from '../language/DomqlError.mjs';
-import { Type } from '../language/Type.mjs';
-import { DomqlModule } from '../language/vocabulary/DomqlModule.mjs';
+import { ArrayUtils } from '@formaui/lexica/common/ArrayUtils.mjs';
+import { ObjectUtils } from '@formaui/lexica/common/ObjectUtils.mjs';
+import { LexicaError } from '@formaui/lexica/language/LexicaError.mjs';
+import { Type } from '@formaui/lexica/language/Type.mjs';
+import { LexicaModule } from '@formaui/lexica/language/vocabulary/LexicaModule.mjs';
 import { SessionCache } from './SessionCache.mjs';
 import { Observations } from './Observations.mjs';
 import { QueryEvaluation } from './QueryEvaluation.mjs';
@@ -141,11 +141,11 @@ export class QueryEvaluator {
     #projectionContext = null;
 
     /**
-     * @param {import('../language/vocabulary/ModuleRegistry.mjs').ModuleRegistry} moduleRegistry The vocabulary the request was resolved against.
-     * @param {import('../language/ResolvedDefinition.mjs').ResolvedDefinition} resolvedDefinition The resolved definition to read.
-     * @param {import('../language/ParameterBindings.mjs').ParameterBindings} parameterBindings What the request's parameters are bound to.
+     * @param {import('@formaui/lexica/language/vocabulary/LexicaRegistry.mjs').LexicaRegistry} moduleRegistry The vocabulary the request was resolved against.
+     * @param {import('@formaui/lexica/language/ResolvedDefinition.mjs').ResolvedDefinition} resolvedDefinition The resolved definition to read.
+     * @param {import('@formaui/lexica/language/ParameterBindings.mjs').ParameterBindings} parameterBindings What the request's parameters are bound to.
      * @param {Environment} environment The window and the document the roots stand for.
-     * @param {import('../language/TextLocations.mjs').TextLocations | null} locations Where in a text each part of the definition came from.
+     * @param {import('@formaui/lexica/language/TextLocations.mjs').TextLocations | null} locations Where in a text each part of the definition came from.
      */
     constructor(moduleRegistry, resolvedDefinition, parameterBindings, environment, locations) {
         this.#moduleRegistry = moduleRegistry;
@@ -559,7 +559,7 @@ export class QueryEvaluator {
                         const value = part.evaluate(evaluator, evaluationContext);
 
                         if (typeof value !== 'string' && typeof value !== 'number') {
-                            throw DomqlError.evaluation(`An interpolation inserts a string or a number, and is given ${QueryEvaluator.#describe(value)}`, evaluator.#locate(evaluator.#pointerOf(part.expression)));
+                            throw LexicaError.evaluation(`An interpolation inserts a string or a number, and is given ${QueryEvaluator.#describe(value)}`, evaluator.#locate(evaluator.#pointerOf(part.expression)));
                         }
 
                         text += String(value);
@@ -580,7 +580,7 @@ export class QueryEvaluator {
                         const right = operands[index + 1](evaluator, evaluationContext);
 
                         if (typeof left !== 'number' || typeof right !== 'number') {
-                            throw DomqlError.evaluation(`'${node.operators[index]}' compares numbers, and is given ${QueryEvaluator.#describe(typeof left !== 'number' ? left : right)}`, evaluator.#locate(evaluator.#pointerOf(node)));
+                            throw LexicaError.evaluation(`'${node.operators[index]}' compares numbers, and is given ${QueryEvaluator.#describe(typeof left !== 'number' ? left : right)}`, evaluator.#locate(evaluator.#pointerOf(node)));
                         }
 
                         if (!compares[index](left, right)) {
@@ -662,7 +662,7 @@ export class QueryEvaluator {
             return target;
         }
 
-        const name = DomqlModule.conversionNameOf(declaration);
+        const name = LexicaModule.conversionNameOf(declaration);
         const attempt = QueryEvaluator.#compileConversionAttempt(declaration, type, this.#moduleRegistry);
 
         return (evaluator, evaluationContext) => {
@@ -691,7 +691,7 @@ export class QueryEvaluator {
      * A rejection is the signal `reject` throws for this attempt alone; any other exception, a reason that is no string, a rejection the conversion caught and answered past, and a value not of the type are faults, which fail the evaluation, attempted or not.
      */
     static #compileConversionAttempt(declaration, type, moduleRegistry) {
-        const name = DomqlModule.conversionNameOf(declaration);
+        const name = LexicaModule.conversionNameOf(declaration);
         const convert = moduleRegistry.getFunction(declaration);
         const conforms = QueryEvaluator.#compileTypeCheck(type, moduleRegistry);
         const copyStructure = QueryEvaluator.#compileStructureCopy(type, moduleRegistry);
@@ -714,7 +714,7 @@ export class QueryEvaluator {
                 converted = convert(value, { reject });
             } catch (error) {
                 if (error !== rejection) {
-                    throw DomqlError.evaluation(`The conversion from ${name} failed: ${error?.message ?? String(error)}`, evaluator.#locate(evaluator.#pointerOf(node)), { cause: error });
+                    throw LexicaError.evaluation(`The conversion from ${name} failed: ${error?.message ?? String(error)}`, evaluator.#locate(evaluator.#pointerOf(node)), { cause: error });
                 }
 
                 if (typeof rejection.reason !== 'string') {
@@ -1327,15 +1327,15 @@ export class QueryEvaluator {
         const operator = node.kind === 'negate' ? '-' : node.operator;
 
         if (typeof left !== 'number' || typeof right !== 'number') {
-            throw DomqlError.evaluation(`'${operator}' takes numbers, and is given ${typeof left !== 'number' ? QueryEvaluator.#describe(left) : QueryEvaluator.#describe(right)}`, this.#locate(this.#pointerOf(node)));
+            throw LexicaError.evaluation(`'${operator}' takes numbers, and is given ${typeof left !== 'number' ? QueryEvaluator.#describe(left) : QueryEvaluator.#describe(right)}`, this.#locate(this.#pointerOf(node)));
         }
 
         if ((operator === '/' || operator === '%') && right === 0 && node.kind === 'arithmetic') {
-            throw DomqlError.evaluation(`'${operator}' divides by zero`, this.#locate(this.#pointerOf(node)));
+            throw LexicaError.evaluation(`'${operator}' divides by zero`, this.#locate(this.#pointerOf(node)));
         }
 
         if (!Number.isFinite(result)) {
-            throw DomqlError.evaluation(`The result of '${operator}' is no finite number`, this.#locate(this.#pointerOf(node)));
+            throw LexicaError.evaluation(`The result of '${operator}' is no finite number`, this.#locate(this.#pointerOf(node)));
         }
 
         return result;
@@ -1379,7 +1379,7 @@ export class QueryEvaluator {
                 throw error;
             }
 
-            throw DomqlError.evaluation(`${this.#subjectOf(declaration, node)} failed: ${error?.message ?? String(error)}`, this.#locate(this.#pointerOf(node)), { cause: error });
+            throw LexicaError.evaluation(`${this.#subjectOf(declaration, node)} failed: ${error?.message ?? String(error)}`, this.#locate(this.#pointerOf(node)), { cause: error });
         } finally {
             // A function the member was given is called only while its invocation lasts.
             for (const name in args) {
@@ -1724,7 +1724,7 @@ export class QueryEvaluator {
     }
 
     #fail(message, pointer) {
-        throw DomqlError.evaluation(message, this.#locate(pointer));
+        throw LexicaError.evaluation(message, this.#locate(pointer));
     }
 
     /** Where the node stands in the definition, as a JSON Pointer. */

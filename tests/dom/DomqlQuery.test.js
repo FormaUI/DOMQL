@@ -17,7 +17,7 @@ const failureOf = async call => {
 describe('DomqlQuery', () => {
     // Each test loads its own copy of DOMQL, with a registry of its own.
     let isolated;
-    let DomqlError;
+    let LexicaError;
     let panel;
     let calls;
     let reported;
@@ -25,7 +25,7 @@ describe('DomqlQuery', () => {
 
     beforeEach(async () => {
         vi.resetModules();
-        ({ domql: isolated, DomqlError } = await import('#domql/domql.js'));
+        ({ domql: isolated, LexicaError } = await import('#domql/domql.js'));
         document.body.innerHTML = '<div id="panel" data-n="1"><i data-n="1"></i><i data-n="2"></i></div>';
         panel = document.getElementById('panel');
         calls = [];
@@ -74,7 +74,7 @@ describe('DomqlQuery', () => {
 
             await settle();
 
-            expect(error).toBeInstanceOf(DomqlError);
+            expect(error).toBeInstanceOf(LexicaError);
             expect(error.kind).toBe('validation');
             expect(error.message).toContain(message);
             expect(calls).toEqual([]);

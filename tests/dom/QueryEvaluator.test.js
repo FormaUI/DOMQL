@@ -4,11 +4,12 @@ import { DomqlQuery } from '#domql/dom/DomqlQuery.mjs';
 import { Observations } from '#domql/dom/Observations.mjs';
 import { QueryEvaluator } from '#domql/dom/QueryEvaluator.mjs';
 import { domql } from '#domql/domql.js';
-import { DomqlError } from '#domql/language/DomqlError.mjs';
-import { DomqlModule } from '#domql/language/vocabulary/DomqlModule.mjs';
-import { LanguageResolver } from '#domql/language/LanguageResolver.mjs';
-import { ModuleRegistry } from '#domql/language/vocabulary/ModuleRegistry.mjs';
-import { Vocabulary } from '#domql/language/vocabulary/Vocabulary.mjs';
+import { LexicaError } from '@formaui/lexica/language/LexicaError.mjs';
+import { LexicaModule } from '@formaui/lexica/language/vocabulary/LexicaModule.mjs';
+import { LanguageResolver } from '@formaui/lexica/language/LanguageResolver.mjs';
+import { LexicaRegistry } from '@formaui/lexica/language/vocabulary/LexicaRegistry.mjs';
+import { BrowserVocabulary } from '#domql/dom/BrowserVocabulary.mjs';
+import { Vocabulary } from '@formaui/lexica/language/vocabulary/Vocabulary.mjs';
 
 /** Gives the element a border box, since the test environment lays nothing out. */
 const lay = (element, { left = 0, top = 0, width = 0, height = 0 }) => {
@@ -24,13 +25,13 @@ const unlay = element => {
 const read = (text, bindings = {}) => domql.query(text, bindings).evaluate();
 
 /** A module of one number property named for itself, answered by the function. */
-const propertyModule = (name, implementation) => new DomqlModule(name, {
+const propertyModule = (name, implementation) => new LexicaModule(name, {
     members: [{ name, function: name, kind: 'property', on: 'element', parameters: [], result: 'number', changes: 'constant', reads: 'fresh' }],
 }, implementation === undefined ? null : { [name]: implementation });
 
-/** Reads a query against a registry of its own holding the built-in vocabulary and the module, or the modules. */
+/** Reads a query against a registry of its own holding Lexica's and the DOM vocabulary and the module, or the modules. */
 const readWith = (modules, text, bindings) => {
-    const registry = new ModuleRegistry([Vocabulary.module, ...[modules].flat()]);
+    const registry = new LexicaRegistry([...BrowserVocabulary.modules, ...[modules].flat()]);
     const query = domql.query(text, bindings);
     const resolved = new LanguageResolver(registry, DomqlQuery.bindingsOf(query), null, {}).resolveDefinition(query.definition);
 
@@ -40,7 +41,7 @@ const readWith = (modules, text, bindings) => {
 /** Two modules, each a Boolean member named for itself that answers what its name says and counts how often it is read. */
 const probes = () => {
     const record = { yes: 0, no: 0 };
-    const probe = (name, answer) => new DomqlModule(name, {
+    const probe = (name, answer) => new LexicaModule(name, {
         members: [{ name, function: name, kind: 'property', on: 'element', parameters: [], result: 'boolean', changes: 'constant', reads: 'fresh' }],
     }, { [name]: () => { record[name]++; return answer; } });
 
@@ -51,7 +52,7 @@ const failureWith = (module, text, bindings) => {
     try {
         readWith(module, text, bindings);
     } catch (error) {
-        expect(error).toBeInstanceOf(DomqlError);
+        expect(error).toBeInstanceOf(LexicaError);
         expect(error.kind).toBe('evaluation');
 
         return error;
@@ -64,7 +65,7 @@ const failure = (text, bindings = {}) => {
     try {
         read(text, bindings);
     } catch (error) {
-        expect(error).toBeInstanceOf(DomqlError);
+        expect(error).toBeInstanceOf(LexicaError);
         expect(error.kind).toBe('evaluation');
 
         return error;
@@ -178,7 +179,7 @@ describe('QueryEvaluator', () => {
 
         it('skips the rest of an optional chain where a receiver is null, reading it where the receiver is present', () => {
             const reads = [];
-            const registry = new ModuleRegistry([BrowserModule.create(), propertyModule('probe', element => (reads.push(element), 1))]);
+            const registry = new LexicaRegistry([Vocabulary.module, BrowserModule.create(), propertyModule('probe', element => (reads.push(element), 1))]);
             const readProbe = item => {
                 const query = domql.query('(item.parent as "element")?.probe', { item });
                 const resolved = new LanguageResolver(registry, DomqlQuery.bindingsOf(query), null, {}).resolveDefinition(query.definition);
@@ -199,7 +200,7 @@ describe('QueryEvaluator', () => {
 
         it('answers a coalescing operator\'s value where it is not null, and only otherwise evaluates its fallback', () => {
             const reads = [];
-            const registry = new ModuleRegistry([BrowserModule.create(), propertyModule('probe', element => (reads.push(element), 7))]);
+            const registry = new LexicaRegistry([Vocabulary.module, BrowserModule.create(), propertyModule('probe', element => (reads.push(element), 7))]);
             const readProbe = text => {
                 const query = domql.query(text, { item: items[0] });
                 const resolved = new LanguageResolver(registry, DomqlQuery.bindingsOf(query), null, {}).resolveDefinition(query.definition);
@@ -332,7 +333,7 @@ describe('QueryEvaluator', () => {
         });
 
         it('gives a member the document and the window it is read in where an argument names a root', () => {
-            const module = new DomqlModule('inside', {
+            const module = new LexicaModule('inside', {
                 members: [{ name: 'inside', function: 'inside', kind: 'operation', on: 'element', input: 'positional', parameters: [{ name: 'of', kind: 'value', type: 'document', required: true, nulls: 'propagate' }], result: 'boolean', changes: 'unobserved', reads: 'fresh' }],
             }, { inside: (element, { of }) => element.ownerDocument === of && of === document });
             const panel = document.body.appendChild(document.createElement('div'));
@@ -650,7 +651,7 @@ describe('QueryEvaluator', () => {
         });
 
         it('report a module that answers a list with a hole, which holds no value there', () => {
-            const gappy = new DomqlModule('gappy', {
+            const gappy = new LexicaModule('gappy', {
                 members: [{ name: 'gappy', function: 'gappy', kind: 'property', on: 'element', parameters: [], result: 'list<number?>', changes: 'constant', reads: 'fresh' }],
             }, { gappy: () => [1, , 2] });
 
@@ -689,7 +690,7 @@ describe('QueryEvaluator evaluation', () => {
 
     /** Evaluates the query against the registry, holding its observations in `observations`, and records each call it depends on unless asked not to. */
     const evaluate = (text, bindings = {}, modules = [], holdsAllObservations = false, recordsDependencies = true) => {
-        const registry = new ModuleRegistry([BrowserModule.create(), ...modules]);
+        const registry = new LexicaRegistry([Vocabulary.module, BrowserModule.create(), ...modules]);
         const query = domql.query(text, bindings);
         const resolved = new LanguageResolver(registry, DomqlQuery.bindingsOf(query), null, { watch: true, acceptPartialObservation: true }).resolveDefinition(query.definition);
         const evaluator = new QueryEvaluator(registry, resolved, DomqlQuery.bindingsOf(query), { window, document }, null);
@@ -838,7 +839,7 @@ describe('QueryEvaluator evaluation', () => {
         it('are kept with the failure of an evaluation that recorded them before it failed', () => {
             const evaluation = evaluate('{ id = panel:attribute["id"], boom = panel.boom }', { panel }, [propertyModule('boom', () => { throw new Error('no'); })]);
 
-            expect(evaluation.error).toBeInstanceOf(DomqlError);
+            expect(evaluation.error).toBeInstanceOf(LexicaError);
             expect(evaluation.error.message).toContain("The member 'boom' failed");
             expect(evaluation.value).toBeUndefined();
             expect(membersOf(evaluation)).toEqual(['attribute', 'boom']);
@@ -846,7 +847,7 @@ describe('QueryEvaluator evaluation', () => {
     });
 
     /** A member kept by an observation that never samples, so an evaluation that reads it stays pending. */
-    const waitingModule = () => new DomqlModule('level', {
+    const waitingModule = () => new LexicaModule('level', {
         observationTypes: [{ name: 'level', contract: 'maintained', function: 'observeLevel' }],
         members: [{
             name: 'level', function: 'level', kind: 'property', on: 'element', parameters: [], result: 'number?',
@@ -950,7 +951,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         /** A member observed through a probe of its receiver, shared or not, whose identity is the names its argument gives, none by default. */
-        const probeModule = (shared = true) => new DomqlModule('probe', {
+        const probeModule = (shared = true) => new LexicaModule('probe', {
             observationTypes: [{ name: 'probe', contract: 'invalidation', identity: ['names'], shared, function: 'observeProbe' }],
             members: [{
                 name: 'probe', function: 'probe', kind: 'operation', on: 'element', result: 'number', changes: 'observable', reads: 'fresh',
@@ -969,7 +970,7 @@ describe('QueryEvaluator evaluation', () => {
 
         /** Evaluates the query again and again in one window, as a watch does, counting what each evaluation acquires. */
         const evaluationsOf = (text, bindings, modules) => {
-            const registry = new ModuleRegistry([BrowserModule.create(), ...modules]);
+            const registry = new LexicaRegistry([Vocabulary.module, BrowserModule.create(), ...modules]);
             const query = domql.query(text, bindings);
             const resolved = new LanguageResolver(registry, DomqlQuery.bindingsOf(query), null, { watch: true, acceptPartialObservation: true }).resolveDefinition(query.definition);
             const evaluator = new QueryEvaluator(registry, resolved, DomqlQuery.bindingsOf(query), { window, document }, null);
@@ -1141,7 +1142,7 @@ describe('QueryEvaluator projection', () => {
     });
 
     /** A module whose source `ticks` delivers events of the type it declares, and records each start. */
-    const ticks = data => new DomqlModule('ticks', {
+    const ticks = data => new LexicaModule('ticks', {
         types: [{ name: 'tick', fields: { at: 'number', label: 'string?' } }],
         eventTypes: [{ name: 'tick', data }],
         members: [{ name: 'ticks', function: 'ticks', kind: 'eventSource', on: 'element', input: 'positional', parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, fixed: true, selects: 'eventType', nulls: 'propagate' }], result: 'event<@selected>', changes: 'constant', reads: 'captured' }],
@@ -1154,7 +1155,7 @@ describe('QueryEvaluator projection', () => {
     });
 
     const evaluatorOf = (text, bindings = {}, modules = []) => {
-        const registry = new ModuleRegistry([BrowserModule.create(), ...modules]);
+        const registry = new LexicaRegistry([Vocabulary.module, BrowserModule.create(), ...modules]);
         const query = domql.query(text, bindings);
         const resolved = new LanguageResolver(registry, DomqlQuery.bindingsOf(query), null, {}).resolveDefinition(query.definition);
 

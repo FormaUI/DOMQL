@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, it, expect } from 'vitest';
 import { BrowserModule } from '#domql/dom/BrowserModule.mjs';
 import { Observations } from '#domql/dom/Observations.mjs';
-import { ModuleRegistry } from '#domql/language/vocabulary/ModuleRegistry.mjs';
-import { Vocabulary } from '#domql/language/vocabulary/Vocabulary.mjs';
+import { LexicaRegistry } from '@formaui/lexica/language/vocabulary/LexicaRegistry.mjs';
+import { BrowserVocabulary } from '#domql/dom/BrowserVocabulary.mjs';
 
-/** The observation types of the built-in vocabulary, started in the browser they observe. */
+/** The observation types of the DOM vocabulary, started in the browser they observe. */
 describe('Observations in a browser', () => {
     let observations;
     let registry;
@@ -12,7 +12,7 @@ describe('Observations in a browser', () => {
 
     beforeEach(() => {
         document.body.style.margin = '0';
-        registry = new ModuleRegistry([BrowserModule.create()]);
+        registry = new LexicaRegistry([BrowserModule.create()]);
         observations = new Observations(registry, { window, document });
         sessions = [];
     });
@@ -284,7 +284,7 @@ describe('Observations in a browser', () => {
         });
     });
 
-    describe('the built-in vocabulary', () => {
+    describe('the DOM vocabulary', () => {
         /** A value for a parameter: its default, or one of the type it takes. */
         const argumentFor = (parameter, other) => {
             if ('default' in parameter) {
@@ -297,7 +297,7 @@ describe('Observations in a browser', () => {
         it('starts and ends every observation it names, against a real receiver', async () => {
             const element = add('width: 40px; height: 40px');
             const other = add('width: 10px; height: 10px');
-            const declarations = Vocabulary.module.members.filter(declaration => declaration.observations.length > 0);
+            const declarations = BrowserVocabulary.module.members.filter(declaration => declaration.observations.length > 0);
 
             expect(declarations.length).toBeGreaterThan(15);
 

@@ -2,7 +2,7 @@
  * Observations — opens sessions on observations, shares one underlying observation between equivalent requests, and stops it when its last session is disposed
  */
 
-import { DomqlError } from '../language/DomqlError.mjs';
+import { LexicaError } from '@formaui/lexica/language/LexicaError.mjs';
 import { ObservationSession } from './ObservationSession.mjs';
 
 /** The properties of an observation that are not arguments of its type. */
@@ -35,7 +35,7 @@ export class Observations {
     #nextUnshared = 1;
 
     /**
-     * @param {import('../language/vocabulary/ModuleRegistry.mjs').ModuleRegistry} moduleRegistry The vocabulary whose observation types start the observations.
+     * @param {import('@formaui/lexica/language/vocabulary/LexicaRegistry.mjs').LexicaRegistry} moduleRegistry The vocabulary whose observation types start the observations.
      * @param {{ window: Window, document: Document }} environment The window the observations belong to; observations of two windows never share.
      * @param {{ reportError?: (error: unknown) => void }} [options] Where a failure of a session's callback, or of stopping an observation, is reported, by default the window's. A failure of the report itself is dropped, so reporting never interrupts what reports.
      */
@@ -292,7 +292,7 @@ export class Observations {
         const type = this.#moduleRegistry.getObservationType(request.type);
 
         if (type === undefined) {
-            throw DomqlError.evaluation(`The observation type '${request.type}' is declared by no module`, {});
+            throw LexicaError.evaluation(`The observation type '${request.type}' is declared by no module`, {});
         }
 
         const key = type.shared
@@ -442,7 +442,7 @@ export class Observations {
         const start = this.#moduleRegistry.getFunction(type);
 
         if (start === undefined) {
-            throw DomqlError.evaluation(`The module '${this.#moduleRegistry.getOwner(type)}' supplies no function for the observation type '${type.name}'`, {});
+            throw LexicaError.evaluation(`The module '${this.#moduleRegistry.getOwner(type)}' supplies no function for the observation type '${type.name}'`, {});
         }
 
         let observation;
@@ -450,13 +450,13 @@ export class Observations {
         try {
             observation = start(request, notify, this.#environment);
         } catch (error) {
-            throw DomqlError.evaluation(`The observation '${type.name}' failed to start: ${error?.message ?? String(error)}`, {}, { cause: error });
+            throw LexicaError.evaluation(`The observation '${type.name}' failed to start: ${error?.message ?? String(error)}`, {}, { cause: error });
         }
 
         if (typeof observation?.stop !== 'function' || (type.contract === 'maintained' && typeof observation.sample !== 'function')) {
             observation?.stop?.();
 
-            throw DomqlError.evaluation(`The observation type '${type.name}' started an observation that offers ${type.contract === 'maintained' ? 'no stop or no sample' : 'no stop'}`, {});
+            throw LexicaError.evaluation(`The observation type '${type.name}' started an observation that offers ${type.contract === 'maintained' ? 'no stop or no sample' : 'no stop'}`, {});
         }
 
         if (type.contract !== 'maintained') {
@@ -481,7 +481,7 @@ export class Observations {
             described = String(sample);
         }
 
-        throw DomqlError.evaluation(`The observation type '${type.name}' answered the sample ${described}, which is no { pending, value } with a value once it is not pending`, {});
+        throw LexicaError.evaluation(`The observation type '${type.name}' answered the sample ${described}, which is no { pending, value } with a value once it is not pending`, {});
     }
 
     #end(entry, session) {

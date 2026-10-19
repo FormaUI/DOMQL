@@ -1,5 +1,5 @@
 /**
- * BrowserObservers — the functions that start the built-in vocabulary's types of observation in a browser
+ * BrowserObservers — the functions that start the DOM vocabulary's types of observation in a browser
  */
 
 /**

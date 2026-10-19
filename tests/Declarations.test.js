@@ -18,10 +18,10 @@ describe('the declarations', () => {
         expect(declared).toEqual(runtime);
     });
 
-    it('declare the package\'s exports, domql and DomqlError, and only those', () => {
+    it('declare the package\'s exports, domql and LexicaError, and only those', () => {
         const exported = [...declarations.matchAll(/^export declare (?:const|class) (\w+)/gm)].map(match => match[1]).sort();
 
-        expect(exported).toEqual(['DomqlError', 'domql']);
+        expect(exported).toEqual(['LexicaError', 'domql']);
     });
 
     it('accept how a TypeScript caller uses the library, and refuse its misuse', () => {

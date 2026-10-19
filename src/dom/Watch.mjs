@@ -3,8 +3,8 @@
  */
 
 import { LiveState } from '../snapshots/LiveState.mjs';
-import { DomqlError } from '../language/DomqlError.mjs';
-import { ResultPath } from '../language/ResultPath.mjs';
+import { LexicaError } from '@formaui/lexica/language/LexicaError.mjs';
+import { ResultPath } from '@formaui/lexica/language/ResultPath.mjs';
 import { EventDispatcher } from './EventDispatcher.mjs';
 
 /** The change set of a listener's first ready event, which is its baseline. */
@@ -147,7 +147,7 @@ export class Watch {
     /** A selected view of a snapshot watch: a part of its result, whose path is checked against the result's type at once. */
     select(...path) {
         if (this.#liveState !== null) {
-            throw DomqlError.structure('Selected views belong to snapshot watches, and this watch keeps live state; write the smaller result in DOMQL to keep it live', {});
+            throw LexicaError.structure('Selected views belong to snapshot watches, and this watch keeps live state; write the smaller result in DOMQL to keep it live', {});
         }
 
         ResultPath.checkShape(path);
@@ -155,7 +155,7 @@ export class Watch {
 
         return new SelectedView(this, path, (eventName, handler, options) => {
             if (eventName !== 'change') {
-                throw DomqlError.structure(`A selected view raises 'change', and no '${eventName}'; its watch raises 'error'`, {});
+                throw LexicaError.structure(`A selected view raises 'change', and no '${eventName}'; its watch raises 'error'`, {});
             }
 
             return this.#subscribeAt(path, eventName, handler, options);
@@ -169,7 +169,7 @@ export class Watch {
      */
     readyAsync({ signal } = {}) {
         if (this.#status === 'disposed') {
-            return Promise.reject(DomqlError.evaluation('A disposed watch is never ready', {}));
+            return Promise.reject(LexicaError.evaluation('A disposed watch is never ready', {}));
         }
 
         if (signal?.aborted === true) {
@@ -207,7 +207,7 @@ export class Watch {
      */
     refreshAsync() {
         if (this.#status === 'disposed') {
-            return Promise.reject(DomqlError.evaluation('A disposed watch cannot be refreshed', {}));
+            return Promise.reject(LexicaError.evaluation('A disposed watch cannot be refreshed', {}));
         }
 
         return new Promise((resolve, reject) => {
@@ -242,7 +242,7 @@ export class Watch {
         }
 
         for (const { reject } of this.#readyWaiters.splice(0)) {
-            reject(DomqlError.evaluation('The watch was disposed before it was ready', {}));
+            reject(LexicaError.evaluation('The watch was disposed before it was ready', {}));
         }
     }
 

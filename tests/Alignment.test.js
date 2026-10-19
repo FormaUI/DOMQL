@@ -14,15 +14,11 @@ describe('Alignment', () => {
     const project = read('nuget/Forma.DOMQL.csproj');
 
     it('has a specification whose version is that of the implementation', () => {
-        const [, version] = specification.match(/^# DOMQL Specification v(\S+)$/m);
-
-        expect(version).toBe(domql.info.specificationVersion);
+        expect(specification.match(/^# DOMQL Specification v(\S+)$/m)[1]).toBe(domql.info.specificationVersion);
     });
 
     it('has a design titled with the version of the specification', () => {
-        const [, version] = design.match(/^# DOMQL Design v(\S+)$/m);
-
-        expect(version).toBe(domql.info.specificationVersion);
+        expect(design.match(/^# DOMQL Design v(\S+)$/m)[1]).toBe(domql.info.specificationVersion);
     });
 
     it('has a package that is the alpha of the specification, numbered by the commits it is built from', () => {
@@ -33,12 +29,6 @@ describe('Alignment', () => {
         // The library's own version, run from its sources, is the package's prefix as an alpha, marked as source by its build metadata.
         expect(domql.info.version).toBe(`${prefix}-alpha+source`);
         expect(project).toContain('git rev-list --count HEAD');
-    });
-
-    it('has a specification whose example definition is of the version the implementation writes', () => {
-        const [, version] = specification.match(/"version": (\d+),\s+"query"/);
-
-        expect(Number(version)).toBe(domql.query('panel { size = context.size }').definition.version);
     });
 
     it('has a specification whose complete query resolves to the fields of the result it shows', () => {

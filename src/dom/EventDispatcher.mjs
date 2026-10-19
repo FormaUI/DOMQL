@@ -2,7 +2,7 @@
  * EventDispatcher — the events a handle raises, delivered to the listeners subscribed to each in the order they subscribed, each failure kept from the others
  */
 
-import { DomqlError } from '../language/DomqlError.mjs';
+import { LexicaError } from '@formaui/lexica/language/LexicaError.mjs';
 
 export class EventDispatcher {
     #sender;
@@ -48,11 +48,11 @@ export class EventDispatcher {
         const subscriptions = this.#subscriptions.get(eventName);
 
         if (subscriptions === undefined) {
-            throw DomqlError.structure(`${this.#description} raises ${[...this.#subscriptions.keys()].map(name => `'${name}'`).join(' and ')}, and no '${eventName}'`, {});
+            throw LexicaError.structure(`${this.#description} raises ${[...this.#subscriptions.keys()].map(name => `'${name}'`).join(' and ')}, and no '${eventName}'`, {});
         }
 
         if (typeof handler !== 'function') {
-            throw DomqlError.structure('A listener takes the function that handles each event', {});
+            throw LexicaError.structure('A listener takes the function that handles each event', {});
         }
 
         const subscription = { listener: null, handler, state };

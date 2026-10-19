@@ -276,7 +276,7 @@ export interface DomqlResolvedDefinition {
 }
 
 /** Where a failure is. */
-export interface DomqlErrorLocation {
+export interface LexicaErrorLocation {
     /** The failing node's JSON Pointer into the definition. */
     pointer?: string;
     offset?: number;
@@ -287,12 +287,12 @@ export interface DomqlErrorLocation {
     declaration?: string;
 }
 
-/** A failure of DOMQL, in the stage it happened in, and where. Its `name` is `DomqlError`. */
-export declare class DomqlError extends Error {
+/** A failure of Lexica or of DOMQL, in the stage it happened in, and where. Its `name` is `LexicaError`. */
+export declare class LexicaError extends Error {
     private constructor();
-    readonly name: 'DomqlError';
+    readonly name: 'LexicaError';
     readonly kind: 'syntax' | 'structure' | 'validation' | 'module' | 'evaluation';
-    readonly location: DomqlErrorLocation;
+    readonly location: LexicaErrorLocation;
 }
 
 /** How a member changes. */

@@ -1,7 +1,7 @@
 try {
     domql.query('panel:[200]', { panel }).evaluate();
 } catch (error) {
-    if (error?.name !== 'DomqlError') {
+    if (error?.name !== 'LexicaError') {
         throw error;
     }
 

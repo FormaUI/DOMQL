@@ -18,6 +18,12 @@ concurrency:
 env:
   PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright
 
+# DOMQL depends on Lexica through a checkout beside its own, formaui-net.Lexica beside formaui-net.DOMQL, until a Lexica package is released, so each job checks out both;
+# Lexica's repository is private, and LEXICA_TOKEN is a token that may read it.
+defaults:
+  run:
+    working-directory: formaui-net.DOMQL
+
 # Each action is pinned to the commit of the release named in its comment.
 jobs:
   gate:
@@ -28,25 +34,32 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          path: formaui-net.DOMQL
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: FormaUI/Lexica
+          token: ${{ secrets.LEXICA_TOKEN }}
+          path: formaui-net.Lexica
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: |
-            package-lock.json
-            tests/package-lock.json
+            formaui-net.DOMQL/package-lock.json
+            formaui-net.DOMQL/tests/package-lock.json
 
       # The SDK nuget/global.json pins, which the build requires exactly.
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          global-json-file: nuget/global.json
+          global-json-file: formaui-net.DOMQL/nuget/global.json
 
       # The browser the tests run in, kept for as long as the tests' dependencies, and so Playwright, stay the same.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('tests/package-lock.json') }}
+          key: playwright-${{ runner.os }}-${{ hashFiles('formaui-net.DOMQL/tests/package-lock.json') }}
 
       # Chromium needs system libraries that the runner does not have.
       - name: Install the browser's system libraries
@@ -67,18 +80,25 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          path: formaui-net.DOMQL
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: FormaUI/Lexica
+          token: ${{ secrets.LEXICA_TOKEN }}
+          path: formaui-net.Lexica
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: |
-            package-lock.json
-            tests/package-lock.json
+            formaui-net.DOMQL/package-lock.json
+            formaui-net.DOMQL/tests/package-lock.json
 
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          global-json-file: nuget/global.json
+          global-json-file: formaui-net.DOMQL/nuget/global.json
 
       - name: Pack
         shell: pwsh
@@ -87,5 +107,5 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: package
-          path: artifacts/*.nupkg
+          path: formaui-net.DOMQL/artifacts/*.nupkg
           if-no-files-found: error

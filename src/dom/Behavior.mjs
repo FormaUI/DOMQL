@@ -2,7 +2,7 @@
  * Behavior — one applied behavior: it applies the instance its module creates, replaces the bindings it runs with when updated, raises the failures it reports while it runs, and disposes it
  */
 
-import { DomqlError } from '../language/DomqlError.mjs';
+import { LexicaError } from '@formaui/lexica/language/LexicaError.mjs';
 import { EventDispatcher } from './EventDispatcher.mjs';
 
 /** @typedef {{ declaration: object, name: string, start: Function, receiver: unknown, args: Record<string, unknown> | null, environment: object, location: object }} BehaviorCall */
@@ -69,14 +69,14 @@ export class Behavior {
      */
     update(bindings) {
         if (this.#status === 'disposed') {
-            throw DomqlError.evaluation('A disposed behavior cannot be updated', {});
+            throw LexicaError.evaluation('A disposed behavior cannot be updated', {});
         }
 
         const call = this.#prepare(bindings);
 
         // A receiver of unknown type selects no declaration, so a behavior that has none yet takes the one its bindings select, and keeps it.
         if (call.declaration !== null && this.#declaration !== null && call.declaration !== this.#declaration) {
-            throw DomqlError.validation(`These bindings select the behavior '${call.name}', which is another behavior; apply it as one of its own`, call.location);
+            throw LexicaError.validation(`These bindings select the behavior '${call.name}', which is another behavior; apply it as one of its own`, call.location);
         }
 
         this.#declaration = call.declaration ?? this.#declaration;
@@ -97,7 +97,7 @@ export class Behavior {
         try {
             this.#instance.update(call.receiver, call.args);
         } catch (error) {
-            throw DomqlError.evaluation(`The behavior '${call.name}' failed to update`, call.location, { cause: error });
+            throw LexicaError.evaluation(`The behavior '${call.name}' failed to update`, call.location, { cause: error });
         }
     }
 
@@ -120,7 +120,7 @@ export class Behavior {
         try {
             instance = start(receiver, args, environment, { reportError: error => this.#eventDispatcher.raiseError(error) });
         } catch (error) {
-            throw DomqlError.evaluation(`The behavior '${name}' failed to start`, location, { cause: error });
+            throw LexicaError.evaluation(`The behavior '${name}' failed to start`, location, { cause: error });
         }
 
         if (typeof instance?.update !== 'function' || typeof instance?.dispose !== 'function') {
@@ -131,7 +131,7 @@ export class Behavior {
                 this.#eventDispatcher.reportError(error);
             }
 
-            throw DomqlError.evaluation(`The behavior '${name}' started and answered no update and dispose`, location);
+            throw LexicaError.evaluation(`The behavior '${name}' started and answered no update and dispose`, location);
         }
 
         return instance;

@@ -2,7 +2,7 @@
  * EventListener — owns an event subscription: it projects each event, hands its handler the result or the failure, and retains its observation sessions until replaced or disposed
  */
 
-import { DomqlError } from '../language/DomqlError.mjs';
+import { LexicaError } from '@formaui/lexica/language/LexicaError.mjs';
 
 export class EventListener {
     #evaluator;
@@ -133,11 +133,11 @@ export class EventListener {
         try {
             sourceHandle = start(receiver, args, environment, deliver);
         } catch (error) {
-            throw DomqlError.evaluation(`The event source '${name}' failed to start listening`, location, { cause: error });
+            throw LexicaError.evaluation(`The event source '${name}' failed to start listening`, location, { cause: error });
         }
 
         if (typeof sourceHandle?.stop !== 'function') {
-            throw DomqlError.evaluation(`The event source '${name}' started listening and answered nothing that stops it`, location);
+            throw LexicaError.evaluation(`The event source '${name}' started listening and answered nothing that stops it`, location);
         }
 
         return sourceHandle;

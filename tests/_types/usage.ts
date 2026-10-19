@@ -1,5 +1,5 @@
 // How a TypeScript caller uses DOMQL, which the declarations must accept; the test compiles this file.
-import { domql, DomqlError } from '../../src/domql.js';
+import { domql, LexicaError } from '../../src/domql.js';
 import type { DomqlBehavior, DomqlChangeOperation, DomqlConversionContext, DomqlDefinition, DomqlDefinitionNode, DomqlEvaluateAsyncOptions, DomqlEventListener, DomqlLiveStateWatch, DomqlLiveStateWatchOptions, DomqlModule, DomqlModuleContents, DomqlModuleFunctions, DomqlOperationOptions, DomqlQuery, DomqlReadOnly, DomqlResolvedDefinition, DomqlResultArgs, DomqlSelectedView, DomqlSelection, DomqlWatch, DomqlWatchOptions } from '../../src/domql.js';
 
 const panel = document.createElement('div');
@@ -247,21 +247,21 @@ const rejected: never = ({} as DomqlConversionContext).reject('no count');
 // @ts-expect-error A member is one of the kinds the language has.
 domql.createModule('bad', { members: [{ name: 'bad', function: 'bad', kind: 'method', on: 'element', result: 'number', changes: 'constant', reads: 'fresh' }] });
 
-// A failure is a DomqlError, which the package exports as a class.
+// A failure is a LexicaError, which the package exports as a class.
 try {
     domql.query('panel.nonsense', { panel }).evaluate();
 } catch (error) {
-    if (error instanceof DomqlError) {
+    if (error instanceof LexicaError) {
         const failureKind: 'syntax' | 'structure' | 'validation' | 'module' | 'evaluation' = error.kind;
         const line: number | undefined = error.location.line;
-        const name: 'DomqlError' = error.name;
+        const name: 'LexicaError' = error.name;
 
         console.error(failureKind, line, name);
     }
 }
 
 // @ts-expect-error DOMQL makes its errors, so a caller constructs none.
-new DomqlError();
+new LexicaError();
 
 // @ts-expect-error A query is made from text or a definition.
 domql.query(42);

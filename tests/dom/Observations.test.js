@@ -1,9 +1,9 @@
 import { beforeEach, describe, it, expect } from 'vitest';
 import { Observations } from '#domql/dom/Observations.mjs';
-import { DomqlError } from '#domql/language/DomqlError.mjs';
-import { DomqlModule } from '#domql/language/vocabulary/DomqlModule.mjs';
-import { ModuleRegistry } from '#domql/language/vocabulary/ModuleRegistry.mjs';
-import { Vocabulary } from '#domql/language/vocabulary/Vocabulary.mjs';
+import { LexicaError } from '@formaui/lexica/language/LexicaError.mjs';
+import { LexicaModule } from '@formaui/lexica/language/vocabulary/LexicaModule.mjs';
+import { LexicaRegistry } from '@formaui/lexica/language/vocabulary/LexicaRegistry.mjs';
+import { BrowserVocabulary } from '#domql/dom/BrowserVocabulary.mjs';
 
 /** A module of observation types that start nothing in a browser, and the record of what they did. */
 const createObservationTypes = () => {
@@ -19,7 +19,7 @@ const createObservationTypes = () => {
             sample: () => record.samples[index] ?? { pending: true, value: null },
         };
     };
-    const module = new DomqlModule('fake', {
+    const module = new LexicaModule('fake', {
         observationTypes: [
             { name: 'ticks', contract: 'invalidation', identity: ['step'], function: 'startTicks' },
             { name: 'sampled', contract: 'maintained', function: 'startSampled' },
@@ -50,7 +50,7 @@ describe('Observations', () => {
         record = fake.record;
         reported = [];
         target = document.createElement('div');
-        observations = new Observations(new ModuleRegistry([Vocabulary.module, fake.module]), { window, document }, { reportError: error => reported.push(error) });
+        observations = new Observations(new LexicaRegistry([...BrowserVocabulary.modules, fake.module]), { window, document }, { reportError: error => reported.push(error) });
     });
 
     const request = (type, args = {}, on = target) => ({ type, target: on, arguments: args });
@@ -128,7 +128,7 @@ describe('Observations', () => {
         });
 
         it('report a failure to stop and are still disposed', () => {
-            const broken = new Observations(new ModuleRegistry([Vocabulary.module, new DomqlModule('stuck', {
+            const broken = new Observations(new LexicaRegistry([...BrowserVocabulary.modules, new LexicaModule('stuck', {
                 observationTypes: [{ name: 'stuck', contract: 'invalidation', function: 'startStuck' }],
             }, { startStuck: () => ({ stop: () => { throw new Error('stuck'); } }) })]), { window, document }, { reportError: error => reported.push(error) });
 
@@ -177,7 +177,7 @@ describe('Observations', () => {
         it('reach the other sessions when reporting a failure fails too', () => {
             const calls = [];
             const types = createObservationTypes();
-            const observing = new Observations(new ModuleRegistry([Vocabulary.module, types.module]), { window, document }, { reportError: () => { throw new Error('nowhere to report'); } });
+            const observing = new Observations(new LexicaRegistry([...BrowserVocabulary.modules, types.module]), { window, document }, { reportError: () => { throw new Error('nowhere to report'); } });
 
             observing.acquire(request('ticks'), () => { throw new Error('first fails'); });
             observing.acquire(request('ticks'), () => calls.push('second'));
@@ -187,7 +187,7 @@ describe('Observations', () => {
         });
 
         it('are disposed when the observation fails to stop and reporting the failure fails too', () => {
-            const stuck = new Observations(new ModuleRegistry([Vocabulary.module, new DomqlModule('stuck', {
+            const stuck = new Observations(new LexicaRegistry([...BrowserVocabulary.modules, new LexicaModule('stuck', {
                 observationTypes: [{ name: 'stuck', contract: 'invalidation', function: 'startStuck' }],
             }, { startStuck: () => ({ stop: () => { throw new Error('stuck'); } }) })]), { window, document }, { reportError: () => { throw new Error('nowhere to report'); } });
 
@@ -249,7 +249,7 @@ describe('Observations', () => {
             try {
                 action();
             } catch (error) {
-                expect(error).toBeInstanceOf(DomqlError);
+                expect(error).toBeInstanceOf(LexicaError);
                 expect(error.kind).toBe('evaluation');
 
                 return error;
@@ -277,7 +277,7 @@ describe('Observations', () => {
         });
 
         it('refuse a kind whose module supplies no function', () => {
-            const empty = new ModuleRegistry([new DomqlModule('empty', { observationTypes: [{ name: 'empty', contract: 'invalidation', function: 'startEmpty' }] })]);
+            const empty = new LexicaRegistry([new LexicaModule('empty', { observationTypes: [{ name: 'empty', contract: 'invalidation', function: 'startEmpty' }] })]);
 
             expect(failure(() => new Observations(empty, { window, document }).acquire(request('empty'), () => {})).message).toContain("supplies no function for the observation type 'empty'");
         });
@@ -332,7 +332,7 @@ describe('Observations', () => {
         });
 
         it('resolve the observations a built-in member names', () => {
-            const [declaration] = new ModuleRegistry([Vocabulary.module]).getMembers('attribute');
+            const [declaration] = new LexicaRegistry(BrowserVocabulary.modules).getMembers('attribute');
             const requests = declaration.observations.map(observation => observations.resolve(observation, { receiver: target, args: { name: 'id' } }));
 
             expect(requests).toEqual([{ type: 'mutation', target, arguments: { attributes: ['id'] } }]);

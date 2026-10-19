@@ -2,7 +2,7 @@
  * SnapshotPatcher — the change set that takes one result to the next, and applying it in place to the result it was computed against
  */
 
-import { ObjectUtils } from '../common/ObjectUtils.mjs';
+import { ObjectUtils } from '@formaui/lexica/common/ObjectUtils.mjs';
 
 /**
  * The elements a result's lists were projected from, following the result's structure: a list projected from elements holds the element of each item, and a part that holds no such list is null.

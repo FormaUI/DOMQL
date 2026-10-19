@@ -2,19 +2,19 @@ import { describe, it, expect } from 'vitest';
 import { SnapshotComparer } from '#domql/snapshots/SnapshotComparer.mjs';
 import { DomqlQuery } from '#domql/dom/DomqlQuery.mjs';
 import { domql } from '#domql/domql.js';
-import { LanguageResolver } from '#domql/language/LanguageResolver.mjs';
-import { DomqlModule } from '#domql/language/vocabulary/DomqlModule.mjs';
-import { ModuleRegistry } from '#domql/language/vocabulary/ModuleRegistry.mjs';
-import { Vocabulary } from '#domql/language/vocabulary/Vocabulary.mjs';
+import { LanguageResolver } from '@formaui/lexica/language/LanguageResolver.mjs';
+import { LexicaModule } from '@formaui/lexica/language/vocabulary/LexicaModule.mjs';
+import { LexicaRegistry } from '@formaui/lexica/language/vocabulary/LexicaRegistry.mjs';
+import { BrowserVocabulary } from '#domql/dom/BrowserVocabulary.mjs';
 
 /** A module of a size with the tolerance the test gives it, and one of a number with none. */
-const property = (name, result, tolerance = {}) => new DomqlModule(name, {
+const property = (name, result, tolerance = {}) => new LexicaModule(name, {
     members: [{ name, function: name, kind: 'property', on: 'element', parameters: [], result, changes: 'constant', reads: 'fresh', ...tolerance }],
 }, null);
 
 /** A query resolved against the vocabulary and the two test modules. */
 const resolvedOf = (text, bindings, tolerance) => {
-    const registry = new ModuleRegistry([Vocabulary.module, property('wobble', 'size', tolerance), property('steady', 'number')]);
+    const registry = new LexicaRegistry([...BrowserVocabulary.modules, property('wobble', 'size', tolerance), property('steady', 'number')]);
     const query = domql.query(text, bindings);
 
     return new LanguageResolver(registry, DomqlQuery.bindingsOf(query), null, {}).resolveDefinition(query.definition);
@@ -26,14 +26,14 @@ const indexerModules = () => {
     const level = { function: 'level', kind: 'operation', form: 'indexer', parameters: key, result: 'number', changes: 'constant', reads: 'fresh', tolerance: 2 };
 
     return [
-        new DomqlModule('meter', {
+        new LexicaModule('meter', {
             types: [{ name: 'meter', fields: { name: 'string' } }],
             members: [
                 { name: 'meter', function: 'meter', kind: 'property', on: 'element', parameters: [], result: 'meter', changes: 'constant', reads: 'fresh' },
                 { ...level, name: 'level', on: 'meter', default: true },
             ],
         }, null),
-        new DomqlModule('reading', { members: [{ ...level, name: 'reading', function: 'reading', on: 'element' }] }, null),
+        new LexicaModule('reading', { members: [{ ...level, name: 'reading', function: 'reading', on: 'element' }] }, null),
     ];
 };
 
@@ -41,7 +41,7 @@ const indexerModules = () => {
 const indexerComparerOf = (text, bindings) => {
     const query = domql.query(text, bindings);
 
-    return new SnapshotComparer(new LanguageResolver(new ModuleRegistry([Vocabulary.module, ...indexerModules()]), DomqlQuery.bindingsOf(query), null, {}).resolveDefinition(query.definition));
+    return new SnapshotComparer(new LanguageResolver(new LexicaRegistry([...BrowserVocabulary.modules, ...indexerModules()]), DomqlQuery.bindingsOf(query), null, {}).resolveDefinition(query.definition));
 };
 
 /** The comparer of the snapshots of a query, which compares them as a watch does. */

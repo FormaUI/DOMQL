@@ -14,9 +14,12 @@ You'll need:
 - PowerShell to run the build scripts.
 - The .NET SDK pinned in `nuget/global.json`.
 
-After cloning the repository, install the test dependencies and run the unit tests:
+DOMQL is written in [Lexica](https://github.com/FormaUI/Lexica), which it depends on through a checkout beside this one, until a Lexica package is released. Clone both into one folder, `formaui-net.Lexica` beside `formaui-net.DOMQL`.
+
+After cloning the repositories, install the dependencies, the root's linking Lexica's checkout, and run the unit tests:
 
 ```sh
+npm install
 cd tests
 npm install
 npm test
@@ -32,16 +35,14 @@ Run the full build from the repository root:
 
 | Location | Contents |
 | --- | --- |
-| `src/language/` | Parsing, definitions, types, validation and vocabulary declarations |
 | `src/dom/` | DOM evaluation, observations, watches, events, actions and behaviors |
 | `src/snapshots/` | Snapshot comparison and updates |
-| `src/common/` | Shared object and array helpers |
 | `tests/` | Tests arranged to match the source folders |
 | `scripts/` | Bundling scripts |
 | `nuget/` | Package project and library guide |
 | `docs/` | Specification, runtime design and implementation plan |
 
-The [specification](docs/domql-specification.md) defines the language. The [design](docs/domql-design.md) defines the runtime and public API. If a change affects either contract, update the relevant document before implementing it. The [implementation plan](docs/domql-implementation-plan.md) tracks unfinished work and open decisions.
+The [Lexica specification](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-specification.md) defines the language, and the [DOMQL specification](docs/domql-specification.md) the DOM vocabulary and how queries are evaluated and watched. The [Lexica design](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md) defines modules and tooling, and the [DOMQL design](docs/domql-design.md) the runtime and public API. If a change affects either contract, update the relevant document before implementing it. The [implementation plan](docs/domql-implementation-plan.md) tracks unfinished work and open decisions.
 
 ## Develop a change
 

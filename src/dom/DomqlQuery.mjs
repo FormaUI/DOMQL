@@ -2,8 +2,8 @@
  * DomqlQuery — a query object: a request's definition and the values its parameters are bound to, through which every operation on the request is carried out
  */
 
-import { ParameterBindings } from '../language/ParameterBindings.mjs';
-import { ResultPath } from '../language/ResultPath.mjs';
+import { ParameterBindings } from '@formaui/lexica/language/ParameterBindings.mjs';
+import { ResultPath } from '@formaui/lexica/language/ResultPath.mjs';
 
 /**
  * What carries a query object's operations out, in the DOMQL instance that made it.

@@ -2,7 +2,7 @@
 
 **A declarative approach to managing the DOM.**
 
-DOMQL is a small, extensible query language and JavaScript library. Use it to read information from the document, track changes, respond to events and update its content or state. This guide takes you from your first query to watching results, handling events and extending the library.
+DOMQL is a small, extensible query language and JavaScript library. Use it to read information from the document, track changes, respond to events and update its content or state. This guide takes you from your first query to watching results, handling events and extending the library. Its queries are written in [Lexica](https://github.com/FormaUI/Lexica), an extensible expression language, and DOMQL adds the DOM: its vocabulary, observation, watching and events.
 
 DOMQL is a FormaUI product, developed alongside [Forma](https://github.com/FormaUI/Forma). It stands on its own and works independently of any UI framework.
 
@@ -759,7 +759,7 @@ resolved.type.toString(); // 'number?'
 
 ### Handle errors
 
-DOMQL reports failures as a `DomqlError` with `kind`, `message` and a structured `location`. The location identifies a text position, a definition node by JSON Pointer, or the relevant binding or declaration. Use these structured fields rather than matching message text.
+DOMQL reports failures as a `LexicaError` with `kind`, `message` and a structured `location`. The location identifies a text position, a definition node by JSON Pointer, or the relevant binding or declaration. Use these structured fields rather than matching message text.
 
 | Kind | Failure |
 | --- | --- |
@@ -773,7 +773,7 @@ DOMQL reports failures as a `DomqlError` with `kind`, `message` and a structured
 try {
     domql.query('panel:[200]', { panel }).evaluate();
 } catch (error) {
-    if (error?.name !== 'DomqlError') {
+    if (error?.name !== 'LexicaError') {
         throw error;
     }
 
@@ -834,7 +834,7 @@ Register modules once during setup, rather than on every evaluation.
 
 Modules can also declare Boolean members, event types, conditions asked with `is`, `has` or `supports`, event sources, and conversions to and from their own types, each naming the type it converts from, the type it converts to and the function that converts a value. That function receives the value and `{ reject }`, and calls `reject(reason)` for a value it cannot convert, which stops it at once; any other exception it throws is reported as a fault. A condition names the function that tests it and its own observations. An event source receives the receiver, arguments, environment and an event-delivery callback. It returns an object with a `stop` method to end listening. Each event is captured using the fields declared by its event type.
 
-The [runtime design](https://github.com/FormaUI/Forma.DOMQL/blob/main/docs/domql-design.md) describes the full extension contracts. The next section shows action and behavior modules.
+The [Lexica design](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md#modules) describes the full extension contracts. The next section shows action and behavior modules.
 
 ## Execute actions and apply behaviors
 
@@ -929,7 +929,8 @@ console.log(panel.dataset.highlight);
 ## Learn more
 
 - [Repository README](https://github.com/FormaUI/Forma.DOMQL): what DOMQL is for, what is built, and how to build and test it.
-- [Language specification](https://github.com/FormaUI/Forma.DOMQL/blob/main/docs/domql-specification.md): syntax, types, null semantics and vocabulary contracts.
-- [Runtime design](https://github.com/FormaUI/Forma.DOMQL/blob/main/docs/domql-design.md): resolution, evaluation, modules, watching, subscribing to events, actions and behaviors.
+- [Lexica specification](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-specification.md): the language DOMQL is written in, its syntax, types, null semantics and vocabulary contracts.
+- [DOMQL specification](https://github.com/FormaUI/Forma.DOMQL/blob/main/docs/domql-specification.md): the DOM's nodes and shadow trees, the built-in vocabulary, and how a query is evaluated and watched.
+- [Runtime design](https://github.com/FormaUI/Forma.DOMQL/blob/main/docs/domql-design.md): resolution, evaluation, watching, subscribing to events, actions and behaviors, and the [Lexica design](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md): modules and tooling.
 
 The specification and design describe the intended contracts. The [current capabilities](#current-capabilities) section lists what this preview implements.

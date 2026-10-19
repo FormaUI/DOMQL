@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { domql } from '#domql/domql.js';
-import { Lowering } from '#domql/language/Lowering.mjs';
-import { ParsedTexts } from '#domql/language/ParsedTexts.mjs';
-import { Parser } from '#domql/language/Parser.mjs';
-import { NODE_KINDS, SyntaxTree } from '#domql/language/SyntaxTree.mjs';
-import { TOKEN_TYPES, Tokenizer } from '#domql/language/Tokenizer.mjs';
+import { Lowering } from '@formaui/lexica/language/Lowering.mjs';
+import { ParsedTexts } from '@formaui/lexica/language/ParsedTexts.mjs';
+import { Parser } from '@formaui/lexica/language/Parser.mjs';
+import { NODE_KINDS, SyntaxTree } from '@formaui/lexica/language/SyntaxTree.mjs';
+import { TOKEN_TYPES, Tokenizer } from '@formaui/lexica/language/Tokenizer.mjs';
 
 const treeOf = text => new Parser(text).parse();
 
