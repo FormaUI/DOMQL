@@ -534,7 +534,37 @@ HTML and CSS names containing hyphens are strings: `element:["data-key"]`.
 
 ### Strings and escapes
 
-Strings use double quotes. Their escape sequences are:
+Strings come in two families: a **string**, written in double quotes, whose backslashes begin escapes, and a **raw string**, written in single quotes, whose backslashes are text. Each is written inline, on one line, or as a **block**, on lines of its own, and `$` before either makes it interpolated, as [Interpolated strings](#interpolated-strings) describes. Every form gives an ordinary `string`:
+
+| Form | Name |
+| --- | --- |
+| `"…"` | String |
+| `'…'` | Raw string |
+| `$"…"` | Interpolated string |
+| `$'…'` | Interpolated raw string |
+| `"""…"""` | String block |
+| `'''…'''` | Raw block |
+| `$"""…"""` | Interpolated string block |
+| `$'''…'''` | Interpolated raw block |
+
+```domql
+let path = 'C:\Users\Eyal\'
+return {
+    path = path,
+    pattern = '\d{3}-\d{2}',
+    message = $"""
+        Saved to {path}
+
+        Done.
+        """
+}
+```
+
+<a id="strings-and-escapes-escapes"></a>
+
+#### Escapes
+
+A string and a string block take these escape sequences:
 
 | Escape | Character |
 | --- | --- |
@@ -550,13 +580,54 @@ Examples of Unicode escapes are `\u{A0}` for a no-break space, `\u{200B}` for a 
 
 A surrogate value from D800 through DFFF, a value above 10FFFF, or any unrecognized escape is a syntax error.
 
-Characters may also appear literally, including line breaks and tabs. `"😀"` and `"\u{1F600}"` have the same value, as do `"\e"` and `"\u{1B}"`.
+Characters other than a line break may also appear literally, tabs included. `"😀"` and `"\u{1F600}"` have the same value, as do `"\e"` and `"\u{1B}"`.
+
+<a id="strings-and-escapes-raw-strings"></a>
+
+#### Raw strings
+
+A raw string's backslashes are text, a trailing one included, so `'C:\Users\Eyal\'`, `'\d{3}-\d{2}'` and `'[data-state="open"]'` hold exactly what they show. Its one convention is its quote doubled: `'It''s ready'` is `It's ready`, as `"It's ready"` is, and `''` is the empty string. A raw string has no escapes, so a character it cannot show, an invisible one among them, is written in a string instead.
+
+<a id="strings-and-escapes-one-line"></a>
+
+#### One line
+
+An inline string, `"…"`, `'…'`, `$"…"` or `$'…'`, holds no line break between its delimiters; one written there is a syntax error suggesting `\n` or a block. An escape or an inserted value may still give its value a line break, as `"First\nSecond"` and `$"Content: {text}"` do.
+
+<a id="strings-and-escapes-blocks"></a>
+
+#### Blocks
+
+A block is opened by three or more matching quotes, `$` directly before them where it is interpolated, followed directly by a line break, and closed by as many of the same quote, the first text after the indentation of a later line. The query continues after the closing delimiter on its line, a call, an access, a comma or a comment:
+
+```domql
+{
+    label = '''
+        Ready
+        ''',
+    count = 3
+}
+```
+
+- **The margin.** The closing delimiter's indentation is the margin removed from each line of the block's text. Each line that is not blank begins with exactly that whitespace, tabs and spaces alike, and one that does not is a syntax error. A blank line shorter than the margin is empty, and whitespace beyond the margin is kept.
+- **The boundaries.** The line break after the opening delimiter and the one before the closing delimiter are no part of the text; blank lines within it are kept. LF, CRLF and a lone CR each break a line, and the text holds each as LF; an escape writes any other line ending.
+- **Before anything else.** The margin is removed from the source text before escapes are read and before interpolation, so no inserted value is trimmed or reindented.
+- **Quotes within.** A run of the delimiter's quote at least as long as the delimiter in a block's text is a syntax error unless it is the closing delimiter, and the diagnostic suggests a longer one, as four quotes hold `'''`. A closing run has exactly the delimiter's length. A string block's escaped quote is in no run, a raw block has no escape and doubles no quote, and the strings within an interpolation follow their own rules, so their quotes are in no run either.
+- **Malformed delimiters.** An opening delimiter with anything after it on its line, a block never closed and a closing run longer than its delimiter each have a diagnostic of their own.
+
+<a id="strings-and-escapes-where-a-string-literal-is-required"></a>
+
+#### Where a string literal is required
+
+Every form that does not interpolate stands wherever the grammar requires a string literal, a cast's or a conversion's type name among them, so `panel as 'element'` is `panel as "element"`. An interpolated form is an expression and stands in none of them, even with text alone.
 
 <a id="strings-and-escapes-canonical-spelling-of-strings"></a>
 
 #### Canonical spelling of strings
 
-Canonical text writes a double quote and a backslash as `\"` and `\\`, and line feed, carriage return, tab and escape as `\n`, `\r`, `\t` and `\e`.
+Canonical text writes every string as an inline string, `"…"`, and every interpolated one as `$"…"`, whatever form it was written in, escaping what it must: a raw string and a block give the same value written so. Formatting a query's source keeps each string's family and its inline or block form, and its value, significant whitespace included.
+
+It writes a double quote and a backslash as `\"` and `\\`, and line feed, carriage return, tab and escape as `\n`, `\r`, `\t` and `\e`.
 
 Other invisible characters use `\u{…}` with uppercase hexadecimal digits and no leading zeros:
 
@@ -1639,7 +1710,7 @@ panel {
 
 ### Interpolated strings
 
-`$"…"` joins text and inserted values. Each interpolation is `{`, one [simple expression](#simple-expressions), then `}`. Arithmetic `+` does not join text.
+`$"…"` joins text and inserted values, and so do `$'…'` and the interpolated blocks, `$"""…"""` and `$'''…'''`. Each interpolation is `{`, one [simple expression](#simple-expressions), then `}`. Arithmetic `+` does not join text.
 
 ```domql
 panel {
@@ -1652,11 +1723,11 @@ panel {
 
 #### Text and braces
 
-Text follows ordinary string rules, including escapes and literal characters. Escapes are consumed whole: `\u{7B}` inserts a brace without opening an interpolation.
+Text follows its family's rules: an interpolated string's and its block's escapes, consumed whole, so `\u{7B}` inserts a brace without opening an interpolation, and an interpolated raw string's literal backslashes and doubled quote, as `$'C:\Users\{name}\Documents\'` and `$'It''s {name}'` show.
 
-Double a brace to include it as text: `{{` or `}}`. For a binding `name` equal to `Eyal`, `$"{{{name}}}"` produces `{Eyal}`.
+Double a brace to include it as text, `{{` or `}}`, in both families. For a binding `name` equal to `Eyal`, `$"{{{name}}}"` produces `{Eyal}`, as `$'{{{name}}}'` does.
 
-A lone `}` is a syntax error. `\{` is not an escape. Braces in an ordinary string are text: `"Use {name}"` has no interpolation.
+A lone `}` is a syntax error. `\{` is not an escape. Without `$`, every brace is text: `"Use {name}"` and `'Use {name}'` have no interpolation.
 
 <a id="interpolated-strings-interpolation-expressions"></a>
 
@@ -1664,7 +1735,9 @@ A lone `}` is a syntax error. `\{` is not an escape. Braces in an ordinary strin
 
 An interpolation uses the scope and evaluation context where the interpolated string appears. It may contain its own strings, objects, comments and interpolated strings, subject to the simple-expression restrictions.
 
-`$"{ { x = 1 }.x}"` inserts 1. The space after the interpolation's opening brace prevents the object expression's `{` from forming `{{`, which always means a literal brace in text. An empty interpolation is a syntax error.
+An interpolation stands on one source line, its `{`, its expression and its `}`, in a block as inline: a line break in the expression, its comments or its strings is a syntax error, so no block stands in an interpolation, and a longer calculation belongs in a local whose name is interpolated.
+
+An interpolation that begins with an object expression groups it in parentheses: `$"{({ x = 1 }.x)}"` inserts 1, and `$"{ { x = 1 }.x}"` is a syntax error suggesting the group, whatever whitespace or comment stands before the object expression; `{{` is always a literal brace in text. An empty interpolation is a syntax error.
 
 <a id="interpolated-strings-accepted-values"></a>
 
@@ -1697,7 +1770,7 @@ A watch follows the interpolations' dependencies and compares the resulting text
 
 #### Canonical text
 
-Canonical text always uses `$"…"`, with text escaped as an ordinary string and braces doubled. Each interpolation's expression is on one line. There is no padding inside the braces except for the space before an object expression that begins the interpolation.
+Canonical text always uses `$"…"`, with text escaped as an ordinary string and braces doubled. Each interpolation's expression is on one line, with no padding inside the braces, and one that begins with an object expression is grouped in parentheses.
 
 <a id="calculations-and-reuse"></a>
 
@@ -3217,6 +3290,9 @@ In this section: [Absence and unavailable values](#absence-and-unavailable-value
 | An arrow function whose body is no simple expression | A syntax error in text, and a structure error in a definition, saying its body is a simple expression |
 | A conditional or a `do` block that is the receiver of a chain | A syntax error, or a structure error in a definition, saying to bind its value first |
 | An interpolated string with a space after its `$`, an interpolation with no expression, or a lone `}` in its text | A syntax error at what is written so |
+| A line break written in an inline string, raw or not and interpolated or not | A syntax error at the line break, suggesting `\n` or a block |
+| A block whose opening delimiter has anything after it on its line, that is never closed, whose closing run is longer than its delimiter, whose text holds a run of quotes as long as its delimiter, or one of whose lines lacks its margin | A syntax error naming the delimiter, the run or the line, a run suggesting a longer delimiter |
+| An interpolation holding a line break, a line comment or a block, or one beginning with an object expression | A syntax error, saying an interpolation stands on one line or suggesting the group `{({ … })}` |
 
 <a id="structure-errors"></a>
 
@@ -3543,20 +3619,40 @@ integer                       = "0" | nonzero-digit { digit }
 fraction                      = "." digit { digit }
 exponent                      = ( "e" | "E" ) [ "+" | "-" ] digit { digit }
 
-string                        = '"' { string-character | string-escape } '"'
-string-character              = ? any character except double quote or backslash ?
+string                        = inline-string | raw-string | string-block | raw-block
+inline-string                 = '"' { string-character | string-escape } '"'
+string-character              = ? any character except double quote, backslash
+                                  or a line break ?
+raw-string                    = "'" { raw-character | "''" } "'"
+raw-character                 = ? any character except single quote or a line break ?
+string-block                  = ? three or more double quotes and a line break, the
+                                  block's lines and its closing delimiter, as Blocks
+                                  describes, its text of string-character,
+                                  string-escape and line breaks ?
+raw-block                     = ? three or more single quotes and a line break, the
+                                  block's lines and its closing delimiter, as Blocks
+                                  describes, its text any characters ?
 string-escape                 = '\' ( '"' | '\' | "n" | "r" | "t" | "e" | unicode-escape )
 unicode-escape                = "u{" hex-digit [ hex-digit [ hex-digit
                                 [ hex-digit [ hex-digit [ hex-digit ] ] ] ] ] "}"
 hex-digit                     = digit | "A" | "B" | "C" | "D" | "E" | "F"
                               | "a" | "b" | "c" | "d" | "e" | "f"
 
-interpolated-string           = '$"' { interpolated-part } '"'
+interpolated-string           = "$" ( '"' { interpolated-part } '"'
+                                    | "'" { raw-interpolated-part } "'"
+                                    | ? a string block or a raw block whose text
+                                        holds interpolated parts or
+                                        raw-interpolated parts ? )
 interpolated-part             = interpolated-character | string-escape
                               | "{{" | "}}" | interpolation
+raw-interpolated-part         = raw-interpolated-character | "''"
+                              | "{{" | "}}" | interpolation
 interpolation                 = "{" simple-expression "}"
+                              (* on one line, beginning with no object expression *)
 interpolated-character        = ? any character except double quote, backslash,
-                                  opening brace or closing brace ?
+                                  a brace or a line break ?
+raw-interpolated-character    = ? any character except single quote, a brace
+                                  or a line break ?
 
 letter                        = ? ASCII A–Z or a–z ?
 digit                         = "0" | nonzero-digit
@@ -3673,6 +3769,10 @@ In this section: [Queries and values](#queries-and-values) · [Chains and member
 | Attempt | `try`, returning null when the one cast or conversion it attempts rejects its value | [Attempts](#attempts) |
 | Arithmetic negation | `-` before a number, negating it | [Arithmetic](#arithmetic) |
 | Interpolation | An interpolated string's `{…}`, inserting the text of the simple expression it holds | [Interpolated strings](#interpolated-strings) |
+| String | `"…"`, text whose backslashes begin escapes; also the type every form gives | [Strings and escapes](#strings-and-escapes) |
+| Raw string | `'…'`, text whose backslashes are text and whose doubled quote is one quote | [Raw strings](#strings-and-escapes-raw-strings) |
+| Interpolated string | `$"…"`, or `$'…'` for an interpolated raw string, text holding interpolations | [Interpolated strings](#interpolated-strings) |
+| Block | A string, raw or not and interpolated or not, written on lines of its own between delimiters of three or more quotes, its margin removed | [Blocks](#strings-and-escapes-blocks) |
 | Simple expression | The restricted expression an argument, an indexer's key, a bracket property name or an interpolation holds | [Simple expressions](#simple-expressions) |
 
 <a id="vocabulary-and-requests"></a>

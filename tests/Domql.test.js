@@ -4269,7 +4269,7 @@ describe('domql interpolated strings', () => {
 
     it('reads its text as a string\'s, an escape whole, so the brace of \\u{…} opens nothing, and a doubled brace as a brace', () => {
         expect(evaluate('$"say \\"hi\\" \\\\ \\n\\t\\u{41} {{x}} }}"')).toBe('say "hi" \\ \n\tA {x} }');
-        expect(evaluate('$"line\nbreak\tand é 😀"')).toBe('line\nbreak\tand é 😀');
+        expect(evaluate('$"line\\nbreak\tand é 😀"')).toBe('line\nbreak\tand é 😀');
         expect(evaluate('$"{{{name}}}"', { name: 'Eyal' })).toBe('{Eyal}');
         expect(evaluate('$"\\u{7B}{name}\\u{7D}"', { name: 'Eyal' })).toBe('{Eyal}');
         expect(evaluate('$"{name}"', { name: '{x}' })).toBe('{x}');
@@ -4279,7 +4279,7 @@ describe('domql interpolated strings', () => {
     it('holds a simple expression in an interpolation, with its own strings, braces, comments and interpolated strings', () => {
         expect(evaluate('$"{a ?? "Unknown"}"', { a: null })).toBe('Unknown');
         expect(evaluate('$"<{$"{a}!"}>"', { a: 'x' })).toBe('<x!>');
-        expect(evaluate('$"{ { x = 1 }.x}"')).toBe('1');
+        expect(evaluate('$"{({ x = 1 }.x)}"')).toBe('1');
         expect(evaluate('$"{a /* } */ ?? "}"}"', { a: null })).toBe('}');
         expect(evaluate('$"{if a then "yes" else "no" end} {n + 1}"', { a: true, n: 1 })).toBe('yes 2');
         expect(evaluate('$"{a to "string"}"', { a: false })).toBe('false');
@@ -4386,10 +4386,10 @@ describe('domql interpolated strings', () => {
 
     it.each([
         ['each hole on one line, with no space inside its braces', '$"Hello {  a ?? "x"  }!"', '$"Hello {a ?? "x"}!"'],
-        ['a hole whose expression begins with a brace, a space after its own', '$"{ {x=1, y=2}.x}"', '$"{ { x = 1, y = 2 }.x}"'],
+        ['a hole whose expression begins with an object expression, grouped in parentheses', '$"{({x=1, y=2}.x)}"', '$"{({ x = 1, y = 2 }.x)}"'],
         ['its braces doubled, however they were written', '$"{{a}} \\u{7B}"', '$"{{a}} {{"'],
-        ['its text\'s line breaks, tabs and invisible characters escaped, as a string\'s are', '$"a\nb\tc​"', '$"a\\nb\\tc\\u{200B}"'],
-        ['a string within a hole as any string is written, its line break escaped', '$"{a ?? "x\ny"}"', '$"{a ?? "x\\ny"}"'],
+        ['its text\'s line breaks, tabs and invisible characters escaped, as a string\'s are', '$"a\\nb\tc​"', '$"a\\nb\\tc\\u{200B}"'],
+        ['a string within a hole as any string is written, its tab escaped', '$"{a ?? "x\ty"}"', '$"{a ?? "x\\ty"}"'],
         ['an interpolated string within a hole, and one with text alone', '$"{$"{a}"} {$"b"} {$""}"', '$"{$"{a}"} {$"b"} {$""}"'],
     ])('writes %s', (_, text, formatted) => {
         expect(domql.format(text)).toBe(formatted);
@@ -4399,13 +4399,141 @@ describe('domql interpolated strings', () => {
     });
 });
 
+describe('domql raw strings and blocks', () => {
+    const bindings = { name: 'Eyal', count: 3 };
+    const evaluate = text => domql.query(text, bindings).evaluate();
+    const refusalOf = text => getError(() => domql.query(text, bindings));
+    const lines = (...parts) => parts.join('\n');
+
+    it.each([
+        ['a string', '"a\\nb"', 'a\nb'],
+        ['a raw string', String.raw`'C:\Users\Eyal\'`, 'C:\\Users\\Eyal\\'],
+        ['an interpolated string', '$"Hello {name}\\n"', 'Hello Eyal\n'],
+        ['an interpolated raw string', String.raw`$'C:\Users\{name}\Documents\'`, 'C:\\Users\\Eyal\\Documents\\'],
+        ['a string block', lines('"""', '    Hello,', '    \\tworld', '    """'), 'Hello,\n\tworld'],
+        ['a raw block', lines("'''", String.raw`    \d{3}-\d{2}`, "    '''"), String.raw`\d{3}-\d{2}`],
+        ['an interpolated string block', lines('$"""', '    Hello {name},', '', '    You have {count} unread messages.', '    """'), 'Hello Eyal,\n\nYou have 3 unread messages.'],
+        ['an interpolated raw block', lines("$'''", '    Path: C:\\Users\\{name}\\', String.raw`    Pattern: \d{{3}}-\d{{2}}`, "    '''"), 'Path: C:\\Users\\Eyal\\\nPattern: \\d{3}-\\d{2}'],
+    ])('reads %s as the text it stands for', (_, text, value) => {
+        expect(evaluate(text)).toBe(value);
+    });
+
+    it('reads a raw string\'s backslashes as text and its doubled quote as one, and a string\'s quote as it is', () => {
+        expect(evaluate(String.raw`'\d{3}-\d{2}'`)).toBe(String.raw`\d{3}-\d{2}`);
+        expect(evaluate(`'[data-state="open"]'`)).toBe('[data-state="open"]');
+        expect(evaluate("'It''s ready'")).toBe("It's ready");
+        expect(evaluate(`"It's ready"`)).toBe("It's ready");
+        expect(evaluate("''")).toBe('');
+        expect(evaluate("''''")).toBe("'");
+        expect(evaluate("$'It''s {name}'")).toBe("It's Eyal");
+        expect(refusalOf("{ 'a' = 1 }").message).toContain(`"'a'" is a literal, and names nothing`);
+    });
+
+    it('takes an interpolation and doubled braces in both interpolated families, and every brace as text without $', () => {
+        expect(evaluate('$"Literal {{name}}, actual {name}"')).toBe('Literal {name}, actual Eyal');
+        expect(evaluate("$'Literal {{name}}, actual {name}'")).toBe('Literal {name}, actual Eyal');
+        expect(evaluate("'Use {name} and {{this}}'")).toBe('Use {name} and {{this}}');
+        expect(evaluate(lines("'''", '    {', '        "template": "{{name}}"', '    }', "    '''"))).toBe('{\n    "template": "{{name}}"\n}');
+    });
+
+    it.each([
+        ['a string', '"a\nb"', 'A string stands on one line: write \\n for a line break, or write a string block'],
+        ['a raw string', "'a\nb'", 'A raw string stands on one line: write a raw block'],
+        ['an interpolated string', '$"a\nb"', 'An interpolated string stands on one line: write \\n for a line break, or write an interpolated string block'],
+        ['an interpolated raw string', "$'a\nb'", 'An interpolated raw string stands on one line: write an interpolated raw block'],
+    ])('refuses a line break written in %s, at the line break', (_, text, message) => {
+        expect(refusalOf(text)).toMatchObject({ kind: 'syntax', message: expect.stringContaining(message), location: { line: 1, column: text.indexOf('\n') + 1 } });
+    });
+
+    it('lets an escape or an inserted value give an inline string a line break', () => {
+        expect(evaluate('"First\\nSecond"')).toBe('First\nSecond');
+        expect(domql.query('$"Content: {text}"', { text: 'a\nb' }).evaluate()).toBe('Content: a\nb');
+    });
+
+    it('removes the closing delimiter\'s indentation from each line, keeps what is beyond it and the blank lines within, and excludes the boundary line breaks', () => {
+        expect(evaluate(lines('"""', '    a', '      b', '', '    c', '    """'))).toBe('a\n  b\n\nc');
+        expect(evaluate(lines('"""', '    a', ' ', '        ', '    """'))).toBe('a\n\n    ');
+        expect(evaluate(lines('"""', '"""'))).toBe('');
+        expect(evaluate(lines('"""', 'a', '"""'))).toBe('a');
+        expect(evaluate('"""\r\n  a\r  b\r\n  """')).toBe('a\nb');
+    });
+
+    it('removes the margin before interpolation, never changing what is inserted', () => {
+        expect(domql.query(lines('$"""', '    > {text}', '    """'), { text: 'x\n    y' }).evaluate()).toBe('> x\n    y');
+    });
+
+    it('continues the query after a block\'s closing delimiter on its line', () => {
+        expect(evaluate(lines('{', "    label = '''", '        Ready', "        ''',", '    count = 3', '}'))).toEqual({ label: 'Ready', count: 3 });
+        expect(evaluate(lines('"""', '    a', '    """ == "a" // a comment'))).toBe(true);
+    });
+
+    it.each([
+        ['spaces after its opening delimiter', lines('"""   ', '    a', '    """'), "A string block's opening delimiter is followed directly by its line break, with nothing after it on its line"],
+        ['text after its opening delimiter', '"""a"""', "A string block's text stands on the lines between its delimiters"],
+        ['no closing delimiter', lines('"""', '    a'), 'A string block is never closed: its closing delimiter, 3 quotes, stands first on a line of its own'],
+        ['a closing run longer than its delimiter', lines('"""', '    a', '    """"'), 'A block closes with exactly the 3 quotes that open it, and this run has 4'],
+        ['a run of quotes as long as its delimiter in its text', lines("'''", "    x ''' y", "    '''"), "A run of 3 quotes in a block's text is as long as its delimiter: open the block with a longer delimiter to hold it"],
+        ['a line short of the margin', lines('"""', '    a', '  b', '    """'), "Each line of a block that is not blank begins with its closing delimiter's indentation"],
+        ['a line indented with tabs for spaces', lines('"""', '\ta', '    """'), "Each line of a block that is not blank begins with its closing delimiter's indentation"],
+    ])('refuses a block with %s', (_, text, message) => {
+        expect(refusalOf(text)).toMatchObject({ kind: 'syntax', message: expect.stringContaining(message) });
+    });
+
+    it('holds a run of quotes in a block with a longer delimiter, an escaped quote, or in an interpolation\'s own strings', () => {
+        expect(evaluate(lines("''''", "    This text contains '''.", String.raw`    Backslashes such as \n remain literal.`, "    ''''"))).toBe(`This text contains '''.\n${String.raw`Backslashes such as \n remain literal.`}`);
+        expect(evaluate(lines('"""', '    \\"\\"\\" escaped', '    """'))).toBe('""" escaped');
+        expect(domql.query(lines('$"""', '    {a ?? "\\"\\"\\""}', '    """'), { a: 'x' }).evaluate()).toBe('x');
+    });
+
+    it.each([
+        ['a line break', '$"{name\n}"'],
+        ['a line comment', '$"{name // why\n}"'],
+        ['a block comment holding a line break', '$"{name /* a\nb */}"'],
+        ['a block', "$\"{('''\n  x\n  ''')}\""],
+    ])('refuses an interpolation holding %s, which stands on one line', (_, text) => {
+        expect(refusalOf(text)).toMatchObject({ kind: 'syntax', message: expect.stringContaining('An interpolation stands on one line') });
+    });
+
+    it('refuses an interpolation beginning with an object expression, whatever stands before it, and takes one grouped, which canonical text writes', () => {
+        const message = 'An interpolation that begins with an object expression groups it in parentheses, as {({ x = 1 }.x)}';
+
+        expect(refusalOf('$"{ { x = 1 }.x}"').message).toContain(message);
+        expect(refusalOf('$"{/* a */{ x = 1 }.x}"').message).toContain(message);
+        expect(evaluate('$"{({ x = 1 }.x)}"')).toBe('1');
+        expect(domql.format('$"{({x=1}.x)}"')).toBe('$"{({ x = 1 }.x)}"');
+    });
+
+    it('takes any form that does not interpolate where a string literal is required, and no interpolated one', () => {
+        const panel = document.createElement('div');
+
+        expect(domql.query("(panel.parent as 'element')?.children.count", { panel }).evaluate()).toBeNull();
+        expect(domql.query(lines('try "3" to """', '    number', '    """'), {}).evaluate()).toBe(3);
+        expect(getError(() => domql.query('panel as $"element"', { panel })).message).toContain('Expected the quoted name of the type it casts to');
+    });
+
+    it.each([
+        ['a raw string', String.raw`'C:\Users\'`, String.raw`"C:\\Users\\"`],
+        ['a raw string with a quote', "'It''s'", `"It's"`],
+        ['a string block', lines('"""', '    a', '    \\tb', '    """'), '"a\\n\\tb"'],
+        ['an interpolated raw block', lines("$'''", String.raw`    \{name}`, "    '''"), String.raw`$"\\{name}"`],
+    ])('writes %s as canonical text, an inline string of the same value', (_, text, formatted) => {
+        expect(domql.format(text)).toBe(formatted);
+        expect(domql.query(formatted).definition).toEqual(domql.query(text).definition);
+    });
+
+    it('locates what a block refuses in its source text, after its margin is removed', () => {
+        expect(refusalOf(lines('"""', '    a', '    \\q', '    """')).location).toMatchObject({ line: 3, column: 5 });
+        expect(getError(() => domql.query(lines('$"""', '    {name.nothing}', '    """'), bindings).resolve()).location).toMatchObject({ line: 2, column: 6 });
+    });
+});
+
 describe('domql string escapes', () => {
     const valueOf = text => domql.query(text).definition.query.value;
 
-    it('reads each escape as the character it stands for, and a line break, a tab and any other character written as itself', () => {
+    it('reads each escape as the character it stands for, and a tab and any other character but a line break written as itself', () => {
         expect(valueOf('"\\" \\\\ \\n \\r \\t \\e"')).toBe('" \\ \n \r \t \u001B');
         expect(valueOf('"\\u{41}\\u{0}\\u{1F600}\\u{10FFFF}\\u{000041}"')).toBe('A\u0000\u{1F600}\u{10FFFF}A');
-        expect(valueOf('"line\nbreak\tand é 😀"')).toBe('line\nbreak\tand é 😀');
+        expect(valueOf('"tab\tand é 😀"')).toBe('tab\tand é 😀');
         expect(valueOf('"\\e"')).toBe(valueOf('"\\u{1B}"'));
         expect(valueOf('"\\u{A0}\\u{200B}\\u{1F600}"')).toBe('\u00A0\u200B😀');
         expect(valueOf('"😀"')).toBe(valueOf('"\\u{1F600}"'));
@@ -4432,7 +4560,7 @@ describe('domql string escapes', () => {
     });
 
     it.each([
-        ['a line feed, a carriage return and a tab, written or escaped', '"a\nb\\rc\td\\n"', '"a\\nb\\rc\\td\\n"'],
+        ['a line feed, a carriage return and a tab, a tab written or escaped', '"a\\nb\\rc\td\\n"', '"a\\nb\\rc\\td\\n"'],
         ['an escape character, as \\e however it is written', '"\\u{1B}[0m"', '"\\e[0m"'],
         ['every other control character as a Unicode escape in upper-case hexadecimal', '"\\u{0}\\u{1f}\\u{7f}\\u{9F}"', '"\\u{0}\\u{1F}\\u{7F}\\u{9F}"'],
         ['ordinary Unicode as itself, however it is written', '"\\u{E9}\\u{1F600} é"', '"é😀 é"'],

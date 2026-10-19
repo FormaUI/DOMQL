@@ -7,7 +7,8 @@ import { Names } from './Names.mjs';
 
 /**
  * The types a token is, which tooling reads as they are: `invalid` for text that is no token, and `end` for the end of the text, after its last trivia.
- * An interpolated string is read as its `$"`, its runs of text, the `{` and `}` around each of its interpolations and its closing quote, the tokens of each interpolation's expression between them.
+ * A string, raw or not, inline or a block, is one literal token keeping its quote and its delimiter's length. An interpolated string is read as its opening, `$"`, `$'` or a block's `$` and quotes and line break,
+ * its runs of text, the `{` and `}` around each of its interpolations and what closes it, the tokens of each interpolation's expression between them.
  * A contract within DOMQL until a public tooling API stabilizes it.
  */
 export const TOKEN_TYPES = Object.freeze(['name', 'literal', 'keyword', 'context', 'invalid', 'end', 'interpolated-string-start', 'interpolated-text', 'interpolation-start', 'interpolation-end', 'interpolated-string-end', 'query-parameter', 'reserved-reference', '.', '?.', '?[', '?:', '??', '(?', '==', '!=', '<', '<=', '>', '>=', '=', '=>', '+', '-', '*', '/', '%', ',', ':', '(', ')', '{', '}', '[', ']']);
@@ -16,12 +17,17 @@ export const TOKEN_TYPES = Object.freeze(['name', 'literal', 'keyword', 'context
  * @typedef {object} Token
  * @property {'name' | 'literal' | 'keyword' | 'context' | 'invalid' | 'end' | 'interpolated-string-start' | 'interpolated-text' | 'interpolation-start' | 'interpolation-end' | 'interpolated-string-end' | 'query-parameter' | 'reserved-reference' | '.' | '?.' | '?[' | '?:' | '??' | '(?' | '==' | '!=' | '<' | '<=' | '>' | '>=' | '=' | '=>' | '+' | '-' | '*' | '/' | '%' | ',' | ':' | '(' | ')' | '{' | '}' | '[' | ']'} type
  * @property {unknown} [value] A name's or a keyword's text, the evaluation context's spelling, `context` or `~`, the name `~` reads the caller's binding of, the reserved word `@` reads the local or the field of, a literal's value, or the text a run of an interpolated string's text stands for.
+ * @property {'"' | "'"} [quote] The quote of a string's literal token, or of an interpolated string's opening and closing tokens, `"` for a string and `'` for a raw string.
+ * @property {number} [delimiter] How many quotes that string's delimiter has: one inline, three or more for a block.
  * @property {number} start
  * @property {number} end
  * @property {number} leading Where the trivia before it begins, at its start where there is none, so every character of the text belongs to one token or to the trivia before one.
  * @property {boolean} spaced Whether trivia, whitespace or a comment, comes before it, which tells an argument written after a name from one of the name's own.
  * @property {{ message: string, offset: number }} [diagnostic] Why an invalid token is no token, and where the text first fails.
  */
+
+/** The names of each family's forms, inline and as a block, by its quote: a string, whose backslashes escape, and a raw string, whose backslashes are text. */
+const DELIMITED_NAMES = Object.freeze({ '"': Object.freeze(['string', 'string block']), "'": Object.freeze(['raw string', 'raw block']) });
 
 /** The character each escape a letter or a sign names stands for, after its backslash. */
 const ESCAPES = Object.freeze({ '"': '"', '\\': '\\', n: '\n', r: '\r', t: '\t', e: '\u001B' });
@@ -40,8 +46,9 @@ export class Tokenizer {
     #offset = 0;
 
     /**
-     * What is being read, innermost last: the text of an interpolated string, with where its `$"` begins, or the expression of one of its interpolations, with how many braces its own object expressions have opened, so its `}` is told from theirs.
-     * @type {({ kind: 'text', start: number } | { kind: 'interpolation', depth: number })[]}
+     * What is being read, innermost last: the text of an interpolated string, with where its `$` begins and its form, or the expression of one of its interpolations, with how many braces its own object expressions have opened,
+     * so its `}` is told from theirs, and whether its first token is still to come, which no object expression is.
+     * @type {({ kind: 'text', start: number, form: object } | { kind: 'interpolation', depth: number, isFirst: boolean })[]}
      */
     #modes = [];
 
@@ -107,6 +114,17 @@ export class Tokenizer {
 
     #readToken() {
         const start = this.#offset;
+        const innermost = this.#modes.at(-1);
+        const isFirstOfInterpolation = innermost?.kind === 'interpolation' && innermost.isFirst;
+
+        if (innermost?.kind === 'interpolation') {
+            innermost.isFirst = false;
+        }
+
+        // An interpolation whose expression begins with an object expression groups it, so its `{` is never read beside the interpolation's own.
+        if (isFirstOfInterpolation && this.#text[start] === '{') {
+            return this.#invalid(start, start + 1, 'An interpolation that begins with an object expression groups it in parentheses, as {({ x = 1 }.x)}', start);
+        }
 
         if (start >= this.#text.length) {
             return { type: 'end', start, end: start };
@@ -167,7 +185,7 @@ export class Tokenizer {
             return this.#readQueryParameter(start);
         }
 
-        if (character === '"') {
+        if (character === '"' || character === "'") {
             return this.#readString(start);
         }
 
@@ -209,21 +227,36 @@ export class Tokenizer {
         return this.#invalid(start, start + 1, `Unexpected '${character}'`, start);
     }
 
-    /** Moves past the trivia before a token, answering an invalid token for a block comment never closed, which runs to the end of the text. */
+    /**
+     * Moves past the trivia before a token, answering an invalid token for a block comment never closed, which runs to the end of the text; an interpolation stands on one line, so a line break
+     * in its trivia, a line comment, which a line break ends, and a block comment holding one are invalid there.
+     */
     #skipTrivia() {
+        const isInInterpolation = this.#modes.at(-1)?.kind === 'interpolation';
+        const oneLine = 'An interpolation stands on one line, its { and } with its expression: bind a longer calculation to a local, and interpolate its name';
+
         while (this.#offset < this.#text.length) {
             const character = this.#text[this.#offset];
+
+            if (isInInterpolation && (Tokenizer.#isLineBreak(character) || this.#text.startsWith('//', this.#offset))) {
+                return this.#invalid(this.#offset, this.#offset + 1, oneLine, this.#offset);
+            }
 
             if (SPACE.test(character)) {
                 this.#offset++;
             } else if (this.#text.startsWith('//', this.#offset)) {
-                const lineEnd = this.#text.indexOf('\n', this.#offset);
-                this.#offset = lineEnd === -1 ? this.#text.length : lineEnd + 1;
+                const lineEnd = this.#lineEndFrom(this.#offset);
+
+                this.#offset = lineEnd >= this.#text.length ? lineEnd : lineEnd + Tokenizer.#lineBreakLengthAt(this.#text, lineEnd);
             } else if (this.#text.startsWith('/*', this.#offset)) {
                 const commentEnd = this.#text.indexOf('*/', this.#offset + 2);
 
                 if (commentEnd === -1) {
                     return this.#invalid(this.#offset, this.#text.length, 'A block comment is never closed', this.#offset);
+                }
+
+                if (isInInterpolation && /[\n\r]/.test(this.#text.slice(this.#offset, commentEnd))) {
+                    return this.#invalid(this.#offset, commentEnd + 2, oneLine, this.#offset);
                 }
 
                 this.#offset = commentEnd + 2;
@@ -282,103 +315,208 @@ export class Tokenizer {
         return { type: 'query-parameter', value: name, start, end: this.#offset };
     }
 
-    /** Reads a string, invalid where an escape in it is none the language has, at the first such escape, or where it is never closed, running then to the end of the text. */
+    /**
+     * Reads a string of either family, a string, whose backslashes escape, or a raw string, whose backslashes are text: inline, one quote and one line, a raw string doubling its quote to hold one,
+     * or a block, three or more quotes and a line break opening it and as many closing it, first on their line. Its token keeps its quote and its delimiter's length, and its value is the text it stands for.
+     */
     #readString(start) {
-        let value = '';
-        let offset = start + 1;
-        let diagnostic = null;
+        const quote = this.#text[start];
+        const opening = this.#openingOf(start, start, quote, false);
 
-        while (offset < this.#text.length) {
-            const character = this.#text[offset];
+        if (opening.token !== undefined) {
+            return opening.token;
+        }
 
-            if (character === '"') {
-                this.#offset = offset + 1;
+        const { form } = opening;
+        const scanned = this.#scanText(form.contentStart, form, false);
 
-                return diagnostic === null ? { type: 'literal', value, start, end: this.#offset } : this.#invalid(start, this.#offset, diagnostic.message, diagnostic.offset);
-            }
+        if (scanned.stop === 'close') {
+            const end = form.isBlock ? form.closingEnd : scanned.end + 1;
 
-            if (character === '\\') {
-                const escape = this.#readEscape(offset);
+            this.#offset = end;
 
-                if (escape.message !== undefined) {
-                    diagnostic ??= { message: escape.message, offset };
-                    offset++;
-                    continue;
-                }
-
-                value += escape.character;
-                offset = escape.end;
-            } else {
-                value += character;
-                offset++;
-            }
+            return scanned.diagnostic === null
+                ? { type: 'literal', value: scanned.value, start, end, quote, delimiter: form.length }
+                : this.#invalid(start, end, scanned.diagnostic.message, scanned.diagnostic.offset);
         }
 
         // In an interpolation, a quote begins a string of the interpolation's own expression, so one never closed is most often the interpolated string's own quote written before the interpolation's `}`.
-        const message = this.#modes.at(-1)?.kind === 'interpolation' ? "A string is never closed: an interpolation is closed with '}' before its string's closing quote" : 'A string is never closed';
-        const unclosed = diagnostic ?? { message, offset: start };
+        const name = DELIMITED_NAMES[quote][0];
+        const message = this.#modes.at(-1)?.kind === 'interpolation' ? `A ${name} is never closed: an interpolation is closed with '}' before its string's closing quote` : `A ${name} is never closed`;
+        const unclosed = scanned.diagnostic ?? { message, offset: start };
 
-        return this.#invalid(start, this.#text.length, unclosed.message, unclosed.offset);
-    }
-
-    /** Reads what `$` begins: an interpolated string's `$"`, where the quote follows it directly, and otherwise text that is no token, a space between them saying where it stands. */
-    #readDollar(start) {
-        if (this.#text[start + 1] === '"') {
-            this.#offset = start + 2;
-            this.#modes.push({ kind: 'text', start });
-
-            return { type: 'interpolated-string-start', start, end: this.#offset };
-        }
-
-        let offset = start + 1;
-
-        while (offset < this.#text.length && SPACE.test(this.#text[offset])) {
-            offset++;
-        }
-
-        const message = offset > start + 1 && this.#text[offset] === '"' ? `An interpolated string starts with '$"', with no space between them` : "Unexpected '$'";
-
-        return this.#invalid(start, start + 1, message, start);
+        return this.#invalid(start, scanned.end, unclosed.message, unclosed.offset);
     }
 
     /**
-     * Reads at the offset in an interpolated string's text: its closing quote, the `{` that opens an interpolation, or a run of its text up to either, an escape read whole as the character it stands for, so the brace of `\u{…}` opens no interpolation,
-     * and a doubled brace as the brace itself. A lone `}` and an escape the language has none of make the run invalid, as text never closed does, which ends the string at the end of the text.
+     * The form of the string whose quotes begin at the offset, after its `$` where it is interpolated: a block where three or more quotes are followed directly by a line break, its closing delimiter
+     * found first on a later line, which gives its margin; and an inline string otherwise. An opening a block cannot have, or a block never closed, answers the invalid token that says so.
      */
-    #readText() {
-        const start = this.#offset;
-        const mode = this.#modes.at(-1);
+    #openingOf(start, quoteStart, quote, isInterpolated) {
+        let run = quoteStart;
 
-        if (this.#text[start] === '"') {
-            this.#modes.pop();
-            this.#offset = start + 1;
-
-            return { type: 'interpolated-string-end', start, end: this.#offset };
+        while (this.#text[run] === quote) {
+            run++;
         }
 
-        if (this.#text[start] === '{' && this.#text[start + 1] !== '{') {
-            this.#modes.push({ kind: 'interpolation', depth: 0 });
-            this.#offset = start + 1;
+        const length = run - quoteStart;
+        const names = DELIMITED_NAMES[quote];
+        const prefix = isInterpolated ? 'interpolated ' : '';
+        const isRaw = quote === "'";
 
-            return { type: 'interpolation-start', start, end: this.#offset };
+        if (length >= 3) {
+            if (Tokenizer.#isLineBreak(this.#text[run])) {
+                if (this.#modes.at(-1)?.kind === 'interpolation') {
+                    return { token: this.#invalid(start, run, 'An interpolation stands on one line, so it holds no block: bind the block to a local, and interpolate its name', start) };
+                }
+
+                const contentStart = run + Tokenizer.#lineBreakLengthAt(this.#text, run);
+                const closing = this.#closingOf(contentStart, quote, length);
+
+                if (closing === null) {
+                    return { token: this.#invalid(start, this.#text.length, `A ${prefix}${names[1]} is never closed: its closing delimiter, ${length} quotes, stands first on a line of its own`, start) };
+                }
+
+                if (closing.diagnostic !== undefined) {
+                    return { token: this.#invalid(start, closing.diagnostic.end, closing.diagnostic.message, closing.diagnostic.offset) };
+                }
+
+                return { form: { quote, length, isRaw, isBlock: true, contentStart, ...closing } };
+            }
+
+            const lineEnd = this.#lineEndFrom(run);
+
+            if (/^[ \t]+$/.test(this.#text.slice(run, lineEnd))) {
+                return { token: this.#invalid(start, lineEnd, `A ${prefix}${names[1]}'s opening delimiter is followed directly by its line break, with nothing after it on its line`, run) };
+            }
+
+            // Three double quotes never begin an inline string, whose empty `""` no value follows directly; three single quotes may, the doubled one standing for a quote.
+            if (!isRaw) {
+                return { token: this.#invalid(start, run, `A ${prefix}${names[1]}'s text stands on the lines between its delimiters: its opening delimiter is followed directly by a line break, and an inline ${prefix}${names[0]} opens with one quote`, run) };
+            }
         }
 
+        return { form: { quote, length: 1, isRaw, isBlock: false, contentStart: quoteStart + 1 } };
+    }
+
+    /**
+     * The closing delimiter of the block whose text begins at the offset: the first line whose text after its indentation is a run of the delimiter's quote, which closes the block where it has the delimiter's length,
+     * with the line's indentation its margin and the line break before it where its text ends; a longer run there is a diagnostic, and null where no line has one.
+     */
+    #closingOf(contentStart, quote, length) {
+        for (let lineStart = contentStart; ;) {
+            let offset = lineStart;
+
+            while (this.#text[offset] === ' ' || this.#text[offset] === '\t') {
+                offset++;
+            }
+
+            if (this.#text[offset] === quote) {
+                let run = offset;
+
+                while (this.#text[run] === quote) {
+                    run++;
+                }
+
+                if (run - offset === length) {
+                    const contentEnd = lineStart === contentStart ? contentStart : lineStart - (this.#text[lineStart - 2] === '\r' && this.#text[lineStart - 1] === '\n' ? 2 : 1);
+
+                    return { margin: this.#text.slice(lineStart, offset), contentEnd, closingEnd: run };
+                }
+
+                if (run - offset > length) {
+                    return { diagnostic: { message: `A block closes with exactly the ${length} quotes that open it, and this run has ${run - offset}: open it with a longer delimiter to hold the run`, offset, end: run } };
+                }
+            }
+
+            const lineEnd = this.#lineEndFrom(offset);
+
+            if (lineEnd >= this.#text.length) {
+                return null;
+            }
+
+            lineStart = lineEnd + Tokenizer.#lineBreakLengthAt(this.#text, lineEnd);
+        }
+    }
+
+    /**
+     * Scans a string's text from the offset in its form: an inline string's up to its closing quote, a block's up to the line break before its closing delimiter, each line's margin removed first,
+     * and an interpolated string's up to the `{` that opens an interpolation as well. The value is the text it stands for: escapes decoded in the string family, a raw string's doubled quote one quote,
+     * each source line break of a block one line feed, and an interpolated string's doubled brace one brace. The first diagnostic it meets is kept, and `stop` says what ended the scan.
+     * @returns {{ value: string, end: number, diagnostic: { message: string, offset: number } | null, stop: 'close' | 'brace' | 'end' }}
+     */
+    #scanText(start, form, isInterpolated) {
+        const { quote, isRaw, isBlock } = form;
         let value = '';
         let offset = start;
         let diagnostic = null;
+        let isLineStart = isBlock && (start === form.contentStart || Tokenizer.#isLineBreak(this.#text[start - 1]));
 
-        while (offset < this.#text.length && this.#text[offset] !== '"') {
+        for (;;) {
+            if (isBlock && offset >= form.contentEnd) {
+                return { value, end: offset, diagnostic, stop: 'close' };
+            }
+
+            if (offset >= this.#text.length) {
+                return { value, end: offset, diagnostic, stop: 'end' };
+            }
+
+            if (isLineStart) {
+                const margin = this.#skipMargin(offset, form);
+
+                diagnostic ??= margin.diagnostic;
+                offset = margin.offset;
+                isLineStart = false;
+                continue;
+            }
+
             const character = this.#text[offset];
 
-            if ((character === '{' || character === '}') && this.#text[offset + 1] === character) {
-                value += character;
-                offset += 2;
-            } else if (character === '{') {
-                break;
-            } else if (character === '}') {
-                diagnostic ??= { message: "A literal '}' in an interpolated string is written '}}'", offset };
-                offset++;
-            } else if (character === '\\') {
+            if (Tokenizer.#isLineBreak(character)) {
+                if (!isBlock) {
+                    const names = DELIMITED_NAMES[quote];
+                    const prefix = isInterpolated ? 'interpolated ' : '';
+                    const escape = isRaw ? '' : 'write \\n for a line break, or ';
+                    const delimiter = `${isInterpolated ? '$' : ''}${quote.repeat(3)}`;
+
+                    diagnostic ??= { message: `A${isInterpolated ? 'n' : ''} ${prefix}${names[0]} stands on one line: ${escape}write a${isInterpolated ? 'n' : ''} ${prefix}${names[1]}, its text on the lines between ${delimiter} and ${quote.repeat(3)}`, offset };
+
+                    return { value, end: offset, diagnostic, stop: 'end' };
+                }
+
+                value += '\n';
+                offset += Tokenizer.#lineBreakLengthAt(this.#text, offset);
+                isLineStart = true;
+                continue;
+            }
+
+            if (character === quote) {
+                if (!isBlock) {
+                    if (isRaw && this.#text[offset + 1] === quote) {
+                        value += quote;
+                        offset += 2;
+                        continue;
+                    }
+
+                    return { value, end: offset, diagnostic, stop: 'close' };
+                }
+
+                let run = offset;
+
+                while (this.#text[run] === quote && run < form.contentEnd) {
+                    run++;
+                }
+
+                if (run - offset >= form.length) {
+                    diagnostic ??= { message: `A run of ${run - offset} quotes in a block's text is as long as its delimiter: open the block with a longer delimiter to hold it`, offset };
+                }
+
+                value += this.#text.slice(offset, run);
+                offset = run;
+                continue;
+            }
+
+            if (character === '\\' && !isRaw) {
                 const escape = this.#readEscape(offset);
 
                 if (escape.message !== undefined) {
@@ -388,25 +526,143 @@ export class Tokenizer {
                     value += escape.character;
                     offset = escape.end;
                 }
-            } else {
-                value += character;
-                offset++;
+
+                continue;
             }
+
+            if (isInterpolated && (character === '{' || character === '}')) {
+                if (this.#text[offset + 1] === character) {
+                    value += character;
+                    offset += 2;
+                    continue;
+                }
+
+                if (character === '{') {
+                    return { value, end: offset, diagnostic, stop: 'brace' };
+                }
+
+                diagnostic ??= { message: "A literal '}' in an interpolated string is written '}}'", offset };
+                offset++;
+                continue;
+            }
+
+            value += character;
+            offset++;
+        }
+    }
+
+    /**
+     * Moves past the margin at the start of a block's line: the closing delimiter's indentation, which a line that is not blank begins with exactly; a blank line shorter than the margin is empty,
+     * and one that begins with it keeps the whitespace after it.
+     */
+    #skipMargin(lineStart, form) {
+        const { margin } = form;
+        const lineEnd = Math.min(this.#lineEndFrom(lineStart), form.contentEnd);
+        const line = this.#text.slice(lineStart, lineEnd);
+
+        if (line.startsWith(margin)) {
+            return { offset: lineStart + margin.length, diagnostic: null };
         }
 
-        if (offset >= this.#text.length) {
+        if (/^[ \t]*$/.test(line)) {
+            return { offset: lineEnd, diagnostic: null };
+        }
+
+        return { offset: lineStart, diagnostic: { message: "Each line of a block that is not blank begins with its closing delimiter's indentation, the margin removed from its lines, and this one does not", offset: lineStart } };
+    }
+
+    /** Where the line the offset stands on ends: at its line break, a line feed, a carriage return or both, or at the end of the text. */
+    #lineEndFrom(offset) {
+        let end = offset;
+
+        while (end < this.#text.length && !Tokenizer.#isLineBreak(this.#text[end])) {
+            end++;
+        }
+
+        return end;
+    }
+
+    /** Whether the character breaks a line: a line feed, or a carriage return, alone or before a line feed. */
+    static #isLineBreak(character) {
+        return character === '\n' || character === '\r';
+    }
+
+    /** How many characters the line break at the offset has: two for a carriage return and a line feed, one otherwise. */
+    static #lineBreakLengthAt(text, offset) {
+        return text[offset] === '\r' && text[offset + 1] === '\n' ? 2 : 1;
+    }
+
+    /** Reads what `$` begins: an interpolated string's `$"` or `$'`, or its block's three or more quotes and line break, where the quote follows it directly, and otherwise text that is no token, a space between them saying where it stands. */
+    #readDollar(start) {
+        const quote = this.#text[start + 1];
+
+        if (quote === '"' || quote === "'") {
+            const opening = this.#openingOf(start, start + 1, quote, true);
+
+            if (opening.token !== undefined) {
+                return opening.token;
+            }
+
+            const { form } = opening;
+
+            this.#offset = form.contentStart;
+            this.#modes.push({ kind: 'text', start, form });
+
+            return { type: 'interpolated-string-start', start, end: this.#offset, quote, delimiter: form.length };
+        }
+
+        let offset = start + 1;
+
+        while (offset < this.#text.length && SPACE.test(this.#text[offset])) {
+            offset++;
+        }
+
+        const message = offset > start + 1 && (this.#text[offset] === '"' || this.#text[offset] === "'") ? `An interpolated string starts with '$${this.#text[offset]}', with no space between them` : "Unexpected '$'";
+
+        return this.#invalid(start, start + 1, message, start);
+    }
+
+    /**
+     * Reads at the offset in an interpolated string's text: what closes it, its closing quote or a block's closing delimiter, the `{` that opens an interpolation, or a run of its text up to either,
+     * scanned as its form reads text. A lone `}` and an escape the language has none of make the run invalid, as text never closed does, which ends the string at the end of the text.
+     */
+    #readText() {
+        const start = this.#offset;
+        const mode = this.#modes.at(-1);
+        const { form } = mode;
+        const isLineStart = form.isBlock && (start === form.contentStart || Tokenizer.#isLineBreak(this.#text[start - 1]));
+
+        if (form.isBlock ? start >= form.contentEnd : this.#text[start] === form.quote && !(form.isRaw && this.#text[start + 1] === form.quote)) {
+            this.#modes.pop();
+            this.#offset = form.isBlock ? form.closingEnd : start + 1;
+
+            return { type: 'interpolated-string-end', start, end: this.#offset, quote: form.quote, delimiter: form.length };
+        }
+
+        if (!isLineStart && this.#text[start] === '{' && this.#text[start + 1] !== '{') {
+            this.#modes.push({ kind: 'interpolation', depth: 0, isFirst: true });
+            this.#offset = start + 1;
+
+            return { type: 'interpolation-start', start, end: this.#offset };
+        }
+
+        const scanned = this.#scanText(start, form, true);
+
+        if (scanned.stop === 'end') {
             this.#modes.pop();
 
-            return this.#invalid(start, this.#text.length, diagnostic?.message ?? 'An interpolated string is never closed', diagnostic?.offset ?? mode.start);
+            const names = DELIMITED_NAMES[form.quote];
+
+            return this.#invalid(start, scanned.end, scanned.diagnostic?.message ?? `An interpolated ${names[0]} is never closed`, scanned.diagnostic?.offset ?? mode.start);
         }
 
-        if (diagnostic !== null) {
-            return this.#invalid(start, offset, diagnostic.message, diagnostic.offset);
+        if (scanned.diagnostic !== null) {
+            return this.#invalid(start, scanned.end, scanned.diagnostic.message, scanned.diagnostic.offset);
         }
 
-        this.#offset = offset;
+        this.#offset = scanned.end;
 
-        return { type: 'interpolated-text', value, start, end: offset };
+        return { type: 'interpolated-text', value: scanned.value, start, end: scanned.end };
     }
 
     /** Reads the escape whose backslash is at the offset: the character it stands for and where it ends, or the message that says why it is none the language has. */

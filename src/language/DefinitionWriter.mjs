@@ -220,7 +220,7 @@ export class DefinitionWriter {
 
     /**
      * An interpolated string: its text as a string's, each brace doubled, and each interpolation's expression on one line, as a diagnostic quotes it, so no layout breaks the string,
-     * with a space after its `{` where the expression begins with one, whose two braces would read as a brace of the text.
+     * the expression grouped where it begins with an object expression, whose `{` an interpolation never begins with.
      */
     static #interpolatedString(node) {
         const parts = node.parts.map(part => {
@@ -230,7 +230,7 @@ export class DefinitionWriter {
 
             const expression = DefinitionWriter.#write(part.expression, null);
 
-            return `{${expression.startsWith('{') ? ' ' : ''}${expression}}`;
+            return `{${expression.startsWith('{') ? `(${expression})` : expression}}`;
         });
 
         return `$"${parts.join('')}"`;

@@ -44,7 +44,7 @@ describe('DefinitionWriter', () => {
         'panel { let key = "data-key", let first = context.children:[0], value = first?:attribute[key] }',
         'panel { let a = 1, inner = context { let b = a, value = b } }',
         'panel:attribute["a \\"quoted\\" name, a \\\\ backslash"]',
-        'panel:attribute["two\nlines"]',
+        'panel:attribute["two\\nlines"]',
         'panel.parent?.children.count',
         '(panel.parent?.children).count',
         'panel.parent?.rect { top = context.top }',
@@ -234,7 +234,7 @@ describe('DefinitionWriter', () => {
             'panel { let items = context.children, count = items.count, first = items:[0] { key = context:attribute["data-key"] } }',
             'panel.on("click") { x = context.clientX, inside = context.target?.closest(".row") == null }',
             'panel.children.where(context.attached and (context.hasChildren or context.matches(".x"))).max(context.size?.width)',
-            'panel:attribute["line\nbreak and \\"quote\\""]',
+            'panel:attribute["line\\nbreak and \\"quote\\""]',
         ])('gives text that formats to itself, and parses back to the same definition: %s', text => {
             const formatted = format(text);
 

@@ -91,6 +91,8 @@ const DOCUMENTS = {
         { about: 'an object expression' },
         { about: 'fields named by reserved words', results: { 0: { true: true, context: true } } },
         { about: 'a reserved reference', results: { 0: { value: 3 } } },
+        { about: 'strings of each family', results: { 0: { path: 'C:\\Users\\Eyal\\', pattern: '\\d{3}-\\d{2}', message: 'Saved to C:\\Users\\Eyal\\\n\nDone.' } } },
+        { about: 'a block the query continues after', results: { 0: { label: 'Ready', count: 3 } } },
         { about: 'the forms of a member', each: true, context: 'cell { value = % }' },
         { about: 'bracket property access' },
         { about: 'a simple expression' },

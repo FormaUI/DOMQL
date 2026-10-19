@@ -23,9 +23,16 @@ describe('SyntaxTree', () => {
         'a/* the value */to/* its type */"number"',
         '{ say = "say \\"hi\\" \\\\ // not a comment" }',
         'list:item[i]?.size // trailing comment with no line feed',
-        '$"a {{b}} {  c ?? "}" /* } */ } and {$"{ { d = 1 }.d}"}\\u{7B}"',
+        '$"a {{b}} {  c ?? "}" /* } */ } and {$"{({ d = 1 }.d)}"}\\u{7B}"',
+        "{\n    a = '''\n        raw \\d\n        ''', // a comment\n    b = $\"\"\"\r\n      {c} and {{d}}\r\n      \"\"\"\n}",
     ])('reconstructs its text exactly, whitespace and comments included: %j', text => {
         expect(SyntaxTree.textOf(treeOf(text))).toBe(text);
+    });
+
+    it('keeps each string\'s quote and its delimiter\'s length on its tokens', () => {
+        const tokens = Tokenizer.scan("'a' \"b\" '''\n  c\n  ''' $'''\n  {d}\n  '''").filter(token => token.quote !== undefined).map(token => [token.type, token.quote, token.delimiter]);
+
+        expect(tokens).toEqual([['literal', "'", 1], ['literal', '"', 1], ['literal', "'", 3], ['interpolated-string-start', "'", 3], ['interpolated-string-end', "'", 3]]);
     });
 
     it('reads an interpolated string as its start, its runs of text, the tokens around and within each hole, and its end, a hole\'s own braces told from its object expressions\'', () => {

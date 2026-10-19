@@ -1173,6 +1173,11 @@ export class Parser {
         return this.#text.slice(token.start, token.end);
     }
 
+    /** Written text as a message quotes it: in single quotes, or in double quotes where it holds a single quote and no double one, as a raw string does. */
+    static #quote(text) {
+        return text.includes("'") && !text.includes('"') ? `"${text}"` : `'${text}'`;
+    }
+
     /** Reads operands joined by the operator, answering the operand alone where there is one. */
     #parseLogical(operator, parseOperand) {
         const first = parseOperand();
@@ -1287,7 +1292,7 @@ export class Parser {
         }
 
         if (token.type === 'literal' && (this.#tokens[this.#index + 1]?.type === '=' || this.#tokens[this.#index + 1]?.type === ':')) {
-            throw this.#fail(`'${this.#wordOf(token)}' is a literal, and names nothing`, token.start);
+            throw this.#fail(`${Parser.#quote(this.#wordOf(token))} is a literal, and names nothing`, token.start);
         }
 
         throw this.#fail(message, token.start);
@@ -1350,7 +1355,7 @@ export class Parser {
 
             return this.#fail("Unexpected '=' in an expression. Use '==' to compare values.", token.start);
         }
-        const found = token.type === 'end' ? TOKEN_DESCRIPTIONS.end : `'${this.#text.slice(token.start, token.end)}'`;
+        const found = token.type === 'end' ? TOKEN_DESCRIPTIONS.end : Parser.#quote(this.#text.slice(token.start, token.end));
 
         return this.#fail(`Expected ${expected}, found ${found}`, token.start);
     }
