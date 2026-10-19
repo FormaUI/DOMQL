@@ -18,8 +18,7 @@ concurrency:
 env:
   PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright
 
-# DOMQL depends on Lexica through a checkout beside its own, formaui-net.Lexica beside formaui-net.DOMQL, until a Lexica package is released, so each job checks out both;
-# Lexica's repository is private, and LEXICA_TOKEN is a token that may read it.
+# DOMQL depends on Lexica through a checkout beside its own, formaui-net.Lexica beside formaui-net.DOMQL, until a Lexica package is released, so each job checks out both.
 defaults:
   run:
     working-directory: formaui-net.DOMQL
@@ -39,7 +38,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: FormaUI/Lexica
-          token: ${{ secrets.LEXICA_TOKEN }}
           path: formaui-net.Lexica
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -85,7 +83,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: FormaUI/Lexica
-          token: ${{ secrets.LEXICA_TOKEN }}
           path: formaui-net.Lexica
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
