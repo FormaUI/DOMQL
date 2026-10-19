@@ -38,9 +38,17 @@ export class SnapshotComparer {
             return this.#reconcileNode(node.target, previous, previousIdentities, next, nextIdentities);
         }
 
-        // A body gives the value its result does.
+        // A body gives the value its result does, a do block the value of its body, and a call of a local function the value of the body it evaluated.
         if (node.kind === 'body') {
             return this.#reconcileNode(node.result, previous, previousIdentities, next, nextIdentities);
+        }
+
+        if (node.kind === 'do') {
+            return this.#reconcileNode(node.body, previous, previousIdentities, next, nextIdentities);
+        }
+
+        if (node.kind === 'functionCall') {
+            return this.#reconcileNode(this.#resolvedDefinition.resolutionOf(node).body, previous, previousIdentities, next, nextIdentities);
         }
 
         // A conditional, a coalescing, an and and an or each give the value of the side they selected, compared as that side is where both values came from it.
@@ -141,7 +149,7 @@ export class SnapshotComparer {
         return nextElements.map(element => previousIndexByElement.get(element) ?? -1);
     }
 
-    /** The tolerance of the member that produced the value, which a field of its value shares, through the expression a local names, the result a body gives and the side a conditional, a coalescing, an and or an or selected for both values; null for a value that is no member's. */
+    /** The tolerance of the member that produced the value, which a field of its value shares, through the expression a local names, the result a body, a do block or a call of a local function gives and the side a conditional, a coalescing, an and or an or selected for both values; null for a value that is no member's. */
     #toleranceOf(node, previousIdentities, nextIdentities) {
         if (node.kind === 'local') {
             return this.#toleranceOf(this.#resolvedDefinition.resolutionOf(node).value, previousIdentities, nextIdentities);
@@ -153,6 +161,14 @@ export class SnapshotComparer {
 
         if (node.kind === 'body') {
             return this.#toleranceOf(node.result, previousIdentities, nextIdentities);
+        }
+
+        if (node.kind === 'do') {
+            return this.#toleranceOf(node.body, previousIdentities, nextIdentities);
+        }
+
+        if (node.kind === 'functionCall') {
+            return this.#toleranceOf(this.#resolvedDefinition.resolutionOf(node).body, previousIdentities, nextIdentities);
         }
 
         if (SELECTING_KINDS.has(node.kind)) {

@@ -319,6 +319,14 @@ describe('SnapshotComparer', () => {
             expect(snapshotComparer.reconcile(previous, null, freeze({ a: 101.5, b: 101.5 }), null)).toBe(previous);
         });
 
+        it('compares what a do block and a call of a local function give as the expression their body gives, within the tolerance of its member', () => {
+            const snapshotComparer = snapshotComparerOf('element { let read = function(e) e.wobble.width end, a = do let w = context.wobble.width return w end, b = read(context) }', { element }, { tolerance: 2 });
+            const previous = freeze({ a: 100, b: 100 });
+
+            expect(snapshotComparer.reconcile(previous, null, freeze({ a: 101.5, b: 101.5 }), null)).toBe(previous);
+            expect(snapshotComparer.reconcile(previous, null, freeze({ a: 102.5, b: 102.5 }), null)).toEqual({ a: 102.5, b: 102.5 });
+        });
+
         it('keeps a number that moved within the tolerance at the one last reported, so the drift cannot add up', () => {
             const snapshotComparer = snapshotComparerOf('element.wobble.width', { element }, { tolerance: 1 });
             let reported = 100;
