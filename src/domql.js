@@ -95,7 +95,7 @@ class Domql {
 
     /** What carries out the operations of the query objects this instance makes. @type {import('./dom/DomqlQuery.mjs').QueryOperations} */
     static #operations = Object.freeze({
-        resolve: (query, options) => Domql.#resolve(query, options ?? {}),
+        resolve: (query, options) => Domql.#resolvedDefinitionOf(Domql.#resolve(query, options ?? {})),
         evaluate: (query, path, options) => Domql.#evaluate(query, path, options ?? {}),
         evaluateAsync: (query, path, options) => Domql.#evaluateAsync(query, path, options ?? {}),
         watch: (query, path, options) => Domql.#watch(query, path, options ?? {}),
@@ -378,6 +378,28 @@ class Domql {
             reportError: Domql.#createErrorReporter(window),
             signal,
         });
+    }
+
+    /** The resolved definition `query.resolve` answers for each resolution, its declared fields alone, one for each resolution so that a resolution reused answers the same object. @type {WeakMap<object, object>} */
+    static #resolvedDefinitions = new WeakMap();
+
+    /** The declared fields of a resolution, frozen, holding none of the resolution itself, so its evaluator and what else Lexica gives a host stay DOMQL's own. */
+    static #resolvedDefinitionOf(resolution) {
+        let resolvedDefinition = Domql.#resolvedDefinitions.get(resolution);
+
+        if (resolvedDefinition === undefined) {
+            resolvedDefinition = Object.freeze({
+                definition: resolution.definition,
+                kind: resolution.kind,
+                type: resolution.type,
+                usedDeclarations: resolution.usedDeclarations,
+                typeAt: path => resolution.typeAt(path),
+                locate: pointer => resolution.locate(pointer),
+            });
+            Domql.#resolvedDefinitions.set(resolution, resolvedDefinition);
+        }
+
+        return resolvedDefinition;
     }
 
     static #resolve(query, options) {

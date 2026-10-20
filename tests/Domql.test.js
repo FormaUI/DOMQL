@@ -1300,6 +1300,19 @@ describe('domql evaluates', () => {
     });
 
     describe('resolution', () => {
+        it('answers the declared fields alone, frozen, so the resolution Lexica gave and its evaluator stay unreachable', () => {
+            const resolved = domql.query('panel.size', { panel }).resolve();
+
+            expect(Object.keys(resolved).sort()).toEqual(['definition', 'kind', 'locate', 'type', 'typeAt', 'usedDeclarations']);
+            expect(Object.isFrozen(resolved)).toBe(true);
+            expect('createEvaluator' in resolved).toBe(false);
+            expect(resolved.type).toBe('size?');
+            expect(resolved.typeAt(['width'])).toBe('number?');
+            expect(resolved.locate('/expression')).toMatchObject({ pointer: '/expression', line: 1 });
+            expect(resolved.usedDeclarations.map(used => used.name)).toEqual(['element.size']);
+            expect(Object.values(resolved).some(value => value !== null && typeof value === 'object' && 'createEvaluator' in value)).toBe(false);
+        });
+
         it('is kept for a query and used by every evaluation of it', () => {
             const query = domql.query('panel.children.count', { panel });
 
