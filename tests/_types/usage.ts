@@ -240,7 +240,7 @@ const conditions: DomqlModuleContents = {
 const derivedCondition: DomqlModuleContents = { conditions: [{ name: 'lit', function: 'isLit', on: 'element', changes: 'derived', reads: 'fresh' }] };
 
 const indexers: DomqlModuleContents = {
-    members: [{ name: 'token', function: 'readToken', kind: 'operation', form: 'indexer', on: 'element', parameters: [{ name: 'name', kind: 'value', type: 'string', required: true, nulls: 'propagate' }], result: 'string?', changes: 'constant', reads: 'fresh' }],
+    members: [{ name: 'token', function: 'readToken', kind: 'function', form: 'indexer', on: 'element', parameters: [{ name: 'name', kind: 'value', type: 'string', required: true, nulls: 'propagate' }], result: 'string?', changes: 'constant', reads: 'fresh' }],
 };
 
 // A rejection never returns, so nothing follows it.
@@ -286,8 +286,8 @@ const misread: DomqlDefinitionNode = { kind: 'predicate', verb: 'is', target: { 
 
 const named: DomqlDefinitionNode = { kind: 'object', target: { kind: 'parameter', name: 'panel' }, locals: [{ name: 'size', value: { kind: 'member', target: { kind: 'context' }, name: 'size' } }], fields: [{ name: 'width', value: { kind: 'optionalChain', target: { kind: 'member', target: { kind: 'local', name: 'size' }, name: 'width', optional: true } } }] };
 
-// @ts-expect-error An infixCall is no node: an operation is a call or an indexer.
-const infixOperation: DomqlDefinitionNode = { kind: 'infixCall', target: { kind: 'context' }, name: 'matches' };
+// @ts-expect-error An infixCall is no node: a function is a call or an indexer.
+const infixCall: DomqlDefinitionNode = { kind: 'infixCall', target: { kind: 'context' }, name: 'matches' };
 
 // @ts-expect-error A local is named, as a field is.
 const unnamed: DomqlDefinitionNode = { kind: 'object', locals: [{ value: { kind: 'context' } }], fields: [] };

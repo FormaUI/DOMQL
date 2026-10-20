@@ -85,7 +85,7 @@ describe('LanguageResolver', () => {
     });
 
     describe('requests', () => {
-        it('resolves a chain of properties and operations as a query', () => {
+        it('resolves a chain of properties and functions as a query', () => {
             expect(resolve('panel.size').kind).toBe('value');
         });
 
@@ -203,7 +203,7 @@ describe('LanguageResolver', () => {
             expect(failure('panel.matches()').message).toContain("requires the argument 'selector'");
         });
 
-        it('refuses a value where an operation takes its arguments as the fields of an object', () => {
+        it('refuses a value where a function takes its arguments as the fields of an object', () => {
             const error = failure('panel.overlaps(panel)');
 
             expect(error.message).toContain('as the fields of an object');
@@ -213,7 +213,7 @@ describe('LanguageResolver', () => {
         it('supplies positional parameters in order, an optional one left out taking its default, and refuses more arguments than parameters', () => {
             const registry = new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, new LexicaModule('clamp', {
                 members: [{
-                    name: 'clamp', function: 'clamp', kind: 'operation', on: 'element', input: 'positional', result: 'number', changes: 'constant', reads: 'fresh',
+                    name: 'clamp', function: 'clamp', kind: 'function', on: 'element', input: 'positional', result: 'number', changes: 'constant', reads: 'fresh',
                     parameters: [{ name: 'low', kind: 'value', type: 'number', required: true, nulls: 'propagate' }, { name: 'high', kind: 'value', type: 'number', required: false, default: 10, nulls: 'propagate' }],
                 }],
             }, null)]);
@@ -237,9 +237,9 @@ describe('LanguageResolver', () => {
             expect(failure('panel.overlaps({ other = panel }, 1)').message).toContain("'overlaps' takes its arguments as the fields of one object, as { other = … }");
         });
 
-        it('refuses an argument given to an operation that takes none', () => {
+        it('refuses an argument given to a function that takes none', () => {
             const registry = new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, new LexicaModule('ping', {
-                members: [{ name: 'ping', function: 'ping', kind: 'operation', on: 'element', parameters: [], result: 'boolean', changes: 'constant', reads: 'fresh' }],
+                members: [{ name: 'ping', function: 'ping', kind: 'function', on: 'element', parameters: [], result: 'boolean', changes: 'constant', reads: 'fresh' }],
             }, null)]);
             const query = domql.query('panel.ping(1)', { panel });
 

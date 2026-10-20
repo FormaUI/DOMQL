@@ -69,7 +69,7 @@ const bindingsOf = () => {
 const scrollModule = domql => domql.createModule('scroll', {
     types: [{ name: 'scroller', fields: { axis: 'string' } }],
     members: [
-        { name: 'scroll', function: 'scroll', kind: 'operation', form: 'call', input: 'options', on: 'element', parameters: [{ name: 'axis', kind: 'value', type: 'string', required: true, nulls: 'accept' }], result: 'scroller', changes: 'unobserved', reads: 'fresh' },
+        { name: 'scroll', function: 'scroll', kind: 'function', form: 'call', input: 'options', on: 'element', parameters: [{ name: 'axis', kind: 'value', type: 'string', required: true, nulls: 'accept' }], result: 'scroller', changes: 'unobserved', reads: 'fresh' },
         { name: 'step', function: 'step', kind: 'action', form: 'call', input: 'options', on: 'scroller', parameters: [{ name: 'direction', kind: 'value', type: 'string', required: true, nulls: 'accept' }], result: 'boolean', changes: 'unobserved', reads: 'fresh' },
         { name: 'wheelPaging', function: 'wheelPaging', kind: 'behavior', form: 'call', input: 'options', on: 'scroller', parameters: [{ name: 'modifier', kind: 'value', type: 'string', required: true, nulls: 'accept' }], result: 'boolean', changes: 'unobserved', reads: 'fresh' },
     ],

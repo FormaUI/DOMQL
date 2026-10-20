@@ -492,7 +492,7 @@ return {
 
 A function's body is a body like any other, an expression alone or locals and a `return`, and it sees the locals and `context` where it is declared, never those of the place that calls it. Each call is checked against its own arguments, so one function serves an element in one call and an element that may be missing in another.
 
-An arrow function writes a short one as its parameters, `=>` and one expression, as `let half = box => (box?.rect?.width ?? 0) / 2` does, and only an arrow function is written directly as an argument, as `apply(row => row.attached, panel)` is; a function declared with `function` is bound to a local and passed by its name. A function of either form is a value within the query: a local holds it, an argument passes it, a conditional chooses between functions and a function returns one, but no field or result holds one. A module's operation can declare a parameter that takes a function, which it calls while its own invocation lasts; the built-in `where`, `max`, `min` and `sum` take a contextual expression instead, as `rows.where(context.attached)` does.
+An arrow function writes a short one as its parameters, `=>` and one expression, as `let half = box => (box?.rect?.width ?? 0) / 2` does, and only an arrow function is written directly as an argument, as `apply(row => row.attached, panel)` is; a function declared with `function` is bound to a local and passed by its name. A function of either form is a value within the query: a local holds it, an argument passes it, a conditional chooses between functions and a function returns one, but no field or result holds one. A module's function can declare a parameter that takes a function, which it calls while its own invocation lasts; the built-in `where`, `max`, `min` and `sum` take a contextual expression instead, as `rows.where(context.attached)` does.
 
 ### Handle missing values
 
@@ -840,7 +840,7 @@ The [Lexica design](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-desi
 
 ### Execute an action once
 
-Actions are module-defined operations that can change the page. `executeAsync()` evaluates the receiver and arguments, invokes the action, and returns a promise of its result. The action's implementation may also return a promise.
+Actions are module-defined members that can change the page. `executeAsync()` evaluates the receiver and arguments, invokes the action, and returns a promise of its result. The action's implementation may also return a promise.
 
 This example registers an action that sets a data attribute and reports whether the value changed:
 

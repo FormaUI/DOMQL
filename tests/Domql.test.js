@@ -1593,7 +1593,7 @@ describe('domql modules', () => {
 
     it('take the one parameter of an options input as the field of an object', () => {
         isolated.registerModule(isolated.createModule('zoom', {
-            members: [{ name: 'zoom', function: 'zoom', kind: 'operation', on: 'element', input: 'options', parameters: [{ name: 'factor', kind: 'value', type: 'number', required: true, fixed: false, nulls: 'propagate' }], result: 'number', changes: 'constant', reads: 'fresh' }],
+            members: [{ name: 'zoom', function: 'zoom', kind: 'function', on: 'element', input: 'options', parameters: [{ name: 'factor', kind: 'value', type: 'number', required: true, fixed: false, nulls: 'propagate' }], result: 'number', changes: 'constant', reads: 'fresh' }],
         }, { zoom: (_receiver, args) => args.factor * 2 }));
 
         const panel = document.createElement('div');
@@ -2198,7 +2198,7 @@ describe('domql receivers of unknown type', () => {
         }, { ping: () => true }));
         isolated.registerModule(isolated.createModule('radar', {
             types: [{ name: 'radar', fields: { level: 'number' } }],
-            members: [{ name: 'ping', function: 'ping', kind: 'operation', on: 'radar', parameters: [], result: 'number', changes: 'constant', reads: 'fresh' }],
+            members: [{ name: 'ping', function: 'ping', kind: 'function', on: 'radar', parameters: [], result: 'number', changes: 'constant', reads: 'fresh' }],
         }, { ping: () => 1 }));
 
         const error = getError(() => isolated.query('thing?.ping()', { thing: null }).resolve());
@@ -2222,7 +2222,7 @@ describe('domql receivers of unknown type', () => {
         }));
         isolated.registerModule(isolated.createModule('radar', {
             types: [{ name: 'radar', fields: { level: 'number' } }],
-            members: [{ name: 'ping', function: 'ping', kind: 'operation', on: 'radar', parameters: [], result: 'number', changes: 'constant', reads: 'fresh' }],
+            members: [{ name: 'ping', function: 'ping', kind: 'function', on: 'radar', parameters: [], result: 'number', changes: 'constant', reads: 'fresh' }],
         }, { ping: () => 1 }));
 
         const query = isolated.query('(thing as "element")?.ping()', { thing: null });
@@ -2234,7 +2234,7 @@ describe('domql receivers of unknown type', () => {
         expect(pings).toEqual([panel]);
     });
 
-    it('run an operation on the empty list, refusing one that more than one declaration takes', () => {
+    it('run a function on the empty list, refusing one that more than one declaration takes', () => {
         isolated.registerModule(isolated.createModule('total', {
             members: [
                 { name: 'total', function: 'sum', kind: 'property', on: 'list<number>', parameters: [], result: 'number', changes: 'constant', reads: 'fresh' },
@@ -2359,7 +2359,7 @@ describe('domql truthiness', () => {
         const received = [];
 
         isolated.registerModule(isolated.createModule('picks', {
-            members: [{ name: 'picks', function: 'picks', kind: 'operation', form: 'call', input: 'positional', on: 'list<T>', result: 'number', changes: 'derived', reads: 'derived', parameters: [{ name: 'expression', kind: 'predicate', type: 'boolean', context: 'item', required: true, nulls: 'accept' }] }],
+            members: [{ name: 'picks', function: 'picks', kind: 'function', form: 'call', input: 'positional', on: 'list<T>', result: 'number', changes: 'derived', reads: 'derived', parameters: [{ name: 'expression', kind: 'predicate', type: 'boolean', context: 'item', required: true, nulls: 'accept' }] }],
         }, { picks: (items, { expression }) => items.filter(item => (received.push(expression(item)), expression(item))).length }));
 
         expect(evaluate('panel.children.picks(context:["data-x"])')).toBe(2);
@@ -2368,7 +2368,7 @@ describe('domql truthiness', () => {
 
     it('refuses a predicate declared of any type but boolean, and one that is no value', () => {
         expect(() => isolated.createModule('picks', {
-            members: [{ name: 'picks', function: 'picks', kind: 'operation', form: 'call', input: 'positional', on: 'list<T>', result: 'number', changes: 'derived', reads: 'derived', parameters: [{ name: 'expression', kind: 'predicate', type: 'string', context: 'item', required: true, nulls: 'accept' }] }],
+            members: [{ name: 'picks', function: 'picks', kind: 'function', form: 'call', input: 'positional', on: 'list<T>', result: 'number', changes: 'derived', reads: 'derived', parameters: [{ name: 'expression', kind: 'predicate', type: 'string', context: 'item', required: true, nulls: 'accept' }] }],
         }, { picks: () => 0 })).toThrow(expect.objectContaining({ message: expect.stringContaining("The predicate parameter 'expression' is of type boolean") }));
         expect(getError(() => isolated.query('panel.children.where(context.on("click"))', { panel }).resolve()).kind).toBe('validation');
     });
@@ -3930,10 +3930,10 @@ describe('domql callback contracts', () => {
         saved = null;
         calls = [];
 
-        // An operation that sorts a list by a function comparing two of its items, which it keeps where the test can call it later, and one that calls its function with what the test says.
+        // A function that sorts a list by a function comparing two of its items, which it keeps where the test can call it later, and one that calls its function with what the test says.
         isolated.registerModule(isolated.createModule('sortBy', {
             members: [{
-                name: 'sortBy', function: 'sortBy', kind: 'operation', on: 'list<T>', input: 'positional', result: 'list<T>', changes: 'derived', reads: 'derived',
+                name: 'sortBy', function: 'sortBy', kind: 'function', on: 'list<T>', input: 'positional', result: 'list<T>', changes: 'derived', reads: 'derived',
                 parameters: [{ name: 'compare', kind: 'function', parameters: ['T', 'T'], type: 'number', required: true }],
             }],
         }, {
@@ -3945,13 +3945,13 @@ describe('domql callback contracts', () => {
         }));
         isolated.registerModule(isolated.createModule('rank', {
             members: [{
-                name: 'rank', function: 'rank', kind: 'operation', on: 'element', input: 'options', result: 'number', changes: 'constant', reads: 'fresh',
+                name: 'rank', function: 'rank', kind: 'function', on: 'element', input: 'options', result: 'number', changes: 'constant', reads: 'fresh',
                 parameters: [{ name: 'weight', kind: 'value', type: 'number', required: true, nulls: 'propagate' }, { name: 'score', kind: 'function', parameters: ['number'], type: 'number', required: true }],
             }],
         }, { rank: (_element, { weight, score }) => score(weight) }));
         isolated.registerModule(isolated.createModule('probe', {
             members: [{
-                name: 'probe', function: 'probe', kind: 'operation', on: 'element', input: 'positional', result: 'number', changes: 'constant', reads: 'fresh',
+                name: 'probe', function: 'probe', kind: 'function', on: 'element', input: 'positional', result: 'number', changes: 'constant', reads: 'fresh',
                 parameters: [{ name: 'measure', kind: 'function', parameters: ['element'], type: 'number', required: true }],
             }],
         }, { probe: (element, { measure }) => measure(...calls.shift()(element)) }));
@@ -3997,12 +3997,12 @@ describe('domql callback contracts', () => {
     });
 
     it.each([
-        ['on a property', { name: 'p', function: 'p', kind: 'property', on: 'element', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: true }], result: 'number', changes: 'constant', reads: 'fresh' }, "The function parameter 'f' is an operation's"],
-        ['with a null policy', { name: 'p', function: 'p', kind: 'operation', on: 'element', input: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: true, nulls: 'accept' }], result: 'number', changes: 'constant', reads: 'fresh' }, 'which a function parameter leaves out'],
-        ['without its parameters', { name: 'p', function: 'p', kind: 'operation', on: 'element', input: 'positional', parameters: [{ name: 'f', kind: 'function', type: 'number', required: true }], result: 'number', changes: 'constant', reads: 'fresh' }, "The function parameter 'f' declares its parameters as a list of the types it is called with"],
-        ['optional', { name: 'p', function: 'p', kind: 'operation', on: 'element', input: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: false }], result: 'number', changes: 'constant', reads: 'fresh' }, "The function parameter 'f' is required"],
-        ['beside a value parameter declaring parameters', { name: 'p', function: 'p', kind: 'operation', on: 'element', input: 'positional', parameters: [{ name: 'v', kind: 'value', type: 'number', required: true, nulls: 'propagate', parameters: [] }], result: 'number', changes: 'constant', reads: 'fresh' }, "The parameter 'v' declares parameters, which only a function parameter does"],
-        ['an observation is given', { name: 'p', function: 'p', kind: 'operation', on: 'element', input: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: true }], result: 'number', changes: 'observable', reads: 'fresh', observations: [{ type: 'resize', of: { argument: 'f' } }] }, "The observation 'resize' is given the function parameter 'f', whose function lasts only while the member's invocation does"],
+        ['on a property', { name: 'p', function: 'p', kind: 'property', on: 'element', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: true }], result: 'number', changes: 'constant', reads: 'fresh' }, "The parameter 'f' belongs to a member of kind 'function'"],
+        ['with a null policy', { name: 'p', function: 'p', kind: 'function', on: 'element', input: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: true, nulls: 'accept' }], result: 'number', changes: 'constant', reads: 'fresh' }, 'which a function parameter leaves out'],
+        ['without its parameters', { name: 'p', function: 'p', kind: 'function', on: 'element', input: 'positional', parameters: [{ name: 'f', kind: 'function', type: 'number', required: true }], result: 'number', changes: 'constant', reads: 'fresh' }, "The function parameter 'f' declares its parameters as a list of the types it is called with"],
+        ['optional', { name: 'p', function: 'p', kind: 'function', on: 'element', input: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: false }], result: 'number', changes: 'constant', reads: 'fresh' }, "The function parameter 'f' is required"],
+        ['beside a value parameter declaring parameters', { name: 'p', function: 'p', kind: 'function', on: 'element', input: 'positional', parameters: [{ name: 'v', kind: 'value', type: 'number', required: true, nulls: 'propagate', parameters: [] }], result: 'number', changes: 'constant', reads: 'fresh' }, "The parameter 'v' declares parameters, which only a function parameter does"],
+        ['an observation is given', { name: 'p', function: 'p', kind: 'function', on: 'element', input: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: true }], result: 'number', changes: 'observable', reads: 'fresh', observations: [{ type: 'resize', of: { argument: 'f' } }] }, "The observation 'resize' is given the function parameter 'f', whose function lasts only while the member's invocation does"],
     ])('refuses a module declaring a function parameter %s', (_, member, message) => {
         expect(getError(() => isolated.createModule('p', { members: [member] }, { p: () => 0 }))).toMatchObject({ kind: 'module', message: expect.stringContaining(message) });
     });
@@ -4018,21 +4018,21 @@ describe('domql object root of an options object', () => {
         ({ domql: isolated } = await import('#domql/domql.js'));
         tallies = 0;
 
-        // An operation taking options, an element among them and one with a default, which answers what it was given, and a number that counts its reads.
+        // A function taking options, an element among them and one with a default, which answers what it was given, and a number that counts its reads.
         const value = (name, type, rest = {}) => ({ name, kind: 'value', type, required: !('default' in rest), nulls: 'propagate', ...rest });
 
         isolated.registerModule(isolated.createModule('span', {
             members: [{
-                name: 'span', function: 'span', kind: 'operation', on: 'element', input: 'options', result: 'string', changes: 'constant', reads: 'fresh',
+                name: 'span', function: 'span', kind: 'function', on: 'element', input: 'options', result: 'string', changes: 'constant', reads: 'fresh',
                 parameters: [value('anchor', 'element?', { default: null, nulls: 'accept' }), value('start', 'number'), value('end', 'number', { default: 10 })],
             }],
         }, { span: (_receiver, { anchor, start, end }) => `${anchor?.id ?? '-'}:${start}-${end}` }));
-        // An operation of a list taking options, a number among them and an expression and a predicate it evaluates against each item it keeps, which answers the sum of what the expression gives.
+        // A function of a list taking options, a number among them and an expression and a predicate it evaluates against each item it keeps, which answers the sum of what the expression gives.
         const evaluated = (name, kind, type) => ({ name, kind, type, context: 'item', required: true, fixed: false, nulls: 'accept' });
 
         isolated.registerModule(isolated.createModule('pick', {
             members: [{
-                name: 'pick', function: 'pick', kind: 'operation', on: 'list<T>', input: 'options', result: 'number', changes: 'derived', reads: 'derived',
+                name: 'pick', function: 'pick', kind: 'function', on: 'list<T>', input: 'options', result: 'number', changes: 'derived', reads: 'derived',
                 parameters: [value('limit', 'number', { default: 10 }), evaluated('by', 'expression', 'number'), evaluated('keep', 'predicate', 'boolean')],
             }],
         }, { pick: (list, { limit, by, keep }) => list.slice(0, limit).filter(keep).reduce((sum, item) => sum + by(item), 0) }));
@@ -4781,7 +4781,7 @@ describe('domql members written after their receiver and a space', () => {
 
         expect(error.kind).toBe('structure');
         expect(error.location.pointer).toBe('/expression/fields/0/value');
-        expect(error.message).toContain('An infixCall is no node: an operation is a call node, or an indexer node for a named or default indexer');
+        expect(error.message).toContain('An infixCall is no node: a function is a call node, or an indexer node for a named or default indexer');
     });
 });
 
@@ -4805,7 +4805,7 @@ describe('domql named indexers', () => {
 
         isolated.registerModule(isolated.createModule('entry', {
             types: [{ name: 'record', fields: { label: 'string', rank: 'number' } }],
-            members: [{ name: 'entry', function: 'entry', kind: 'operation', form: 'indexer', on: 'element', parameters: [{ name: 'index', kind: 'value', type: 'number', required: true, nulls: 'propagate' }], result: 'record?', changes: 'constant', reads: 'fresh' }],
+            members: [{ name: 'entry', function: 'entry', kind: 'function', form: 'indexer', on: 'element', parameters: [{ name: 'index', kind: 'value', type: 'number', required: true, nulls: 'propagate' }], result: 'record?', changes: 'constant', reads: 'fresh' }],
         }, {
             entry: (element, { index }) => {
                 counts.entries++;
@@ -4869,7 +4869,7 @@ describe('domql named indexers', () => {
         });
 
         it('is one a module declares for a type of its own, and one at most for any receiver', () => {
-            const tokens = { name: 'token', function: 'token', kind: 'operation', form: 'indexer', default: true, on: 'palette', parameters: [{ name: 'name', kind: 'value', type: 'string', required: true, nulls: 'propagate' }], result: 'string?', changes: 'constant', reads: 'fresh' };
+            const tokens = { name: 'token', function: 'token', kind: 'function', form: 'indexer', default: true, on: 'palette', parameters: [{ name: 'name', kind: 'value', type: 'string', required: true, nulls: 'propagate' }], result: 'string?', changes: 'constant', reads: 'fresh' };
 
             isolated.registerModule(isolated.createModule('palette', {
                 types: [{ name: 'palette', fields: { accent: 'string' } }],
@@ -4900,7 +4900,7 @@ describe('domql named indexers', () => {
             ['for a member that is no indexer', { form: 'call', default: true }, 'Only an indexer is the default of its receivers'],
             ['for a property', { kind: 'property', parameters: [], input: undefined, default: true }, 'Only an indexer is the default of its receivers'],
         ])('is refused where a declaration marks a default %s', (_, overrides, message) => {
-            const declaration = { name: 'entries', function: 'entry', kind: 'operation', on: 'element', input: 'positional', parameters: [{ name: 'index', kind: 'value', type: 'number', required: true, nulls: 'propagate' }], result: 'number', changes: 'constant', reads: 'fresh', ...overrides };
+            const declaration = { name: 'entries', function: 'entry', kind: 'function', on: 'element', input: 'positional', parameters: [{ name: 'index', kind: 'value', type: 'number', required: true, nulls: 'propagate' }], result: 'number', changes: 'constant', reads: 'fresh', ...overrides };
             const error = getError(() => isolated.createModule('entries', { members: [declaration] }, { entry: () => 1 }));
 
             expect(error.message).toContain(message);
@@ -4962,14 +4962,14 @@ describe('domql named indexers', () => {
 
         it.each([
             ['a property', { kind: 'property', parameters: [] }, 'A property is accessed'],
-            ['an action', { kind: 'action' }, 'An indexer is an operation'],
-            ['no parameter', { parameters: [] }, 'An indexer is an operation whose key is its one parameter'],
-            ['two parameters', { parameters: [{ name: 'a', kind: 'value', type: 'number', required: true, nulls: 'propagate' }, { name: 'b', kind: 'value', type: 'number', required: true, nulls: 'propagate' }] }, 'An indexer is an operation whose key is its one parameter'],
+            ['an action', { kind: 'action' }, 'An indexer is a function'],
+            ['no parameter', { parameters: [] }, 'An indexer is a function whose key is its one parameter'],
+            ['two parameters', { parameters: [{ name: 'a', kind: 'value', type: 'number', required: true, nulls: 'propagate' }, { name: 'b', kind: 'value', type: 'number', required: true, nulls: 'propagate' }] }, 'An indexer is a function whose key is its one parameter'],
             ['an optional parameter', { parameters: [{ name: 'a', kind: 'value', type: 'number', required: false, nulls: 'propagate' }] }, 'a required value parameter'],
             ['an expression parameter', { parameters: [{ name: 'a', kind: 'expression', type: 'boolean?', context: 'item', required: true, nulls: 'accept' }] }, 'a required value parameter'],
             ['options for its input', { input: 'options' }, "An indexer's key supplies its one parameter, so its input is positional"],
         ])('is refused where it declares %s', (_, overrides, message) => {
-            const declaration = { name: 'entries', function: 'entry', kind: 'operation', form: 'indexer', on: 'element', parameters: [{ name: 'index', kind: 'value', type: 'number', required: true, nulls: 'propagate' }], result: 'number', changes: 'constant', reads: 'fresh', ...overrides };
+            const declaration = { name: 'entries', function: 'entry', kind: 'function', form: 'indexer', on: 'element', parameters: [{ name: 'index', kind: 'value', type: 'number', required: true, nulls: 'propagate' }], result: 'number', changes: 'constant', reads: 'fresh', ...overrides };
             const error = getError(() => isolated.createModule('entries', { members: [declaration] }, { entry: () => 1 }));
 
             expect(error.kind).toBe('module');

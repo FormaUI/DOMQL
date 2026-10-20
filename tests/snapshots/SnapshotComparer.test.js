@@ -20,7 +20,7 @@ const property = (name, result, tolerance) => new LexicaModule(name, {
 /** A module of a meter, whose default indexer reads a level, and one of a reading, an indexer of an element, each answering the state's `r` within a tolerance of 2. */
 const indexerModules = () => {
     const key = [{ name: 'key', kind: 'value', type: 'string', required: true, nulls: 'propagate' }];
-    const level = { function: 'level', kind: 'operation', form: 'indexer', parameters: key, result: 'number', changes: 'constant', reads: 'fresh', tolerance: 2 };
+    const level = { function: 'level', kind: 'function', form: 'indexer', parameters: key, result: 'number', changes: 'constant', reads: 'fresh', tolerance: 2 };
 
     return [
         new LexicaModule('meter', {

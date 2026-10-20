@@ -23,6 +23,6 @@ DOMQL queries read DOM state and return detached data. Please report cases where
 - A result exposes a live DOM reference instead of detached data.
 - Crafted query text or a definition causes a hang, unbounded resource use or an unexpected failure outside DOMQL's `LexicaError` handling.
 
-Actions and behaviors are separate operations that can intentionally change the page. Extension modules run with the authority of the application that registers them; DOMQL does not sandbox their JavaScript. A registered module's own behavior is the host application's responsibility.
+Actions and behaviors are separate members that can intentionally change the page. Extension modules run with the authority of the application that registers them; DOMQL does not sandbox their JavaScript. A registered module's own behavior is the host application's responsibility.
 
 If you are unsure whether an issue is security-related, use one of the private reporting channels above.

@@ -511,7 +511,7 @@ describe('Watch', () => {
         it('follows what a function a member is given reads while the member calls it', async () => {
             isolated.registerModule(isolated.createModule('sortBy', {
                 members: [{
-                    name: 'sortBy', function: 'sortBy', kind: 'operation', on: 'list<T>', input: 'positional', result: 'list<T>', changes: 'derived', reads: 'derived',
+                    name: 'sortBy', function: 'sortBy', kind: 'function', on: 'list<T>', input: 'positional', result: 'list<T>', changes: 'derived', reads: 'derived',
                     parameters: [{ name: 'compare', kind: 'function', parameters: ['T', 'T'], type: 'number', required: true }],
                 }],
             }, { sortBy: (list, { compare }) => [...list].sort(compare) }));

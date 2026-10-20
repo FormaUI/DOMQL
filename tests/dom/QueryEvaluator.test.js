@@ -330,7 +330,7 @@ describe('QueryEvaluator', () => {
 
         it('gives a member the document and the window it is read in where an argument names a root', () => {
             const module = lexica.createModule('inside', {
-                members: [{ name: 'inside', function: 'inside', kind: 'operation', on: 'element', input: 'positional', parameters: [{ name: 'of', kind: 'value', type: 'document', required: true, nulls: 'propagate' }], result: 'boolean', changes: 'unobserved', reads: 'fresh' }],
+                members: [{ name: 'inside', function: 'inside', kind: 'function', on: 'element', input: 'positional', parameters: [{ name: 'of', kind: 'value', type: 'document', required: true, nulls: 'propagate' }], result: 'boolean', changes: 'unobserved', reads: 'fresh' }],
             }, { inside: (element, { of }) => element.ownerDocument === of && of === document });
             const panel = document.body.appendChild(document.createElement('div'));
 
@@ -963,7 +963,7 @@ describe('QueryEvaluator evaluation', () => {
         const probeModule = (shared = true) => lexica.createModule('probe', {
             observationTypes: [{ name: 'probe', contract: 'invalidation', identity: ['names'], shared, function: 'observeProbe' }],
             members: [{
-                name: 'probe', function: 'probe', kind: 'operation', on: 'element', result: 'number', changes: 'observable', reads: 'fresh',
+                name: 'probe', function: 'probe', kind: 'function', on: 'element', result: 'number', changes: 'observable', reads: 'fresh',
                 input: 'positional',
                 parameters: [{ name: 'names', kind: 'value', type: 'list<string>', required: false, default: [], fixed: false, nulls: 'propagate' }],
                 observations: [{ type: 'probe', of: 'receiver', names: { argument: 'names' } }],

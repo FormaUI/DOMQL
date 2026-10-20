@@ -168,13 +168,13 @@ A detached tree inserted into the document, a node moved within or between trees
 
 ## Built-in vocabulary
 
-The built-in vocabulary exposes properties and operations over familiar browser concepts. Properties and operations are named in camelCase. Names are case-sensitive. Measurements use CSS pixels unless stated otherwise. Built-in members expose state or event sources; actions and behaviors come from extensions.
+The built-in vocabulary exposes properties and functions over familiar browser concepts. Properties and functions are named in camelCase. Names are case-sensitive. Measurements use CSS pixels unless stated otherwise. Built-in members expose state or event sources; actions and behaviors come from extensions.
 
-A field of a structured value, such as a rectangle's `width`, is data the value holds, read by property access, and is constant for that value. A property is read by property access, and an operation is written as a call or as a named indexer, as its declaration says; the tables write each as it is written, with a receiver left out.
+A field of a structured value, such as a rectangle's `width`, is data the value holds, read by property access, and is constant for that value. A property is read by property access, and a function is written as a call or as a named indexer, as its declaration says; the tables write each as it is written, with a receiver left out.
 
 A member available on a node is available on each of its kinds, one available on an element on elements alone, and one available on a shadow view on an element's `shadow`.
 
-In this section: [Properties](#properties) · [Operations](#operations) · [Conditions](#conditions) · [Built-in conversions](#built-in-conversions) · [Event sources](#event-sources).
+In this section: [Properties](#properties) · [Functions](#functions) · [Conditions](#conditions) · [Built-in conversions](#built-in-conversions) · [Event sources](#event-sources).
 
 <a id="properties"></a>
 
@@ -432,35 +432,35 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 **Changes.** As their items
 
-<a id="operations"></a>
+<a id="functions"></a>
 
-### Operations
+### Functions
 
-An operation performs a lookup, a calculation or a selection with the argument it is given. A name with parentheses, as `closest(selector)`, is a call, `context.closest(".row")`; a name in brackets after a colon, as `:attribute[name]`, is a named indexer, `context:attribute["data-key"]`; and braces show an options object, whose fields supply the parameters, as `intersects({ root, margin })` does, `context.intersects({ root = panel })`.
+A function performs a lookup, a calculation or a selection with the argument it is given. A name with parentheses, as `closest(selector)`, is a call, `context.closest(".row")`; a name in brackets after a colon, as `:attribute[name]`, is a named indexer, `context:attribute["data-key"]`; and braces show an options object, whose fields supply the parameters, as `intersects({ root, margin })` does, `context.intersects({ root = panel })`.
 
-Each operation states what it answers, how its result changes, how it reads, and which of its parameters are fixed.
+Each function states what it answers, how its result changes, how it reads, and which of its parameters are fixed.
 
-| Receiver | Operation |
+| Receiver | Function |
 | --- | --- |
-| Window | [`:media[query]`](#operation-window-media) |
-| Element | [`:attribute[name]`, the default indexer, `:[name]`](#operation-element-attribute) |
-| ARIA view | [`:attribute[name]`, the default indexer, `:[name]`](#operation-aria-view-attribute) |
-| Element | [`:class[name]`](#operation-element-class) |
-| Any | [`is(name)`, `has(name)`, `supports(name)`](#operation-any-is-has-supports) |
-| Element | [`:style[property]`](#operation-element-style) |
-| Element | [`intersects({ root, margin })`](#operation-element-intersects) |
-| Element | [`overlaps({ other, margin })`](#operation-element-overlaps) |
-| Element | [`matches(selector)`](#operation-element-matches) |
-| Element | [`rectRelativeTo(relativeTo)`](#operation-element-rectrelativeto) |
-| Element | [`closest(selector)`](#operation-element-closest) |
-| Node | [`first(selector)`, `all(selector)`](#operation-node-first-all) |
-| List | [`:item[index]`, the default indexer, `:[index]`](#operation-list-item) |
-| List | [`max(expression)`, `min(expression)`, `sum(expression)`](#operation-list-max-min-sum) |
-| List | [`where(expression)`](#operation-list-where) |
+| Window | [`:media[query]`](#function-window-media) |
+| Element | [`:attribute[name]`, the default indexer, `:[name]`](#function-element-attribute) |
+| ARIA view | [`:attribute[name]`, the default indexer, `:[name]`](#function-aria-view-attribute) |
+| Element | [`:class[name]`](#function-element-class) |
+| Any | [`is(name)`, `has(name)`, `supports(name)`](#function-any-is-has-supports) |
+| Element | [`:style[property]`](#function-element-style) |
+| Element | [`intersects({ root, margin })`](#function-element-intersects) |
+| Element | [`overlaps({ other, margin })`](#function-element-overlaps) |
+| Element | [`matches(selector)`](#function-element-matches) |
+| Element | [`rectRelativeTo(relativeTo)`](#function-element-rectrelativeto) |
+| Element | [`closest(selector)`](#function-element-closest) |
+| Node | [`first(selector)`, `all(selector)`](#function-node-first-all) |
+| List | [`:item[index]`, the default indexer, `:[index]`](#function-list-item) |
+| List | [`max(expression)`, `min(expression)`, `sum(expression)`](#function-list-max-min-sum) |
+| List | [`where(expression)`](#function-list-where) |
 
-<a id="operation-window-media"></a>
+<a id="function-window-media"></a>
 
-<a id="operations-window-media"></a>
+<a id="functions-window-media"></a>
 
 #### Window: media
 
@@ -470,9 +470,9 @@ Each operation states what it answers, how its result changes, how it reads, and
 
 **Changes.** Observable: the query's matching, as the browser reports it changing
 
-<a id="operation-element-attribute"></a>
+<a id="function-element-attribute"></a>
 
-<a id="operations-element-attribute"></a>
+<a id="functions-element-attribute"></a>
 
 #### Element: attribute
 
@@ -482,9 +482,9 @@ Each operation states what it answers, how its result changes, how it reads, and
 
 **Changes.** Observable
 
-<a id="operation-aria-view-attribute"></a>
+<a id="function-aria-view-attribute"></a>
 
-<a id="operations-aria-view-attribute"></a>
+<a id="functions-aria-view-attribute"></a>
 
 #### ARIA view: attribute
 
@@ -494,9 +494,9 @@ Each operation states what it answers, how its result changes, how it reads, and
 
 **Changes.** Observable: that attribute
 
-<a id="operation-element-class"></a>
+<a id="function-element-class"></a>
 
-<a id="operations-element-class"></a>
+<a id="functions-element-class"></a>
 
 #### Element: class
 
@@ -506,9 +506,9 @@ Each operation states what it answers, how its result changes, how it reads, and
 
 **Changes.** Observable: its `class` attribute
 
-<a id="operation-any-is-has-supports"></a>
+<a id="function-any-is-has-supports"></a>
 
-<a id="operations-any-is-has-supports"></a>
+<a id="functions-any-is-has-supports"></a>
 
 #### Any: is, has, supports
 
@@ -518,9 +518,9 @@ Each operation states what it answers, how its result changes, how it reads, and
 
 **Changes.** As the condition
 
-<a id="operation-element-style"></a>
+<a id="function-element-style"></a>
 
-<a id="operations-element-style"></a>
+<a id="functions-element-style"></a>
 
 #### Element: style
 
@@ -530,9 +530,9 @@ Each operation states what it answers, how its result changes, how it reads, and
 
 **Changes.** Partly observable: its own size and attributes are observed, rules matching from elsewhere are not
 
-<a id="operation-element-intersects"></a>
+<a id="function-element-intersects"></a>
 
-<a id="operations-element-intersects"></a>
+<a id="functions-element-intersects"></a>
 
 #### Element: intersects
 
@@ -542,9 +542,9 @@ Each operation states what it answers, how its result changes, how it reads, and
 
 **Changes.** Observable
 
-<a id="operation-element-overlaps"></a>
+<a id="function-element-overlaps"></a>
 
-<a id="operations-element-overlaps"></a>
+<a id="functions-element-overlaps"></a>
 
 #### Element: overlaps
 
@@ -554,9 +554,9 @@ Each operation states what it answers, how its result changes, how it reads, and
 
 **Changes.** Partly observable, as `rect`, and the size of `other`
 
-<a id="operation-element-matches"></a>
+<a id="function-element-matches"></a>
 
-<a id="operations-element-matches"></a>
+<a id="functions-element-matches"></a>
 
 #### Element: matches
 
@@ -566,9 +566,9 @@ Each operation states what it answers, how its result changes, how it reads, and
 
 **Changes.** Partly observable: attributes, structure, focus and popovers opening and closing, `:popover-open`, are observed; pointer state such as `:hover` and control state such as `:checked` are not
 
-<a id="operation-element-rectrelativeto"></a>
+<a id="function-element-rectrelativeto"></a>
 
-<a id="operations-element-rectrelativeto"></a>
+<a id="functions-element-rectrelativeto"></a>
 
 #### Element: rectRelativeTo
 
@@ -578,9 +578,9 @@ Each operation states what it answers, how its result changes, how it reads, and
 
 **Changes.** Partly observable, as `rect`, and the size of `relativeTo`
 
-<a id="operation-element-closest"></a>
+<a id="function-element-closest"></a>
 
-<a id="operations-element-closest"></a>
+<a id="functions-element-closest"></a>
 
 #### Element: closest
 
@@ -590,9 +590,9 @@ Each operation states what it answers, how its result changes, how it reads, and
 
 **Changes.** Partly observable, as `matches`
 
-<a id="operation-node-first-all"></a>
+<a id="function-node-first-all"></a>
 
-<a id="operations-node-first-all"></a>
+<a id="functions-node-first-all"></a>
 
 #### Node: first, all
 
@@ -602,9 +602,9 @@ Each operation states what it answers, how its result changes, how it reads, and
 
 **Changes.** Partly observable, as `matches`
 
-<a id="operation-list-item"></a>
+<a id="function-list-item"></a>
 
-<a id="operations-list-item"></a>
+<a id="functions-list-item"></a>
 
 #### List: item
 
@@ -614,9 +614,9 @@ Each operation states what it answers, how its result changes, how it reads, and
 
 **Changes.** As its items
 
-<a id="operation-list-max-min-sum"></a>
+<a id="function-list-max-min-sum"></a>
 
-<a id="operations-list-max-min-sum"></a>
+<a id="functions-list-max-min-sum"></a>
 
 #### List: max, min, sum
 
@@ -626,9 +626,9 @@ Each operation states what it answers, how its result changes, how it reads, and
 
 **Changes.** As their items and expressions
 
-<a id="operation-list-where"></a>
+<a id="function-list-where"></a>
 
-<a id="operations-list-where"></a>
+<a id="functions-list-where"></a>
 
 #### List: where
 

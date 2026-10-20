@@ -4,7 +4,7 @@
 
 import { lexica } from '@formaui/lexica';
 
-const { valueParameter, property, condition, function: operation } = lexica.declarations;
+const { valueParameter, property, condition } = lexica.declarations;
 
 /** The observations the members share. */
 const RESIZE = { type: 'resize', of: 'receiver' };
@@ -120,20 +120,20 @@ export class BrowserVocabulary {
                 property('hasChildren', 'element', 'boolean', { observations: [CHILDREN] }),
                 property('hasSelection', 'element', 'boolean', { changes: 'partly-observable', misses: 'selections assigned by script', observations: TEXT_SELECTION }),
 
-                operation('media', 'window', 'boolean', { form: 'indexer', parameters: [valueParameter('query', 'string')], observations: [{ type: 'media', of: 'window', query: { argument: 'query' } }] }),
-                operation('attribute', 'element', 'string?', { form: 'indexer', isDefault: true, parameters: [valueParameter('name', 'string')], observations: [{ type: 'mutation', of: 'receiver', attributes: [{ argument: 'name' }] }] }),
-                operation('attribute', 'aria', 'string?', { function: 'ariaAttribute', form: 'indexer', isDefault: true, parameters: [valueParameter('name', 'string')], observations: [{ type: 'mutation', of: 'receiver', attributes: [{ argument: 'name', prefix: 'aria-' }] }] }),
-                operation('class', 'element', 'boolean', { form: 'indexer', parameters: [valueParameter('name', 'string')], observations: [{ type: 'mutation', of: 'receiver', attributes: ['class'] }] }),
-                operation('style', 'element', 'string?', { ...STYLE, form: 'indexer', parameters: [valueParameter('property', 'string')], observations: [RESIZE, ATTRIBUTES] }),
-                operation('intersects', 'element', 'boolean?', { reads: 'maintained', input: 'options', parameters: [valueParameter('root', 'element?', { default: null, nulls: 'accept', omitted: 'the window' }), valueParameter('margin', 'number', { default: 0 })], observations: [{ type: 'intersection', of: 'receiver', root: { argument: 'root' }, margin: { argument: 'margin' } }] }),
-                operation('overlaps', 'element', 'boolean?', { ...GEOMETRY, input: 'options', parameters: [valueParameter('other', 'element'), valueParameter('margin', 'number', { default: 0 })], observations: [RESIZE, { type: 'resize', of: { argument: 'other' } }, SCROLLING, WINDOW_RESIZE] }),
-                operation('matches', 'element', 'boolean', { ...MATCHING, parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS, POPOVERS] }),
-                operation('rectRelativeTo', 'element', 'rectangle?', { ...GEOMETRY, function: 'rect', parameters: [valueParameter('relativeTo', 'element')], observations: [RESIZE, { type: 'resize', of: { argument: 'relativeTo' } }, SCROLLING, WINDOW_RESIZE] }),
-                operation('closest', 'element', 'element?', { ...MATCHING, parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS, POPOVERS] }),
-                operation('first', 'node', 'element?', { ...MATCHING, function: 'firstMatching', parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS, POPOVERS] }),
-                operation('all', 'node', 'list<element>', { ...MATCHING, parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS, POPOVERS] }),
+                lexica.declarations.function('media', 'window', 'boolean', { form: 'indexer', parameters: [valueParameter('query', 'string')], observations: [{ type: 'media', of: 'window', query: { argument: 'query' } }] }),
+                lexica.declarations.function('attribute', 'element', 'string?', { form: 'indexer', isDefault: true, parameters: [valueParameter('name', 'string')], observations: [{ type: 'mutation', of: 'receiver', attributes: [{ argument: 'name' }] }] }),
+                lexica.declarations.function('attribute', 'aria', 'string?', { function: 'ariaAttribute', form: 'indexer', isDefault: true, parameters: [valueParameter('name', 'string')], observations: [{ type: 'mutation', of: 'receiver', attributes: [{ argument: 'name', prefix: 'aria-' }] }] }),
+                lexica.declarations.function('class', 'element', 'boolean', { form: 'indexer', parameters: [valueParameter('name', 'string')], observations: [{ type: 'mutation', of: 'receiver', attributes: ['class'] }] }),
+                lexica.declarations.function('style', 'element', 'string?', { ...STYLE, form: 'indexer', parameters: [valueParameter('property', 'string')], observations: [RESIZE, ATTRIBUTES] }),
+                lexica.declarations.function('intersects', 'element', 'boolean?', { reads: 'maintained', input: 'options', parameters: [valueParameter('root', 'element?', { default: null, nulls: 'accept', omitted: 'the window' }), valueParameter('margin', 'number', { default: 0 })], observations: [{ type: 'intersection', of: 'receiver', root: { argument: 'root' }, margin: { argument: 'margin' } }] }),
+                lexica.declarations.function('overlaps', 'element', 'boolean?', { ...GEOMETRY, input: 'options', parameters: [valueParameter('other', 'element'), valueParameter('margin', 'number', { default: 0 })], observations: [RESIZE, { type: 'resize', of: { argument: 'other' } }, SCROLLING, WINDOW_RESIZE] }),
+                lexica.declarations.function('matches', 'element', 'boolean', { ...MATCHING, parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS, POPOVERS] }),
+                lexica.declarations.function('rectRelativeTo', 'element', 'rectangle?', { ...GEOMETRY, function: 'rect', parameters: [valueParameter('relativeTo', 'element')], observations: [RESIZE, { type: 'resize', of: { argument: 'relativeTo' } }, SCROLLING, WINDOW_RESIZE] }),
+                lexica.declarations.function('closest', 'element', 'element?', { ...MATCHING, parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS, POPOVERS] }),
+                lexica.declarations.function('first', 'node', 'element?', { ...MATCHING, function: 'firstMatching', parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS, POPOVERS] }),
+                lexica.declarations.function('all', 'node', 'list<element>', { ...MATCHING, parameters: SELECTOR_PARAMETERS, observations: [STRUCTURE, FOCUS, POPOVERS] }),
 
-                { ...operation('on', ['element', 'document', 'window'], 'event<@selected>', { changes: 'constant', reads: 'captured', parameters: [valueParameter('type', 'string', { fixed: true, selects: 'eventType' })] }), kind: 'eventSource' },
+                { ...lexica.declarations.function('on', ['element', 'document', 'window'], 'event<@selected>', { changes: 'constant', reads: 'captured', parameters: [valueParameter('type', 'string', { fixed: true, selects: 'eventType' })] }), kind: 'eventSource' },
             ],
         }, functions);
     }

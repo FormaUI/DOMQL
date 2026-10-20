@@ -351,8 +351,8 @@ export interface DomqlConversionContext {
 export interface DomqlParameterDeclaration {
     name: string;
     /**
-     * A value, an expression evaluated against each item, a predicate, an expression of any value whose truthiness its function receives, or a function, one the query declares,
-     * which the member's function receives as a function it calls while its own invocation lasts, and only an operation declares.
+     * A value, an expression evaluated against each item, a predicate, an expression of any value whose truthiness the implementation receives, or a function the query declares,
+     * which the implementation calls while its own invocation lasts and only a member of kind `function` takes.
      */
     kind: 'value' | 'expression' | 'predicate' | 'function';
     /** The parameter's type, in DOMQL's notation; a predicate's is `boolean`, what its function receives, and a function parameter's the type of the result it takes from the function. */
@@ -373,14 +373,14 @@ export interface DomqlParameterDeclaration {
     omitted?: string;
 }
 
-/** A property, operation, event source, action or behavior a module adds. */
+/** A property, function, event source, action or behavior a module adds. */
 export interface DomqlMemberDeclaration {
     /** The DOMQL name. */
     name: string;
     /** The key of the function that carries it out, among the module's functions; a member whose argument selects a condition names none, since the condition carries it out. */
     function?: string;
-    kind: 'property' | 'operation' | 'eventSource' | 'action' | 'behavior';
-    /** How a member that is no property is written: called, `context.closest(".row")`, the default, or a named indexer, `context:attribute["data-key"]`, an operation whose one required value parameter is its key. A property declares none. */
+    kind: 'property' | 'function' | 'eventSource' | 'action' | 'behavior';
+    /** How a member that is no property is written: called, `context.closest(".row")`, the default, or a named indexer, `context:attribute["data-key"]`, a function whose one required value parameter is its key. A property declares none. */
     form?: 'call' | 'indexer';
     /** What its arguments supply, where it has parameters: its parameters, in order, the required ones before the optional ones, or every parameter, as the fields of one options object; an indexer's is positional. */
     input?: 'positional' | 'options';
