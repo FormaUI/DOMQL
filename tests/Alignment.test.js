@@ -9,7 +9,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const read = path => readFileSync(resolve(root, path), 'utf8');
 
 describe('Alignment', () => {
-    const specification = read('docs/domql-specification.md');
+    const specification = read('spec/README.md');
     const design = read('docs/domql-design.md');
     const project = read('nuget/Forma.DOMQL.csproj');
 
@@ -32,7 +32,7 @@ describe('Alignment', () => {
     });
 
     it('has a specification whose complete query writes the fields of the result it shows', () => {
-        const [, text, result] = specification.match(/## A complete query[\s\S]*?The query reads it:\s*```domql\n([\s\S]*?)```[\s\S]*?```json\n([\s\S]*?)```/);
+        const [, text, result] = read('spec/examples.md').match(/## A complete query[\s\S]*?The query reads it:\s*```domql\n([\s\S]*?)```[\s\S]*?```json\n([\s\S]*?)```/);
         // The query is of version 32, which the specification targets, so its fields are read from its definition until the runtime resolves version 32.
         const { expression } = domql.query(text).definition;
 

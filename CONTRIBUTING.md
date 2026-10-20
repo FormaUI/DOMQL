@@ -40,9 +40,10 @@ Run the full build from the repository root:
 | `tests/` | Tests arranged to match the source folders |
 | `scripts/` | Bundling scripts |
 | `nuget/` | Package project and library guide |
-| `docs/` | Specification, runtime design and implementation plan |
+| `spec/` | The specification, split by subject, with its index |
+| `docs/` | The runtime design and the status overview |
 
-The [Lexica specification](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-specification.md) defines the language, and the [DOMQL specification](docs/domql-specification.md) the DOM vocabulary and how queries are evaluated and watched. The [Lexica design](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md) defines modules and tooling, and the [DOMQL design](docs/domql-design.md) the runtime and public API. If a change affects either contract, update the relevant document before implementing it. The [implementation plan](docs/domql-implementation-plan.md) tracks unfinished work and open decisions.
+The [Lexica specification](https://github.com/FormaUI/Lexica/blob/main/spec/README.md) defines the language, and the [DOMQL specification](spec/README.md) the DOM vocabulary and how queries are evaluated and watched. The [Lexica design](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md) defines modules and tooling, and the [DOMQL design](docs/domql-design.md) the runtime and public API. If a change affects either contract, update the relevant document before implementing it. The [status overview](docs/status.md) tracks what is implemented, what is being built, and what remains.
 
 ## Develop a change
 
@@ -71,7 +72,7 @@ Two details to keep in mind:
 - **Module registration persists.** A test that registers a module needs its own `domql` instance. Call `vi.resetModules()` and import it afresh so tests remain independent of execution order.
 - **README examples are tested.** When you change an example in the package guide, update its fixture in `tests/_examples/` and the answer `tests/PackageReadme.test.js` expects. The repository README's examples run as they are written.
 
-For performance changes, run `npm run bench` from `tests/` for simulated-DOM benchmarks and `npm run scale` for Chromium workloads with 1,000 to 100,000 rows. Compare against a baseline, keep gains that repeat beyond measurement noise, and record the conclusion in the implementation plan. Benchmarks are separate from the build gate.
+For performance changes, run `npm run bench` from `tests/` for simulated-DOM benchmarks and `npm run scale` for Chromium workloads with 1,000 to 100,000 rows. Compare against a baseline, keep gains that repeat beyond measurement noise, and record a conclusion that decides something in the [design](docs/domql-design.md), beside the decision it settles. Benchmarks are separate from the build gate.
 
 ## Before opening a pull request
 

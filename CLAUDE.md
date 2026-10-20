@@ -1,6 +1,6 @@
 # Working on DOMQL
 
-DOMQL is a small, extensible query language and JavaScript library for managing the DOM: reading information from the document, tracking changes, responding to events and updating its content or state. A query only reads; the document changes only through an action or a behavior, each a request of its own kind that a module supplies. Source ES modules live in `src/`; the build produces one minified bundle, distributed by the `formaui-net.DOMQL` NuGet package.
+DOMQL is a query language and JavaScript library for the DOM: reading information from the document, keeping it current, responding to events and updating the page's content or state. Its queries are written in Lexica, and DOMQL defines the DOM as Lexica's domain. A query only reads; the document changes only through an action or a behavior, each a request of its own kind that a module supplies. Source ES modules live in `src/`; the build produces one minified bundle, distributed by the `formaui-net.DOMQL` NuGet package.
 
 ## Before making a change
 
@@ -8,14 +8,15 @@ Read the documents that govern the affected contract:
 
 | Document | Authority |
 | --- | --- |
-| [Lexica specification](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-specification.md) | The language, Lexica's, in its own repository: syntax, resolution, values, requests, vocabulary contracts, definitions and diagnostics |
-| [DOMQL specification](docs/domql-specification.md) | The DOM's nodes and shadow trees, the built-in vocabulary, evaluation and watching |
+| [Lexica specification](https://github.com/FormaUI/Lexica/blob/main/spec/README.md) | The language, Lexica's, in its own repository: syntax, resolution, values, requests, vocabulary contracts, definitions and diagnostics |
+| [DOMQL specification](spec/README.md) | The DOM's nodes and shadow trees, the built-in vocabulary, evaluation and watching, one document per subject |
 | [Lexica design](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md) | Modules, their declarations and registration, and tooling |
-| [DOMQL design](docs/domql-design.md) | Runtime architecture and public API: preparation, sessions, watching, snapshots, live state, events, actions and behaviors |
-| [Implementation plan](docs/domql-implementation-plan.md) | Unfinished work, its status and open decisions |
+| [DOMQL design](docs/domql-design.md) | Runtime architecture and public API: preparation, sessions, watching, snapshots, live state, events, actions and behaviors, the .NET host, and the decisions not taken |
+| [Status](docs/status.md) | What is implemented, what is in progress, what remains, open decisions and deferred work |
+| [Library guide](nuget/README.md) | Using DOMQL by example; it ships in the package, so it links absolutely |
 | `.editorconfig` | Code style; read it before writing C# |
 
-Update the specification before implementing a language change, and the design before changing a runtime or public API contract. Record a departure from the design in the plan until the design is aligned. When planned work is complete, remove its unfinished-work entry and update Built to describe what exists.
+Update the specification before implementing a language change, and the design before changing a runtime or public API contract. Each subject has one home: state a rule where it belongs and link to it elsewhere; a rule of the language is Lexica's. Record a gap between the design and the code in the status overview until it closes, and update a row's status as soon as its work lands.
 
 Use these sources rather than inventing scope, status or style rules.
 
@@ -28,7 +29,9 @@ Use these sources rather than inventing scope, status or style rules.
 | `src/snapshots/` | Computing, comparing, dispatching and applying snapshot updates using identity metadata; no DOM access |
 | `tests/` | Tests mirroring the source folders |
 | `scripts/` | Bundling scripts |
-| `nuget/` | The package project, which distributes the bundle |
+| `spec/` | The specification, one document per subject, indexed by `spec/README.md` |
+| `docs/` | The design and the status overview |
+| `nuget/` | The package project, which distributes the bundle, and the library guide |
 | `.local/` | Personal experiments, spikes, notes and benchmark baselines; ignored by Git |
 
 Add a folder when a new responsibility needs one. Keep dependencies in this direction:
@@ -88,7 +91,7 @@ Tests mirror `src/` under `tests/`. Layout, geometry and browser-managed state b
 | `./build.ps1 -Browser` | Repository root | Gate including browser tests |
 | `./publish.ps1` | Repository root | Gate followed by package creation |
 
-Every compiler warning is a build failure. Keep `*.bench.js` and `*.scale.js` beside the corresponding tests, store baselines in `.local/`, and record measurement conclusions in the implementation plan.
+Every compiler warning is a build failure. Keep `*.bench.js` and `*.scale.js` beside the corresponding tests, store baselines in `.local/`, and record a measurement that decides something in the design, beside the decision it settles.
 
 ## Documentation and versions
 

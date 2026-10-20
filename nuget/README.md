@@ -2,24 +2,11 @@
 
 **A declarative approach to managing the DOM.**
 
-DOMQL is a small, extensible query language and JavaScript library. Use it to read information from the document, track changes, respond to events and update its content or state. This guide takes you from your first query to watching results, handling events and extending the library. Its queries are written in [Lexica](https://github.com/FormaUI/Lexica), an extensible expression language, and DOMQL adds the DOM: its vocabulary, observation, watching and events.
+DOMQL is a query language and JavaScript library for the DOM. Use it to read information from the document, keep it current, respond to events and update the page's content or state. This guide takes you from your first query to watching results, handling events and extending the library. Its queries are written in [Lexica](https://github.com/FormaUI/Lexica), a general-purpose, embeddable language that lets applications define their own domain; DOMQL defines the DOM as that domain, and adds the observation, watching and events that follow it as it changes.
 
 DOMQL is a FormaUI product, developed alongside [Forma](https://github.com/FormaUI/Forma). It stands on its own and works independently of any UI framework.
 
-> **Alpha:** `formaui-net.DOMQL` is not yet published to NuGet. [Build the package locally](#install-and-load) to try it. The package distributes a JavaScript ES module; the API in this guide runs in JavaScript.
-
-## Current capabilities
-
-- Shape DOM and browser state into immutable snapshots.
-- Filter and summarize collections; handle missing values and choose results with conditionals.
-- Convert values explicitly, such as attribute text to numbers, with errors for text that does not convert, or test first whether it converts.
-- Reuse queries with new bindings, or create them from JSON definitions.
-- Validate query structure, names and types before evaluation.
-- Evaluate once, wait for browser observations, or watch for changed results.
-- Choose snapshots or live state updated in place, and select part of a result.
-- Project events into data and cancel ongoing operations with an `AbortSignal`.
-- Extend the vocabulary with typed members, observations, actions and behaviors.
-- Use TypeScript declarations for the public API.
+> **Alpha:** `formaui-net.DOMQL` is not yet published to NuGet. [Build the package locally](#install-and-load) to try it. The package distributes a JavaScript ES module; the API in this guide runs in JavaScript. Every example here runs on this alpha, which reads Lexica's definition version 31: it writes the implicit parameter `context`, where version 32, which the specifications describe, writes `it`. [The status overview](https://github.com/FormaUI/DOMQL/blob/main/docs/status.md) says what is implemented and what is being built.
 
 ## In this guide
 
@@ -917,8 +904,10 @@ console.log(panel.dataset.highlight);
 ## Learn more
 
 - [Repository README](https://github.com/FormaUI/DOMQL): what DOMQL is for, what is built, and how to build and test it.
-- [Lexica specification](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-specification.md): the language DOMQL is written in, its syntax, types, null semantics and vocabulary contracts.
-- [DOMQL specification](https://github.com/FormaUI/DOMQL/blob/main/docs/domql-specification.md): the DOM's nodes and shadow trees, the built-in vocabulary, and how a query is evaluated and watched.
+- [Lexica specification](https://github.com/FormaUI/Lexica/blob/main/spec/README.md): the language DOMQL is written in, its syntax, types, null semantics and vocabulary contracts.
+- [DOMQL specification](https://github.com/FormaUI/DOMQL/blob/main/spec/README.md): the DOM's nodes and shadow trees, the built-in vocabulary, and how a query is evaluated and watched.
 - [Runtime design](https://github.com/FormaUI/DOMQL/blob/main/docs/domql-design.md): resolution, evaluation, watching, subscribing to events, actions and behaviors, and the [Lexica design](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md): modules and tooling.
 
-The specification and design describe the intended contracts. The [current capabilities](#current-capabilities) section lists what this alpha implements. The [DOMQL specification](https://github.com/FormaUI/DOMQL/blob/main/docs/domql-specification.md) describes DOMQL on Lexica's definition version 32, the target of separating the language from DOMQL; this alpha, and the examples here, still read version 31, which writes the implicit parameter `context` where version 32 writes `it`, and reads `document` and `window` where version 32 reads `domql.document` and `domql.window`. Version 32's namespaces and qualified access, its reference types, and owner precedence and extension ambiguity are still to come.
+- [Status](https://github.com/FormaUI/DOMQL/blob/main/docs/status.md): what is implemented, what is being built, and what remains.
+
+The specifications describe version 32; this guide's examples run on version 31, as the alpha does.

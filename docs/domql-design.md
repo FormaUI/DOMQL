@@ -1,15 +1,15 @@
 # DOMQL Design v1.0.0-alpha
 
-The [Lexica specification](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-specification.md) defines the language DOMQL is written in, and the [DOMQL specification](domql-specification.md) its DOM vocabulary. This design sets out how DOMQL runs and is used: how requests are made and prepared, how an evaluation waits and a watch stays current, how results and changes are delivered, how events hold their observations, how actions are executed and behaviors applied, what DOMQL owns beside its host, how modules extend the vocabulary, and the API a caller uses.
+The [Lexica specification](https://github.com/FormaUI/Lexica/blob/main/spec/README.md) defines the language DOMQL is written in, and the [DOMQL specification](../spec/README.md) its DOM vocabulary. This design sets out how DOMQL runs and is used: how requests are made and prepared, how an evaluation waits and a watch stays current, how results and changes are delivered, how events hold their observations, how actions are executed and behaviors applied, what DOMQL owns beside its host, how modules extend the vocabulary, and the API a caller uses.
 
-This design describes the whole runtime, and the [README](../README.md#status) states what this implementation covers.
+This design describes the whole runtime on Lexica's definition version 32, as the specification does, so its examples write the implicit parameter `it`; the [library guide](../nuget/README.md)'s examples run on version 31, which the runtime reads today. Its C# half is designed and not yet built. [The status overview](status.md) says what this implementation covers.
 
 ## Scope
 
 | Decision | Contract |
 | --- | --- |
-| A small language | Chains, with required and optional access, bracket property access and named indexers, object expressions and their locals, lists, equalities, arithmetic and numeric comparisons, interpolated strings, bodies of locals and the `return` that gives their result, names of any word, a reserved one read after `@` and a field's read by the fields after it, local functions, arguments by position, each a simple expression, truthiness and the logical expressions and negations that test it, conditionals, coalescing operators, casts and conversions, each strict or attempted, with literals and parameters. Ordering text and anything else a query needs computed belong to a member or to the caller. |
-| An open vocabulary | Everything a query can ask about is a member a vocabulary contributes; the built-in vocabulary and every extension follow one contract, and adding a member leaves the grammar unchanged. |
+| Queries are Lexica expressions | DOMQL adds no syntax: a query is a [Lexica](https://github.com/FormaUI/Lexica/blob/main/spec/README.md) expression, read, checked and resolved by Lexica against DOMQL's module and any module a caller registers. What a query can say is Lexica's to define. |
+| An open vocabulary | Everything a query can ask about is a member a module contributes; DOMQL's own module and every extension follow one contract, and adding a member leaves the grammar unchanged. |
 | Queries read, requests act | Evaluating, watching or subscribing to a request reads the document and changes nothing, whatever vocabulary it uses; an action or a behavior is a request of its own kind, carried out only when its caller executes or applies it. |
 | One meaning | A query evaluates the same way for every caller, however it was written. |
 | Two ways in | A query is parsed from text or created from its JSON definition, and each produces a definition with the same meaning, validated and evaluated alike. |
@@ -108,10 +108,10 @@ Accepting partial observation is an option of the watch, chosen when the caller 
 
 A watch's dependencies are what its last evaluation actually read: each member applied to its receiver and arguments, with that member's observations, each held through a session as the evaluation reaches it. Dependencies belong to the complete query.
 
-- **Every evaluation holds its dependencies afresh:** it takes over the session of the evaluation before it wherever it reaches the same observation again, acquires the observations it reaches for the first time, and the sessions it no longer reaches are disposed. What a watch observes therefore follows the document: in `table.all("tbody tr").max(context.rect?.height)`, the watch depends on what the selector matches within the table, and on the height of each row it matched. A row added starts being observed after the evaluation the addition causes, and a row removed stops being observed.
-- **A value argument is a dependency of its own.** `target.intersects({ root = panel })` depends on the intersection of the target with the panel; `context.intersects({ root = context.parent as "element" })` also depends on which element is the parent, and a new parent is observed after the evaluation its change causes.
+- **Every evaluation holds its dependencies afresh:** it takes over the session of the evaluation before it wherever it reaches the same observation again, acquires the observations it reaches for the first time, and the sessions it no longer reaches are disposed. What a watch observes therefore follows the document: in `table.all("tbody tr").max(it.rect?.height)`, the watch depends on what the selector matches within the table, and on the height of each row it matched. A row added starts being observed after the evaluation the addition causes, and a row removed stops being observed.
+- **A value argument is a dependency of its own.** `target.intersects({ root = panel })` depends on the intersection of the target with the panel; `it.intersects({ root = it.parent as "element" })` also depends on which element is the parent, and a new parent is observed after the evaluation its change causes.
 - **An expression argument contributes its dependencies for every item** it was evaluated against.
-- **A chain that met null depends on what it read before the null,** so `context.closest(".row")` finding nothing still depends on the ancestors it searched, and the watch evaluates again when one starts to match.
+- **A chain that met null depends on what it read before the null,** so `it.closest(".row")` finding nothing still depends on the ancestors it searched, and the watch evaluates again when one starts to match.
 - **A watch keeps its bindings.** A query `with` other bindings starts a watch of its own. When the replacement watch is ready before the old watch is disposed, shared observations with matching targets and identifying arguments remain running throughout the replacement.
 
 Invalidation, evaluation and delivery each keep their own schedule. An observation invalidates the watch at once. The watch evaluates at the next animation frame, once however many observations fired, or, under `immediate`, without waiting for an animation frame, where its caller needs a change handled as soon as it is reported, such as at mutation delivery: the first invalidation queues an evaluation in a microtask, and the invalidations received before that evaluation begins share it, so the records one delivery of mutations brings evaluate once, and an invalidation received after it begins, or while it runs, asks for another. Separate native callbacks each reach a microtask of their own, so a resize the browser reports for each element in its own callback evaluates once for each; the frame schedule evaluates once for them all. When the caller receives the snapshot is the caller's own. Watches that depend on the same target through the same observation share one observation.
@@ -127,7 +127,7 @@ A member that answered null because its element is detached depends on whether t
 A watch follows its receivers through shadow trees, by two scopes of observation a module can name.
 
 - **A node's root** is the root of the tree it is in, as `getRootNode` answers: its document, the shadow root it is in, or the top of a detached tree. An observation of it sees a change inside a shadow tree, which an observation of the document never reaches.
-- **Its flat-tree ancestry** is found step by step from the node. A step goes to the slot the node is assigned to, where it is assigned to one; from a node whose parent is a shadow root, to that root's host; and otherwise to the node's parent. The nodes the steps reach are its **flat-tree ancestors**, which the `text-editable` condition reads for `inert`.
+- **Its flat-tree ancestry** is found step by step from the node. A step goes to the slot the node is assigned to, where it is assigned to one; from a node whose parent is a shadow root, to that root's host; and otherwise to the node's parent. The nodes the steps reach are its **flat-tree ancestors**, which the `text-editable` predicate reads for `inert`.
 - **Its roots** are collected along those steps, nearest first, and each kept once: the shadow root each step to a host leaves; the open shadow root of each host whose child a step leaves, since that root's slots may come to take the child; and the node the steps end at, its document or the top of a detached tree. A node's own root is always among them, a slotted node's too, since it is a child of its host and in its host's tree; the shadow root a node hosts is not.
 - **A closed shadow root hides its slots' assignments,** so a node assigned to one of its slots steps to its parent instead, and the roots past that slot are reached only from a node inside that root.
 
@@ -246,6 +246,18 @@ behavior.dispose();
 
 DOMQL owns the semantics every host shares: evaluation, dependency recording, observation sessions, snapshots, live state, and the change sets that describe updates to that state, their format and the rules for applying them. A host owns transport, reconnection and who owns a watch, and maintains its own representation of the result by applying a watch's change sets in order, by DOMQL's rules: each change set is applied completely before the updated result is exposed. Where the host can no longer establish that its result is synchronized, it discards that result and starts a fresh watch, whose first delivery carries the complete result as its baseline, from which the host rebuilds its own. A host implements the application of change sets, never deciding for itself what changed or applying one by rules of its own, and DOMQL does not know what a connection is.
 
+### A .NET host
+
+The C# half carries a watch to a .NET application, which starts a watch and receives its results. Its adapter owns the synchronization:
+
+- **Live state by default.** It watches live state, and takes its baseline from the first ready event's `args.snapshot`.
+- **One update at a time.** It queues the immutable changes after the baseline and delivers them in order, sending the next only once the receiving side acknowledges that the one before was applied completely. Acknowledgment follows application alone, never the application's handlers, and a failed delivery stops every further update of that watch.
+- **No partial state.** No consumer observes a change set partly applied: access to the C# result during an update follows an explicit rule, a result whose application failed becomes unusable, and the application's handlers are notified once the update is applied.
+- **Obsolete watches rejected.** The receiving side rejects a delivery from an obsolete watch before applying it, through a token of its own for the watch it follows.
+- **Recovery from uncertainty.** Where applying an update throws, a call rejects, or a call times out leaving its outcome uncertain, the adapter first invalidates the old watch, so its late applications and acknowledgments change neither the replacement result nor the new queue, then disposes it and rebuilds the result from a fresh watch's baseline. Where the connection is lost with the components holding its results, their replacements start watches of their own; where it resumes with them, an update unanswered across the interruption is uncertain and recovered as a timeout is.
+- **Handler failures reported, not retried.** An exception from an application handler is reported without restarting synchronization, since the state was already accepted.
+- **One way of applying.** Its application of change sets passes a conformance corpus the JavaScript patcher passes too: each case a previous result, a change set and the result they give, reviewed independently of either applier, moves and escaped paths among them.
+
 ## Callers
 
 A caller makes a query object from text or a definition, binding its parameters, and carries out every operation through it: it evaluates a query once or watches it, subscribes to a subscription, executes an action, or applies, updates and disposes a behavior; a watch's caller also chooses its schedule, its update strategy and whether it accepts partial observation. The request is prepared before it is first carried out. Each parameter is bound under the name the request uses, with a value the specification allows. A result is data, which a caller receives in its own language's form.
@@ -312,8 +324,8 @@ JavaScript makes a query from text, and binds its definition anew:
 // From text, binding its parameters by name.
 const panelQuery = domql.query(`
     panel {
-        size = context.size,
-        hasFocus = context.has("focus-within")
+        size = it.size,
+        hasFocus = it.has("focus-within")
     }
 `, { panel });
 
@@ -334,19 +346,19 @@ public sealed record PanelState(double? Width, bool HasFocus);
 DomqlQuery<PanelState> typed = Domql.Query<PanelState>(
     """
     panel {
-        width = context.size?.width,
-        hasFocus = context.has("focus-within")
+        width = it.size?.width,
+        hasFocus = it.has("focus-within")
     }
     """,
     ("panel", panel));
 
-DomqlQuery untyped = Domql.Query("panel { size = context.size }", ("panel", panel));
+DomqlQuery untyped = Domql.Query("panel { size = it.size }", ("panel", panel));
 ```
 
 A binding declares no type: every value is typed from itself, a null, an empty list and a list holding nulls among them, so a query is made for an element that is not there yet as it is for one that is.
 
 ```js
-const query = domql.query("{ panel = panel { size = context.size }, ids = ids }", { panel: null, ids: [] });
+const query = domql.query("{ panel = panel { size = it.size }, ids = ids }", { panel: null, ids: [] });
 
 const another = query.with({ panel: otherPanel, ids: [1, 2] });
 ```
@@ -391,3 +403,17 @@ lifetime.abort();
 ```
 
 An operation that answers a handle, given a signal already aborted, answers a disposed handle and starts nothing; an operation that answers a promise rejects with the signal's reason. A signal is an option an operation accepts, and no handle exposes one.
+
+## Decisions not taken
+
+Each of these was considered, measured where cost decided it, and not adopted. It is reopened only by the need its row names.
+
+| Decision | Why not | Reopened by |
+| --- | --- | --- |
+| Observing every box's position | `rect` keeps its own size, its scroll containers' scrolling, the window's size and its trees' structure, and stays partly observable. Observing its trees' mutations would cost a refresh for each one, about 50 ms for 10,000 rows in Chromium, and still miss a move a stylesheet, an image or a font causes. An intersection observer for each box caught nearly every move, but a watch of shaped rows started 78 to 88% slower and held about 60% more script memory a row, and scrolling 5,000 watched rows took 68 ms a frame rather than 17. | A consumer that needs the moves of a few chosen boxes followed without a refresh, as an opt-in for them |
+| One native observer shared by every element | Routing records through one `ResizeObserver` and one `MutationObserver` was correct, but disposed 55 to 111% slower and held 13% more script memory a row. Under `immediate`, one layout change resizing 1,000 rows evaluated a watch twice rather than 1,001 times, at the same disposal and memory cost for every watch of a box. | An implementation whose disposal and memory both cost less, or a workload in which the renderer's memory at that scale matters |
+| `watch.update` for new bindings | A caller starts a watch of the new bindings and disposes the old one once the new one is ready; every observation both read of the same target and arguments runs on throughout. | A consumer that needs its listeners or its live state's identity kept through new bindings |
+| A subscription delivered by frame | Every event is projected in the task it is dispatched in. Delivering later and dropping events are separate features, and a frame schedule would have to say whether it queues, keeps the latest or combines a frame's events; waiting for events to go quiet is the caller's policy. | A consumer that needs events by frame, and says which of those it needs |
+| Event sources a behavior offers | Neither a behavior's declaration nor its implementation offers one, and the specification promises none. | A behavior with events its caller would subscribe to |
+| A behavior that waits, `applyAsync` | `apply` answers synchronously, with the behavior started; asynchronous work it began may still be under way. | A caller that needs to know when a behavior is ready, beyond its having started |
+| A window the viewport decides | `rows.where(it.intersects({ root = panel }))` already answers which rendered rows intersect a panel. It holds an observation for every candidate and selects only rendered rows, so it is no virtualization. | A consumer that needs DOMQL itself to decide which rows are rendered |

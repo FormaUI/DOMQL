@@ -86,9 +86,15 @@ const COMPARED = '(%) != null';
  * Every example must be one of these, so a block with no entry fails.
  */
 const DOCUMENTS = {
-    'docs/domql-specification.md': [
+    'spec/README.md': [
         { about: 'a query at a glance', version: 32 },
+    ],
+    'spec/nodes-and-shadow-trees.md': [
         { about: 'shadow trees', each: true, context: COMPARED, version: 32 },
+    ],
+    'spec/evaluation-and-watching.md': [],
+    'spec/vocabulary.md': [],
+    'spec/examples.md': [
         { about: 'a complete query', version: 32 },
     ],
     'nuget/README.md': [
@@ -117,7 +123,7 @@ const DOCUMENTS = {
     'docs/domql-design.md': [
         { about: 'a subscription reading a maintained member' },
     ],
-    'docs/domql-implementation-plan.md': [],
+    'docs/status.md': [],
     'README.md': [],
 };
 

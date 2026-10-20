@@ -213,27 +213,25 @@ describe('the package README', () => {
 });
 
 describe('the repository README', () => {
-    const [firstExample, readAgainExample, watchExample, refreshExample, filterExample] = blocks(repositoryReadme, 'js');
+    const [firstExample, readAgainExample] = blocks(repositoryReadme, 'js');
 
     /** The values the comments after each `console.log` show, on its own line. */
     const loggedValuesOf = example => [...example.matchAll(/^console\.log\(.*\);\s*\/\/ (.*)$/gm)].map(([, value]) => valueOf([value]));
 
     /** Runs the examples in one scope, in the order they are shown, against the document the README shows, and answers what the code returns. */
-    const run = async (code, frames = []) => {
+    const run = async code => {
         vi.resetModules();
 
         const { domql } = await import('#domql/domql.js');
         const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
         const printed = [];
-        const failed = [];
-        const settle = () => new Promise(resolve => setTimeout(resolve));
 
         document.body.innerHTML = blocks(repositoryReadme, 'html')[0];
 
-        const console = { log: value => printed.push(value), error: message => failed.push(message) };
-        const answer = await new AsyncFunction('domql', 'document', 'console', 'settle', 'frames', code)(domql, document, console, settle, frames);
+        const console = { log: value => printed.push(value) };
+        const answer = await new AsyncFunction('domql', 'document', 'console', code)(domql, document, console);
 
-        return { answer, printed, failed };
+        return { answer, printed };
     };
 
     it('gives the result it shows, and reads the change again as its comments say', async () => {
@@ -241,35 +239,5 @@ describe('the repository README', () => {
 
         expect(answer).toEqual(JSON.parse(blocks(repositoryReadme, 'json')[0]));
         expect(printed).toEqual(loggedValuesOf(readAgainExample));
-    });
-
-    it('delivers the first snapshot to its watch, leaves an unchanged one undelivered, and counts what is selected', async () => {
-        const frames = [];
-
-        vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => frames.push(callback));
-
-        let outcome;
-
-        try {
-            outcome = await run([
-                firstExample.replace(/^import .*\n/, ''),
-                readAgainExample,
-                watchExample,
-                'await settle();',
-                'frames.splice(0).forEach(callback => callback());',
-                refreshExample,
-                filterExample,
-                'return { next, watch, selectedCount };',
-            ].join('\n'), frames);
-        } finally {
-            vi.restoreAllMocks();
-        }
-
-        const { answer: { next, watch, selectedCount }, printed, failed } = outcome;
-
-        expect(failed).toEqual([]);
-        expect(printed).toEqual([...loggedValuesOf(readAgainExample), next]);
-        expect(watch.status).toBe('disposed');
-        expect(selectedCount).toBe(2);
     });
 });

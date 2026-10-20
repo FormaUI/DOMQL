@@ -1,0 +1,98 @@
+# DOMQL Status
+
+What this repository implements today, what is being built, and what remains. The [specification](../spec/README.md) is the contract and the [design](domql-design.md) the architecture; this document tracks how far the implementation has come. The language is Lexica's, and [Lexica's status](https://github.com/FormaUI/Lexica/blob/main/docs/status.md) tracks it.
+
+The specification describes DOMQL on Lexica's definition version 32. **The runtime reads definition version 31**: it writes the implicit parameter `context`, and reads `document` and `window` as roots where version 32 reads `domql.document` and `domql.window`. [Definition version 32](#definition-version-32) sets out what DOMQL still has to do for it.
+
+| Status | Meaning |
+| --- | --- |
+| Implemented | Built, tested in the gate, and as the specification and the design state |
+| Partial | Usable, with the parts named in its row still missing |
+| In progress | Being built now |
+| Planned | Accepted and not started |
+| Deferred | Not planned until the need its row names appears |
+
+## Overview
+
+### The DOM vocabulary
+
+| Area | Status | What remains | Contract |
+| --- | --- | --- | --- |
+| Nodes and shadow trees | Partial | The node types are still built into Lexica, recognized by `nodeType`; DOMQL declares them as reference types with version 32 | [Nodes and shadow trees](../spec/nodes-and-shadow-trees.md) |
+| Properties, functions and predicates | Implemented | | [Built-in vocabulary](../spec/vocabulary.md) |
+| Conversions and event sources | Implemented | | [Built-in vocabulary](../spec/vocabulary.md#built-in-conversions) |
+| `domql.document` and `domql.window` | Planned | Today `document` and `window` are roots of the language | [Module members](../spec/vocabulary.md#module-members) |
+| Observation targets DOMQL declares and resolves | Planned | Lexica still knows `window`, `document`, `root` and `roots` by name | [Trees and slots](domql-design.md#trees-and-slots) |
+
+### The runtime
+
+| Area | Status | What remains | Contract |
+| --- | --- | --- | --- |
+| Queries from text or a definition, `with`, `select` and `resolve` | Implemented | | [Making a query](domql-design.md#making-a-query) |
+| `evaluate` and `evaluateAsync` | Implemented | | [Evaluating](domql-design.md#evaluating), [waiting](domql-design.md#waiting-for-maintained-members) |
+| Watches, their dependencies and partial observation | Implemented | | [Watching and dependencies](domql-design.md#watching-and-dependencies) |
+| Snapshots, live state and change sets | Implemented | | [Snapshots, live state and change sets](domql-design.md#snapshots-live-state-and-change-sets) |
+| Subscriptions | Implemented | | [Event delivery](domql-design.md#event-delivery) |
+| Actions and behaviors | Implemented | | [Actions and behaviors](domql-design.md#actions-and-behaviors) |
+| Extension modules | Partial | Declared in Lexica's version 32 shape; namespaces, qualified access and owner precedence come with Lexica's version 32 | [Lexica's modules and namespaces](https://github.com/FormaUI/Lexica/blob/main/spec/modules-and-namespaces.md) |
+
+### Delivery
+
+| Area | Status | What remains | Contract |
+| --- | --- | --- | --- |
+| The JavaScript bundle and its TypeScript declarations | Implemented | Lexica is bundled inside `domql.js` | [README](../README.md#build-and-try-it) |
+| Consuming Lexica | Partial | See [consuming Lexica](#consuming-lexica) | |
+| npm and NuGet packages | Planned | Packed locally and not published | [Consuming Lexica](#consuming-lexica) |
+| Beta | Partial | The documents and the module API are audited; the changelog and the beta version remain | [Beta](#beta) |
+| The C# half | Planned | Not started; its API and its synchronization are designed | [The API](domql-design.md#the-api), [a .NET host](domql-design.md#a-net-host) |
+| Editor tooling | Planned | Lexica's, through its syntax tree | [Lexica's status](https://github.com/FormaUI/Lexica/blob/main/docs/status.md) |
+
+**Verification outside the gate.** `window.size` following a scrollbar that appears or goes is shown only by an experiment outside the gate, since the gate's Chromium hides scrollbars; a browser test with a launch of its own would bring it in without changing the other tests' geometry. Performance is measured outside the gate too, by `npm run bench` and `npm run scale` from `tests/`.
+
+## Definition version 32
+
+Version 32 is built in Lexica and DOMQL together, in three slices; [Lexica's status](https://github.com/FormaUI/Lexica/blob/main/docs/status.md#definition-version-32) tracks the whole. DOMQL's part of each:
+
+| Slice | Status | DOMQL's part |
+| --- | --- | --- |
+| 1. The declaration shape | Implemented | Its vocabulary declared in the new shape, its implementations taking one object, its predicates replacing conditions |
+| 2. The version 32 definition | Planned | `domql.document` and `domql.window` as module members of `domql`; its observation targets, `window`, `document`, `root` and `roots`, declared and resolved by its own observations; its queries, examples, READMEs and guide moved to `it` and `domql.document`, in the commit that follows Lexica's switch |
+| 3. Reference types | Planned | `node`, abstract, with `element`, `document`, `documentFragment` and `shadowRoot` beneath it, and `window`, each with its test; the comparer matching items by the references `sources` holds where each is unique in both lists, and by position otherwise, checked against duplicate references, repeated equal data values, null inputs and reordered items |
+
+**Next step.** Slice 2 waits on Lexica's decision of its order; with observation targets first, DOMQL's next change is declaring and resolving its own targets.
+
+## Consuming Lexica
+
+DOMQL depends on `@formaui/lexica` through `file:../formaui-net.Lexica`, a local link to a checkout beside this one, imports Lexica's entry point alone, and bundles it into `domql.js`. Lexica's tests that run through DOMQL's entry point are DOMQL's integration tests.
+
+**Remaining.**
+
+1. Depend on a released Lexica, its NuGet and npm packages, each of an exact version.
+2. Write the NuGet bundle with `../lexica/lexica.js` as an import, and the npm bundle with `@formaui/lexica`, rather than carrying Lexica inside.
+3. Have the gate check that DOMQL's packages depend on Lexica's and Lexica's on nothing of DOMQL's, and run DOMQL's tests against the packaged Lexica.
+4. Add a `LEXICA_SOURCE` setting that points DOMQL at a local checkout for coordinated changes.
+
+Needs Lexica's packages, which need version 32 complete.
+
+## Beta
+
+The beta makes the language and the JavaScript API ready for external use: no breaking redesign is planned, the remaining limitations are documented, and a breaking change after it is recorded with migration guidance.
+
+**Done.** The documents and the module API are audited, and a cast inside an optional enclosed access is settled.
+
+**Remaining.** `CHANGELOG.md`, empty until the first change after the beta; the version `1.0.0-beta` wherever a version is written or checked, the package numbered `1.0.0-beta.N`.
+
+## Open decisions
+
+| Decision | State |
+| --- | --- |
+| A flat-tree parent | A parent across slots, beside the tree's own `parent` and `root`, waits until its uses and its meaning are clear. |
+
+## Deferred
+
+| Work | Why it waits | Reopened by |
+| --- | --- | --- |
+| A list's change set by its longest increasing subsequence | It would send one operation to move the first item to the end, where today's diff sends one for every other item; today's diff takes at most half a millisecond for 1,000 items in any order, though it can grow quadratically with a large reorder. It is decided by the total cost of generating, delivering and applying a change set, never by generating one alone. | A workload that measures delivering and applying change sets |
+| Incremental evaluation | Re-evaluating only what changed saves nothing for the changes lists most often see: `matches`, `all`, `closest` and the ancestry `rect` follows observe a whole tree, and layout, insertion, removal, moving and scrolling invalidate every row. It saves much only for edits of a row's own attributes and class, and is sound only with each selector analysed for what it reads. | A workload that needs that saving |
+
+Decisions considered and not taken, with what would reopen each, are in [the design](domql-design.md#decisions-not-taken).
