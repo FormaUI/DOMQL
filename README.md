@@ -181,7 +181,7 @@ See [Extend the vocabulary](nuget/README.md#extend-the-vocabulary) for a complet
 
 The features listed above are implemented in the current alpha. Editor tooling and C# integration are planned; the NuGet package currently distributes the JavaScript library.
 
-The [DOMQL specification](docs/domql-specification.md) describes DOMQL on Lexica's definition version 32, the target of separating the language from DOMQL. This alpha, and the examples here, still read version 31, which writes the implicit parameter `context` where version 32 writes `it`, and reads `document` and `window` where version 32 reads `domql.document` and `domql.window`.
+The [DOMQL specification](docs/domql-specification.md) describes DOMQL on Lexica's definition version 32, the target of separating the language from DOMQL. This alpha, and the examples here, still read version 31, which writes the implicit parameter `context` where version 32 writes `it`, and reads `document` and `window` where version 32 reads `domql.document` and `domql.window`. Version 32's namespaces and qualified access, its reference types, and owner precedence and extension ambiguity are still to come.
 
 The [implementation plan](docs/domql-implementation-plan.md) tracks remaining work and open decisions.
 
