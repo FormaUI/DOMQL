@@ -272,7 +272,7 @@ Each entry point, operation and handle is listed here with what it takes, and th
 | | `Domql.TryQuery(…)`, `Domql.TryQuery<T>(…)` | Attempts exactly what `Domql.Query` does, answering false with a diagnostic for a syntax or structure failure |
 | `query.definition` | `query.Definition` | The query's immutable definition, without its bindings |
 | `query.with(bindings)` | | A new query with the same definition, bound to these bindings |
-| `query.resolve(options?)` | | Resolves and types a request without evaluating anything; its options `watch` and `acceptPartialObservation` resolve it as a watch would, as [declarations](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md#declarations) sets out |
+| `query.resolve(options?)` | | Resolves and types a request without evaluating anything; its options `watch` and `acceptPartialObservation` resolve it as a watch would, as [accepting partial observation](#accepting-partial-observation) sets out |
 | `query.select(...path)` | | A part of its result, as [selecting a result](#selecting-a-result) sets out |
 | `query.evaluate(options?)` | | Evaluates a query once, as [evaluating](#evaluating) sets out; its option is `window` |
 | `query.evaluateAsync(options?)` | | Evaluates a query once, waiting for its maintained members, as [waiting for maintained members](#waiting-for-maintained-members) sets out; its options are `window` and `signal` |
@@ -280,9 +280,9 @@ Each entry point, operation and handle is listed here with what it takes, and th
 | `query.subscribe(handler, options?)` | | Subscribes to a subscription, answering a `DomqlEventListener`, as [event delivery](#event-delivery) sets out |
 | `query.executeAsync(options?)` | | Executes an action once, answering a promise of its result, as [executing an action](#executing-an-action) sets out |
 | `query.apply(options?)` | | Applies a behavior, answering a `DomqlBehavior`, as [applying a behavior](#applying-a-behavior) sets out |
-| `domql.format(source)` | | The canonical text of a text, a definition or a query object, as [formatting](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md#formatting) sets out |
-| `domql.createModule(name, contents)` | | Creates a module from its declarations, each that runs code carrying its implementation, as [declarations](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md#declarations) set out |
-| `domql.registerModule(module)` | | Registers a module's declarations in the instance's registry, as [modules](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md#modules) sets out |
+| `domql.format(source)` | | The canonical text of a text, a definition or a query object, as [formatting](https://github.com/FormaUI/Lexica/blob/main/spec/definition.md#definition-canonical-text) sets out |
+| `domql.createModule(name, contents)` | | Creates a module from its declarations, each that runs code carrying its implementation, as [declarations](https://github.com/FormaUI/Lexica/blob/main/spec/modules.md#modules-declarations) set out |
+| `domql.registerModule(module)` | | Registers a module's declarations in the instance's registry, as [modules](https://github.com/FormaUI/Lexica/blob/main/spec/modules.md#modules) sets out |
 | `domql.info` | | Which build this is and which specification it follows: `version`, the package's version, `1.0.0-alpha+source` where DOMQL runs from its sources, and `specificationVersion`, the version of the specification it follows |
 
 | Object | Members | Defined in |

@@ -34,7 +34,7 @@ The specification describes DOMQL on Lexica's definition version 32. **The runti
 | Snapshots, live state and change sets | Implemented | | [Snapshots, live state and change sets](domql-design.md#snapshots-live-state-and-change-sets) |
 | Subscriptions | Implemented | | [Event delivery](domql-design.md#event-delivery) |
 | Actions and behaviors | Implemented | | [Actions and behaviors](domql-design.md#actions-and-behaviors) |
-| Extension modules | Partial | Declared in Lexica's version 32 shape; namespaces, qualified access and owner precedence come with Lexica's version 32 | [Lexica's modules and namespaces](https://github.com/FormaUI/Lexica/blob/main/spec/modules-and-namespaces.md) |
+| Extension modules | Partial | Declared in Lexica's version 32 shape; namespaces, qualified access and owner precedence come with Lexica's version 32 | [Lexica's modules](https://github.com/FormaUI/Lexica/blob/main/spec/modules.md) |
 
 ### Delivery
 

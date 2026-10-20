@@ -817,7 +817,7 @@ Register modules once during setup, rather than on every evaluation.
 
 Modules can also declare Boolean members, event types, predicates asked with `is`, `has` or `supports`, event sources, and conversions to and from their own types, each naming the type it converts from, the type it converts to and the implementation that converts a value. That implementation receives `{ value, reject }`, and calls `reject(reason)` for a value it cannot convert, which stops it at once; any other exception it throws is reported as a fault. A predicate carries the implementation that tests it, and its `updates` name its own observations. An event source's implementation receives the receiver, arguments, environment and an event-delivery callback, as `{ receiver, args, env, deliver }`. It returns an object with a `stop` method to end listening. Each event is captured using the fields declared by its event type.
 
-The [Lexica design](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md#modules) describes the full extension contracts. The next section shows action and behavior modules.
+[Lexica's modules](https://github.com/FormaUI/Lexica/blob/main/spec/modules.md#modules) specify the full extension contracts. The next section shows action and behavior modules.
 
 ## Execute actions and apply behaviors
 

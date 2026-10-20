@@ -16,7 +16,7 @@ Lexica's own module declares the members of lists, `count`, `first`, `last`, `it
 
 ## Module members
 
-DOMQL's module, `domql`, declares two [module members](https://github.com/FormaUI/Lexica/blob/main/spec/modules-and-namespaces.md#namespaces-module-members), read through its namespace, each with no receiver:
+DOMQL's module, `domql`, declares two [module members](https://github.com/FormaUI/Lexica/blob/main/spec/modules.md#namespaces-module-members), read through its namespace, each with no receiver:
 
 | Member | Type | Reads | Changes |
 | --- | --- | --- | --- |
@@ -274,7 +274,7 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 ### List: count, first, last
 
-`count`, `first` and `last` are properties [Lexica's own module](https://github.com/FormaUI/Lexica/blob/main/spec/values-and-types.md#lists) declares, which owns lists, and Lexica's specification defines.
+`count`, `first` and `last` are properties [Lexica's own module](https://github.com/FormaUI/Lexica/blob/main/spec/vocabulary.md#vocabulary-list-members) declares, which owns lists, and Lexica's specification defines.
 
 <a id="functions"></a>
 
@@ -352,7 +352,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 ### Any: is, has, supports
 
-`is`, `has` and `supports` are [Lexica's verbs](https://github.com/FormaUI/Lexica/blob/main/spec/vocabulary-contracts.md#predicates), which ask a predicate by its name; DOMQL declares the predicates they ask of its receivers, as [predicates](#conditions) set out.
+`is`, `has` and `supports` are [Lexica's verbs](https://github.com/FormaUI/Lexica/blob/main/spec/vocabulary.md#predicates), which ask a predicate by its name; DOMQL declares the predicates they ask of its receivers, as [predicates](#conditions) set out.
 
 <a id="function-element-style"></a>
 
@@ -444,7 +444,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 ### List: item
 
-`:item[index]`, the default indexer `:[index]`, is a function [Lexica's own module](https://github.com/FormaUI/Lexica/blob/main/spec/values-and-types.md#lists) declares, which owns lists, and Lexica's specification defines.
+`:item[index]`, the default indexer `:[index]`, is a function [Lexica's own module](https://github.com/FormaUI/Lexica/blob/main/spec/vocabulary.md#vocabulary-list-members) declares, which owns lists, and Lexica's specification defines.
 
 <a id="function-list-max-min-sum"></a>
 
@@ -452,7 +452,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 ### List: max, min, sum
 
-`max`, `min` and `sum` are functions [Lexica's own module](https://github.com/FormaUI/Lexica/blob/main/spec/values-and-types.md#lists) declares, which owns lists, and Lexica's specification defines.
+`max`, `min` and `sum` are functions [Lexica's own module](https://github.com/FormaUI/Lexica/blob/main/spec/vocabulary.md#vocabulary-list-members) declares, which owns lists, and Lexica's specification defines.
 
 <a id="function-list-where"></a>
 
@@ -460,7 +460,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 ### List: where
 
-`where` is a function [Lexica's own module](https://github.com/FormaUI/Lexica/blob/main/spec/values-and-types.md#lists) declares, which owns lists, and Lexica's specification defines.
+`where` is a function [Lexica's own module](https://github.com/FormaUI/Lexica/blob/main/spec/vocabulary.md#vocabulary-list-members) declares, which owns lists, and Lexica's specification defines.
 
 <a id="conditions"></a>
 
@@ -470,7 +470,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 DOMQL's predicates ask the DOM with Lexica's three verbs: `is` a state the user, the browser or the page sets and clears over time, `it.is("checked")`; `has` a possession or a presence, `it.has("focus")`; and `supports` a capability, `domql.window.supports("share")`.
 
-Each follows [Lexica's predicate contract](https://github.com/FormaUI/Lexica/blob/main/spec/vocabulary-contracts.md#predicates): it is asked with its one verb, its name is fixed, it applies to the receivers it declares, and it answers a Boolean or fails the evaluation. A Boolean that follows from the receiver's structure, or from another member's value, is a property of it, as `attached`, `hasChildren` and `hasSelection` are, and `has` with the name of a presence such as `has("children")` is refused naming the property that answers it, `hasChildren`. Predicates compose as Booleans do: `it:class["open"] and it.has("focus-within")`.
+Each follows [Lexica's predicate contract](https://github.com/FormaUI/Lexica/blob/main/spec/vocabulary.md#predicates): it is asked with its one verb, its name is fixed, it applies to the receivers it declares, and it answers a Boolean or fails the evaluation. A Boolean that follows from the receiver's structure, or from another member's value, is a property of it, as `attached`, `hasChildren` and `hasSelection` are, and `has` with the name of a presence such as `has("children")` is refused naming the property that answers it, `hasChildren`. Predicates compose as Booleans do: `it:class["open"] and it.has("focus-within")`.
 
 <a id="conditions-condition-declarations"></a>
 
@@ -682,7 +682,7 @@ Each reads the element's own attribute under a contract of its own, falling back
 
 So `it.is("checked") or it.aria.is("checked")` is whether either says checked, and `it.aria:["checked"] == "mixed"` tells a mixed state, which an ARIA predicate answers false for, from the others. The ARIA view's default indexer reads the attribute written on the element, as `it:["aria-checked"]` does, and never the element's effective accessibility state.
 
-No other ARIA attribute is a predicate until one is declared, each with a contract of its own, since not every ARIA attribute is a Boolean; an extension declares one on the ARIA view, a type it does not own, as the [rules for extensions](https://github.com/FormaUI/Lexica/blob/main/spec/modules-and-namespaces.md#extensions) let any module do.
+No other ARIA attribute is a predicate until one is declared, each with a contract of its own, since not every ARIA attribute is a Boolean; an extension declares one on the ARIA view, a type it does not own, as the [rules for extensions](https://github.com/FormaUI/Lexica/blob/main/spec/modules.md#extensions) let any module do.
 
 <a id="conditions-related-questions"></a>
 
@@ -717,7 +717,7 @@ The built-in vocabulary declares four conversions, each rejecting a value it can
 
 ## Event sources
 
-An event source follows [Lexica's contract](https://github.com/FormaUI/Lexica/blob/main/spec/vocabulary-contracts.md#events-and-event-types): it delivers things that happened, is subscribed to and never read or watched, and the object expression following it is evaluated against each event, captured as the members its event type declares.
+An event source follows [Lexica's contract](https://github.com/FormaUI/Lexica/blob/main/spec/vocabulary.md#events-and-event-types): it delivers things that happened, is subscribed to and never read or watched, and the object expression following it is evaluated against each event, captured as the members its event type declares.
 
 | Available on | Source | Type | Delivers | Reads | Fixed |
 | --- | --- | --- | --- | --- | --- |

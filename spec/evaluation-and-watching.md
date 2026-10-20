@@ -3,13 +3,13 @@
 <a id="evaluation"></a>
 <a id="evaluation-and-watching"></a>
 
-A query is evaluated as Lexica evaluates an expression, synchronously, and each member declares how it reads by [Lexica's contract](https://github.com/FormaUI/Lexica/blob/main/spec/vocabulary-contracts.md#how-a-member-reads): DOMQL's members read fresh from the document, as an attribute or a box is, maintained by a browser observation, as `intersects` is, captured, as an event's data is, or derived, as a list's `count` is.
+A query is evaluated as Lexica evaluates an expression, synchronously, and each member declares how it reads by [Lexica's contract](https://github.com/FormaUI/Lexica/blob/main/spec/members.md#how-a-member-reads): DOMQL's members read fresh from the document, as an attribute or a box is, maintained by a browser observation, as `intersects` is, captured, as an event's data is, or derived, as a list's `count` is.
 
 Facts that must describe one measurement are members of one structured value, which is captured once and read by each of its members, as a rectangle's edges are.
 
 A maintained member is **pending** until its first sample arrives, as Lexica sets out. `evaluate()` fails on a maintained member, since reading it waits for the first sample, which a synchronous evaluation cannot; `evaluateAsync` and a watch wait for its first sample, and an event's object expression reads it as null while it is pending. The evaluator keeps pending apart from unavailable; the [DOMQL design](../docs/domql-design.md) sets out when a request waits for first samples.
 
-Evaluating a query is read-only, as [Lexica requires](https://github.com/FormaUI/Lexica/blob/main/spec/vocabulary-contracts.md#how-a-member-reads) of every vocabulary. A measurement that needs the document changed first, such as measuring columns at their intrinsic widths under a temporary class, is an action of its own.
+Evaluating a query is read-only, as [Lexica requires](https://github.com/FormaUI/Lexica/blob/main/spec/members.md#how-a-member-reads) of every vocabulary. A measurement that needs the document changed first, such as measuring columns at their intrinsic widths under a temporary class, is an action of its own.
 
 A member whose result depends on what happened before, as well as on the document as it is, is captured: it keeps that history while a watch or an event listener holds it, and documents what an evaluation once reports without it.
 
@@ -27,7 +27,7 @@ An element with a layout box whose dimensions are zero has actual measurements o
 
 ## How a member changes
 
-Every member declares how its result changes, by the categories [Lexica defines](https://github.com/FormaUI/Lexica/blob/main/spec/vocabulary-contracts.md#how-a-member-changes), and a watch decides by each what it may follow:
+Every member declares how its result changes, by the categories [Lexica defines](https://github.com/FormaUI/Lexica/blob/main/spec/members.md#how-a-member-changes), and a watch decides by each what it may follow:
 
 | Category | As in DOMQL | In a watch |
 | --- | --- | --- |
