@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { domql } from '#domql/domql.js';
-import { DefinitionWriter } from '@formaui/lexica/language/DefinitionWriter.mjs';
+import { DefinitionWriter } from '#lexica/language/DefinitionWriter.mjs';
 
 const panel = document.createElement('div');
 

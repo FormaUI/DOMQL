@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { BrowserModule } from '#domql/dom/BrowserModule.mjs';
 import { BrowserObservers } from '#domql/dom/BrowserObservers.mjs';
 import { Observations } from '#domql/dom/Observations.mjs';
-import { LexicaRegistry } from '@formaui/lexica/language/vocabulary/LexicaRegistry.mjs';
+import { LexicaRegistry } from '#lexica/language/vocabulary/LexicaRegistry.mjs';
 
 /** A window whose pixel ratio and media queries the test controls, since a browser's cannot be changed from inside it. */
 const createWindow = devicePixelRatio => {

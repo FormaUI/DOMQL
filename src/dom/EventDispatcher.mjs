@@ -2,7 +2,7 @@
  * EventDispatcher — the events a handle raises, delivered to the listeners subscribed to each in the order they subscribed, each failure kept from the others
  */
 
-import { LexicaError } from '@formaui/lexica/language/LexicaError.mjs';
+import { LexicaError } from '@formaui/lexica';
 
 export class EventDispatcher {
     #sender;

@@ -1,15 +1,25 @@
 import { describe, it, expect } from 'vitest';
 import { DomqlQuery } from '#domql/dom/DomqlQuery.mjs';
 import { domql } from '#domql/domql.js';
-import { LexicaError } from '@formaui/lexica/language/LexicaError.mjs';
-import { LexicaModule } from '@formaui/lexica/language/vocabulary/LexicaModule.mjs';
-import { LanguageResolver } from '@formaui/lexica/language/LanguageResolver.mjs';
-import { LexicaRegistry } from '@formaui/lexica/language/vocabulary/LexicaRegistry.mjs';
+import { LexicaError } from '#lexica/language/LexicaError.mjs';
+import { LexicaModule } from '#lexica/language/vocabulary/LexicaModule.mjs';
+import { LanguageResolver } from '#lexica/language/LanguageResolver.mjs';
+import { ParameterBindings } from '#lexica/language/ParameterBindings.mjs';
+import { ParsedTexts } from '#lexica/language/ParsedTexts.mjs';
+import { LexicaRegistry } from '#lexica/language/vocabulary/LexicaRegistry.mjs';
+import { Vocabulary } from '#lexica/language/vocabulary/Vocabulary.mjs';
 import { BrowserVocabulary } from '#domql/dom/BrowserVocabulary.mjs';
 
 const panel = document.createElement('div');
 
 const resolve = (text, bindings = { panel }, options = {}) => domql.query(text, bindings).resolve(options);
+
+/** The resolver's own resolution of the text, against Lexica's and the DOM vocabulary, which tells what each node resolved to as no public resolution does. */
+const resolveInLexica = (text, bindings = { panel }) => {
+    const definition = ParsedTexts.parse(text);
+
+    return new LanguageResolver(new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module]), new ParameterBindings(bindings), ParsedTexts.locationsOf(definition)).resolveDefinition(definition);
+};
 const failure = (text, bindings, options) => {
     try {
         resolve(text, bindings, options);
@@ -65,12 +75,12 @@ describe('LanguageResolver', () => {
             ['a receiver', 'panel.loose.count'],
             ['a subject', 'panel.loose.attached'],
         ])('refuses a type parameter no receiver gives an argument as %s, so its value never reaches a result', (_, text) => {
-            const registry = new LexicaRegistry([...BrowserVocabulary.modules, new LexicaModule('loose', {
+            const registry = new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, new LexicaModule('loose', {
                 members: [{ name: 'loose', function: 'loose', kind: 'property', on: 'element', parameters: [], result: 'T', changes: 'constant', reads: 'fresh' }],
             }, null)]);
             const query = domql.query(text, { panel });
 
-            expect(() => new LanguageResolver(registry, DomqlQuery.bindingsOf(query), null, {}).resolveDefinition(query.definition)).toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringMatching(/\bT\b/) }));
+            expect(() => new LanguageResolver(registry, new ParameterBindings({ panel }), null).resolveDefinition(query.definition)).toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringMatching(/\bT\b/) }));
         });
     });
 
@@ -112,11 +122,11 @@ describe('LanguageResolver', () => {
         const member = (name, kind, result) => new LexicaModule(name, {
             members: [{ name, function: name, kind, on: 'element', parameters: [], result, changes: 'unobserved', reads: 'fresh' }],
         });
-        const registry = new LexicaRegistry([...BrowserVocabulary.modules, member('step', 'action', 'boolean'), member('pick', 'action', 'element'), member('focusTrap', 'behavior', 'null')]);
+        const registry = new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, member('step', 'action', 'boolean'), member('pick', 'action', 'element'), member('focusTrap', 'behavior', 'null')]);
         const resolveWith = text => {
             const query = domql.query(text, { panel });
 
-            return new LanguageResolver(registry, DomqlQuery.bindingsOf(query), null, {}).resolveDefinition(query.definition);
+            return new LanguageResolver(registry, new ParameterBindings({ panel }), null).resolveDefinition(query.definition);
         };
         const failureWith = text => {
             try {
@@ -201,7 +211,7 @@ describe('LanguageResolver', () => {
         });
 
         it('supplies positional parameters in order, an optional one left out taking its default, and refuses more arguments than parameters', () => {
-            const registry = new LexicaRegistry([...BrowserVocabulary.modules, new LexicaModule('clamp', {
+            const registry = new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, new LexicaModule('clamp', {
                 members: [{
                     name: 'clamp', function: 'clamp', kind: 'operation', on: 'element', input: 'positional', result: 'number', changes: 'constant', reads: 'fresh',
                     parameters: [{ name: 'low', kind: 'value', type: 'number', required: true, nulls: 'propagate' }, { name: 'high', kind: 'value', type: 'number', required: false, default: 10, nulls: 'propagate' }],
@@ -210,7 +220,7 @@ describe('LanguageResolver', () => {
             const resolveWith = text => {
                 const query = domql.query(text, { panel });
 
-                return new LanguageResolver(registry, DomqlQuery.bindingsOf(query), null, {}).resolveDefinition(query.definition);
+                return new LanguageResolver(registry, new ParameterBindings({ panel }), null).resolveDefinition(query.definition);
             };
 
             expect(resolveWith('panel.clamp(1, 5)').resolutionOf(domql.query('panel.clamp(1, 5)').definition.expression).arguments.map(argument => argument.parameter.name)).toEqual(['low', 'high']);
@@ -228,12 +238,12 @@ describe('LanguageResolver', () => {
         });
 
         it('refuses an argument given to an operation that takes none', () => {
-            const registry = new LexicaRegistry([...BrowserVocabulary.modules, new LexicaModule('ping', {
+            const registry = new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, new LexicaModule('ping', {
                 members: [{ name: 'ping', function: 'ping', kind: 'operation', on: 'element', parameters: [], result: 'boolean', changes: 'constant', reads: 'fresh' }],
             }, null)]);
             const query = domql.query('panel.ping(1)', { panel });
 
-            expect(() => new LanguageResolver(registry, DomqlQuery.bindingsOf(query), null, {}).resolveDefinition(query.definition)).toThrow(expect.objectContaining({ message: expect.stringContaining("'ping' takes no argument") }));
+            expect(() => new LanguageResolver(registry, new ParameterBindings({ panel }), null).resolveDefinition(query.definition)).toThrow(expect.objectContaining({ message: expect.stringContaining("'ping' takes no argument") }));
         });
 
         it('refuses an argument of the wrong type', () => {
@@ -333,7 +343,7 @@ describe('LanguageResolver', () => {
         });
 
         it('resolves an omitted argument to its default', () => {
-            const resolved = resolve('panel.intersects()');
+            const resolved = resolveInLexica('panel.intersects()');
             const [, margin] = resolved.getResolution('/expression').arguments;
 
             expect(resolved.type.toString()).toBe('boolean?');
@@ -467,12 +477,12 @@ describe('LanguageResolver', () => {
                 members: [{ name: 'charts', function: 'charts', kind: 'property', on: 'element', parameters: [], result: 'boolean', changes: 'constant', reads: 'fresh' }],
             });
 
-            const registry = new LexicaRegistry([...BrowserVocabulary.modules, module]);
+            const registry = new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, module]);
             const element = document.createElement('div');
             const resolveWith = text => {
                 const query = domql.query(text, { panel: element });
 
-                return new LanguageResolver(registry, DomqlQuery.bindingsOf(query), null, {}).resolveDefinition(query.definition);
+                return new LanguageResolver(registry, new ParameterBindings({ panel: element }), null).resolveDefinition(query.definition);
             };
             const events = resolveWith('panel.on("chart-selected") { value = context.value }');
             const test = resolveWith('panel.charts');
@@ -588,7 +598,7 @@ describe('LanguageResolver', () => {
 
     describe('tests', () => {
         it('resolve a test as the Boolean member or the condition it is, nullable where an optional access reads it', () => {
-            const resolved = resolve('panel.is("disabled")');
+            const resolved = resolveInLexica('panel.is("disabled")');
 
             expect(resolved.type.toString()).toBe('boolean');
             expect(resolved.getResolution('/expression').declaration.name).toBe('is');
@@ -701,7 +711,7 @@ describe('LanguageResolver', () => {
         });
 
         it('resolve every operand with its own location, the evaluation context of each the one around the expression', () => {
-            const resolved = resolve('panel { both = context.attached and (context.is("disabled") or context.has("focus")) }');
+            const resolved = resolveInLexica('panel { both = context.attached and (context.is("disabled") or context.has("focus")) }');
 
             expect(resolved.getResolution('/expression/fields/0/value/operands/0').declaration.name).toBe('attached');
             expect(resolved.getResolution('/expression/fields/0/value/operands/1/operands/1').contract.name).toBe('focus');
@@ -792,7 +802,7 @@ describe('LanguageResolver', () => {
 
     describe('the resolved definition', () => {
         it('names each field of each object expression once, as it is written', () => {
-            const resolved = resolve('panel { size = context.size, kind = context:attribute["role"], attached = context.attached, clientSize = context["clientSize"], rows = context.all("i") { rect = context.rect } }');
+            const resolved = resolveInLexica('panel { size = context.size, kind = context:attribute["role"], attached = context.attached, clientSize = context["clientSize"], rows = context.all("i") { rect = context.rect } }');
             const { expression: query } = resolved.definition;
 
             expect(resolved.fieldNamesOf(query)).toEqual(['size', 'kind', 'attached', 'clientSize', 'rows']);
@@ -800,7 +810,7 @@ describe('LanguageResolver', () => {
         });
 
         it('finds each node, by the node itself, with its pointer and its resolution', () => {
-            const resolved = resolve('panel.all("i") { h = context.size?.height, on = context.attached or context.has("focus") }');
+            const resolved = resolveInLexica('panel.all("i") { h = context.size?.height, on = context.attached or context.has("focus") }');
             const { expression: query } = resolved.definition;
             const [chain, on] = query.fields.map(field => field.value);
             const height = chain.target;

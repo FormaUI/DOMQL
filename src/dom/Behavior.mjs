@@ -2,7 +2,7 @@
  * Behavior — one applied behavior: it applies the instance its module creates, replaces the bindings it runs with when updated, raises the failures it reports while it runs, and disposes it
  */
 
-import { LexicaError } from '@formaui/lexica/language/LexicaError.mjs';
+import { LexicaError } from '@formaui/lexica';
 import { EventDispatcher } from './EventDispatcher.mjs';
 
 /** @typedef {{ declaration: object, name: string, start: Function, receiver: unknown, args: Record<string, unknown> | null, environment: object, location: object }} BehaviorCall */

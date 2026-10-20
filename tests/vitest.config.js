@@ -8,6 +8,8 @@ export default defineConfig({
     resolve: {
         alias: [
             { find: '#domql/', replacement: resolved('../src/') },
+            // Lexica's sources, which the integration tests alone reach as `#lexica/`, through the linked checkout and never through the package's exports.
+            { find: '#lexica/', replacement: resolved('../node_modules/@formaui/lexica/src/') },
         ],
     },
     test: {

@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { DomqlQuery } from '#domql/dom/DomqlQuery.mjs';
 import { domql } from '#domql/domql.js';
-import { LexicaError } from '@formaui/lexica/language/LexicaError.mjs';
-import { ParsedTexts } from '@formaui/lexica/language/ParsedTexts.mjs';
+import { LexicaError } from '#lexica/language/LexicaError.mjs';
+import { ParsedTexts } from '#lexica/language/ParsedTexts.mjs';
 
 /** The error a call throws. */
 const getError = call => {
@@ -1074,7 +1074,7 @@ describe('domql', () => {
         ])('types %s from the value alone', (_, value, type) => {
             const bindings = DomqlQuery.bindingsOf(domql.query('target', { target: value() }));
 
-            expect(bindings.getType('target').toString()).toBe(type);
+            expect(bindings.typeOf('target')).toBe(type);
         });
 
         it('reads a bound object field by field, a field named __proto__ as an ordinary field of its own', () => {
@@ -1154,15 +1154,15 @@ describe('domql', () => {
             const parsed = domql.query('target { size = context.size }', { target: null });
             const created = domql.query(parsed.definition, { target: document.createElement('div') });
 
-            expect(DomqlQuery.bindingsOf(parsed).getType('target').toString()).toBe('null');
-            expect(DomqlQuery.bindingsOf(created).getType('target').toString()).toBe('element');
+            expect(DomqlQuery.bindingsOf(parsed).typeOf('target')).toBe('null');
+            expect(DomqlQuery.bindingsOf(created).typeOf('target')).toBe('element');
         });
 
         it('types a binding that holds a node by its kind', () => {
             const host = document.createElement('div');
             const bindings = DomqlQuery.bindingsOf(domql.query('a.children.count', { a: host, b: document, c: document.createDocumentFragment(), d: host.attachShadow({ mode: 'open' }) }));
 
-            expect(['a', 'b', 'c', 'd'].map(name => bindings.getType(name).toString())).toEqual(['element', 'document', 'documentFragment', 'shadowRoot']);
+            expect(['a', 'b', 'c', 'd'].map(name => bindings.typeOf(name))).toEqual(['element', 'document', 'documentFragment', 'shadowRoot']);
         });
 
         it('refuses a binding of a node of another kind, such as text', () => {
@@ -1173,10 +1173,23 @@ describe('domql', () => {
             expect(() => domql.query('Window { size = context.size }', { Window: 1, Document: 2, Null: 3 })).not.toThrow();
         });
 
-        it('binds data: numbers, strings, Booleans, null, lists and objects', () => {
+        it('binds data, numbers, strings, Booleans, null, lists and objects, as a frozen copy, so changing the original changes nothing bound', () => {
             const configuration = { modifier: 'shift', steps: [1, 2], wrap: true };
+            const bound = DomqlQuery.bindingsOf(domql.query('target { size = context.size }', { target: configuration })).get('target');
 
-            expect(DomqlQuery.bindingsOf(domql.query('target { size = context.size }', { target: configuration })).get('target')).toBe(configuration);
+            configuration.steps.push(3);
+
+            expect(bound).toEqual({ modifier: 'shift', steps: [1, 2], wrap: true });
+            expect(Object.isFrozen(bound) && Object.isFrozen(bound.steps)).toBe(true);
+        });
+
+        it('binds a node as itself, never copied or frozen, within data as well', () => {
+            const panel = document.createElement('div');
+            const bindings = DomqlQuery.bindingsOf(domql.query('target', { target: panel, list: [panel] }));
+
+            expect(bindings.get('target')).toBe(panel);
+            expect(bindings.get('list')[0]).toBe(panel);
+            expect(Object.isFrozen(panel)).toBe(false);
         });
 
         it.each([
@@ -1298,11 +1311,13 @@ describe('domql evaluates', () => {
             expect(query.evaluate()).toBe(4);
         });
 
-        it('is made again for other options, and for bindings of other types or other selecting values', () => {
+        it('is the same whatever the options, the policy of a watch checked against it each time, and made again for bindings of other types or other selecting values', () => {
             const query = domql.query('panel?.size', { panel });
             const before = query.resolve();
 
-            expect(query.resolve({ watch: true })).not.toBe(before);
+            expect(query.resolve({ watch: true, acceptPartialObservation: true })).toBe(before);
+            expect(query.resolve({ watch: true })).toBe(before);
+            expect(() => domql.query('panel.rect', { panel }).resolve({ watch: true })).toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringContaining('accepts partial observation') }));
             expect(domql.query('panel?.size', { panel: null }).resolve()).not.toBe(before);
             expect(domql.query('panel.on(type) { button = context.button }', { panel, type: 'click' }).resolve()).not.toBe(domql.query('panel.on(type) { button = context.button }', { panel, type: 'pointerdown' }).resolve());
         });
@@ -4842,7 +4857,7 @@ describe('domql named indexers', () => {
             expect(evaluate('panel:[name]', { name: 'data-key' })).toBe('k1');
             expect(evaluate('panel.first(".row")?:["data-key"]')).toBe('k2');
             expect(evaluate('missing?:["data-key"]', { missing: null })).toBeNull();
-            expect(isolated.query('panel:["data-key"]', { panel }).resolve().getResolution('/expression').declaration.name).toBe('attribute');
+            expect(isolated.query('panel:["data-key"]', { panel }).resolve().usedDeclarations[0].declaration.name).toBe('attribute');
         });
 
         it('takes the key its indexer takes, and is refused for a receiver whose type has none', () => {

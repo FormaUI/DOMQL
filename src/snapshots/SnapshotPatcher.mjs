@@ -2,13 +2,7 @@
  * SnapshotPatcher — the change set that takes one result to the next, and applying it in place to the result it was computed against
  */
 
-import { ObjectUtils } from '@formaui/lexica/common/ObjectUtils.mjs';
-
-/**
- * The elements a result's lists were projected from, following the result's structure: a list projected from elements holds the element of each item, and a part that holds no such list is null.
- * The result never holds them, and neither does a change set; they tell two items apart that project to the same data. A part a selection was made for also holds its `branches`: selections by expression node, the selected expression for a conditional or coalescing expression, or the selected member name for bracket property access, which tell the comparer which expression a value came from, so that it is compared as that expression is, its tolerance included.
- * @typedef {({ elements: (Element | null)[] | null, items: Identities[] } | { fields: Record<string, Identities> } | {}) & { branches?: Map<object, object | string> } | null} Identities
- */
+import { ObjectUtils } from '../common/ObjectUtils.mjs';
 
 /**
  * One operation of a change set: a JSON Patch operation limited to replace, add, remove and move, whose paths are JSON Pointers into the result.
@@ -20,15 +14,15 @@ export class SnapshotPatcher {
      * The operations that take the previous result to the next. A list projected from elements changes by element: an element entering is added, one leaving is removed, one changing position is moved, and one whose projection changed is changed inside its item. Any other list changes by position.
      * A branch the next result shares with the previous one is unchanged, so a change the comparer kept within a tolerance sends nothing.
      * @param {unknown} previous The result the change set is computed against.
-     * @param {import('./SnapshotPatcher.mjs').Identities} previousIdentities The elements the previous result's lists were projected from.
+     * @param {object | null} previousMetadata The metadata Lexica gave the previous result, whose projected lists tell the references their items came from.
      * @param {unknown} next The result the change set gives.
-     * @param {import('./SnapshotPatcher.mjs').Identities} nextIdentities The elements the next result's lists were projected from.
+     * @param {object | null} nextMetadata The metadata Lexica gave the next result.
      * @returns {ChangeOperation[]}
      */
-    static changeSetBetween(previous, previousIdentities, next, nextIdentities) {
+    static changeSetBetween(previous, previousMetadata, next, nextMetadata) {
         const operations = [];
 
-        SnapshotPatcher.#compare(previous, previousIdentities, next, nextIdentities, '', operations);
+        SnapshotPatcher.#compare(previous, previousMetadata, next, nextMetadata, '', operations);
 
         return operations;
     }
@@ -161,20 +155,20 @@ export class SnapshotPatcher {
         return value;
     }
 
-    static #compare(previous, previousIdentities, next, nextIdentities, path, operations) {
+    static #compare(previous, previousMetadata, next, nextMetadata, path, operations) {
         if (Object.is(previous, next)) {
             return;
         }
 
         if (Array.isArray(previous) && Array.isArray(next)) {
-            SnapshotPatcher.#compareLists(previous, previousIdentities, next, nextIdentities, path, operations);
+            SnapshotPatcher.#compareLists(previous, previousMetadata, next, nextMetadata, path, operations);
 
             return;
         }
 
         if (ObjectUtils.isNonArrayObject(previous) && ObjectUtils.isNonArrayObject(next) && SnapshotPatcher.#sameNames(previous, next)) {
             for (const name of Object.keys(next)) {
-                SnapshotPatcher.#compare(previous[name], previousIdentities?.fields?.[name] ?? null, next[name], nextIdentities?.fields?.[name] ?? null, `${path}/${SnapshotPatcher.#escape(name)}`, operations);
+                SnapshotPatcher.#compare(previous[name], previousMetadata?.fields?.[name] ?? null, next[name], nextMetadata?.fields?.[name] ?? null, `${path}/${SnapshotPatcher.#escape(name)}`, operations);
             }
 
             return;
@@ -183,16 +177,16 @@ export class SnapshotPatcher {
         operations.push({ op: 'replace', path, value: next });
     }
 
-    static #compareLists(previous, previousIdentities, next, nextIdentities, path, operations) {
-        const previousElements = SnapshotPatcher.#elementsOf(previousIdentities, previous.length);
-        const nextElements = SnapshotPatcher.#elementsOf(nextIdentities, next.length);
-        const itemIdentitiesOf = (identities, index) => identities?.items?.[index] ?? null;
+    static #compareLists(previous, previousMetadata, next, nextMetadata, path, operations) {
+        const previousElements = SnapshotPatcher.#elementsOf(previousMetadata, previous.length);
+        const nextElements = SnapshotPatcher.#elementsOf(nextMetadata, next.length);
+        const itemMetadataOf = (metadata, index) => metadata?.items?.[index] ?? null;
 
         if (previousElements === null || nextElements === null) {
             const commonLength = Math.min(previous.length, next.length);
 
             for (let index = 0; index < commonLength; index++) {
-                SnapshotPatcher.#compare(previous[index], itemIdentitiesOf(previousIdentities, index), next[index], itemIdentitiesOf(nextIdentities, index), `${path}/${index}`, operations);
+                SnapshotPatcher.#compare(previous[index], itemMetadataOf(previousMetadata, index), next[index], itemMetadataOf(nextMetadata, index), `${path}/${index}`, operations);
             }
 
             for (let index = commonLength; index < next.length; index++) {
@@ -241,14 +235,14 @@ export class SnapshotPatcher {
             const previousIndex = previousIndexByElement.get(element);
 
             if (previousIndex !== undefined) {
-                SnapshotPatcher.#compare(previous[previousIndex], itemIdentitiesOf(previousIdentities, previousIndex), next[index], itemIdentitiesOf(nextIdentities, index), `${path}/${index}`, operations);
+                SnapshotPatcher.#compare(previous[previousIndex], itemMetadataOf(previousMetadata, previousIndex), next[index], itemMetadataOf(nextMetadata, index), `${path}/${index}`, operations);
             }
         });
     }
 
-    /** The element of each item of a list projected from elements, or null where the list is matched by position: it was not projected from elements, an item is null, or one element stands in it twice. */
-    static #elementsOf(identities, length) {
-        const elements = identities?.elements ?? null;
+    /** The reference each item of a projected list came from, or null where the list is matched by position: it was projected from no references, an item came from none, or one reference stands in it twice. */
+    static #elementsOf(metadata, length) {
+        const elements = metadata?.sources ?? null;
 
         if (elements === null || elements.length !== length || elements.some(element => element === null) || new Set(elements).size !== elements.length) {
             return null;

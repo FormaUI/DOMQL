@@ -10,8 +10,8 @@ const freeze = value => (Array.isArray(value)
 /** Elements that stand for themselves, by which a projected list is matched. */
 const elements = (...names) => names.map(name => ({ nodeType: 1, name }));
 
-/** The identities of a top-level object whose field `rows` was projected from the elements. */
-const rowsOf = rowElements => ({ fields: { rows: { elements: rowElements, items: rowElements.map(() => null) } } });
+/** The metadata of an outermost object whose field `rows` was projected from the elements. */
+const rowsOf = rowElements => ({ fields: { rows: { sources: rowElements, items: rowElements.map(() => null) } } });
 
 describe('LiveState', () => {
     it('is null before its first snapshot, which builds it as mutable data and changes nothing', () => {

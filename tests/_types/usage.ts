@@ -24,7 +24,9 @@ domql.format(42);
 
 const resolved: DomqlResolvedDefinition = created.resolve({ watch: true, acceptPartialObservation: true });
 const kind: 'value' | 'subscription' | 'action' | 'behavior' = resolved.kind;
-const typeText: string = resolved.type.toString();
+const typeText: string = resolved.type;
+const countType: string = resolved.typeAt(['count']);
+const usedNames: readonly string[] = resolved.usedDeclarations.map(used => used.name);
 
 // A query is evaluated once, synchronously or waiting for its maintained members.
 const answer = query.evaluate();

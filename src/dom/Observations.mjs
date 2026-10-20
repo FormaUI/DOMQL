@@ -2,7 +2,7 @@
  * Observations — opens sessions on observations, shares one underlying observation between equivalent requests, and stops it when its last session is disposed
  */
 
-import { LexicaError } from '@formaui/lexica/language/LexicaError.mjs';
+import { LexicaError } from '@formaui/lexica';
 import { ObservationSession } from './ObservationSession.mjs';
 
 /** The properties of an observation that are not arguments of its type. */
@@ -35,7 +35,7 @@ export class Observations {
     #nextUnshared = 1;
 
     /**
-     * @param {import('@formaui/lexica/language/vocabulary/LexicaRegistry.mjs').LexicaRegistry} moduleRegistry The vocabulary whose observation types start the observations.
+     * @param {import('@formaui/lexica').LexicaRegistry} moduleRegistry The vocabulary whose observation types start the observations.
      * @param {{ window: Window, document: Document }} environment The window the observations belong to; observations of two windows never share.
      * @param {{ reportError?: (error: unknown) => void }} [options] Where a failure of a session's callback, or of stopping an observation, is reported, by default the window's. A failure of the report itself is dropped, so reporting never interrupts what reports.
      */

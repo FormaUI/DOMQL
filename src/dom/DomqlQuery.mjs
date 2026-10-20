@@ -2,8 +2,7 @@
  * DomqlQuery — a query object: a request's definition and the values its parameters are bound to, through which every operation on the request is carried out
  */
 
-import { ParameterBindings } from '@formaui/lexica/language/ParameterBindings.mjs';
-import { ResultPath } from '@formaui/lexica/language/ResultPath.mjs';
+import { lexica } from '@formaui/lexica';
 
 /**
  * What carries a query object's operations out, in the DOMQL instance that made it.
@@ -24,7 +23,7 @@ export class DomqlQuery {
 
     /**
      * @param {object} definition The request's validated, frozen definition.
-     * @param {ParameterBindings} bindings The values its parameters are bound to.
+     * @param {object} bindings The values its parameters are bound to, as `lexica.bind` binds them.
      * @param {QueryOperations} operations What carries its operations out.
      */
     constructor(definition, bindings, operations) {
@@ -45,7 +44,7 @@ export class DomqlQuery {
 
     /** A new query object with the same definition, bound to these bindings, which replace the old ones whole; this one, and every operation running from it, are unaffected. */
     with(bindings) {
-        return new DomqlQuery(this.#definition, new ParameterBindings(bindings), this.#operations);
+        return new DomqlQuery(this.#definition, lexica.bind(bindings), this.#operations);
     }
 
     /** The request validated against the vocabulary and typed, without evaluating anything; its options resolve it as a watch would. */
@@ -55,7 +54,7 @@ export class DomqlQuery {
 
     /** A part of the query's result, whose path's shape is checked at once and its fit when an operation resolves the query. */
     select(...path) {
-        ResultPath.checkShape(path);
+        lexica.paths.check(path);
 
         return new DomqlSelection(this, path, this.#operations);
     }
@@ -105,7 +104,7 @@ class DomqlSelection {
 
     /** A smaller part, as `query.select` with the longer path. */
     select(...path) {
-        ResultPath.checkShape(path);
+        lexica.paths.check(path);
 
         return new DomqlSelection(this.#query, [...this.#path, ...path], this.#operations);
     }

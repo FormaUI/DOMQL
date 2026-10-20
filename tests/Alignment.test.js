@@ -8,6 +8,30 @@ import { domql } from '#domql/domql.js';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const read = path => readFileSync(resolve(root, path), 'utf8');
 
+/** The names of an object type's fields, read from its type notation, `{ name: type, … }`, at the outermost depth of its braces and angle brackets. */
+const fieldNamesOf = notation => {
+    const names = [];
+    let depth = 0;
+    let start = 1;
+
+    for (let index = 1; index < notation.length - 1; index++) {
+        const character = notation[index];
+
+        if (character === '{' || character === '<') {
+            depth++;
+        } else if (character === '}' || character === '>') {
+            depth--;
+        } else if (character === ',' && depth === 0) {
+            names.push(notation.slice(start, index).split(':')[0].trim());
+            start = index + 1;
+        }
+    }
+
+    names.push(notation.slice(start, notation.length - 1).split(':')[0].trim());
+
+    return names;
+};
+
 describe('Alignment', () => {
     const specification = read('docs/domql-specification.md');
     const design = read('docs/domql-design.md');
@@ -35,6 +59,6 @@ describe('Alignment', () => {
         const [, text, result] = specification.match(/## A complete query[\s\S]*?The query reads it:\s*```domql\n([\s\S]*?)```[\s\S]*?```json\n([\s\S]*?)```/);
         const resolved = domql.query(text, { panel: document.createElement('div'), sentinel: document.createElement('div') }).resolve();
 
-        expect([...resolved.type.fieldTypes.keys()]).toEqual(Object.keys(JSON.parse(result)));
+        expect(fieldNamesOf(resolved.type)).toEqual(Object.keys(JSON.parse(result)));
     });
 });

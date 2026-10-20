@@ -2,7 +2,7 @@
  * EventListener — owns an event subscription: it projects each event, hands its handler the result or the failure, and retains its observation sessions until replaced or disposed
  */
 
-import { LexicaError } from '@formaui/lexica/language/LexicaError.mjs';
+import { LexicaError } from '@formaui/lexica';
 
 export class EventListener {
     #evaluator;

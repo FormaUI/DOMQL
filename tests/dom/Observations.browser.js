@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, it, expect } from 'vitest';
 import { BrowserModule } from '#domql/dom/BrowserModule.mjs';
 import { Observations } from '#domql/dom/Observations.mjs';
-import { LexicaRegistry } from '@formaui/lexica/language/vocabulary/LexicaRegistry.mjs';
+import { LexicaRegistry } from '#lexica/language/vocabulary/LexicaRegistry.mjs';
 import { BrowserVocabulary } from '#domql/dom/BrowserVocabulary.mjs';
 
 /** The observation types of the DOM vocabulary, started in the browser they observe. */

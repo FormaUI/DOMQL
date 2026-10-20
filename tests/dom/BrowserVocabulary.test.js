@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { LexicaModule } from '@formaui/lexica/language/vocabulary/LexicaModule.mjs';
-import { LexicaRegistry } from '@formaui/lexica/language/vocabulary/LexicaRegistry.mjs';
+import { LexicaModule } from '#lexica/language/vocabulary/LexicaModule.mjs';
+import { LexicaRegistry } from '#lexica/language/vocabulary/LexicaRegistry.mjs';
+import { Vocabulary } from '#lexica/language/vocabulary/Vocabulary.mjs';
 import { BrowserVocabulary } from '#domql/dom/BrowserVocabulary.mjs';
 
 /** The message an error a call throws carries. */
@@ -18,7 +19,7 @@ const messageOf = call => {
 const declaration = overrides => ({ name: 'charts', function: 'charts', kind: 'property', on: 'element', parameters: [], result: 'number', changes: 'constant', reads: 'fresh', ...overrides });
 
 describe('BrowserVocabulary', () => {
-    const registry = new LexicaRegistry(BrowserVocabulary.modules);
+    const registry = new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module]);
     const { module } = BrowserVocabulary;
     const names = [
         'size', 'devicePixelRatio', 'rect', 'clientSize', 'grid', 'selection', 'children', 'parent', 'count', 'first', 'last',
@@ -69,8 +70,8 @@ describe('BrowserVocabulary', () => {
     });
 
     it('refuses a module\'s member the DOM vocabulary already answers on the same receiver, a kind of node included', () => {
-        expect(messageOf(() => new LexicaRegistry([...BrowserVocabulary.modules, new LexicaModule('size', { members: [declaration({ name: 'size', on: 'element' })] })]))).toContain('declared already');
-        expect(messageOf(() => new LexicaRegistry([...BrowserVocabulary.modules, new LexicaModule('parent', { members: [declaration({ name: 'parent', on: 'shadowRoot' })] })]))).toContain('declared already');
+        expect(messageOf(() => new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, new LexicaModule('size', { members: [declaration({ name: 'size', on: 'element' })] })]))).toContain('declared already');
+        expect(messageOf(() => new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, new LexicaModule('parent', { members: [declaration({ name: 'parent', on: 'shadowRoot' })] })]))).toContain('declared already');
     });
 
     it('lets a module beside it declare a member and a condition of any name on an element', () => {
@@ -78,14 +79,14 @@ describe('BrowserVocabulary', () => {
             members: [declaration({ name: 'palette' })],
             conditions: [{ name: 'plotted', function: 'isPlotted', on: 'element', changes: 'unobserved', reads: 'fresh', observations: [] }],
         });
-        const extended = new LexicaRegistry([...BrowserVocabulary.modules, charts]);
+        const extended = new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, charts]);
 
         expect(extended.getMembers('palette').map(member => extended.getOwner(member))).toEqual(['charts']);
         expect(extended.getConditions('plotted').map(condition => extended.getOwner(condition))).toEqual(['charts']);
     });
 
     it('refuses an event type a module declares that the DOM vocabulary declares', () => {
-        expect(messageOf(() => new LexicaRegistry([...BrowserVocabulary.modules, new LexicaModule('twice', { eventTypes: [{ name: 'click', data: 'domEvent' }] })]))).toContain("'click' is declared already");
+        expect(messageOf(() => new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, new LexicaModule('twice', { eventTypes: [{ name: 'click', data: 'domEvent' }] })]))).toContain("'click' is declared already");
     });
 
     describe('observations', () => {

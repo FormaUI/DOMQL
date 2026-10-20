@@ -3,10 +3,8 @@
  */
 
 import { lexica } from '@formaui/lexica';
-import { Declarations } from '@formaui/lexica/language/vocabulary/Declarations.mjs';
-import { Vocabulary } from '@formaui/lexica/language/vocabulary/Vocabulary.mjs';
 
-const { valueParameter, property, condition, operation } = Declarations;
+const { valueParameter, property, condition, function: operation } = lexica.declarations;
 
 /** The observations the members share. */
 const RESIZE = { type: 'resize', of: 'receiver' };
@@ -143,10 +141,5 @@ export class BrowserVocabulary {
     /** DOMQL's module as its declarations alone, which is enough to resolve a query and carries nothing out. */
     static get module() {
         return BrowserVocabulary.createModule();
-    }
-
-    /** The modules a query is resolved against, Lexica's own and DOMQL's, DOMQL's as its declarations alone. */
-    static get modules() {
-        return [Vocabulary.module, BrowserVocabulary.module];
     }
 }

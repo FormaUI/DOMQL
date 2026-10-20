@@ -9,8 +9,8 @@ const freeze = value => (Array.isArray(value)
 /** Elements that stand for themselves, by which a projected list is matched. */
 const elements = (...names) => names.map(name => ({ nodeType: 1, name }));
 
-/** The identities of a top-level object whose field `rows` was projected from the elements. */
-const rowsOf = rowElements => ({ fields: { rows: { elements: rowElements, items: rowElements.map(() => null) } } });
+/** The metadata of an outermost object whose field `rows` was projected from the elements. */
+const rowsOf = rowElements => ({ fields: { rows: { sources: rowElements, items: rowElements.map(() => null) } } });
 
 describe('SnapshotPatcher', () => {
     describe('changeSetBetween', () => {
@@ -141,10 +141,10 @@ describe('SnapshotPatcher', () => {
     ];
 
     describe('changeSetBetween, then applyInPlace', () => {
-        it.each(roundTrips)('give the next result when the change set is applied in place to the previous one: %s', (_, previous, previousIdentities, next, nextIdentities) => {
+        it.each(roundTrips)('give the next result when the change set is applied in place to the previous one: %s', (_, previous, previousMetadata, next, nextMetadata) => {
             const state = thaw(previous);
 
-            SnapshotPatcher.applyInPlace(state, SnapshotPatcher.changeSetBetween(previous, previousIdentities, next, nextIdentities));
+            SnapshotPatcher.applyInPlace(state, SnapshotPatcher.changeSetBetween(previous, previousMetadata, next, nextMetadata));
 
             expect(state).toEqual(next);
         });

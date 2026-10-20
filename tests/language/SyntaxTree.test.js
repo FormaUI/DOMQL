@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { domql } from '#domql/domql.js';
-import { Lowering } from '@formaui/lexica/language/Lowering.mjs';
-import { ParsedTexts } from '@formaui/lexica/language/ParsedTexts.mjs';
-import { Parser } from '@formaui/lexica/language/Parser.mjs';
-import { NODE_KINDS, SyntaxTree } from '@formaui/lexica/language/SyntaxTree.mjs';
-import { TOKEN_TYPES, Tokenizer } from '@formaui/lexica/language/Tokenizer.mjs';
+import { Lowering } from '#lexica/language/Lowering.mjs';
+import { ParsedTexts } from '#lexica/language/ParsedTexts.mjs';
+import { Parser } from '#lexica/language/Parser.mjs';
+import { NODE_KINDS, SyntaxTree } from '#lexica/language/SyntaxTree.mjs';
+import { TOKEN_TYPES, Tokenizer } from '#lexica/language/Tokenizer.mjs';
 
 const treeOf = text => new Parser(text).parse();
 
@@ -121,12 +121,13 @@ describe('SyntaxTree', () => {
         expect(() => new Tokenizer(text).tokenize()).toThrow(message);
     });
 
-    it('keeps the text a query was made from beside its definition, from which its tree is read again, and none for a query made from a definition', () => {
+    it('keeps the text a query was made from beside its definition, from which its tree is read again, the same definition given again keeping it, and none for a definition given directly', () => {
         const text = 'panel {\n    // its size\n    size = context.size\n}';
         const query = domql.query(text);
 
         expect(SyntaxTree.textOf(treeOf(ParsedTexts.textOf(query.definition)))).toBe(text);
-        expect(ParsedTexts.textOf(domql.query(query.definition).definition)).toBeNull();
+        expect(ParsedTexts.textOf(domql.query(query.definition).definition)).toBe(text);
+        expect(ParsedTexts.textOf(domql.query(JSON.parse(JSON.stringify(query.definition))).definition)).toBeNull();
     });
 
     it('lowers into the definition a query of the text holds, which keeps nothing of the tree', () => {

@@ -251,28 +251,19 @@ export interface DomqlSelection<T = unknown> {
 }
 
 declare const domqlResult: unique symbol;
-/** A DOMQL type: a named type, a list, an event source, an object type or a type parameter, each nullable or not, the type of null, or the type no value has. */
-export interface DomqlType {
-    readonly kind: 'named' | 'list' | 'event' | 'object' | 'typeParameter' | 'null' | 'never';
-    readonly name: string | null;
-    readonly itemType: DomqlType | null;
-    readonly fieldTypes: ReadonlyMap<string, DomqlType> | null;
-    readonly isNullable: boolean;
-    /** The type in DOMQL's notation, such as `number?` or `list<element>`. */
-    toString(): string;
-}
-
 /** A query resolved against the registered vocabulary. */
 export interface DomqlResolvedDefinition {
     readonly definition: DomqlDefinition;
     /** The kind of request: a value, a subscription, an action or a behavior request. */
     readonly kind: 'value' | 'subscription' | 'action' | 'behavior';
-    /** The type of the request's result. */
-    readonly type: DomqlType;
-    /** The declarations the request uses, with where each is used. */
-    readonly usedDeclarations: readonly { readonly declaration: object; readonly pointer: string }[];
-    /** What the member node at the JSON Pointer resolved to. */
-    getResolution(pointer: string): object | undefined;
+    /** The type of the request's result, in type notation, such as `number?` or `list<element>`. */
+    readonly type: string;
+    /** The declarations the request uses, with the name a message gives each and where each is used. */
+    readonly usedDeclarations: readonly { readonly declaration: object; readonly name: string; readonly pointer: string }[];
+    /** The type a result path reaches, in type notation, refusing a path the type does not hold. */
+    typeAt(path: readonly (string | number)[]): string;
+    /** Where a JSON Pointer stands in the text the definition was read from. */
+    locate(pointer: string): LexicaErrorLocation;
 }
 
 /** Where a failure is. */

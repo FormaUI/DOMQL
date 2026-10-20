@@ -2,84 +2,41 @@
  * SnapshotComparer — compares the snapshots of a query's result, so a watch reports one that differs and shares what did not change
  */
 
-import { ObjectUtils } from '@formaui/lexica/common/ObjectUtils.mjs';
-
-/** The kinds of expression whose value is the value of one of the expressions it holds, which it selected as it was evaluated. */
-const SELECTING_KINDS = new Set(['conditional', 'coalescing', 'and', 'or']);
+import { ObjectUtils } from '../common/ObjectUtils.mjs';
 
 export class SnapshotComparer {
-    #resolvedDefinition;
-
-    /** @param {import('@formaui/lexica/language/ResolvedDefinition.mjs').ResolvedDefinition} resolvedDefinition The resolved definition whose snapshots are compared. */
-    constructor(resolvedDefinition) {
-        this.#resolvedDefinition = resolvedDefinition;
-    }
-
     /**
      * The next snapshot, in which every branch equal to the previous snapshot's is the previous branch itself, so a snapshot that did not change is the previous one and a new snapshot shares what it did not change.
-     * Strings, Booleans and null compare exactly, and a number compares within the tolerance the member that produced it declares, and exactly where it declares none.
-     * An item of a list projected from elements is compared with the previous item of the same element, wherever it stood, so a reordered list shares the items that did not change.
+     * Strings, Booleans and null compare exactly, and a number compares within the tolerance its metadata gives where the previous and the next value have one origin, and exactly where their origins differ or it has none.
+     * An item of a list projected from references is compared with the previous item of the same reference, wherever it stood, so a reordered list shares the items that did not change.
      * @param {unknown} previous The snapshot last reported.
-     * @param {import('./SnapshotPatcher.mjs').Identities} previousIdentities The elements the previous snapshot's lists were projected from.
+     * @param {object | null} previousMetadata The metadata Lexica gave the previous snapshot.
      * @param {unknown} next The snapshot to compare, which is frozen.
-     * @param {import('./SnapshotPatcher.mjs').Identities} nextIdentities The elements the next snapshot's lists were projected from, which it follows.
+     * @param {object | null} nextMetadata The metadata Lexica gave the next snapshot, which it follows.
      */
-    reconcile(previous, previousIdentities, next, nextIdentities) {
-        return this.#reconcileNode(this.#resolvedDefinition.definition.expression, previous, previousIdentities, next, nextIdentities);
+    reconcile(previous, previousMetadata, next, nextMetadata) {
+        return SnapshotComparer.#reconcilePart(previous, previousMetadata, next, nextMetadata);
     }
 
-    #reconcileNode(node, previous, previousIdentities, next, nextIdentities) {
-        // A local gives the value of the expression it names, compared as that expression is, and an optional chain the value of the chain it holds.
-        if (node.kind === 'local') {
-            return this.#reconcileNode(this.#resolvedDefinition.resolutionOf(node).value, previous, previousIdentities, next, nextIdentities);
+    /** A part with a record of its fields or of its items is compared part by part, and any other as a value, within its tolerance where both values have one origin. */
+    static #reconcilePart(previous, previousMetadata, next, nextMetadata) {
+        if (nextMetadata?.items !== undefined && Array.isArray(next)) {
+            return SnapshotComparer.#reconcileItems(previous, previousMetadata, next, nextMetadata);
         }
 
-        // A field read through the object root gives the value of the field's own expression, compared as that expression is.
-        const fieldValue = this.#objectRootFieldValueOf(node, previousIdentities, nextIdentities);
-
-        if (fieldValue !== null) {
-            return this.#reconcileNode(fieldValue, previous, previousIdentities, next, nextIdentities);
+        if (nextMetadata?.fields !== undefined && ObjectUtils.isNonArrayObject(next)) {
+            return SnapshotComparer.#reconcileFields(previous, previousMetadata, next, nextMetadata);
         }
 
-        if (node.kind === 'optionalChain') {
-            return this.#reconcileNode(node.target, previous, previousIdentities, next, nextIdentities);
-        }
+        const tolerance = previousMetadata !== null && previousMetadata?.origin === nextMetadata?.origin ? nextMetadata.tolerance : null;
 
-        // A body gives the value its result does, a do block the value of its body, and a call of a local function the value of the body it evaluated.
-        if (node.kind === 'body') {
-            return this.#reconcileNode(node.result, previous, previousIdentities, next, nextIdentities);
-        }
+        return SnapshotComparer.#reconcileValue(previous, previousMetadata, next, nextMetadata, tolerance);
+    }
 
-        if (node.kind === 'do') {
-            return this.#reconcileNode(node.body, previous, previousIdentities, next, nextIdentities);
-        }
-
-        if (node.kind === 'functionCall') {
-            const body = this.#bodyOfCall(node, previousIdentities, nextIdentities);
-
-            return body === null ? SnapshotComparer.#reconcileValue(previous, previousIdentities, next, nextIdentities, null) : this.#reconcileNode(body, previous, previousIdentities, next, nextIdentities);
-        }
-
-        // A conditional, a coalescing, an and and an or each give the value of the side they selected, compared as that side is where both values came from it.
-        if (SELECTING_KINDS.has(node.kind)) {
-            const branch = SnapshotComparer.#branchOf(node, previousIdentities, nextIdentities);
-
-            return branch === null
-                ? SnapshotComparer.#reconcileValue(previous, previousIdentities, next, nextIdentities, null)
-                : this.#reconcileNode(branch, previous, previousIdentities, next, nextIdentities);
-        }
-
-        if (node.kind !== 'object' || next === null || typeof next !== 'object') {
-            return SnapshotComparer.#reconcileValue(previous, previousIdentities, next, nextIdentities, this.#toleranceOf(node, previousIdentities, nextIdentities));
-        }
-
-        if (!Array.isArray(next)) {
-            return this.#reconcileFields(node, previous, previousIdentities, next, nextIdentities);
-        }
-
-        // An object expression that follows a list projects each of its items, which are matched by element where the list was projected from elements and by position otherwise.
+    /** A projected list, its items matched by the reference each came from where both lists' references tell them apart, and by position otherwise. */
+    static #reconcileItems(previous, previousMetadata, next, nextMetadata) {
         const previousItems = Array.isArray(previous) ? previous : [];
-        const previousIndexes = SnapshotComparer.#matchByElement(previousIdentities, previousItems.length, nextIdentities, next.length);
+        const previousIndexes = SnapshotComparer.#matchBySource(previousMetadata, previousItems.length, nextMetadata, next.length);
         const isSameLength = Array.isArray(previous) && previous.length === next.length;
 
         // The items are gathered only from the first that is not the previous list's at its place, until which they are the previous list's own.
@@ -87,7 +44,7 @@ export class SnapshotComparer {
 
         for (let index = 0; index < next.length; index++) {
             const previousIndex = previousIndexes === null ? index : previousIndexes[index];
-            const item = next[index] === null ? null : this.#reconcileFields(node, previousIndex === -1 ? undefined : previousItems[previousIndex], previousIdentities?.items?.[previousIndex] ?? null, next[index], nextIdentities?.items?.[index] ?? null);
+            const item = next[index] === null ? null : SnapshotComparer.#reconcilePart(previousIndex === -1 ? undefined : previousItems[previousIndex], previousMetadata?.items?.[previousIndex] ?? null, next[index], nextMetadata.items[index] ?? null);
 
             if (items === null && isSameLength && item === previous[index]) {
                 continue;
@@ -100,9 +57,10 @@ export class SnapshotComparer {
         return items === null && isSameLength ? previous : Object.freeze(items ?? []);
     }
 
-    #reconcileFields(node, previous, previousIdentities, next, nextIdentities) {
+    /** An object an object expression built, its fields compared in the order written, each by its own record. */
+    static #reconcileFields(previous, previousMetadata, next, nextMetadata) {
         const previousRecord = ObjectUtils.isNonArrayObject(previous) ? previous : undefined;
-        const names = this.#resolvedDefinition.fieldNamesOf(node);
+        const names = Object.keys(nextMetadata.fields);
         const isSameShape = previousRecord !== undefined && SnapshotComparer.#hasFieldCount(previousRecord, names.length);
 
         // The fields are gathered only from the first that is not the previous object's, until which they are the previous object's own.
@@ -110,7 +68,7 @@ export class SnapshotComparer {
 
         for (let index = 0; index < names.length; index++) {
             const name = names[index];
-            const value = this.#reconcileNode(node.fields[index].value, previousRecord?.[name], previousIdentities?.fields?.[name] ?? null, next[name], nextIdentities?.fields?.[name] ?? null);
+            const value = SnapshotComparer.#reconcilePart(previousRecord?.[name], previousMetadata?.fields?.[name] ?? null, next[name], nextMetadata.fields[name]);
 
             if (fields === null && isSameShape && Object.hasOwn(previousRecord, name) && value === previousRecord[name]) {
                 continue;
@@ -143,120 +101,23 @@ export class SnapshotComparer {
         return found === count;
     }
 
-    /** For each next item, the index of the previous item projected from its element, or -1 for an element that entered; null where either list is matched by position. */
-    static #matchByElement(previousIdentities, previousLength, nextIdentities, nextLength) {
-        const previousElements = previousIdentities?.elements ?? null;
-        const nextElements = nextIdentities?.elements ?? null;
-        const canMatchByElement = (elements, length) => elements !== null && elements.length === length && !elements.includes(null) && new Set(elements).size === length;
+    /** For each next item, the index of the previous item projected from its reference, or -1 for a reference that entered; null where either list is matched by position. */
+    static #matchBySource(previousMetadata, previousLength, nextMetadata, nextLength) {
+        const previousSources = previousMetadata?.sources ?? null;
+        const nextSources = nextMetadata?.sources ?? null;
+        const canMatchBySource = (sources, length) => sources !== null && sources.length === length && !sources.includes(null) && new Set(sources).size === length;
 
-        if (!canMatchByElement(previousElements, previousLength) || !canMatchByElement(nextElements, nextLength)) {
+        if (!canMatchBySource(previousSources, previousLength) || !canMatchBySource(nextSources, nextLength)) {
             return null;
         }
 
-        const previousIndexByElement = new Map(previousElements.map((element, previousIndex) => [element, previousIndex]));
+        const previousIndexBySource = new Map(previousSources.map((source, previousIndex) => [source, previousIndex]));
 
-        return nextElements.map(element => previousIndexByElement.get(element) ?? -1);
+        return nextSources.map(source => previousIndexBySource.get(source) ?? -1);
     }
 
-    /** The tolerance of the member that produced the value, which a field of its value shares, through the expression a local names, the result a body, a do block or a call of a local function gives and the side a conditional, a coalescing, an and or an or selected for both values; null for a value that is no member's. */
-    #toleranceOf(node, previousIdentities, nextIdentities) {
-        if (node.kind === 'local') {
-            return this.#toleranceOf(this.#resolvedDefinition.resolutionOf(node).value, previousIdentities, nextIdentities);
-        }
-
-        const fieldValue = this.#objectRootFieldValueOf(node, previousIdentities, nextIdentities);
-
-        if (fieldValue !== null) {
-            return this.#toleranceOf(fieldValue, previousIdentities, nextIdentities);
-        }
-
-        if (node.kind === 'optionalChain') {
-            return this.#toleranceOf(node.target, previousIdentities, nextIdentities);
-        }
-
-        if (node.kind === 'body') {
-            return this.#toleranceOf(node.result, previousIdentities, nextIdentities);
-        }
-
-        if (node.kind === 'do') {
-            return this.#toleranceOf(node.body, previousIdentities, nextIdentities);
-        }
-
-        if (node.kind === 'functionCall') {
-            const body = this.#bodyOfCall(node, previousIdentities, nextIdentities);
-
-            return body === null ? null : this.#toleranceOf(body, previousIdentities, nextIdentities);
-        }
-
-        if (SELECTING_KINDS.has(node.kind)) {
-            const branch = SnapshotComparer.#branchOf(node, previousIdentities, nextIdentities);
-
-            return branch === null ? null : this.#toleranceOf(branch, previousIdentities, nextIdentities);
-        }
-
-        if (node.kind !== 'member' && node.kind !== 'call' && node.kind !== 'indexer') {
-            return null;
-        }
-
-        let resolution = this.#resolvedDefinition.resolutionOf(node);
-
-        // A bracket property access gave the value of the property it selected, compared within that one's tolerance where both values came from it.
-        if (resolution?.kind === 'bracketPropertyAccess') {
-            const name = SnapshotComparer.#branchOf(node, previousIdentities, nextIdentities);
-
-            if (name === null) {
-                return null;
-            }
-
-            resolution = resolution.candidates.get(name);
-        }
-
-        if (resolution?.kind === 'field') {
-            return this.#toleranceOf(node.target, previousIdentities, nextIdentities);
-        }
-
-        return resolution?.declaration?.tolerance ?? null;
-    }
-
-    /** The body a call evaluated for both values: the one function its name may hold, or the one recorded for both where it may hold several; null where they came from different functions, which compare exactly. */
-    #bodyOfCall(node, previousIdentities, nextIdentities) {
-        const { targets } = this.#resolvedDefinition.resolutionOf(node);
-
-        if (targets.length === 1) {
-            return targets[0].body;
-        }
-
-        const called = SnapshotComparer.#branchOf(node, previousIdentities, nextIdentities);
-
-        return targets.find(target => target.function === called)?.body ?? null;
-    }
-
-    /** The expression of the outermost object's field the node reads, by a property access or the name a bracket property access selected for both values; null for any other node. */
-    #objectRootFieldValueOf(node, previousIdentities, nextIdentities) {
-        if (node.kind !== 'member') {
-            return null;
-        }
-
-        let resolution = this.#resolvedDefinition.resolutionOf(node);
-
-        if (resolution?.kind === 'bracketPropertyAccess') {
-            const name = SnapshotComparer.#branchOf(node, previousIdentities, nextIdentities);
-
-            resolution = name === null ? null : resolution.candidates.get(name);
-        }
-
-        return resolution?.kind === 'objectRootField' ? resolution.value : null;
-    }
-
-    /** The branch the conditional selected for both values, or null where they came from different branches, or either from none recorded, which compare exactly. */
-    static #branchOf(node, previousIdentities, nextIdentities) {
-        const branch = nextIdentities?.branches?.get(node) ?? null;
-
-        return branch !== null && branch === (previousIdentities?.branches?.get(node) ?? null) ? branch : null;
-    }
-
-    /** The previous value where the next equals it, and the next otherwise, with the branches that are equal shared and the items of a list projected from elements matched by element. */
-    static #reconcileValue(previous, previousIdentities, next, nextIdentities, tolerance) {
+    /** The previous value where the next equals it, and the next otherwise, with the branches that are equal shared, the tolerance applied to every number within, and the items of a projected list matched by reference. */
+    static #reconcileValue(previous, previousMetadata, next, nextMetadata, tolerance) {
         if (previous === next) {
             return previous;
         }
@@ -266,18 +127,18 @@ export class SnapshotComparer {
         }
 
         if (Array.isArray(previous) && Array.isArray(next)) {
-            const previousIndexes = SnapshotComparer.#matchByElement(previousIdentities, previous.length, nextIdentities, next.length);
+            const previousIndexes = SnapshotComparer.#matchBySource(previousMetadata, previous.length, nextMetadata, next.length);
             const items = next.map((item, index) => {
                 const previousIndex = previousIndexes === null ? (index < previous.length ? index : -1) : previousIndexes[index];
 
-                return previousIndex === -1 ? item : SnapshotComparer.#reconcileValue(previous[previousIndex], previousIdentities?.items?.[previousIndex] ?? null, item, nextIdentities?.items?.[index] ?? null, tolerance);
+                return previousIndex === -1 ? item : SnapshotComparer.#reconcileValue(previous[previousIndex], previousMetadata?.items?.[previousIndex] ?? null, item, nextMetadata?.items?.[index] ?? null, tolerance);
             });
 
             return SnapshotComparer.#sameItems(previous, items) ? previous : Object.freeze(items);
         }
 
         if (ObjectUtils.isNonArrayObject(previous) && ObjectUtils.isNonArrayObject(next)) {
-            const fields = Object.fromEntries(Object.entries(next).map(([name, field]) => [name, Object.hasOwn(previous, name) ? SnapshotComparer.#reconcileValue(previous[name], previousIdentities?.fields?.[name] ?? null, field, nextIdentities?.fields?.[name] ?? null, tolerance) : field]));
+            const fields = Object.fromEntries(Object.entries(next).map(([name, field]) => [name, Object.hasOwn(previous, name) ? SnapshotComparer.#reconcileValue(previous[name], previousMetadata?.fields?.[name] ?? null, field, nextMetadata?.fields?.[name] ?? null, tolerance) : field]));
 
             return SnapshotComparer.#sameFields(previous, fields) ? previous : Object.freeze(fields);
         }

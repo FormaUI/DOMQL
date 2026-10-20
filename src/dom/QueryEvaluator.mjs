@@ -2,7 +2,6 @@
  * QueryEvaluator — DOMQL's observing host over Lexica's evaluator: evaluates a resolved request once, or recording what it depends on and holding the observations that cover it, so a watch, a wait and an event listener learn when to evaluate again
  */
 
-import { Evaluator } from '@formaui/lexica/language/Evaluator.mjs';
 import { SessionCache } from './SessionCache.mjs';
 import { Observations } from './Observations.mjs';
 import { QueryEvaluation } from './QueryEvaluation.mjs';
@@ -51,7 +50,7 @@ const NO_OBSERVATIONS = Object.freeze([]);
 const PENDING = Object.freeze({ pending: true });
 
 export class QueryEvaluator {
-    /** Lexica's evaluator of the request, which this host observes. @type {Evaluator} */
+    /** Lexica's evaluator of the request, which this host observes. @type {import('@formaui/lexica').LexicaEvaluator} */
     #evaluator;
 
     #moduleRegistry;
@@ -66,15 +65,12 @@ export class QueryEvaluator {
     });
 
     /**
-     * @param {import('@formaui/lexica/language/vocabulary/LexicaRegistry.mjs').LexicaRegistry} moduleRegistry The vocabulary the request was resolved against.
-     * @param {import('@formaui/lexica/language/ResolvedDefinition.mjs').ResolvedDefinition} resolvedDefinition The resolved definition to read.
-     * @param {import('@formaui/lexica/language/ParameterBindings.mjs').ParameterBindings} parameterBindings What the request's parameters are bound to.
-     * @param {Environment} environment The window and the document the roots stand for.
-     * @param {import('@formaui/lexica/language/TextLocations.mjs').TextLocations | null} locations Where in a text each part of the definition came from.
+     * @param {import('@formaui/lexica').LexicaRegistry} moduleRegistry The registry the request was resolved against, whose observation types the host looks up.
+     * @param {import('@formaui/lexica').LexicaEvaluator} evaluator The evaluator Lexica created from the request's resolution, with its bindings and the window and the document it reads.
      */
-    constructor(moduleRegistry, resolvedDefinition, parameterBindings, environment, locations) {
+    constructor(moduleRegistry, evaluator) {
         this.#moduleRegistry = moduleRegistry;
-        this.#evaluator = new Evaluator(moduleRegistry, resolvedDefinition, parameterBindings, environment, locations);
+        this.#evaluator = evaluator;
     }
 
     /** The result of evaluating the query once: immutable data holding no reference to the document. A member maintained by an observation fails it, since its first sample cannot arrive during a synchronous evaluation. */
@@ -141,13 +137,13 @@ export class QueryEvaluator {
         const owner = {};
         const observationContext = { observations, onChange, holdsAllObservations, replaces, dependencies: recordsDependencies ? [] : null, sessions: [], owner, consumer, sessionCache, deferredRequests: [], rootOf: new WeakMap(), rootsOf: new WeakMap(), followedRoots: new WeakSet(), followedAttachments: new WeakSet(), isPending: false };
         let value;
-        let identities = null;
+        let metadata = null;
         let error = null;
 
         this.#observationContext = observationContext;
 
         try {
-            ({ value, identities } = produce(this.#host));
+            ({ value, metadata } = produce(this.#host));
         } catch (failure) {
             // An evaluation that fails having read a maintained member still pending reports nothing and waits for its sample, since the failure may come from the null the member answered, and nothing tells which failures do; one that fails before it reads a pending member reports its failure.
             error = waits && observationContext.isPending ? null : failure;
@@ -166,7 +162,7 @@ export class QueryEvaluator {
             }
         }
 
-        return new QueryEvaluation({ value, identities, isPending: observationContext.isPending, dependencies: observationContext.dependencies, sessions: observationContext.sessions, owner, sessionCache: replaces === null ? null : sessionCache, error });
+        return new QueryEvaluation({ value, metadata, isPending: observationContext.isPending, dependencies: observationContext.dependencies, sessions: observationContext.sessions, owner, sessionCache: replaces === null ? null : sessionCache, error });
     }
 
     /**

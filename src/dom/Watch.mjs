@@ -3,8 +3,7 @@
  */
 
 import { LiveState } from '../snapshots/LiveState.mjs';
-import { LexicaError } from '@formaui/lexica/language/LexicaError.mjs';
-import { ResultPath } from '@formaui/lexica/language/ResultPath.mjs';
+import { lexica, LexicaError } from '@formaui/lexica';
 import { EventDispatcher } from './EventDispatcher.mjs';
 
 /** The change set of a listener's first ready event, which is its baseline. */
@@ -25,7 +24,7 @@ export class Watch {
     /** `pending` until the first snapshot is available, `ready` while the watch has a current one, `failed` after an evaluation fails, and `disposed` once it is ended. @type {'pending' | 'ready' | 'failed' | 'disposed'} */
     #status = 'pending';
     #lastSnapshot = null;
-    #lastIdentities = null;
+    #lastMetadata = null;
     #hasSnapshot = false;
 
     /** The latest evaluation failure, cleared by the next success. */
@@ -121,7 +120,7 @@ export class Watch {
 
     /** The last successful immutable snapshot, or undefined before the first, so a result that is null is told apart from none yet. */
     get snapshot() {
-        return this.#hasSnapshot ? ResultPath.valueAt(this.#lastSnapshot, this.#path) : undefined;
+        return this.#hasSnapshot ? lexica.paths.valueAt(this.#lastSnapshot, this.#path) : undefined;
     }
 
     /** The latest evaluation failure, cleared by the next success; null where there is none. */
@@ -150,7 +149,7 @@ export class Watch {
             throw LexicaError.structure('Selected views belong to snapshot watches, and this watch keeps live state; write the smaller result in DOMQL to keep it live', {});
         }
 
-        ResultPath.checkShape(path);
+        lexica.paths.check(path);
         this.#checkPath([...this.#path, ...path]);
 
         return new SelectedView(this, path, (eventName, handler, options) => {
@@ -291,7 +290,7 @@ export class Watch {
             return args;
         }
 
-        const value = ResultPath.valueAt(this.#lastSnapshot, state.path);
+        const value = lexica.paths.valueAt(this.#lastSnapshot, state.path);
 
         if (state.hasValue && !state.isDue && Object.is(state.value, value)) {
             return undefined;
@@ -418,12 +417,12 @@ export class Watch {
             return;
         }
 
-        const next = this.#hasSnapshot ? this.#comparer.reconcile(this.#lastSnapshot, this.#lastIdentities, queryEvaluation.value, queryEvaluation.identities) : queryEvaluation.value;
+        const next = this.#hasSnapshot ? this.#comparer.reconcile(this.#lastSnapshot, this.#lastMetadata, queryEvaluation.value, queryEvaluation.metadata) : queryEvaluation.value;
         const isDue = this.#needsDelivery;
         const isReported = !this.#hasSnapshot || isDue || next !== this.#lastSnapshot;
 
         this.#lastSnapshot = next;
-        this.#lastIdentities = queryEvaluation.identities;
+        this.#lastMetadata = queryEvaluation.metadata;
         this.#hasSnapshot = true;
         this.#needsDelivery = false;
         this.#error = null;
@@ -431,7 +430,7 @@ export class Watch {
 
         if (isReported) {
             // The change set is applied whole before any handler begins.
-            const changes = this.#liveState === null ? NO_CHANGES : this.#liveState.update(next, queryEvaluation.identities);
+            const changes = this.#liveState === null ? NO_CHANGES : this.#liveState.update(next, queryEvaluation.metadata);
 
             this.#eventDispatcher.raise('change', state => this.#readyArgsFor(state, changes));
         }
@@ -495,7 +494,7 @@ class SelectedView {
     get snapshot() {
         const snapshot = this.#watch.snapshot;
 
-        return snapshot === undefined ? undefined : ResultPath.valueAt(snapshot, this.#path);
+        return snapshot === undefined ? undefined : lexica.paths.valueAt(snapshot, this.#path);
     }
 
     /** The watch's latest evaluation failure, cleared by the next success. */
@@ -520,6 +519,6 @@ class SelectedView {
 
     /** Waits for the watch's successful ready state and answers the part of its snapshot. */
     readyAsync(options) {
-        return this.#watch.readyAsync(options).then(snapshot => ResultPath.valueAt(snapshot, this.#path));
+        return this.#watch.readyAsync(options).then(snapshot => lexica.paths.valueAt(snapshot, this.#path));
     }
 }

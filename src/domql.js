@@ -10,15 +10,7 @@ import { Observations } from './dom/Observations.mjs';
 import { QueryEvaluator } from './dom/QueryEvaluator.mjs';
 import { EventListener } from './dom/EventListener.mjs';
 import { Watch } from './dom/Watch.mjs';
-import { lexica } from '@formaui/lexica';
-import { DefinitionWriter } from '@formaui/lexica/language/DefinitionWriter.mjs';
-import { LexicaError } from '@formaui/lexica/language/LexicaError.mjs';
-import { LanguageResolver } from '@formaui/lexica/language/LanguageResolver.mjs';
-import { LexicaRegistry } from '@formaui/lexica/language/vocabulary/LexicaRegistry.mjs';
-import { ParameterBindings } from '@formaui/lexica/language/ParameterBindings.mjs';
-import { ParsedTexts } from '@formaui/lexica/language/ParsedTexts.mjs';
-import { ResultPath } from '@formaui/lexica/language/ResultPath.mjs';
-import { Vocabulary } from '@formaui/lexica/language/vocabulary/Vocabulary.mjs';
+import { lexica, LexicaError } from '@formaui/lexica';
 
 /**
  * How a request is resolved.
@@ -86,12 +78,12 @@ const WATCH_SCHEDULES = ['frame', 'immediate'];
 const WATCH_UPDATE_STRATEGIES = ['snapshot', 'liveState'];
 
 class Domql {
-    static #moduleRegistry = new LexicaRegistry([Vocabulary.module, BrowserModule.create()]);
+    static #moduleRegistry = lexica.createRegistry([BrowserModule.create()]);
 
     /**
-     * The resolutions of each definition, by the options they were made under and the resolution key of the bindings they were made against, valid for the registry revision they were made at and released with the definition.
-     * Queries that share a definition, as those made from the same text do, and whose bindings have one resolution key, share its resolution.
-     * @type {WeakMap<object, { revision: number, byKey: Map<string, import('@formaui/lexica/language/ResolvedDefinition.mjs').ResolvedDefinition> }>}
+     * The resolutions of each definition, by the resolution key of the bindings they were made against, valid for the registry revision they were made at and released with the definition.
+     * Queries that share a definition, as those made from the same text do, and whose bindings have one resolution key, share its resolution; a watch's policy is checked against it each time.
+     * @type {WeakMap<object, { revision: number, byKey: Map<string, object> }>}
      */
     static #resolutionsByDefinition = new WeakMap();
 
@@ -121,7 +113,7 @@ class Domql {
      */
     static query(source, bindings = {}) {
         if (typeof source === 'string') {
-            return new DomqlQuery(lexica.parse(source), new ParameterBindings(bindings), Domql.#operations);
+            return new DomqlQuery(lexica.parse(source), lexica.bind(bindings), Domql.#operations);
         }
 
         if (source instanceof DomqlQuery) {
@@ -132,7 +124,7 @@ class Domql {
             throw LexicaError.structure('A query object is made from text or a definition; one another DOMQL instance made is made here from its definition, as domql.query(query.definition, bindings)', {});
         }
 
-        return new DomqlQuery(lexica.validate(source), new ParameterBindings(bindings), Domql.#operations);
+        return new DomqlQuery(lexica.validate(source), lexica.bind(bindings), Domql.#operations);
     }
 
     /**
@@ -170,11 +162,11 @@ class Domql {
 
     /** Evaluates the query once, synchronously, answering the part of its result the path reaches. */
     static #evaluate(query, path, { window = globalThis.window }) {
-        const resolvedDefinition = Domql.#resolveFor('evaluate', query);
+        const resolution = Domql.#resolveFor('evaluate', query);
 
-        Domql.#typeAt(query, resolvedDefinition, path);
+        resolution.typeAt(path);
 
-        return ResultPath.valueAt(Domql.#createEvaluator(query, resolvedDefinition, window).evaluateOnce(), path);
+        return lexica.paths.valueAt(Domql.#createEvaluator(query, resolution, window).evaluateOnce(), path);
     }
 
     /**
@@ -184,11 +176,11 @@ class Domql {
     static async #evaluateAsync(query, path, { window = globalThis.window, signal }) {
         signal?.throwIfAborted();
 
-        const resolvedDefinition = Domql.#resolveFor('evaluateAsync', query);
+        const resolution = Domql.#resolveFor('evaluateAsync', query);
 
-        Domql.#typeAt(query, resolvedDefinition, path);
+        resolution.typeAt(path);
 
-        const evaluator = Domql.#createEvaluator(query, resolvedDefinition, window);
+        const evaluator = Domql.#createEvaluator(query, resolution, window);
         const observations = Domql.#getObservations(window);
         const reportError = Domql.#createErrorReporter(window);
 
@@ -231,7 +223,7 @@ class Domql {
                 if (next.error !== null) {
                     settle(() => reject(next.error));
                 } else if (!next.isPending) {
-                    settle(() => resolve(ResultPath.valueAt(next.value, path)));
+                    settle(() => resolve(lexica.paths.valueAt(next.value, path)));
                 }
             };
             // An observation reports a change inside its own delivery, so the evaluation that follows waits for it to end.
@@ -261,16 +253,17 @@ class Domql {
             throw LexicaError.structure('A selection is watched as snapshots alone; write the smaller result in DOMQL to keep it as live state', {});
         }
 
-        const resolvedDefinition = Domql.#resolveFor('watch', query, { watch: true, acceptPartialObservation: acceptPartialObservation === true });
+        const resolution = Domql.#resolveFor('watch', query, { watch: true, acceptPartialObservation: acceptPartialObservation === true });
 
         // Live state is one object that keeps its identity, which null and a single value have none of.
-        if (updateStrategy === 'liveState' && (resolvedDefinition.type.isNullable || (resolvedDefinition.type.kind !== 'object' && resolvedDefinition.type.kind !== 'list'))) {
-            throw LexicaError.validation(`Live state keeps one object current, so its result is an object or a list that is never null, and this one is ${resolvedDefinition.type}; put it in a top-level object expression`, Domql.#locationOf(query));
+        // The type's notation tells it: a nullable type ends in `?`, an object type is written in braces and a list as `list<…>`.
+        if (updateStrategy === 'liveState' && (resolution.type.endsWith('?') || !(resolution.type.startsWith('{') || resolution.type.startsWith('list<')))) {
+            throw LexicaError.validation(`Live state keeps one object current, so its result is an object or a list that is never null, and this one is ${resolution.type}; put it in a top-level object expression`, Domql.#locationOf(query));
         }
 
-        Domql.#typeAt(query, resolvedDefinition, path);
+        resolution.typeAt(path);
 
-        const evaluator = Domql.#createEvaluator(query, resolvedDefinition, window);
+        const evaluator = Domql.#createEvaluator(query, resolution, window);
 
         if (schedule === 'frame' && typeof window.requestAnimationFrame !== 'function') {
             throw LexicaError.structure("A watch scheduled by animation frame needs a window that has them; schedule it as 'immediate' otherwise", {});
@@ -279,10 +272,10 @@ class Domql {
         return new Watch({
             evaluator,
             observations: Domql.#getObservations(window),
-            comparer: new SnapshotComparer(resolvedDefinition),
+            comparer: new SnapshotComparer(),
             window,
             reportError: Domql.#createErrorReporter(window),
-            checkPath: selected => Domql.#typeAt(query, resolvedDefinition, selected),
+            checkPath: selected => resolution.typeAt(selected),
             options: { schedule, updateStrategy, path, signal },
         });
     }
@@ -397,13 +390,40 @@ class Domql {
             Domql.#resolutionsByDefinition.set(query.definition, resolutions);
         }
 
-        const key = `${options.watch === true}|${options.acceptPartialObservation === true}|${DomqlQuery.bindingsOf(query).resolutionKey}`;
+        const bindings = DomqlQuery.bindingsOf(query);
+        let resolution = resolutions.byKey.get(bindings.resolutionKey);
 
-        if (!resolutions.byKey.has(key)) {
-            resolutions.byKey.set(key, new LanguageResolver(Domql.#moduleRegistry, DomqlQuery.bindingsOf(query), ParsedTexts.locationsOf(query.definition), options).resolveDefinition(query.definition));
+        if (resolution === undefined) {
+            resolution = Domql.#moduleRegistry.resolve(query.definition, bindings);
+            resolutions.byKey.set(bindings.resolutionKey, resolution);
         }
 
-        return resolutions.byKey.get(key);
+        if (options.watch === true && resolution.kind === 'value') {
+            Domql.#checkWatch(resolution, options.acceptPartialObservation === true);
+        }
+
+        return resolution;
+    }
+
+    /**
+     * Refuses a watch over a member whose changes no observation covers, and one over a member whose observations cover its changes in part unless the watch accepts partial observation, naming each at the first place it is used.
+     * Lexica tells how each declaration the request uses changes; what may be watched is DOMQL's to decide.
+     */
+    static #checkWatch(resolution, acceptsPartialObservation) {
+        const { usedDeclarations } = resolution;
+        const unobserved = usedDeclarations.filter(use => use.declaration.changes === 'unobserved');
+
+        if (unobserved.length > 0) {
+            throw LexicaError.validation(`A watch cannot follow ${unobserved.map(use => `'${use.name}'`).join(', ')}, which name no observations`, resolution.locate(unobserved[0].pointer));
+        }
+
+        const partlyObservableUses = usedDeclarations.filter(use => use.declaration.changes === 'partly-observable');
+
+        if (partlyObservableUses.length > 0 && !acceptsPartialObservation) {
+            const missesByName = [...new Map(partlyObservableUses.map(use => [use.name, use.declaration.misses])).entries()];
+
+            throw LexicaError.validation(`A watch over ${missesByName.map(([name, misses]) => `'${name}' (which misses ${misses})`).join(', ')} is refused unless the watch accepts partial observation`, resolution.locate(partlyObservableUses[0].pointer));
+        }
     }
 
     /**
@@ -413,35 +433,30 @@ class Domql {
      * @param {DomqlResolveOptions} [options] How the request is resolved.
      */
     static #resolveFor(operation, query, options = {}) {
-        const resolvedDefinition = Domql.#resolve(query, options);
+        const resolution = Domql.#resolve(query, options);
         const { kind, verb } = OPERATIONS[operation];
 
-        if (resolvedDefinition.kind !== kind) {
-            const { does, takes } = REQUEST_KINDS[resolvedDefinition.kind];
+        if (resolution.kind !== kind) {
+            const { does, takes } = REQUEST_KINDS[resolution.kind];
 
-            throw LexicaError.validation(`Cannot ${verb} '${DefinitionWriter.write(query.definition.expression)}': ${does}.\nUse ${takes}.`, Domql.#locationOf(query));
+            throw LexicaError.validation(`Cannot ${verb} '${lexica.quote(query.definition)}': ${does}.\nUse ${takes}.`, Domql.#locationOf(query));
         }
 
-        return resolvedDefinition;
-    }
-
-    /** Refuses a path that does not fit the type of the query's result, finding where the request stands only when it does. */
-    static #typeAt(query, resolvedDefinition, path) {
-        return ResultPath.typeAt(resolvedDefinition.type, path, Domql.#moduleRegistry, () => Domql.#locationOf(query));
+        return resolution;
     }
 
     /** Where the request stands, for a failure that belongs to the whole of it. */
     static #locationOf(query) {
-        return ParsedTexts.locationsOf(query.definition)?.locate('/expression') ?? { pointer: '/expression' };
+        return lexica.locate(query.definition, '/expression');
     }
 
     /** Creates the evaluator of a resolved request in its window, which an evaluation needs. */
-    static #createEvaluator(query, resolvedDefinition, window) {
+    static #createEvaluator(query, resolution, window) {
         if (!window?.document) {
             throw LexicaError.evaluation('DOMQL cannot evaluate without a browser window. Pass a window explicitly when running outside a browser.', {});
         }
 
-        return new QueryEvaluator(Domql.#moduleRegistry, resolvedDefinition, DomqlQuery.bindingsOf(query), { window, document: window.document }, ParsedTexts.locationsOf(query.definition));
+        return new QueryEvaluator(Domql.#moduleRegistry, resolution.createEvaluator(DomqlQuery.bindingsOf(query), { window, document: window.document }));
     }
 
     /** Returns the observations shared by everything carried out in the window, creating them on first use. */
