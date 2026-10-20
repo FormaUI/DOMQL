@@ -14,10 +14,10 @@
 
 export class BrowserObservers {
     /**
-     * Each function starts an observation: it takes the request, the function to call when something may have changed, and the environment.
-     * @type {Record<string, (request: ObservationRequest, notify: () => void, environment: { window: Window }) => Observation>}
+     * Each implementation starts an observation: it reads the request, the function to call when something may have changed, and the environment, from one object by name.
+     * @type {Record<string, (input: { request: ObservationRequest, notify: () => void, env: { window: Window } }) => Observation>}
      */
-    static get functions() {
+    static get implementations() {
         return {
             observeResize: BrowserObservers.#observeResize,
             observeMutation: BrowserObservers.#observeMutation,
@@ -35,7 +35,7 @@ export class BrowserObservers {
      * Its `client` box is DOMQL's combined mode: the client box changes where either the border box or the content box does, so it observes both, one native observer each, since an observer watches an element for one box;
      * one that fails to start lets go of the one started before it.
      */
-    static #observeResize({ target, arguments: { box = 'border-box' } }, notify, { window }) {
+    static #observeResize({ request: { target, arguments: { box = 'border-box' } }, notify, env: { window } }) {
         if (target === window) {
             const listeners = [BrowserObservers.#listen(target, ['resize'], false, notify)];
 
@@ -84,7 +84,7 @@ export class BrowserObservers {
     }
 
     /** The attributes, the children and the text of a node, and of its descendants where it says so. */
-    static #observeMutation({ target, arguments: { attributes = false, childList = false, subtree = false, characterData = false } }, notify, { window }) {
+    static #observeMutation({ request: { target, arguments: { attributes = false, childList = false, subtree = false, characterData = false } }, notify, env: { window } }) {
         const options = { attributes: attributes !== false, childList, subtree, characterData };
 
         if (Array.isArray(attributes)) {
@@ -106,7 +106,7 @@ export class BrowserObservers {
      * Whether a node is attached to its document, through every shadow root between them; a document is its own.
      * The window's document is observed too, since a node of another document, as a template's content is, is adopted by the one it is inserted into.
      */
-    static #observeAttachment({ target }, notify, { window }) {
+    static #observeAttachment({ request: { target }, notify, env: { window } }) {
         const rootsOf = () => {
             const roots = new Set([window.document, target.ownerDocument ?? target]);
 
@@ -147,7 +147,7 @@ export class BrowserObservers {
     }
 
     /** Whether the browser reports an element intersecting a root, or the window, grown by a margin; pending until the first report. */
-    static #observeIntersection({ target, arguments: { root = null, margin = 0 } }, notify, { window }) {
+    static #observeIntersection({ request: { target, arguments: { root = null, margin = 0 } }, notify, env: { window } }) {
         let latest = { pending: true, value: null };
         const observer = new window.IntersectionObserver(entries => {
             latest = { pending: false, value: entries.at(-1).isIntersecting };
@@ -160,14 +160,14 @@ export class BrowserObservers {
     }
 
     /** Whether a media query matches. */
-    static #observeMedia({ arguments: { query } }, notify, { window }) {
+    static #observeMedia({ request: { arguments: { query } }, notify, env: { window } }) {
         const list = window.matchMedia(query);
 
         return BrowserObservers.#listen(list, ['change'], false, notify);
     }
 
     /** The device pixel ratio, which a media query on one ratio reports leaving. */
-    static #observePixelRatio(_request, notify, { window }) {
+    static #observePixelRatio({ notify, env: { window } }) {
         let stop;
         const listenAtCurrentRatio = () => {
             const list = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
@@ -186,12 +186,12 @@ export class BrowserObservers {
     }
 
     /** Events of the given types reaching the target, or the target in the capture phase. */
-    static #observeEvents({ target, arguments: { types, capture = false } }, notify) {
+    static #observeEvents({ request: { target, arguments: { types, capture = false } }, notify }) {
         return BrowserObservers.#listen(target, types, capture, notify);
     }
 
     /** Whether the document is visible. */
-    static #observeVisibility({ target }, notify) {
+    static #observeVisibility({ request: { target }, notify }) {
         return BrowserObservers.#listen(target, ['visibilitychange'], false, notify);
     }
 

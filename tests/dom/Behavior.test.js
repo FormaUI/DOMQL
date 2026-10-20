@@ -23,11 +23,12 @@ describe('Behavior', () => {
     /** A behavior module: its one member, named for it, on an element, taking a color. */
     const behavior = (name, start) => isolated.createModule(name, {
         members: [{
-            name, function: name, kind: 'behavior', on: 'element', result: 'null', changes: 'unobserved', reads: 'fresh',
-            input: 'positional',
+            name, kind: 'behavior', target: 'element', result: 'null',
+            arguments: 'positional',
             parameters: [{ name: 'color', kind: 'value', type: 'string', required: true, nulls: 'propagate' }],
+            implementation: start,
         }],
-    }, { [name]: start });
+    });
 
     /** Applies the behavior the text requests, bound to the bindings. */
     const apply = (text, bindings = {}) => isolated.query(text, bindings).apply();
@@ -44,8 +45,8 @@ describe('Behavior', () => {
         window.reportError = error => reported.push(error);
 
         // Marks its element with the color while it runs.
-        isolated.registerModule(behavior('highlight', (element, { color }, environment, context) => {
-            calls.push({ call: 'start', element, color, environment, context });
+        isolated.registerModule(behavior('highlight', ({ receiver: element, args: { color }, env: environment, reportError }) => {
+            calls.push({ call: 'start', element, color, environment, reportError });
             element.dataset.highlight = color;
 
             let current = element;
@@ -84,7 +85,7 @@ describe('Behavior', () => {
 
             expect(highlight.status).toBe('ready');
             expect(panel.dataset.highlight).toBe('gold');
-            expect(calls).toEqual([{ call: 'start', element: panel, color: 'gold', environment: { window, document }, context: { reportError: expect.any(Function) } }]);
+            expect(calls).toEqual([{ call: 'start', element: panel, color: 'gold', environment: { window, document }, reportError: expect.any(Function) }]);
         });
 
         it('takes a behavior request made from its definition', () => {
@@ -99,9 +100,9 @@ describe('Behavior', () => {
             const highlight = apply('panel.highlight("gold")', { panel });
             const received = [];
 
-            calls[0].context.reportError(new Error('unheard'));
+            calls[0].reportError(new Error('unheard'));
             highlight.subscribe('error', (sender, args) => received.push({ sender, args }));
-            calls[0].context.reportError(new Error('flicker'));
+            calls[0].reportError(new Error('flicker'));
 
             expect(received).toEqual([{ sender: highlight, args: { error: expect.objectContaining({ message: 'flicker' }) } }]);
             expect(reported.map(error => error.message)).toEqual(['unheard']);

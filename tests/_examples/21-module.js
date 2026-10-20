@@ -5,16 +5,12 @@ const metricsModule = domql.createModule('metrics', {
     }],
     members: [{
         name: 'metrics',
-        function: 'readMetrics',
         kind: 'property',
-        on: 'element',
-        parameters: [],
+        target: 'element',
         result: 'childMetrics',
-        changes: 'unobserved',
-        reads: 'fresh'
+        updates: { changes: 'unobserved', reads: 'fresh' },
+        implementation: ({ receiver: element }) => ({ childCount: element.children.length })
     }]
-}, {
-    readMetrics: element => ({ childCount: element.children.length })
 });
 
 domql.registerModule(metricsModule);

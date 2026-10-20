@@ -118,7 +118,7 @@ export class Behavior {
         let instance;
 
         try {
-            instance = start(receiver, args, environment, { reportError: error => this.#eventDispatcher.raiseError(error) });
+            instance = start({ receiver, args, env: environment, reportError: error => this.#eventDispatcher.raiseError(error) });
         } catch (error) {
             throw LexicaError.evaluation(`The behavior '${name}' failed to start`, location, { cause: error });
         }

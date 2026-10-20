@@ -131,7 +131,7 @@ export class EventListener {
         let sourceHandle;
 
         try {
-            sourceHandle = start(receiver, args, environment, deliver);
+            sourceHandle = start({ receiver, args, env: environment, deliver });
         } catch (error) {
             throw LexicaError.evaluation(`The event source '${name}' failed to start listening`, location, { cause: error });
         }

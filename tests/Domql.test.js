@@ -1367,8 +1367,8 @@ describe('domql modules', () => {
     });
 
     const module = name => isolated.createModule(name, {
-        members: [{ name, function: name, kind: 'property', on: 'element', parameters: [], result: 'number', changes: 'constant', reads: 'fresh' }],
-    }, { [name]: () => 7 });
+        members: [{ name, kind: 'property', target: 'element', result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 7 }],
+    });
 
     describe('an observation type that is not shared', () => {
         /** Registers `level`, a member maintained by an observation that is not shared; each observation it starts is recorded, its sample given by `deliver`. */
@@ -1376,20 +1376,24 @@ describe('domql modules', () => {
             const observations = [];
 
             isolated.registerModule(isolated.createModule('level', {
-                observationTypes: [{ name: 'level', contract: 'maintained', shared: false, function: 'observeLevel' }],
-                members: [{ name: 'level', function: 'level', kind: 'property', on: 'element', parameters: [], result: 'number?', changes: 'observable', reads: 'maintained', observations: [{ type: 'level', of: 'receiver' }] }],
-            }, {
-                observeLevel: (request, notify) => {
-                    const observation = { sample: { pending: true, value: null }, isStopped: false, deliver: value => {
-                        observation.sample = { pending: false, value };
-                        notify();
-                    } };
+                observationTypes: [{
+                    name: 'level', contract: 'maintained', shared: false,
+                    implementation: ({ notify }) => {
+                        const observation = { sample: { pending: true, value: null }, isStopped: false, deliver: value => {
+                            observation.sample = { pending: false, value };
+                            notify();
+                        } };
 
-                    observations.push(observation);
+                        observations.push(observation);
 
-                    return { stop: () => { observation.isStopped = true; }, sample: () => observation.sample };
-                },
-                level: (_receiver, _args, _environment, [sample]) => sample,
+                        return { stop: () => { observation.isStopped = true; }, sample: () => observation.sample };
+                    },
+                }],
+                members: [{
+                    name: 'level', kind: 'property', target: 'element', result: 'number?',
+                    updates: { changes: 'observable', reads: 'maintained', observations: [{ type: 'level', of: 'receiver' }] },
+                    implementation: ({ samples: [sample] }) => sample,
+                }],
             }));
 
             return observations;
@@ -1482,15 +1486,19 @@ describe('domql modules', () => {
         /** Registers `level`, maintained by an observation whose samples `samples` gives, one at each read. */
         const registerLevel = samples => {
             isolated.registerModule(isolated.createModule('level', {
-                observationTypes: [{ name: 'level', contract: 'maintained', function: 'observeLevel' }],
-                members: [{ name: 'level', function: 'level', kind: 'property', on: 'element', parameters: [], result: 'number?', changes: 'observable', reads: 'maintained', observations: [{ type: 'level', of: 'receiver' }] }],
-            }, {
-                observeLevel: (_request, notify) => {
-                    queueMicrotask(notify);
+                observationTypes: [{
+                    name: 'level', contract: 'maintained',
+                    implementation: ({ notify }) => {
+                        queueMicrotask(notify);
 
-                    return { stop: () => {}, sample: () => samples.shift() ?? { pending: false, value: 9 } };
-                },
-                level: (_receiver, _args, _environment, [value]) => value,
+                        return { stop: () => {}, sample: () => samples.shift() ?? { pending: false, value: 9 } };
+                    },
+                }],
+                members: [{
+                    name: 'level', kind: 'property', target: 'element', result: 'number?',
+                    updates: { changes: 'observable', reads: 'maintained', observations: [{ type: 'level', of: 'receiver' }] },
+                    implementation: ({ samples: [value] }) => value,
+                }],
             }));
         };
 
@@ -1522,8 +1530,8 @@ describe('domql modules', () => {
                     { name: 'span', fields: { from: 'pair', to: 'pair?', marks: 'list<pair>' } },
                     { name: 'link', fields: { value: 'number', next: 'link?' } },
                 ],
-                members: [{ name: 'pair', function: 'pair', kind: 'property', on: 'element', parameters: [], result, changes: 'constant', reads: 'fresh' }],
-            }, { pair: answer }));
+                members: [{ name: 'pair', kind: 'property', target: 'element', result, updates: { changes: 'constant', reads: 'fresh' }, implementation: answer }],
+            }));
         };
 
         const panel = document.createElement('div');
@@ -1569,8 +1577,8 @@ describe('domql modules', () => {
     it('copy an action\'s structured result by its declared fields', async () => {
         isolated.registerModule(isolated.createModule('measure', {
             types: [{ name: 'measurement', fields: { width: 'number' } }],
-            members: [{ name: 'measure', function: 'measure', kind: 'action', on: 'element', parameters: [], result: 'measurement', changes: 'unobserved', reads: 'fresh' }],
-        }, { measure: async () => ({ width: 5, raw: { internal: true } }) }));
+            members: [{ name: 'measure', kind: 'action', target: 'element', parameters: [], result: 'measurement', implementation: async () => ({ width: 5, raw: { internal: true } }) }],
+        }));
 
         await expect(isolated.query('panel.measure()', { panel: document.createElement('div') }).executeAsync()).resolves.toEqual({ width: 5 });
     });
@@ -1579,8 +1587,8 @@ describe('domql modules', () => {
         class Reading {}
 
         const constant = (name, implementation) => isolated.createModule(name, {
-            members: [{ name, function: name, kind: 'property', on: 'element', parameters: [], result: 'number', changes: 'constant', reads: 'fresh' }],
-        }, { [name]: implementation });
+            members: [{ name, kind: 'property', target: 'element', result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation }],
+        });
 
         isolated.registerModule(constant('reading', () => new Reading()));
         isolated.registerModule(constant('later', () => Promise.resolve(1)));
@@ -1593,8 +1601,8 @@ describe('domql modules', () => {
 
     it('take the one parameter of an options input as the field of an object', () => {
         isolated.registerModule(isolated.createModule('zoom', {
-            members: [{ name: 'zoom', function: 'zoom', kind: 'function', on: 'element', input: 'options', parameters: [{ name: 'factor', kind: 'value', type: 'number', required: true, fixed: false, nulls: 'propagate' }], result: 'number', changes: 'constant', reads: 'fresh' }],
-        }, { zoom: (_receiver, args) => args.factor * 2 }));
+            members: [{ name: 'zoom', kind: 'function', target: 'element', arguments: 'options', parameters: [{ name: 'factor', kind: 'value', type: 'number', required: true, fixed: false, nulls: 'propagate' }], result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: ({ args }) => args.factor * 2 }],
+        }));
 
         const panel = document.createElement('div');
 
@@ -1604,15 +1612,16 @@ describe('domql modules', () => {
 
     it('fail inside an item of a list where the failing member is written', () => {
         isolated.registerModule(isolated.createModule('weight', {
-            members: [{ name: 'weight', function: 'weight', kind: 'property', on: 'element', parameters: [], result: 'number', changes: 'constant', reads: 'fresh' }],
-        }, {
-            weight: element => {
-                if (element.hasAttribute('aria-selected')) {
-                    throw new Error('heavy');
-                }
+            members: [{
+                name: 'weight', kind: 'property', target: 'element', result: 'number', updates: { changes: 'constant', reads: 'fresh' },
+                implementation: ({ receiver: element }) => {
+                    if (element.hasAttribute('aria-selected')) {
+                        throw new Error('heavy');
+                    }
 
-                return 1;
-            },
+                    return 1;
+                },
+            }],
         }));
         document.body.innerHTML = '<div id="panel"><div data-key="a1"></div><div data-key="a2" aria-selected="true"></div></div>';
 
@@ -1679,8 +1688,8 @@ describe('domql instances', () => {
 
     it('reuse a query from its definition and a plain object of bindings, resolved against their own vocabulary', () => {
         other.registerModule(other.createModule('zoom', {
-            members: [{ name: 'zoom', function: 'zoom', kind: 'property', on: 'element', parameters: [], result: 'number', changes: 'constant', reads: 'fresh' }],
-        }, { zoom: () => 7 }));
+            members: [{ name: 'zoom', kind: 'property', target: 'element', result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 7 }],
+        }));
 
         const count = other.query('panel.children.count', { panel });
         const zoom = other.query('panel.zoom', { panel });
@@ -1714,35 +1723,38 @@ describe('domql evaluateAsync', () => {
 
         // A member kept by an observation whose samples the test supplies, one gauge for each element; one the test marks stuck fails to stop.
         isolated.registerModule(isolated.createModule('level', {
-            observationTypes: [{ name: 'level', contract: 'maintained', function: 'observeLevel' }],
-            members: [
+            observationTypes: [
                 {
-                    name: 'level', function: 'level', kind: 'property', on: 'element', parameters: [], result: 'number?',
-                    changes: 'observable', reads: 'maintained', observations: [{ type: 'level', of: 'receiver' }],
+                    name: 'level', contract: 'maintained',
+                    implementation: ({ request: { target }, notify }) => {
+                        const gauge = { sample: { pending: true, value: null }, started: 0, stopped: 0, notify };
+
+                        gauges.set(target, gauge);
+                        gauge.started++;
+
+                        const stop = () => {
+                            gauge.stopped++;
+
+                            if (stuck.has(target)) {
+                                throw new Error('stuck');
+                            }
+                        };
+
+                        return { stop, sample: () => gauge.sample };
+                    },
                 },
             ],
-        }, {
-            observeLevel: ({ target }, notify) => {
-                const gauge = { sample: { pending: true, value: null }, started: 0, stopped: 0, notify };
-
-                gauges.set(target, gauge);
-                gauge.started++;
-
-                const stop = () => {
-                    gauge.stopped++;
-
-                    if (stuck.has(target)) {
-                        throw new Error('stuck');
-                    }
-                };
-
-                return { stop, sample: () => gauge.sample };
-            },
-            level: (_receiver, _args, _environment, [sample]) => sample,
+            members: [
+                {
+                    name: 'level', kind: 'property', target: 'element', result: 'number?',
+                    updates: { changes: 'observable', reads: 'maintained', observations: [{ type: 'level', of: 'receiver' }] },
+                    implementation: ({ samples: [sample] }) => sample,
+                },
+            ],
         }));
         isolated.registerModule(isolated.createModule('boom', {
-            members: [{ name: 'boom', function: 'boom', kind: 'property', on: 'element', parameters: [], result: 'number', changes: 'constant', reads: 'fresh' }],
-        }, { boom: () => { throw new Error('no'); } }));
+            members: [{ name: 'boom', kind: 'property', target: 'element', result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => { throw new Error('no'); } }],
+        }));
     });
 
     /** Gives the gauge of the element its first or next sample. */
@@ -1906,8 +1918,8 @@ describe('domql executeAsync', () => {
 
     /** An action module: its one member, named for it, on an element, carried out by the function. */
     const action = (name, implementation, { parameters = [], result = 'boolean' } = {}) => isolated.createModule(name, {
-        members: [{ name, function: name, kind: 'action', on: 'element', ...(parameters.length === 0 ? {} : { input: 'positional' }), parameters, result, changes: 'unobserved', reads: 'fresh' }],
-    }, { [name]: implementation });
+        members: [{ name, kind: 'action', target: 'element', ...(parameters.length === 0 ? {} : { arguments: 'positional' }), parameters, result, implementation }],
+    });
 
     const label = [{ name: 'label', kind: 'value', type: 'string', required: true, nulls: 'propagate' }];
 
@@ -1922,7 +1934,7 @@ describe('domql executeAsync', () => {
         window.reportError = error => reported.push(error);
 
         // Marks its element and answers whether the mark changed.
-        isolated.registerModule(action('mark', (element, { label }, _environment, { signal }) => {
+        isolated.registerModule(action('mark', ({ receiver: element, args: { label }, signal }) => {
             runs.push({ element, label, signal });
 
             const changed = element.dataset.mark !== label;
@@ -1933,15 +1945,15 @@ describe('domql executeAsync', () => {
         }, { parameters: label }));
 
         // Answers a promise the test settles, after marking its element as started.
-        isolated.registerModule(action('slow', (element, _args, _environment, { signal }) => {
+        isolated.registerModule(action('slow', ({ receiver: element, signal }) => {
             element.dataset.state = 'started';
             runs.push({ element, signal });
 
             return new Promise((resolve, reject) => { pending = { resolve, reject }; });
         }));
 
-        isolated.registerModule(action('pick', element => element.firstElementChild, { result: 'element?' }));
-        isolated.registerModule(action('broken', element => {
+        isolated.registerModule(action('pick', ({ receiver: element }) => element.firstElementChild, { result: 'element?' }));
+        isolated.registerModule(action('broken', ({ receiver: element }) => {
             element.dataset.state = 'half';
 
             throw new Error('jammed');
@@ -2160,8 +2172,8 @@ describe('domql receivers of unknown type', () => {
         const calls = [];
 
         isolated.registerModule(isolated.createModule('mark', {
-            members: [{ name: 'mark', function: 'mark', kind: 'behavior', on: 'element', parameters: [], result: 'boolean', changes: 'unobserved', reads: 'fresh' }],
-        }, { mark: element => (calls.push(element), { update: () => {}, dispose: () => calls.push('dispose') }) }));
+            members: [{ name: 'mark', kind: 'behavior', target: 'element', parameters: [], result: 'boolean', implementation: ({ receiver: element }) => (calls.push(element), { update: () => {}, dispose: () => calls.push('dispose') }) }],
+        }));
 
         const behavior = isolated.query('item?.mark()', { item: null }).apply();
 
@@ -2174,12 +2186,12 @@ describe('domql receivers of unknown type', () => {
     });
 
     it('commit a behavior of a null binding to the declaration its first receiver selects', () => {
-        const behavior = { kind: 'behavior', parameters: [], result: 'boolean', changes: 'unobserved', reads: 'fresh' };
         const start = () => ({ update: () => {}, dispose: () => {} });
+        const behavior = { kind: 'behavior', parameters: [], result: 'boolean', implementation: start };
 
         isolated.registerModule(isolated.createModule('mark', {
-            members: [{ ...behavior, name: 'mark', function: 'markElement', on: 'element' }, { ...behavior, name: 'mark', function: 'markText', on: 'string' }],
-        }, { markElement: start, markText: start }));
+            members: [{ ...behavior, name: 'mark', target: 'element' }, { ...behavior, name: 'mark', target: 'string' }],
+        }));
 
         const applied = isolated.query('item?.mark()', { item: null }).apply();
 
@@ -2194,12 +2206,12 @@ describe('domql receivers of unknown type', () => {
 
     it('refuse a name whose declarations make requests of different kinds', () => {
         isolated.registerModule(isolated.createModule('ping', {
-            members: [{ name: 'ping', function: 'ping', kind: 'action', on: 'element', parameters: [], result: 'boolean', changes: 'unobserved', reads: 'fresh' }],
-        }, { ping: () => true }));
+            members: [{ name: 'ping', kind: 'action', target: 'element', parameters: [], result: 'boolean', implementation: () => true }],
+        }));
         isolated.registerModule(isolated.createModule('radar', {
             types: [{ name: 'radar', fields: { level: 'number' } }],
-            members: [{ name: 'ping', function: 'ping', kind: 'function', on: 'radar', parameters: [], result: 'number', changes: 'constant', reads: 'fresh' }],
-        }, { ping: () => 1 }));
+            members: [{ name: 'ping', kind: 'function', target: 'radar', parameters: [], result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 1 }],
+        }));
 
         const error = getError(() => isolated.query('thing?.ping()', { thing: null }).resolve());
 
@@ -2212,18 +2224,19 @@ describe('domql receivers of unknown type', () => {
         const pings = [];
 
         isolated.registerModule(isolated.createModule('ping', {
-            members: [{ name: 'ping', function: 'ping', kind: 'action', on: 'element', parameters: [], result: 'boolean', changes: 'unobserved', reads: 'fresh' }],
-        }, {
-            ping: element => {
-                pings.push(element);
+            members: [{
+                name: 'ping', kind: 'action', target: 'element', parameters: [], result: 'boolean',
+                implementation: ({ receiver: element }) => {
+                    pings.push(element);
 
-                return true;
-            },
+                    return true;
+                },
+            }],
         }));
         isolated.registerModule(isolated.createModule('radar', {
             types: [{ name: 'radar', fields: { level: 'number' } }],
-            members: [{ name: 'ping', function: 'ping', kind: 'function', on: 'radar', parameters: [], result: 'number', changes: 'constant', reads: 'fresh' }],
-        }, { ping: () => 1 }));
+            members: [{ name: 'ping', kind: 'function', target: 'radar', parameters: [], result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 1 }],
+        }));
 
         const query = isolated.query('(thing as "element")?.ping()', { thing: null });
 
@@ -2237,10 +2250,10 @@ describe('domql receivers of unknown type', () => {
     it('run a function on the empty list, refusing one that more than one declaration takes', () => {
         isolated.registerModule(isolated.createModule('total', {
             members: [
-                { name: 'total', function: 'sum', kind: 'property', on: 'list<number>', parameters: [], result: 'number', changes: 'constant', reads: 'fresh' },
-                { name: 'total', function: 'join', kind: 'property', on: 'list<string>', parameters: [], result: 'string', changes: 'constant', reads: 'fresh' },
+                { name: 'total', kind: 'property', target: 'list<number>', result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: ({ receiver: items }) => items.reduce((sum, item) => sum + item, 0) },
+                { name: 'total', kind: 'property', target: 'list<string>', result: 'string', updates: { changes: 'constant', reads: 'fresh' }, implementation: ({ receiver: items }) => items.join('') },
             ],
-        }, { sum: items => items.reduce((sum, item) => sum + item, 0), join: items => items.join('') }));
+        }));
 
         expect(isolated.query('ids.count', { ids: [] }).evaluate()).toBe(0);
         expect(isolated.query('ids.first', { ids: [] }).evaluate()).toBeNull();
@@ -2270,8 +2283,8 @@ describe('domql truthiness', () => {
 
     /** A module of one property on elements answering what the function gives, of the result type given. */
     const register = (name, result, read) => isolated.registerModule(isolated.createModule(name, {
-        members: [{ name, function: 'read', kind: 'property', on: 'element', parameters: [], result, changes: 'constant', reads: 'fresh' }],
-    }, { read }));
+        members: [{ name, kind: 'property', target: 'element', result, updates: { changes: 'constant', reads: 'fresh' }, implementation: read }],
+    }));
 
     it.each([
         ['null', 'null', {}, true],
@@ -2359,8 +2372,8 @@ describe('domql truthiness', () => {
         const received = [];
 
         isolated.registerModule(isolated.createModule('picks', {
-            members: [{ name: 'picks', function: 'picks', kind: 'function', form: 'call', input: 'positional', on: 'list<T>', result: 'number', changes: 'derived', reads: 'derived', parameters: [{ name: 'expression', kind: 'predicate', type: 'boolean', context: 'item', required: true, nulls: 'accept' }] }],
-        }, { picks: (items, { expression }) => items.filter(item => (received.push(expression(item)), expression(item))).length }));
+            members: [{ name: 'picks', kind: 'function', syntax: 'function-call', arguments: 'positional', target: 'list<T>', result: 'number', updates: { changes: 'derived', reads: 'derived' }, parameters: [{ name: 'expression', kind: 'predicate', type: 'boolean', context: 'item', required: true, nulls: 'accept' }], implementation: ({ receiver: items, args: { expression } }) => items.filter(item => (received.push(expression(item)), expression(item))).length }],
+        }));
 
         expect(evaluate('panel.children.picks(context:["data-x"])')).toBe(2);
         expect(received).toEqual([true, true, false]);
@@ -2368,8 +2381,8 @@ describe('domql truthiness', () => {
 
     it('refuses a predicate declared of any type but boolean, and one that is no value', () => {
         expect(() => isolated.createModule('picks', {
-            members: [{ name: 'picks', function: 'picks', kind: 'function', form: 'call', input: 'positional', on: 'list<T>', result: 'number', changes: 'derived', reads: 'derived', parameters: [{ name: 'expression', kind: 'predicate', type: 'string', context: 'item', required: true, nulls: 'accept' }] }],
-        }, { picks: () => 0 })).toThrow(expect.objectContaining({ message: expect.stringContaining("The predicate parameter 'expression' is of type boolean") }));
+            members: [{ name: 'picks', kind: 'function', syntax: 'function-call', arguments: 'positional', target: 'list<T>', result: 'number', updates: { changes: 'derived', reads: 'derived' }, parameters: [{ name: 'expression', kind: 'predicate', type: 'string', context: 'item', required: true, nulls: 'accept' }], implementation: () => 0 }],
+        })).toThrow(expect.objectContaining({ message: expect.stringContaining("The predicate parameter 'expression' is of type boolean") }));
         expect(getError(() => isolated.query('panel.children.where(context.on("click"))', { panel }).resolve()).kind).toBe('validation');
     });
 
@@ -2436,8 +2449,8 @@ describe('domql casts', () => {
         let reads = 0;
 
         const register = (name, read) => isolated.registerModule(isolated.createModule(name, {
-            members: [{ name, function: 'read', kind: 'property', on: 'element', parameters: [], result: 'node', changes: 'constant', reads: 'fresh' }],
-        }, { read }));
+            members: [{ name, kind: 'property', target: 'element', result: 'node', updates: { changes: 'constant', reads: 'fresh' }, implementation: read }],
+        }));
 
         register('reading', () => (reads++, document));
         register('broken', () => { throw new Error('unreadable'); });
@@ -2489,22 +2502,22 @@ describe('domql conversions', () => {
         isolated.registerModule(isolated.createModule('temperature', {
             types: [{ name: 'celsius', fields: { degrees: 'number' } }],
             conversions: [
-                { from: 'string', to: 'celsius', function: 'parse' },
-                { from: 'celsius', to: 'string', function: 'write' },
+                {
+                    from: 'string', to: 'celsius',
+                    implementation: ({ value: text, reject }) => {
+                        if (answer !== null) {
+                            return answer(text, reject);
+                        }
+
+                        if (!/^-?[0-9]+C?$/.test(text)) {
+                            reject(`${JSON.stringify(text)} is no temperature`);
+                        }
+
+                        return { degrees: Number(text.replace('C', '')), unit: 'C' };
+                    },
+                },
+                { from: 'celsius', to: 'string', implementation: ({ value: { degrees } }) => `${degrees}C` },
             ],
-        }, {
-            parse: (text, { reject }) => {
-                if (answer !== null) {
-                    return answer(text, reject);
-                }
-
-                if (!/^-?[0-9]+C?$/.test(text)) {
-                    reject(`${JSON.stringify(text)} is no temperature`);
-                }
-
-                return { degrees: Number(text.replace('C', '')), unit: 'C' };
-            },
-            write: ({ degrees }) => `${degrees}C`,
         }));
     };
 
@@ -2612,8 +2625,8 @@ describe('domql conversions', () => {
             registerTemperature();
             isolated.registerModule(isolated.createModule('kelvin', {
                 types: [{ name: 'kelvin', fields: { degrees: 'number' } }],
-                conversions: [{ from: 'kelvin', to: 'number', function: 'degrees' }],
-            }, { degrees: ({ degrees }) => degrees }));
+                conversions: [{ from: 'kelvin', to: 'number', implementation: ({ value: { degrees } }) => degrees }],
+            }));
 
             const query = isolated.query('value to "number"', { value: null });
 
@@ -2726,8 +2739,8 @@ describe('domql conversions', () => {
 
         it('leaves a failure of evaluating its value an error, a rejection of a conversion within that value among them, since it attempts its own conversion alone', () => {
             isolated.registerModule(isolated.createModule('broken', {
-                members: [{ name: 'broken', function: 'read', kind: 'property', on: 'element', parameters: [], result: 'string', changes: 'constant', reads: 'fresh' }],
-            }, { read: () => { throw new Error('unreadable'); } }));
+                members: [{ name: 'broken', kind: 'property', target: 'element', result: 'string', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => { throw new Error('unreadable'); } }],
+            }));
 
             const failed = getError(() => evaluate('try panel.broken to "number"'));
 
@@ -2747,8 +2760,8 @@ describe('domql conversions', () => {
 
             registerTemperature({ answer: text => (conversions++, { degrees: Number(text.replace('C', '')) }) });
             isolated.registerModule(isolated.createModule('reading', {
-                members: [{ name: 'reading', function: 'read', kind: 'property', on: 'element', parameters: [], result: 'string', changes: 'constant', reads: 'fresh' }],
-            }, { read: () => `${++reads}C` }));
+                members: [{ name: 'reading', kind: 'property', target: 'element', result: 'string', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => `${++reads}C` }],
+            }));
 
             expect(evaluate('try panel.reading to "celsius"')).toEqual({ degrees: 1 });
             expect([reads, conversions]).toEqual([1, 1]);
@@ -2795,8 +2808,8 @@ describe('domql conversions', () => {
             let reads = 0;
 
             isolated.registerModule(isolated.createModule('reading', {
-                members: [{ name: 'reading', function: 'read', kind: 'property', on: 'element', parameters: [], result: 'string?', changes: 'constant', reads: 'fresh' }],
-            }, { read: () => `${++reads}` }));
+                members: [{ name: 'reading', kind: 'property', target: 'element', result: 'string?', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => `${++reads}` }],
+            }));
 
             expect(evaluate('if let r = panel.reading then { a = r, b = r } else null end')).toEqual({ a: '1', b: '1' });
             expect(reads).toBe(1);
@@ -2861,8 +2874,8 @@ describe('domql conversions', () => {
 
             registerTemperature();
             isolated.registerModule(isolated.createModule('reading', {
-                members: [{ name: 'reading', function: 'read', kind: 'property', on: 'element', parameters: [], result: 'string', changes: 'constant', reads: 'fresh' }],
-            }, { read: () => `${++reads}C` }));
+                members: [{ name: 'reading', kind: 'property', target: 'element', result: 'string', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => `${++reads}C` }],
+            }));
 
             expect(evaluate('panel.reading to "celsius"')).toEqual({ degrees: 1 });
             expect(reads).toBe(1);
@@ -2888,13 +2901,13 @@ describe('domql conditions', () => {
     const registerLit = ({ glow = view => view.on } = {}) => {
         isolated.registerModule(isolated.createModule('lit', {
             types: [{ name: 'litView', fields: { on: 'boolean' } }],
-            members: [{ name: 'lit', function: 'view', kind: 'property', on: 'element', parameters: [], result: 'litView', changes: 'constant', reads: 'fresh' }],
-            conditions: [
-                { name: 'lit', function: 'isLit', on: 'element', changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: ['data-lit'] }] },
-                { name: 'glowing', function: 'isGlowing', on: 'litView', changes: 'partly-observable', misses: 'a glow its source sets alone', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: true }] },
-                { name: 'steady', function: 'isSteady', on: 'litView', changes: 'constant', reads: 'fresh' },
+            members: [{ name: 'lit', kind: 'property', target: 'element', result: 'litView', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => ({ on: true }) }],
+            predicates: [
+                { name: 'lit', target: 'element', updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: ['data-lit'] }] }, implementation: ({ receiver: element }) => element.hasAttribute('data-lit') },
+                { name: 'glowing', target: 'litView', updates: { changes: 'partly-observable', misses: 'a glow its source sets alone', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: true }] }, implementation: ({ receiver: view }) => glow(view) },
+                { name: 'steady', target: 'litView', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => true },
             ],
-        }, { view: () => ({ on: true }), isLit: element => element.hasAttribute('data-lit'), isGlowing: glow, isSteady: () => true }));
+        }));
     };
 
     it('tests the condition of its name the receiver has, through that condition\'s function, and answers a Boolean', () => {
@@ -2923,7 +2936,7 @@ describe('domql conditions', () => {
         registerLit();
 
         expect(evaluate('panel.is(on and "lit" or "dim")', { on: true })).toBe(false);
-        expect(getError(() => isolated.query('panel.is(on and "lit" or "dim")', { panel, on: false }).resolve()).message).toContain("'dim' is no condition 'is' asks");
+        expect(getError(() => isolated.query('panel.is(on and "lit" or "dim")', { panel, on: false }).resolve()).message).toContain("'dim' is no predicate 'is' asks");
     });
 
     it('refuses a name no condition has, and a condition of other receivers, naming the condition and the receiver, and those the vocabulary or the receiver has', () => {
@@ -2931,9 +2944,9 @@ describe('domql conditions', () => {
 
         const messageOf = text => getError(() => isolated.query(text, { panel }).resolve()).message;
 
-        expect(messageOf('panel.is("dim")')).toContain("'dim' is no condition 'is' asks; it asks disabled, readonly, text-editable, hover, popover-open, checked, visible, lit, glowing, steady");
-        expect(messageOf('panel.is("glowing")')).toContain("'glowing' is a condition of litView, not of element, whose conditions 'is' asks are disabled, readonly, text-editable, hover, popover-open, checked, lit");
-        expect(messageOf('window.is("lit")')).toContain("'lit' is a condition of element, not of window, which has no condition 'is' asks");
+        expect(messageOf('panel.is("dim")')).toContain("'dim' is no predicate 'is' asks; it asks disabled, readonly, text-editable, hover, popover-open, checked, visible, lit, glowing, steady");
+        expect(messageOf('panel.is("glowing")')).toContain("'glowing' is a predicate of litView, not of element, whose predicates 'is' asks are disabled, readonly, text-editable, hover, popover-open, checked, lit");
+        expect(messageOf('window.is("lit")')).toContain("'lit' is a predicate of element, not of window, which has no predicate 'is' asks");
     });
 
     it('skips its argument and its condition for a null receiver read with ?., after checking its name as any call is checked', () => {
@@ -2944,7 +2957,7 @@ describe('domql conditions', () => {
         expect(evaluate('missing?.is("glowing")', { missing: null })).toBeNull();
         expect(evaluate('panel.lit?.is("glowing")')).toBe(true);
         expect(tests).toBe(1);
-        expect(getError(() => evaluate('missing?.is("dim")', { missing: null })).message).toContain("'dim' is no condition 'is' asks");
+        expect(getError(() => evaluate('missing?.is("dim")', { missing: null })).message).toContain("'dim' is no predicate 'is' asks");
     });
 
     it.each([
@@ -2973,8 +2986,8 @@ describe('domql conditions', () => {
     });
 
     it.each([
-        ['throws', () => { throw new Error('the lamp is gone'); }, "The condition 'glowing' that 'is' selects, declared by the module 'lit', failed: the lamp is gone"],
-        ['answers what is no Boolean', () => 'yes', "The condition 'glowing' that 'is' selects, declared by the module 'lit', answered \"yes\", and a condition answers boolean"],
+        ['throws', () => { throw new Error('the lamp is gone'); }, "The predicate 'glowing' that 'is' selects, declared by the module 'lit', failed: the lamp is gone"],
+        ['answers what is no Boolean', () => 'yes', "The predicate 'glowing' that 'is' selects, declared by the module 'lit', answered \"yes\", and a predicate answers boolean"],
     ])('fails with an evaluation error naming the condition, the call and its module where its function %s', (_, glow, message) => {
         registerLit({ glow });
 
@@ -3076,8 +3089,8 @@ describe('domql ARIA conditions', () => {
 
     it.each([
         ['the view itself as a result, which is no data', 'e.aria', 'The result would hold aria, which is no data'],
-        ['a native condition the view has not', 'e.aria.is("hover")', "'hover' is a condition of element, not of aria, whose conditions 'is' asks are disabled, checked"],
-        ['an ARIA condition nothing declares', 'e.aria.is("expanded")', "'expanded' is no condition 'is' asks"],
+        ['a native condition the view has not', 'e.aria.is("hover")', "'hover' is a predicate of element, not of aria, whose predicates 'is' asks are disabled, checked"],
+        ['an ARIA condition nothing declares', 'e.aria.is("expanded")', "'expanded' is no predicate 'is' asks"],
     ])('refuses %s', (_, text, message) => {
         const error = getError(() => domql.query(text, { e: element }).resolve());
 
@@ -3933,28 +3946,29 @@ describe('domql callback contracts', () => {
         // A function that sorts a list by a function comparing two of its items, which it keeps where the test can call it later, and one that calls its function with what the test says.
         isolated.registerModule(isolated.createModule('sortBy', {
             members: [{
-                name: 'sortBy', function: 'sortBy', kind: 'function', on: 'list<T>', input: 'positional', result: 'list<T>', changes: 'derived', reads: 'derived',
+                name: 'sortBy', kind: 'function', target: 'list<T>', arguments: 'positional', result: 'list<T>', updates: { changes: 'derived', reads: 'derived' },
                 parameters: [{ name: 'compare', kind: 'function', parameters: ['T', 'T'], type: 'number', required: true }],
-            }],
-        }, {
-            sortBy: (list, { compare }) => {
-                saved = compare;
+                implementation: ({ receiver: list, args: { compare } }) => {
+                    saved = compare;
 
-                return [...list].sort(compare);
-            },
+                    return [...list].sort(compare);
+                },
+            }],
         }));
         isolated.registerModule(isolated.createModule('rank', {
             members: [{
-                name: 'rank', function: 'rank', kind: 'function', on: 'element', input: 'options', result: 'number', changes: 'constant', reads: 'fresh',
+                name: 'rank', kind: 'function', target: 'element', arguments: 'options', result: 'number', updates: { changes: 'constant', reads: 'fresh' },
                 parameters: [{ name: 'weight', kind: 'value', type: 'number', required: true, nulls: 'propagate' }, { name: 'score', kind: 'function', parameters: ['number'], type: 'number', required: true }],
+                implementation: ({ args: { weight, score } }) => score(weight),
             }],
-        }, { rank: (_element, { weight, score }) => score(weight) }));
+        }));
         isolated.registerModule(isolated.createModule('probe', {
             members: [{
-                name: 'probe', function: 'probe', kind: 'function', on: 'element', input: 'positional', result: 'number', changes: 'constant', reads: 'fresh',
+                name: 'probe', kind: 'function', target: 'element', arguments: 'positional', result: 'number', updates: { changes: 'constant', reads: 'fresh' },
                 parameters: [{ name: 'measure', kind: 'function', parameters: ['element'], type: 'number', required: true }],
+                implementation: ({ receiver: element, args: { measure } }) => measure(...calls.shift()(element)),
             }],
-        }, { probe: (element, { measure }) => measure(...calls.shift()(element)) }));
+        }));
     });
 
     const evaluate = text => isolated.query(text, { panel }).evaluate();
@@ -3997,16 +4011,17 @@ describe('domql callback contracts', () => {
     });
 
     it.each([
-        ['on a property', { name: 'p', function: 'p', kind: 'property', on: 'element', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: true }], result: 'number', changes: 'constant', reads: 'fresh' }, "The parameter 'f' belongs to a member of kind 'function'"],
-        ['with a null policy', { name: 'p', function: 'p', kind: 'function', on: 'element', input: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: true, nulls: 'accept' }], result: 'number', changes: 'constant', reads: 'fresh' }, 'which a function parameter leaves out'],
-        ['without its parameters', { name: 'p', function: 'p', kind: 'function', on: 'element', input: 'positional', parameters: [{ name: 'f', kind: 'function', type: 'number', required: true }], result: 'number', changes: 'constant', reads: 'fresh' }, "The parameter 'f' is a function that declares its parameters as a list of the types it is called with"],
-        ['optional', { name: 'p', function: 'p', kind: 'function', on: 'element', input: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: false }], result: 'number', changes: 'constant', reads: 'fresh' }, "The parameter 'f' is a function, so it is required"],
-        ['fixed', { name: 'p', function: 'p', kind: 'function', on: 'element', input: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: true, fixed: true }], result: 'number', changes: 'constant', reads: 'fresh' }, "The parameter 'f' is a function, so it cannot be fixed"],
-        ['with a context', { name: 'p', function: 'p', kind: 'function', on: 'element', input: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: true, context: 'item' }], result: 'number', changes: 'constant', reads: 'fresh' }, "The parameter 'f' is a function, so it declares no 'context'"],
-        ['beside a value parameter declaring parameters', { name: 'p', function: 'p', kind: 'function', on: 'element', input: 'positional', parameters: [{ name: 'v', kind: 'value', type: 'number', required: true, nulls: 'propagate', parameters: [] }], result: 'number', changes: 'constant', reads: 'fresh' }, "The parameter 'v' is no function, so it declares no parameters"],
-        ['an observation is given', { name: 'p', function: 'p', kind: 'function', on: 'element', input: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: true }], result: 'number', changes: 'observable', reads: 'fresh', observations: [{ type: 'resize', of: { argument: 'f' } }] }, "The observation 'resize' is given the parameter 'f', a function that lasts only while the member's invocation does"],
+        ['on a property, which takes no parameters', { name: 'p', kind: 'property', target: 'element', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: true }], result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 0 }, "A member of kind 'property' declares name, kind, target, result, implementation, updates, and 'parameters' is none of them"],
+        ['on an action',{ name: 'p', kind: 'action', target: 'element', arguments: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: true }], result: 'number', implementation: () => 0 }, "The parameter 'f' belongs to a member of kind 'function'"],
+        ['with a null policy', { name: 'p', kind: 'function', target: 'element', arguments: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: true, nulls: 'accept' }], result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 0 }, 'which a function parameter leaves out'],
+        ['without its parameters', { name: 'p', kind: 'function', target: 'element', arguments: 'positional', parameters: [{ name: 'f', kind: 'function', type: 'number', required: true }], result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 0 }, "The parameter 'f' is a function that declares its parameters as a list of the types it is called with"],
+        ['optional', { name: 'p', kind: 'function', target: 'element', arguments: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: false }], result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 0 }, "The parameter 'f' is a function, so it is required"],
+        ['fixed', { name: 'p', kind: 'function', target: 'element', arguments: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: true, fixed: true }], result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 0 }, "The parameter 'f' is a function, so it cannot be fixed"],
+        ['with a context', { name: 'p', kind: 'function', target: 'element', arguments: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: true, context: 'item' }], result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 0 }, "The parameter 'f' is a function, so it declares no 'context'"],
+        ['beside a value parameter declaring parameters', { name: 'p', kind: 'function', target: 'element', arguments: 'positional', parameters: [{ name: 'v', kind: 'value', type: 'number', required: true, nulls: 'propagate', parameters: [] }], result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 0 }, "The parameter 'v' is no function, so it declares no parameters"],
+        ['an observation is given', { name: 'p', kind: 'function', target: 'element', arguments: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: true }], result: 'number', updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'resize', of: { argument: 'f' } }] }, implementation: () => 0 }, "The observation 'resize' is given the parameter 'f', a function that lasts only while the member's invocation does"],
     ])('refuses a module declaring a function parameter %s', (_, member, message) => {
-        expect(getError(() => isolated.createModule('p', { members: [member] }, { p: () => 0 }))).toMatchObject({ kind: 'module', message: expect.stringContaining(message) });
+        expect(getError(() => isolated.createModule('p', { members: [member] }))).toMatchObject({ kind: 'module', message: expect.stringContaining(message) });
     });
 });
 
@@ -4025,22 +4040,24 @@ describe('domql object root of an options object', () => {
 
         isolated.registerModule(isolated.createModule('span', {
             members: [{
-                name: 'span', function: 'span', kind: 'function', on: 'element', input: 'options', result: 'string', changes: 'constant', reads: 'fresh',
+                name: 'span', kind: 'function', target: 'element', arguments: 'options', result: 'string', updates: { changes: 'constant', reads: 'fresh' },
                 parameters: [value('anchor', 'element?', { default: null, nulls: 'accept' }), value('start', 'number'), value('end', 'number', { default: 10 })],
+                implementation: ({ args: { anchor, start, end } }) => `${anchor?.id ?? '-'}:${start}-${end}`,
             }],
-        }, { span: (_receiver, { anchor, start, end }) => `${anchor?.id ?? '-'}:${start}-${end}` }));
+        }));
         // A function of a list taking options, a number among them and an expression and a predicate it evaluates against each item it keeps, which answers the sum of what the expression gives.
         const evaluated = (name, kind, type) => ({ name, kind, type, context: 'item', required: true, fixed: false, nulls: 'accept' });
 
         isolated.registerModule(isolated.createModule('pick', {
             members: [{
-                name: 'pick', function: 'pick', kind: 'function', on: 'list<T>', input: 'options', result: 'number', changes: 'derived', reads: 'derived',
+                name: 'pick', kind: 'function', target: 'list<T>', arguments: 'options', result: 'number', updates: { changes: 'derived', reads: 'derived' },
                 parameters: [value('limit', 'number', { default: 10 }), evaluated('by', 'expression', 'number'), evaluated('keep', 'predicate', 'boolean')],
+                implementation: ({ receiver: list, args: { limit, by, keep } }) => list.slice(0, limit).filter(keep).reduce((sum, item) => sum + by(item), 0),
             }],
-        }, { pick: (list, { limit, by, keep }) => list.slice(0, limit).filter(keep).reduce((sum, item) => sum + by(item), 0) }));
+        }));
         isolated.registerModule(isolated.createModule('tally', {
-            members: [{ name: 'tally', function: 'tally', kind: 'property', on: 'element', parameters: [], result: 'number', changes: 'constant', reads: 'fresh' }],
-        }, { tally: () => ++tallies }));
+            members: [{ name: 'tally', kind: 'property', target: 'element', result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => ++tallies }],
+        }));
     });
 
     const panel = Object.assign(document.createElement('div'), { id: 'panel', innerHTML: '<i></i><i></i><i></i>' });
@@ -4807,17 +4824,18 @@ describe('domql named indexers', () => {
 
         isolated.registerModule(isolated.createModule('entry', {
             types: [{ name: 'record', fields: { label: 'string', rank: 'number' } }],
-            members: [{ name: 'entry', function: 'entry', kind: 'function', form: 'indexer', on: 'element', parameters: [{ name: 'index', kind: 'value', type: 'number', required: true, nulls: 'propagate' }], result: 'record?', changes: 'constant', reads: 'fresh' }],
-        }, {
-            entry: (element, { index }) => {
-                counts.entries++;
+            members: [{
+                name: 'entry', kind: 'function', syntax: 'indexer', target: 'element', arguments: 'positional', parameters: [{ name: 'index', kind: 'value', type: 'number', required: true, nulls: 'propagate' }], result: 'record?', updates: { changes: 'constant', reads: 'fresh' },
+                implementation: ({ receiver: element, args: { index } }) => {
+                    counts.entries++;
 
-                return index < 3 ? { label: `${element.id} ${index}`, rank: index * 10 } : null;
-            },
+                    return index < 3 ? { label: `${element.id} ${index}`, rank: index * 10 } : null;
+                },
+            }],
         }));
         isolated.registerModule(isolated.createModule('entries', {
-            members: [{ name: 'entries', function: 'read', kind: 'property', on: 'element', parameters: [], result: 'number', changes: 'constant', reads: 'fresh' }],
-        }, { read: () => ++counts.reads }));
+            members: [{ name: 'entries', kind: 'property', target: 'element', result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => ++counts.reads }],
+        }));
 
         return counts;
     };
@@ -4871,39 +4889,39 @@ describe('domql named indexers', () => {
         });
 
         it('is one a module declares for a type of its own, and one at most for any receiver', () => {
-            const tokens = { name: 'token', function: 'token', kind: 'function', form: 'indexer', default: true, on: 'palette', parameters: [{ name: 'name', kind: 'value', type: 'string', required: true, nulls: 'propagate' }], result: 'string?', changes: 'constant', reads: 'fresh' };
+            const tokens = { name: 'token', kind: 'function', syntax: 'indexer', default: true, target: 'palette', arguments: 'positional', parameters: [{ name: 'name', kind: 'value', type: 'string', required: true, nulls: 'propagate' }], result: 'string?', updates: { changes: 'constant', reads: 'fresh' }, implementation: ({ receiver: palette, args: { name } }) => palette[name] ?? null };
 
             isolated.registerModule(isolated.createModule('palette', {
                 types: [{ name: 'palette', fields: { accent: 'string' } }],
-                members: [tokens, { name: 'palette', function: 'palette', kind: 'property', on: 'element', parameters: [], result: 'palette', changes: 'constant', reads: 'fresh' }],
-            }, { token: (palette, { name }) => palette[name] ?? null, palette: () => ({ accent: 'teal' }) }));
+                members: [tokens, { name: 'palette', kind: 'property', target: 'element', result: 'palette', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => ({ accent: 'teal' }) }],
+            }));
 
             expect(evaluate('panel.palette:["accent"]')).toBe('teal');
             expect(evaluate('panel.palette:token["accent"]')).toBe('teal');
             expect(evaluate('panel:["data-key"]')).toBe('k1');
 
             const competing = getError(() => isolated.registerModule(isolated.createModule('rival', {
-                members: [{ ...tokens, name: 'rival', function: 'rival', on: 'element' }],
-            }, { rival: () => null })));
+                members: [{ ...tokens, name: 'rival', target: 'element', implementation: () => null }],
+            })));
 
             expect(competing.kind).toBe('module');
             expect(competing.message).toContain("'attribute' is the default indexer of element already");
 
             const twice = getError(() => isolated.registerModule(isolated.createModule('swatch', {
                 types: [{ name: 'swatch', fields: { hue: 'number' } }],
-                members: [{ ...tokens, name: 'hue', function: 'hue', on: 'swatch' }, { ...tokens, name: 'shade', function: 'shade', on: 'swatch' }],
-            }, { hue: () => null, shade: () => null })));
+                members: [{ ...tokens, name: 'hue', target: 'swatch', implementation: () => null }, { ...tokens, name: 'shade', target: 'swatch', implementation: () => null }],
+            })));
 
             expect(twice.message).toContain("'hue' is the default indexer of swatch already");
         });
 
         it.each([
-            ['that is no Boolean', { form: 'indexer', default: 'yes' }, 'whether it is the default indexer of its receivers as a Boolean'],
-            ['for a member that is no indexer', { form: 'call', default: true }, 'Only an indexer is the default of its receivers'],
-            ['for a property', { kind: 'property', parameters: [], input: undefined, default: true }, 'Only an indexer is the default of its receivers'],
+            ['that is no Boolean', { syntax: 'indexer', default: 'yes' }, 'whether it is the default indexer of its receivers as a Boolean'],
+            ['for a member that is no indexer', { syntax: 'function-call', default: true }, 'Only an indexer is the default of its receivers'],
+            ['for a property', { kind: 'property', parameters: undefined, arguments: undefined, default: true }, "A member of kind 'property' declares name, kind, target, result, implementation, updates, and 'default' is none of them"],
         ])('is refused where a declaration marks a default %s', (_, overrides, message) => {
-            const declaration = { name: 'entries', function: 'entry', kind: 'function', on: 'element', input: 'positional', parameters: [{ name: 'index', kind: 'value', type: 'number', required: true, nulls: 'propagate' }], result: 'number', changes: 'constant', reads: 'fresh', ...overrides };
-            const error = getError(() => isolated.createModule('entries', { members: [declaration] }, { entry: () => 1 }));
+            const declaration = { name: 'entries', kind: 'function', target: 'element', arguments: 'positional', parameters: [{ name: 'index', kind: 'value', type: 'number', required: true, nulls: 'propagate' }], result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 1, ...overrides };
+            const error = getError(() => isolated.createModule('entries', { members: [declaration] }));
 
             expect(error.message).toContain(message);
         });
@@ -4963,16 +4981,16 @@ describe('domql named indexers', () => {
         });
 
         it.each([
-            ['a property', { kind: 'property', parameters: [] }, 'A property is accessed'],
-            ['an action', { kind: 'action' }, 'An indexer is a function'],
+            ['a property', { kind: 'property', parameters: undefined }, "A member of kind 'property' declares name, kind, target, result, implementation, updates, and 'syntax' is none of them"],
+            ['an action', { kind: 'action', updates: undefined }, 'An indexer is a function'],
             ['no parameter', { parameters: [] }, 'An indexer is a function whose key is its one parameter'],
             ['two parameters', { parameters: [{ name: 'a', kind: 'value', type: 'number', required: true, nulls: 'propagate' }, { name: 'b', kind: 'value', type: 'number', required: true, nulls: 'propagate' }] }, 'An indexer is a function whose key is its one parameter'],
             ['an optional parameter', { parameters: [{ name: 'a', kind: 'value', type: 'number', required: false, nulls: 'propagate' }] }, 'a required value parameter'],
             ['an expression parameter', { parameters: [{ name: 'a', kind: 'expression', type: 'boolean?', context: 'item', required: true, nulls: 'accept' }] }, 'a required value parameter'],
-            ['options for its input', { input: 'options' }, "An indexer's key supplies its one parameter, so its input is positional"],
+            ['options for its input', { arguments: 'options' }, "An indexer's key is its one argument, so its arguments are positional"],
         ])('is refused where it declares %s', (_, overrides, message) => {
-            const declaration = { name: 'entries', function: 'entry', kind: 'function', form: 'indexer', on: 'element', parameters: [{ name: 'index', kind: 'value', type: 'number', required: true, nulls: 'propagate' }], result: 'number', changes: 'constant', reads: 'fresh', ...overrides };
-            const error = getError(() => isolated.createModule('entries', { members: [declaration] }, { entry: () => 1 }));
+            const declaration = { name: 'entries', kind: 'function', syntax: 'indexer', target: 'element', parameters: [{ name: 'index', kind: 'value', type: 'number', required: true, nulls: 'propagate' }], result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 1, ...overrides };
+            const error = getError(() => isolated.createModule('entries', { members: [declaration] }));
 
             expect(error.kind).toBe('module');
             expect(error.message).toContain(message);

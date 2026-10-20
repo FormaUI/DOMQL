@@ -16,7 +16,7 @@ const messageOf = call => {
 };
 
 /** A property of an element a test module declares. */
-const declaration = overrides => ({ name: 'charts', function: 'charts', kind: 'property', on: 'element', parameters: [], result: 'number', changes: 'constant', reads: 'fresh', ...overrides });
+const declaration = overrides => ({ name: 'charts', kind: 'property', target: 'element', result: 'number', updates: { changes: 'constant', reads: 'fresh' }, ...overrides });
 
 describe('BrowserVocabulary', () => {
     const registry = new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module]);
@@ -39,50 +39,50 @@ describe('BrowserVocabulary', () => {
 
     it('gives every member observation coverage and, where partial, what it misses', () => {
         for (const member of module.members) {
-            expect(member.changes).toBeTypeOf('string');
-            expect(member.changes === 'partly-observable' ? member.misses : 'n/a').toBeTruthy();
+            expect(member.updates.changes).toBeTypeOf('string');
+            expect(member.updates.changes === 'partly-observable' ? member.updates.misses : 'n/a').toBeTruthy();
         }
     });
 
-    it('names every function key a module of functions would supply', () => {
-        const keys = module.members.map(member => `${member.on}:${member.name}:${member.function}`);
+    it('declares each member once on its target', () => {
+        const keys = module.members.map(member => `${member.target}:${member.name}`);
 
         expect(new Set(keys).size).toBe(keys.length);
     });
 
     it('declares each test as a Boolean member, a presence test named with has', () => {
-        const tests = module.members.filter(member => member.result === 'boolean' && member.kind === 'property').map(member => `${member.on}.${member.name}`);
+        const tests = module.members.filter(member => member.result === 'boolean' && member.kind === 'property').map(member => `${member.target}.${member.name}`);
 
         expect(tests).toEqual(['element.attached', 'element.hasChildren', 'element.hasSelection']);
     });
 
-    it('declares the conditions of elements and of the document, each tested with is, the state the browser sets rather than one that follows from structure', () => {
-        const conditions = module.conditions.map(condition => `${condition.on}.${condition.verb}("${condition.name}")`);
+    it('declares the predicates of elements and of the document, each tested with is, the state the browser sets rather than one that follows from structure', () => {
+        const predicates = module.predicates.map(predicate => `${predicate.target}.${predicate.verb}("${predicate.name}")`);
 
-        expect(conditions).toEqual([
+        expect(predicates).toEqual([
             'element.is("disabled")', 'element.is("readonly")', 'element.is("text-editable")', 'element.has("focus")', 'element.has("focus-within")', 'element.is("hover")', 'element.is("popover-open")', 'element.is("checked")',
             'document.is("visible")', 'document.has("focus")', 'window.supports("share")', 'window.supports("clipboard")', 'aria.is("checked")', 'aria.is("disabled")',
         ]);
     });
 
     it('lets one name answer on different receivers', () => {
-        expect(registry.getMembers('size').map(member => member.on)).toEqual(['window', 'element']);
+        expect(registry.getMembers('size').map(member => member.target)).toEqual(['window', 'element']);
     });
 
     it('refuses a module\'s member the DOM vocabulary already answers on the same receiver, a kind of node included', () => {
-        expect(messageOf(() => new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, new LexicaModule('size', { members: [declaration({ name: 'size', on: 'element' })] })]))).toContain('declared already');
-        expect(messageOf(() => new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, new LexicaModule('parent', { members: [declaration({ name: 'parent', on: 'shadowRoot' })] })]))).toContain('declared already');
+        expect(messageOf(() => new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, new LexicaModule('size', { members: [declaration({ name: 'size', target: 'element' })] })]))).toContain('declared already');
+        expect(messageOf(() => new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, new LexicaModule('parent', { members: [declaration({ name: 'parent', target: 'shadowRoot' })] })]))).toContain('declared already');
     });
 
-    it('lets a module beside it declare a member and a condition of any name on an element', () => {
+    it('lets a module beside it declare a member and a predicate of any name on an element', () => {
         const charts = new LexicaModule('charts', {
             members: [declaration({ name: 'palette' })],
-            conditions: [{ name: 'plotted', function: 'isPlotted', on: 'element', changes: 'unobserved', reads: 'fresh', observations: [] }],
+            predicates: [{ name: 'plotted', target: 'element', updates: { changes: 'unobserved', reads: 'fresh' } }],
         });
         const extended = new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, charts]);
 
         expect(extended.getMembers('palette').map(member => extended.getOwner(member))).toEqual(['charts']);
-        expect(extended.getConditions('plotted').map(condition => extended.getOwner(condition))).toEqual(['charts']);
+        expect(extended.getPredicates('plotted').map(predicate => extended.getOwner(predicate))).toEqual(['charts']);
     });
 
     it('refuses an event type a module declares that the DOM vocabulary declares', () => {
@@ -90,28 +90,28 @@ describe('BrowserVocabulary', () => {
     });
 
     describe('observations', () => {
-        const members = [...module.members, ...module.conditions];
-        const covered = declaration => ['observable', 'partly-observable'].includes(declaration.changes);
+        const members = [...module.members, ...module.predicates];
+        const covered = declaration => ['observable', 'partly-observable'].includes(declaration.updates.changes);
 
         it('are named by every member whose changes they cover, and by no other', () => {
             for (const declaration of members) {
-                expect(declaration.observations.length > 0, declaration.name).toBe(covered(declaration));
+                expect(declaration.updates.observations.length > 0, declaration.name).toBe(covered(declaration));
             }
         });
 
         it('are of types the module declares', () => {
             const types = new Set(module.observationTypes.map(type => type.name));
-            const named = members.flatMap(declaration => declaration.observations.map(observation => observation.type));
+            const named = members.flatMap(declaration => declaration.updates.observations.map(observation => observation.type));
 
             expect(named.every(type => types.has(type))).toBe(true);
             expect([...new Set(named)].sort()).toEqual([...types].sort());
         });
 
         it('are maintained only for the member that reads maintained values', () => {
-            const maintained = members.filter(declaration => declaration.observations.some(observation => registry.getObservationType(observation.type).contract === 'maintained'));
+            const maintained = members.filter(declaration => declaration.updates.observations.some(observation => registry.getObservationType(observation.type).contract === 'maintained'));
 
             expect(maintained.map(declaration => declaration.name)).toEqual(['intersects']);
-            expect(maintained.every(declaration => declaration.reads === 'maintained')).toBe(true);
+            expect(maintained.every(declaration => declaration.updates.reads === 'maintained')).toBe(true);
         });
     });
 });

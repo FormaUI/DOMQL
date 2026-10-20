@@ -146,13 +146,12 @@ class Domql {
     }
 
     /**
-     * Creates a module from the vocabulary it declares and the functions that carry the members out.
+     * Creates a module from the vocabulary it declares, each declaration that runs code carrying its implementation.
      * @param {string} name The module's name.
      * @param {object} contents What the module declares.
-     * @param {Record<string, Function> | null} functions The functions the members name.
      */
-    static createModule(name, contents, functions = null) {
-        return lexica.createModule(name, contents, functions);
+    static createModule(name, contents) {
+        return lexica.createModule(name, contents);
     }
 
     /** Registers a module's vocabulary, which every request resolved afterwards may use. */
@@ -330,7 +329,7 @@ class Domql {
             signal?.addEventListener('abort', cancel, { once: true });
 
             try {
-                returnValue = action.execute(action.receiver, action.args, action.environment, { signal: signal ?? new AbortController().signal });
+                returnValue = action.execute({ receiver: action.receiver, args: action.args, env: action.environment, signal: signal ?? new AbortController().signal });
             } catch (error) {
                 settle(() => reject(createActionError(error)));
 
@@ -411,16 +410,16 @@ class Domql {
      */
     static #checkWatch(resolution, acceptsPartialObservation) {
         const { usedDeclarations } = resolution;
-        const unobserved = usedDeclarations.filter(use => use.declaration.changes === 'unobserved');
+        const unobserved = usedDeclarations.filter(use => use.declaration.updates?.changes === 'unobserved');
 
         if (unobserved.length > 0) {
             throw LexicaError.validation(`A watch cannot follow ${unobserved.map(use => `'${use.name}'`).join(', ')}, which name no observations`, resolution.locate(unobserved[0].pointer));
         }
 
-        const partlyObservableUses = usedDeclarations.filter(use => use.declaration.changes === 'partly-observable');
+        const partlyObservableUses = usedDeclarations.filter(use => use.declaration.updates?.changes === 'partly-observable');
 
         if (partlyObservableUses.length > 0 && !acceptsPartialObservation) {
-            const missesByName = [...new Map(partlyObservableUses.map(use => [use.name, use.declaration.misses])).entries()];
+            const missesByName = [...new Map(partlyObservableUses.map(use => [use.name, use.declaration.updates.misses])).entries()];
 
             throw LexicaError.validation(`A watch over ${missesByName.map(([name, misses]) => `'${name}' (which misses ${misses})`).join(', ')} is refused unless the watch accepts partial observation`, resolution.locate(partlyObservableUses[0].pointer));
         }
@@ -491,7 +490,7 @@ class Domql {
 export const domql = Object.freeze({
     query: (source, bindings) => Domql.query(source, bindings),
     format: source => Domql.format(source),
-    createModule: (name, contents, functions) => Domql.createModule(name, contents, functions),
+    createModule: (name, contents) => Domql.createModule(name, contents),
     registerModule: module => Domql.registerModule(module),
     info: Object.freeze({ version: LIBRARY_VERSION, specificationVersion: lexica.info.specificationVersion }),
 });

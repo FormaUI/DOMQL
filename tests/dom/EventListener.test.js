@@ -31,41 +31,43 @@ describe('EventListener', () => {
 
         // A member kept by an observation whose samples the test supplies, one gauge for each element.
         isolated.registerModule(isolated.createModule('level', {
-            observationTypes: [{ name: 'level', contract: 'maintained', function: 'observeLevel' }],
-            members: [{
-                name: 'level', function: 'level', kind: 'property', on: 'element', parameters: [], result: 'number?',
-                changes: 'observable', reads: 'maintained', observations: [{ type: 'level', of: 'receiver' }],
+            observationTypes: [{
+                name: 'level', contract: 'maintained',
+                implementation: ({ request: { target }, notify }) => {
+                    const gauge = { sample: { pending: true, value: null }, started: (gauges.get(target)?.started ?? 0) + 1, stopped: gauges.get(target)?.stopped ?? 0, notify };
+
+                    gauges.set(target, gauge);
+
+                    const stop = () => {
+                        gauge.stopped++;
+
+                        if (stuck.has(target)) {
+                            throw new Error('stuck');
+                        }
+                    };
+
+                    return { stop, sample: () => gauge.sample };
+                },
             }],
-        }, {
-            observeLevel: ({ target }, notify) => {
-                const gauge = { sample: { pending: true, value: null }, started: (gauges.get(target)?.started ?? 0) + 1, stopped: gauges.get(target)?.stopped ?? 0, notify };
-
-                gauges.set(target, gauge);
-
-                const stop = () => {
-                    gauge.stopped++;
-
-                    if (stuck.has(target)) {
-                        throw new Error('stuck');
-                    }
-                };
-
-                return { stop, sample: () => gauge.sample };
-            },
-            level: (_receiver, _args, _environment, [sample]) => sample,
+            members: [{
+                name: 'level', kind: 'property', target: 'element', result: 'number?',
+                updates: { changes: 'observable', reads: 'maintained', observations: [{ type: 'level', of: 'receiver' }] },
+                implementation: ({ samples: [sample] }) => sample,
+            }],
         }));
 
         // A member that fails while the test says so.
         isolated.registerModule(isolated.createModule('flaky', {
-            members: [{ name: 'flaky', function: 'flaky', kind: 'property', on: 'element', parameters: [], result: 'number', changes: 'constant', reads: 'fresh' }],
-        }, {
-            flaky: element => {
-                if (broken) {
-                    throw new Error('broken');
-                }
+            members: [{
+                name: 'flaky', kind: 'property', target: 'element', result: 'number', updates: { changes: 'constant', reads: 'fresh' },
+                implementation: ({ receiver: element }) => {
+                    if (broken) {
+                        throw new Error('broken');
+                    }
 
-                return Number(element.getAttribute('data-n'));
-            },
+                    return Number(element.getAttribute('data-n'));
+                },
+            }],
         }));
     });
 
@@ -95,8 +97,8 @@ describe('EventListener', () => {
     const registerBeats = start => isolated.registerModule(isolated.createModule('beats', {
         types: [{ name: 'beat', fields: { n: 'number' } }],
         eventTypes: [{ name: 'beat', data: 'beat' }],
-        members: [{ name: 'beats', function: 'beats', kind: 'eventSource', on: 'element', input: 'positional', parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, fixed: true, selects: 'eventType', nulls: 'propagate' }], result: 'event<@selected>', changes: 'constant', reads: 'captured' }],
-    }, { beats: start }));
+        members: [{ name: 'beats', kind: 'eventSource', target: 'element', arguments: 'positional', parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, fixed: true, selects: 'eventType', nulls: 'propagate' }], result: 'event<@selected>', updates: { changes: 'constant', reads: 'captured' }, implementation: start }],
+    }));
 
     /** Dispatches an input event at the element, which bubbles to the panel. */
     const input = element => element.dispatchEvent(new window.Event('input', { bubbles: true }));
@@ -151,7 +153,7 @@ describe('EventListener', () => {
             let deliver;
             let stopped = 0;
 
-            registerBeats((receiver, args, environment, delivers) => {
+            registerBeats(({ receiver, args, env: environment, deliver: delivers }) => {
                 calls.push({ receiver, args, environment });
                 deliver = delivers;
 
@@ -173,7 +175,7 @@ describe('EventListener', () => {
             const [first] = panel.children;
             let deliver;
 
-            registerBeats((_receiver, _args, _environment, delivers) => {
+            registerBeats(({ deliver: delivers }) => {
                 deliver = delivers;
                 delivers({ n: 1 });
                 delivers({ n: 'one' });
@@ -199,7 +201,7 @@ describe('EventListener', () => {
         });
 
         it('fails the call where the source cannot start, or answers nothing that stops it', () => {
-            registerBeats(element => {
+            registerBeats(({ receiver: element }) => {
                 if (element.id === 'a') {
                     throw new Error('closed');
                 }
@@ -233,7 +235,7 @@ describe('EventListener', () => {
         it('lets go of what an event delivered while the source started opened, and hands nothing over, where the start then fails', async () => {
             const [first] = panel.children;
 
-            registerBeats((_receiver, _args, _environment, deliver) => {
+            registerBeats(({ deliver }) => {
                 deliver({ n: 1 });
 
                 throw new Error('closed');
@@ -316,7 +318,7 @@ describe('EventListener', () => {
         it('hands the handler an event the source cannot capture as a failed event, and keeps listening', () => {
             let deliver;
 
-            registerBeats((_receiver, _args, _environment, delivers) => {
+            registerBeats(({ deliver: delivers }) => {
                 deliver = delivers;
 
                 return { stop: () => {} };

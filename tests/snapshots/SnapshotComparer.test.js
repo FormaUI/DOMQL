@@ -14,23 +14,23 @@ let state;
 
 /** A property of an element the test module of its name declares, answering what the state holds under its name. */
 const property = (name, result, tolerance) => new LexicaModule(name, {
-    members: [{ name, function: name, kind: 'property', on: 'element', parameters: [], result, changes: 'constant', reads: 'fresh', ...(tolerance === undefined ? {} : { tolerance }) }],
-}, { [name]: () => state[name] });
+    members: [{ name, kind: 'property', target: 'element', result, updates: { changes: 'constant', reads: 'fresh', tolerance }, implementation: () => state[name] }],
+});
 
 /** A module of a meter, whose default indexer reads a level, and one of a reading, an indexer of an element, each answering the state's `r` within a tolerance of 2. */
 const indexerModules = () => {
     const key = [{ name: 'key', kind: 'value', type: 'string', required: true, nulls: 'propagate' }];
-    const level = { function: 'level', kind: 'function', form: 'indexer', parameters: key, result: 'number', changes: 'constant', reads: 'fresh', tolerance: 2 };
+    const level = { kind: 'function', syntax: 'indexer', arguments: 'positional', parameters: key, result: 'number', updates: { changes: 'constant', reads: 'fresh', tolerance: 2 }, implementation: () => state.r };
 
     return [
         new LexicaModule('meter', {
             types: [{ name: 'meter', fields: { name: 'string' } }],
             members: [
-                { name: 'meter', function: 'meter', kind: 'property', on: 'element', parameters: [], result: 'meter', changes: 'constant', reads: 'fresh' },
-                { ...level, name: 'level', on: 'meter', default: true },
+                { name: 'meter', kind: 'property', target: 'element', result: 'meter', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => ({ name: 'm' }) },
+                { ...level, name: 'level', target: 'meter', default: true },
             ],
-        }, { meter: () => ({ name: 'm' }), level: () => state.r }),
-        new LexicaModule('reading', { members: [{ ...level, name: 'reading', function: 'level', on: 'element' }] }, { level: () => state.r }),
+        }),
+        new LexicaModule('reading', { members: [{ ...level, name: 'reading', target: 'element' }] }),
     ];
 };
 

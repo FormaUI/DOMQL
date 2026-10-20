@@ -269,7 +269,7 @@ Each entry point, operation and handle is listed here with what it takes, and th
 | `query.executeAsync(options?)` | | Executes an action once, answering a promise of its result, as [executing an action](#executing-an-action) sets out |
 | `query.apply(options?)` | | Applies a behavior, answering a `DomqlBehavior`, as [applying a behavior](#applying-a-behavior) sets out |
 | `domql.format(source)` | | The canonical text of a text, a definition or a query object, as [formatting](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md#formatting) sets out |
-| `domql.createModule(name, contents, functions)` | | Creates a module from its declarations and the functions they name, as [declarations](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md#declarations) sets out |
+| `domql.createModule(name, contents)` | | Creates a module from its declarations, each that runs code carrying its implementation, as [declarations](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md#declarations) set out |
 | `domql.registerModule(module)` | | Registers a module's declarations in the instance's registry, as [modules](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md#modules) sets out |
 | `domql.info` | | Which build this is and which specification it follows: `version`, the package's version, `1.0.0-alpha+source` where DOMQL runs from its sources, and `specificationVersion`, the version of the specification it follows |
 

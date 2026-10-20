@@ -6,7 +6,7 @@ An implementation may cover only part of it; the [README's status](../README.md#
 
 <a id="version"></a>
 
-**Version.** This specification describes DOMQL on [definition version 32](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-specification.md#version), the target of separating Lexica from DOMQL. DOMQL's implementation still reads version 31, which writes the implicit parameter `context`, reads `document` and `window` as roots and calls predicates conditions, and [Lexica's implementation plan](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-implementation-plan.md#31-separate-the-language-from-the-dom) lists where the two differ until version 32 lands. The [DOMQL design](domql-design.md) describes how requests are built, prepared and carried out.
+**Version.** This specification describes DOMQL on [definition version 32](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-specification.md#version), the target of separating Lexica from DOMQL. DOMQL's implementation still reads version 31, which writes the implicit parameter `context` and reads `document` and `window` as roots, and [Lexica's implementation plan](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-implementation-plan.md#31-separate-the-language-from-the-dom) lists where the two differ until version 32 lands. The [DOMQL design](domql-design.md) describes how requests are built, prepared and carried out.
 
 <a id="reading-this-specification"></a>
 

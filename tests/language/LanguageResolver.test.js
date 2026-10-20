@@ -76,8 +76,8 @@ describe('LanguageResolver', () => {
             ['a subject', 'panel.loose.attached'],
         ])('refuses a type parameter no receiver gives an argument as %s, so its value never reaches a result', (_, text) => {
             const registry = new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, new LexicaModule('loose', {
-                members: [{ name: 'loose', function: 'loose', kind: 'property', on: 'element', parameters: [], result: 'T', changes: 'constant', reads: 'fresh' }],
-            }, null)]);
+                members: [{ name: 'loose', kind: 'property', target: 'element', result: 'T', updates: { changes: 'constant', reads: 'fresh' } }],
+            })]);
             const query = domql.query(text, { panel });
 
             expect(() => new LanguageResolver(registry, new ParameterBindings({ panel }), null).resolveDefinition(query.definition)).toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringMatching(/\bT\b/) }));
@@ -120,7 +120,7 @@ describe('LanguageResolver', () => {
     describe('actions and behaviors', () => {
         /** A module whose one member, named for it, is an action or a behavior on an element. */
         const member = (name, kind, result) => new LexicaModule(name, {
-            members: [{ name, function: name, kind, on: 'element', parameters: [], result, changes: 'unobserved', reads: 'fresh' }],
+            members: [{ name, kind, target: 'element', parameters: [], result }],
         });
         const registry = new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, member('step', 'action', 'boolean'), member('pick', 'action', 'element'), member('focusTrap', 'behavior', 'null')]);
         const resolveWith = text => {
@@ -213,10 +213,10 @@ describe('LanguageResolver', () => {
         it('supplies positional parameters in order, an optional one left out taking its default, and refuses more arguments than parameters', () => {
             const registry = new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, new LexicaModule('clamp', {
                 members: [{
-                    name: 'clamp', function: 'clamp', kind: 'function', on: 'element', input: 'positional', result: 'number', changes: 'constant', reads: 'fresh',
+                    name: 'clamp', kind: 'function', target: 'element', arguments: 'positional', result: 'number', updates: { changes: 'constant', reads: 'fresh' },
                     parameters: [{ name: 'low', kind: 'value', type: 'number', required: true, nulls: 'propagate' }, { name: 'high', kind: 'value', type: 'number', required: false, default: 10, nulls: 'propagate' }],
                 }],
-            }, null)]);
+            })]);
             const resolveWith = text => {
                 const query = domql.query(text, { panel });
 
@@ -239,8 +239,8 @@ describe('LanguageResolver', () => {
 
         it('refuses an argument given to a function that takes none', () => {
             const registry = new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, new LexicaModule('ping', {
-                members: [{ name: 'ping', function: 'ping', kind: 'function', on: 'element', parameters: [], result: 'boolean', changes: 'constant', reads: 'fresh' }],
-            }, null)]);
+                members: [{ name: 'ping', kind: 'function', target: 'element', parameters: [], result: 'boolean', updates: { changes: 'constant', reads: 'fresh' } }],
+            })]);
             const query = domql.query('panel.ping(1)', { panel });
 
             expect(() => new LanguageResolver(registry, new ParameterBindings({ panel }), null).resolveDefinition(query.definition)).toThrow(expect.objectContaining({ message: expect.stringContaining("'ping' takes no argument") }));
@@ -452,7 +452,7 @@ describe('LanguageResolver', () => {
         });
 
         it('refuses a feature an expression settles to a name the vocabulary lacks, and one that reads the document to settle', () => {
-            expect(failure('window.supports(wide and "share" or "nothing")', { wide: false }).message).toContain("'nothing' is no condition 'supports' asks; it asks share, clipboard");
+            expect(failure('window.supports(wide and "share" or "nothing")', { wide: false }).message).toContain("'nothing' is no predicate 'supports' asks; it asks share, clipboard");
             expect(failure('window.supports(if panel.attached then "share" else "share" end)', { panel }).message).toContain("a string the expression's resolution settles");
             expect(failure('window.supports(panel:["data-f"] ?? "share")', { panel }).message).toContain("a string the expression's resolution settles");
         });
@@ -465,7 +465,7 @@ describe('LanguageResolver', () => {
 
         it('refuses an event type or a feature the vocabulary does not declare', () => {
             expect(failure('panel.on("nonsense")').message).toContain('no event type');
-            expect(failure('window.supports("nonsense")').message).toContain("'nonsense' is no condition 'supports' asks");
+            expect(failure('window.supports("nonsense")').message).toContain("'nonsense' is no predicate 'supports' asks");
         });
     });
 
@@ -474,7 +474,7 @@ describe('LanguageResolver', () => {
             const module = new LexicaModule('charts', {
                 types: [{ name: 'chartEvent', fields: { value: 'number' } }],
                 eventTypes: [{ name: 'chart-selected', data: 'chartEvent' }],
-                members: [{ name: 'charts', function: 'charts', kind: 'property', on: 'element', parameters: [], result: 'boolean', changes: 'constant', reads: 'fresh' }],
+                members: [{ name: 'charts', kind: 'property', target: 'element', result: 'boolean', updates: { changes: 'constant', reads: 'fresh' } }],
             });
 
             const registry = new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, module]);
@@ -584,7 +584,7 @@ describe('LanguageResolver', () => {
             expect(failure('panel.on("click") { x = context.clientX } == null').message).toContain("'==' compares values, and this is an event source");
         });
 
-        it('give the test to write for a value compared with the name of one of its Boolean members or its conditions, and nothing for any other', () => {
+        it('give the test to write for a value compared with the name of one of its Boolean members or its predicates, and nothing for any other', () => {
             expect(failure('panel == "attached"').message).toContain("a test is the member that answers it, so write 'panel.attached'");
             expect(failure('panel != "attached"').message).toContain("write 'not panel.attached'");
             expect(failure('panel == state', { panel, state: 'disabled' }).message).toContain("write 'panel.is(state)'");
@@ -597,7 +597,7 @@ describe('LanguageResolver', () => {
     });
 
     describe('tests', () => {
-        it('resolve a test as the Boolean member or the condition it is, nullable where an optional access reads it', () => {
+        it('resolve a test as the Boolean member or the predicate it is, nullable where an optional access reads it', () => {
             const resolved = resolveInLexica('panel.is("disabled")');
 
             expect(resolved.type.toString()).toBe('boolean');
@@ -609,12 +609,12 @@ describe('LanguageResolver', () => {
         });
 
         it('refuse a test the receiver has not', () => {
-            expect(failure('panel.is("visible")').message).toContain("'visible' is a condition of document, not of element");
+            expect(failure('panel.is("visible")').message).toContain("'visible' is a predicate of document, not of element");
             expect(failure('document.attached').message).toContain("'attached' is not available on document");
         });
 
-        it('give the member that answers a presence has asks of no condition, where the receiver\'s type declares that member, and the verb that asks a condition of another', () => {
-            expect(failure('panel.has("children")').message).toContain("'children' is no condition 'has' asks");
+        it('give the member that answers a presence has asks of no predicate, where the receiver\'s type declares that member, and the verb that asks a predicate of another', () => {
+            expect(failure('panel.has("children")').message).toContain("'children' is no predicate 'has' asks");
             expect(failure('panel.has("children")').message).toContain("the member 'hasChildren' answers whether it has children");
             expect(failure('panel.has("nonsense")').message).not.toContain('hasNonsense');
             expect(failure('panel.has("Children")').message).not.toContain('hasChildren');

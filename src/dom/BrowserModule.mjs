@@ -4,11 +4,11 @@
 
 import { BrowserObservers } from './BrowserObservers.mjs';
 import { BrowserVocabulary } from './BrowserVocabulary.mjs';
-import { VocabularyFunctions } from './VocabularyFunctions.mjs';
+import { VocabularyImplementations } from './VocabularyImplementations.mjs';
 
 export class BrowserModule {
     /** The DOM module, whose members read the window and the document they are given and whose observation types start observations of them. */
     static create() {
-        return BrowserVocabulary.createModule({ ...VocabularyFunctions.functions, ...BrowserObservers.functions });
+        return BrowserVocabulary.createModule({ ...VocabularyImplementations.implementations, ...BrowserObservers.implementations });
     }
 }

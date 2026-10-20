@@ -276,6 +276,8 @@ export interface LexicaErrorLocation {
     binding?: string;
     module?: string;
     declaration?: string;
+    /** The field of the declaration a module error is about, as `updates.misses`. */
+    field?: string;
 }
 
 /** A failure of Lexica or of DOMQL, in the stage it happened in, and where. Its `name` is `LexicaError`. */
@@ -310,22 +312,51 @@ export type DomqlObservationValue = string | number | boolean | null | DomqlArgu
 export interface DomqlObservationDeclaration {
     /** The name of the type of observation, which a module declares. */
     type: string;
-    /** What it observes: the receiver; its root, the root of the tree it is in; its roots, every root of its flat-tree ancestry through slots and shadow hosts, each observed alike; the window; the document; or the argument of the member that names it. A watch follows the receiver to another root or slot, and rebinds what observes its root or roots. */
+    /** What it observes: the receiver; its root, the root of the tree it is in; its roots, every root of its flat-tree ancestry through slots and shadow hosts, each observed alike; the window; the document; or the argument of the member that names it. A member without a target has no receiver, and observes none of the receiver's. */
     of: 'receiver' | 'root' | 'roots' | 'window' | 'document' | DomqlArgumentReference;
     [argument: string]: DomqlObservationValue | undefined;
 }
 
-/** A type of observation: what its observations provide, and the function that starts one. */
+/** How a member or a predicate changes and reads, the changes it misses, the tolerance it is compared within and the observations that cover its changes. */
+export interface DomqlUpdates {
+    changes: DomqlChangeCategory;
+    reads: DomqlReadingMode;
+    /** The changes a partly observable declaration's observations miss; required where it is partly observable, and refused otherwise. */
+    misses?: string;
+    /** How far a number it returns, or each number a structured result of it holds, may move before a host reports a different result; taken by a numeric or a structured result alone. */
+    tolerance?: number;
+    /** The observations that cover its changes, which an observable or partly observable declaration names and no other does. */
+    observations?: DomqlObservationDeclaration[];
+}
+
+/** What an implementation of an observation type receives: the request it observes, the function it calls when something may have changed, and the environment. */
+export interface DomqlObservationImplementationInput {
+    readonly request: Readonly<Record<string, unknown>>;
+    readonly notify: () => void;
+    readonly env: unknown;
+}
+
+/** A type of observation: what its observations provide, and the implementation that starts one. */
 export interface DomqlObservationTypeDeclaration {
     name: string;
     /** A signal that a result may have changed, or a sampled value a member reads. */
     contract: 'invalidation' | 'maintained';
     /** The arguments that belong to the identity of an observation, beside its target. */
     identity?: string[];
-    /** Whether equivalent requests share one observation; one that is not shared is kept for each watch, `evaluateAsync` call or event listener alone, whose later evaluations reach it again. */
+    /** Whether equivalent requests share one observation; one that is not shared is kept for each of its host's evaluations alone. */
     shared?: boolean;
-    /** The key of the function that starts an observation, among the module's functions. */
-    function: string;
+    /** Starts an observation, and answers an object whose `stop` ends it and, for a maintained one, whose `sample` answers its latest sample as `{ pending, value }`, pending until the first arrives. */
+    implementation?: (input: DomqlObservationImplementationInput) => { stop(): void; sample?(): { pending: boolean; value?: unknown } };
+}
+
+/** What an implementation of a conversion receives: the value, never null, and `reject`. */
+export interface DomqlConversionImplementationInput {
+    readonly value: unknown;
+    /**
+     * Rejects the value, which has no conversion, with a reason that is a diagnostic string. It throws a signal private to Domql and to this attempt at the conversion,
+     * so it never returns and the implementation stops where it calls it, unlike a promise's `reject`. Any other exception it throws, and a value not of the type it converts to, is a fault.
+     */
+    reject(reason: string): never;
 }
 
 /** A conversion from one type of data to another, which `to` asks for: a value already of a type converts to itself, so none is declared from a type to itself. */
@@ -334,24 +365,15 @@ export interface DomqlConversionDeclaration {
     from: string;
     /** The type it converts to: `number`, `string`, `boolean` or a structured type. */
     to: string;
-    /** The key of the function that converts, among the module's functions. */
-    function: string;
-}
-
-/** What the function of a conversion is given beside the value it converts. */
-export interface DomqlConversionContext {
-    /**
-     * Rejects the value, which has no conversion, with a reason that is a diagnostic string. It throws a signal private to DOMQL and to this attempt at the conversion,
-     * so it never returns and the function stops where it calls it, unlike a promise's `reject`. Any other exception the function throws, and a value not of the type it converts to, is a fault.
-     */
-    reject(reason: string): never;
+    /** Converts the value, reading nothing else, and answers the converted value, of the type it converts to, or calls `reject` where the value has none. */
+    implementation?: (input: DomqlConversionImplementationInput) => unknown;
 }
 
 /** A parameter of a member. */
 export interface DomqlParameterDeclaration {
     name: string;
     /**
-     * A value, an expression evaluated against each item, a predicate, an expression of any value whose truthiness the implementation receives, or a function the query declares,
+     * A value, an expression evaluated against each item, a predicate, an expression of any value whose truthiness the implementation receives, or a function the expression declares,
      * which the implementation calls while its own invocation lasts and only a member of kind `function` takes.
      */
     kind: 'value' | 'expression' | 'predicate' | 'function';
@@ -363,8 +385,8 @@ export interface DomqlParameterDeclaration {
     default?: unknown;
     /** Whether the argument names something the vocabulary resolves before any evaluation; a fixed parameter is a value parameter of type `string`. */
     fixed?: boolean;
-    /** What a fixed parameter names, and only a fixed one. */
-    selects?: 'eventType' | 'condition';
+    /** What a fixed parameter names, and only a fixed one: an event source's event type, or the predicate a verb asks. */
+    selects?: 'eventType' | 'predicate';
     /** Whether a null argument makes the call answer null, or is accepted; a function parameter leaves it out, since a function is never null. */
     nulls?: 'propagate' | 'accept';
     /** What an expression or a predicate argument is evaluated against. */
@@ -373,93 +395,87 @@ export interface DomqlParameterDeclaration {
     omitted?: string;
 }
 
-/** A property, function, event source, action or behavior a module adds. */
+/** What a member's or a predicate's implementation receives, by name: its receiver, which a module member has none of, its arguments by parameter name, the environment, and what its kind adds. */
+export interface DomqlImplementationInput {
+    readonly receiver?: unknown;
+    readonly args: Readonly<Record<string, unknown>>;
+    readonly env: unknown;
+    /** A member that reads maintained values: its observations' latest samples, in the order its declaration names them. */
+    readonly samples?: readonly unknown[];
+    /** An event source: the function each event is handed to. */
+    readonly deliver?: (event: unknown) => void;
+    /** An action: the signal that aborts it. */
+    readonly signal?: AbortSignal;
+    /** A behavior: where a failure while it runs is reported. */
+    readonly reportError?: (error: unknown) => void;
+}
+
+/**
+ * A property, function, event source, action or behavior a module adds, each kind taking the fields it needs alone; a member without a target is a module member, read through its module's namespace.
+ * A property answers a value; a function its result; an event source an object whose `stop` ends the listening; an action its result or a promise of it; and a behavior an object whose `update(receiver, args)` applies new arguments and whose `dispose` ends it.
+ */
 export interface DomqlMemberDeclaration {
     /** The DOMQL name. */
     name: string;
-    /** The key of the function that carries it out, among the module's functions; a member whose argument selects a condition names none, since the condition carries it out. */
-    function?: string;
     kind: 'property' | 'function' | 'eventSource' | 'action' | 'behavior';
-    /** How a member that is no property is written: called, `context.closest(".row")`, the default, or a named indexer, `context:attribute["data-key"]`, a function whose one required value parameter is its key. A property declares none. */
-    form?: 'call' | 'indexer';
-    /** What its arguments supply, where it has parameters: its parameters, in order, the required ones before the optional ones, or every parameter, as the fields of one options object; an indexer's is positional. */
-    input?: 'positional' | 'options';
-    /** Whether an indexer is the default of its receivers, which `:[…]` invokes, as `attribute` is an element's; a receiver has one at most. */
+    /** The types it applies to, in DOMQL's notation, or none for a module member. */
+    target?: string | string[];
+    /** How a member that is no property is written: a function call, `it.device("lamp")`, the default, or a named indexer, `it:setting["mode"]`, a function whose one required value parameter is its key. A property takes none. */
+    syntax?: 'function-call' | 'indexer';
+    /** The form its arguments take where it has parameters, an optional one included: one for each parameter, in order, the required ones before the optional ones, or one options object whose fields supply them; an indexer's is positional. */
+    arguments?: 'positional' | 'options';
+    /** Whether an indexer is the default of its receivers, which `:[…]` invokes, as `item` is a list's; a module designates one at most for a receiver type. */
     default?: boolean;
-    /** The types it applies to, in DOMQL's notation. */
-    on: string | string[];
+    /** Its parameters; a property takes none. */
     parameters?: DomqlParameterDeclaration[];
-    /** The type of its result, in DOMQL's notation. */
+    /** The type of its result, in DOMQL's notation; an event source's is `event<T>`. */
     result: string;
-    changes: DomqlChangeCategory;
-    reads: DomqlReadingMode;
-    /** The changes a partly observable member's observations miss. */
-    misses?: string;
-    /** How far a number it returns may move before a watch reports a different snapshot; the number must change by more, and exactly where it is not declared. */
-    tolerance?: number;
-    /** The observations that cover its changes, which an observable or partly observable member names and no other does. */
-    observations?: DomqlObservationDeclaration[];
+    /** How it changes and reads; a property, a function and an event source take it, and an action and a behavior refuse it. */
+    updates?: DomqlUpdates;
+    /** What carries it out, given one object it reads by name; a member without one is resolved against and never invoked, and a verb, which its predicate carries out, takes none. */
+    implementation?: (input: DomqlImplementationInput) => unknown;
 }
 
 /** What a module declares. */
 export interface DomqlModuleContents {
-    members?: DomqlMemberDeclaration[];
     /** The structured types it declares, each with its fields' types. */
     types?: { name: string; fields: Record<string, string> }[];
+    members?: DomqlMemberDeclaration[];
+    /** The predicates it declares, each asked by name with its verb. */
+    predicates?: DomqlPredicateDeclaration[];
     /** The event types it declares, each with the type of its event data. */
     eventTypes?: { name: string; data: string }[];
     /** The types of observation it declares. */
     observationTypes?: DomqlObservationTypeDeclaration[];
-    /** The conversions it declares, each to or from one of its own types outside the built-in module, and one for each source and target. */
+    /** The conversions it declares, each to or from one of its own types, and one for each source and target. */
     conversions?: DomqlConversionDeclaration[];
-    /** The conditions it declares, each asked by name with its verb. */
-    conditions?: DomqlConditionDeclaration[];
 }
 
 /**
- * A condition: a Boolean of its receivers, which its verb asks by name, as `.is("name")` does, carried out by its own function under its own contract, so one condition's observability is no other's.
- * A module names a condition freely on its own types, and on any other names it for itself, as it does members; a name is declared once for overlapping receivers, whatever its verb.
+ * A predicate: a Boolean of its receivers, which its verb asks by name, as `.is("name")` does, carried out by its own implementation under its own updates, so one predicate's observability is no other's.
+ * A module names a predicate freely on its own types, and on any other names it for itself, as it does members; a name is declared once for overlapping receivers, whatever its verb.
  */
-export interface DomqlConditionDeclaration {
+export interface DomqlPredicateDeclaration {
     /** Its name, words of letters and digits joined by hyphens, as `focus-within` is. */
     name: string;
     /** The verb that asks it, its one kind of Boolean question: `is` a state, the default, `has` a possession or a presence, and `supports` a capability. */
     verb?: 'is' | 'has' | 'supports';
-    /** The key of the function that tests it, among the module's functions, which takes what a member's does, its name as the one argument, and answers a Boolean. */
-    function: string;
-    /** The types it applies to, in DOMQL's notation. */
-    on: string | string[];
-    changes: 'constant' | 'observable' | 'partly-observable' | 'unobserved';
-    reads: 'fresh' | 'maintained';
-    /** The changes a partly observable condition's observations miss. */
-    misses?: string;
-    /** The observations that cover its changes, which an observable or partly observable condition names and no other does. */
-    observations?: DomqlObservationDeclaration[];
+    /** The types it applies to, in DOMQL's notation; a predicate always names one. */
+    target: string | string[];
+    updates: DomqlUpdates & { changes: 'constant' | 'observable' | 'partly-observable' | 'unobserved'; reads: 'fresh' | 'maintained' };
+    /** Tests it, given what a member's implementation is, its name as `args.name`, and answers a Boolean. */
+    implementation?: (input: DomqlImplementationInput) => boolean;
 }
 
-/**
- * The functions that carry a module's members, observation types, conversions and conditions out, by the key each declaration names.
- * A member takes its receiver, its arguments by name and the environment, and a member that reads maintained values also their values, in the order its declaration names the observations; it is not called while one of them is pending.
- * A structure a member or an action answers is taken by its declared fields alone, read as the value offers them, getters included.
- * An event source takes its receiver, its arguments and the environment, and the function it delivers each event to, and returns an object whose `stop` ends the listening.
- * An action takes its receiver, its arguments, the environment and `{ signal }`, and returns its result or a promise of it.
- * A behavior takes its receiver, its arguments, the environment and `{ reportError }`, starts before it returns, and returns an object whose `update(receiver, args)` applies new arguments and whose `dispose` ends it.
- * An observation type takes the request, the function it calls when something may have changed and the environment, and returns an object whose `stop` ends the observation and, for a maintained one, whose `sample` returns its latest sample as `{ pending, value }`, pending until the first arrives.
- * A condition takes what a member does, its name as `{ name }`, and answers a Boolean.
- * A conversion takes the value, never null, and a `DomqlConversionContext`, reads nothing else, and returns the converted value, of the type it converts to, or calls `reject` where the value has none; `to` fails for a rejected value, and `try … to "type"` answers null.
- */
-export type DomqlModuleFunctions = Record<string, (...args: any[]) => unknown>;
-
-/** A vocabulary's members as data, and the functions that carry them out. */
+/** A vocabulary's declarations as data, each that runs code carrying its implementation. */
 export interface DomqlModule {
     readonly name: string;
-    readonly members: readonly DomqlMemberDeclaration[];
     readonly types: readonly { readonly name: string; readonly fields: Readonly<Record<string, string>> }[];
+    readonly members: readonly DomqlMemberDeclaration[];
+    readonly predicates: readonly DomqlPredicateDeclaration[];
     readonly eventTypes: readonly { readonly name: string; readonly data: string }[];
     readonly observationTypes: readonly DomqlObservationTypeDeclaration[];
     readonly conversions: readonly DomqlConversionDeclaration[];
-    readonly conditions: readonly DomqlConditionDeclaration[];
-    readonly functions: DomqlModuleFunctions | null;
 }
 
 /** Which build of DOMQL this is, and which specification it follows: two versions that change apart. */
@@ -480,8 +496,8 @@ export interface Domql {
     query<T = unknown>(definition: DomqlDefinition, bindings?: DomqlBindings): DomqlQuery<T>;
     /** The canonical text of a request, given as its text, its definition or a query object: it parses and checks the structure, needs no bindings and no registered vocabulary, and formatting what it gives gives that again. */
     format(source: string | DomqlDefinition | DomqlQuery): string;
-    /** Creates a module from the vocabulary it declares and the functions that carry the declarations out. */
-    createModule(name: string, contents: DomqlModuleContents, functions?: DomqlModuleFunctions | null): DomqlModule;
+    /** Creates a module from the vocabulary it declares, each declaration that runs code carrying its implementation. */
+    createModule(name: string, contents: DomqlModuleContents): DomqlModule;
     /** Registers a module's vocabulary, which every request resolved afterwards may use. */
     registerModule(module: DomqlModule): void;
 }

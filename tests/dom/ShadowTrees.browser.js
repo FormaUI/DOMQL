@@ -7,10 +7,11 @@ let evaluations = 0;
 // A member read afresh at each evaluation, observing any attribute in the tree its receiver is in, so each evaluation is a snapshot of its own.
 domql.registerModule(domql.createModule('evaluations', {
     members: [{
-        name: 'evaluations', function: 'evaluations', kind: 'property', on: 'element', parameters: [], result: 'number', changes: 'observable', reads: 'fresh',
-        observations: [{ type: 'mutation', of: 'root', attributes: true, subtree: true }],
+        name: 'evaluations', kind: 'property', target: 'element', result: 'number',
+        updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'root', attributes: true, subtree: true }] },
+        implementation: () => ++evaluations,
     }],
-}, { evaluations: () => ++evaluations }));
+}));
 
 /** Watches in shadow trees, whose structure, scrolling, slots and inertness only a real browser has. */
 describe('Watches in shadow trees', () => {

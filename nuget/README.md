@@ -732,7 +732,7 @@ Keep independent results in a top-level object, as above. If you instead write `
 | `query.executeAsync(options)` | Execute a module-defined action and return a promise of its projected result. |
 | `query.apply(options)` | Activate a module-defined behavior. Returns a handle with `status`, `update(bindings)`, `subscribe('error', handler)` and `dispose()`. |
 | `domql.format(source)` | Return canonical query text from text, a definition or a query object; no bindings or registered vocabulary are needed. |
-| `domql.createModule(name, contents, functions)` | Create an extension module. |
+| `domql.createModule(name, contents)` | Create an extension module. |
 | `domql.registerModule(module)` | Register a module for query resolution. |
 | `domql.info` | Read the build's `version` and `specificationVersion`. |
 
@@ -796,9 +796,9 @@ Node.js can create and resolve queries without a DOM. Evaluation requires a supp
 
 ## Extend the vocabulary
 
-Modules add capabilities to DOMQL without changing its syntax. Each module supplies declarations describing its types and members, plus JavaScript functions that implement them.
+Modules add capabilities to DOMQL without changing its syntax. Each module supplies declarations describing its types and members, and each declaration that runs code carries the JavaScript function that implements it as its `implementation`.
 
-A member's DOMQL name does not have to match its implementation function's key. Functions used for synchronous query evaluation must be synchronous and read-only.
+An implementation receives one object that holds what it is given by name: a member's `receiver`, its `args` by parameter name and the `env` it reads in, the window and the document. Implementations used for synchronous query evaluation must be synchronous and read-only.
 
 This example adds a `metrics` member to elements, exposing a child count:
 
@@ -810,16 +810,12 @@ const metricsModule = domql.createModule('metrics', {
     }],
     members: [{
         name: 'metrics',
-        function: 'readMetrics',
         kind: 'property',
-        on: 'element',
-        parameters: [],
+        target: 'element',
         result: 'childMetrics',
-        changes: 'unobserved',
-        reads: 'fresh'
+        updates: { changes: 'unobserved', reads: 'fresh' },
+        implementation: ({ receiver: element }) => ({ childCount: element.children.length })
     }]
-}, {
-    readMetrics: element => ({ childCount: element.children.length })
 });
 
 domql.registerModule(metricsModule);
@@ -828,11 +824,11 @@ domql.query('panel.metrics { childCount = context.childCount }', { panel }).eval
 // { childCount: 3 }
 ```
 
-`reads: 'fresh'` means evaluation reads the value at that time. The result can change, but this example provides no observation to report changes, so it declares `changes: 'unobserved'`. It supports evaluation without promising watch support.
+A member's `updates` declare how its value changes and how it is read. `reads: 'fresh'` means evaluation reads the value at that time. The result can change, but this example provides no observation to report changes, so it declares `changes: 'unobserved'`. It supports evaluation without promising watch support.
 
 Register modules once during setup, rather than on every evaluation.
 
-Modules can also declare Boolean members, event types, conditions asked with `is`, `has` or `supports`, event sources, and conversions to and from their own types, each naming the type it converts from, the type it converts to and the function that converts a value. That function receives the value and `{ reject }`, and calls `reject(reason)` for a value it cannot convert, which stops it at once; any other exception it throws is reported as a fault. A condition names the function that tests it and its own observations. An event source receives the receiver, arguments, environment and an event-delivery callback. It returns an object with a `stop` method to end listening. Each event is captured using the fields declared by its event type.
+Modules can also declare Boolean members, event types, predicates asked with `is`, `has` or `supports`, event sources, and conversions to and from their own types, each naming the type it converts from, the type it converts to and the implementation that converts a value. That implementation receives `{ value, reject }`, and calls `reject(reason)` for a value it cannot convert, which stops it at once; any other exception it throws is reported as a fault. A predicate carries the implementation that tests it, and its `updates` name its own observations. An event source's implementation receives the receiver, arguments, environment and an event-delivery callback, as `{ receiver, args, env, deliver }`. It returns an object with a `stop` method to end listening. Each event is captured using the fields declared by its event type.
 
 The [Lexica design](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md#modules) describes the full extension contracts. The next section shows action and behavior modules.
 
@@ -848,23 +844,19 @@ This example registers an action that sets a data attribute and reports whether 
 domql.registerModule(domql.createModule('mark', {
     members: [{
         name: 'mark',
-        function: 'mark',
         kind: 'action',
-        on: 'element',
-        input: 'positional',
+        target: 'element',
+        arguments: 'positional',
         parameters: [{ name: 'label', kind: 'value', type: 'string', required: true, nulls: 'propagate' }],
         result: 'boolean',
-        changes: 'unobserved',
-        reads: 'fresh'
+        implementation: ({ receiver: element, args: { label } }) => {
+            const changed = element.dataset.mark !== label;
+
+            element.dataset.mark = label;
+
+            return changed;
+        }
     }]
-}, {
-    mark: (element, { label }) => {
-        const changed = element.dataset.mark !== label;
-
-        element.dataset.mark = label;
-
-        return changed;
-    }
 }));
 
 await domql.query('panel.mark("reviewed")', { panel }).executeAsync();
@@ -885,30 +877,26 @@ This example maintains a data attribute while the behavior is active:
 domql.registerModule(domql.createModule('highlight', {
     members: [{
         name: 'highlight',
-        function: 'highlight',
         kind: 'behavior',
-        on: 'element',
-        input: 'positional',
+        target: 'element',
+        arguments: 'positional',
         parameters: [{ name: 'color', kind: 'value', type: 'string', required: true, nulls: 'propagate' }],
         result: 'null',
-        changes: 'unobserved',
-        reads: 'fresh'
+        implementation: ({ receiver: element, args: { color } }) => {
+            let current = element;
+
+            current.dataset.highlight = color;
+
+            return {
+                update: (target, { color: next }) => {
+                    delete current.dataset.highlight;
+                    current = target;
+                    current.dataset.highlight = next;
+                },
+                dispose: () => delete current.dataset.highlight
+            };
+        }
     }]
-}, {
-    highlight: (element, { color }) => {
-        let current = element;
-
-        current.dataset.highlight = color;
-
-        return {
-            update: (target, { color: next }) => {
-                delete current.dataset.highlight;
-                current = target;
-                current.dataset.highlight = next;
-            },
-            dispose: () => delete current.dataset.highlight
-        };
-    }
 }));
 
 const highlight = domql.query('panel.highlight(color)', { panel, color: 'gold' }).apply();

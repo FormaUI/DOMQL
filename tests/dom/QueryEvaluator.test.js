@@ -22,8 +22,8 @@ const read = (text, bindings = {}) => domql.query(text, bindings).evaluate();
 
 /** A module of one number property named for itself, answered by the function. */
 const propertyModule = (name, implementation) => lexica.createModule(name, {
-    members: [{ name, function: name, kind: 'property', on: 'element', parameters: [], result: 'number', changes: 'constant', reads: 'fresh' }],
-}, implementation === undefined ? null : { [name]: implementation });
+    members: [{ name, kind: 'property', target: 'element', result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation }],
+});
 
 /** Reads a query against a registry of its own holding Lexica's and the DOM vocabulary and the module, or the modules. */
 const readWith = (modules, text, bindings) => {
@@ -38,8 +38,8 @@ const readWith = (modules, text, bindings) => {
 const probes = () => {
     const record = { yes: 0, no: 0 };
     const probe = (name, answer) => lexica.createModule(name, {
-        members: [{ name, function: name, kind: 'property', on: 'element', parameters: [], result: 'boolean', changes: 'constant', reads: 'fresh' }],
-    }, { [name]: () => { record[name]++; return answer; } });
+        members: [{ name, kind: 'property', target: 'element', result: 'boolean', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => { record[name]++; return answer; } }],
+    });
 
     return { module: [probe('yes', true), probe('no', false)], record };
 };
@@ -175,7 +175,7 @@ describe('QueryEvaluator', () => {
 
         it('skips the rest of an optional chain where a receiver is null, reading it where the receiver is present', () => {
             const reads = [];
-            const registry = lexica.createRegistry([BrowserModule.create(), propertyModule('probe', element => (reads.push(element), 1))]);
+            const registry = lexica.createRegistry([BrowserModule.create(), propertyModule('probe', ({ receiver }) => (reads.push(receiver), 1))]);
             const readProbe = item => {
                 const query = domql.query('(item.parent as "element")?.probe', { item });
                 const resolved = registry.resolve(query.definition, DomqlQuery.bindingsOf(query));
@@ -196,7 +196,7 @@ describe('QueryEvaluator', () => {
 
         it('answers a coalescing operator\'s value where it is not null, and only otherwise evaluates its fallback', () => {
             const reads = [];
-            const registry = lexica.createRegistry([BrowserModule.create(), propertyModule('probe', element => (reads.push(element), 7))]);
+            const registry = lexica.createRegistry([BrowserModule.create(), propertyModule('probe', ({ receiver }) => (reads.push(receiver), 7))]);
             const readProbe = text => {
                 const query = domql.query(text, { item: items[0] });
                 const resolved = registry.resolve(query.definition, DomqlQuery.bindingsOf(query));
@@ -330,8 +330,8 @@ describe('QueryEvaluator', () => {
 
         it('gives a member the document and the window it is read in where an argument names a root', () => {
             const module = lexica.createModule('inside', {
-                members: [{ name: 'inside', function: 'inside', kind: 'function', on: 'element', input: 'positional', parameters: [{ name: 'of', kind: 'value', type: 'document', required: true, nulls: 'propagate' }], result: 'boolean', changes: 'unobserved', reads: 'fresh' }],
-            }, { inside: (element, { of }) => element.ownerDocument === of && of === document });
+                members: [{ name: 'inside', kind: 'function', target: 'element', arguments: 'positional', parameters: [{ name: 'of', kind: 'value', type: 'document', required: true, nulls: 'propagate' }], result: 'boolean', updates: { changes: 'unobserved', reads: 'fresh' }, implementation: ({ receiver: element, args: { of } }) => element.ownerDocument === of && of === document }],
+            });
             const panel = document.body.appendChild(document.createElement('div'));
 
             expect(readWith(module, 'panel.inside(document)', { panel })).toBe(true);
@@ -648,18 +648,22 @@ describe('QueryEvaluator', () => {
 
         it('report a module that answers a list with a hole, which holds no value there', () => {
             const gappy = lexica.createModule('gappy', {
-                members: [{ name: 'gappy', function: 'gappy', kind: 'property', on: 'element', parameters: [], result: 'list<number?>', changes: 'constant', reads: 'fresh' }],
-            }, { gappy: () => [1, , 2] });
+                members: [{ name: 'gappy', kind: 'property', target: 'element', result: 'list<number?>', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => [1, , 2] }],
+            });
 
             expect(failureWith(gappy, 'panel.gappy', { panel }).message).toContain('answered a list with a hole at index 1, and it declares list<number?>');
         });
 
         it('name an element a module answers where a number is declared', () => {
-            expect(failureWith(propertyModule('leaking', element => element), 'panel.leaking', { panel }).message).toContain('answered an element, and it declares number');
+            expect(failureWith(propertyModule('leaking', ({ receiver }) => receiver), 'panel.leaking', { panel }).message).toContain('answered an element, and it declares number');
         });
 
         it('report a module that declares and does not implement', () => {
-            expect(failureWith(propertyModule('declared'), 'panel.declared', { panel }).message).toContain("The module 'declared' supplies no function for 'declared'");
+            expect(() => readWith(propertyModule('declared'), 'panel.declared', { panel })).toThrow(expect.objectContaining({
+                kind: 'module',
+                message: expect.stringContaining("'element.declared' has no implementation"),
+                location: { module: 'declared', declaration: 'declared', field: 'implementation' },
+            }));
         });
     });
 });
@@ -857,14 +861,12 @@ describe('QueryEvaluator evaluation', () => {
 
     /** A member kept by an observation that never samples, so an evaluation that reads it stays pending. */
     const waitingModule = () => lexica.createModule('level', {
-        observationTypes: [{ name: 'level', contract: 'maintained', function: 'observeLevel' }],
+        observationTypes: [{ name: 'level', contract: 'maintained', implementation: () => ({ stop: () => {}, sample: () => ({ pending: true, value: null }) }) }],
         members: [{
-            name: 'level', function: 'level', kind: 'property', on: 'element', parameters: [], result: 'number?',
-            changes: 'observable', reads: 'maintained', observations: [{ type: 'level', of: 'receiver' }],
+            name: 'level', kind: 'property', target: 'element', result: 'number?',
+            updates: { changes: 'observable', reads: 'maintained', observations: [{ type: 'level', of: 'receiver' }] },
+            implementation: ({ samples: [sample] }) => sample,
         }],
-    }, {
-        observeLevel: () => ({ stop: () => {}, sample: () => ({ pending: true, value: null }) }),
-        level: (_receiver, _args, _environment, [sample]) => sample,
     });
 
     describe('observations', () => {
@@ -961,20 +963,21 @@ describe('QueryEvaluator evaluation', () => {
 
         /** A member observed through a probe of its receiver, shared or not, whose identity is the names its argument gives, none by default. */
         const probeModule = (shared = true) => lexica.createModule('probe', {
-            observationTypes: [{ name: 'probe', contract: 'invalidation', identity: ['names'], shared, function: 'observeProbe' }],
-            members: [{
-                name: 'probe', function: 'probe', kind: 'function', on: 'element', result: 'number', changes: 'observable', reads: 'fresh',
-                input: 'positional',
-                parameters: [{ name: 'names', kind: 'value', type: 'list<string>', required: false, default: [], fixed: false, nulls: 'propagate' }],
-                observations: [{ type: 'probe', of: 'receiver', names: { argument: 'names' } }],
-            }],
-        }, {
-            observeProbe: () => {
-                started++;
+            observationTypes: [{
+                name: 'probe', contract: 'invalidation', identity: ['names'], shared,
+                implementation: () => {
+                    started++;
 
-                return { stop: () => stopped++ };
-            },
-            probe: () => 1,
+                    return { stop: () => stopped++ };
+                },
+            }],
+            members: [{
+                name: 'probe', kind: 'function', target: 'element', result: 'number',
+                arguments: 'positional',
+                parameters: [{ name: 'names', kind: 'value', type: 'list<string>', required: false, default: [], fixed: false, nulls: 'propagate' }],
+                updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'probe', of: 'receiver', names: { argument: 'names' } }] },
+                implementation: () => 1,
+            }],
         });
 
         /** Evaluates the query again and again in one window, as a watch does, counting what each evaluation acquires. */
@@ -1168,13 +1171,14 @@ describe('QueryEvaluator projection', () => {
     const ticks = data => lexica.createModule('ticks', {
         types: [{ name: 'tick', fields: { at: 'number', label: 'string?' } }],
         eventTypes: [{ name: 'tick', data }],
-        members: [{ name: 'ticks', function: 'ticks', kind: 'eventSource', on: 'element', input: 'positional', parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, fixed: true, selects: 'eventType', nulls: 'propagate' }], result: 'event<@selected>', changes: 'constant', reads: 'captured' }],
-    }, {
-        ticks: () => {
-            started.push(true);
+        members: [{
+            name: 'ticks', kind: 'eventSource', target: 'element', arguments: 'positional', parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, fixed: true, selects: 'eventType', nulls: 'propagate' }], result: 'event<@selected>', updates: { changes: 'constant', reads: 'captured' },
+            implementation: () => {
+                started.push(true);
 
-            return { stop: () => {} };
-        },
+                return { stop: () => {} };
+            },
+        }],
     });
 
     const evaluatorOf = (text, bindings = {}, modules = []) => {

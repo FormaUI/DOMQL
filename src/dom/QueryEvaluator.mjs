@@ -171,7 +171,7 @@ export class QueryEvaluator {
      */
     #observe({ declaration, receiver, args, pointer }) {
         const { observations, dependencies } = this.#observationContext;
-        const observationDeclarations = declaration.observations ?? NO_OBSERVATIONS;
+        const observationDeclarations = declaration.updates?.observations ?? NO_OBSERVATIONS;
         const requests = dependencies === null ? null : [];
         let samples = NO_SAMPLES;
         let isPending = false;

@@ -3,10 +3,10 @@ import { userEvent } from '@vitest/browser/context';
 import { domql } from '#domql/domql.js';
 
 /**
- * The built-in conditions in a real browser, each asked two ways after every cause: evaluated afresh, which is what the browser decides, and watched, which is what the condition's observations catch.
- * Where the two agree, the watch caught the change; where only the evaluation moved, the change is one the condition's contract says a watch misses.
+ * The built-in predicates in a real browser, each asked two ways after every cause: evaluated afresh, which is what the browser decides, and watched, which is what the predicate's observations catch.
+ * Where the two agree, the watch caught the change; where only the evaluation moved, the change is one the predicate's contract says a watch misses.
  */
-describe('Conditions in a browser', () => {
+describe('Predicates in a browser', () => {
     let watches;
 
     beforeEach(() => {
@@ -31,7 +31,7 @@ describe('Conditions in a browser', () => {
         return new Proxy({}, { get: (_, id) => document.getElementById(id) });
     };
 
-    /** Watches whether the element is in the condition, asked with the verb it is asked with, its ARIA condition where asked, and answers what the watch last reported and what the browser decides now. */
+    /** Watches the element's predicate, asked with the verb that asks it, its ARIA predicate where asked, and answers what the watch last reported and what the browser decides now. */
     const watching = async (element, name, isAria = false) => {
         const verb = name === 'focus' || name === 'focus-within' ? 'has' : 'is';
         const text = isAria ? `e.aria.is("${name}")` : `e.${verb}("${name}")`;
@@ -169,7 +169,7 @@ describe('Conditions in a browser', () => {
         });
     });
 
-    describe('the ARIA conditions, as their attributes say', () => {
+    describe('the ARIA predicates, as their attributes say', () => {
         it('follow aria-checked and aria-disabled as they change, mixed answering false', async () => {
             const { box } = page('<div id="box" role="checkbox"></div>');
             const checked = await watching(box, 'checked', true);
@@ -181,7 +181,7 @@ describe('Conditions in a browser', () => {
             expect(await disabled.after(() => box.removeAttribute('aria-disabled'))).toEqual({ watched: false, decided: false });
         });
 
-        it('stay as they are while the native state changes, as the native conditions do while the attributes change', async () => {
+        it('stay as they are while the native state changes, as the native predicates do while the attributes change', async () => {
             const { box } = page('<input id="box" type="checkbox">');
             const aria = await watching(box, 'checked', true);
             const native = await watching(box, 'checked');

@@ -69,11 +69,11 @@ const bindingsOf = () => {
 const scrollModule = domql => domql.createModule('scroll', {
     types: [{ name: 'scroller', fields: { axis: 'string' } }],
     members: [
-        { name: 'scroll', function: 'scroll', kind: 'function', form: 'call', input: 'options', on: 'element', parameters: [{ name: 'axis', kind: 'value', type: 'string', required: true, nulls: 'accept' }], result: 'scroller', changes: 'unobserved', reads: 'fresh' },
-        { name: 'step', function: 'step', kind: 'action', form: 'call', input: 'options', on: 'scroller', parameters: [{ name: 'direction', kind: 'value', type: 'string', required: true, nulls: 'accept' }], result: 'boolean', changes: 'unobserved', reads: 'fresh' },
-        { name: 'wheelPaging', function: 'wheelPaging', kind: 'behavior', form: 'call', input: 'options', on: 'scroller', parameters: [{ name: 'modifier', kind: 'value', type: 'string', required: true, nulls: 'accept' }], result: 'boolean', changes: 'unobserved', reads: 'fresh' },
+        { name: 'scroll', kind: 'function', syntax: 'function-call', arguments: 'options', target: 'element', parameters: [{ name: 'axis', kind: 'value', type: 'string', required: true, nulls: 'accept' }], result: 'scroller', updates: { changes: 'unobserved', reads: 'fresh' } },
+        { name: 'step', kind: 'action', syntax: 'function-call', arguments: 'options', target: 'scroller', parameters: [{ name: 'direction', kind: 'value', type: 'string', required: true, nulls: 'accept' }], result: 'boolean' },
+        { name: 'wheelPaging', kind: 'behavior', syntax: 'function-call', arguments: 'options', target: 'scroller', parameters: [{ name: 'modifier', kind: 'value', type: 'string', required: true, nulls: 'accept' }], result: 'boolean' },
     ],
-}, null);
+});
 
 /** A value a fragment gives, compared with null so that a node it gives is no part of the result. */
 const COMPARED = '(%) != null';

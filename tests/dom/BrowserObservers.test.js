@@ -123,7 +123,7 @@ describe('BrowserObservers', () => {
         it('observes the border box and the content box, one observer each, and reports a change either reports after its first report', () => {
             const fake = createResizeWindow();
             let changes = 0;
-            const observation = BrowserObservers.functions.observeResize({ type: 'resize', target: element, arguments: { box: 'client' } }, () => changes++, { window: fake });
+            const observation = BrowserObservers.implementations.observeResize({ request: { type: 'resize', target: element, arguments: { box: 'client' } }, notify: () => changes++, env: { window: fake } });
 
             expect(fake.observers.map(observer => observer.boxes)).toEqual([['border-box'], ['content-box']]);
 
@@ -141,7 +141,7 @@ describe('BrowserObservers', () => {
         it('lets go of the border box observer where the content box one fails to start', () => {
             const fake = createResizeWindow({ failing: 1 });
 
-            expect(() => BrowserObservers.functions.observeResize({ type: 'resize', target: element, arguments: { box: 'client' } }, () => {}, { window: fake })).toThrow('cannot observe');
+            expect(() => BrowserObservers.implementations.observeResize({ request: { type: 'resize', target: element, arguments: { box: 'client' } }, notify: () => {}, env: { window: fake } })).toThrow('cannot observe');
             expect(fake.observers.map(observer => observer.isDisconnected)).toEqual([true, true]);
         });
     });

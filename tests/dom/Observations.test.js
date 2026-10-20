@@ -9,7 +9,7 @@ import { BrowserVocabulary } from '#domql/dom/BrowserVocabulary.mjs';
 /** A module of observation types that start nothing in a browser, and the record of what they did. */
 const createObservationTypes = () => {
     const record = { started: [], stopped: [], notifiers: [], samples: [] };
-    const start = name => (request, notify) => {
+    const start = name => ({ request, notify }) => {
         const index = record.started.length;
 
         record.started.push({ name, request });
@@ -22,18 +22,12 @@ const createObservationTypes = () => {
     };
     const module = new LexicaModule('fake', {
         observationTypes: [
-            { name: 'ticks', contract: 'invalidation', identity: ['step'], function: 'startTicks' },
-            { name: 'sampled', contract: 'maintained', function: 'startSampled' },
-            { name: 'solo', contract: 'invalidation', shared: false, function: 'startSolo' },
-            { name: 'broken', contract: 'invalidation', function: 'startBroken' },
-            { name: 'mute', contract: 'invalidation', function: 'startMute' },
+            { name: 'ticks', contract: 'invalidation', identity: ['step'], implementation: start('ticks') },
+            { name: 'sampled', contract: 'maintained', implementation: start('sampled') },
+            { name: 'solo', contract: 'invalidation', shared: false, implementation: start('solo') },
+            { name: 'broken', contract: 'invalidation', implementation: () => { throw new Error('no clock'); } },
+            { name: 'mute', contract: 'invalidation', implementation: () => ({}) },
         ],
-    }, {
-        startTicks: start('ticks'),
-        startSampled: start('sampled'),
-        startSolo: start('solo'),
-        startBroken: () => { throw new Error('no clock'); },
-        startMute: () => ({}),
     });
 
     return { module, record };
@@ -130,8 +124,8 @@ describe('Observations', () => {
 
         it('report a failure to stop and are still disposed', () => {
             const broken = new Observations(new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, new LexicaModule('stuck', {
-                observationTypes: [{ name: 'stuck', contract: 'invalidation', function: 'startStuck' }],
-            }, { startStuck: () => ({ stop: () => { throw new Error('stuck'); } }) })]), { window, document }, { reportError: error => reported.push(error) });
+                observationTypes: [{ name: 'stuck', contract: 'invalidation', implementation: () => ({ stop: () => { throw new Error('stuck'); } }) }],
+            })]), { window, document }, { reportError: error => reported.push(error) });
 
             broken.acquire(request('stuck'), () => {}).dispose();
 
@@ -189,8 +183,8 @@ describe('Observations', () => {
 
         it('are disposed when the observation fails to stop and reporting the failure fails too', () => {
             const stuck = new Observations(new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, new LexicaModule('stuck', {
-                observationTypes: [{ name: 'stuck', contract: 'invalidation', function: 'startStuck' }],
-            }, { startStuck: () => ({ stop: () => { throw new Error('stuck'); } }) })]), { window, document }, { reportError: () => { throw new Error('nowhere to report'); } });
+                observationTypes: [{ name: 'stuck', contract: 'invalidation', implementation: () => ({ stop: () => { throw new Error('stuck'); } }) }],
+            })]), { window, document }, { reportError: () => { throw new Error('nowhere to report'); } });
 
             expect(() => stuck.acquire(request('stuck'), () => {}).dispose()).not.toThrow();
             expect(stuck.runningCount).toBe(0);
@@ -277,10 +271,10 @@ describe('Observations', () => {
             expect(failure(() => observations.acquire(request('nothing'), () => {})).message).toContain('declared by no module');
         });
 
-        it('refuse a kind whose module supplies no function', () => {
-            const empty = new LexicaRegistry([new LexicaModule('empty', { observationTypes: [{ name: 'empty', contract: 'invalidation', function: 'startEmpty' }] })]);
+        it('refuse a kind whose module gives it no implementation', () => {
+            const empty = new LexicaRegistry([new LexicaModule('empty', { observationTypes: [{ name: 'empty', contract: 'invalidation' }] })]);
 
-            expect(failure(() => new Observations(empty, { window, document }).acquire(request('empty'), () => {})).message).toContain("supplies no function for the observation type 'empty'");
+            expect(failure(() => new Observations(empty, { window, document }).acquire(request('empty'), () => {})).message).toContain("The module 'empty' gives the observation type 'empty' no implementation");
         });
     });
 
@@ -334,7 +328,7 @@ describe('Observations', () => {
 
         it('resolve the observations a built-in member names', () => {
             const [declaration] = new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module]).getMembers('attribute');
-            const requests = declaration.observations.map(observation => observations.resolve(observation, { receiver: target, args: { name: 'id' } }));
+            const requests = declaration.updates.observations.map(observation => observations.resolve(observation, { receiver: target, args: { name: 'id' } }));
 
             expect(requests).toEqual([{ type: 'mutation', target, arguments: { attributes: ['id'] } }]);
         });

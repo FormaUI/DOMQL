@@ -209,8 +209,8 @@ describe('domql evaluateAsync in a browser', () => {
             let evaluations = 0;
 
             domql.registerModule(domql.createModule('clientEvaluations', {
-                members: [{ name: 'clientEvaluations', function: 'count', kind: 'property', on: 'element', parameters: [], result: 'number', changes: 'constant', reads: 'fresh' }],
-            }, { count: () => ++evaluations }));
+                members: [{ name: 'clientEvaluations', kind: 'property', target: 'element', result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => ++evaluations }],
+            }));
 
             const box = document.createElement('div');
 

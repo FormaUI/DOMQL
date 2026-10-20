@@ -1,30 +1,26 @@
 domql.registerModule(domql.createModule('highlight', {
     members: [{
         name: 'highlight',
-        function: 'highlight',
         kind: 'behavior',
-        on: 'element',
-        input: 'positional',
+        target: 'element',
+        arguments: 'positional',
         parameters: [{ name: 'color', kind: 'value', type: 'string', required: true, nulls: 'propagate' }],
         result: 'null',
-        changes: 'unobserved',
-        reads: 'fresh'
+        implementation: ({ receiver: element, args: { color } }) => {
+            let current = element;
+
+            current.dataset.highlight = color;
+
+            return {
+                update: (target, { color: next }) => {
+                    delete current.dataset.highlight;
+                    current = target;
+                    current.dataset.highlight = next;
+                },
+                dispose: () => delete current.dataset.highlight
+            };
+        }
     }]
-}, {
-    highlight: (element, { color }) => {
-        let current = element;
-
-        current.dataset.highlight = color;
-
-        return {
-            update: (target, { color: next }) => {
-                delete current.dataset.highlight;
-                current = target;
-                current.dataset.highlight = next;
-            },
-            dispose: () => delete current.dataset.highlight
-        };
-    }
 }));
 
 const highlight = domql.query('panel.highlight(color)', { panel, color: 'gold' }).apply();

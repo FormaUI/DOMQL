@@ -439,16 +439,16 @@ export class Observations {
     }
 
     #start(type, request, notify) {
-        const start = this.#moduleRegistry.getFunction(type);
+        const start = this.#moduleRegistry.getImplementation(type);
 
         if (start === undefined) {
-            throw LexicaError.evaluation(`The module '${this.#moduleRegistry.getOwner(type)}' supplies no function for the observation type '${type.name}'`, {});
+            throw LexicaError.evaluation(`The module '${this.#moduleRegistry.getOwner(type)}' gives the observation type '${type.name}' no implementation`, {});
         }
 
         let observation;
 
         try {
-            observation = start(request, notify, this.#environment);
+            observation = start({ request, notify, env: this.#environment });
         } catch (error) {
             throw LexicaError.evaluation(`The observation '${type.name}' failed to start: ${error?.message ?? String(error)}`, {}, { cause: error });
         }

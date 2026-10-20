@@ -1,5 +1,5 @@
 /**
- * VocabularyFunctions — the functions that carry out the DOM vocabulary's members
+ * VocabularyImplementations — the implementations that carry out the DOM vocabulary's members and predicates
  */
 
 /** The input types `readonly` applies to. */
@@ -11,55 +11,55 @@ const TEXT_INPUT_TYPES = new Set(['text', 'search', 'url', 'tel', 'email', 'pass
 /** The values of `contenteditable` that make content editable. */
 const EDITABLE_VALUES = new Set(['', 'true', 'plaintext-only']);
 
-export class VocabularyFunctions {
+export class VocabularyImplementations {
     /**
-     * Each function takes the receiver, the arguments by parameter name, and the environment the request is read in; a source also takes the function it delivers each event to, and answers what stops it.
-     * @type {Record<string, (receiver: unknown, args: Record<string, any>, environment: { window: Window, document: Document }) => unknown>}
+     * Each implementation reads, from one object by name, the receiver, the arguments by parameter name and the environment the request is read in; a maintained member also its samples, and a source the function it delivers each event to, answering what stops it.
+     * @type {Record<string, (input: { receiver: unknown, args: Record<string, any>, env: { window: Window, document: Document }, samples?: unknown[], deliver?: (event: unknown) => void }) => unknown>}
      */
-    static get functions() {
+    static get implementations() {
         return {
-            windowSize: window => {
+            windowSize: ({ receiver: window }) => {
                 const documentElement = window.document.documentElement;
 
                 return { width: documentElement.clientWidth, height: documentElement.clientHeight };
             },
-            devicePixelRatio: window => window.devicePixelRatio,
+            devicePixelRatio: ({ receiver: window }) => window.devicePixelRatio,
             // The property reads the rectangle against the layout viewport, and rectRelativeTo against the element it is given.
-            rect: (element, { relativeTo = null }) => VocabularyFunctions.#rect(element, relativeTo),
-            size: element => {
-                const rect = VocabularyFunctions.#box(element);
+            rect: ({ receiver: element, args: { relativeTo = null } }) => VocabularyImplementations.#rect(element, relativeTo),
+            size: ({ receiver: element }) => {
+                const rect = VocabularyImplementations.#box(element);
 
                 return rect === null ? null : { width: rect.width, height: rect.height };
             },
-            clientSize: element => VocabularyFunctions.#hasBox(element) ? { width: element.clientWidth, height: element.clientHeight } : null,
-            grid: element => VocabularyFunctions.#hasBox(element) ? { columns: VocabularyFunctions.#columns(element) } : null,
-            selection: element => VocabularyFunctions.#selection(element),
-            children: node => [...node.children],
-            parent: node => node.parentNode ?? null,
-            root: node => node.getRootNode(),
-            host: node => (node.nodeType === 11 && node.host !== undefined ? node.host : null),
-            shadow: element => element,
-            aria: element => element,
-            ariaChecked: element => VocabularyFunctions.#isAriaTrue(element, 'aria-checked'),
-            ariaDisabled: element => VocabularyFunctions.#isAriaTrue(element, 'aria-disabled'),
-            shadowRoot: element => element.shadowRoot ?? null,
-            assignedElements: element => (typeof element.assignedElements === 'function' ? element.assignedElements({ flatten: true }) : null),
+            clientSize: ({ receiver: element }) => VocabularyImplementations.#hasBox(element) ? { width: element.clientWidth, height: element.clientHeight } : null,
+            grid: ({ receiver: element }) => VocabularyImplementations.#hasBox(element) ? { columns: VocabularyImplementations.#columns(element) } : null,
+            selection: ({ receiver: element }) => VocabularyImplementations.#selection(element),
+            children: ({ receiver: node }) => [...node.children],
+            parent: ({ receiver: node }) => node.parentNode ?? null,
+            root: ({ receiver: node }) => node.getRootNode(),
+            host: ({ receiver: node }) => (node.nodeType === 11 && node.host !== undefined ? node.host : null),
+            shadow: ({ receiver: element }) => element,
+            aria: ({ receiver: element }) => element,
+            ariaChecked: ({ receiver: element }) => VocabularyImplementations.#isAriaTrue(element, 'aria-checked'),
+            ariaDisabled: ({ receiver: element }) => VocabularyImplementations.#isAriaTrue(element, 'aria-disabled'),
+            shadowRoot: ({ receiver: element }) => element.shadowRoot ?? null,
+            assignedElements: ({ receiver: element }) => (typeof element.assignedElements === 'function' ? element.assignedElements({ flatten: true }) : null),
 
-            media: (window, { query }) => window.matchMedia(query).matches,
-            supportsShare: window => typeof window.navigator.share === 'function',
-            supportsClipboard: window => window.navigator.clipboard !== undefined,
-            attribute: (element, { name }) => element.getAttribute(name),
+            media: ({ receiver: window, args: { query } }) => window.matchMedia(query).matches,
+            supportsShare: ({ receiver: window }) => typeof window.navigator.share === 'function',
+            supportsClipboard: ({ receiver: window }) => window.navigator.clipboard !== undefined,
+            attribute: ({ receiver: element, args: { name } }) => element.getAttribute(name),
             // The ARIA view's attribute of the name, the element's own attribute `aria-` and the name, read as the attribute indexer reads it.
-            ariaAttribute: (element, { name }) => element.getAttribute(`aria-${name}`),
+            ariaAttribute: ({ receiver: element, args: { name } }) => element.getAttribute(`aria-${name}`),
             // A class is one token, as a class list takes one: never empty, and holding none of the ASCII whitespace that separates its tokens.
-            class: (element, { name }) => {
+            class: ({ receiver: element, args: { name } }) => {
                 if (name === '' || /[\t\n\f\r ]/.test(name)) {
                     throw new Error(`${JSON.stringify(name)} is no class, which is one token: never empty, and holding no tab, line feed, form feed, carriage return or space`);
                 }
 
                 return element.classList.contains(name);
             },
-            style: (element, { property }) => {
+            style: ({ receiver: element, args: { property } }) => {
                 if (!element.isConnected) {
                     return null;
                 }
@@ -68,32 +68,32 @@ export class VocabularyFunctions {
 
                 return value === '' ? null : value;
             },
-            intersects: (_receiver, _args, _environment, [isIntersecting]) => isIntersecting,
-            overlaps: (element, { other, margin }) => VocabularyFunctions.#overlaps(element, other, margin),
-            matches: (element, { selector }) => element.matches(selector),
-            closest: (element, { selector }) => element.closest(selector),
-            firstMatching: (node, { selector }) => node.querySelector(selector),
-            all: (node, { selector }) => [...node.querySelectorAll(selector)],
-            on: (target, { type }, _environment, deliver) => {
+            intersects: ({ samples: [isIntersecting] }) => isIntersecting,
+            overlaps: ({ receiver: element, args: { other, margin } }) => VocabularyImplementations.#overlaps(element, other, margin),
+            matches: ({ receiver: element, args: { selector } }) => element.matches(selector),
+            closest: ({ receiver: element, args: { selector } }) => element.closest(selector),
+            firstMatching: ({ receiver: node, args: { selector } }) => node.querySelector(selector),
+            all: ({ receiver: node, args: { selector } }) => [...node.querySelectorAll(selector)],
+            on: ({ receiver: target, args: { type }, deliver }) => {
                 // Listening observes each event as it reaches the target, and a passive listener leaves its course to the page.
                 target.addEventListener(type, deliver, { passive: true });
 
                 return { stop: () => target.removeEventListener(type, deliver) };
             },
 
-            attached: element => element.isConnected,
-            disabled: element => element.matches(':disabled'),
-            readOnly: element => VocabularyFunctions.#isReadOnly(element),
-            textEditable: element => VocabularyFunctions.#isTextEditable(element),
-            focused: element => element.getRootNode().activeElement === element,
-            focusWithin: element => element.matches(':focus-within'),
-            hover: element => element.matches(':hover'),
-            popoverOpen: element => element.matches(':popover-open'),
-            checked: element => element.matches(':checked'),
-            visible: document => document.visibilityState === 'visible',
-            hasChildren: element => element.childElementCount > 0,
-            hasSelection: element => VocabularyFunctions.#hasSelection(element),
-            hasFocus: document => document.hasFocus(),
+            attached: ({ receiver: element }) => element.isConnected,
+            disabled: ({ receiver: element }) => element.matches(':disabled'),
+            readOnly: ({ receiver: element }) => VocabularyImplementations.#isReadOnly(element),
+            textEditable: ({ receiver: element }) => VocabularyImplementations.#isTextEditable(element),
+            focused: ({ receiver: element }) => element.getRootNode().activeElement === element,
+            focusWithin: ({ receiver: element }) => element.matches(':focus-within'),
+            hover: ({ receiver: element }) => element.matches(':hover'),
+            popoverOpen: ({ receiver: element }) => element.matches(':popover-open'),
+            checked: ({ receiver: element }) => element.matches(':checked'),
+            visible: ({ receiver: document }) => document.visibilityState === 'visible',
+            hasChildren: ({ receiver: element }) => element.childElementCount > 0,
+            hasSelection: ({ receiver: element }) => VocabularyImplementations.#hasSelection(element),
+            hasFocus: ({ receiver: document }) => document.hasFocus(),
         };
     }
 
@@ -126,13 +126,13 @@ export class VocabularyFunctions {
     }
 
     static #rect(element, relativeTo) {
-        const box = VocabularyFunctions.#box(element);
+        const box = VocabularyImplementations.#box(element);
 
         if (box === null) {
             return null;
         }
 
-        const origin = relativeTo === null ? { left: 0, top: 0 } : VocabularyFunctions.#box(relativeTo);
+        const origin = relativeTo === null ? { left: 0, top: 0 } : VocabularyImplementations.#box(relativeTo);
 
         if (origin === null) {
             return null;
@@ -145,8 +145,8 @@ export class VocabularyFunctions {
     }
 
     static #overlaps(element, other, margin) {
-        const first = VocabularyFunctions.#box(element);
-        const second = VocabularyFunctions.#box(other);
+        const first = VocabularyImplementations.#box(element);
+        const second = VocabularyImplementations.#box(other);
 
         if (first === null || second === null) {
             return null;
@@ -168,13 +168,13 @@ export class VocabularyFunctions {
 
     /** The start and end of the selection of a text input or text area, or null for any other element. */
     static #selection(element) {
-        const start = VocabularyFunctions.#range(element);
+        const start = VocabularyImplementations.#range(element);
 
         return start === null ? null : { start: start[0], end: start[1] };
     }
 
     static #range(element) {
-        if (!VocabularyFunctions.#isTextControl(element)) {
+        if (!VocabularyImplementations.#isTextControl(element)) {
             return null;
         }
 
@@ -200,17 +200,17 @@ export class VocabularyFunctions {
     }
 
     static #isTextEditable(element) {
-        if (VocabularyFunctions.#isUnderInert(element)) {
+        if (VocabularyImplementations.#isUnderInert(element)) {
             return false;
         }
 
-        if (VocabularyFunctions.#isTextControl(element)) {
+        if (VocabularyImplementations.#isTextControl(element)) {
             const isText = element.localName === 'textarea' || TEXT_INPUT_TYPES.has(element.type);
 
             return isText && !element.matches(':disabled') && !element.readOnly;
         }
 
-        return VocabularyFunctions.#isContentEditable(element);
+        return VocabularyImplementations.#isContentEditable(element);
     }
 
     /**
@@ -253,8 +253,8 @@ export class VocabularyFunctions {
     }
 
     static #hasSelection(element) {
-        if (VocabularyFunctions.#isTextControl(element)) {
-            const range = VocabularyFunctions.#range(element);
+        if (VocabularyImplementations.#isTextControl(element)) {
+            const range = VocabularyImplementations.#range(element);
 
             return range !== null && range[0] !== range[1];
         }

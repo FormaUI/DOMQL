@@ -36,38 +36,40 @@ describe('Watch', () => {
 
         // A member kept by an observation whose samples the test supplies, one gauge for each element.
         isolated.registerModule(isolated.createModule('level', {
-            observationTypes: [{ name: 'level', contract: 'maintained', function: 'observeLevel' }],
-            members: [{
-                name: 'level', function: 'level', kind: 'property', on: 'element', parameters: [], result: 'number?',
-                changes: 'observable', reads: 'maintained', observations: [{ type: 'level', of: 'receiver' }],
+            observationTypes: [{
+                name: 'level', contract: 'maintained',
+                implementation: ({ request: { target }, notify }) => {
+                    const gauge = { sample: { pending: true, value: null }, stopped: 0, notify };
+
+                    gauges.set(target, gauge);
+
+                    return { stop: () => gauge.stopped++, sample: () => gauge.sample };
+                },
             }],
-        }, {
-            observeLevel: ({ target }, notify) => {
-                const gauge = { sample: { pending: true, value: null }, stopped: 0, notify };
-
-                gauges.set(target, gauge);
-
-                return { stop: () => gauge.stopped++, sample: () => gauge.sample };
-            },
-            level: (_receiver, _args, _environment, [sample]) => sample,
+            members: [{
+                name: 'level', kind: 'property', target: 'element', result: 'number?',
+                updates: { changes: 'observable', reads: 'maintained', observations: [{ type: 'level', of: 'receiver' }] },
+                implementation: ({ samples: [sample] }) => sample,
+            }],
         }));
 
         // A member that counts the evaluations that read it, and one that fails while the test says so, both changing with the attributes of their element.
         const attributes = [{ type: 'mutation', of: 'receiver', attributes: true }];
 
         isolated.registerModule(isolated.createModule('tally', {
-            members: [{ name: 'tally', function: 'tally', kind: 'property', on: 'element', parameters: [], result: 'number', changes: 'observable', reads: 'fresh', observations: attributes }],
-        }, { tally: () => ++evaluations }));
+            members: [{ name: 'tally', kind: 'property', target: 'element', result: 'number', updates: { changes: 'observable', reads: 'fresh', observations: attributes }, implementation: () => ++evaluations }],
+        }));
         isolated.registerModule(isolated.createModule('flaky', {
-            members: [{ name: 'flaky', function: 'flaky', kind: 'property', on: 'element', parameters: [], result: 'number', changes: 'observable', reads: 'fresh', observations: attributes }],
-        }, {
-            flaky: element => {
-                if (broken) {
-                    throw new Error('broken');
-                }
+            members: [{
+                name: 'flaky', kind: 'property', target: 'element', result: 'number', updates: { changes: 'observable', reads: 'fresh', observations: attributes },
+                implementation: ({ receiver: element }) => {
+                    if (broken) {
+                        throw new Error('broken');
+                    }
 
-                return Number(element.getAttribute('data-n'));
-            },
+                    return Number(element.getAttribute('data-n'));
+                },
+            }],
         }));
     });
 
@@ -268,8 +270,8 @@ describe('Watch', () => {
     describe('a condition', () => {
         it('follows the observations its own declaration names', async () => {
             isolated.registerModule(isolated.createModule('lit', {
-                conditions: [{ name: 'lit', function: 'isLit', on: 'element', changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: ['data-lit'] }] }],
-            }, { isLit: element => element.hasAttribute('data-lit') }));
+                predicates: [{ name: 'lit', target: 'element', updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: ['data-lit'] }] }, implementation: ({ receiver: element }) => element.hasAttribute('data-lit') }],
+            }));
             watch('panel.is("lit")', { panel });
             await settle();
 
@@ -440,18 +442,19 @@ describe('Watch', () => {
 
             // A number kept by an observation whose samples the test supplies, compared within a tolerance of 2.
             isolated.registerModule(isolated.createModule('meter', {
-                observationTypes: [{ name: 'meter', contract: 'maintained', function: 'observeMeter' }],
-                members: [{
-                    name: 'meter', function: 'meter', kind: 'property', on: 'element', parameters: [], result: 'number', tolerance: 2,
-                    changes: 'observable', reads: 'maintained', observations: [{ type: 'meter', of: 'receiver' }],
-                }],
-            }, {
-                observeMeter: (_target, notify) => {
-                    meter = { sample: { pending: false, value: 100 }, notify };
+                observationTypes: [{
+                    name: 'meter', contract: 'maintained',
+                    implementation: ({ notify }) => {
+                        meter = { sample: { pending: false, value: 100 }, notify };
 
-                    return { stop: () => {}, sample: () => meter.sample };
-                },
-                meter: (_receiver, _args, _environment, [sample]) => sample,
+                        return { stop: () => {}, sample: () => meter.sample };
+                    },
+                }],
+                members: [{
+                    name: 'meter', kind: 'property', target: 'element', result: 'number',
+                    updates: { changes: 'observable', reads: 'maintained', tolerance: 2, observations: [{ type: 'meter', of: 'receiver' }] },
+                    implementation: ({ samples: [sample] }) => sample,
+                }],
             }));
 
             const read = (value) => {
@@ -511,10 +514,11 @@ describe('Watch', () => {
         it('follows what a function a member is given reads while the member calls it', async () => {
             isolated.registerModule(isolated.createModule('sortBy', {
                 members: [{
-                    name: 'sortBy', function: 'sortBy', kind: 'function', on: 'list<T>', input: 'positional', result: 'list<T>', changes: 'derived', reads: 'derived',
+                    name: 'sortBy', kind: 'function', target: 'list<T>', arguments: 'positional', result: 'list<T>', updates: { changes: 'derived', reads: 'derived' },
                     parameters: [{ name: 'compare', kind: 'function', parameters: ['T', 'T'], type: 'number', required: true }],
+                    implementation: ({ receiver: list, args: { compare } }) => [...list].sort(compare),
                 }],
-            }, { sortBy: (list, { compare }) => [...list].sort(compare) }));
+            }));
 
             watch('panel.children.sortBy((a, b) => (a:["data-n"] to "number" ?? 0) - (b:["data-n"] to "number" ?? 0)) { n = context:["data-n"] }', { panel });
             await settle();
@@ -740,16 +744,17 @@ describe('Watch', () => {
             let duringEvaluation = null;
 
             isolated.registerModule(isolated.createModule('nudge', {
-                members: [{ name: 'nudge', function: 'nudge', kind: 'property', on: 'element', parameters: [], result: 'number', changes: 'constant', reads: 'fresh' }],
-            }, {
-                nudge: () => {
-                    const nudge = duringEvaluation;
+                members: [{
+                    name: 'nudge', kind: 'property', target: 'element', result: 'number', updates: { changes: 'constant', reads: 'fresh' },
+                    implementation: () => {
+                        const nudge = duringEvaluation;
 
-                    duringEvaluation = null;
-                    nudge?.();
+                        duringEvaluation = null;
+                        nudge?.();
 
-                    return 0;
-                },
+                        return 0;
+                    },
+                }],
             }));
 
             const { gauge } = await watchGauge('{ level = first.level, tally = first.tally, nudge = first.nudge }');
@@ -1012,35 +1017,38 @@ describe('Watch', () => {
             const probes = { live: new Set(), started: 0, stopped: 0, notify: new Map(), calls: 0, during: null };
 
             isolated.registerModule(isolated.createModule('probe', {
-                observationTypes: [{ name: 'probe', contract: 'invalidation', function: 'observeProbe' }],
-                members: [{ name: 'probe', function: 'probe', kind: 'property', on: 'element', parameters: [], result: 'number', changes: 'observable', reads: 'fresh', observations: [{ type: 'probe', of: 'receiver' }] }],
-            }, {
-                observeProbe: ({ target }, notify) => {
-                    probes.started++;
-                    probes.live.add(target);
-                    probes.notify.set(target, notify);
+                observationTypes: [{
+                    name: 'probe', contract: 'invalidation',
+                    implementation: ({ request: { target }, notify }) => {
+                        probes.started++;
+                        probes.live.add(target);
+                        probes.notify.set(target, notify);
 
-                    return {
-                        stop: () => {
-                            probes.stopped++;
-                            probes.live.delete(target);
-                        },
-                    };
-                },
-                probe: element => {
-                    probes.calls++;
+                        return {
+                            stop: () => {
+                                probes.stopped++;
+                                probes.live.delete(target);
+                            },
+                        };
+                    },
+                }],
+                members: [{
+                    name: 'probe', kind: 'property', target: 'element', result: 'number', updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'probe', of: 'receiver' }] },
+                    implementation: ({ receiver: element }) => {
+                        probes.calls++;
 
-                    const during = probes.during;
+                        const during = probes.during;
 
-                    probes.during = null;
-                    during?.();
+                        probes.during = null;
+                        during?.();
 
-                    if (element.hasAttribute('data-bad')) {
-                        throw new Error('bad');
-                    }
+                        if (element.hasAttribute('data-bad')) {
+                            throw new Error('bad');
+                        }
 
-                    return Number(element.getAttribute('data-n'));
-                },
+                        return Number(element.getAttribute('data-n'));
+                    },
+                }],
             }));
 
             return probes;
@@ -1245,15 +1253,15 @@ describe('Watch', () => {
             const stopped = [];
 
             isolated.registerModule(isolated.createModule('reach', {
-                observationTypes: [{ name: 'reach', contract: 'invalidation', function: 'observeReach' }],
-                members: [{ name: 'reach', function: 'reach', kind: 'property', on: 'element', parameters: [], result: 'number', changes: 'observable', reads: 'fresh', observations: [{ type: 'reach', of: 'receiver' }] }],
-            }, {
-                observeReach: ({ target }) => {
-                    started.push(target.id);
+                observationTypes: [{
+                    name: 'reach', contract: 'invalidation',
+                    implementation: ({ request: { target } }) => {
+                        started.push(target.id);
 
-                    return { stop: () => stopped.push(target.id) };
-                },
-                reach: () => 1,
+                        return { stop: () => stopped.push(target.id) };
+                    },
+                }],
+                members: [{ name: 'reach', kind: 'property', target: 'element', result: 'number', updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'reach', of: 'receiver' }] }, implementation: () => 1 }],
             }));
             document.body.innerHTML = '<i id="a"></i><i id="b"></i><i id="c"></i>';
 

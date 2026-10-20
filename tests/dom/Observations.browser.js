@@ -297,16 +297,16 @@ describe('Observations in a browser', () => {
         it('starts and ends every observation it names, against a real receiver', async () => {
             const element = add('width: 40px; height: 40px');
             const other = add('width: 10px; height: 10px');
-            const declarations = BrowserVocabulary.module.members.filter(declaration => declaration.observations.length > 0);
+            const declarations = BrowserVocabulary.module.members.filter(declaration => (declaration.updates?.observations ?? []).length > 0);
 
             expect(declarations.length).toBeGreaterThan(15);
 
             for (const declaration of declarations) {
-                const first = [declaration.on].flat()[0];
+                const first = [declaration.target].flat()[0];
                 const receiver = first === 'window' ? window : first === 'document' ? document : element;
                 const args = Object.fromEntries((declaration.parameters ?? []).map(parameter => [parameter.name, argumentFor(parameter, other)]));
 
-                for (const observation of declaration.observations) {
+                for (const observation of declaration.updates.observations) {
                     const session = observations.acquire(observations.resolve(observation, { receiver, args }), () => {});
 
                     sessions.push(session);
