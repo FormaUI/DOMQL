@@ -37,7 +37,7 @@ DOMQL is a FormaUI product, developed alongside [Forma](https://github.com/Forma
 
 ## Install and load
 
-Build the repository with `./publish.ps1`. This writes the local NuGet package to `artifacts/`; see the [repository setup instructions](https://github.com/FormaUI/Forma.DOMQL#build-and-try-it) for prerequisites.
+Build the repository with `./publish.ps1`. This writes the local NuGet package to `artifacts/`; see the [repository setup instructions](https://github.com/FormaUI/DOMQL#build-and-try-it) for prerequisites.
 
 From your application's project directory, add the package using that folder as the source. Adjust the path to your local `artifacts/` directory:
 
@@ -916,9 +916,9 @@ console.log(panel.dataset.highlight);
 
 ## Learn more
 
-- [Repository README](https://github.com/FormaUI/Forma.DOMQL): what DOMQL is for, what is built, and how to build and test it.
+- [Repository README](https://github.com/FormaUI/DOMQL): what DOMQL is for, what is built, and how to build and test it.
 - [Lexica specification](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-specification.md): the language DOMQL is written in, its syntax, types, null semantics and vocabulary contracts.
-- [DOMQL specification](https://github.com/FormaUI/Forma.DOMQL/blob/main/docs/domql-specification.md): the DOM's nodes and shadow trees, the built-in vocabulary, and how a query is evaluated and watched.
-- [Runtime design](https://github.com/FormaUI/Forma.DOMQL/blob/main/docs/domql-design.md): resolution, evaluation, watching, subscribing to events, actions and behaviors, and the [Lexica design](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md): modules and tooling.
+- [DOMQL specification](https://github.com/FormaUI/DOMQL/blob/main/docs/domql-specification.md): the DOM's nodes and shadow trees, the built-in vocabulary, and how a query is evaluated and watched.
+- [Runtime design](https://github.com/FormaUI/DOMQL/blob/main/docs/domql-design.md): resolution, evaluation, watching, subscribing to events, actions and behaviors, and the [Lexica design](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md): modules and tooling.
 
 The specification and design describe the intended contracts. The [current capabilities](#current-capabilities) section lists what this alpha implements. The [DOMQL specification](https://github.com/FormaUI/DOMQL/blob/main/docs/domql-specification.md) describes DOMQL on Lexica's definition version 32, the target of separating the language from DOMQL; this alpha, and the examples here, still read version 31, which writes the implicit parameter `context` where version 32 writes `it`, and reads `document` and `window` where version 32 reads `domql.document` and `domql.window`.
