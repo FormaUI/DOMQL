@@ -2,7 +2,7 @@
 
 **A declarative approach to managing the DOM.**
 
-DOMQL is a small, extensible query language and JavaScript library. Use it to read information from the document, track changes, respond to events and update its content or state. Its queries are written in [Lexica](https://github.com/FormaUI/Lexica), an extensible expression language, and DOMQL adds the DOM: its vocabulary, observation, watching and events.
+DOMQL is a small, extensible query language and JavaScript library. Use it to read information from the document, track changes, respond to events and update its content or state. Its queries are written in [Lexica](https://github.com/FormaUI/Lexica), a general-purpose, embeddable language that lets applications define their own domain. DOMQL defines the DOM as that domain, and adds the observation, watching and events that follow it as it changes.
 
 DOMQL is a FormaUI product, developed alongside [Forma](https://github.com/FormaUI/Forma). It stands on its own and works independently of any UI framework.
 
