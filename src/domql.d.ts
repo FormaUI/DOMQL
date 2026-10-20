@@ -355,9 +355,9 @@ export interface DomqlParameterDeclaration {
      * which the implementation calls while its own invocation lasts and only a member of kind `function` takes.
      */
     kind: 'value' | 'expression' | 'predicate' | 'function';
-    /** The parameter's type, in DOMQL's notation; a predicate's is `boolean`, what its function receives, and a function parameter's the type of the result it takes from the function. */
+    /** The parameter's type, in DOMQL's notation; a predicate's is `boolean`, what the implementation receives, and a function parameter's the type of its function's result. */
     type: string;
-    /** The types a function parameter's function is called with, in order, in DOMQL's notation; only a function parameter declares them. */
+    /** The types its function is called with, in order, in DOMQL's notation; only a function parameter declares them. */
     parameters?: string[];
     required: boolean;
     default?: unknown;
@@ -365,7 +365,7 @@ export interface DomqlParameterDeclaration {
     fixed?: boolean;
     /** What a fixed parameter names, and only a fixed one. */
     selects?: 'eventType' | 'condition';
-    /** Whether a null argument makes the call answer null, or is accepted; a function parameter, whose function is never null, leaves it out. */
+    /** Whether a null argument makes the call answer null, or is accepted; a function parameter leaves it out, since a function is never null. */
     nulls?: 'propagate' | 'accept';
     /** What an expression or a predicate argument is evaluated against. */
     context?: 'item';
