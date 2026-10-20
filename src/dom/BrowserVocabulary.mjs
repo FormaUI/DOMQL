@@ -1,9 +1,9 @@
 /**
- * BrowserVocabulary — DOMQL's built-in vocabulary, the DOM vocabulary: its nodes, elements, shadow trees, ARIA views and window, their members, conditions, events and observations, as the specification's tables state them
+ * BrowserVocabulary — DOMQL's vocabulary, the DOM's: its nodes, elements, shadow trees, ARIA views and window, their members, conditions, events and observations, as the specification's tables state them
  */
 
+import { lexica } from '@formaui/lexica';
 import { Declarations } from '@formaui/lexica/language/vocabulary/Declarations.mjs';
-import { LexicaModule } from '@formaui/lexica/language/vocabulary/LexicaModule.mjs';
 import { Vocabulary } from '@formaui/lexica/language/vocabulary/Vocabulary.mjs';
 
 const { valueParameter, property, condition, operation } = Declarations;
@@ -29,15 +29,15 @@ const GEOMETRY = { changes: 'partly-observable', misses: 'a move its own size, t
 const STYLE = { changes: 'partly-observable', misses: 'rules matching from elsewhere' };
 
 export class BrowserVocabulary {
-    /** The name of DOMQL's built-in module. */
+    /** The name of DOMQL's module. */
     static moduleName = 'domql';
 
     /**
-     * DOMQL's built-in module: its declarations and, where they are given, the functions that carry them out.
+     * DOMQL's module, made as every module is: its declarations and, where they are given, the functions that carry them out.
      * @param {Record<string, Function> | null} [functions] The functions the declarations name.
      */
     static createModule(functions = null) {
-        return LexicaModule.createBuiltIn(BrowserVocabulary.moduleName, {
+        return lexica.createModule(BrowserVocabulary.moduleName, {
             types: [
                 { name: 'size', fields: { width: 'number', height: 'number' } },
                 { name: 'rectangle', fields: { left: 'number', top: 'number', right: 'number', bottom: 'number', width: 'number', height: 'number' } },
@@ -140,12 +140,12 @@ export class BrowserVocabulary {
         }, functions);
     }
 
-    /** DOMQL's built-in module as its declarations alone, which is enough to resolve a query and carries nothing out. */
+    /** DOMQL's module as its declarations alone, which is enough to resolve a query and carries nothing out. */
     static get module() {
         return BrowserVocabulary.createModule();
     }
 
-    /** The built-in modules a query is resolved against, Lexica's and DOMQL's, DOMQL's as its declarations alone. */
+    /** The modules a query is resolved against, Lexica's own and DOMQL's, DOMQL's as its declarations alone. */
     static get modules() {
         return [Vocabulary.module, BrowserVocabulary.module];
     }

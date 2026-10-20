@@ -7,7 +7,7 @@ describe('BrowserModule', () => {
     const declared = [...module.members, ...module.observationTypes, ...module.conversions, ...module.conditions].map(declaration => declaration.function).filter(key => key !== undefined);
 
     it('is the DOM vocabulary', () => {
-        expect(module.isBuiltIn).toBe(true);
+        expect(module.name).toBe('domql');
         expect(module.members.map(member => member.name)).toEqual(BrowserVocabulary.module.members.map(member => member.name));
     });
 

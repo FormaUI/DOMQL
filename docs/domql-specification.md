@@ -882,7 +882,7 @@ Each reads the element's own attribute under a contract of its own, falling back
 
 So `context.is("checked") or context.aria.is("checked")` is whether either says checked, and `context.aria:["checked"] == "mixed"` tells a mixed state, which an ARIA condition answers false for, from the others. The ARIA view's default indexer reads the attribute written on the element, as `context:["aria-checked"]` does, and never the element's effective accessibility state.
 
-No other ARIA attribute is a condition until one is declared, each with a contract of its own, since not every ARIA attribute is a Boolean; an extension declares one on the ARIA view, a type it does not own, under its module's own name alone, as the [namespace rule](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-specification.md#extensions) sets out.
+No other ARIA attribute is a condition until one is declared, each with a contract of its own, since not every ARIA attribute is a Boolean; an extension declares one on the ARIA view, a type it does not own, as the [rules for extensions](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-specification.md#extensions) let any module do.
 
 <a id="conditions-related-questions"></a>
 

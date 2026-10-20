@@ -14,7 +14,7 @@ const messageOf = call => {
     throw new Error('The call threw nothing');
 };
 
-/** A property of an element a test module declares, named for its module. */
+/** A property of an element a test module declares. */
 const declaration = overrides => ({ name: 'charts', function: 'charts', kind: 'property', on: 'element', parameters: [], result: 'number', changes: 'constant', reads: 'fresh', ...overrides });
 
 describe('BrowserVocabulary', () => {
@@ -26,8 +26,9 @@ describe('BrowserVocabulary', () => {
         'all', 'item', 'max', 'min', 'sum', 'where', 'on',
     ];
 
-    it('is a built-in module of its own name, beside Lexica\'s', () => {
-        expect(module).toMatchObject({ name: 'domql', isBuiltIn: true });
+    it('is a module of its own name, made by createModule as any module is, beside Lexica\'s own', () => {
+        expect(module.name).toBe('domql');
+        expect('isBuiltIn' in module).toBe(false);
         expect(registry.moduleNames).toEqual(['lexica', 'domql']);
     });
 
@@ -70,6 +71,17 @@ describe('BrowserVocabulary', () => {
     it('refuses a module\'s member the DOM vocabulary already answers on the same receiver, a kind of node included', () => {
         expect(messageOf(() => new LexicaRegistry([...BrowserVocabulary.modules, new LexicaModule('size', { members: [declaration({ name: 'size', on: 'element' })] })]))).toContain('declared already');
         expect(messageOf(() => new LexicaRegistry([...BrowserVocabulary.modules, new LexicaModule('parent', { members: [declaration({ name: 'parent', on: 'shadowRoot' })] })]))).toContain('declared already');
+    });
+
+    it('lets a module beside it declare a member and a condition of any name on an element', () => {
+        const charts = new LexicaModule('charts', {
+            members: [declaration({ name: 'palette' })],
+            conditions: [{ name: 'plotted', function: 'isPlotted', on: 'element', changes: 'unobserved', reads: 'fresh', observations: [] }],
+        });
+        const extended = new LexicaRegistry([...BrowserVocabulary.modules, charts]);
+
+        expect(extended.getMembers('palette').map(member => extended.getOwner(member))).toEqual(['charts']);
+        expect(extended.getConditions('plotted').map(condition => extended.getOwner(condition))).toEqual(['charts']);
     });
 
     it('refuses an event type a module declares that the DOM vocabulary declares', () => {
