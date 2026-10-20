@@ -2,7 +2,11 @@
 
 DOMQL reads the DOM and shapes the result as data. Its queries are written in [Lexica](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-specification.md), whose specification defines the language: expressions, names, types, functions, requests, vocabulary contracts and definitions. This specification defines what DOMQL adds: the DOM's nodes and shadow trees, the built-in vocabulary, and how a query is evaluated and watched.
 
-An implementation may cover only part of it; the [README's status](../README.md#status) states what this one implements. The [DOMQL design](domql-design.md) describes how requests are built, prepared and carried out.
+An implementation may cover only part of it; the [README's status](../README.md#status) states what this one implements.
+
+<a id="version"></a>
+
+**Version.** This specification describes DOMQL on [definition version 32](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-specification.md#version), the target of separating Lexica from DOMQL. DOMQL's implementation still reads version 31, which writes the implicit parameter `context`, reads `document` and `window` as roots and calls predicates conditions, and [Lexica's implementation plan](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-implementation-plan.md#31-separate-the-language-from-the-dom) lists where the two differ until version 32 lands. The [DOMQL design](domql-design.md) describes how requests are built, prepared and carried out.
 
 <a id="reading-this-specification"></a>
 
@@ -25,21 +29,21 @@ Start with [A query at a glance](#a-query-at-a-glance), and use the contents bel
 
 ```domql
 panel {
-    let rows = context.all("[data-key]"),
-    width = context.size?.width,
+    let rows = it.all("[data-key]"),
+    width = it.size?.width,
     items = rows {
-        key = context:["data-key"],
-        selected = context.aria:["selected"] == "true"
+        key = it:["data-key"],
+        selected = it.aria:["selected"] == "true"
     },
     count = rows.count
 }
 ```
 
 - `panel` reads an element supplied by the caller.
-- `panel { … }` shapes a result object. Within its fields, `context` is the panel.
+- `panel { … }` shapes a result object. Within its fields, `it` is the panel.
 - `let rows = …` names an intermediate value. It is not an output field.
-- `context:["data-key"]` reads an attribute through the default indexer.
-- `rows { … }` projects each list item. Inside that projection, `context` is the item.
+- `it:["data-key"]` reads an attribute through the default indexer.
+- `rows { … }` projects each list item. Inside that projection, `it` is the item.
 - `?.` continues only when its receiver is not null.
 - `width`, `items` and `count` are result fields. Fields and locals use `=`; equality uses `==`.
 
@@ -49,25 +53,25 @@ A query's result contains data. To return information about an element, project 
 
 ## Nodes
 
-A node is a value of the DOM tree, and its kinds are `element`, `document`, `documentFragment`, a document fragment that is no shadow root, and `shadowRoot`. `window` is no node.
+A node is a value of the DOM tree. DOMQL's module declares the nodes as [reference types](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-specification.md#reference-types): `node`, abstract, and beneath it its kinds, `element`, `document`, `documentFragment`, a document fragment that is no shadow root, and `shadowRoot`, each recognized by its test, so a bound node is classified as the kind it is and never as `node` itself. `window` is a reference type of a hierarchy of its own, no node.
 
 <a id="nodes-kinds-fit-where-a-node-does"></a>
 
 ### Kinds fit where a node does
 
-A value of a kind fits where a `node` is expected, and a `node` fits where a kind is expected only through a cast, so a kind's own members, such as an element's `rect`, are read of a `node` through one: `(panel.parent as "element")?.rect`.
+As Lexica's reference types set out, a value of a kind fits where a `node` is expected, and a `node` fits where a kind is expected only through a cast, so a kind's own members, such as an element's `rect`, are read of a `node` through one: `(panel.parent as "element")?.rect`.
 
 <a id="nodes-of-two-kinds"></a>
 
 ### Of two kinds
 
-Values of two different kinds, a conditional's branches, a coalescing operator's sides or the items of a bound list, are of the type `node`, so `if wide then panel else document end` is a `node`.
+Values of two different kinds, a conditional's branches, a coalescing operator's sides or the items of a bound list, are of the type `node`, the nearest supertype they share, so `if wide then panel else domql.document end` is a `node`.
 
 <a id="nodes-declaring-on-a-node"></a>
 
 ### Declaring on a node
 
-A member declared on `node` is a member of every kind, and no member of the same name can be declared on a kind, so no declaration overrides another.
+A member declared on `node` is a member of every kind, and DOMQL's module declares no member of the same name on a kind, which Lexica refuses within one module, so no declaration overrides another.
 
 <a id="shadow-trees"></a>
 
@@ -113,22 +117,13 @@ A slot that yields no element answers the empty list, as one does whose assigned
 
 ## Evaluation and watching
 
-A query is evaluated synchronously, without yielding, and a member's implementation is synchronous.
-
-Each member declares how it obtains its value.
-
-| Reading | Meaning |
-| --- | --- |
-| Fresh | Read from the document as the query evaluates, such as an attribute or a box. |
-| Maintained | Kept by an observation the member holds, and read as that observation's latest sample, such as the browser's intersection observation. |
-| Captured | A sample taken at a moment the member documents, such as the history a member keeps or what an event carried. |
-| Derived | As the items it selects and the expression it evaluates read, such as a list's `count` or `max`. |
+A query is evaluated as Lexica evaluates an expression, synchronously, and each member declares how it reads by [Lexica's contract](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-specification.md#how-a-member-reads): DOMQL's members read fresh from the document, as an attribute or a box is, maintained by a browser observation, as `intersects` is, captured, as an event's data is, or derived, as a list's `count` is.
 
 Facts that must describe one measurement are members of one structured value, which is captured once and read by each of its members, as a rectangle's edges are.
 
-A maintained member's observation starts the first time an evaluation reads it, and the member is **pending** until its first sample arrives. `evaluate()` fails on a maintained member, since reading it waits for the first sample, which a synchronous evaluation cannot; `evaluateAsync` and a watch wait for its first sample, and an event's object expression reads it as null while it is pending. The evaluator keeps pending apart from unavailable; the [DOMQL design](domql-design.md) sets out when a request waits for first samples.
+A maintained member is **pending** until its first sample arrives, as Lexica sets out. `evaluate()` fails on a maintained member, since reading it waits for the first sample, which a synchronous evaluation cannot; `evaluateAsync` and a watch wait for its first sample, and an event's object expression reads it as null while it is pending. The evaluator keeps pending apart from unavailable; the [DOMQL design](domql-design.md) sets out when a request waits for first samples.
 
-Evaluating a query is read-only for every vocabulary. A measurement that needs the document changed first, such as measuring columns at their intrinsic widths under a temporary class, is an action of its own.
+Evaluating a query is read-only, as [Lexica requires](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-specification.md#how-a-member-reads) of every vocabulary. A measurement that needs the document changed first, such as measuring columns at their intrinsic widths under a temporary class, is an action of its own.
 
 A member whose result depends on what happened before, as well as on the document as it is, is captured: it keeps that history while a watch or an event listener holds it, and documents what an evaluation once reports without it.
 
@@ -146,17 +141,17 @@ An element with a layout box whose dimensions are zero has actual measurements o
 
 ### How a member changes
 
-Every member declares how its result changes, for a given receiver and arguments.
+Every member declares how its result changes, by the categories [Lexica defines](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-specification.md#how-a-member-changes), and a watch decides by each what it may follow:
 
-| Category | Meaning | In a watch |
+| Category | As in DOMQL | In a watch |
 | --- | --- | --- |
-| Constant | The result never changes, as a literal's, or whether the browser offers a capability `supports` asks. | Allowed; it never invalidates. |
-| Observable | The member names observations that cover every change to its result, such as a resize observation for a size. | Allowed. |
-| Partly observable | The member names the observations it can make and documents the changes they miss, such as a computed style changed by a rule outside the element. | Allowed when the caller accepts partial observation for that watch; a change the observations miss reaches the watch at its next evaluation, which `refreshAsync` or another observed change causes. |
-| Unobserved | The member can be read but names no observations. | A validation error. |
-| Derived | The result changes as the items it selects and the expression it evaluates do, such as a list's `first` or `where`. | Allowed wherever what it derives from is. |
+| Constant | Whether the browser offers a capability `supports` asks | Allowed; it never invalidates. |
+| Observable | A size, which a resize observation covers | Allowed. |
+| Partly observable | A computed style, which a rule outside the element can change unobserved | Allowed when the caller accepts partial observation for that watch; a change the observations miss reaches the watch at its next evaluation, which `refreshAsync` or another observed change causes. |
+| Unobserved | A member that names no observations | A validation error. |
+| Derived | A list's `first` or `where` | Allowed wherever what it derives from is. |
 
-A literal is constant, so a watched object expression can carry one: `viewport { kind = "viewport", width = context.size?.width }`.
+A literal is constant, so a watched object expression can carry one: `viewport { kind = "viewport", width = it.size?.width }`.
 
 A watch can miss a detached tree inserted into another tree: nothing in the inserted tree changes, a shadow root's changes reach no observation of the document, and only an observation of the tree it enters would report the insertion, a tree no watch can know of beforehand.
 
@@ -174,7 +169,22 @@ A field of a structured value, such as a rectangle's `width`, is data the value 
 
 A member available on a node is available on each of its kinds, one available on an element on elements alone, and one available on a shadow view on an element's `shadow`.
 
-In this section: [Properties](#properties) · [Functions](#functions) · [Conditions](#conditions) · [Built-in conversions](#built-in-conversions) · [Event sources](#event-sources).
+In this section: [Module members](#module-members) · [Properties](#properties) · [Functions](#functions) · [Predicates](#conditions) · [Built-in conversions](#built-in-conversions) · [Event sources](#event-sources).
+
+Lexica's own module declares the members of lists, `count`, `first`, `last`, `item`, `max`, `min`, `sum` and `where`, and the verbs `is`, `has` and `supports`; the entries below for them point to Lexica's specification, which defines them.
+
+<a id="module-members"></a>
+
+### Module members
+
+DOMQL's module, `domql`, declares two [module members](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-specification.md#namespaces-module-members), read through its namespace, each with no receiver:
+
+| Member | Type | Reads | Changes |
+| --- | --- | --- | --- |
+| `domql.document` | `document` | The document the query runs against, from the environment its host gives | Constant for an evaluator |
+| `domql.window` | `window` | That document's window, which is also the layout viewport | Constant for an evaluator |
+
+Neither needs a binding, and a caller's binding named `domql` is read as `~domql`.
 
 <a id="properties"></a>
 
@@ -202,7 +212,6 @@ A property exposes a value, read by property access, and takes no argument. Each
 | Element | [`attached`](#property-element-attached) | `boolean` |
 | Element | [`hasChildren`](#property-element-haschildren) | `boolean` |
 | Element | [`hasSelection`](#property-element-hasselection) | `boolean` |
-| List | [`count`, `first`, `last`](#property-list-count-first-last) | `number`, `T?`, `T?` for a `list<T>` |
 
 <a id="property-window-size"></a>
 
@@ -356,7 +365,7 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 **Type:** `aria`   **Reads:** Fresh
 
-**Result.** Its view of its ARIA states, whose [conditions](#conditions) `is` tests and whose default indexer reads its ARIA attributes
+**Result.** Its view of its ARIA states, whose [predicates](#conditions) `is` tests and whose default indexer reads its ARIA attributes
 
 **Changes.** Constant
 
@@ -426,17 +435,13 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 #### List: count, first, last
 
-**Type:** `number`, `T?`, `T?` for a `list<T>`   **Reads:** As their items
-
-**Result.** The number of items, the first item and the last item, null where a list has none
-
-**Changes.** As their items
+`count`, `first` and `last` are properties [Lexica's own module](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-specification.md#lists) declares, which owns lists, and Lexica's specification defines.
 
 <a id="functions"></a>
 
 ### Functions
 
-A function performs a lookup, a calculation or a selection with the argument it is given. A name with parentheses, as `closest(selector)`, is a call, `context.closest(".row")`; a name in brackets after a colon, as `:attribute[name]`, is a named indexer, `context:attribute["data-key"]`; and braces show an options object, whose fields supply the parameters, as `intersects({ root, margin })` does, `context.intersects({ root = panel })`.
+A function performs a lookup, a calculation or a selection with the argument it is given. A name with parentheses, as `closest(selector)`, is a call, `it.closest(".row")`; a name in brackets after a colon, as `:attribute[name]`, is a named indexer, `it:attribute["data-key"]`; and braces show an options object, whose fields supply the parameters, as `intersects({ root, margin })` does, `it.intersects({ root = panel })`.
 
 Each function states what it answers, how its result changes, how it reads, and which of its parameters are fixed.
 
@@ -446,7 +451,6 @@ Each function states what it answers, how its result changes, how it reads, and 
 | Element | [`:attribute[name]`, the default indexer, `:[name]`](#function-element-attribute) |
 | ARIA view | [`:attribute[name]`, the default indexer, `:[name]`](#function-aria-view-attribute) |
 | Element | [`:class[name]`](#function-element-class) |
-| Any | [`is(name)`, `has(name)`, `supports(name)`](#function-any-is-has-supports) |
 | Element | [`:style[property]`](#function-element-style) |
 | Element | [`intersects({ root, margin })`](#function-element-intersects) |
 | Element | [`overlaps({ other, margin })`](#function-element-overlaps) |
@@ -454,9 +458,6 @@ Each function states what it answers, how its result changes, how it reads, and 
 | Element | [`rectRelativeTo(relativeTo)`](#function-element-rectrelativeto) |
 | Element | [`closest(selector)`](#function-element-closest) |
 | Node | [`first(selector)`, `all(selector)`](#function-node-first-all) |
-| List | [`:item[index]`, the default indexer, `:[index]`](#function-list-item) |
-| List | [`max(expression)`, `min(expression)`, `sum(expression)`](#function-list-max-min-sum) |
-| List | [`where(expression)`](#function-list-where) |
 
 <a id="function-window-media"></a>
 
@@ -490,7 +491,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 **Syntax:** `:attribute[name]`, the default indexer, `:[name]`   **Signature:** `name`: `string` → `string?`   **Reads:** Fresh   **Fixed arguments:** None
 
-**Result.** The value of the element's own attribute `aria-` and the name, as the element's `:attribute` reads it, so `context.aria:["checked"]` is `context:["aria-checked"]`: the string as written, or null where the attribute is absent, never a Boolean
+**Result.** The value of the element's own attribute `aria-` and the name, as the element's `:attribute` reads it, so `it.aria:["checked"]` is `it:["aria-checked"]`: the string as written, or null where the attribute is absent, never a Boolean
 
 **Changes.** Observable: that attribute
 
@@ -512,11 +513,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 #### Any: is, has, supports
 
-**Syntax:** `is(name)`, `has(name)`, `supports(name)`   **Signature:** `name`: `string` → `boolean`   **Reads:** As the condition   **Fixed arguments:** `name`
-
-**Result.** Whether the condition of the name its verb asks holds for the receiver, as [conditions](#conditions) set out
-
-**Changes.** As the condition
+`is`, `has` and `supports` are [Lexica's verbs](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-specification.md#predicates), which ask a predicate by its name; DOMQL declares the predicates they ask of its receivers, as [predicates](#conditions) set out.
 
 <a id="function-element-style"></a>
 
@@ -608,11 +605,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 #### List: item
 
-**Syntax:** `:item[index]`, the default indexer, `:[index]`   **Signature:** `index`: `number` → `T?`   **Reads:** As its items   **Fixed arguments:** None
-
-**Result.** The item at the index, counted from zero, null for an index past the end, a negative one, which never counts from the end, and a fractional one; `-0` is `0`
-
-**Changes.** As its items
+`:item[index]`, the default indexer `:[index]`, is a function [Lexica's own module](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-specification.md#lists) declares, which owns lists, and Lexica's specification defines.
 
 <a id="function-list-max-min-sum"></a>
 
@@ -620,11 +613,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 #### List: max, min, sum
 
-**Syntax:** `max(expression)`, `min(expression)`, `sum(expression)`   **Signature:** `expression`: `T` → `number?`; answers `number?`, `number?`, `number`   **Reads:** As their items   **Fixed arguments:** None
-
-**Result.** An aggregate over a number expression, as the section on lists defines
-
-**Changes.** As their items and expressions
+`max`, `min` and `sum` are functions [Lexica's own module](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-specification.md#lists) declares, which owns lists, and Lexica's specification defines.
 
 <a id="function-list-where"></a>
 
@@ -632,61 +621,33 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 #### List: where
 
-**Syntax:** `where(expression)`   **Signature:** `expression`: a predicate of `T`; answers `list<T>`   **Reads:** As its items   **Fixed arguments:** None
-
-**Result.** The items for which the predicate is truthy
-
-**Changes.** As its items and expression
+`where` is a function [Lexica's own module](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-specification.md#lists) declares, which owns lists, and Lexica's specification defines.
 
 <a id="conditions"></a>
 
-### Conditions
+<a id="predicates"></a>
 
-A condition is a Boolean question of its receiver, under a name of its own, asked with one of three verbs, each an ordinary call: `is` asks a state the user, the browser or the page sets and clears over time, `context.is("checked")`; `has` a possession or a presence, `context.has("focus")`; and `supports` a capability, `window.supports("share")`.
+### Predicates
 
-Each condition is asked with its one verb, so none stands in for another, and asking it with another is a validation error giving the verb to write, as `context.is("focus")` is. A Boolean that follows from the receiver's structure, or from another member's value, is a property of it, as `attached`, `hasChildren` and `hasSelection` are.
+DOMQL's predicates ask the DOM with Lexica's three verbs: `is` a state the user, the browser or the page sets and clears over time, `it.is("checked")`; `has` a possession or a presence, `it.has("focus")`; and `supports` a capability, `domql.window.supports("share")`.
+
+Each follows [Lexica's predicate contract](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-specification.md#predicates): it is asked with its one verb, its name is fixed, it applies to the receivers it declares, and it answers a Boolean or fails the evaluation. A Boolean that follows from the receiver's structure, or from another member's value, is a property of it, as `attached`, `hasChildren` and `hasSelection` are, and `has` with the name of a presence such as `has("children")` is refused naming the property that answers it, `hasChildren`. Predicates compose as Booleans do: `it:class["open"] and it.has("focus-within")`.
 
 <a id="conditions-condition-declarations"></a>
 
-#### Condition declarations
-
-Each condition is a declaration of its own, with its name, the verb that asks it, `is` where it names none, the receivers it applies to, the function that tests it, how it changes, how it reads, the changes it misses where it is partly observable, and the observations that cover it.
-
-A test of a condition follows the condition's contract alone, so a watch of one partly observable condition needs partial observation accepted, and a watch of others does not.
-
 <a id="conditions-fixed-condition-names"></a>
-
-#### Fixed condition names
-
-The name is fixed, as a [fixed argument](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-specification.md#arguments) is: a string the query's preparation settles without reading the document, a literal, a bound parameter, or a local, a conditional binding, a conditional, a `??`, an `and` or an `or` that settles to one, never null, which selects the condition's declaration when the query is prepared.
 
 <a id="conditions-receiver-types"></a>
 
-#### Receiver types
-
-Each verb is declared on any receiver, which says only that any receiver can be asked: the condition of the name decides which receivers it applies to, so a name no condition the verb asks has is a validation error naming the conditions the verb asks, and for `has` the Boolean member that answers the presence where the receiver has one, as `hasChildren` answers for `has("children")`; and a condition of other receivers is one naming the condition, the receivers it applies to, the receiver and the conditions the verb asks of it.
-
 <a id="conditions-it-is-a-call-as-any-other"></a>
-
-#### It is a call as any other
-
-`.` requires a receiver that cannot be null, and `?.is(…)` answers null for a null receiver without testing its condition; either is validated as written, its name included, whatever its receiver is when it is evaluated.
 
 <a id="conditions-boolean-result"></a>
 
-#### Boolean result
-
-Its type is a Boolean that cannot be null, made nullable where `?.` reads a receiver that can be. A condition whose function answers anything else, or throws, fails the evaluation with an evaluation error that names the condition, the verb that selects it and the module that declares it.
-
 <a id="conditions-conditions-compose-as-booleans-do"></a>
 
-#### Conditions compose as Booleans do
+The built-in vocabulary declares these predicates, each asked with `is` but where the table names its verb, and each with its native semantics: what the browser itself decides, as its pseudo-class matches, as the document reports its own state, or as the browser offers an API.
 
-Conditions compose as Booleans do: `context:class["open"] and context.has("focus-within")`.
-
-The built-in vocabulary declares these conditions, each asked with `is` but where the table names its verb, and each with its native semantics: what the browser itself decides, as its pseudo-class matches, as the document reports its own state, or as the browser offers an API.
-
-| Receiver | Condition |
+| Receiver | Predicate |
 | --- | --- |
 | Element | [`disabled`](#condition-element-is-disabled) |
 | Element | [`readonly`](#condition-element-is-readonly) |
@@ -709,7 +670,7 @@ The built-in vocabulary declares these conditions, each asked with `is` but wher
 
 **Reads:** Fresh
 
-**True when.** The element matches `:disabled`, as the browser decides it: by its own `disabled` attribute, a disabled ancestor `fieldset` other than through that fieldset's first `legend`, or a disabled `optgroup` holding an `option`; whether it carries a `disabled` attribute is `context:["disabled"]`, a separate question
+**True when.** The element matches `:disabled`, as the browser decides it: by its own `disabled` attribute, a disabled ancestor `fieldset` other than through that fieldset's first `legend`, or a disabled `optgroup` holding an `option`; whether it carries a `disabled` attribute is `it:["disabled"]`, a separate question
 
 **Changes.** Observable: its own and its ancestors' `disabled` attributes and the structure between them
 
@@ -847,11 +808,11 @@ An element with the `inert` attribute, itself or on an ancestor in the flat tree
 
 **Changes.** Constant
 
-A condition's ARIA counterpart is no part of it: `context.is("checked")` is what `:checked` matches, whatever `aria-checked` says. An element's ARIA states are conditions of its ARIA view, `context.aria`, a value of the type `aria`, which has no data form, so a result never holds one, and `context.aria.is("checked")` tests one.
+A predicate's ARIA counterpart is no part of it: `it.is("checked")` is what `:checked` matches, whatever `aria-checked` says. An element's ARIA states are predicates of its ARIA view, `it.aria`, a value of the type `aria`, which has no data form, so a result never holds one, and `it.aria.is("checked")` tests one.
 
 Each reads the element's own attribute under a contract of its own, falling back on no native state, and observes that attribute:
 
-| Receiver | Condition |
+| Receiver | Predicate |
 | --- | --- |
 | ARIA view | [`checked`](#condition-aria-view-is-checked) |
 | ARIA view | [`disabled`](#condition-aria-view-is-disabled) |
@@ -880,15 +841,15 @@ Each reads the element's own attribute under a contract of its own, falling back
 
 **Changes.** Observable: its `aria-disabled` attribute
 
-So `context.is("checked") or context.aria.is("checked")` is whether either says checked, and `context.aria:["checked"] == "mixed"` tells a mixed state, which an ARIA condition answers false for, from the others. The ARIA view's default indexer reads the attribute written on the element, as `context:["aria-checked"]` does, and never the element's effective accessibility state.
+So `it.is("checked") or it.aria.is("checked")` is whether either says checked, and `it.aria:["checked"] == "mixed"` tells a mixed state, which an ARIA predicate answers false for, from the others. The ARIA view's default indexer reads the attribute written on the element, as `it:["aria-checked"]` does, and never the element's effective accessibility state.
 
-No other ARIA attribute is a condition until one is declared, each with a contract of its own, since not every ARIA attribute is a Boolean; an extension declares one on the ARIA view, a type it does not own, as the [rules for extensions](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-specification.md#extensions) let any module do.
+No other ARIA attribute is a predicate until one is declared, each with a contract of its own, since not every ARIA attribute is a Boolean; an extension declares one on the ARIA view, a type it does not own, as the [rules for extensions](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-specification.md#extensions) let any module do.
 
 <a id="conditions-related-questions"></a>
 
 #### Related questions
 
-`context.has("focus")` asks whether the element itself is focused, `context.has("focus-within")` whether focus is anywhere within it, and an extension can offer richer focus semantics, as a condition of elements under its module's own name or as conditions of its own types; they are separate questions with separate names.
+`it.has("focus")` asks whether the element itself is focused, `it.has("focus-within")` whether focus is anywhere within it, and an extension can offer richer focus semantics, as a predicate of elements under its module's own name or as predicates of its own types; they are separate questions with separate names.
 
 `readonly` and `text-editable` are separate questions too, and neither is the other's opposite:
 
@@ -917,7 +878,7 @@ The built-in vocabulary declares four conversions, each rejecting a value it can
 
 ### Event sources
 
-An event source delivers things that happened. It is subscribed to, never read or watched, and the object expression following it is evaluated against each event.
+An event source follows [Lexica's contract](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-specification.md#events-and-event-types): it delivers things that happened, is subscribed to and never read or watched, and the object expression following it is evaluated against each event, captured as the members its event type declares.
 
 | Available on | Source | Type | Delivers | Reads | Fixed |
 | --- | --- | --- | --- | --- | --- |
@@ -932,9 +893,7 @@ The built-in event types, and the members each event offers:
 | `drop` | `dragEvent` | `target`: `element`, `clientX`: `number`, `clientY`: `number` |
 | `focus`, `blur`, `input`, `scroll`, `resize` | `domEvent` | `target`: `element?` |
 
-An event is captured as the members its type declares when it is dispatched.
-
-A member the event carries no value of its type for is null where its type is nullable, as `domEvent`'s `target` is for a scroll or a resize that targets the document or the window, and `pointerEvent`'s `pointerType` for a browser that dispatches a click as a mouse event; where its type is not nullable, the capture fails, and the subscription reports it as it reports a failed object expression.
+An event is captured when it is dispatched. A member the event carries no value of its type for is null where its type is nullable, as Lexica sets out, so `domEvent`'s `target` is null for a scroll or a resize that targets the document or the window, and `pointerEvent`'s `pointerType` for a browser that dispatches a click as a mouse event.
 
 `on` listens passively, so it never delays or prevents what the page does with an event.
 
@@ -950,7 +909,7 @@ In this section: [What a query runs against](#what-a-query-runs-against) · [A c
 
 A query is evaluated against a document, with each parameter it names bound to something in that document or to plain data. `panel` is not found by the query: it stands for the element the caller bound under the name `panel`, which is how a query reaches a particular element without a selector for it.
 
-A query that names `panel` and `sentinel` is given those two elements, and fails to prepare when either is not bound. `document` and `window` need no binding, since they are always the document being queried and its window.
+A query that names `panel` and `sentinel` is given those two elements, and fails to prepare when either is not bound. `domql.document` and `domql.window` need no binding, since they are always the document being queried and its window.
 
 Conceptually, a caller supplies the query's text and the bindings, and gets back a result shaped like the query:
 
@@ -958,7 +917,7 @@ Conceptually, a caller supplies the query's text and the bindings, and gets back
 result = evaluate(query, bindings: { panel: <the list panel>, sentinel: <the end marker> })
 ```
 
-The bindings name only what the caller chooses. The complete query below also uses `document` and `window`, which are absent from them because they are the document the query runs against and its window, which no caller chooses; a caller's binding of either name would be read as `~document` or `~window`.
+The bindings name only what the caller chooses. The complete query below also reads `domql.window` and `domql.document`, which are absent from them because they are the document the query runs against and its window, which no caller chooses; a caller's binding named `window` or `document` is read by that name, as any other binding is.
 
 A caller can take that result once, keep it current as the document changes, or take one at each event the query subscribes to; how it asks for each is the [design](domql-design.md)'s to say. A value query is evaluated or watched alike; subscribing needs an event source, whose projection uses the same expression language.
 
@@ -987,29 +946,29 @@ The query reads it:
 
     // The panel itself.
     panel = panel {
-        size = context.size,
-        hasFocus = context.has("focus-within"),
-        tier = context:style["--layout-tier"],
-        columns = context.grid?.columns.count
+        size = it.size,
+        hasFocus = it.has("focus-within"),
+        tier = it:style["--layout-tier"],
+        columns = it.grid?.columns.count
     },
 
     // Every item, and the items in the panel's view; the field above hides
     // the binding panel, which ~panel reads.
     items = rows {
-        key = context:["data-key"],
-        height = context.rect?.height,
-        selected = context.aria:["selected"] == "true"
+        key = it:["data-key"],
+        height = it.rect?.height,
+        selected = it.aria:["selected"] == "true"
     },
-    inView = rows.where(context.intersects({ root = ~panel })).count,
-    tallest = rows.max(context.rect?.height),
+    inView = rows.where(it.intersects({ root = ~panel })).count,
+    tallest = rows.max(it.rect?.height),
 
     // Whether the end of the list is near, and which item is selected.
     nearEnd = sentinel.intersects({ root = ~panel, margin = 200 }),
     current = ~panel.first("[aria-selected=true]")?:["data-key"],
 
     // The window around it.
-    window = window { size = context.size, dark = context:media["(prefers-color-scheme: dark)"] },
-    visible = document.is("visible"),
+    window = domql.window { size = it.size, dark = it:media["(prefers-color-scheme: dark)"] },
+    visible = domql.document.is("visible"),
     kind = "list"
 }
 ```
@@ -1047,18 +1006,18 @@ Watching the query requires accepting partial observation, since `all`, `style`,
 | Asks | Query |
 | --- | --- |
 | Whether an element is near the end of a scrolling panel | `sentinel.intersects({ root = panel, margin = 200 })` |
-| How many items of a list are in its view | `list.all("li").where(context.intersects({ root = list })).count` |
+| How many items of a list are in its view | `list.all("li").where(it.intersects({ root = list })).count` |
 | A layout tier a container query sets | `header:style["--layout-tier"]` |
 | How many columns a grid lays out | `cards.grid?.columns.count` |
-| A table's tallest row | `table.all("tbody tr").max(context.rect?.height)` |
-| Each column's key and width | `table.all("[data-column]") { key = context:["data-column"], width = context.rect?.width }` |
-| A panel's size, and whether focus is within it | `panel { size = context.size, hasFocus = context.has("focus-within") }` |
-| A text field's selection | `field.selection { start = context.start, finish = context.end }` |
-| Whether sharing is available | `window.supports("share")` |
-| The ids of the text-editable elements in a panel | `panel.all("*").where(context.is("text-editable")) { id = context:["id"] }` |
-| An element's states and what it holds | `target { attached = context.attached, disabled = context.is("disabled"), hasChildren = context.hasChildren, hasSelection = context.hasSelection }` |
+| A table's tallest row | `table.all("tbody tr").max(it.rect?.height)` |
+| Each column's key and width | `table.all("[data-column]") { key = it:["data-column"], width = it.rect?.width }` |
+| A panel's size, and whether focus is within it | `panel { size = it.size, hasFocus = it.has("focus-within") }` |
+| A text field's selection | `field.selection { start = it.start, finish = it.end }` |
+| Whether sharing is available | `domql.window.supports("share")` |
+| The ids of the text-editable elements in a panel | `panel.all("*").where(it.is("text-editable")) { id = it:["id"] }` |
+| An element's states and what it holds | `target { attached = it.attached, disabled = it.is("disabled"), hasChildren = it.hasChildren, hasSelection = it.hasSelection }` |
 | Whether a control cannot take text | `input.is("disabled") or input.is("readonly")` |
-| A control's state, one word | `input { state = if context.is("disabled") then "locked" elseif context.is("readonly") then "read" else "open" end }` |
+| A control's state, one word | `input { state = if it.is("disabled") then "locked" elseif it.is("readonly") then "read" else "open" end }` |
 | Whether an element has no parent | `panel.parent == null` |
 | The width of an element's parent element, null where the parent is none or no element | `(try panel.parent as "element")?.rect?.width` |
-| A list's size and its tallest item, the list read once | `panel { let items = context.all("[data-key]"), count = items.count, tallest = items.max(context.rect?.height) }` |
+| A list's size and its tallest item, the list read once | `panel { let items = it.all("[data-key]"), count = items.count, tallest = items.max(it.rect?.height) }` |
