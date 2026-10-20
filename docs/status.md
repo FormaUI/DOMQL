@@ -2,7 +2,7 @@
 
 What this repository implements today, what is being built, and what remains. The [specification](../spec/README.md) is the contract and the [design](domql-design.md) the architecture; this document tracks how far the implementation has come. The language is Lexica's, and [Lexica's status](https://github.com/FormaUI/Lexica/blob/main/docs/status.md) tracks it.
 
-The specification describes DOMQL on Lexica's definition version 32. **The runtime reads definition version 31**: it writes the implicit parameter `context`, and reads `document` and `window` as roots where version 32 reads `domql.document` and `domql.window`. [Definition version 32](#definition-version-32) sets out what DOMQL still has to do for it.
+The specification describes DOMQL on Lexica's definition version 32. **DOMQL reads definition version 31**: its queries write the implicit parameter `context`, and read `document` and `window` as roots where version 32 reads `domql.document` and `domql.window`. [Definition version 32](#definition-version-32) sets out what DOMQL still has to do for it.
 
 | Status | Meaning |
 | --- | --- |
@@ -20,21 +20,24 @@ The specification describes DOMQL on Lexica's definition version 32. **The runti
 | --- | --- | --- | --- |
 | Nodes and shadow trees | Partial | The node types are still built into Lexica, recognized by `nodeType`; DOMQL declares them as reference types with version 32 | [Nodes and shadow trees](../spec/nodes-and-shadow-trees.md) |
 | Properties, functions and predicates | Implemented | | [Built-in vocabulary](../spec/vocabulary.md) |
-| Conversions and event sources | Implemented | | [Built-in vocabulary](../spec/vocabulary.md#built-in-conversions) |
+| Conversions | Implemented | | [Built-in conversions](../spec/vocabulary.md#built-in-conversions) |
+| Event sources and event types | Implemented | | [Events](../spec/events.md#event-sources) |
+| Observation types | Implemented | | [Observation types](../spec/vocabulary.md#observations-types) |
 | `domql.document` and `domql.window` | Planned | Today `document` and `window` are roots of the language | [Module members](../spec/vocabulary.md#module-members) |
-| Observation targets DOMQL declares and resolves | Planned | Lexica still knows `window`, `document`, `root` and `roots` by name | [Trees and slots](domql-design.md#trees-and-slots) |
+| Observation targets DOMQL declares and resolves | Planned | Lexica still knows `window`, `document`, `root` and `roots` by name | [Observation targets](../spec/vocabulary.md#observations-targets) |
+| Extension modules | Partial | Declared in Lexica's version 32 shape; namespaces, qualified access and owner precedence come with Lexica's version 32 | [Extension modules](../spec/vocabulary.md#extension-modules) |
 
-### The runtime
+### The host
 
 | Area | Status | What remains | Contract |
 | --- | --- | --- | --- |
-| Queries from text or a definition, `with`, `select` and `resolve` | Implemented | | [Making a query](domql-design.md#making-a-query) |
-| `evaluate` and `evaluateAsync` | Implemented | | [Evaluating](domql-design.md#evaluating), [waiting](domql-design.md#waiting-for-maintained-members) |
-| Watches, their dependencies and partial observation | Implemented | | [Watching and dependencies](domql-design.md#watching-and-dependencies) |
-| Snapshots, live state and change sets | Implemented | | [Snapshots, live state and change sets](domql-design.md#snapshots-live-state-and-change-sets) |
-| Subscriptions | Implemented | | [Event delivery](domql-design.md#event-delivery) |
-| Actions and behaviors | Implemented | | [Actions and behaviors](domql-design.md#actions-and-behaviors) |
-| Extension modules | Partial | Declared in Lexica's version 32 shape; namespaces, qualified access and owner precedence come with Lexica's version 32 | [Lexica's modules](https://github.com/FormaUI/Lexica/blob/main/spec/modules.md) |
+| Queries from text or a definition, `with`, `select` and `resolve` | Implemented | | [Queries](../spec/queries.md) |
+| `evaluate` and `evaluateAsync` | Implemented | | [Evaluation](../spec/evaluation.md) |
+| Watches, their dependencies and partial observation | Implemented | | [Watching](../spec/watching.md) |
+| Snapshots, live state and change sets | Implemented | | [Results](../spec/results.md) |
+| Subscriptions | Implemented | | [Events](../spec/events.md#subscribing) |
+| Actions and behaviors | Implemented | | [Actions and behaviors](../spec/actions-and-behaviors.md) |
+| Handles and their events, lifetimes and errors | Implemented | | [The API](../spec/api.md) |
 
 ### Delivery
 
@@ -44,7 +47,7 @@ The specification describes DOMQL on Lexica's definition version 32. **The runti
 | Consuming Lexica | Partial | See [consuming Lexica](#consuming-lexica) | |
 | npm and NuGet packages | Planned | Packed locally and not published | [Consuming Lexica](#consuming-lexica) |
 | Beta | Partial | The documents and the module API are audited; the changelog and the beta version remain | [Beta](#beta) |
-| The C# half | Planned | Not started; its API and its synchronization are designed | [The API](domql-design.md#the-api), [a .NET host](domql-design.md#a-net-host) |
+| The C# half | Planned | Not started; its API and its synchronization are designed | [The C# half](domql-design.md#the-c-half) |
 | Editor tooling | Planned | Lexica's, through its syntax tree | [Lexica's status](https://github.com/FormaUI/Lexica/blob/main/docs/status.md) |
 
 **Verification outside the gate.** `window.size` following a scrollbar that appears or goes is shown only by an experiment outside the gate, since the gate's Chromium hides scrollbars; a browser test with a launch of its own would bring it in without changing the other tests' geometry. Performance is measured outside the gate too, by `npm run bench` and `npm run scale` from `tests/`.

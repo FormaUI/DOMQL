@@ -1,5 +1,14 @@
 # Examples
 
+<a id="examples-and-usage"></a>
+
+These examples show the vocabulary and its host together: one complete query with the document it reads and the result it answers, and short queries by the question each asks.
+
+In this document:
+
+1. [A complete query](#a-complete-query)
+2. [Queries by what they ask](#examples)
+
 <a id="a-complete-query"></a>
 
 ## A complete query

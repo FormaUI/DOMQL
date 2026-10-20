@@ -1,16 +1,33 @@
 # Built-in vocabulary
 
 <a id="built-in-vocabulary"></a>
+<a id="vocabulary"></a>
 
-The built-in vocabulary exposes properties and functions over familiar browser concepts. Properties and functions are named in camelCase. Names are case-sensitive. Measurements use CSS pixels unless stated otherwise. Built-in members expose state or event sources; actions and behaviors come from extensions.
+The **built-in vocabulary** is what DOMQL's module, `domql`, declares: the DOM's types, and the module members, properties, functions, predicates, conversions, event sources and observations a query reads them through. Everything a query can ask about is a member a module contributes, DOMQL's own module and every extension by one contract, so adding a member leaves the grammar unchanged.
 
-A field of a structured value, such as a rectangle's `width`, is data the value holds, read by property access, and is constant for that value. A property is read by property access, and a function is written as a call or as a named indexer, as its declaration says; the tables write each as it is written, with a receiver left out.
+```domql
+panel.size?.width                        // A property of an element, then a field of the size it answers.
+panel:["data-key"]                       // An attribute, through the default indexer.
+panel.closest(".row")                    // A function, given its selector.
+panel.is("disabled")                     // A predicate, asked with is.
+domql.window:media["(min-width: 40em)"]  // A named indexer of the window, a module member.
+```
 
-A member available on a node is available on each of its kinds, one available on an element on elements alone, and one available on a shadow view on an element's `shadow`.
+Properties and functions are named in camelCase, and names are case-sensitive. Built-in members expose state or event sources; actions and behaviors come from extensions. A property is read by property access, and a function is written as a call or as a named indexer, as its declaration says; the tables write each as it is written, with a receiver left out. A member available on a node is available on each of its kinds, one available on an element on elements alone, and one available on a shadow view on an element's `shadow`.
 
-In this document: [Module members](#module-members) · [Properties](#properties) · [Functions](#functions) · [Predicates](#conditions) · [Built-in conversions](#built-in-conversions) · [Event sources](#event-sources).
+Lexica's own module declares the members of lists, `count`, `first`, `last`, `item`, `max`, `min`, `sum` and `where`, and the verbs `is`, `has` and `supports`; the entries below for them point to Lexica's specification, which defines them. DOMQL's event sources and event types are set out in [events](events.md).
 
-Lexica's own module declares the members of lists, `count`, `first`, `last`, `item`, `max`, `min`, `sum` and `where`, and the verbs `is`, `has` and `supports`; the entries below for them point to Lexica's specification, which defines them.
+In this document:
+
+1. [Module members](#module-members)
+2. [Types](#vocabulary-types)
+3. [Measurements and layout](#vocabulary-measurements-and-layout)
+4. [Properties](#properties)
+5. [Functions](#functions)
+6. [Predicates](#conditions)
+7. [Built-in conversions](#built-in-conversions)
+8. [Observations](#observations)
+9. [Extension modules](#extension-modules)
 
 <a id="module-members"></a>
 
@@ -20,16 +37,42 @@ DOMQL's module, `domql`, declares two [module members](https://github.com/FormaU
 
 | Member | Type | Reads | Changes |
 | --- | --- | --- | --- |
-| `domql.document` | `document` | The document the query runs against, from the environment its host gives | Constant for an evaluator |
+| `domql.document` | `document` | The document the query runs against, from the environment DOMQL gives its evaluator | Constant for an evaluator |
 | `domql.window` | `window` | That document's window, which is also the layout viewport | Constant for an evaluator |
 
 Neither needs a binding, and a caller's binding named `domql` is read as `~domql`.
+
+<a id="vocabulary-types"></a>
+
+## Types
+
+Besides the [nodes](nodes-and-shadow-trees.md#nodes) and the window, which a query reads through and a result never holds, DOMQL's module declares structured types, which hold data, and two views, which give an element's relationships members of their own:
+
+| Type | What it is | Fields |
+| --- | --- | --- |
+| `size` | A width and a height | `width`, `height`: `number` |
+| `rectangle` | A box's edges and size | `left`, `top`, `right`, `bottom`, `width`, `height`: `number` |
+| `selection` | A text selection's range | `start`, `end`: `number` |
+| `grid` | A grid's column tracks | `columns`: `list<number>` |
+| `shadow` | An element's [shadow view](nodes-and-shadow-trees.md#shadow-trees-the-view) | None, since it has no data form |
+| `aria` | An element's [ARIA view](#conditions) | None, since it has no data form |
+
+A field of a structured value, such as a rectangle's `width`, is data the value holds, read by property access, and is constant for that value. Facts that must describe one measurement are members of one structured value, which is captured once and read by each of its members, as a rectangle's edges are. The types of event data are set out in [events](events.md#event-types).
+
+<a id="vocabulary-measurements-and-layout"></a>
+<a id="elements-without-a-layout-box"></a>
+
+## Measurements and layout
+
+Measurements use CSS pixels unless stated otherwise. An element is a value whether or not it is in the document. A member that needs an element's layout answers null while the element has no layout box: while it is detached, and while the browser generates no box for it, as when it or an ancestor is `display: none` or it is `display: contents`.
+
+An element with a layout box whose dimensions are zero has actual measurements of zero, and one hidden visually that keeps its box measures as it is. Its attributes and structure still read, and `attached` says whether it is attached, whatever its layout. A watch that read null of a detached element follows it back into the document, as [elements that leave the document](watching.md#elements-that-leave-the-document) sets out.
 
 <a id="properties"></a>
 
 ## Properties
 
-A property exposes a value, read by property access, and takes no argument. Each property states what it answers, how its result changes, and how it reads, as the section on evaluation defines.
+A property exposes a value, read by property access, and takes no argument. Each property states what it answers, how its result changes, and how it reads, as [how DOMQL's members read](evaluation.md#evaluation-how-members-read) and [how a member changes](watching.md#how-a-member-changes) define.
 
 | Receiver | Property | Type |
 | --- | --- | --- |
@@ -228,7 +271,7 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 **Type:** `list<element>?`   **Reads:** Fresh
 
-**Result.** The elements its slot shows, flattened, as the section on shadow trees sets out, and null for an element that is no slot
+**Result.** The elements its slot shows, flattened, as [`shadow.elements`](nodes-and-shadow-trees.md#shadow-trees-shadowelements) sets out, and null for an element that is no slot
 
 **Changes.** Partly observable: assignment, the fallback and the slot's moves are observed; its detached tree inserted into a shadow tree that assigns it nothing is not
 
@@ -713,25 +756,50 @@ The built-in vocabulary declares four conversions, each rejecting a value it can
 | `boolean` | `string` | `"true"` or `"false"` |
 | `string` | `boolean` | `"true"` and `"false"`, exactly; any other text fails, `"TRUE"`, `"1"` and `" true"` among them |
 
-<a id="event-sources"></a>
+<a id="observations"></a>
 
-## Event sources
+## Observations
 
-An event source follows [Lexica's contract](https://github.com/FormaUI/Lexica/blob/main/spec/vocabulary.md#events-and-event-types): it delivers things that happened, is subscribed to and never read or watched, and the object expression following it is evaluated against each event, captured as the members its event type declares.
+A member names the [observations](https://github.com/FormaUI/Lexica/blob/main/spec/vocabulary.md#observations) that cover its changes, each by its type and its target, and DOMQL starts each one that a watch, a waiting evaluation or an event's object expression needs, and stops it once nothing needs it. DOMQL's module declares the browser's observations as eight observation types, which the members of any module can name, and four observation targets.
 
-| Available on | Source | Type | Delivers | Reads | Fixed |
-| --- | --- | --- | --- | --- | --- |
-| Element, document, window | `on(type)` | `type`: `string` → `event<T>` for the event type `type` names | The native events of that type as they reach it, each with the members its declared event type offers, such as a pointer event's `button`, `clientX` and `clientY`; a type the vocabulary declares no event type for is a validation error | Captured at dispatch | `type` |
+<a id="observations-types"></a>
 
-The built-in event types, and the members each event offers:
+### Observation types
 
-| Event types | Event data type | Members |
+Each type is shared by equivalent requests, those of the same target and the same arguments of its identity in the same window, so two requests that differ in an argument that changes what is observed, such as an intersection's root or margin, never share.
+
+| Type | Contract | Observes | Arguments | Identity |
+| --- | --- | --- | --- | --- |
+| `resize` | Invalidation | The size of an element's box, or of the window's layout viewport, a viewport scrollbar appearing or going included | `box`: the box `ResizeObserver` observes, `border-box` when omitted, or `client`, the border box and the content box both | `box` |
+| `mutation` | Invalidation | A node's attributes, its children or its text, and its descendants' where `subtree` says so | `attributes`: `true`, or a list of attribute names; `childList`, `subtree` and `characterData`, Booleans, false when omitted; at least one of attributes, children and text is observed | All four |
+| `attachment` | Invalidation | Whether a node is attached to its document, through every shadow root between them, a node another document owns inserted into the window's document included | None | None |
+| `intersection` | Maintained | Whether the browser reports an element intersecting a root, or the window where the root is null, grown by a margin in CSS pixels; pending until its first report | `root`, an element or null, null when omitted; `margin`, a number, 0 when omitted | `root`, `margin` |
+| `media` | Invalidation | Whether a media query matches | `query`, the media query | `query` |
+| `pixelRatio` | Invalidation | The device pixel ratio | None | None |
+| `event` | Invalidation | Events of the given types reaching the target, or reaching it in the capture phase | `types`, a list of event types; `capture`, a Boolean, false when omitted | `types`, `capture` |
+| `visibility` | Invalidation | Whether the document is visible | None | None |
+
+<a id="observations-targets"></a>
+
+### Observation targets
+
+An observation observes its member's receiver, an argument, `{ argument }`, or a target DOMQL's module declares, as Lexica's [observation targets](https://github.com/FormaUI/Lexica/blob/main/spec/vocabulary.md#observations-targets) set out:
+
+| Target | Found from the receiver | Observes |
 | --- | --- | --- |
-| `click`, `pointerdown`, `pointerup` | `pointerEvent` | `target`: `element`, `button`: `number`, `buttons`: `number`, `clientX`: `number`, `clientY`: `number`, `pointerType`: `string?` |
-| `keydown`, `keyup` | `keyboardEvent` | `target`: `element`, `key`: `string`, `code`: `string` |
-| `drop` | `dragEvent` | `target`: `element`, `clientX`: `number`, `clientY`: `number` |
-| `focus`, `blur`, `input`, `scroll`, `resize` | `domEvent` | `target`: `element?` |
+| `window` | No | The window the query runs against |
+| `document` | No | The document the query runs against |
+| `root` | Yes, one target | The receiver's [root](nodes-and-shadow-trees.md#trees-and-slots) |
+| `roots` | Yes, several targets | The receiver's [roots](nodes-and-shadow-trees.md#trees-and-slots), which no maintained observation observes, since it gives its member one sample |
 
-An event is captured when it is dispatched. A member the event carries no value of its type for is null where its type is nullable, as Lexica sets out, so `domEvent`'s `target` is null for a scroll or a resize that targets the document or the window, and `pointerEvent`'s `pointerType` for a browser that dispatches a click as a mouse event.
+DOMQL resolves each target as it starts an observation, and each evaluation that reaches the member finds `root` and `roots` again, so a watch observes the trees its receiver is in as the receiver moves, as [trees and slots a watch follows](watching.md#trees-and-slots-a-watch-follows) set out.
 
-`on` listens passively, so it never delays or prevents what the page does with an event.
+<a id="extension-modules"></a>
+
+## Extension modules
+
+A module extends the built-in vocabulary as Lexica's [modules](https://github.com/FormaUI/Lexica/blob/main/spec/modules.md#modules) set out: it declares types of its own, and members, predicates, event types, observation types and conversions on its own types or, under the [rules for extensions](https://github.com/FormaUI/Lexica/blob/main/spec/modules.md#extensions), on DOMQL's. `domql.createModule(name, contents)` creates one from its declarations, each that runs code carrying its implementation, and `domql.registerModule(module)` registers it in the instance's registry, which holds DOMQL's module and every module registered with it. A request is prepared against the vocabulary registered when it is first carried out, so a module a query names is registered beforehand, once, rather than for every evaluation.
+
+- **What an implementation receives.** Every implementation receives the one object Lexica's [implementations](https://github.com/FormaUI/Lexica/blob/main/spec/members.md#members-what-an-implementation-receives) receive, whose `env` holds the `window` and the `document` the query runs against.
+- **Reading.** A member's implementation is synchronous and reads alone, as Lexica requires of every vocabulary, so evaluating, watching and subscribing change nothing; a change to the page is an [action or a behavior](actions-and-behaviors.md).
+- **Observations.** A member of any module names DOMQL's observation types and targets as DOMQL's own members do. An observation type a module declares is started by its implementation, which receives `request`, the observation's `type`, its `target` and its `arguments`, each argument the member names resolved to its value; `notify`, which it calls when what it observes may have changed; and `env`. It answers an object whose `stop()` ends the observation and, for a maintained observation, whose `sample()` answers its latest sample, `{ pending, value }`.

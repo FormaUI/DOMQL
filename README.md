@@ -96,9 +96,9 @@ The source import above works when serving the repository; the [library guide](n
 | Document | What it holds |
 | --- | --- |
 | [Library guide](nuget/README.md) | Install DOMQL, learn the language by example and use the API |
-| [DOMQL specification](spec/README.md) | The DOM's nodes and shadow trees, the built-in vocabulary, and how a query is evaluated and watched |
+| [DOMQL specification](spec/README.md) | Queries, the DOM's vocabulary, evaluating and watching a query, its results, events, actions and behaviors, and the API |
 | [Lexica specification](https://github.com/FormaUI/Lexica/blob/main/spec/README.md) | The language DOMQL is written in |
-| [Design](docs/domql-design.md) | How the runtime works, and its API |
+| [Design](docs/domql-design.md) | How DOMQL is built, and the decisions it did not take |
 | [Status](docs/status.md) | What is implemented, what is being built, and what remains |
 | [Contributing](CONTRIBUTING.md) | Report a bug, develop a change and run the checks |
 | [Security](SECURITY.md) | Report a vulnerability privately |

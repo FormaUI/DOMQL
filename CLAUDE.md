@@ -9,14 +9,14 @@ Read the documents that govern the affected contract:
 | Document | Authority |
 | --- | --- |
 | [Lexica specification](https://github.com/FormaUI/Lexica/blob/main/spec/README.md) | The language, Lexica's, in its own repository: syntax, resolution, values, requests, vocabulary contracts, definitions and diagnostics |
-| [DOMQL specification](spec/README.md) | The DOM's nodes and shadow trees, the built-in vocabulary, evaluation and watching, one document per subject |
-| [Lexica design](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md) | Modules, their declarations and registration, and tooling |
-| [DOMQL design](docs/domql-design.md) | Runtime architecture and public API: preparation, sessions, watching, snapshots, live state, events, actions and behaviors, the .NET host, and the decisions not taken |
+| [DOMQL specification](spec/README.md) | DOMQL's module and DOMQL as host: queries, nodes and shadow trees, the built-in vocabulary, evaluation, watching, results, events, actions and behaviors, and the public API, one document per subject |
+| [Lexica design](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md) | How Lexica is built: its stages, registries, evaluation and tooling |
+| [DOMQL design](docs/domql-design.md) | How DOMQL is built: its architecture, preparation, sessions, watching, comparing and patching, the C# half, and the decisions not taken |
 | [Status](docs/status.md) | What is implemented, what is in progress, what remains, open decisions and deferred work |
 | [Library guide](nuget/README.md) | Using DOMQL by example; it ships in the package, so it links absolutely |
 | `.editorconfig` | Code style; read it before writing C# |
 
-Update the specification before implementing a language change, and the design before changing a runtime or public API contract. Each subject has one home: state a rule where it belongs and link to it elsewhere; a rule of the language is Lexica's. Record a gap between the design and the code in the status overview until it closes, and update a row's status as soon as its work lands.
+Update the specification before changing a contract, the vocabulary, the API or what an operation does, and the design before changing how DOMQL is built. Each subject has one home: state a rule where it belongs and link to it elsewhere; a rule of the language is Lexica's. Record a gap between the design and the code in the status overview until it closes, and update a row's status as soon as its work lands.
 
 Use these sources rather than inventing scope, status or style rules.
 
@@ -95,7 +95,7 @@ Every compiler warning is a build failure. Keep `*.bench.js` and `*.scale.js` be
 
 ## Documentation and versions
 
-The specification explains what the language means; the design explains how the runtime works. Avoid duplicating their contracts. Keep documentation examples valid and checked by the parser. Comments and summaries state what a thing is, rather than narrating how or why it was implemented.
+The specification states the contract; the design explains how DOMQL is built to meet it. Avoid duplicating their contracts. Keep documentation examples valid and checked by the parser. Comments and summaries state what a thing is, rather than narrating how or why it was implemented.
 
 Use these version rules:
 

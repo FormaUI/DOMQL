@@ -1,50 +1,41 @@
 # DOMQL Specification v1.0.0-alpha
 
-DOMQL reads the DOM and shapes the result as data. Its queries are written in [Lexica](https://github.com/FormaUI/Lexica/blob/main/spec/README.md), whose specification defines the language: expressions, names, types, functions, requests, vocabulary contracts and definitions. This specification defines what DOMQL adds: the DOM's nodes and shadow trees, the built-in vocabulary, and how a query is evaluated and watched. It adds no language rule; a rule of the language is Lexica's, and this specification links to it.
+DOMQL reads the DOM and shapes what it reads as data, keeps that data current as the document changes, delivers the page's events as data, and carries out the actions and behaviors its modules declare. Its queries are scripts written in [Lexica](https://github.com/FormaUI/Lexica/blob/main/spec/README.md), whose specification defines the language and the runtime that reads, resolves and evaluates a script. DOMQL declares the DOM as Lexica's domain, in a module like any other, and is the host that carries each query out against a document. It adds no language rule: a rule of the language is Lexica's, and this specification links to it.
 
-This specification is the authoritative contract for DOMQL. It states what DOMQL is, not how far its implementation has come: [the status overview](../docs/status.md) says what this repository implements, and [the design](../docs/domql-design.md) how its runtime builds, prepares and carries out requests.
+This specification is the authoritative contract for DOMQL. It states what DOMQL is, not how far its implementation has come: [the status overview](../docs/status.md) says what this repository implements, and [the design](../docs/domql-design.md) how it is built.
 
 <a id="version"></a>
 
 **Version.** This specification describes DOMQL on Lexica's [definition version 32](https://github.com/FormaUI/Lexica/blob/main/spec/README.md#version).
 
+## What it covers
+
+Five layers meet whenever a query runs. Lexica's specification covers the first two, and this one the two that are DOMQL's:
+
+| Layer | What it owns | Documents |
+| --- | --- | --- |
+| The language | What a query means: its syntax, names and scope, values and types, expressions and functions, members, and the contracts a vocabulary keeps | [Lexica's specification](https://github.com/FormaUI/Lexica/blob/main/spec/README.md) |
+| The runtime | Reading, resolving and evaluating a script for a host, with its bindings and its results | [Lexica's runtime](https://github.com/FormaUI/Lexica/blob/main/spec/runtime.md) |
+| DOMQL's module | The DOM as Lexica's domain: its nodes and shadow trees, its members and predicates, its conversions, its event sources and event types, and the observations that follow its changes | [Nodes and shadow trees](nodes-and-shadow-trees.md), [vocabulary](vocabulary.md), [events](events.md) |
+| DOMQL, the host | Carrying a query out against a document: evaluating it, watching it, delivering its events, executing its actions and applying its behaviors, through the API a caller uses | [Queries](queries.md), [evaluation](evaluation.md), [watching](watching.md), [results](results.md), [events](events.md), [actions and behaviors](actions-and-behaviors.md), [the API](api.md) |
+| The caller | The application around DOMQL: which queries it makes, when it carries each out, and what it does with each result | The caller's own |
+
 <a id="reading-this-specification"></a>
 
 ## Reading this specification
 
-Start with [a query at a glance](#a-query-at-a-glance), and look up a built-in member in [the built-in vocabulary](vocabulary.md). Examples illustrate the rules, code containing `…` is a fragment, and examples explicitly described as errors are intentionally invalid.
+Start with [queries](queries.md), which shows a query with its parameters and its result, and look up a member in [the vocabulary](vocabulary.md). Examples illustrate the rules. Code containing `…` is a fragment, and examples explicitly described as errors are intentionally invalid.
 
 ## Documents
 
-| Document | What it specifies |
-| --- | --- |
-| [Nodes and shadow trees](nodes-and-shadow-trees.md) | The DOM's node types, how kinds of node fit together, and every crossing of a shadow boundary |
-| [Evaluation and watching](evaluation-and-watching.md) | How DOMQL's members read, how each changes and what a watch may follow, elements that leave the document, and what a query runs against |
-| [Built-in vocabulary](vocabulary.md) | Every module member, property, function, predicate, conversion and event source DOMQL declares |
-| [Examples](examples.md) | A complete query with its document and result, and queries by what they ask |
-
-<a id="a-query-at-a-glance"></a>
-
-## A query at a glance
-
-```domql
-panel {
-    let rows = it.all("[data-key]"),
-    width = it.size?.width,
-    items = rows {
-        key = it:["data-key"],
-        selected = it.aria:["selected"] == "true"
-    },
-    count = rows.count
-}
-```
-
-- `panel` reads an element supplied by the caller.
-- `panel { … }` shapes a result object. Within its fields, `it` is the panel.
-- `let rows = …` names an intermediate value. It is not an output field.
-- `it:["data-key"]` reads an attribute through the default indexer.
-- `rows { … }` projects each list item. Inside that projection, `it` is the item.
-- `?.` continues only when its receiver is not null.
-- `width`, `items` and `count` are result fields. Fields and locals use `=`; equality uses `==`.
-
-A query's result contains data. To return information about an element, project the fields you need rather than returning the element itself. See [a complete query](examples.md#a-complete-query) for an input document, a full query and its result.
+1. [Queries](queries.md): what a query is and what it runs against, making a query and binding its parameters, preparation, request kinds and their operations, and selecting part of a result.
+2. [Nodes and shadow trees](nodes-and-shadow-trees.md): the DOM's node types, how kinds of node fit together, every crossing of a shadow boundary, and the trees and slots a node is in.
+3. [Built-in vocabulary](vocabulary.md): the `domql` module, its types, module members, properties, functions, predicates, conversions and observations, and the modules that extend it.
+4. [Evaluation](evaluation.md): evaluating a query once, how DOMQL's members read, waiting for maintained members, and the window an evaluation needs.
+5. [Watching](watching.md): keeping a result current, what a watch follows and what it may miss, when it evaluates, how it fails, and sharing it.
+6. [Results](results.md): snapshots, live state and change sets, when a watch reports a result that differs, and keeping a copy of a result elsewhere.
+7. [Events](events.md): event sources, event types, and subscribing to events.
+8. [Actions and behaviors](actions-and-behaviors.md): executing an action and applying a behavior.
+9. [The API](api.md): every entry point, operation and handle, the events a handle raises, lifetimes and errors.
+10. [Examples](examples.md): a complete query with its document and result, and queries by what they ask.
+11. [Terms](terms.md): the glossary.

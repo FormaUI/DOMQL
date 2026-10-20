@@ -86,17 +86,28 @@ const COMPARED = '(%) != null';
  * Every example must be one of these, so a block with no entry fails.
  */
 const DOCUMENTS = {
-    'spec/README.md': [
+    'spec/README.md': [],
+    'spec/queries.md': [
         { about: 'a query at a glance', version: 32 },
     ],
     'spec/nodes-and-shadow-trees.md': [
         { about: 'shadow trees', each: true, context: COMPARED, version: 32 },
     ],
-    'spec/evaluation-and-watching.md': [],
-    'spec/vocabulary.md': [],
+    'spec/vocabulary.md': [
+        { about: 'a member of each kind', each: true, context: COMPARED, version: 32 },
+    ],
+    'spec/evaluation.md': [],
+    'spec/watching.md': [],
+    'spec/results.md': [],
+    'spec/events.md': [
+        { about: 'a subscription reading a maintained member' },
+    ],
+    'spec/actions-and-behaviors.md': [],
+    'spec/api.md': [],
     'spec/examples.md': [
         { about: 'a complete query', version: 32 },
     ],
+    'spec/terms.md': [],
     'nuget/README.md': [
         { about: 'a count' },
         { about: 'a count of a selection' },
@@ -120,9 +131,7 @@ const DOCUMENTS = {
         { about: 'interpolated text', results: { 0: { summary: '3 items, 12 unread' } } },
         { about: 'a shadow tree', results: { 0: 1 } },
     ],
-    'docs/domql-design.md': [
-        { about: 'a subscription reading a maintained member' },
-    ],
+    'docs/domql-design.md': [],
     'docs/status.md': [],
     'README.md': [],
 };

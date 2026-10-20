@@ -905,8 +905,8 @@ console.log(panel.dataset.highlight);
 
 - [Repository README](https://github.com/FormaUI/DOMQL): what DOMQL is for, what is built, and how to build and test it.
 - [Lexica specification](https://github.com/FormaUI/Lexica/blob/main/spec/README.md): the language DOMQL is written in, its syntax, types, null semantics and vocabulary contracts.
-- [DOMQL specification](https://github.com/FormaUI/DOMQL/blob/main/spec/README.md): the DOM's nodes and shadow trees, the built-in vocabulary, and how a query is evaluated and watched.
-- [Runtime design](https://github.com/FormaUI/DOMQL/blob/main/docs/domql-design.md): resolution, evaluation, watching, subscribing to events, actions and behaviors, and the [Lexica design](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md): modules and tooling.
+- [DOMQL specification](https://github.com/FormaUI/DOMQL/blob/main/spec/README.md): queries, the DOM's vocabulary, evaluating and watching a query, its results, events, actions and behaviors, and the API.
+- [DOMQL design](https://github.com/FormaUI/DOMQL/blob/main/docs/domql-design.md): how DOMQL is built, and the decisions it did not take, and the [Lexica design](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md): how the language and its runtime are built.
 
 - [Status](https://github.com/FormaUI/DOMQL/blob/main/docs/status.md): what is implemented, what is being built, and what remains.
 
