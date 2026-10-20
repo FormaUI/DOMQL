@@ -2,9 +2,7 @@
 
 **A declarative approach to managing the DOM.**
 
-DOMQL is a query language and JavaScript library for the DOM. Use it to read information from the document, keep it current, respond to events and update the page's content or state. This guide takes you from your first query to watching results, handling events and extending the library. Its queries are written in [Lexica](https://github.com/FormaUI/Lexica), a general-purpose, embeddable language that lets applications define their own domain; DOMQL defines the DOM as that domain, and adds the observation, watching and events that follow it as it changes.
-
-DOMQL is a FormaUI product, developed alongside [Forma](https://github.com/FormaUI/Forma). It stands on its own and works independently of any UI framework.
+DOMQL is a JavaScript library for querying the DOM, allowing you to read information from a document once or observe it as it changes. This guide takes you from your first query to watching results, handling events and extending the library. Its queries are written in [Lexica](https://github.com/FormaUI/Lexica).
 
 > **Alpha:** `formaui-net.DOMQL` is not yet published to NuGet. [Build the package locally](#install-and-load) to try it. The package distributes a JavaScript ES module; the API in this guide runs in JavaScript. Every example here runs on this alpha, which reads Lexica's definition version 31: it writes the implicit parameter `context`, where version 32, which the specifications describe, writes `it`. [The status overview](https://github.com/FormaUI/DOMQL/blob/main/docs/status.md) says what is implemented and what is being built.
 

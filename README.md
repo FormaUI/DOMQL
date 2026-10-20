@@ -2,7 +2,7 @@
 
 **A declarative approach to managing the DOM.**
 
-DOMQL is a query language and JavaScript library for the DOM. Use it to read information from the document, keep it current, respond to events and update the page's content or state. Its queries are written in [Lexica](https://github.com/FormaUI/Lexica).
+DOMQL is a JavaScript library for querying the DOM, allowing you to read information from a document once or observe it as it changes. Its queries are written in [Lexica](https://github.com/FormaUI/Lexica).
 
 > **Alpha.** DOMQL reads Lexica's definition version 31, which writes the implicit parameter `context`; its specification describes version 32, which writes `it` and reads `domql.document` and `domql.window`. It is not yet published to npm or NuGet; you can [build and try it locally](#build-and-try-it). See [the status overview](docs/status.md).
 

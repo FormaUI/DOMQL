@@ -14,7 +14,7 @@
         <PackageId>formaui-net.DOMQL</PackageId>
         <VersionPrefix>1.0.0</VersionPrefix>
         <Authors>Eyal Alon</Authors>
-        <Description>DOMQL is a small, extensible query language and JavaScript library. Use it to read information from the document, track changes, respond to events and update its content or state.</Description>
+        <Description>DOMQL is a JavaScript library for querying the DOM, allowing you to read information from a document once or observe it as it changes.</Description>
         <PackageTags>domql;dom;query;language;csharp;javascript;dotnet;browser;forma;formaui</PackageTags>
         <PackageProjectUrl>https://github.com/FormaUI/Forma.DOMQL</PackageProjectUrl>
         <RepositoryUrl>https://github.com/FormaUI/Forma.DOMQL</RepositoryUrl>
