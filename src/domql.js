@@ -30,13 +30,13 @@ import { Vocabulary } from '@formaui/lexica/language/vocabulary/Vocabulary.mjs';
 /**
  * How a query is evaluated once.
  * @typedef {object} DomqlEvaluateOptions
- * @property {Window} [window] The window `@window` stands for, and whose document `@document` stands for; by default the environment's.
+ * @property {Window} [window] The window `window` stands for, and whose document `document` stands for; by default the environment's.
  */
 
 /**
  * How a query is evaluated once, waiting for its maintained members.
  * @typedef {object} DomqlEvaluateAsyncOptions
- * @property {Window} [window] The window `@window` stands for, and whose document `@document` stands for; by default the environment's.
+ * @property {Window} [window] The window `window` stands for, and whose document `document` stands for; by default the environment's.
  * @property {AbortSignal} [signal] Cancels the evaluation, which then rejects with the signal's reason.
  */
 
@@ -47,13 +47,13 @@ import { Vocabulary } from '@formaui/lexica/language/vocabulary/Vocabulary.mjs';
  * @property {'snapshot' | 'liveState'} [updateStrategy] What the watch's events carry: each snapshot whole, or one object the watch keeps current in place, which keeps its identity.
  * @property {boolean} [acceptPartialObservation] Whether the watch accepts a member whose observations only partly cover its changes.
  * @property {AbortSignal} [signal] Disposes the watch when it aborts.
- * @property {Window} [window] The window `@window` stands for, and whose document `@document` stands for; by default the environment's.
+ * @property {Window} [window] The window `window` stands for, and whose document `document` stands for; by default the environment's.
  */
 
 /**
  * How a subscription is listened to, or an action executed, or a behavior applied.
  * @typedef {object} DomqlOperationOptions
- * @property {Window} [window] The window `@window` stands for, and whose document `@document` stands for; by default the environment's.
+ * @property {Window} [window] The window `window` stands for, and whose document `document` stands for; by default the environment's.
  * @property {AbortSignal} [signal] Ends what the operation started when it aborts.
  */
 
