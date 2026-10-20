@@ -23,7 +23,7 @@ const formattedText: string = domql.format(domql.format(definition));
 domql.format(42);
 
 const resolved: DomqlResolvedDefinition = created.resolve({ watch: true, acceptPartialObservation: true });
-const kind: 'query' | 'subscription' | 'action' | 'behavior' = resolved.kind;
+const kind: 'value' | 'subscription' | 'action' | 'behavior' = resolved.kind;
 const typeText: string = resolved.type.toString();
 
 // A query is evaluated once, synchronously or waiting for its maintained members.
@@ -269,7 +269,7 @@ domql.query(42);
 // @ts-expect-error A query object is made from text or a definition, never from another query object.
 domql.query(query);
 
-const tested = domql.query('panel.attached or panel == null', { panel }).definition.query;
+const tested = domql.query('panel.attached or panel == null', { panel }).definition.expression;
 
 if (tested.kind === 'or') {
     const second: DomqlDefinitionNode = tested.operands[1];

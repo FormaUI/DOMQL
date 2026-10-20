@@ -8,5 +8,5 @@ try {
     console.error(error.kind, error.message, error.location);
     // validation
     // The argument 'name' of 'attribute' expects string and finds number
-    // (line 1, column 8, at /query/argument)
+    // (line 1, column 8, at /expression/argument)
 }

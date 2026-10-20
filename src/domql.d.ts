@@ -158,7 +158,7 @@ export interface DomqlSelectedView<T = unknown> {
 /** A DOMQL definition: the JSON document that records a query's meaning, without the values its parameters are bound to. */
 export interface DomqlDefinition {
     readonly version: number;
-    readonly query: DomqlDefinitionNode;
+    readonly expression: DomqlDefinitionNode;
 }
 
 /** A node of a definition. */
@@ -265,8 +265,8 @@ export interface DomqlType {
 /** A query resolved against the registered vocabulary. */
 export interface DomqlResolvedDefinition {
     readonly definition: DomqlDefinition;
-    /** The kind of request: a query, a subscription, an action or a behavior request. */
-    readonly kind: 'query' | 'subscription' | 'action' | 'behavior';
+    /** The kind of request: a value, a subscription, an action or a behavior request. */
+    readonly kind: 'value' | 'subscription' | 'action' | 'behavior';
     /** The type of the request's result. */
     readonly type: DomqlType;
     /** The declarations the request uses, with where each is used. */

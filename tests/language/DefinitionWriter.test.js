@@ -160,11 +160,11 @@ describe('DefinitionWriter', () => {
     ])('writes text that parses back to the same definition: %s', text => {
         const { definition } = domql.query(text, { panel });
 
-        expect(domql.query(DefinitionWriter.write(definition.query), { panel }).definition).toEqual(definition);
+        expect(domql.query(DefinitionWriter.write(definition.expression), { panel }).definition).toEqual(definition);
     });
 
     it('writes the parentheses a grouping needs, and none it does not', () => {
-        const write = text => DefinitionWriter.write(domql.query(text, { panel }).definition.query);
+        const write = text => DefinitionWriter.write(domql.query(text, { panel }).definition.expression);
 
         expect(write('(first or second) and third')).toBe('(first or second) and third');
         expect(write('(first and second) or third')).toBe('first and second or third');
@@ -194,7 +194,7 @@ describe('DefinitionWriter', () => {
     it('writes an options object as the fields it is written with', () => {
         const { definition } = domql.query('panel.intersects({ root = panel, margin = 5 })', { panel });
 
-        expect(DefinitionWriter.write(definition.query)).toBe('panel.intersects({ root = panel, margin = 5 })');
+        expect(DefinitionWriter.write(definition.expression)).toBe('panel.intersects({ root = panel, margin = 5 })');
     });
 
     describe('format', () => {
@@ -243,10 +243,10 @@ describe('DefinitionWriter', () => {
         });
 
         it('keeps negative zero, which a number equal to it would lose', () => {
-            const literalOf = text => domql.query(text).definition.query.argument.value;
+            const literalOf = text => domql.query(text).definition.expression.argument.value;
 
             expect(format('panel:[-0]')).toBe('panel:[-0]');
-            expect(DefinitionWriter.write(domql.query('panel:[-0]').definition.query)).toBe('panel:[-0]');
+            expect(DefinitionWriter.write(domql.query('panel:[-0]').definition.expression)).toBe('panel:[-0]');
             expect(Object.is(literalOf(format('panel:[-0]')), -0)).toBe(true);
             expect(Object.is(literalOf(format('panel:[0]')), 0)).toBe(true);
         });
@@ -270,7 +270,7 @@ describe('DefinitionWriter', () => {
             const { domql: other } = await import('#domql/domql.js');
 
             expect(() => format('panel {')).toThrow(expect.objectContaining({ kind: 'syntax' }));
-            expect(() => domql.format({ version: 30, query: { kind: 'nonsense' } })).toThrow(expect.objectContaining({ kind: 'structure' }));
+            expect(() => domql.format({ version: 31, expression: { kind: 'nonsense' } })).toThrow(expect.objectContaining({ kind: 'structure' }));
             expect(() => domql.format(other.query('panel'))).toThrow(expect.objectContaining({ kind: 'structure', message: expect.stringContaining('query.definition') }));
         });
     });

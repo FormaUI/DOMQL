@@ -345,7 +345,7 @@ describe('DomqlQuery', () => {
             expect(() => query.select('1x')).toThrow(expect.objectContaining({ kind: 'structure' }));
             expect(() => query.select(1.5)).toThrow(expect.objectContaining({ kind: 'structure' }));
             expect(() => selection.evaluate()).toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringContaining('zoom') }));
-            expect(() => isolated.query('panel { n = 1 }', { panel }).select('m').evaluate()).toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringContaining("'m'"), location: { pointer: '/query', offset: 0, line: 1, column: 1 } }));
+            expect(() => isolated.query('panel { n = 1 }', { panel }).select('m').evaluate()).toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringContaining("'m'"), location: { pointer: '/expression', offset: 0, line: 1, column: 1 } }));
         });
 
         it('watches the part, raised where it changed, and refuses to keep it as live state', async () => {

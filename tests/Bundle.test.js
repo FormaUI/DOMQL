@@ -41,7 +41,7 @@ describe('Bundle', () => {
     it('makes query objects from text and from a definition as the sources do', () => {
         const query = bundled.domql.query('panel { size = context.size, hasFocus = context.matches(":focus-within") }', { panel: 1 });
 
-        expect(query.definition.query.fields.map(field => field.name)).toEqual(['size', 'hasFocus']);
+        expect(query.definition.expression.fields.map(field => field.name)).toEqual(['size', 'hasFocus']);
         expect(bundled.domql.query(query.definition, { panel: 2 }).definition).toEqual(query.definition);
         expect(query.with({ panel: 3 }).definition).toBe(query.definition);
         expect(bundled.domql.info.specificationVersion).toMatch(/^\d+\.\d+\.\d+(?:-alpha)?$/);

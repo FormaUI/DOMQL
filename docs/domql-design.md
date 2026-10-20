@@ -293,7 +293,7 @@ Cannot execute 'panel.size': it produces a value.
 Use evaluate(), evaluateAsync() or watch().
 ```
 
-The object `domql.query` answers is a query object, whatever it holds, and what it describes is its request kind: a query, a subscription, an action or a behavior, as the specification names them. An error a caller reads says what the request does, a value it produces, events it listens to, an effect it executes or a behavior it applies, rather than naming the kind.
+The object `domql.query` answers is a query object, whatever it holds, and what it describes is its request kind: a value, a subscription, an action or a behavior request, as the Lexica specification names them. An error a caller reads says what the request does, a value it produces, events it listens to, an effect it executes or a behavior it applies, rather than naming the kind.
 
 | Request kind | Its operations |
 | --- | --- |

@@ -59,9 +59,9 @@ import { Vocabulary } from '@formaui/lexica/language/vocabulary/Vocabulary.mjs';
 
 /** Each operation that carries a request out: the kind of request it takes, and what a refusal says it was asked to do. */
 const OPERATIONS = {
-    evaluate: { kind: 'query', verb: 'evaluate' },
-    evaluateAsync: { kind: 'query', verb: 'evaluate' },
-    watch: { kind: 'query', verb: 'watch' },
+    evaluate: { kind: 'value', verb: 'evaluate' },
+    evaluateAsync: { kind: 'value', verb: 'evaluate' },
+    watch: { kind: 'value', verb: 'watch' },
     subscribe: { kind: 'subscription', verb: 'subscribe to' },
     executeAsync: { kind: 'action', verb: 'execute' },
     apply: { kind: 'behavior', verb: 'apply' },
@@ -69,7 +69,7 @@ const OPERATIONS = {
 
 /** What a request of each kind does, and the operations it takes, for a refusal to say. */
 const REQUEST_KINDS = {
-    query: { does: 'it produces a value', takes: 'evaluate(), evaluateAsync() or watch()' },
+    value: { does: 'it produces a value', takes: 'evaluate(), evaluateAsync() or watch()' },
     subscription: { does: 'it listens to events', takes: 'subscribe()' },
     action: { does: 'it executes an effect', takes: 'executeAsync()' },
     behavior: { does: 'it applies a behavior', takes: 'apply()' },
@@ -419,7 +419,7 @@ class Domql {
         if (resolvedDefinition.kind !== kind) {
             const { does, takes } = REQUEST_KINDS[resolvedDefinition.kind];
 
-            throw LexicaError.validation(`Cannot ${verb} '${DefinitionWriter.write(query.definition.query)}': ${does}.\nUse ${takes}.`, Domql.#locationOf(query));
+            throw LexicaError.validation(`Cannot ${verb} '${DefinitionWriter.write(query.definition.expression)}': ${does}.\nUse ${takes}.`, Domql.#locationOf(query));
         }
 
         return resolvedDefinition;
@@ -432,7 +432,7 @@ class Domql {
 
     /** Where the request stands, for a failure that belongs to the whole of it. */
     static #locationOf(query) {
-        return ParsedTexts.locationsOf(query.definition)?.locate('/query') ?? { pointer: '/query' };
+        return ParsedTexts.locationsOf(query.definition)?.locate('/expression') ?? { pointer: '/expression' };
     }
 
     /** Creates the evaluator of a resolved request in its window, which an evaluation needs. */

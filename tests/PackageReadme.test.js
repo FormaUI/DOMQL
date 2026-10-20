@@ -57,11 +57,11 @@ const examples = [
     { file: '16-convert.js', observed: 'reads', answers: [['7']] },
     { file: '17-access-by-name.js', observed: 'reads', answers: [['3']] },
     { file: '18-bindings.js', observed: 'reads', answers: [['{ panel: null, ids: [] }']] },
-    { file: '19-resolve.js', observed: 'inspected', inspect: '[resolved.kind, resolved.type.toString()]', answers: [["'query'"], ["'number?'"]] },
+    { file: '19-resolve.js', observed: 'inspected', inspect: '[resolved.kind, resolved.type.toString()]', answers: [["'value'"], ["'number?'"]] },
     {
         file: '20-errors.js',
         observed: 'logged',
-        answers: [['validation'], ["The argument 'name' of 'attribute' expects string and finds number", '(line 1, column 8, at /query/argument)']],
+        answers: [['validation'], ["The argument 'name' of 'attribute' expects string and finds number", '(line 1, column 8, at /expression/argument)']],
     },
     { file: '21-module.js', observed: 'reads', answers: [['{ childCount: 3 }']] },
     { file: '22-execute-action.js', observed: 'reads', answers: [['true']] },

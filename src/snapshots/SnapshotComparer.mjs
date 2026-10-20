@@ -25,7 +25,7 @@ export class SnapshotComparer {
      * @param {import('./SnapshotPatcher.mjs').Identities} nextIdentities The elements the next snapshot's lists were projected from, which it follows.
      */
     reconcile(previous, previousIdentities, next, nextIdentities) {
-        return this.#reconcileNode(this.#resolvedDefinition.definition.query, previous, previousIdentities, next, nextIdentities);
+        return this.#reconcileNode(this.#resolvedDefinition.definition.expression, previous, previousIdentities, next, nextIdentities);
     }
 
     #reconcileNode(node, previous, previousIdentities, next, nextIdentities) {

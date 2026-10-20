@@ -722,7 +722,7 @@ describe('QueryEvaluator evaluation', () => {
 
             expect(evaluation.value).toBe(3);
             expect(or.operands.indexOf(operand)).toBe(1);
-            expect(definition.query.kind).toBe('or');
+            expect(definition.expression.kind).toBe('or');
         });
 
         it('record an elseif as the conditional nested in the alternative it is', () => {
@@ -756,7 +756,7 @@ describe('QueryEvaluator evaluation', () => {
             expect(evaluation.value).toBe('panel');
             expect(evaluation.dependencies).toEqual([{
                 member: 'attribute',
-                pointer: '/query',
+                pointer: '/expression',
                 observations: [{ type: 'mutation', target: panel, arguments: { attributes: ['id'] } }],
             }]);
         });
@@ -774,8 +774,8 @@ describe('QueryEvaluator evaluation', () => {
             const evaluation = evaluate('panel.all("i") { h = context.rect?.height, on = context.attached or context.has("focus") }', { panel });
 
             expect(evaluation.dependencies.map(dependency => [dependency.member, dependency.pointer])).toEqual([
-                ['all', '/query/target'],
-                ...rows.flatMap(() => [['rect', '/query/fields/0/value/target/target'], ['attached', '/query/fields/1/value/operands/0']]),
+                ['all', '/expression/target'],
+                ...rows.flatMap(() => [['rect', '/expression/fields/0/value/target/target'], ['attached', '/expression/fields/1/value/operands/0']]),
             ]);
         });
 
@@ -1191,7 +1191,7 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('is refused for a request that is not a subscription', () => {
-            expect(failureOf(() => evaluatorOf('panel.children.count', { panel }).resolveSource())).toMatchObject({ kind: 'evaluation', message: expect.stringContaining('A query request is not subscribed to') });
+            expect(failureOf(() => evaluatorOf('panel.children.count', { panel }).resolveSource())).toMatchObject({ kind: 'evaluation', message: expect.stringContaining('A value request is not subscribed to') });
         });
 
         it('captures an event as the fields its type declares, a nullable one it does not carry as null', () => {
