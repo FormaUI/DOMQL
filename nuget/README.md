@@ -458,7 +458,7 @@ Inside an object expression, `root` refers to the outermost object being built, 
 
 Locals are not included in the result. A local is evaluated on first use, at most once for each value its object expression applies to. Unused locals are not evaluated.
 
-`context` refers to the value the expression is evaluated against, as the element an object expression follows is for its fields, and `~` alone refers to it too, so `~.rect` reads `context.rect`. `context` inside a local refers to the value where the local is declared. A bare name refers to a local or an earlier field, and otherwise to the caller's binding; use `context.rect`, for example, to read a member of the evaluation context. Write `~` before a name to read the caller's binding of it even where a local or a field shares the name, as `~panel` does inside `{ let panel = …, original = ~panel.children.count }`, or where a reserved word names it, as `~as`.
+`context` refers to the value the expression is evaluated against, as the element an object expression follows is for its fields, and `~` alone refers to it too, so `~.rect` reads `context.rect`. `context` inside a local refers to the value where the local is declared. A bare name refers to a local or an earlier field, and otherwise to the caller's binding; use `context.rect`, for example, to read a member of the implicit parameter. Write `~` before a name to read the caller's binding of it even where a local or a field shares the name, as `~panel` does inside `{ let panel = …, original = ~panel.children.count }`, or where a reserved word names it, as `~as`.
 
 ### Name the steps of a calculation
 
@@ -492,7 +492,7 @@ return {
 
 A function's body is a body like any other, an expression alone or locals and a `return`, and it sees the locals and `context` where it is declared, never those of the place that calls it. Each call is checked against its own arguments, so one function serves an element in one call and an element that may be missing in another.
 
-An arrow function writes a short one as its parameters, `=>` and one expression, as `let half = box => (box?.rect?.width ?? 0) / 2` does, and only an arrow function is written directly as an argument, as `apply(row => row.attached, panel)` is; a function declared with `function` is bound to a local and passed by its name. A function of either form is a value within the query: a local holds it, an argument passes it, a conditional chooses between functions and a function returns one, but no field or result holds one. A module's function can declare a parameter that takes a function, which it calls while its own invocation lasts; the built-in `where`, `max`, `min` and `sum` take a contextual expression instead, as `rows.where(context.attached)` does.
+An arrow function writes a short one as its parameters, `=>` and one expression, as `let half = box => (box?.rect?.width ?? 0) / 2` does, and only an arrow function is written directly as an argument, as `apply(row => row.attached, panel)` is; a function declared with `function` is bound to a local and passed by its name. A function of either form is a value within the query: a local holds it, an argument passes it, a conditional chooses between functions and a function returns one, but no field or result holds one. A module's function can declare a parameter that takes a function, which it calls while its own invocation lasts; the built-in `where`, `max`, `min` and `sum` take an expression argument instead, as `rows.where(context.attached)` does.
 
 ### Handle missing values
 

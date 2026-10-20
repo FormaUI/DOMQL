@@ -710,7 +710,7 @@ describe('LanguageResolver', () => {
             expect(failure('not panel.on("click")').message).toContain("What 'not' negates is a value, and this one is an event source");
         });
 
-        it('resolve every operand with its own location, the evaluation context of each the one around the expression', () => {
+        it('resolve every operand with its own location, the implicit parameter of each the one around the expression', () => {
             const resolved = resolveInLexica('panel { both = context.attached and (context.is("disabled") or context.has("focus")) }');
 
             expect(resolved.getResolution('/expression/fields/0/value/operands/0').declaration.name).toBe('attached');
@@ -742,7 +742,7 @@ describe('LanguageResolver', () => {
             expect(resolve('panel { let rows = context.children, rows = rows { key = context:attribute["data-key"] } }').type.toString()).toBe('{ rows: list<{ key: string? }> }');
         });
 
-        it('resolve a local where it is written, whatever evaluation context its use has', () => {
+        it('resolve a local where it is written, whatever implicit parameter its use has', () => {
             expect(resolve('panel { let size = context.size, rows = context.children { size = size } }').type.toString()).toBe('{ rows: list<{ size: size? }> }');
         });
 

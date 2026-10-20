@@ -59,7 +59,7 @@ describe('domql', () => {
             expect(domql.query('sentinel.intersects()').definition.expression).toEqual(call('intersects', undefined, parameter('sentinel')));
         });
 
-        it('reads context as the evaluation context, written as a receiver like any other', () => {
+        it('reads context as the implicit parameter, written as a receiver like any other', () => {
             expect(domql.query('panel { width = context.size.width }').definition.expression.fields[0].value).toEqual(member('width', member('size', context)));
         });
 
@@ -107,7 +107,7 @@ describe('domql', () => {
             expect(getError(() => domql.query('panel { /* outer /* inner */ still a comment */ size: context.size }')).kind).toBe('syntax');
         });
 
-        it('reads an object expression following no value as one keeping the evaluation context', () => {
+        it('reads an object expression following no value as one keeping the implicit parameter', () => {
             const { definition } = domql.query('panel { layout = { width = context.size.width } }');
 
             expect(definition.expression.fields[0]).toEqual({
@@ -197,7 +197,7 @@ describe('domql', () => {
         it.each([
             ['an equality without its right operand', { kind: 'equality', left: parameter('panel') }, '/expression'],
             ['an equality whose left operand is no node', equality(1, parameter('panel')), '/expression/left'],
-            ['an equality of the evaluation context at the top level', equality(context, literal(null)), '/expression/left'],
+            ['an equality of the implicit parameter at the top level', equality(context, literal(null)), '/expression/left'],
             ['a predicate, which an equality and a member replace', { kind: 'predicate', verb: 'is', target: parameter('panel'), name: literal(null) }, '/expression'],
         ])('refuse a definition with %s', (_, query, pointer) => {
             const error = getError(() => domql.query({ version: 31, expression: query }, { panel: document.body }));
@@ -247,7 +247,7 @@ describe('domql', () => {
         it.each([
             ['an and of one expression', { kind: 'and', operands: [parameter('panel')] }, '/expression/operands'],
             ['an or whose operands are no array', { kind: 'or', operands: parameter('panel') }, '/expression/operands'],
-            ['an operand that tests the evaluation context at the top level', { kind: 'or', operands: [member('visible'), parameter('panel')] }, '/expression/operands/0/target'],
+            ['an operand that tests the implicit parameter at the top level', { kind: 'or', operands: [member('visible'), parameter('panel')] }, '/expression/operands/0/target'],
         ])('refuse a definition with %s', (_, query, pointer) => {
             const error = getError(() => domql.query({ version: 31, expression: query }, { panel: document.body }));
 
@@ -857,10 +857,10 @@ describe('domql', () => {
         });
 
         it.each([
-            ['a member written without its receiver', 'panel { width = rect.width }', "No local in scope or binding is named 'rect'; write 'context.rect' for the member of the evaluation context", 17],
+            ['a member written without its receiver', 'panel { width = rect.width }', "No local in scope or binding is named 'rect'; write 'context.rect' for the member of the implicit parameter", 17],
             ['an indexer written without its receiver or key', 'panel { key = attribute }', "No local in scope or binding is named 'attribute'; write 'context:attribute[…]'", 15],
             ['a call written without its receiver or argument', 'panel { row = closest }', "No local in scope or binding is named 'closest'; write 'context.closest(…)'", 15],
-            ['a name that is no member of the evaluation context', 'panel { a = nothing }', "No local in scope or binding is named 'nothing'", 13],
+            ['a name that is no member of the implicit parameter', 'panel { a = nothing }', "No local in scope or binding is named 'nothing'", 13],
             ['a local read from the document where a bracket property access stands', 'panel { let path = context:attribute["data-path"], width = context[path] }', "A bracket property access reads a name determined when the expression is resolved", 68],
             ['a local of an object expression used beside it', 'panel { a = context { let n = 1, v = n }, b = n }', "No local in scope or binding is named 'n'", 47],
             ['a name at the top level', 'items.count', "No local in scope or binding is named 'items'", 1],
@@ -892,7 +892,7 @@ describe('domql', () => {
             expect(domql.query('{ outer = x, inner = panel { let x = 2, v = x } }', { panel: document.body, x: 1 }).evaluate()).toEqual({ outer: 1, inner: { v: 2 } });
         });
 
-        it('suggest no member a name has where there is no evaluation context', () => {
+        it('suggest no member a name has where there is no implicit parameter', () => {
             expect(getError(() => domql.query('rect.width').evaluate()).message).not.toContain('write');
         });
     });
@@ -994,7 +994,7 @@ describe('domql', () => {
             expect(domql.query('target { width = context[name]?.width }').definition.expression.fields).toHaveLength(1);
         });
 
-        it('accepts a member at the start of an argument, whose evaluation context its member decides', () => {
+        it('accepts a member at the start of an argument, whose implicit parameter its member decides', () => {
             expect(() => domql.query('list.all("li").where(context.intersects({ root = list })).count')).not.toThrow();
         });
 
@@ -3359,7 +3359,7 @@ describe('domql functions', () => {
         expect(getError(() => domql.query('let count = function(e) e.nothing end\nreturn count(panel)', { panel }).resolve()).message).toContain("'nothing' is no member of the vocabulary");
     });
 
-    it('captures the locals and the evaluation context where it is declared, never a caller\'s', () => {
+    it('captures the locals and the implicit parameter where it is declared, never a caller\'s', () => {
         expect(evaluate('let a = 1\nlet f = function() a end\nreturn do\n    let a = 2\n    return f()\nend')).toBe(1);
         expect(evaluate('panel { let count = function() context.children.count end, n = count() }', { panel: panelOf(3) })).toEqual({ n: 3 });
         expect(evaluate('panel { let outer = context, items = context.children { n = outer.children.count } }', { panel: panelOf(1) })).toEqual({ items: [{ n: 1 }] });
@@ -3391,7 +3391,7 @@ describe('domql functions', () => {
         ['a call given too few', 'let f = function(x, y) x end\nreturn f(1)', "'f' takes 2 arguments, and is given 1"],
         ['a call of a local holding a value', 'let v = 1\nreturn v(2)', "'v' is a local holding a value, and no function, so it is read without parentheses"],
         ['a call no function answers', 'nothing(2)', "No function named 'nothing' is in scope"],
-        ['a call of what the evaluation context has as a member', 'panel { row = first(".row") }', "No function named 'first' is in scope; write 'context.first(…)' for the member of the evaluation context"],
+        ['a call of what the implicit parameter has as a member', 'panel { row = first(".row") }', "No function named 'first' is in scope; write 'context.first(…)' for the member of the implicit parameter"],
         ['a call settling a fixed argument', 'let state = function() "disabled" end\nreturn panel.is(state())', "selects from the vocabulary, so it is a string the expression's resolution settles"],
     ])('refuses %s before anything is evaluated', (_, text, message) => {
         const error = getError(() => domql.query(text, { panel: panelOf(1) }).resolve());
@@ -3886,7 +3886,7 @@ describe('domql function values and arrow functions', () => {
         expect(evaluate('let predicate = x => x > 1\nlet getPredicate = () => predicate\nlet p = getPredicate()\nreturn p(3)')).toBe(true);
     });
 
-    it('keeps the scope, the evaluation context and the object root of the place a function is declared, whatever its call passes', () => {
+    it('keeps the scope, the implicit parameter and the object root of the place a function is declared, whatever its call passes', () => {
         const panel = document.createElement('div');
 
         panel.innerHTML = '<i></i><i></i>';
@@ -3910,11 +3910,11 @@ describe('domql function values and arrow functions', () => {
         expect(refusalOf('let call = function(f, x) f(x) end\nreturn call(x => call(y => y, x), 1)').message).toContain('a function never calls itself, directly or through another');
     });
 
-    it('refuses a function given to a parameter that takes a contextual expression, saying it takes one', () => {
+    it('refuses a function given to a parameter that takes an expression argument, saying it takes one', () => {
         const panel = document.createElement('div');
 
-        expect(refusalOf('panel.children.where(row => row.visible).count', { panel }).message).toContain("The parameter 'expression' of 'where' takes a contextual expression, evaluated with each item as its context, as where(context.…) writes one, and no function");
-        expect(refusalOf('let visible = row => row.visible\nreturn panel.children.where(visible).count', { panel }).message).toContain("of 'where' takes a contextual expression");
+        expect(refusalOf('panel.children.where(row => row.visible).count', { panel }).message).toContain("The parameter 'expression' of 'where' takes an expression argument, evaluated with each item as its implicit parameter, as where(context.…) writes one, and no function");
+        expect(refusalOf('let visible = row => row.visible\nreturn panel.children.where(visible).count', { panel }).message).toContain("of 'where' takes an expression argument");
     });
 });
 
@@ -4102,7 +4102,7 @@ describe('domql object root of an options object', () => {
         ['a predicate read through root', 'panel.children.pick({ by = 1, keep = true, limit = if root.keep then 1 else 2 end })', 'keep', 'a predicate'],
         ['an expression whose name an enclosing local shares', 'let by = 3\nreturn panel.children.pick({ by = 1, keep = true, limit = by })', 'by', 'an expression'],
     ])('refuses %s, which has no single value, in preparation', (_, text, name, kind) => {
-        expect(refusalOf(text)).toMatchObject({ kind: 'validation', message: expect.stringContaining(`Option '${name}' is ${kind} evaluated by the member against its supplied context; it has no single value to read here`) });
+        expect(refusalOf(text)).toMatchObject({ kind: 'validation', message: expect.stringContaining(`Option '${name}' is ${kind} evaluated by the member against the implicit parameter it supplies; it has no single value to read here`) });
     });
 
     it('reads an enclosing object root\'s field through root where an expression option of that name is written', () => {
@@ -4216,7 +4216,7 @@ describe('domql query parameters', () => {
         expect(getError(() => domql.query('{ let n = n + 1, value = n }', { n: 1 })).message).toContain("'n' is used before the local of that name is declared in its scope");
     });
 
-    it('reads ~ alone as the evaluation context, as context is, written canonically as context, and ~ before a name as the caller\'s binding of it', () => {
+    it('reads ~ alone as the implicit parameter, as context is, written canonically as context, and ~ before a name as the caller\'s binding of it', () => {
         const panel = document.createElement('div');
 
         panel.innerHTML = '<i data-key="a"></i><i></i>';
@@ -4228,8 +4228,8 @@ describe('domql query parameters', () => {
         expect(domql.query('panel { mine = ~.children.count, theirs = ~panel.children.count }', { panel }).definition.expression.fields.map(field => field.value.target.target)).toEqual([{ kind: 'context' }, { kind: 'parameter', name: 'panel' }]);
     });
 
-    it('refuses ~ alone where there is no evaluation context, as context is, a name a space parts from it, and ~ naming a field', () => {
-        expect(getError(() => domql.query('a + ~'))).toMatchObject({ kind: 'structure', message: expect.stringContaining("'context' is the evaluation context, and the top level has none") });
+    it('refuses ~ alone where there is no implicit parameter, as context is, a name a space parts from it, and ~ naming a field', () => {
+        expect(getError(() => domql.query('a + ~'))).toMatchObject({ kind: 'structure', message: expect.stringContaining("'context' is the implicit parameter, and the top level has none") });
         expect(getError(() => domql.query('panel { a = ~ panel }')).message).toContain("'~' reads the caller's binding of the name written directly after it: write '~panel', with no space");
         expect(getError(() => domql.query('{ ~ = 1 }')).kind).toBe('syntax');
     });
@@ -4302,7 +4302,7 @@ describe('domql interpolated strings', () => {
         expect(evaluate('$"{a to "string"}"', { a: false })).toBe('false');
     });
 
-    it('reads its holes in the scope it is written in, with the evaluation context there', () => {
+    it('reads its holes in the scope it is written in, with the implicit parameter there', () => {
         const panel = document.createElement('div');
 
         panel.setAttribute('data-name', 'Tools');

@@ -389,7 +389,7 @@ describe('QueryEvaluator', () => {
             expect(read('panel.first(".none")?.attached', { panel })).toBeNull();
         });
 
-        it('test the evaluation context inside an object expression and an expression argument', () => {
+        it('test the implicit parameter inside an object expression and an expression argument', () => {
             expect(read('panel { attached = context.attached, empty = context.hasChildren }', { panel })).toEqual({ attached: true, empty: true });
             expect(read('panel.children.where(context.attached and context.has("focus")).count', { panel })).toBe(0);
         });
