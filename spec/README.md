@@ -6,7 +6,7 @@ This specification is the authoritative contract for DOMQL. It states what DOMQL
 
 <a id="version"></a>
 
-**Version.** This specification describes DOMQL's version `1.0.0-alpha.277`, which changes as DOMQL's contract does, apart from its runtime's version and from Lexica's language. It describes DOMQL on Lexica's language version `1.0.0-alpha.33`, of [definition version 32](https://github.com/FormaUI/Lexica/blob/main/spec/README.md#version). An implementation says which specification it follows, and which language version its Lexica runtime follows, in `domql.info.versions`, as [the API](api.md#api-entry-points-and-operations) sets out.
+**Version.** This specification describes DOMQL's version `1.0.0-alpha.277`, which changes as DOMQL's contract does, apart from its runtime's version and from Lexica's language. It describes DOMQL on Lexica's language version `1.0.0-alpha.33`, of [definition version 33](https://github.com/FormaUI/Lexica/blob/main/spec/README.md#version). An implementation says which specification it follows, and which language version its Lexica runtime follows, in `domql.info.versions`, as [the API](api.md#api-entry-points-and-operations) sets out.
 
 ## What it covers
 
