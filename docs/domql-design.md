@@ -9,8 +9,9 @@ In this document:
 3. [Sessions](#sessions)
 4. [Watching](#watching)
 5. [Comparing and patching](#comparing-and-patching)
-6. [The C# half](#the-c-half)
-7. [Decisions not taken](#decisions-not-taken)
+6. [Host calls and their operations](#host-calls-and-their-operations)
+7. [The C# half](#the-c-half)
+8. [Decisions not taken](#decisions-not-taken)
 
 ## Architecture
 
@@ -24,7 +25,7 @@ DOMQL is Lexica's host. It registers its module in a Lexica registry beside the 
 | Evaluation | Lexica's evaluator under hooks that record what an evaluation reads and hold the sessions that keep it observed | `QueryEvaluator`, `QueryEvaluation` |
 | Observations | Sessions on shared observations, each observation started on its first session and stopped with its last | `Observations`, `ObservationSession`, `SessionCache` |
 | Watches | Keeping a result current: scheduling evaluations and delivering each result that differs | `Watch` |
-| Events and behaviors | Listening to event sources, raising a handle's events, and running applied behaviors | `EventListener`, `EventDispatcher`, `Behavior` |
+| Events and executions | Listening to event sources, raising a handle's events, and running continuous executions | `EventListener`, `EventDispatcher`, `Behavior` |
 | Snapshots | Comparing results, computing and applying change sets, and keeping live state | `SnapshotComparer`, `SnapshotPatcher`, `LiveState` |
 
 The DOM enters as late as it can. Making and resolving a query read no DOM, so they work in Node.js; code under `src/dom/` reads the window and the document it is given, never a global, and code under `src/snapshots/` reads no DOM at all, only the results and the metadata Lexica records beside them. Dependencies point one way: `dom/` depends on Lexica and `snapshots/`, and `snapshots/` on Lexica alone.
@@ -53,6 +54,12 @@ A watch evaluates its whole query each time, and its dependencies are what that 
 The comparer reads what Lexica's [result metadata](https://github.com/FormaUI/Lexica/blob/main/spec/runtime.md#runtime-results) records beside each value: the source of each projected item, by which a list projected from elements is matched where its sources are elements, each standing once; the origin of each value, which tells whether a number came from the same branch, operand or property as the number before it; and the tolerance it compares within. A result therefore holds data alone, and a change set never names an element.
 
 The patcher computes the change set that takes one reconciled snapshot to the next, and applies change sets in place to live state.
+
+## Host calls and their operations
+
+Lexica resolves and evaluates the queries DOMQL gives it; DOMQL decides when those evaluations occur and what the browser does with the inputs a host call prepares. Subscribing, executing once and running continuously are DOMQL's contracts with its callers, so Lexica knows none of them: it knows only that a function is one its host invokes, resolves and prepares the call, and projects the values DOMQL hands back.
+
+DOMQL keeps the rest in a catalog of its own. `domql.createModule` takes each host call's request kind, execution mode and implementation out of the declaration, keeps them by the declaration, and gives Lexica the signature, so the module a caller writes is one object and Lexica never holds an implementation it must not call. An operation reads its query's host call from the resolution, looks its declaration up in the catalog, and refuses the call where the catalog says another operation carries it out. The request kind is declared, never inferred from a missing field, so an execution whose mode is left out is refused as an execution, where an inferred kind would take it silently for an event source. Preparation, the null rule and the checking of every value an implementation answers stay Lexica's, so a subscription, a once execution and a continuous execution read their receivers, their arguments and their results by the rules a query reads its members by.
 
 ## The C# half
 
@@ -103,6 +110,6 @@ Each of these was considered, measured where cost decided it, and not adopted. I
 | One native observer shared by every element | Routing records through one `ResizeObserver` and one `MutationObserver` was correct, but disposed 55 to 111% slower and held 13% more script memory a row. Under `immediate`, one layout change resizing 1,000 rows evaluated a watch twice rather than 1,001 times, at the same disposal and memory cost for every watch of a box. | An implementation whose disposal and memory both cost less, or a workload in which the renderer's memory at that scale matters |
 | `watch.update` for new bindings | A caller starts a watch of the new bindings and disposes the old one once the new one is ready; every observation both read of the same target and arguments runs on throughout. | A consumer that needs its listeners or its live state's identity kept through new bindings |
 | A subscription delivered by frame | Every event is projected in the task it is dispatched in. Delivering later and dropping events are separate features, and a frame schedule would have to say whether it queues, keeps the latest or combines a frame's events; waiting for events to go quiet is the caller's policy. | A consumer that needs events by frame, and says which of those it needs |
-| Event sources a behavior offers | Neither a behavior's declaration nor its implementation offers one, and the specification promises none. | A behavior with events its caller would subscribe to |
-| A behavior that waits, `applyAsync` | `apply` answers synchronously, with the behavior started; asynchronous work it began may still be under way. | A caller that needs to know when a behavior is ready, beyond its having started |
+| Event sources a continuous execution offers | Neither a continuous execution's declaration nor its implementation offers one, and the specification promises none. | A continuous execution with events its caller would subscribe to |
+| A continuous execution that waits, `runAsync` | `run` answers synchronously, with the execution started; asynchronous work it began may still be under way. | A caller that needs to know when a continuous execution is ready, beyond its having started |
 | A window the viewport decides | `rows.where(it.intersects({ root = panel }))` already answers which rendered rows intersect a panel. It holds an observation for every candidate and selects only rendered rows, so it is no virtualization. | A consumer that needs DOMQL itself to decide which rows are rendered |

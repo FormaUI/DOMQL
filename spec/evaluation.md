@@ -12,7 +12,7 @@ query.evaluate();            // Throws an evaluation error: intersects is mainta
 await query.evaluateAsync(); // { size: { width: 640, height: 480 }, nearEnd: false }
 ```
 
-Evaluating a query is read-only, as [Lexica requires](https://github.com/FormaUI/Lexica/blob/main/spec/members.md#how-a-member-reads) of every vocabulary. A measurement that needs the document changed first, such as measuring columns at their intrinsic widths under a temporary class, is an action of its own.
+Evaluating a query is read-only, as [Lexica requires](https://github.com/FormaUI/Lexica/blob/main/spec/members.md#how-a-member-reads) of every vocabulary. A measurement that needs the document changed first, such as measuring columns at their intrinsic widths under a temporary class, is an [execution](executions.md) of its own.
 
 In this document:
 
@@ -59,4 +59,4 @@ A maintained member is **pending** until its first sample arrives, as Lexica set
 
 Evaluating needs a browser window, the one an operation's `window` option gives or, where it gives none, the one the environment holds, and fails with an evaluation error where there is none. That window is `domql.window`, and its document is `domql.document`, the document the query runs against. Making and resolving a query need no window, so a query is made and resolved in Node.js without a DOM.
 
-Every operation that carries a request out, `evaluate`, `evaluateAsync`, `watch`, `subscribe`, `executeAsync` and `apply`, takes the `window` option.
+Every operation that carries a request out, `evaluate`, `evaluateAsync`, `watch`, `subscribe`, `executeAsync` and `run`, takes the `window` option.

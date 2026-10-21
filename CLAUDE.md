@@ -1,6 +1,6 @@
 # Working on DOMQL
 
-DOMQL is a query language and JavaScript library for the DOM: reading information from the document, keeping it current, responding to events and updating the page's content or state. Its queries are written in Lexica, and DOMQL defines the DOM as Lexica's domain. A query only reads; the document changes only through an action or a behavior, each a request of its own kind that a module supplies. Source ES modules live in `src/`; the build produces one minified bundle, distributed by the `formaui-net.DOMQL` NuGet package.
+DOMQL is a query language and JavaScript library for the DOM: reading information from the document, keeping it current, responding to events and updating the page's content or state. Its queries are written in Lexica, and DOMQL defines the DOM as Lexica's domain. A query only reads; the document changes only through an execution, a host call a module supplies, which DOMQL carries out once or keeps running. Source ES modules live in `src/`; the build produces one minified bundle, distributed by the `formaui-net.DOMQL` NuGet package.
 
 ## Before making a change
 
@@ -9,7 +9,7 @@ Read the documents that govern the affected contract:
 | Document | Authority |
 | --- | --- |
 | [Lexica specification](https://github.com/FormaUI/Lexica/blob/main/spec/README.md) | The language, Lexica's, in its own repository: syntax, resolution, values, requests, vocabulary contracts, definitions and diagnostics |
-| [DOMQL specification](spec/README.md) | DOMQL's module and DOMQL as host: queries, nodes and shadow trees, the built-in vocabulary, evaluation, watching, results, events, actions and behaviors, and the public API, one document per subject |
+| [DOMQL specification](spec/README.md) | DOMQL's module and DOMQL as host: queries, nodes and shadow trees, the built-in vocabulary, evaluation, watching, results, events, executions, and the public API, one document per subject |
 | [Lexica design](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md) | How Lexica is built: its stages, registries, evaluation and tooling |
 | [DOMQL design](docs/domql-design.md) | How DOMQL is built: its architecture, resolution, sessions, watching, comparing and patching, the C# half, and the decisions not taken |
 | [Status](docs/status.md) | What is implemented, what is in progress, what remains, open decisions and deferred work |
@@ -25,7 +25,7 @@ Use these sources rather than inventing scope, status or style rules.
 | Path | Responsibility |
 | --- | --- |
 | `src/domql.js` | Entry point that composes the library's modules |
-| `src/dom/` | Evaluation, watches, events, actions, behaviors, observations, sessions and built-in implementations |
+| `src/dom/` | Evaluation, watches, events, executions, observations, sessions and built-in implementations |
 | `src/snapshots/` | Computing, comparing, dispatching and applying snapshot updates using identity metadata; no DOM access |
 | `tests/` | Tests mirroring the source folders |
 | `scripts/` | Bundling scripts |

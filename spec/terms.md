@@ -9,7 +9,7 @@ In this document:
 1. [Queries and their callers](#terms-queries)
 2. [The DOM and its vocabulary](#terms-vocabulary)
 3. [Watches and results](#terms-watches-and-results)
-4. [Events, actions and behaviors](#terms-events-actions-and-behaviors)
+4. [Events and executions](#terms-events-and-executions)
 
 <a id="terms-queries"></a>
 
@@ -21,9 +21,9 @@ In this document:
 | Query object | What `domql.query` answers: a query's definition and its bindings, through which every operation on it is carried out | [Making a query](queries.md#making-a-query) |
 | Caller | The application that makes queries and carries them out, and does what it chooses with each result | [The API](api.md#api) |
 | Resolution | Resolving a request against the vocabulary registered when it is first carried out, as Lexica resolves a script | [Resolution](queries.md#queries-resolution) |
-| Operation | What a caller carries a request out with: `evaluate`, `evaluateAsync`, `watch`, `select`, `subscribe`, `executeAsync` or `apply`, as its request kind takes | [Request kinds and their operations](queries.md#operations-and-request-kinds) |
+| Operation | What a caller carries a request out with: `evaluate`, `evaluateAsync`, `watch`, `select`, `subscribe`, `executeAsync` or `run`, as its request kind takes | [Request kinds and their operations](queries.md#operations-and-request-kinds) |
 | Selection | A part of a query's result, which belongs to the query and whose every operation starts work of its own | [Selecting a result](queries.md#selecting-a-result) |
-| Handle | What an operation that keeps running answers, through which its caller follows it and ends it: a watch, an event listener or a behavior | [The API](api.md#api-objects) |
+| Handle | What an operation that keeps running answers, through which its caller follows it and ends it: a watch, an event listener or an execution handle | [The API](api.md#api-objects) |
 | Window's error reporting | Where a failure no handler or caller receives goes: the window's `reportError`, or the console | [Errors](api.md#api-errors) |
 
 <a id="terms-vocabulary"></a>
@@ -60,14 +60,19 @@ In this document:
 | Baseline | A complete result, establishing the state the changes after it are relative to | [Results](results.md#results) |
 | Change set | The fields and list entries that changed, as a JSON Patch document, relative to the result it was computed against | [Change sets](results.md#results-change-sets) |
 
+<a id="terms-events-and-executions"></a>
 <a id="terms-events-actions-and-behaviors"></a>
 
-## Events, actions and behaviors
+## Events and executions
 
 | Term | Meaning | Reference |
 | --- | --- | --- |
-| Event source | What delivers things that happened, as `on(type)` does | [Event sources](events.md#event-sources) |
+| Host call | Lexica's call of a function the host invokes, which ends a query; DOMQL carries each out as an event source or an execution | [Host calls](https://github.com/FormaUI/Lexica/blob/main/spec/members.md#members-host-calls) |
+| Event source | A host call that delivers things that happened, as `on(type)` does | [Event sources](events.md#event-sources) |
+| Event type | A key of DOMQL's type selector `event`, which names the type its events are captured as | [Event types](events.md#event-types) |
 | Subscription | A query whose chain ends in an event source, which shapes each event into data | [Events](events.md#events) |
 | Event listener | The handle of a subscription, and of each listener subscribed to a handle's events | [Subscribing](events.md#subscribing), [events of a handle](api.md#events-of-a-handle) |
-| Action | A request that changes the page once and answers its result, executed by `executeAsync` | [Executing an action](actions-and-behaviors.md#executing-an-action) |
-| Behavior | A request that starts something running on the page until it is updated or disposed, applied by `apply` | [Applying a behavior](actions-and-behaviors.md#applying-a-behavior) |
+| Execution | A host call that changes the page, of the execution mode its declaration gives | [Executions](executions.md#executions) |
+| Once execution | An execution that changes the page once and answers its result, carried out by `executeAsync` | [Executing once](executions.md#executions-executing-once) |
+| Continuous execution | An execution that starts something running on the page until it is updated or disposed, carried out by `run` | [Running continuously](executions.md#executions-running-continuously) |
+| Execution handle | A `DomqlExecutionHandle`, through which the caller updates or disposes a continuous execution | [Running continuously](executions.md#executions-running-continuously) |

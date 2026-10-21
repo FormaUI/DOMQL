@@ -13,7 +13,7 @@ panel.is("disabled")                     // A predicate, asked with is.
 domql.window:media["(min-width: 40em)"]  // A named indexer of the window, a module member.
 ```
 
-Properties and functions are named in camelCase, and names are case-sensitive. Built-in members expose state or event sources; actions and behaviors come from extensions. A property is read by property access, and a function is written as a call or as a named indexer, as its declaration says; the tables write each as it is written, with a receiver left out. A member available on a node is available on each of its kinds, one available on an element on elements alone, and one available on a shadow view on an element's `shadow`.
+Properties and functions are named in camelCase, and names are case-sensitive. Built-in members expose state or event sources; executions come from extensions. A property is read by property access, and a function is written as a call or as a named indexer, as its declaration says; the tables write each as it is written, with a receiver left out. A member available on a node is available on each of its kinds, one available on an element on elements alone, and one available on a shadow view on an element's `shadow`.
 
 Lexica's own module declares the members of lists, `count`, `first`, `last`, `item`, `max`, `min`, `sum` and `where`, and the verbs `is`, `has` and `supports`; the entries below for them point to Lexica's specification, which defines them. DOMQL's event sources and event types are set out in [events](events.md).
 
@@ -798,8 +798,23 @@ DOMQL resolves each target as it starts an observation, and each evaluation that
 
 ## Extension modules
 
-A module extends the built-in vocabulary as Lexica's [modules](https://github.com/FormaUI/Lexica/blob/main/spec/modules.md#modules) set out: it declares types of its own, and members, predicates, event types, observation types and conversions on its own types or, under the [rules for extensions](https://github.com/FormaUI/Lexica/blob/main/spec/modules.md#extensions), on DOMQL's. `domql.createModule(name, contents)` creates one from its declarations, each that runs code carrying its implementation, and `domql.registerModule(module)` registers it in the instance's registry, which holds DOMQL's module and every module registered with it. A request is resolved against the vocabulary registered when it is first carried out, so a module a query names is registered beforehand, once, rather than for every evaluation.
+A module extends the built-in vocabulary as Lexica's [modules](https://github.com/FormaUI/Lexica/blob/main/spec/modules.md#modules) set out: it declares types of its own, and members, predicates, event types, executions, observation types and conversions on its own types or, under the [rules for extensions](https://github.com/FormaUI/Lexica/blob/main/spec/modules.md#extensions), on DOMQL's. `domql.createModule(name, contents)` creates one from its declarations, each that runs code carrying its implementation, and `domql.registerModule(module)` registers it in the instance's registry, which holds DOMQL's module and every module registered with it. A request is resolved against the vocabulary registered when it is first carried out, so a module a query names is registered beforehand, once, rather than for every evaluation.
 
 - **What an implementation receives.** Every implementation receives the one object Lexica's [implementations](https://github.com/FormaUI/Lexica/blob/main/spec/members.md#members-what-an-implementation-receives) receive, whose `env` holds the `window` and the `document` the query runs against.
-- **Reading.** A member's implementation is synchronous and reads alone, as Lexica requires of every vocabulary, so evaluating, watching and subscribing change nothing; a change to the page is an [action or a behavior](actions-and-behaviors.md).
+- **Reading.** A member's implementation is synchronous and reads alone, as Lexica requires of every vocabulary, so evaluating, watching and subscribing change nothing; a change to the page is an [execution](executions.md).
+- **Event types.** A module adds event types of its own as keys of DOMQL's type selector `event`, each a selectable type naming the type its events are captured as, so `on` listens to them as it listens to the built-in ones.
 - **Observations.** A member of any module names DOMQL's observation types and targets as DOMQL's own members do. An observation type a module declares is started by its implementation, which receives `request`, the observation's `type`, its `target` and its `arguments`, each argument the member names resolved to its value; `notify`, which it calls when what it observes may have changed; and `env`. It answers an object whose `stop()` ends the observation and, for a maintained observation, whose `sample()` answers its latest sample, `{ pending, value }`.
+
+<a id="extension-modules-host-calls"></a>
+
+### Host calls DOMQL carries out
+
+A module declares an event source or an execution as a [host call](https://github.com/FormaUI/Lexica/blob/main/spec/members.md#members-host-calls), a function with `invokedBy: 'host'`, and gives DOMQL what Lexica leaves to its host: the `requestKind` the call makes, `subscription` for an event source or `execution`; an execution's `executionMode`, `once` or `continuous`; and the `implementation` that carries it out. `domql.createModule` keeps these in DOMQL's own catalog, and gives Lexica the declaration without them, so Lexica resolves and prepares the call and DOMQL alone invokes it.
+
+| Host call | `requestKind` | `executionMode` | Its `result` | Its implementation receives | It answers |
+| --- | --- | --- | --- | --- | --- |
+| Event source | `subscription` | Refused | The type of each event it delivers, `@selected` where an event type selects it | `receiver`, `args`, `env` and `deliver`, which each event is handed to | An object whose `stop()` ends the listening |
+| Once execution | `execution` | `once` | The type of its result | `receiver`, `args`, `env` and `signal`, which aborts it | Its result, or a promise of it |
+| Continuous execution | `execution` | `continuous` | None; one declared is refused | `receiver`, `args`, `env` and `reportError`, which a failure while it runs is reported through | An object whose `update(receiver, args)` applies new arguments and whose `dispose()` ends it, started before it returns |
+
+`domql.createModule` refuses, with a module error naming the declaration and the field, a host call whose `requestKind` is missing or neither `subscription` nor `execution`; an execution whose `executionMode` is missing or neither `once` nor `continuous`; an event source given an `executionMode`; a function the evaluator invokes given either field; and a continuous execution that declares a result. So an execution whose mode was left out is refused as an execution missing its mode.

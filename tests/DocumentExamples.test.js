@@ -102,7 +102,7 @@ const DOCUMENTS = {
     'spec/events.md': [
         { about: 'a subscription reading a maintained member' },
     ],
-    'spec/actions-and-behaviors.md': [],
+    'spec/executions.md': [],
     'spec/api.md': [],
     'spec/examples.md': [
         { about: 'a complete query', version: 32 },

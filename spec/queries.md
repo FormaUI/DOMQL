@@ -2,7 +2,7 @@
 
 <a id="queries"></a>
 
-A **query** is a Lexica script that DOMQL carries out against a document. It names what it reads, as an element's size, the items of a list or whether focus is within a panel, and shapes what it reads as data. A caller makes a query object from the query's text or its definition, binds the query's parameters to elements of the document or to plain data, and carries it out: it evaluates the query once, keeps its result current, takes a result at each event the query subscribes to, executes the action it asks for or applies the behavior it starts.
+A **query** is a Lexica script that DOMQL carries out against a document. It names what it reads, as an element's size, the items of a list or whether focus is within a panel, and shapes what it reads as data. A caller makes a query object from the query's text or its definition, binds the query's parameters to elements of the document or to plain data, and carries it out: it evaluates the query once, keeps its result current, takes a result at each event the query subscribes to, or carries out the execution it asks for, once or running until it is disposed.
 
 A query is read, checked and resolved by Lexica, against DOMQL's module and any module its caller registers, so DOMQL adds no syntax, and what a query can say is Lexica's to define. A query evaluates the same way for every caller, however it was written.
 
@@ -117,21 +117,21 @@ A request is resolved before it is first carried out, and resolution validates i
 
 ## Request kinds and their operations
 
-Evaluating, watching or subscribing to a request reads the document and changes nothing, whatever vocabulary it uses; executing an action or applying a behavior explicitly requests effects, carried out only when its caller executes or applies it. The request's source decides its kind, so the one entry point serves every request kind, and resolution refuses an operation the kind does not take before anything is evaluated or started, with a validation error that says what the request does and names the operation it takes:
+Evaluating, watching or subscribing to a request reads the document and changes nothing, whatever vocabulary it uses; an [execution](executions.md) explicitly requests effects, carried out only when its caller executes or runs it. The request's source decides its kind: a query gives a value, or ends in a [host call](https://github.com/FormaUI/Lexica/blob/main/spec/members.md#members-host-calls), which DOMQL carries out as its declaration says, by subscribing to an event source, or by executing once or running continuously an execution of that mode. The one entry point serves every request kind, and resolution refuses an operation the kind does not take before anything is evaluated or started, with a validation error that says what the request does and names the operation it takes:
 
 ```text
 Cannot execute 'panel.size': it produces a value.
 Use evaluate(), evaluateAsync() or watch().
 ```
 
-The object `domql.query` answers is a query object, whatever it holds, and what it describes is its request kind: a value, a subscription, an action or a behavior request, as [Lexica's request kinds](https://github.com/FormaUI/Lexica/blob/main/spec/members.md#members-member-kinds-and-requests) name them. An error a caller reads says what the request does, a value it produces, events it listens to, an effect it executes or a behavior it applies, rather than naming the kind.
+The object `domql.query` answers is a query object, whatever it holds, and what it describes is its request kind. An error a caller reads says what the request does, a value it produces, events it listens to, an effect it executes once or one it keeps running, rather than naming the kind.
 
-| Request kind | Its operations |
-| --- | --- |
-| Value | `evaluate`, `evaluateAsync`, `watch`, `select` |
-| Subscription | `subscribe` |
-| Action | `executeAsync` |
-| Behavior request | `apply` |
+| Request kind | Its query ends in | Its operations |
+| --- | --- | --- |
+| Value | A member the evaluator reads, or none | `evaluate`, `evaluateAsync`, `watch`, `select` |
+| Subscription | An event source | `subscribe` |
+| Once execution | An execution whose mode is `once` | `executeAsync` |
+| Continuous execution | An execution whose mode is `continuous` | `run` |
 
 <a id="selecting-a-result"></a>
 

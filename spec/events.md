@@ -3,7 +3,7 @@
 <a id="events"></a>
 <a id="event-delivery"></a>
 
-An **event source** delivers things that happened, as a click or a key pressed, and a **subscription** shapes each event it delivers into data, read as the event is dispatched. A subscription is a query whose chain ends in an event source: a caller subscribes to it, and the caller's handler receives one result for each event, immutable data that holds no event object and no element.
+An **event source** delivers things that happened, as a click or a key pressed, and a **subscription** shapes each event it delivers into data, read as the event is dispatched. An event source is a [host call](https://github.com/FormaUI/Lexica/blob/main/spec/members.md#members-host-calls) DOMQL carries out by subscribing to it, and a subscription is a query whose chain ends in one: a caller subscribes to it, and the caller's handler receives one result for each event, immutable data that holds no event object and no element.
 
 ```js
 const clicks = domql.query(`
@@ -30,11 +30,11 @@ In this document:
 
 ## Event sources
 
-An event source follows [Lexica's contract](https://github.com/FormaUI/Lexica/blob/main/spec/vocabulary.md#events-and-event-types): it delivers things that happened, is subscribed to and never read or watched, and the object expression following it is evaluated against each event, captured as the members its event type declares.
+An event source is subscribed to, and never read or watched: DOMQL starts it as its caller subscribes, and has each event it delivers projected through the object expression that follows it, as Lexica [projects a value its host supplies](https://github.com/FormaUI/Lexica/blob/main/spec/runtime.md#runtime-host-calls), each event captured as the members of the type its event type maps to.
 
-| Available on | Source | Type | Delivers | Reads | Fixed |
-| --- | --- | --- | --- | --- | --- |
-| Element, document, window | `on(type)` | `type`: `string` → `event<T>` for the event type `type` names | The native events of that type as they reach it, each with the members its declared event type offers, such as a pointer event's `button`, `clientX` and `clientY`; a type the vocabulary declares no event type for is a validation error | Captured at dispatch | `type` |
+| Available on | Source | Delivers | Fixed |
+| --- | --- | --- | --- |
+| Element, document, window | `on(type)`, `type`: `string`, selecting through the type selector `event` | The native events of that type as they reach it, each with the members its event type offers, such as a pointer event's `button`, `clientX` and `clientY`; a type the selector maps no type to is a validation error | `type` |
 
 `on` listens passively, so it never delays or prevents what the page does with an event.
 
@@ -42,9 +42,9 @@ An event source follows [Lexica's contract](https://github.com/FormaUI/Lexica/bl
 
 ## Event types
 
-The built-in event types, and the members each event offers:
+DOMQL's module declares the [type selector](https://github.com/FormaUI/Lexica/blob/main/spec/vocabulary.md#vocabulary-type-selectors) `event`, whose keys are the event types, and a module extends it with event types of its own as it extends DOMQL's types. The built-in event types, the type each maps to, and the members each event offers:
 
-| Event types | Event data type | Members |
+| Event types | Type | Members |
 | --- | --- | --- |
 | `click`, `pointerdown`, `pointerup` | `pointerEvent` | `target`: `element`, `button`: `number`, `buttons`: `number`, `clientX`: `number`, `clientY`: `number`, `pointerType`: `string?` |
 | `keydown`, `keyup` | `keyboardEvent` | `target`: `element`, `key`: `string`, `code`: `string` |
@@ -61,7 +61,7 @@ An event's object expression is evaluated as the event arrives, and its result, 
 
 - **Listening starts in the call.** The event listener starts its source before `subscribe` returns, so an event dispatched right after the call is heard, and a source that cannot start fails the call with an evaluation error whose cause is what the source threw. Its `status` is `ready` from the call on and `disposed` once ended; it never waits for an event.
 - **Events during the start.** A source may deliver while it starts. Those events are captured and projected at once, and the handler receives them once the caller holds the event listener, before any later event; where the start fails, the handler never receives them and the observations they started are let go of.
-- **The receiver and the arguments** of the source are evaluated once, as listening starts, so an event listener does not follow a receiver that changes, and listens to nothing where the receiver or an argument is null.
+- **The receiver and the arguments** of the source are prepared once, as listening starts, so an event listener does not follow a receiver that changes; a skipped preparation, where the receiver or an argument is null, starts nothing, and the event listener is `ready` and listens to nothing.
 - **A failed event,** one whose capture or object expression fails, reaches the handler with `status: "failed"` and leaves the event listener `ready`, listening; the next event is captured and projected again. A failure of the handler itself goes to the window's error reporting, and the handler is never called with its own failure.
 - **`dispose()`** ends the listening, lets go of every observation the event listener holds and prevents any new handler call; one already running may finish. Disposing again does nothing.
 
