@@ -21,7 +21,7 @@ DOMQL is Lexica's host. It registers its module in a Lexica registry beside the 
 | --- | --- | --- |
 | Entry point | Makes query objects from text or a definition, keeps their resolutions, registers modules, and composes the parts below into the public API | `domql.js` |
 | Query objects | A request's definition and bindings, through which every operation on it is carried out | `DomqlQuery` |
-| The module | DOMQL's declarations, the implementations of its members, and the functions that start its observations | `BrowserVocabulary`, `VocabularyImplementations`, `BrowserObservers`, `BrowserModule` |
+| The module | DOMQL's declarations, the implementations of its members, and the functions that start its observations | `BrowserVocabularyDeclarations`, `BrowserVocabularyImplementations`, `BrowserObservationImplementations`, `BrowserModule` |
 | Evaluation | Lexica's evaluator under hooks that record what an evaluation reads and hold the sessions that keep it observed | `QueryEvaluator`, `QueryEvaluation` |
 | Observations | Sessions on shared observations, each observation started on its first session and stopped with its last | `Observations`, `ObservationSession`, `SessionCache` |
 | Watches | Keeping a result current: scheduling evaluations and delivering each result that differs | `Watch` |

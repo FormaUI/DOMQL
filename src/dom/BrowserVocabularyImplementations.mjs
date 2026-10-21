@@ -1,5 +1,5 @@
 /**
- * VocabularyImplementations — the implementations that carry out the DOM vocabulary's members
+ * BrowserVocabularyImplementations — the implementations that carry out the DOM vocabulary's members
  */
 
 /** The input types `readonly` applies to. */
@@ -11,7 +11,7 @@ const TEXT_INPUT_TYPES = new Set(['text', 'search', 'url', 'tel', 'email', 'pass
 /** The values of `contenteditable` that make content editable. */
 const EDITABLE_VALUES = new Set(['', 'true', 'plaintext-only']);
 
-export class VocabularyImplementations {
+export class BrowserVocabularyImplementations {
     /**
      * Each implementation reads, from one object by name, the receiver, the arguments by parameter name and the environment the request is read in; a maintained member also its samples, and a source the function it delivers each event to, answering what stops it.
      * @type {Record<string, (input: { receiver: unknown, args: Record<string, any>, env: { window: Window, document: Document }, samples?: unknown[], deliver?: (event: unknown) => void }) => unknown>}
@@ -27,23 +27,23 @@ export class VocabularyImplementations {
             },
             devicePixelRatio: ({ receiver: window }) => window.devicePixelRatio,
             // The property reads the rectangle against the layout viewport, and rectRelativeTo against the element it is given.
-            rect: ({ receiver: element, args: { relativeTo = null } }) => VocabularyImplementations.#rect(element, relativeTo),
+            rect: ({ receiver: element, args: { relativeTo = null } }) => BrowserVocabularyImplementations.#rect(element, relativeTo),
             size: ({ receiver: element }) => {
-                const rect = VocabularyImplementations.#box(element);
+                const rect = BrowserVocabularyImplementations.#box(element);
 
                 return rect === null ? null : { width: rect.width, height: rect.height };
             },
-            clientSize: ({ receiver: element }) => VocabularyImplementations.#hasBox(element) ? { width: element.clientWidth, height: element.clientHeight } : null,
-            grid: ({ receiver: element }) => VocabularyImplementations.#hasBox(element) ? { columns: VocabularyImplementations.#columns(element) } : null,
-            selection: ({ receiver: element }) => VocabularyImplementations.#selection(element),
+            clientSize: ({ receiver: element }) => BrowserVocabularyImplementations.#hasBox(element) ? { width: element.clientWidth, height: element.clientHeight } : null,
+            grid: ({ receiver: element }) => BrowserVocabularyImplementations.#hasBox(element) ? { columns: BrowserVocabularyImplementations.#columns(element) } : null,
+            selection: ({ receiver: element }) => BrowserVocabularyImplementations.#selection(element),
             children: ({ receiver: node }) => [...node.children],
             parent: ({ receiver: node }) => node.parentNode ?? null,
             root: ({ receiver: node }) => node.getRootNode(),
             host: ({ receiver: node }) => (node.nodeType === 11 && node.host !== undefined ? node.host : null),
             shadow: ({ receiver: element }) => element,
             aria: ({ receiver: element }) => element,
-            ariaChecked: ({ receiver: element }) => VocabularyImplementations.#isAriaTrue(element, 'aria-checked'),
-            ariaDisabled: ({ receiver: element }) => VocabularyImplementations.#isAriaTrue(element, 'aria-disabled'),
+            ariaChecked: ({ receiver: element }) => BrowserVocabularyImplementations.#isAriaTrue(element, 'aria-checked'),
+            ariaDisabled: ({ receiver: element }) => BrowserVocabularyImplementations.#isAriaTrue(element, 'aria-disabled'),
             shadowRoot: ({ receiver: element }) => element.shadowRoot ?? null,
             assignedElements: ({ receiver: element }) => (typeof element.assignedElements === 'function' ? element.assignedElements({ flatten: true }) : null),
 
@@ -71,7 +71,7 @@ export class VocabularyImplementations {
                 return value === '' ? null : value;
             },
             intersects: ({ samples: [isIntersecting] }) => isIntersecting,
-            overlaps: ({ receiver: element, args: { other, margin } }) => VocabularyImplementations.#overlaps(element, other, margin),
+            overlaps: ({ receiver: element, args: { other, margin } }) => BrowserVocabularyImplementations.#overlaps(element, other, margin),
             matches: ({ receiver: element, args: { selector } }) => element.matches(selector),
             closest: ({ receiver: element, args: { selector } }) => element.closest(selector),
             firstMatching: ({ receiver: node, args: { selector } }) => node.querySelector(selector),
@@ -85,8 +85,8 @@ export class VocabularyImplementations {
 
             attached: ({ receiver: element }) => element.isConnected,
             disabled: ({ receiver: element }) => element.matches(':disabled'),
-            readOnly: ({ receiver: element }) => VocabularyImplementations.#isReadOnly(element),
-            textEditable: ({ receiver: element }) => VocabularyImplementations.#isTextEditable(element),
+            readOnly: ({ receiver: element }) => BrowserVocabularyImplementations.#isReadOnly(element),
+            textEditable: ({ receiver: element }) => BrowserVocabularyImplementations.#isTextEditable(element),
             focused: ({ receiver: element }) => element.getRootNode().activeElement === element,
             focusWithin: ({ receiver: element }) => element.matches(':focus-within'),
             hover: ({ receiver: element }) => element.matches(':hover'),
@@ -94,7 +94,7 @@ export class VocabularyImplementations {
             checked: ({ receiver: element }) => element.matches(':checked'),
             visible: ({ receiver: document }) => document.visibilityState === 'visible',
             hasChildren: ({ receiver: element }) => element.childElementCount > 0,
-            hasSelection: ({ receiver: element }) => VocabularyImplementations.#hasSelection(element),
+            hasSelection: ({ receiver: element }) => BrowserVocabularyImplementations.#hasSelection(element),
             hasFocus: ({ receiver: document }) => document.hasFocus(),
         };
     }
@@ -128,13 +128,13 @@ export class VocabularyImplementations {
     }
 
     static #rect(element, relativeTo) {
-        const box = VocabularyImplementations.#box(element);
+        const box = BrowserVocabularyImplementations.#box(element);
 
         if (box === null) {
             return null;
         }
 
-        const origin = relativeTo === null ? { left: 0, top: 0 } : VocabularyImplementations.#box(relativeTo);
+        const origin = relativeTo === null ? { left: 0, top: 0 } : BrowserVocabularyImplementations.#box(relativeTo);
 
         if (origin === null) {
             return null;
@@ -147,8 +147,8 @@ export class VocabularyImplementations {
     }
 
     static #overlaps(element, other, margin) {
-        const first = VocabularyImplementations.#box(element);
-        const second = VocabularyImplementations.#box(other);
+        const first = BrowserVocabularyImplementations.#box(element);
+        const second = BrowserVocabularyImplementations.#box(other);
 
         if (first === null || second === null) {
             return null;
@@ -170,13 +170,13 @@ export class VocabularyImplementations {
 
     /** The start and end of the selection of a text input or text area, or null for any other element. */
     static #selection(element) {
-        const start = VocabularyImplementations.#range(element);
+        const start = BrowserVocabularyImplementations.#range(element);
 
         return start === null ? null : { start: start[0], end: start[1] };
     }
 
     static #range(element) {
-        if (!VocabularyImplementations.#isTextControl(element)) {
+        if (!BrowserVocabularyImplementations.#isTextControl(element)) {
             return null;
         }
 
@@ -202,17 +202,17 @@ export class VocabularyImplementations {
     }
 
     static #isTextEditable(element) {
-        if (VocabularyImplementations.#isUnderInert(element)) {
+        if (BrowserVocabularyImplementations.#isUnderInert(element)) {
             return false;
         }
 
-        if (VocabularyImplementations.#isTextControl(element)) {
+        if (BrowserVocabularyImplementations.#isTextControl(element)) {
             const isText = element.localName === 'textarea' || TEXT_INPUT_TYPES.has(element.type);
 
             return isText && !element.matches(':disabled') && !element.readOnly;
         }
 
-        return VocabularyImplementations.#isContentEditable(element);
+        return BrowserVocabularyImplementations.#isContentEditable(element);
     }
 
     /**
@@ -255,8 +255,8 @@ export class VocabularyImplementations {
     }
 
     static #hasSelection(element) {
-        if (VocabularyImplementations.#isTextControl(element)) {
-            const range = VocabularyImplementations.#range(element);
+        if (BrowserVocabularyImplementations.#isTextControl(element)) {
+            const range = BrowserVocabularyImplementations.#range(element);
 
             return range !== null && range[0] !== range[1];
         }

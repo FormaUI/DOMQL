@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { BrowserModule } from '#domql/dom/BrowserModule.mjs';
-import { BrowserObservers } from '#domql/dom/BrowserObservers.mjs';
+import { BrowserObservationImplementations } from '#domql/dom/BrowserObservationImplementations.mjs';
 import { Observations } from '#domql/dom/Observations.mjs';
 import { LexicaRegistry } from '#lexica/language/vocabulary/LexicaRegistry.mjs';
 
@@ -30,7 +30,7 @@ const createWindow = devicePixelRatio => {
     return fake;
 };
 
-describe('BrowserObservers', () => {
+describe('BrowserObservationImplementations', () => {
     describe('pixelRatio', () => {
         const watch = fake => {
             const observations = new Observations(new LexicaRegistry([BrowserModule.create()]), { window: fake, document });
@@ -123,7 +123,7 @@ describe('BrowserObservers', () => {
         it('observes the border box and the content box, one observer each, and reports a change either reports after its first report', () => {
             const fake = createResizeWindow();
             let changes = 0;
-            const observation = BrowserObservers.implementations.observeResize({ request: { type: 'resize', target: element, arguments: { box: 'client' } }, notify: () => changes++, env: { window: fake } });
+            const observation = BrowserObservationImplementations.implementations.observeResize({ request: { type: 'resize', target: element, arguments: { box: 'client' } }, notify: () => changes++, env: { window: fake } });
 
             expect(fake.observers.map(observer => observer.boxes)).toEqual([['border-box'], ['content-box']]);
 
@@ -141,7 +141,7 @@ describe('BrowserObservers', () => {
         it('lets go of the border box observer where the content box one fails to start', () => {
             const fake = createResizeWindow({ failing: 1 });
 
-            expect(() => BrowserObservers.implementations.observeResize({ request: { type: 'resize', target: element, arguments: { box: 'client' } }, notify: () => {}, env: { window: fake } })).toThrow('cannot observe');
+            expect(() => BrowserObservationImplementations.implementations.observeResize({ request: { type: 'resize', target: element, arguments: { box: 'client' } }, notify: () => {}, env: { window: fake } })).toThrow('cannot observe');
             expect(fake.observers.map(observer => observer.isDisconnected)).toEqual([true, true]);
         });
     });

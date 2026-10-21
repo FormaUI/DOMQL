@@ -4,7 +4,7 @@ import { LexicaError } from '#lexica/language/LexicaError.mjs';
 import { LexicaModule } from '#lexica/language/vocabulary/LexicaModule.mjs';
 import { LexicaRegistry } from '#lexica/language/vocabulary/LexicaRegistry.mjs';
 import { Vocabulary } from '#lexica/language/vocabulary/Vocabulary.mjs';
-import { BrowserVocabulary } from '#domql/dom/BrowserVocabulary.mjs';
+import { BrowserVocabularyDeclarations } from '#domql/dom/BrowserVocabularyDeclarations.mjs';
 
 /** A module of observation types that start nothing in a browser, and the record of what they did. */
 const createObservationTypes = () => {
@@ -45,7 +45,7 @@ describe('Observations', () => {
         record = fake.record;
         reported = [];
         target = document.createElement('div');
-        observations = new Observations(new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, fake.module]), { window, document }, { reportError: error => reported.push(error) });
+        observations = new Observations(new LexicaRegistry([Vocabulary.module, BrowserVocabularyDeclarations.module, fake.module]), { window, document }, { reportError: error => reported.push(error) });
     });
 
     const request = (type, args = {}, on = target) => ({ type, target: on, arguments: args });
@@ -123,7 +123,7 @@ describe('Observations', () => {
         });
 
         it('report a failure to stop and are still disposed', () => {
-            const broken = new Observations(new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, new LexicaModule('stuck', {
+            const broken = new Observations(new LexicaRegistry([Vocabulary.module, BrowserVocabularyDeclarations.module, new LexicaModule('stuck', {
                 observationTypes: [{ name: 'stuck', contract: 'invalidation', implementation: () => ({ stop: () => { throw new Error('stuck'); } }) }],
             })]), { window, document }, { reportError: error => reported.push(error) });
 
@@ -172,7 +172,7 @@ describe('Observations', () => {
         it('reach the other sessions when reporting a failure fails too', () => {
             const calls = [];
             const types = createObservationTypes();
-            const observing = new Observations(new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, types.module]), { window, document }, { reportError: () => { throw new Error('nowhere to report'); } });
+            const observing = new Observations(new LexicaRegistry([Vocabulary.module, BrowserVocabularyDeclarations.module, types.module]), { window, document }, { reportError: () => { throw new Error('nowhere to report'); } });
 
             observing.acquire(request('ticks'), () => { throw new Error('first fails'); });
             observing.acquire(request('ticks'), () => calls.push('second'));
@@ -182,7 +182,7 @@ describe('Observations', () => {
         });
 
         it('are disposed when the observation fails to stop and reporting the failure fails too', () => {
-            const stuck = new Observations(new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, new LexicaModule('stuck', {
+            const stuck = new Observations(new LexicaRegistry([Vocabulary.module, BrowserVocabularyDeclarations.module, new LexicaModule('stuck', {
                 observationTypes: [{ name: 'stuck', contract: 'invalidation', implementation: () => ({ stop: () => { throw new Error('stuck'); } }) }],
             })]), { window, document }, { reportError: () => { throw new Error('nowhere to report'); } });
 
@@ -327,7 +327,7 @@ describe('Observations', () => {
         });
 
         it('resolve the observations a built-in member names', () => {
-            const [declaration] = new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module]).getMembers('attribute');
+            const [declaration] = new LexicaRegistry([Vocabulary.module, BrowserVocabularyDeclarations.module]).getMembers('attribute');
             const requests = declaration.updates.observations.map(observation => observations.resolve(observation, { receiver: target, args: { name: 'id' } }));
 
             expect(requests).toEqual([{ type: 'mutation', target, arguments: { attributes: ['id'] } }]);

@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { BrowserModule } from '#domql/dom/BrowserModule.mjs';
-import { BrowserObservers } from '#domql/dom/BrowserObservers.mjs';
-import { BrowserVocabulary } from '#domql/dom/BrowserVocabulary.mjs';
+import { BrowserObservationImplementations } from '#domql/dom/BrowserObservationImplementations.mjs';
+import { BrowserVocabularyDeclarations } from '#domql/dom/BrowserVocabularyDeclarations.mjs';
 import { DispatchTable } from '#domql/dom/DispatchTable.mjs';
-import { VocabularyImplementations } from '#domql/dom/VocabularyImplementations.mjs';
+import { BrowserVocabularyImplementations } from '#domql/dom/BrowserVocabularyImplementations.mjs';
 
 /** The declarations of a module that run code: its members, observation types and conversions. */
 const declarationsOf = module => [...module.members, ...module.observationTypes, ...module.conversions];
@@ -13,11 +13,11 @@ const implementationOf = declaration => declaration.implementation ?? DispatchTa
 
 describe('BrowserModule', () => {
     const module = BrowserModule.create();
-    const keys = Object.keys({ ...VocabularyImplementations.implementations, ...BrowserObservers.implementations });
+    const keys = Object.keys({ ...BrowserVocabularyImplementations.implementations, ...BrowserObservationImplementations.implementations });
 
     it('is the DOM vocabulary', () => {
         expect(module.name).toBe('domql');
-        expect(module.members.map(member => member.name)).toEqual(BrowserVocabulary.module.members.map(member => member.name));
+        expect(module.members.map(member => member.name)).toEqual(BrowserVocabularyDeclarations.module.members.map(member => member.name));
     });
 
     it('carries out every member and conversion and starts every observation type the vocabulary declares', () => {
@@ -29,12 +29,12 @@ describe('BrowserModule', () => {
     it('supplies no implementation that no declaration takes', () => {
         // Each key's stand-in answers the key, so the stand-ins the declarations carry name the keys they take.
         const standIns = Object.fromEntries(keys.map(key => [key, () => key]));
-        const taken = declarationsOf(BrowserVocabulary.createModule(standIns)).map(declaration => implementationOf(declaration)?.());
+        const taken = declarationsOf(BrowserVocabularyDeclarations.createModule(standIns)).map(declaration => implementationOf(declaration)?.());
 
         expect([...new Set(taken)].sort()).toEqual([...keys].sort());
     });
 
     it('leaves the DOM vocabulary alone declaring, with no implementation to carry anything out', () => {
-        expect(declarationsOf(BrowserVocabulary.module).filter(declaration => implementationOf(declaration) !== undefined)).toEqual([]);
+        expect(declarationsOf(BrowserVocabularyDeclarations.module).filter(declaration => implementationOf(declaration) !== undefined)).toEqual([]);
     });
 });

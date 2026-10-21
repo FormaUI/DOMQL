@@ -8,7 +8,7 @@ import { ParameterBindings } from '#lexica/language/ParameterBindings.mjs';
 import { ParsedTexts } from '#lexica/language/ParsedTexts.mjs';
 import { LexicaRegistry } from '#lexica/language/vocabulary/LexicaRegistry.mjs';
 import { Vocabulary } from '#lexica/language/vocabulary/Vocabulary.mjs';
-import { BrowserVocabulary } from '#domql/dom/BrowserVocabulary.mjs';
+import { BrowserVocabularyDeclarations } from '#domql/dom/BrowserVocabularyDeclarations.mjs';
 import { DispatchTable } from '#domql/dom/DispatchTable.mjs';
 
 const panel = document.createElement('div');
@@ -19,7 +19,7 @@ const resolve = (text, bindings = { panel }, options = {}) => domql.query(text, 
 const resolveInLexica = (text, bindings = { panel }) => {
     const definition = ParsedTexts.parse(text);
 
-    return new LanguageResolver(new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module]), new ParameterBindings(bindings), ParsedTexts.locationsOf(definition)).resolveDefinition(definition);
+    return new LanguageResolver(new LexicaRegistry([Vocabulary.module, BrowserVocabularyDeclarations.module]), new ParameterBindings(bindings), ParsedTexts.locationsOf(definition)).resolveDefinition(definition);
 };
 const failure = (text, bindings, options) => {
     try {
@@ -76,7 +76,7 @@ describe('LanguageResolver', () => {
             ['a receiver', 'panel.loose.count'],
             ['a subject', 'panel.loose.attached'],
         ])('refuses a type parameter no receiver gives an argument as %s, so its value never reaches a result', (_, text) => {
-            const registry = new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, new LexicaModule('loose', {
+            const registry = new LexicaRegistry([Vocabulary.module, BrowserVocabularyDeclarations.module, new LexicaModule('loose', {
                 members: [{ name: 'loose', kind: 'property', target: 'element', result: 'T', updates: { changes: 'constant', reads: 'fresh' } }],
             })]);
             const query = domql.query(text, { panel });
@@ -123,7 +123,7 @@ describe('LanguageResolver', () => {
         const member = (name, executionMode, result) => DispatchTable.createModule(name, {
             members: [{ name, kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode, target: 'element', parameters: [], result }],
         });
-        const registry = new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, member('step', 'once', 'boolean'), member('pick', 'once', 'element'), member('focusTrap', 'continuous', undefined)]);
+        const registry = new LexicaRegistry([Vocabulary.module, BrowserVocabularyDeclarations.module, member('step', 'once', 'boolean'), member('pick', 'once', 'element'), member('focusTrap', 'continuous', undefined)]);
         const resolveWith = text => {
             const query = domql.query(text, { panel });
 
@@ -212,7 +212,7 @@ describe('LanguageResolver', () => {
         });
 
         it('supplies positional parameters in order, an optional one left out taking its default, and refuses more arguments than parameters', () => {
-            const registry = new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, new LexicaModule('clamp', {
+            const registry = new LexicaRegistry([Vocabulary.module, BrowserVocabularyDeclarations.module, new LexicaModule('clamp', {
                 members: [{
                     name: 'clamp', kind: 'function', target: 'element', arguments: 'positional', result: 'number', updates: { changes: 'constant', reads: 'fresh' },
                     parameters: [{ name: 'low', kind: 'value', type: 'number', required: true, nulls: 'propagate' }, { name: 'high', kind: 'value', type: 'number', required: false, default: 10, nulls: 'propagate' }],
@@ -239,7 +239,7 @@ describe('LanguageResolver', () => {
         });
 
         it('refuses an argument given to a function that takes none', () => {
-            const registry = new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, new LexicaModule('ping', {
+            const registry = new LexicaRegistry([Vocabulary.module, BrowserVocabularyDeclarations.module, new LexicaModule('ping', {
                 members: [{ name: 'ping', kind: 'function', target: 'element', parameters: [], result: 'boolean', updates: { changes: 'constant', reads: 'fresh' } }],
             })]);
             const query = domql.query('panel.ping(1)', { panel });
@@ -476,7 +476,7 @@ describe('LanguageResolver', () => {
                 members: [{ name: 'charts', kind: 'property', target: 'element', result: 'boolean', updates: { changes: 'constant', reads: 'fresh' } }],
             });
 
-            const registry = new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, module]);
+            const registry = new LexicaRegistry([Vocabulary.module, BrowserVocabularyDeclarations.module, module]);
             const element = document.createElement('div');
             const resolveWith = text => {
                 const query = domql.query(text, { panel: element });

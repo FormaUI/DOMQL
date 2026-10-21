@@ -1,5 +1,5 @@
 /**
- * BrowserObservers — the functions that start the DOM vocabulary's types of observation in a browser
+ * BrowserObservationImplementations — the functions that start the DOM vocabulary's types of observation in a browser
  */
 
 /**
@@ -12,21 +12,21 @@
  * @typedef {{ stop: () => void, sample?: () => { pending: boolean, value: unknown } }} Observation
  */
 
-export class BrowserObservers {
+export class BrowserObservationImplementations {
     /**
      * Each implementation starts an observation: it reads the request, the function to call when something may have changed, and the environment, from one object by name.
      * @type {Record<string, (input: { request: ObservationRequest, notify: () => void, env: { window: Window } }) => Observation>}
      */
     static get implementations() {
         return {
-            observeResize: BrowserObservers.#observeResize,
-            observeMutation: BrowserObservers.#observeMutation,
-            observeAttachment: BrowserObservers.#observeAttachment,
-            observeIntersection: BrowserObservers.#observeIntersection,
-            observeMedia: BrowserObservers.#observeMedia,
-            observePixelRatio: BrowserObservers.#observePixelRatio,
-            observeEvents: BrowserObservers.#observeEvents,
-            observeVisibility: BrowserObservers.#observeVisibility,
+            observeResize: BrowserObservationImplementations.#observeResize,
+            observeMutation: BrowserObservationImplementations.#observeMutation,
+            observeAttachment: BrowserObservationImplementations.#observeAttachment,
+            observeIntersection: BrowserObservationImplementations.#observeIntersection,
+            observeMedia: BrowserObservationImplementations.#observeMedia,
+            observePixelRatio: BrowserObservationImplementations.#observePixelRatio,
+            observeEvents: BrowserObservationImplementations.#observeEvents,
+            observeVisibility: BrowserObservationImplementations.#observeVisibility,
         };
     }
 
@@ -37,10 +37,10 @@ export class BrowserObservers {
      */
     static #observeResize({ request: { target, arguments: { box = 'border-box' } }, notify, env: { window } }) {
         if (target === window) {
-            const listeners = [BrowserObservers.#listen(target, ['resize'], false, notify)];
+            const listeners = [BrowserObservationImplementations.#listen(target, ['resize'], false, notify)];
 
             if (window.visualViewport) {
-                listeners.push(BrowserObservers.#listen(window.visualViewport, ['resize'], false, notify));
+                listeners.push(BrowserObservationImplementations.#listen(window.visualViewport, ['resize'], false, notify));
             }
 
             return { stop: () => listeners.forEach(listener => listener.stop()) };
@@ -50,7 +50,7 @@ export class BrowserObservers {
 
         try {
             for (const observedBox of box === 'client' ? ['border-box', 'content-box'] : [box]) {
-                observers.push(BrowserObservers.#observeBox(target, observedBox, notify, window));
+                observers.push(BrowserObservationImplementations.#observeBox(target, observedBox, notify, window));
             }
         } catch (error) {
             observers.forEach(observer => observer.disconnect());
@@ -163,7 +163,7 @@ export class BrowserObservers {
     static #observeMedia({ request: { arguments: { query } }, notify, env: { window } }) {
         const list = window.matchMedia(query);
 
-        return BrowserObservers.#listen(list, ['change'], false, notify);
+        return BrowserObservationImplementations.#listen(list, ['change'], false, notify);
     }
 
     /** The device pixel ratio, which a media query on one ratio reports leaving. */
@@ -187,12 +187,12 @@ export class BrowserObservers {
 
     /** Events of the given types reaching the target, or the target in the capture phase. */
     static #observeEvents({ request: { target, arguments: { types, capture = false } }, notify }) {
-        return BrowserObservers.#listen(target, types, capture, notify);
+        return BrowserObservationImplementations.#listen(target, types, capture, notify);
     }
 
     /** Whether the document is visible. */
     static #observeVisibility({ request: { target }, notify }) {
-        return BrowserObservers.#listen(target, ['visibilitychange'], false, notify);
+        return BrowserObservationImplementations.#listen(target, ['visibilitychange'], false, notify);
     }
 
     static #listen(target, types, capture, notify) {

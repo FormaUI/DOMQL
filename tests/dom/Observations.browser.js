@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, it, expect } from 'vitest';
 import { BrowserModule } from '#domql/dom/BrowserModule.mjs';
 import { Observations } from '#domql/dom/Observations.mjs';
 import { LexicaRegistry } from '#lexica/language/vocabulary/LexicaRegistry.mjs';
-import { BrowserVocabulary } from '#domql/dom/BrowserVocabulary.mjs';
+import { BrowserVocabularyDeclarations } from '#domql/dom/BrowserVocabularyDeclarations.mjs';
 
 /** The observation types of the DOM vocabulary, started in the browser they observe. */
 describe('Observations in a browser', () => {
@@ -297,7 +297,7 @@ describe('Observations in a browser', () => {
         it('starts and ends every observation it names, against a real receiver', async () => {
             const element = add('width: 40px; height: 40px');
             const other = add('width: 10px; height: 10px');
-            const declarations = BrowserVocabulary.module.members.filter(declaration => (declaration.updates?.observations ?? []).length > 0);
+            const declarations = BrowserVocabularyDeclarations.module.members.filter(declaration => (declaration.updates?.observations ?? []).length > 0);
 
             expect(declarations.length).toBeGreaterThan(15);
 

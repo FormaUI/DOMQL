@@ -1,5 +1,5 @@
 /**
- * BrowserVocabulary — DOMQL's vocabulary, the DOM's: its nodes, elements, shadow trees, ARIA views and window, their members, Boolean functions among them, events and observations, and the document and the window a query reads, as the specification's tables state them
+ * BrowserVocabularyDeclarations — the declarations of DOMQL's vocabulary, the DOM's: its nodes, elements, shadow trees, ARIA views and window, their members, Boolean functions among them, events and observations, and the document and the window a query reads, as the specification's tables state them
  */
 
 import { lexica } from '@formaui/lexica';
@@ -31,7 +31,7 @@ const MATCHING = { changes: 'partly-observable', misses: 'pointer state such as 
 const GEOMETRY = { changes: 'partly-observable', misses: 'a move its own size, the scrolling of its scroll containers, the window\'s size and the structure of its trees do not cause, as a sibling before it growing or a margin or padding around it changing, and transforms and animations' };
 const STYLE = { changes: 'partly-observable', misses: 'rules matching from elsewhere' };
 
-export class BrowserVocabulary {
+export class BrowserVocabularyDeclarations {
     /** The name of DOMQL's module. */
     static moduleName = 'domql';
 
@@ -45,7 +45,7 @@ export class BrowserVocabulary {
         const observationType = (name, contract, key, rest = {}) => implementing(key, { name, contract, ...rest });
         const test = (key, name, target, { updates }) => implementing(key, lexica.declarations.function(name, target, 'boolean', { updates }));
 
-        return DispatchTable.createModule(BrowserVocabulary.moduleName, {
+        return DispatchTable.createModule(BrowserVocabularyDeclarations.moduleName, {
             types: [
                 { name: 'size', fields: { width: 'number', height: 'number' } },
                 { name: 'rectangle', fields: { left: 'number', top: 'number', right: 'number', bottom: 'number', width: 'number', height: 'number' } },
@@ -164,6 +164,6 @@ export class BrowserVocabulary {
 
     /** DOMQL's module as its declarations alone, which is enough to resolve a query and carries nothing out. */
     static get module() {
-        return BrowserVocabulary.createModule();
+        return BrowserVocabularyDeclarations.createModule();
     }
 }

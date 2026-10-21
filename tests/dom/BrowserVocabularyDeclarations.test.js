@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { LexicaModule } from '#lexica/language/vocabulary/LexicaModule.mjs';
 import { LexicaRegistry } from '#lexica/language/vocabulary/LexicaRegistry.mjs';
 import { Vocabulary } from '#lexica/language/vocabulary/Vocabulary.mjs';
-import { BrowserVocabulary } from '#domql/dom/BrowserVocabulary.mjs';
+import { BrowserVocabularyDeclarations } from '#domql/dom/BrowserVocabularyDeclarations.mjs';
 import { DispatchTable } from '#domql/dom/DispatchTable.mjs';
 
 /** The message an error a call throws carries. */
@@ -19,9 +19,9 @@ const messageOf = call => {
 /** A property of an element a test module declares. */
 const declaration = overrides => ({ name: 'charts', kind: 'property', target: 'element', result: 'number', updates: { changes: 'constant', reads: 'fresh' }, ...overrides });
 
-describe('BrowserVocabulary', () => {
-    const registry = new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module]);
-    const { module } = BrowserVocabulary;
+describe('BrowserVocabularyDeclarations', () => {
+    const registry = new LexicaRegistry([Vocabulary.module, BrowserVocabularyDeclarations.module]);
+    const { module } = BrowserVocabularyDeclarations;
     const names = [
         'size', 'devicePixelRatio', 'rect', 'clientSize', 'grid', 'selection', 'children', 'parent', 'count', 'first', 'last',
         'media', 'is', 'has', 'supports', 'attribute', 'style', 'intersects', 'overlaps', 'matches', 'closest',
@@ -75,15 +75,15 @@ describe('BrowserVocabulary', () => {
     });
 
     it('refuses a module\'s member the DOM vocabulary already answers on the same receiver, a kind of node included', () => {
-        expect(messageOf(() => new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, new LexicaModule('size', { members: [declaration({ name: 'size', target: 'element' })] })]))).toContain('declared already');
-        expect(messageOf(() => new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, new LexicaModule('parent', { members: [declaration({ name: 'parent', target: 'shadowRoot' })] })]))).toContain('declared already');
+        expect(messageOf(() => new LexicaRegistry([Vocabulary.module, BrowserVocabularyDeclarations.module, new LexicaModule('size', { members: [declaration({ name: 'size', target: 'element' })] })]))).toContain('declared already');
+        expect(messageOf(() => new LexicaRegistry([Vocabulary.module, BrowserVocabularyDeclarations.module, new LexicaModule('parent', { members: [declaration({ name: 'parent', target: 'shadowRoot' })] })]))).toContain('declared already');
     });
 
     it('lets a module beside it declare a member and a Boolean function of any name on an element', () => {
         const charts = new LexicaModule('charts', {
             members: [declaration({ name: 'palette' }), declaration({ name: 'plotted', kind: 'function', result: 'boolean', parameters: [], updates: { changes: 'unobserved', reads: 'fresh' } })],
         });
-        const extended = new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, charts]);
+        const extended = new LexicaRegistry([Vocabulary.module, BrowserVocabularyDeclarations.module, charts]);
 
         expect(['palette', 'plotted'].flatMap(name => extended.getMembers(name)).map(member => extended.getOwner(member))).toEqual(['charts', 'charts']);
     });
@@ -101,7 +101,7 @@ describe('BrowserVocabulary', () => {
     });
 
     it('refuses a key a module declares for the type selector event that the DOM vocabulary maps already', () => {
-        expect(messageOf(() => new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, new LexicaModule('twice', { selectableTypes: [{ name: 'click', selector: 'event', type: 'domEvent' }] })]))).toContain("The type selector 'event' maps the key 'click' already, as the module 'domql' declared it");
+        expect(messageOf(() => new LexicaRegistry([Vocabulary.module, BrowserVocabularyDeclarations.module, new LexicaModule('twice', { selectableTypes: [{ name: 'click', selector: 'event', type: 'domEvent' }] })]))).toContain("The type selector 'event' maps the key 'click' already, as the module 'domql' declared it");
     });
 
     describe('observations', () => {
