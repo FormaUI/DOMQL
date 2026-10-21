@@ -24,7 +24,7 @@ The implementation follows DOMQL's specification version `1.0.0-alpha.275`, and 
 | Event sources and event types | Partial | `on` is a Lexica event source and its event types Lexica's; a host call selecting through the type selector `event` comes with [host calls](#host-calls-and-executions) | [Events](../spec/events.md#event-sources) |
 | Observation types | Implemented | | [Observation types](../spec/vocabulary.md#observations-types) |
 | `domql.document` and `domql.window` | Planned | Today `document` and `window` are roots of the language | [Module members](../spec/vocabulary.md#module-members) |
-| Observation targets DOMQL declares and resolves | Planned | Lexica still knows `window`, `document`, `root` and `roots` by name | [Observation targets](../spec/vocabulary.md#observations-targets) |
+| Observation targets DOMQL declares and resolves | Implemented | | [Observation targets](../spec/vocabulary.md#observations-targets) |
 | Extension modules | Partial | Declared in Lexica's version 32 shape; namespaces, qualified access and owner precedence come with Lexica's version 32, and the catalog of host calls with [host calls](#host-calls-and-executions) | [Extension modules](../spec/vocabulary.md#extension-modules) |
 
 ### The host
@@ -59,10 +59,10 @@ Version 32 is built in Lexica and DOMQL together, in three slices; [Lexica's sta
 | Slice | Status | DOMQL's part |
 | --- | --- | --- |
 | 1. The declaration shape | Implemented | Its vocabulary declared in the new shape, its implementations taking one object, its predicates replacing conditions |
-| 2. The version 32 definition | Planned | `domql.document` and `domql.window` as module members of `domql`; its observation targets, `window`, `document`, `root` and `roots`, declared and resolved by its own observations; its queries, examples, READMEs and guide moved to `it` and `domql.document`, in the commit that follows Lexica's switch |
+| 2. The version 32 definition | In progress | `domql.document` and `domql.window` as module members of `domql`; its observation targets, `window`, `document`, `root` and `roots`, declared and resolved by its own observations, which are built; its queries, examples, READMEs and guide moved to `it` and `domql.document`, in the commit that follows Lexica's switch |
 | 3. Reference types | Planned | `node`, abstract, with `element`, `document`, `documentFragment` and `shadowRoot` beneath it, and `window`, each with its test; the comparer matching items by the references `sources` holds where each is unique in both lists, and by position otherwise, checked against duplicate references, repeated equal data values, null inputs and reordered items |
 
-**Next step.** Slice 2 waits on Lexica's decision of its order; with observation targets first, DOMQL's next change is declaring and resolving its own targets.
+**Next step.** DOMQL's part of Lexica's version 32 switch, in the commit that follows it: `domql.document` and `domql.window` as module members, and its queries, examples, READMEs and guide moved to `it` and `domql.document`.
 
 ## Host calls and executions
 

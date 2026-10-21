@@ -149,8 +149,12 @@ class Domql {
         return lexica.createModule(name, contents);
     }
 
-    /** Registers a module's vocabulary, which every request resolved afterwards may use. */
+    /** Registers a module's vocabulary, which every request resolved afterwards may use; a module declaring observation targets is refused, since DOMQL resolves its own module's alone. */
     static registerModule(module) {
+        if (module?.observationTargets?.length > 0) {
+            throw LexicaError.module(`DOMQL resolves the observation targets its own module declares alone, and the module '${module.name}' declares one of its own; its observations observe the receiver, an argument of the member, or window, document, root or roots through one of DOMQL's observation types`, { module: module.name, field: 'observationTargets' });
+        }
+
         Domql.#moduleRegistry.registerModule(module);
     }
 

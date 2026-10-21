@@ -312,8 +312,8 @@ export type DomqlObservationValue = string | number | boolean | null | DomqlArgu
 export interface DomqlObservationDeclaration {
     /** The name of the type of observation, which a module declares. */
     type: string;
-    /** What it observes: the receiver; its root, the root of the tree it is in; its roots, every root of its flat-tree ancestry through slots and shadow hosts, each observed alike; the window; the document; or the argument of the member that names it. A member without a target has no receiver, and observes none of the receiver's. */
-    of: 'receiver' | 'root' | 'roots' | 'window' | 'document' | DomqlArgumentReference;
+    /** What it observes: the receiver; a target the module declaring its type declares, by its name, as DOMQL's `window`, `document`, `root` and `roots` are; or the argument of the member that names it. A member without a target has no receiver, and observes neither it nor a target found from it. */
+    of: string | DomqlArgumentReference;
     [argument: string]: DomqlObservationValue | undefined;
 }
 
@@ -347,6 +347,16 @@ export interface DomqlObservationTypeDeclaration {
     shared?: boolean;
     /** Starts an observation, and answers an object whose `stop` ends it and, for a maintained one, whose `sample` answers its latest sample as `{ pending, value }`, pending until the first arrives. */
     implementation?: (input: DomqlObservationImplementationInput) => { stop(): void; sample?(): { pending: boolean; value?: unknown } };
+}
+
+/** A target a module's observation types observe besides the receiver and an argument of the member, which DOMQL's own module alone declares. */
+export interface DomqlObservationTargetDeclaration {
+    /** Its name, which an observation's `of` gives, and never `receiver`. */
+    name: string;
+    /** Whether it is found from the receiver, so a member without a target observes none of it, or independent of it, the default. */
+    from?: 'receiver';
+    /** Whether it is several targets, each observed alike, which a maintained observation never observes, or one, the default. */
+    count?: 'many';
 }
 
 /** What an implementation of a conversion receives: the value, never null, and `reject`. */
@@ -475,6 +485,7 @@ export interface DomqlModule {
     readonly predicates: readonly DomqlPredicateDeclaration[];
     readonly eventTypes: readonly { readonly name: string; readonly data: string }[];
     readonly observationTypes: readonly DomqlObservationTypeDeclaration[];
+    readonly observationTargets: readonly DomqlObservationTargetDeclaration[];
     readonly conversions: readonly DomqlConversionDeclaration[];
 }
 

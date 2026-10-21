@@ -107,6 +107,13 @@ describe('BrowserVocabulary', () => {
             expect([...new Set(named)].sort()).toEqual([...types].sort());
         });
 
+        it('observe the window, the document, and the receiver\'s root and roots, the targets the module declares', () => {
+            const named = members.flatMap(declaration => declaration.updates.observations.map(observation => observation.of)).filter(of => typeof of === 'string' && of !== 'receiver');
+
+            expect(module.observationTargets).toEqual([{ name: 'window' }, { name: 'document' }, { name: 'root', from: 'receiver' }, { name: 'roots', from: 'receiver', count: 'many' }]);
+            expect([...new Set(named)].sort()).toEqual(module.observationTargets.map(target => target.name).sort());
+        });
+
         it('are maintained only for the member that reads maintained values', () => {
             const maintained = members.filter(declaration => declaration.updates.observations.some(observation => registry.getObservationType(observation.type).contract === 'maintained'));
 

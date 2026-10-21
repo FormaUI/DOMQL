@@ -1670,6 +1670,18 @@ describe('domql modules', () => {
         expect(getError(() => isolated.registerModule(module('zoom'))).kind).toBe('module');
     });
 
+    it('observe DOMQL\'s targets through DOMQL\'s observation types, and declare no targets of their own, which DOMQL could not resolve', () => {
+        const observing = of => isolated.createModule('framed', {
+            members: [{ name: 'framed', kind: 'property', target: 'element', result: 'number', updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of, childList: true }] }, implementation: () => 7 }],
+        });
+        const refused = getError(() => isolated.registerModule(isolated.createModule('frames', { observationTargets: [{ name: 'frame' }] })));
+
+        expect(() => isolated.registerModule(observing('root'))).not.toThrow();
+        expect(refused).toMatchObject({ kind: 'module', location: { module: 'frames', field: 'observationTargets' } });
+        expect(refused.message).toContain("DOMQL resolves the observation targets its own module declares alone, and the module 'frames' declares one of its own");
+        expect(() => isolated.query('panel.framed', { panel: document.createElement('div') }).resolve()).not.toThrow();
+    });
+
     it('leave the registry of another copy of domql alone', () => {
         isolated.registerModule(module('zoom'));
 

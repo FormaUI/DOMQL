@@ -83,6 +83,9 @@ export class BrowserVocabulary {
                 observationType('visibility', 'invalidation', 'observeVisibility'),
             ],
 
+            // The targets the observations observe besides the receiver and an argument: the window and the document, and the receiver's root, the root of the tree it is in, and its roots, every root of its flat-tree ancestry through slots and shadow hosts.
+            observationTargets: [{ name: 'window' }, { name: 'document' }, { name: 'root', from: 'receiver' }, { name: 'roots', from: 'receiver', count: 'many' }],
+
             // The predicates of elements and of the document, each as the browser decides it, its native semantics: a pseudo-class's matching, or the document's own state.
             predicates: [
                 asked('disabled', 'disabled', 'element', { updates: updatesOf({ observations: [{ type: 'mutation', of: 'root', attributes: ['disabled'], childList: true, subtree: true }] }) }),
