@@ -132,7 +132,7 @@ describe('domql evaluateAsync in a browser', () => {
             expect(snapshots).toEqual([440, 490, 510]);
         });
 
-        it('follows a popover opening and closing, by script and by its button, which change no attribute', async () => {
+        it('follows a popover opening and closing, by the page\'s code and by its button, which change no attribute', async () => {
             panel.insertAdjacentHTML('beforeend', '<button id="opener" popovertarget="tip">Tip</button><div id="tip" popover>A tip</div>');
 
             const tip = document.getElementById('tip');

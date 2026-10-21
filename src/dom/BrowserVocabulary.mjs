@@ -95,7 +95,7 @@ export class BrowserVocabulary {
                 asked('checked', 'checked', 'element', {
                     updates: updatesOf({
                         changes: 'partly-observable',
-                        misses: 'a script setting checked or selected, or a select\'s value or selectedIndex, which fires no event',
+                        misses: 'the page\'s code setting checked or selected, or a select\'s value or selectedIndex, which fires no event',
                         observations: [{ type: 'event', of: 'root', types: ['input', 'change', 'reset'], capture: true }, { type: 'mutation', of: 'root', attributes: ['checked', 'selected'], childList: true, subtree: true }],
                     }),
                 }),
@@ -118,7 +118,7 @@ export class BrowserVocabulary {
                 implementing('size', property('size', 'element', 'size?', { updates: updatesOf({ observations: [RESIZE] }) })),
                 implementing('clientSize', property('clientSize', 'element', 'size?', { updates: updatesOf({ changes: 'partly-observable', misses: 'a change that leaves its border box and its content box as they were, as its border and padding changing by the same amount', observations: [{ type: 'resize', of: 'receiver', box: 'client' }] }) })),
                 implementing('grid', property('grid', 'element', 'grid?', { updates: updatesOf({ ...STYLE, observations: [RESIZE, ATTRIBUTES] }) })),
-                implementing('selection', property('selection', 'element', 'selection?', { updates: updatesOf({ changes: 'partly-observable', misses: 'selections assigned by script', observations: TEXT_SELECTION }) })),
+                implementing('selection', property('selection', 'element', 'selection?', { updates: updatesOf({ changes: 'partly-observable', misses: 'selections the page\'s code sets', observations: TEXT_SELECTION }) })),
                 implementing('children', property('children', 'node', 'list<element>', { updates: updatesOf({ observations: [CHILDREN] }) })),
                 implementing('parent', property('parent', 'node', 'node?', { updates: updatesOf({ changes: 'partly-observable', misses: 'a detached tree inserted into another detached tree or into a shadow root', observations: [{ type: 'mutation', of: 'root', childList: true, subtree: true }] }) })),
                 implementing('root', property('root', 'node', 'node', { updates: updatesOf({ changes: 'partly-observable', misses: 'a detached tree inserted into another detached tree or into a shadow root', observations: [{ type: 'mutation', of: 'root', childList: true, subtree: true }, { type: 'attachment', of: 'receiver' }] }) })),
@@ -129,7 +129,7 @@ export class BrowserVocabulary {
                 implementing('assignedElements', property('elements', 'shadow', 'list<element>?', { updates: updatesOf({ changes: 'partly-observable', misses: 'a detached tree holding the slot inserted into a shadow tree that assigns it nothing', observations: [{ type: 'event', of: 'receiver', types: ['slotchange'] }, { type: 'mutation', of: 'root', childList: true, subtree: true }, { type: 'attachment', of: 'receiver' }] }) })),
                 implementing('attached', property('attached', 'element', 'boolean', { updates: updatesOf({ changes: 'partly-observable', misses: 'a detached tree inserted into a shadow root in the document', observations: [{ type: 'attachment', of: 'receiver' }] }) })),
                 implementing('hasChildren', property('hasChildren', 'element', 'boolean', { updates: updatesOf({ observations: [CHILDREN] }) })),
-                implementing('hasSelection', property('hasSelection', 'element', 'boolean', { updates: updatesOf({ changes: 'partly-observable', misses: 'selections assigned by script', observations: TEXT_SELECTION }) })),
+                implementing('hasSelection', property('hasSelection', 'element', 'boolean', { updates: updatesOf({ changes: 'partly-observable', misses: 'selections the page\'s code sets', observations: TEXT_SELECTION }) })),
 
                 implementing('media', lexica.declarations.function('media', 'window', 'boolean', { syntax: 'indexer', parameters: [valueParameter('query', 'string')], updates: updatesOf({ observations: [{ type: 'media', of: 'window', query: { argument: 'query' } }] }) })),
                 implementing('attribute', lexica.declarations.function('attribute', 'element', 'string?', { syntax: 'indexer', isDefault: true, parameters: [valueParameter('name', 'string')], updates: updatesOf({ observations: [{ type: 'mutation', of: 'receiver', attributes: [{ argument: 'name' }] }] }) })),

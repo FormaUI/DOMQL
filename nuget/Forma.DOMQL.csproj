@@ -15,8 +15,8 @@
         <Authors>Eyal Alon</Authors>
         <Description>DOMQL is a JavaScript library for querying the DOM, allowing you to read information from a document once or observe it as it changes.</Description>
         <PackageTags>domql;dom;query;language;csharp;javascript;dotnet;browser;forma;formaui</PackageTags>
-        <PackageProjectUrl>https://github.com/FormaUI/Forma.DOMQL</PackageProjectUrl>
-        <RepositoryUrl>https://github.com/FormaUI/Forma.DOMQL</RepositoryUrl>
+        <PackageProjectUrl>https://github.com/FormaUI/DOMQL</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/FormaUI/DOMQL</RepositoryUrl>
         <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
         <PackageReadmeFile>README.md</PackageReadmeFile>
     </PropertyGroup>

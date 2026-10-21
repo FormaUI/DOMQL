@@ -177,7 +177,7 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 **Result.** Its selection's `start` and `end`, null for an element whose selection the browser does not expose: one that is no text input or text area, and an input of a type the selection API excludes, as `number`, `email` and `date` are
 
-**Changes.** Partly observable: input and selection events are observed, assignments by script are not
+**Changes.** Partly observable: input and selection events are observed, a selection the page's code sets is not
 
 <a id="property-node-children"></a>
 
@@ -309,7 +309,7 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 **Result.** Whether a selection of at least one character lies within it: a non-collapsed selection in a text input or text area, or a non-collapsed document selection within its content; a collapsed caret is no selection
 
-**Changes.** Partly observable: input and selection events are observed, assignments by script are not
+**Changes.** Partly observable: input and selection events are observed, a selection the page's code sets is not
 
 <a id="property-list-count-first-last"></a>
 
@@ -640,7 +640,7 @@ An element with the `inert` attribute, itself or on an ancestor in the flat tree
 
 **True when.** It matches `:checked`: a checked checkbox or radio button, or a selected option
 
-**Changes.** Partly observable: the user's input in its tree, a radio button another of its group unchecks and an option its select changes included, form resets, the `checked` and `selected` attributes and the structure of its tree are observed; a script setting `checked` or `selected`, or a select's `value` or `selectedIndex`, fires no event and is not
+**Changes.** Partly observable: the user's input in its tree, a radio button another of its group unchecks and an option its select changes included, form resets, the `checked` and `selected` attributes and the structure of its tree are observed; the page's code setting `checked` or `selected`, or a select's `value` or `selectedIndex`, fires no event and is not
 
 <a id="condition-document-is-visible"></a>
 

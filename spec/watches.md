@@ -6,15 +6,15 @@
 A **watch** keeps a query's result current: it evaluates the query, reports a snapshot of the result, and evaluates again when something the result depends on changes, reporting only a snapshot that differs. What it depends on is what its last evaluation read, each member with the observations it names, so a watch follows the document as the document changes, and a member's declaration says what the watch can follow of it.
 
 ```js
-const watcher = panelQuery.watch();
+const watch = panelQuery.watch();
 
-watcher.subscribe("change", (sender, args) => {
+watch.subscribe("change", (sender, args) => {
     if (args.status === "ready") {
         renderPanel(args.value);
     }
 });
 
-watcher.dispose(); // Stops the watch and every listener subscribed to it.
+watch.dispose(); // Stops the watch and every listener subscribed to it.
 ```
 
 In this document:
@@ -114,13 +114,13 @@ A watch whose evaluation fails raises a failed `"change"` event, and keeps the d
 Each `watch` starts a watch of its own. To share one evaluation, a caller keeps its handle and subscribes to it and to views of it:
 
 ```js
-const watcher = panelQuery.watch({ acceptPartialObservation: true });
+const watch = panelQuery.watch({ acceptPartialObservation: true });
 
-watcher.select("size").subscribe("change", (sender, args) => {
+watch.select("size").subscribe("change", (sender, args) => {
     if (args.status === "ready") {
         renderSize(args.value);
     }
 });
 ```
 
-A selected view of a snapshot watch, which `watcher.select(...path)` answers, offers `snapshot`, `status`, `error`, `select(...path)`, `subscribe(eventName, handler, options?)` and `readyAsync(options?)`. A selected view belongs to the running watch it was selected from, where a [selection](queries.md#selecting-a-result) belongs to a query: it starts no evaluation of its own and needs no disposal, so it has no `dispose()`; each listener subscribed to it stops by its own `dispose()` or `signal`, and disposing the watch stops them all, as it stops its own. Its handlers' sender is the owning watch, and their `value` is the selected part, raised where that part changed, and after a failed evaluation whether or not it did. A watch's query is resolved when the watch starts, so `watcher.select(...)` checks the whole path at once, its shape and its fit to the result's type alike, even before the first snapshot arrives. A live-state watch offers no selected views.
+A selected view of a snapshot watch, which `watch.select(...path)` answers, offers `snapshot`, `status`, `error`, `select(...path)`, `subscribe(eventName, handler, options?)` and `readyAsync(options?)`. A selected view belongs to the running watch it was selected from, where a [selection](queries.md#selecting-a-result) belongs to a query: it starts no evaluation of its own and needs no disposal, so it has no `dispose()`; each listener subscribed to it stops by its own `dispose()` or `signal`, and disposing the watch stops them all, as it stops its own. Its handlers' sender is the owning watch, and their `value` is the selected part, raised where that part changed, and after a failed evaluation whether or not it did. A watch's query is resolved when the watch starts, so `watch.select(...)` checks the whole path at once, its shape and its fit to the result's type alike, even before the first snapshot arrives. A live-state watch offers no selected views.

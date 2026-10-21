@@ -11,7 +11,7 @@ const panelQuery = domql.query("panel { size = it.size }", { panel });
 
 const result = panelQuery.evaluate();               // Its result, once.
 const width = panelQuery.select("size", "width");  // A part of its result, a selection.
-const watcher = panelQuery.watch({ signal });       // A handle that keeps its result current until the signal aborts.
+const watch = panelQuery.watch({ signal });         // A handle that keeps its result current until the signal aborts.
 ```
 
 In this document:
@@ -68,9 +68,9 @@ Almost every operation answers directly, so the plain name is the synchronous on
 A running watch or continuous execution raises events, which the listeners subscribed to it receive; a query object holds none, so queries shared between callers never share their listeners. `subscribe(eventName, handler, options?)` adds a listener and answers a `DomqlEventListener`, with `status`, `ready` or `disposed`, and `dispose()`, which stops it; its `signal` option stops it when it aborts.
 
 ```js
-const watcher = panelQuery.watch({ acceptPartialObservation: true });
+const watch = panelQuery.watch({ acceptPartialObservation: true });
 
-const listener = watcher.subscribe("change", (sender, args) => {
+const listener = watch.subscribe("change", (sender, args) => {
     if (args.status === "ready") {
         renderPanel(args.value);
     } else {

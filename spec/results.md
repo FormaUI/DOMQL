@@ -64,7 +64,7 @@ A watch keeps its result as live state when its caller chooses it as its update 
 - **What it can hold.** The result must be an object or a list that is not nullable, since null has no identity to keep; a watch over another result is refused with a validation error that suggests a top-level object expression. Its values are data, as every result is.
 - **Ownership.** The object belongs to the watch, which writes it; a caller reads it and never writes it, and the declarations type it as read-only. It is not frozen, since the watch updates it, and a caller that keeps a version copies it or keeps its snapshot.
 - **Timing and failure.** Each change set is applied whole before its event is raised, in the evaluation that produced it. A failed evaluation leaves the object as it was, raises a failed `"change"` event and sets the status to `failed`; the next successful one brings the object up to date in one change set. A watch disposed stops changing the object, and its caller keeps it as it last was.
-- **The handle.** `watcher.liveState` is the live object, `undefined` before the first result, and `snapshot` answers the immutable snapshot as a snapshot watch's does.
+- **The handle.** `watch.liveState` is the live object, `undefined` before the first result, and `snapshot` answers the immutable snapshot as a snapshot watch's does.
 
 <a id="comparing-snapshots"></a>
 

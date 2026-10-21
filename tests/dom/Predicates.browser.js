@@ -98,7 +98,7 @@ describe('Predicates in a browser', () => {
             expect(await checked.after(() => box.setAttribute('checked', ''))).toEqual({ watched: true, decided: true });
         });
 
-        it('misses a script setting checked, selected or a select\'s value, which fires no event', async () => {
+        it('misses the page\'s code setting checked, selected or a select\'s value, which fires no event', async () => {
             const { box, list, second } = page('<input id="box" type="checkbox"><select id="list"><option>1</option><option id="second">2</option></select>');
             const boxChecked = await watching(box, 'checked');
             const optionChecked = await watching(second, 'checked');
