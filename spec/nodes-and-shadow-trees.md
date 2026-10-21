@@ -83,4 +83,4 @@ A node is in one tree, and is shown through the slots it is assigned to, so what
 - **Its roots** are collected along those steps, nearest first, and each kept once: the shadow root each step to a host leaves; the open shadow root of each host whose child a step leaves, since that root's slots may come to take the child; and the node the steps end at, its document or the top of a detached tree. A node's own root is always among them, a slotted node's too, since it is a child of its host and in its host's tree; the shadow root a node hosts is not.
 - **A closed shadow root hides its slots' assignments,** so a node assigned to one of its slots steps to its parent instead, and the roots past that slot are reached only from a node inside that root.
 
-How a watch follows a receiver that moves between trees and slots is set out in [watching](watching.md#trees-and-slots-a-watch-follows).
+How a watch follows a receiver that moves between trees and slots is set out in [trees and slots a watch follows](watches.md#trees-and-slots-a-watch-follows).

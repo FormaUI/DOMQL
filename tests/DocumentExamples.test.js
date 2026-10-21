@@ -97,7 +97,7 @@ const DOCUMENTS = {
         { about: 'a member of each kind', each: true, context: COMPARED, version: 32 },
     ],
     'spec/evaluation.md': [],
-    'spec/watching.md': [],
+    'spec/watches.md': [],
     'spec/results.md': [],
     'spec/events.md': [
         { about: 'a subscription reading a maintained member' },
@@ -132,7 +132,7 @@ const DOCUMENTS = {
         { about: 'a shadow tree', results: { 0: 1 } },
     ],
     'docs/domql-design.md': [],
-    'docs/status.md': [],
+    'docs/features-status.md': [],
     'README.md': [],
 };
 

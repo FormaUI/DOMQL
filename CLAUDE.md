@@ -12,7 +12,7 @@ Read the documents that govern the affected contract:
 | [DOMQL specification](spec/README.md) | DOMQL's module and DOMQL as host: queries, nodes and shadow trees, the built-in vocabulary, evaluation, watching, results, events, executions, and the public API, one document per subject |
 | [Lexica design](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md) | How Lexica is built: its stages, registries, evaluation and tooling |
 | [DOMQL design](docs/domql-design.md) | How DOMQL is built: its architecture, resolution, sessions, watching, comparing and patching, the C# half, and the decisions not taken |
-| [Status](docs/status.md) | What is implemented, what is in progress, what remains, open decisions and deferred work |
+| [Status](docs/features-status.md) | What is implemented, what is in progress, what remains, open decisions and deferred work |
 | [Library guide](nuget/README.md) | Using DOMQL by example; it ships in the package, so it links absolutely |
 | `.editorconfig` | Code style; read it before writing C# |
 

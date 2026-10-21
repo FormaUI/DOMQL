@@ -43,7 +43,7 @@ Run the full build from the repository root:
 | `spec/` | The specification, split by subject, with its index |
 | `docs/` | The design and the status overview |
 
-The [Lexica specification](https://github.com/FormaUI/Lexica/blob/main/spec/README.md) defines the language and its runtime, and the [DOMQL specification](spec/README.md) the DOM vocabulary, how queries are carried out, and the public API. The [Lexica design](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md) and the [DOMQL design](docs/domql-design.md) set out how each is built. If a change affects either contract, update the relevant document before implementing it. The [status overview](docs/status.md) tracks what is implemented, what is being built, and what remains.
+The [Lexica specification](https://github.com/FormaUI/Lexica/blob/main/spec/README.md) defines the language and its runtime, and the [DOMQL specification](spec/README.md) the DOM vocabulary, how queries are carried out, and the public API. The [Lexica design](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md) and the [DOMQL design](docs/domql-design.md) set out how each is built. If a change affects either contract, update the relevant document before implementing it. The [status overview](docs/features-status.md) tracks what is implemented, what is being built, and what remains.
 
 ## Develop a change
 

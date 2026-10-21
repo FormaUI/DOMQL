@@ -66,13 +66,13 @@ A field of a structured value, such as a rectangle's `width`, is data the value 
 
 Measurements use CSS pixels unless stated otherwise. An element is a value whether or not it is in the document. A member that needs an element's layout answers null while the element has no layout box: while it is detached, and while the browser generates no box for it, as when it or an ancestor is `display: none` or it is `display: contents`.
 
-An element with a layout box whose dimensions are zero has actual measurements of zero, and one hidden visually that keeps its box measures as it is. Its attributes and structure still read, and `attached` says whether it is attached, whatever its layout. A watch that read null of a detached element follows it back into the document, as [elements that leave the document](watching.md#elements-that-leave-the-document) sets out.
+An element with a layout box whose dimensions are zero has actual measurements of zero, and one hidden visually that keeps its box measures as it is. Its attributes and structure still read, and `attached` says whether it is attached, whatever its layout. A watch that read null of a detached element follows it back into the document, as [elements that leave the document](watches.md#elements-that-leave-the-document) sets out.
 
 <a id="properties"></a>
 
 ## Properties
 
-A property exposes a value, read by property access, and takes no argument. Each property states what it answers, how its result changes, and how it reads, as [how DOMQL's members read](evaluation.md#evaluation-how-members-read) and [how a member changes](watching.md#how-a-member-changes) define.
+A property exposes a value, read by property access, and takes no argument. Each property states what it answers, how its result changes, and how it reads, as [how DOMQL's members read](evaluation.md#evaluation-how-members-read) and [how a member changes](watches.md#how-a-member-changes) define.
 
 | Receiver | Property | Type |
 | --- | --- | --- |
@@ -792,7 +792,7 @@ An observation observes its member's receiver, an argument, `{ argument }`, or a
 | `root` | Yes, one target | The receiver's [root](nodes-and-shadow-trees.md#trees-and-slots) |
 | `roots` | Yes, several targets | The receiver's [roots](nodes-and-shadow-trees.md#trees-and-slots), which no maintained observation observes, since it gives its member one sample |
 
-DOMQL resolves each target as it starts an observation, and each evaluation that reaches the member finds `root` and `roots` again, so a watch observes the trees its receiver is in as the receiver moves, as [trees and slots a watch follows](watching.md#trees-and-slots-a-watch-follows) set out.
+DOMQL resolves each target as it starts an observation, and each evaluation that reaches the member finds `root` and `roots` again, so a watch observes the trees its receiver is in as the receiver moves, as [trees and slots a watch follows](watches.md#trees-and-slots-a-watch-follows) set out.
 
 <a id="extension-modules"></a>
 

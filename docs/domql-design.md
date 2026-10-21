@@ -1,6 +1,6 @@
 # DOMQL Design v1.0.0-alpha
 
-The [DOMQL specification](../spec/README.md) is the contract: DOMQL's module, which declares the DOM as Lexica's domain, and the host that carries queries out against a document. This design sets out how this implementation is built to meet it, and the reasons behind the choices that shape it. It describes version 32, as the specification does, and the C# half, which is designed and not yet built; [the status overview](status.md) says where the implementation still differs. [Lexica's design](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md) sets out how the language and its runtime are built.
+The [DOMQL specification](../spec/README.md) is the contract: DOMQL's module, which declares the DOM as Lexica's domain, and the host that carries queries out against a document. This design sets out how this implementation is built to meet it, and the reasons behind the choices that shape it. It describes version 32, as the specification does, and the C# half, which is designed and not yet built; [the status overview](features-status.md) says where the implementation still differs. [Lexica's design](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md) sets out how the language and its runtime are built.
 
 In this document:
 
@@ -47,7 +47,7 @@ Every observation a query starts is reached through a session, which the query d
 
 ## Watching
 
-A watch evaluates its whole query each time, and its dependencies are what that evaluation read, recorded by the hooks Lexica's evaluator calls around each member's implementation: a branch not taken records nothing, so what a watch observes follows the branches its evaluations take. Evaluating only what changed would save little for the changes lists most often see, as [the status overview](status.md#deferred) records.
+A watch evaluates its whole query each time, and its dependencies are what that evaluation read, recorded by the hooks Lexica's evaluator calls around each member's implementation: a branch not taken records nothing, so what a watch observes follows the branches its evaluations take. Evaluating only what changed would save little for the changes lists most often see, as [the status overview](features-status.md#deferred) records.
 
 ## Comparing and patching
 

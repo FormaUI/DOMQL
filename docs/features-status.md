@@ -1,6 +1,6 @@
-# DOMQL Status
+# Features Status
 
-What this repository implements today, what is being built, and what remains. The [specification](../spec/README.md) is the contract and the [design](domql-design.md) the architecture; this document tracks how far the implementation has come. The language is Lexica's, and [Lexica's status](https://github.com/FormaUI/Lexica/blob/main/docs/status.md) tracks it.
+What this repository implements today, what is being built, and what remains. The [specification](../spec/README.md) is the contract and the [design](domql-design.md) the architecture; this document tracks how far the implementation has come. The language is Lexica's, and [Lexica's status](https://github.com/FormaUI/Lexica/blob/main/docs/features-status.md) tracks it.
 
 The specification describes DOMQL on Lexica's definition version 32. **DOMQL reads definition version 31**: its queries write the implicit parameter `context`, and read `document` and `window` as roots where version 32 reads `domql.document` and `domql.window`. [Definition version 32](#definition-version-32) sets out what DOMQL still has to do for it.
 
@@ -33,7 +33,7 @@ The specification describes DOMQL on Lexica's definition version 32. **DOMQL rea
 | --- | --- | --- | --- |
 | Queries from text or a definition, `with`, `select` and `resolve` | Implemented | | [Queries](../spec/queries.md) |
 | `evaluate` and `evaluateAsync` | Implemented | | [Evaluation](../spec/evaluation.md) |
-| Watches, their dependencies and partial observation | Implemented | | [Watching](../spec/watching.md) |
+| Watches, their dependencies and partial observation | Implemented | | [Watches](../spec/watches.md) |
 | Snapshots, live state and change sets | Implemented | | [Results](../spec/results.md) |
 | Subscriptions | Implemented | | [Events](../spec/events.md#subscribing) |
 | Once and continuous executions | Partial | Carried out as Lexica's actions and behaviors, through `apply` and `DomqlBehavior`; see [host calls and executions](#host-calls-and-executions) | [Executions](../spec/executions.md) |
@@ -48,13 +48,13 @@ The specification describes DOMQL on Lexica's definition version 32. **DOMQL rea
 | npm and NuGet packages | Planned | Packed locally and not published | [Consuming Lexica](#consuming-lexica) |
 | Beta | Partial | The documents and the module API are audited; the changelog and the beta version remain | [Beta](#beta) |
 | The C# half | Planned | Not started; its API and its synchronization are designed | [The C# half](domql-design.md#the-c-half) |
-| Editor tooling | Planned | Lexica's, through its syntax tree | [Lexica's status](https://github.com/FormaUI/Lexica/blob/main/docs/status.md) |
+| Editor tooling | Planned | Lexica's, through its syntax tree | [Lexica's status](https://github.com/FormaUI/Lexica/blob/main/docs/features-status.md) |
 
 **Verification outside the gate.** `window.size` following a scrollbar that appears or goes is shown only by an experiment outside the gate, since the gate's Chromium hides scrollbars; a browser test with a launch of its own would bring it in without changing the other tests' geometry. Performance is measured outside the gate too, by `npm run bench` and `npm run scale` from `tests/`.
 
 ## Definition version 32
 
-Version 32 is built in Lexica and DOMQL together, in three slices; [Lexica's status](https://github.com/FormaUI/Lexica/blob/main/docs/status.md#definition-version-32) tracks the whole. DOMQL's part of each:
+Version 32 is built in Lexica and DOMQL together, in three slices; [Lexica's status](https://github.com/FormaUI/Lexica/blob/main/docs/features-status.md#definition-version-32) tracks the whole. DOMQL's part of each:
 
 | Slice | Status | DOMQL's part |
 | --- | --- | --- |
@@ -66,7 +66,7 @@ Version 32 is built in Lexica and DOMQL together, in three slices; [Lexica's sta
 
 ## Host calls and executions
 
-The specification describes DOMQL's operations over Lexica's [host calls](https://github.com/FormaUI/Lexica/blob/main/docs/status.md#host-calls): an event source and the executions are host calls, whose execution modes and implementations DOMQL keeps in a catalog of its own, carried out by `subscribe`, `executeAsync` and `run`. The implementation still carries them out as Lexica's request kinds.
+The specification describes DOMQL's operations over Lexica's [host calls](https://github.com/FormaUI/Lexica/blob/main/docs/features-status.md#host-calls): an event source and the executions are host calls, whose execution modes and implementations DOMQL keeps in a catalog of its own, carried out by `subscribe`, `executeAsync` and `run`. The implementation still carries them out as Lexica's request kinds.
 
 **What is missing.**
 

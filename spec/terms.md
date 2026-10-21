@@ -51,10 +51,10 @@ In this document:
 | Term | Meaning | Reference |
 | --- | --- | --- |
 | Pending | A maintained member's state until its first sample arrives | [Waiting for maintained members](evaluation.md#waiting-for-maintained-members) |
-| Watch | What keeps a query's result current, evaluating again when something it depends on changes | [Watching](watching.md#watching) |
-| Dependencies | What a watch's last evaluation read, each member with its observations | [Dependencies](watching.md#dependencies) |
-| Partial observation | A watch's acceptance of members whose observations miss some of their changes | [Accepting partial observation](watching.md#accepting-partial-observation) |
-| Selected view | A part of a running watch's result, which belongs to the watch and starts no evaluation of its own | [Sharing a watch](watching.md#sharing-a-watch) |
+| Watch | What keeps a query's result current, evaluating again when something it depends on changes | [Watches](watches.md#watching) |
+| Dependencies | What a watch's last evaluation read, each member with its observations | [Dependencies](watches.md#dependencies) |
+| Partial observation | A watch's acceptance of members whose observations miss some of their changes | [Accepting partial observation](watches.md#accepting-partial-observation) |
+| Selected view | A part of a running watch's result, which belongs to the watch and starts no evaluation of its own | [Sharing a watch](watches.md#sharing-a-watch) |
 | Snapshot | An immutable result captured at one moment | [Results](results.md#results) |
 | Live state | A stable object a watch keeps current in place by change sets | [Live state](results.md#live-state) |
 | Baseline | A complete result, establishing the state the changes after it are relative to | [Results](results.md#results) |

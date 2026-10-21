@@ -1,4 +1,4 @@
-# Watching
+# Watches
 
 <a id="watching"></a>
 <a id="watching-and-dependencies"></a>

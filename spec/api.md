@@ -37,7 +37,7 @@ Each entry point and operation is listed here with what it takes, and the sectio
 | `query.select(...path)` | A part of its result, as [selecting a result](queries.md#selecting-a-result) sets out |
 | `query.evaluate(options?)` | Evaluates a query once, as [evaluating a query](evaluation.md#evaluating) sets out; its option is `window` |
 | `query.evaluateAsync(options?)` | Evaluates a query once, waiting for its maintained members, as [waiting for maintained members](evaluation.md#waiting-for-maintained-members) sets out; its options are `window` and `signal` |
-| `query.watch(options?)` | Watches a query, answering a `DomqlWatch`, as [the watch and its handle](watching.md#the-watch-and-its-handle) sets out |
+| `query.watch(options?)` | Watches a query, answering a `DomqlWatch`, as [the watch and its handle](watches.md#the-watch-and-its-handle) sets out |
 | `query.subscribe(handler, options?)` | Subscribes to a subscription, answering a `DomqlEventListener`, as [subscribing](events.md#subscribing) sets out |
 | `query.executeAsync(options?)` | Carries out a once execution, answering a promise of its result, as [executing once](executions.md#executions-executing-once) sets out |
 | `query.run(options?)` | Starts a continuous execution, answering a `DomqlExecutionHandle`, as [running continuously](executions.md#executions-running-continuously) sets out |
@@ -56,8 +56,8 @@ Almost every operation answers directly, so the plain name is the synchronous on
 | --- | --- | --- |
 | `DomqlQuery` | `definition`, `with(bindings)`, `resolve(options?)`, `select(...path)`, `evaluate(options?)`, `evaluateAsync(options?)`, `watch(options?)`, `subscribe(handler, options?)`, `executeAsync(options?)`, `run(options?)` | [Making a query](queries.md#making-a-query) |
 | `DomqlSelection` | `select(...path)`, `evaluate(options?)`, `evaluateAsync(options?)`, `watch(options?)` | [Selecting a result](queries.md#selecting-a-result) |
-| `DomqlWatch` | `status`, `snapshot`, `error`, `readyAsync(options?)`, `refreshAsync()`, `subscribe(eventName, handler, options?)`, `dispose()`, and `select(...path)` for snapshots or `liveState` for live state | [The watch and its handle](watching.md#the-watch-and-its-handle), [live state](results.md#live-state) |
-| `DomqlSelectedView` | `snapshot`, `status`, `error`, `select(...path)`, `subscribe(eventName, handler, options?)`, `readyAsync(options?)` | [Sharing a watch](watching.md#sharing-a-watch) |
+| `DomqlWatch` | `status`, `snapshot`, `error`, `readyAsync(options?)`, `refreshAsync()`, `subscribe(eventName, handler, options?)`, `dispose()`, and `select(...path)` for snapshots or `liveState` for live state | [The watch and its handle](watches.md#the-watch-and-its-handle), [live state](results.md#live-state) |
+| `DomqlSelectedView` | `snapshot`, `status`, `error`, `select(...path)`, `subscribe(eventName, handler, options?)`, `readyAsync(options?)` | [Sharing a watch](watches.md#sharing-a-watch) |
 | `DomqlEventListener` | `status`, `dispose()` | [Events of a handle](#events-of-a-handle), [subscribing](events.md#subscribing) |
 | `DomqlExecutionHandle` | `status`, `update(bindings)`, `subscribe(eventName, handler, options?)`, `dispose()` | [Running continuously](executions.md#executions-running-continuously) |
 

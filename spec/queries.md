@@ -54,7 +54,7 @@ result = evaluate(query, bindings: { panel: <the list panel>, sentinel: <the end
 
 The bindings name only what the caller chooses. The complete query also reads `domql.window` and `domql.document`, which are absent from them because they are the document the query runs against and its window, which no caller chooses; a caller's binding named `window` or `document` is read by that name, as any other binding is.
 
-A caller can take that result once, keep it current as the document changes, or take one at each event the query subscribes to, as [evaluation](evaluation.md), [watching](watching.md) and [events](events.md) set out. A value is evaluated or watched alike; subscribing needs an event source, whose projection uses the same expression language.
+A caller can take that result once, keep it current as the document changes, or take one at each event the query subscribes to, as [evaluation](evaluation.md), [watches](watches.md) and [events](events.md) set out. A value is evaluated or watched alike; subscribing needs an event source, whose projection uses the same expression language.
 
 <a id="making-a-query"></a>
 
@@ -111,7 +111,7 @@ A query belongs to the instance of the library that made it, and an instance ref
 
 A request is resolved before it is first carried out, and resolution validates it against the vocabulary registered then, as Lexica's [resolution](https://github.com/FormaUI/Lexica/blob/main/spec/runtime.md#runtime-bindings-and-resolution) sets out; a module a request names is registered by its caller beforehand. A misspelling or a wrong argument is an error before anything is evaluated; a member's fit to its receiver is checked once the receiver's type is specific enough, which a null receiver's is not; null is always a result.
 
-`query.resolve(options?)` resolves a request without evaluating anything, and answers its kind and its type; it needs no browser. Its options `watch` and `acceptPartialObservation` resolve it as a watch would, so a watch's refusal of a partly observable member, as [accepting partial observation](watching.md#accepting-partial-observation) sets out, is found before a watch starts.
+`query.resolve(options?)` resolves a request without evaluating anything, and answers its kind and its type; it needs no browser. Its options `watch` and `acceptPartialObservation` resolve it as a watch would, so a watch's refusal of a partly observable member, as [accepting partial observation](watches.md#accepting-partial-observation) sets out, is found before a watch starts.
 
 <a id="operations-and-request-kinds"></a>
 
@@ -137,7 +137,7 @@ The object `domql.query` answers is a query object, whatever it holds, and what 
 
 ## Selecting a result
 
-`query.select(...path)` answers a selection, a part of the query's result. A selection belongs to the query, as its definition and bindings do, and every operation on it starts work of its own, where a selected view belongs to a running watch, as [sharing a watch](watching.md#sharing-a-watch) sets out. It offers `select(...path)`, `evaluate(options?)`, `evaluateAsync(options?)` and `watch(options?)`. A path holds the names of written fields and list indices that are not negative; a local is no field, so it is never part of a path.
+`query.select(...path)` answers a selection, a part of the query's result. A selection belongs to the query, as its definition and bindings do, and every operation on it starts work of its own, where a selected view belongs to a running watch, as [sharing a watch](watches.md#sharing-a-watch) sets out. It offers `select(...path)`, `evaluate(options?)`, `evaluateAsync(options?)` and `watch(options?)`. A path holds the names of written fields and list indices that are not negative; a local is no field, so it is never part of a path.
 
 ```js
 const width = panelQuery.select("size", "width"); // As panelQuery.select("size").select("width").

@@ -4,7 +4,7 @@
 
 DOMQL is a JavaScript library for querying the DOM, allowing you to read information from a document once or observe it as it changes. Its queries are written in [Lexica](https://github.com/FormaUI/Lexica).
 
-> **Alpha.** DOMQL reads Lexica's definition version 31, which writes the implicit parameter `context`; its specification describes version 32, which writes `it` and reads `domql.document` and `domql.window`. It is not yet published to npm or NuGet; you can [build and try it locally](#build-and-try-it). See [the status overview](docs/status.md).
+> **Alpha.** DOMQL reads Lexica's definition version 31, which writes the implicit parameter `context`; its specification describes version 32, which writes `it` and reads `domql.document` and `domql.window`. It is not yet published to npm or NuGet; you can [build and try it locally](#build-and-try-it). See [the status overview](docs/features-status.md).
 
 ## Features
 
@@ -99,7 +99,7 @@ The source import above works when serving the repository; the [library guide](n
 | [DOMQL specification](spec/README.md) | Queries, the DOM's vocabulary, evaluating and watching a query, its results, events, actions and behaviors, and the API |
 | [Lexica specification](https://github.com/FormaUI/Lexica/blob/main/spec/README.md) | The language DOMQL is written in |
 | [Design](docs/domql-design.md) | How DOMQL is built, and the decisions it did not take |
-| [Status](docs/status.md) | What is implemented, what is being built, and what remains |
+| [Status](docs/features-status.md) | What is implemented, what is being built, and what remains |
 | [Contributing](CONTRIBUTING.md) | Report a bug, develop a change and run the checks |
 | [Security](SECURITY.md) | Report a vulnerability privately |
 

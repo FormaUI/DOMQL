@@ -4,7 +4,7 @@
 
 DOMQL is a JavaScript library for querying the DOM, allowing you to read information from a document once or observe it as it changes. This guide takes you from your first query to watching results, handling events and extending the library. Its queries are written in [Lexica](https://github.com/FormaUI/Lexica).
 
-> **Alpha:** `formaui-net.DOMQL` is not yet published to NuGet. [Build the package locally](#install-and-load) to try it. The package distributes a JavaScript ES module; the API in this guide runs in JavaScript. Every example here runs on this alpha, which reads Lexica's definition version 31: it writes the implicit parameter `context`, where version 32, which the specifications describe, writes `it`. [The status overview](https://github.com/FormaUI/DOMQL/blob/main/docs/status.md) says what is implemented and what is being built.
+> **Alpha:** `formaui-net.DOMQL` is not yet published to NuGet. [Build the package locally](#install-and-load) to try it. The package distributes a JavaScript ES module; the API in this guide runs in JavaScript. Every example here runs on this alpha, which reads Lexica's definition version 31: it writes the implicit parameter `context`, where version 32, which the specifications describe, writes `it`. [The status overview](https://github.com/FormaUI/DOMQL/blob/main/docs/features-status.md) says what is implemented and what is being built.
 
 ## In this guide
 
@@ -906,6 +906,6 @@ console.log(panel.dataset.highlight);
 - [DOMQL specification](https://github.com/FormaUI/DOMQL/blob/main/spec/README.md): queries, the DOM's vocabulary, evaluating and watching a query, its results, events, actions and behaviors, and the API.
 - [DOMQL design](https://github.com/FormaUI/DOMQL/blob/main/docs/domql-design.md): how DOMQL is built, and the decisions it did not take, and the [Lexica design](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md): how the language and its runtime are built.
 
-- [Status](https://github.com/FormaUI/DOMQL/blob/main/docs/status.md): what is implemented, what is being built, and what remains.
+- [Status](https://github.com/FormaUI/DOMQL/blob/main/docs/features-status.md): what is implemented, what is being built, and what remains.
 
 The specifications describe version 32; this guide's examples run on version 31, as the alpha does.
