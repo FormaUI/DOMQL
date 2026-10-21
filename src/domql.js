@@ -1,11 +1,12 @@
 /**
- * domql — makes query objects from text or a definition, through which every request is evaluated, watched, subscribed to, executed or applied, and registers the modules that extend the vocabulary
+ * domql — makes query objects from text or a definition, through which every request is evaluated, watched, subscribed to, executed once or run, and registers the modules that extend the vocabulary
  */
 
 import { SnapshotComparer } from './snapshots/SnapshotComparer.mjs';
-import { Behavior } from './dom/Behavior.mjs';
 import { BrowserModule } from './dom/BrowserModule.mjs';
 import { DomqlQuery } from './dom/DomqlQuery.mjs';
+import { ExecutionHandle } from './dom/ExecutionHandle.mjs';
+import { DispatchTable } from './dom/DispatchTable.mjs';
 import { Observations } from './dom/Observations.mjs';
 import { QueryEvaluator } from './dom/QueryEvaluator.mjs';
 import { EventListener } from './dom/EventListener.mjs';
@@ -44,28 +45,28 @@ import { lexica, LexicaError } from '@formaui/lexica';
  */
 
 /**
- * How a subscription is listened to, or an action executed, or a behavior applied.
+ * How a subscription is listened to, or an execution carried out once or run.
  * @typedef {object} DomqlOperationOptions
  * @property {Window} [window] The window `window` stands for, and whose document `document` stands for; by default the environment's.
  * @property {AbortSignal} [signal] Ends what the operation started when it aborts.
  */
 
-/** Each operation that carries a request out: the kind of request it takes, and what a refusal says it was asked to do. */
+/** Each operation that carries a request out: the request it takes, and what a refusal says it was asked to do. */
 const OPERATIONS = {
-    evaluate: { kind: 'value', verb: 'evaluate' },
-    evaluateAsync: { kind: 'value', verb: 'evaluate' },
-    watch: { kind: 'value', verb: 'watch' },
-    subscribe: { kind: 'subscription', verb: 'subscribe to' },
-    executeAsync: { kind: 'action', verb: 'execute' },
-    apply: { kind: 'behavior', verb: 'apply' },
+    evaluate: { request: 'value', verb: 'evaluate' },
+    evaluateAsync: { request: 'value', verb: 'evaluate' },
+    watch: { request: 'value', verb: 'watch' },
+    subscribe: { request: 'subscription', verb: 'subscribe to' },
+    executeAsync: { request: 'once', verb: 'execute' },
+    run: { request: 'continuous', verb: 'run' },
 };
 
-/** What a request of each kind does, and the operations it takes, for a refusal to say. */
-const REQUEST_KINDS = {
+/** What each request does, a value, a subscription, a once execution or a continuous one, and the operations it takes, for a refusal to say. */
+const REQUESTS = {
     value: { does: 'it produces a value', takes: 'evaluate(), evaluateAsync() or watch()' },
     subscription: { does: 'it listens to events', takes: 'subscribe()' },
-    action: { does: 'it executes an effect', takes: 'executeAsync()' },
-    behavior: { does: 'it applies a behavior', takes: 'apply()' },
+    once: { does: 'it executes an effect once', takes: 'executeAsync()' },
+    continuous: { does: 'it keeps an effect running', takes: 'run()' },
 };
 
 /** When a watch evaluates after a change, and what its events carry. */
@@ -73,7 +74,11 @@ const WATCH_SCHEDULES = ['frame', 'immediate'];
 const WATCH_UPDATE_STRATEGIES = ['snapshot', 'liveState'];
 
 class Domql {
-    static #moduleRegistry = lexica.createRegistry([BrowserModule.create()]);
+    static #browserModule = BrowserModule.create();
+    static #moduleRegistry = lexica.createRegistry([Domql.#browserModule]);
+
+    /** The dispatch descriptors of the host calls of each name, across the modules registered, which say what a host call on a receiver of unknown type requests. @type {Map<string, import('./dom/DispatchTable.mjs').DispatchDescriptor[]>} */
+    static #hostCallsByName = Domql.#indexHostCalls(new Map(), Domql.#browserModule);
 
     /**
      * The resolutions of each definition, by the resolution key of the bindings they were made against, valid for the registry revision they were made at and released with the definition.
@@ -96,7 +101,7 @@ class Domql {
         watch: (query, path, options) => Domql.#watch(query, path, options ?? {}),
         subscribe: (query, handler, options) => Domql.#subscribe(query, handler, options ?? {}),
         executeAsync: (query, options) => Domql.#executeAsync(query, options ?? {}),
-        apply: (query, options) => Domql.#apply(query, options ?? {}),
+        run: (query, options) => Domql.#run(query, options ?? {}),
     });
 
     /**
@@ -141,12 +146,12 @@ class Domql {
     }
 
     /**
-     * Creates a module from the vocabulary it declares, each declaration that runs code carrying its implementation.
+     * Creates a module from the vocabulary it declares, each declaration that runs code carrying its implementation, keeping each host call's request kind, execution mode and implementation in DOMQL's dispatch table.
      * @param {string} name The module's name.
      * @param {object} contents What the module declares.
      */
     static createModule(name, contents) {
-        return lexica.createModule(name, contents);
+        return DispatchTable.createModule(name, contents);
     }
 
     /** Registers a module's vocabulary, which every request resolved afterwards may use; a module declaring observation targets is refused, since DOMQL resolves its own module's alone. */
@@ -155,7 +160,28 @@ class Domql {
             throw LexicaError.module(`DOMQL resolves the observation targets its own module declares alone, and the module '${module.name}' declares one of its own; its observations observe the receiver, an argument of the member, or window, document, root or roots through one of DOMQL's observation types`, { module: module.name, field: 'observationTargets' });
         }
 
+        // DOMQL carries a host call out only as its dispatch table keeps it, which a module domql.createModule made holds.
+        const unregistered = Array.isArray(module?.members) ? module.members.find(declaration => declaration.invokedBy === 'host' && DispatchTable.get(declaration) === undefined) : undefined;
+
+        if (unregistered !== undefined) {
+            throw LexicaError.module(`The module '${module.name}' declares the host call '${unregistered.name}' without the request it makes; create the module with domql.createModule, which keeps each host call's request kind, execution mode and implementation`, { module: module.name, declaration: unregistered.name, field: 'requestKind' });
+        }
+
         Domql.#moduleRegistry.registerModule(module);
+        Domql.#indexHostCalls(Domql.#hostCallsByName, module);
+    }
+
+    /** Adds the dispatch descriptors of the module's host calls that have a receiver to the index by name, and answers the index. */
+    static #indexHostCalls(index, module) {
+        for (const declaration of module.members) {
+            const descriptor = DispatchTable.get(declaration);
+
+            if (descriptor !== undefined && declaration.target !== undefined) {
+                index.set(declaration.name, [...(index.get(declaration.name) ?? []), descriptor]);
+            }
+        }
+
+        return index;
     }
 
     /** Evaluates the query once, synchronously, answering the part of its result the path reaches. */
@@ -289,6 +315,8 @@ class Domql {
 
         return new EventListener({
             evaluator: Domql.#createEvaluator(query, Domql.#resolveFor('subscribe', query), window),
+            implementationOf: call => Domql.#implementationOf(call),
+            environment: { window, document: window.document },
             observations: Domql.#getObservations(window),
             reportError: Domql.#createErrorReporter(window),
             handler,
@@ -297,22 +325,26 @@ class Domql {
     }
 
     /**
-     * Executes the action once and answers a promise of its result, an immutable snapshot containing no live DOM references, read through the object expression that follows the action where one does.
-     * The receiver and arguments are evaluated first; a failure there rejects and executes nothing, and where one of them is null the action is not executed and its result is null. The action's function receives the signal, and may answer its result or a promise of it, which must be of the type the action declares.
-     * A failure of the action rejects with an evaluation error whose cause is what it threw. A signal that aborts rejects with its reason at once; the action learns of it through the signal, its result is then discarded, and a failure it reports afterwards goes to the window's error reporting. DOMQL never undoes what an action changed.
+     * Carries out the once execution the request ends in and answers a promise of its result, an immutable snapshot containing no live DOM references, read through the object expression that follows the execution where one does.
+     * Its host call is prepared first; a failure there rejects and executes nothing, and a skipped preparation, where the receiver or an argument is null, executes nothing and resolves to null. The execution's implementation receives
+     * the signal, and may answer its result or a promise of it, which Lexica captures as the type the execution declares; one that declares none resolves to null. A failure of the execution rejects with an evaluation error whose cause
+     * is what it threw. A signal that aborts rejects with its reason at once; the execution learns of it through the signal, its result is then discarded, and a failure it reports afterwards goes to the window's error reporting. DOMQL
+     * never undoes what an execution changed.
      */
     static async #executeAsync(query, { window = globalThis.window, signal }) {
         signal?.throwIfAborted();
 
         const evaluator = Domql.#createEvaluator(query, Domql.#resolveFor('executeAsync', query), window);
-        const action = evaluator.resolveAction();
+        const call = evaluator.prepareCall();
 
-        if (action === null) {
-            return evaluator.projectResult(null, { wasExecuted: false });
+        if (call.kind === 'skipped') {
+            return null;
         }
 
+        const execute = Domql.#implementationOf(call);
+        const { name } = call.declaration;
         const reportError = Domql.#createErrorReporter(window);
-        const createActionError = error => LexicaError.evaluation(`The action '${action.name}' failed: ${error?.message ?? String(error)}`, action.location, { cause: error });
+        const createExecutionError = error => LexicaError.evaluation(`The execution '${name}' failed: ${error?.message ?? String(error)}`, call.location, { cause: error });
 
         return new Promise((resolve, reject) => {
             let isSettled = false;
@@ -328,9 +360,9 @@ class Domql {
             signal?.addEventListener('abort', cancel, { once: true });
 
             try {
-                returnValue = action.execute({ receiver: action.receiver, args: action.args, env: action.environment, signal: signal ?? new AbortController().signal });
+                returnValue = execute({ receiver: call.receiver, args: call.args, env: { window, document: window.document }, signal: signal ?? new AbortController().signal });
             } catch (error) {
-                settle(() => reject(createActionError(error)));
+                settle(() => reject(createExecutionError(error)));
 
                 return;
             }
@@ -344,7 +376,7 @@ class Domql {
                 let value;
 
                 try {
-                    value = evaluator.projectResult(result);
+                    value = call.project === undefined ? null : call.project(result).value;
                 } catch (error) {
                     settle(() => reject(error));
 
@@ -355,25 +387,39 @@ class Domql {
             }, error => {
                 // No caller waits for a failure that arrives after the execution was canceled, so it goes to the error reporting.
                 if (isSettled) {
-                    reportError(createActionError(error));
+                    reportError(createExecutionError(error));
                 } else {
-                    settle(() => reject(createActionError(error)));
+                    settle(() => reject(createExecutionError(error)));
                 }
             });
         });
     }
 
     /**
-     * Applies the behavior, which has started once the call returns, and answers its handle, which belongs to the caller. Disposing the handle ends the behavior and leaves its module registered.
-     * The receiver and arguments are evaluated now; where one of them is null there is nothing to apply until an update supplies one. A behavior that cannot start fails the call and leaves nothing running.
+     * Runs the continuous execution the request ends in, which has started once the call returns, and answers its handle, which belongs to the caller. Disposing the handle ends the execution and leaves its module registered.
+     * Its host call is prepared now; a skipped preparation, where the receiver or an argument is null, has nothing to start until an update supplies one. An execution that cannot start fails the call and leaves nothing running.
      */
-    static #apply(query, { window = globalThis.window, signal }) {
-        const resolveBehavior = request => Domql.#createEvaluator(request, Domql.#resolveFor('apply', request), window).resolveBehavior();
+    static #run(query, { window = globalThis.window, signal }) {
+        // An update binds the same definition anew, so it is validated, resolved and prepared as the first bindings were.
+        const prepare = request => {
+            const resolution = Domql.#resolveFor('run', request);
+            const call = Domql.#createEvaluator(request, resolution, window).prepareCall();
+            const isPrepared = call.kind === 'prepared';
 
-        return new Behavior({
-            call: resolveBehavior(query),
-            // An update binds the same definition anew, so it is validated and resolved as the first bindings were.
-            prepare: bindings => resolveBehavior(query.with(bindings)),
+            return {
+                declaration: resolution.hostCall.declaration,
+                name: resolution.hostCall.name,
+                start: isPrepared ? Domql.#implementationOf(call) : undefined,
+                receiver: isPrepared ? call.receiver : null,
+                args: isPrepared ? call.args : null,
+                environment: { window, document: window.document },
+                location: call.location,
+            };
+        };
+
+        return new ExecutionHandle({
+            execution: prepare(query),
+            prepare: bindings => prepare(query.with(bindings)),
             reportError: Domql.#createErrorReporter(window),
             signal,
         });
@@ -387,9 +433,12 @@ class Domql {
         let resolvedDefinition = Domql.#resolvedDefinitions.get(resolution);
 
         if (resolvedDefinition === undefined) {
+            const request = Domql.#requestOf(resolution);
+
             resolvedDefinition = Object.freeze({
                 definition: resolution.definition,
-                kind: resolution.kind,
+                kind: request === 'once' || request === 'continuous' ? 'execution' : request,
+                executionMode: request === 'once' || request === 'continuous' ? request : null,
                 type: resolution.type,
                 usedDeclarations: resolution.usedDeclarations,
                 typeAt: path => resolution.typeAt(path),
@@ -418,7 +467,7 @@ class Domql {
             resolutions.byKey.set(bindings.resolutionKey, resolution);
         }
 
-        if (options.watch === true && resolution.kind === 'value') {
+        if (options.watch === true && resolution.hostCall === null) {
             Domql.#checkWatch(resolution, options.acceptPartialObservation === true);
         }
 
@@ -454,15 +503,53 @@ class Domql {
      */
     static #resolveFor(operation, query, options = {}) {
         const resolution = Domql.#resolve(query, options);
-        const { kind, verb } = OPERATIONS[operation];
+        const { request, verb } = OPERATIONS[operation];
+        const requested = Domql.#requestOf(resolution);
 
-        if (resolution.kind !== kind) {
-            const { does, takes } = REQUEST_KINDS[resolution.kind];
+        if (requested !== request) {
+            const { does, takes } = REQUESTS[requested];
 
             throw LexicaError.validation(`Cannot ${verb} '${lexica.quote(query.definition)}': ${does}.\nUse ${takes}.`, Domql.#locationOf(query));
         }
 
         return resolution;
+    }
+
+    /**
+     * What the resolved request asks for: a value, where it ends in no host call, or what its host call requests as DOMQL's dispatch table keeps it, a subscription or an execution of its mode.
+     * A host call on a receiver of unknown type has no declaration yet, so the host calls of its name say what it requests, and are refused as ambiguous where they disagree.
+     */
+    static #requestOf(resolution) {
+        const { hostCall } = resolution;
+
+        if (hostCall === null) {
+            return 'value';
+        }
+
+        const requestedBy = descriptor => (descriptor.requestKind === 'subscription' ? 'subscription' : descriptor.executionMode);
+
+        if (hostCall.declaration !== null) {
+            return requestedBy(DispatchTable.get(hostCall.declaration));
+        }
+
+        const requests = new Set((Domql.#hostCallsByName.get(hostCall.name) ?? []).map(requestedBy));
+
+        if (requests.size !== 1) {
+            throw LexicaError.validation(`'${hostCall.name}' follows a value whose type is unknown, and its host calls disagree on what they request, so what the request does is ambiguous`, resolution.locate('/expression'));
+        }
+
+        return [...requests][0];
+    }
+
+    /** The implementation that carries the prepared host call out, as DOMQL's dispatch table keeps it, refusing one whose module gives it none, which is resolved against and never carried out. */
+    static #implementationOf(call) {
+        const implementation = DispatchTable.get(call.declaration)?.implementation;
+
+        if (implementation === undefined) {
+            throw LexicaError.module(`'${call.declaration.name}' has no implementation, so a request that ends in it is resolved and never carried out`, { module: Domql.#moduleRegistry.getOwner(call.declaration), declaration: call.declaration.name, field: 'implementation' });
+        }
+
+        return implementation;
     }
 
     /** Where the request stands, for a failure that belongs to the whole of it. */

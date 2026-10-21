@@ -9,6 +9,7 @@ import { ParsedTexts } from '#lexica/language/ParsedTexts.mjs';
 import { LexicaRegistry } from '#lexica/language/vocabulary/LexicaRegistry.mjs';
 import { Vocabulary } from '#lexica/language/vocabulary/Vocabulary.mjs';
 import { BrowserVocabulary } from '#domql/dom/BrowserVocabulary.mjs';
+import { DispatchTable } from '#domql/dom/DispatchTable.mjs';
 
 const panel = document.createElement('div');
 
@@ -93,14 +94,14 @@ describe('LanguageResolver', () => {
             const resolved = resolve('document.on("keydown") { key = context.key }');
 
             expect(resolved.kind).toBe('subscription');
-            expect(resolved.type.toString()).toBe('event<{ key: string }>');
+            expect(resolved.type).toBe('{ key: string }');
         });
 
         it('shapes the events of an event source by the fields of their event data', () => {
             const resolved = resolve('panel.on("click") { clientX = context.clientX, button = context.button }');
 
             expect(resolved.kind).toBe('subscription');
-            expect(resolved.type.toString()).toBe('event<{ clientX: number, button: number }>');
+            expect(resolved.type).toBe('{ clientX: number, button: number }');
         });
 
         it('refuses an answer that is no data', () => {
@@ -108,21 +109,21 @@ describe('LanguageResolver', () => {
             expect(failure('panel.on("click") { target = context.target }').message).toContain('no data');
         });
 
-        it('refuses a member after an event source', () => {
-            expect(failure('panel.on("click").count').message).toContain('event source');
+        it('refuses a member after an event source, a host call', () => {
+            expect(failure('panel.on("click").count').message).toContain('follows a host call');
         });
 
-        it('refuses an event source as an argument', () => {
-            expect(failure('panel.matches(panel.on("click"))').message).toContain('event source');
+        it('refuses an event source, a host call, as an argument', () => {
+            expect(failure('panel.matches(panel.on("click"))').message).toContain('is a host call');
         });
     });
 
-    describe('actions and behaviors', () => {
-        /** A module whose one member, named for it, is an action or a behavior on an element. */
-        const member = (name, kind, result) => new LexicaModule(name, {
-            members: [{ name, kind, target: 'element', parameters: [], result }],
+    describe('executions', () => {
+        /** A module whose one member, named for it, is an execution of the mode given on an element. */
+        const member = (name, executionMode, result) => DispatchTable.createModule(name, {
+            members: [{ name, kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode, target: 'element', parameters: [], result }],
         });
-        const registry = new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, member('step', 'action', 'boolean'), member('pick', 'action', 'element'), member('focusTrap', 'behavior', 'null')]);
+        const registry = new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, member('step', 'once', 'boolean'), member('pick', 'once', 'element'), member('focusTrap', 'continuous', undefined)]);
         const resolveWith = text => {
             const query = domql.query(text, { panel });
 
@@ -140,33 +141,33 @@ describe('LanguageResolver', () => {
             throw new Error('The request was resolved');
         };
 
-        it('resolves an action as an action request, typed by its result', () => {
+        it('resolves a once execution as the host call the script ends in, typed by its result', () => {
             const resolved = resolveWith('panel.step()');
 
-            expect(resolved.kind).toBe('action');
+            expect(resolved.hostCall.name).toBe('step');
             expect(resolved.type.toString()).toBe('boolean');
         });
 
-        it('shapes the result of an action by the object expression that follows it, which stays an action request', () => {
+        it('shapes the result of a once execution by the result projection that follows it', () => {
             const resolved = resolveWith('panel.pick() { id = context:attribute["id"] }');
 
-            expect(resolved.kind).toBe('action');
+            expect(resolved.hostCall.name).toBe('pick');
             expect(resolved.type.toString()).toBe('{ id: string? }');
         });
 
-        it('refuses an action whose result is no data, unless an object expression follows it', () => {
+        it('refuses a once execution whose result is no data, unless a result projection follows it', () => {
             expect(failureWith('panel.pick()').message).toContain('no data');
         });
 
-        it('resolves a behavior as a behavior request, which takes no object expression', () => {
-            expect(resolveWith('panel.focusTrap()').kind).toBe('behavior');
-            expect(failureWith('panel.focusTrap() { id = context:attribute["id"] }').message).toContain('A behavior request ends its chain and takes no object expression');
+        it('resolves a continuous execution, which declares no result and so takes no result projection', () => {
+            expect(resolveWith('panel.focusTrap()').type).toBeNull();
+            expect(failureWith('panel.focusTrap() { id = context:attribute["id"] }').message).toContain('declares no result, since its host supplies no values, so it takes no result projection');
         });
 
-        it('refuses a member after an action, and an action or a behavior inside a query', () => {
-            expect(failureWith('panel.step().count').message).toContain('follows an action');
-            expect(failureWith('{ moved = panel.step() }').message).toContain('is an action');
-            expect(failureWith('panel.matches(panel.focusTrap())').message).toContain('is a behavior');
+        it('refuses a member after an execution, and an execution inside a query', () => {
+            expect(failureWith('panel.step().count').message).toContain('follows a host call');
+            expect(failureWith('{ moved = panel.step() }').message).toContain('is a host call');
+            expect(failureWith('panel.matches(panel.focusTrap())').message).toContain('is a host call');
         });
     });
 
@@ -281,7 +282,7 @@ describe('LanguageResolver', () => {
 
         it('refuses a coalescing operator whose sides are of different types, or no values', () => {
             expect(failure('panel.rect?.width ?? "none"').message).toContain("The value and the fallback of '??' are of one type, and these are number? and string");
-            expect(failure('panel.on("click") ?? 0').message).toContain("The value of '??' is a value, and this one is an event source");
+            expect(failure('panel.on("click") ?? 0').message).toContain("The value of '??' is a value, and this one is a host call");
         });
 
         // A node is no data, so its type is read from the refusal of a result that would hold one.
@@ -429,7 +430,7 @@ describe('LanguageResolver', () => {
         });
 
         it('resolves an event type and a feature', () => {
-            expect(resolve('document.on("keydown") { key = context.key }').type.toString()).toBe('event<{ key: string }>');
+            expect(resolve('document.on("keydown") { key = context.key }').type).toBe('{ key: string }');
             expect(resolve('window.supports("share")').type.toString()).toBe('boolean');
         });
 
@@ -464,16 +465,16 @@ describe('LanguageResolver', () => {
         });
 
         it('refuses an event type or a feature the vocabulary does not declare', () => {
-            expect(failure('panel.on("nonsense")').message).toContain('no event type');
+            expect(failure('panel.on("nonsense")').message).toContain("The type selector 'event' maps no type to the key 'nonsense'");
             expect(failure('window.supports("nonsense")').message).toContain("'nonsense' is no predicate 'supports' asks");
         });
     });
 
     describe('modules', () => {
-        it('resolves against the types, Boolean members and events a registered module contributes', () => {
+        it('resolves against the types, Boolean members and event types a registered module contributes', () => {
             const module = new LexicaModule('charts', {
                 types: [{ name: 'chartEvent', fields: { value: 'number' } }],
-                eventTypes: [{ name: 'chart-selected', data: 'chartEvent' }],
+                selectableTypes: [{ name: 'chart-selected', selector: 'event', type: 'chartEvent' }],
                 members: [{ name: 'charts', kind: 'property', target: 'element', result: 'boolean', updates: { changes: 'constant', reads: 'fresh' } }],
             });
 
@@ -487,7 +488,7 @@ describe('LanguageResolver', () => {
             const events = resolveWith('panel.on("chart-selected") { value = context.value }');
             const test = resolveWith('panel.charts');
 
-            expect(events.type.toString()).toBe('event<{ value: number }>');
+            expect(events.type.toString()).toBe('{ value: number }');
             expect(test.type.toString()).toBe('boolean');
         });
     });
@@ -581,7 +582,7 @@ describe('LanguageResolver', () => {
             expect(failure('panel.rect == panel.rect').message).toContain("'==' compares a value of rectangle with null alone");
             expect(failure('panel.children == panel.children').message).toContain('a value of list<element> with null alone');
             expect(failure('window == window').message).toContain('a value of window with null alone');
-            expect(failure('panel.on("click") { x = context.clientX } == null').message).toContain("'==' compares values, and this is an event source");
+            expect(failure('panel.on("click") { x = context.clientX } == null').message).toContain("'==' compares values, and this is a host call");
         });
 
         it('give the test to write for a value compared with the name of one of its Boolean members or its predicates, and nothing for any other', () => {
@@ -627,7 +628,7 @@ describe('LanguageResolver', () => {
         it('test for null with is null, a Boolean that is never null, whatever its subject', () => {
             expect(resolve('panel.parent == null').type.toString()).toBe('boolean');
             expect(resolve('null == null').type.toString()).toBe('boolean');
-            expect(failure('panel.on("click") { clientX = context.clientX } == null').message).toContain('event source');
+            expect(failure('panel.on("click") { clientX = context.clientX } == null').message).toContain('a host call');
         });
     });
 
@@ -706,8 +707,8 @@ describe('LanguageResolver', () => {
         });
 
         it('refuse an operand that is no value', () => {
-            expect(failure('panel.on("click") and true').message).toContain("An operand of 'and' is a value, and this one is an event source");
-            expect(failure('not panel.on("click")').message).toContain("What 'not' negates is a value, and this one is an event source");
+            expect(failure('panel.on("click") and true').message).toContain("An operand of 'and' is a value, and this one is a host call");
+            expect(failure('not panel.on("click")').message).toContain("What 'not' negates is a value, and this one is a host call");
         });
 
         it('resolve every operand with its own location, the implicit parameter of each the one around the expression', () => {
@@ -755,7 +756,7 @@ describe('LanguageResolver', () => {
         });
 
         it('refuse a local that is no value', () => {
-            expect(failure('panel { let clicks = context.on("click"), a = 1 }').message).toContain("The local 'clicks' is an event source, and a local is a value");
+            expect(failure('panel { let clicks = context.on("click"), a = 1 }').message).toContain("The local 'clicks' is a host call, and a local is a value");
         });
     });
 
@@ -786,7 +787,7 @@ describe('LanguageResolver', () => {
 
             const error = failure('if panel.on("click") then 1 else 2 end');
 
-            expect(error.message).toContain("The condition of 'if' is a value, and this one is an event source");
+            expect(error.message).toContain("The condition of 'if' is a value, and this one is a host call");
             expect(error.location.pointer).toBe('/expression/condition');
         });
 

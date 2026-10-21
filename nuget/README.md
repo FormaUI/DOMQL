@@ -18,7 +18,7 @@ DOMQL is a JavaScript library for querying the DOM, allowing you to read informa
 - [API and errors](#api-and-errors)
 - [Environments](#environments)
 - [Extend the vocabulary](#extend-the-vocabulary)
-- [Execute actions and apply behaviors](#execute-actions-and-apply-behaviors)
+- [Execute once and run continuously](#execute-once-and-run-continuously)
 
 ## Install and load
 
@@ -714,8 +714,8 @@ Keep independent results in a top-level object, as above. If you instead write `
 | `query.evaluateAsync(options)` | Read a snapshot, waiting for required observation samples. Accepts `signal` and `window`. |
 | `query.watch(options)` | Start a watch. Options include `acceptPartialObservation`, `schedule`, `updateStrategy`, `signal` and `window`. |
 | `query.subscribe(handler, options)` | Project events into data. Returns a listener with `status` and `dispose()`. |
-| `query.executeAsync(options)` | Execute a module-defined action and return a promise of its projected result. |
-| `query.apply(options)` | Activate a module-defined behavior. Returns a handle with `status`, `update(bindings)`, `subscribe('error', handler)` and `dispose()`. |
+| `query.executeAsync(options)` | Carry out a module-defined once execution and return a promise of its projected result. |
+| `query.run(options)` | Start a module-defined continuous execution. Returns a handle with `status`, `update(bindings)`, `subscribe('error', handler)` and `dispose()`. |
 | `domql.format(source)` | Return canonical query text from text, a definition or a query object; no bindings or registered vocabulary are needed. |
 | `domql.createModule(name, contents)` | Create an extension module. |
 | `domql.registerModule(module)` | Register a module for query resolution. |
@@ -725,11 +725,11 @@ A watch handle exposes `status`, `snapshot`, `error`, `readyAsync()`, `refreshAs
 
 ### Choose the matching operation
 
-DOMQL rejects operations that do not match the request before running them. The error identifies the request kind and its supported operations. For example, a read query is evaluated; an action is executed.
+DOMQL rejects operations that do not match the request before running them. The error identifies the request kind and its supported operations. For example, a read query is evaluated; a once execution is executed.
 
 ### Cancel an operation
 
-Pass an `AbortSignal` in the options for `evaluateAsync`, `watch`, `subscribe`, `executeAsync` or `apply`. Aborting ends the operation and releases its resources. An already-aborted signal prevents the operation from starting. Cancellation does not undo changes made by an action.
+Pass an `AbortSignal` in the options for `evaluateAsync`, `watch`, `subscribe`, `executeAsync` or `run`. Aborting ends the operation and releases its resources. An already-aborted signal prevents the operation from starting. Cancellation does not undo changes made by an execution.
 
 ### Validate without evaluating
 
@@ -813,23 +813,28 @@ A member's `updates` declare how its value changes and how it is read. `reads: '
 
 Register modules once during setup, rather than on every evaluation.
 
-Modules can also declare Boolean members, event types, predicates asked with `is`, `has` or `supports`, event sources, and conversions to and from their own types, each naming the type it converts from, the type it converts to and the implementation that converts a value. That implementation receives `{ value, reject }`, and calls `reject(reason)` for a value it cannot convert, which stops it at once; any other exception it throws is reported as a fault. A predicate carries the implementation that tests it, and its `updates` name its own observations. An event source's implementation receives the receiver, arguments, environment and an event-delivery callback, as `{ receiver, args, env, deliver }`. It returns an object with a `stop` method to end listening. Each event is captured using the fields declared by its event type.
+Modules can also declare Boolean members, predicates asked with `is`, `has` or `supports`, and conversions to and from their own types, each naming the type it converts from, the type it converts to and the implementation that converts a value. That implementation receives `{ value, reject }`, and calls `reject(reason)` for a value it cannot convert, which stops it at once; any other exception it throws is reported as a fault. A predicate carries the implementation that tests it, and its `updates` name its own observations.
 
-[Lexica's modules](https://github.com/FormaUI/Lexica/blob/main/spec/modules.md#modules) specify the full extension contracts. The next section shows action and behavior modules.
+A member the host invokes, `invokedBy: 'host'`, is a host call that DOMQL carries out: an event source, `requestKind: 'subscription'`, or an execution, `requestKind: 'execution'`, which runs `once` or `continuous` as its `executionMode` says. An event source's implementation receives the receiver, arguments, environment and an event-delivery callback, as `{ receiver, args, env, deliver }`, and returns an object with a `stop` method to end listening. Each event is captured as the type its declaration's result names, and a module adds event types of its own as keys of DOMQL's type selector `event`, each naming the type its events are captured as.
 
-## Execute actions and apply behaviors
+[Lexica's modules](https://github.com/FormaUI/Lexica/blob/main/spec/modules.md#modules) specify the full extension contracts. The next section shows execution modules.
 
-### Execute an action once
+## Execute once and run continuously
 
-Actions are module-defined members that can change the page. `executeAsync()` evaluates the receiver and arguments, invokes the action, and returns a promise of its result. The action's implementation may also return a promise.
+### Execute once
 
-This example registers an action that sets a data attribute and reports whether the value changed:
+A once execution is a module-defined host call that can change the page. `executeAsync()` prepares its receiver and arguments, invokes it, and returns a promise of its result. Its implementation may also return a promise.
+
+This example registers a once execution that sets a data attribute and reports whether the value changed:
 
 ```js
 domql.registerModule(domql.createModule('mark', {
     members: [{
         name: 'mark',
-        kind: 'action',
+        kind: 'function',
+        invokedBy: 'host',
+        requestKind: 'execution',
+        executionMode: 'once',
         target: 'element',
         arguments: 'positional',
         parameters: [{ name: 'label', kind: 'value', type: 'string', required: true, nulls: 'propagate' }],
@@ -848,25 +853,27 @@ await domql.query('panel.mark("reviewed")', { panel }).executeAsync();
 // true
 ```
 
-An object expression after an action can shape its result.
+An object expression after the execution can shape its result.
 
-To cancel, pass `{ signal }` to `executeAsync()`. The promise rejects with the signal's reason, and the implementation receives the cancellation through its signal. Changes already made remain in place, including when an action fails.
+To cancel, pass `{ signal }` to `executeAsync()`. The promise rejects with the signal's reason, and the implementation receives the cancellation through its signal. Changes already made remain in place, including when an execution fails.
 
-### Apply a behavior
+### Run continuously
 
-A behavior remains active until disposed. `apply()` activates it before returning a handle. Use that handle to update its bindings, subscribe to `error` events or dispose of it.
+A continuous execution stays active until disposed. `run()` starts it before returning a handle. Use that handle to update its bindings, subscribe to `error` events or dispose of it.
 
-This example maintains a data attribute while the behavior is active:
+This example maintains a data attribute while the execution runs:
 
 ```js
 domql.registerModule(domql.createModule('highlight', {
     members: [{
         name: 'highlight',
-        kind: 'behavior',
+        kind: 'function',
+        invokedBy: 'host',
+        requestKind: 'execution',
+        executionMode: 'continuous',
         target: 'element',
         arguments: 'positional',
         parameters: [{ name: 'color', kind: 'value', type: 'string', required: true, nulls: 'propagate' }],
-        result: 'null',
         implementation: ({ receiver: element, args: { color } }) => {
             let current = element;
 
@@ -884,7 +891,7 @@ domql.registerModule(domql.createModule('highlight', {
     }]
 }));
 
-const highlight = domql.query('panel.highlight(color)', { panel, color: 'gold' }).apply();
+const highlight = domql.query('panel.highlight(color)', { panel, color: 'gold' }).run();
 console.log(panel.dataset.highlight);
 // 'gold'
 
@@ -897,13 +904,13 @@ console.log(panel.dataset.highlight);
 // undefined
 ```
 
-`update()` replaces the complete bindings object and validates it before applying a change. A validation failure leaves the current behavior running. Disposing the behavior ends that instance; its module remains registered.
+`update()` replaces the complete bindings object and validates it before applying a change. A validation failure leaves the current execution running. Disposing the handle ends the execution; its module remains registered.
 
 ## Learn more
 
 - [Repository README](https://github.com/FormaUI/DOMQL): what DOMQL is for, what is built, and how to build and test it.
 - [Lexica specification](https://github.com/FormaUI/Lexica/blob/main/spec/README.md): the language DOMQL is written in, its syntax, types, null semantics and vocabulary contracts.
-- [DOMQL specification](https://github.com/FormaUI/DOMQL/blob/main/spec/README.md): queries, the DOM's vocabulary, evaluating and watching a query, its results, events, actions and behaviors, and the API.
+- [DOMQL specification](https://github.com/FormaUI/DOMQL/blob/main/spec/README.md): queries, the DOM's vocabulary, evaluating and watching a query, its results, events, executions, and the API.
 - [DOMQL design](https://github.com/FormaUI/DOMQL/blob/main/docs/domql-design.md): how DOMQL is built, and the decisions it did not take, and the [Lexica design](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md): how the language and its runtime are built.
 
 - [Status](https://github.com/FormaUI/DOMQL/blob/main/docs/features-status.md): what is implemented, what is being built, and what remains.

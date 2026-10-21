@@ -35,7 +35,7 @@ Run the full build from the repository root:
 
 | Location | Contents |
 | --- | --- |
-| `src/dom/` | DOM evaluation, observations, watches, events, actions and behaviors |
+| `src/dom/` | DOM evaluation, observations, watches, events, executions and the dispatch table of host calls |
 | `src/snapshots/` | Snapshot comparison and updates |
 | `tests/` | Tests arranged to match the source folders |
 | `scripts/` | Bundling scripts |

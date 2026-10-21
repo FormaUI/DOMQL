@@ -1,7 +1,10 @@
 domql.registerModule(domql.createModule('mark', {
     members: [{
         name: 'mark',
-        kind: 'action',
+        kind: 'function',
+        invokedBy: 'host',
+        requestKind: 'execution',
+        executionMode: 'once',
         target: 'element',
         arguments: 'positional',
         parameters: [{ name: 'label', kind: 'value', type: 'string', required: true, nulls: 'propagate' }],

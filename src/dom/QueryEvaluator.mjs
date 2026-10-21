@@ -95,36 +95,23 @@ export class QueryEvaluator {
         return this.#evaluateWithObservations({ observations, onChange, holdsAllObservations, replaces, consumer, recordsDependencies, waits: true }, host => this.#evaluator.evaluate(host));
     }
 
-    /** What starts the event source the subscription ends in, as Lexica's evaluator resolves it. */
-    resolveSource() {
-        return this.#evaluator.resolveSource();
-    }
-
-    /** What executes the action the request ends in, as Lexica's evaluator resolves it. */
-    resolveAction() {
-        return this.#evaluator.resolveAction();
-    }
-
-    /** What starts the behavior the request ends in, as Lexica's evaluator resolves it. */
-    resolveBehavior() {
-        return this.#evaluator.resolveBehavior();
-    }
-
-    /** The result of an action, read through the object expression that follows it, as Lexica's evaluator reads it once. */
-    projectResult(result, execution) {
-        return this.#evaluator.projectResult(result, execution);
+    /** Prepares the host call the request ends in, as Lexica's evaluator prepares it: the call to invoke, or a skipped call where there is nothing to invoke. */
+    prepareCall() {
+        return this.#evaluator.prepareCall();
     }
 
     /**
-     * Evaluates the object expression that follows the event source against one event, as its source captured it, and records the observations its maintained members read.
-     * A maintained member answers its latest sample, or null while the sample is pending, and is never waited for; the evaluation holds the sessions that keep its samples, so the caller keeps them for the next event and disposes the evaluation once it has the next one. A failure ends the evaluation without throwing.
-     * @param {unknown} event The event, as `capture` answered it.
+     * Projects one value a host call supplied through the prepared call, as Lexica captures and projects it, and records the observations its maintained members read.
+     * A maintained member answers its latest sample, or null while the sample is pending, and is never waited for; the evaluation holds the sessions that keep its samples, so the caller keeps them for the next value and disposes the
+     * evaluation once it has the next one. A failure, of capturing the value or of its projection, ends the evaluation without throwing.
+     * @param {{ project: (value: unknown, host?: object) => object }} call The prepared call.
+     * @param {unknown} value The value its host supplied.
      * @param {object} observationContext Where the dependencies are observed.
-     * @param {import('./Observations.mjs').Observations} observationContext.observations The observations of the window the subscription listens in.
-     * @param {object | null} [observationContext.consumer] The event listener the projections serve, so an observation of a type that is not shared is reached again by its later projections.
+     * @param {import('./Observations.mjs').Observations} observationContext.observations The observations of the window the call is carried out in.
+     * @param {object | null} [observationContext.consumer] Whom the projections serve, so an observation of a type that is not shared is reached again by its later projections.
      */
-    project(event, { observations, consumer = null }) {
-        return this.#evaluateWithObservations({ observations, onChange: () => {}, holdsAllObservations: false, replaces: null, consumer, recordsDependencies: false, waits: false }, host => this.#evaluator.project(event, host));
+    project(call, value, { observations, consumer = null }) {
+        return this.#evaluateWithObservations({ observations, onChange: () => {}, holdsAllObservations: false, replaces: null, consumer, recordsDependencies: false, waits: false }, host => call.project(value, host));
     }
 
     /** Runs an evaluation that records what it depends on, answering the evaluation; one that waits holds what a pending result waits on, and lets a failure seen through a pending member pass. */

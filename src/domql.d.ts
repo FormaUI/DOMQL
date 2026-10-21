@@ -42,7 +42,7 @@ export interface DomqlLiveStateWatchOptions extends Omit<DomqlWatchOptions, 'upd
     updateStrategy: 'liveState';
 }
 
-/** How a subscription is listened to, an action executed, or a behavior applied. */
+/** How a subscription is listened to, or an execution carried out once or run. */
 export interface DomqlOperationOptions {
     /** The window `window` stands for, and whose document `document` stands for; by default the environment's. */
     window?: Window;
@@ -79,15 +79,15 @@ export interface DomqlErrorArgs {
     readonly error: unknown;
 }
 
-/** A behavior the caller applied: it runs from the call that applied it until it is disposed. */
-export interface DomqlBehavior {
+/** The handle of a continuous execution the caller ran: it runs from the call that ran it until it is disposed. */
+export interface DomqlExecutionHandle {
     /** `ready` while it runs, and `disposed` once it is ended. */
     readonly status: 'ready' | 'disposed';
-    /** Replaces the bindings the behavior runs with, whole. A failure throws and leaves the behavior running as it was; bindings that select another behavior are refused. */
+    /** Replaces the bindings the execution runs with, whole. A failure throws and leaves the execution running as it was; bindings that select another execution are refused. */
     update(bindings: DomqlBindings): void;
-    /** Listens to the failures the behavior reports while it runs. */
-    subscribe(eventName: 'error', handler: (sender: DomqlBehavior, args: DomqlErrorArgs) => unknown, options?: DomqlListenOptions): DomqlEventListener;
-    /** Ends the behavior, stops its listeners and leaves its module registered. Disposing again does nothing. */
+    /** Listens to the failures the execution reports while it runs. */
+    subscribe(eventName: 'error', handler: (sender: DomqlExecutionHandle, args: DomqlErrorArgs) => unknown, options?: DomqlListenOptions): DomqlEventListener;
+    /** Ends the execution, stops its listeners and leaves its module registered. Disposing again does nothing. */
     dispose(): void;
 }
 
@@ -232,10 +232,10 @@ export interface DomqlQuery<T = unknown> {
     watch(options: DomqlLiveStateWatchOptions): DomqlLiveStateWatch<T>;
     /** Listens to the subscription's event source from the call on, and answers the event listener; the handler receives it and each event's result, or the failure that capturing or projecting the event raised. */
     subscribe(handler: (sender: DomqlEventListener, args: DomqlResultArgs<T>) => unknown, options?: DomqlOperationOptions): DomqlEventListener;
-    /** Executes the action once, and answers a promise of its result. A signal that aborts rejects with its reason; DOMQL never undoes what the action changed. */
+    /** Carries out the once execution the query ends in, and answers a promise of its result. A signal that aborts rejects with its reason; DOMQL never undoes what the execution changed. */
     executeAsync(options?: DomqlOperationOptions): Promise<T>;
-    /** Applies the behavior, which has started once the call returns, and answers its handle. */
-    apply(options?: DomqlOperationOptions): DomqlBehavior;
+    /** Runs the continuous execution the query ends in, which has started once the call returns, and answers its handle. */
+    run(options?: DomqlOperationOptions): DomqlExecutionHandle;
 }
 
 /** A part of a query's result: it belongs to the query, and every operation on it starts work of its own on the whole query. */
@@ -254,10 +254,12 @@ declare const domqlResult: unique symbol;
 /** A query resolved against the registered vocabulary. */
 export interface DomqlResolvedDefinition {
     readonly definition: DomqlDefinition;
-    /** The kind of request: a value, a subscription, an action or a behavior request. */
-    readonly kind: 'value' | 'subscription' | 'action' | 'behavior';
-    /** The type of the request's result, in type notation, such as `number?` or `list<element>`. */
-    readonly type: string;
+    /** What the request asks for: a value, a subscription to an event source, or an execution. */
+    readonly kind: 'value' | 'subscription' | 'execution';
+    /** How an execution runs, once or continuously; null for a request of another kind. */
+    readonly executionMode: 'once' | 'continuous' | null;
+    /** The type of the request's result, in type notation, such as `number?` or `list<element>`; null for an execution that answers none. */
+    readonly type: string | null;
     /** The declarations the request uses, with the name a message gives each and where each is used. */
     readonly usedDeclarations: readonly { readonly declaration: object; readonly name: string; readonly pointer: string }[];
     /** The type a result path reaches, in type notation, refusing a path the type does not hold. */
@@ -384,7 +386,7 @@ export interface DomqlParameterDeclaration {
     name: string;
     /**
      * A value, an expression evaluated against each item, a predicate, an expression of any value whose truthiness the implementation receives, or a function the expression declares,
-     * which the implementation calls while its own invocation lasts and only a member of kind `function` takes.
+     * which the implementation calls while its own invocation lasts and only a function the evaluator invokes takes.
      */
     kind: 'value' | 'expression' | 'predicate' | 'function';
     /** The parameter's type, in DOMQL's notation; a predicate's is `boolean`, what the implementation receives, and a function parameter's the type of its function's result. */
@@ -395,8 +397,10 @@ export interface DomqlParameterDeclaration {
     default?: unknown;
     /** Whether the argument names something the vocabulary resolves before any evaluation; a fixed parameter is a value parameter of type `string`. */
     fixed?: boolean;
-    /** What a fixed parameter names, and only a fixed one: an event source's event type, or the predicate a verb asks. */
-    selects?: 'eventType' | 'predicate';
+    /** What a fixed parameter names, and only a fixed one: the predicate a verb asks, or a type, which a function's result writes as `@selected`, through the type selector `selector` names, as `on`'s type does through `event`. */
+    selects?: 'predicate' | 'type';
+    /** The type selector a parameter that selects a type selects through. */
+    selector?: string;
     /** Whether a null argument makes the call answer null, or is accepted; a function parameter leaves it out, since a function is never null. */
     nulls?: 'propagate' | 'accept';
     /** What an expression or a predicate argument is evaluated against. */
@@ -414,20 +418,27 @@ export interface DomqlImplementationInput {
     readonly samples?: readonly unknown[];
     /** An event source: the function each event is handed to. */
     readonly deliver?: (event: unknown) => void;
-    /** An action: the signal that aborts it. */
+    /** A once execution: the signal that aborts it. */
     readonly signal?: AbortSignal;
-    /** A behavior: where a failure while it runs is reported. */
+    /** A continuous execution: where a failure while it runs is reported. */
     readonly reportError?: (error: unknown) => void;
 }
 
 /**
- * A property, function, event source, action or behavior a module adds, each kind taking the fields it needs alone; a member without a target is a module member, read through its module's namespace.
- * A property answers a value; a function its result; an event source an object whose `stop` ends the listening; an action its result or a promise of it; and a behavior an object whose `update(receiver, args)` applies new arguments and whose `dispose` ends it.
+ * A property or a function a module adds, each taking the fields it needs alone; a member without a target is a module member, read through its module's namespace.
+ * A property answers a value, and a function the evaluator invokes its result. A function the host invokes is a host call DOMQL carries out by its request kind: an event source answers an object whose `stop` ends the listening;
+ * a once execution its result or a promise of it; and a continuous execution an object whose `update(receiver, args)` applies new arguments and whose `dispose` ends it.
  */
 export interface DomqlMemberDeclaration {
     /** The DOMQL name. */
     name: string;
-    kind: 'property' | 'function' | 'eventSource' | 'action' | 'behavior';
+    kind: 'property' | 'function';
+    /** Who invokes a function: the evaluator, the default, or DOMQL as the host, a host call that takes value parameters alone and no updates. */
+    invokedBy?: 'evaluator' | 'host';
+    /** The request a host call makes: a subscription to an event source, or an execution. */
+    requestKind?: 'subscription' | 'execution';
+    /** How an execution runs: once, answering its result, or continuously, until it is updated or disposed. */
+    executionMode?: 'once' | 'continuous';
     /** The types it applies to, in DOMQL's notation, or none for a module member. */
     target?: string | string[];
     /** How a member that is no property is written: a function call, `it.device("lamp")`, the default, or a named indexer, `it:setting["mode"]`, a function whose one required value parameter is its key. A property takes none. */
@@ -438,9 +449,9 @@ export interface DomqlMemberDeclaration {
     default?: boolean;
     /** Its parameters; a property takes none. */
     parameters?: DomqlParameterDeclaration[];
-    /** The type of its result, in DOMQL's notation; an event source's is `event<T>`. */
-    result: string;
-    /** How it changes and reads; a property, a function and an event source take it, and an action and a behavior refuse it. */
+    /** The type of its result, in DOMQL's notation: an event source's the type of each event it delivers, `@selected` where its type is selected; a once execution's the type of its result; and a continuous execution declares none. */
+    result?: string;
+    /** How it changes and reads; a property and a function the evaluator invokes take it, and a host call refuses it. */
     updates?: DomqlUpdates;
     /** What carries it out, given one object it reads by name; a member without one is resolved against and never invoked, and a verb, which its predicate carries out, takes none. */
     implementation?: (input: DomqlImplementationInput) => unknown;
@@ -453,8 +464,10 @@ export interface DomqlModuleContents {
     members?: DomqlMemberDeclaration[];
     /** The predicates it declares, each asked by name with its verb. */
     predicates?: DomqlPredicateDeclaration[];
-    /** The event types it declares, each with the type of its event data. */
-    eventTypes?: { name: string; data: string }[];
+    /** The type selectors it declares, each by its name alone. */
+    typeSelectors?: { name: string }[];
+    /** The keys it declares for type selectors, its own or a module's registered before it, as an event type is a key of DOMQL's selector `event`, each mapping to a type. */
+    selectableTypes?: { name: string; selector: string; type: string }[];
     /** The types of observation it declares. */
     observationTypes?: DomqlObservationTypeDeclaration[];
     /** The conversions it declares, each to or from one of its own types, and one for each source and target. */
@@ -483,7 +496,8 @@ export interface DomqlModule {
     readonly types: readonly { readonly name: string; readonly fields: Readonly<Record<string, string>> }[];
     readonly members: readonly DomqlMemberDeclaration[];
     readonly predicates: readonly DomqlPredicateDeclaration[];
-    readonly eventTypes: readonly { readonly name: string; readonly data: string }[];
+    readonly typeSelectors: readonly { readonly name: string }[];
+    readonly selectableTypes: readonly { readonly name: string; readonly selector: string; readonly type: string }[];
     readonly observationTypes: readonly DomqlObservationTypeDeclaration[];
     readonly observationTargets: readonly DomqlObservationTargetDeclaration[];
     readonly conversions: readonly DomqlConversionDeclaration[];

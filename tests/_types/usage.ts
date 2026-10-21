@@ -1,6 +1,6 @@
 // How a TypeScript caller uses DOMQL, which the declarations must accept; the test compiles this file.
 import { domql, LexicaError } from '../../src/domql.js';
-import type { DomqlBehavior, DomqlChangeOperation, DomqlConversionImplementationInput, DomqlDefinition, DomqlDefinitionNode, DomqlEvaluateAsyncOptions, DomqlEventListener, DomqlLiveStateWatch, DomqlLiveStateWatchOptions, DomqlMemberDeclaration, DomqlModule, DomqlModuleContents, DomqlOperationOptions, DomqlQuery, DomqlReadOnly, DomqlResolvedDefinition, DomqlResultArgs, DomqlSelectedView, DomqlSelection, DomqlWatch, DomqlWatchOptions } from '../../src/domql.js';
+import type { DomqlChangeOperation, DomqlConversionImplementationInput, DomqlDefinition, DomqlDefinitionNode, DomqlEvaluateAsyncOptions, DomqlEventListener, DomqlExecutionHandle, DomqlLiveStateWatch, DomqlLiveStateWatchOptions, DomqlMemberDeclaration, DomqlModule, DomqlModuleContents, DomqlOperationOptions, DomqlQuery, DomqlReadOnly, DomqlResolvedDefinition, DomqlResultArgs, DomqlSelectedView, DomqlSelection, DomqlWatch, DomqlWatchOptions } from '../../src/domql.js';
 
 const panel = document.createElement('div');
 const controller = new AbortController();
@@ -24,8 +24,9 @@ const formattedText: string = domql.format(domql.format(definition));
 domql.format(42);
 
 const resolved: DomqlResolvedDefinition = created.resolve({ watch: true, acceptPartialObservation: true });
-const kind: 'value' | 'subscription' | 'action' | 'behavior' = resolved.kind;
-const typeText: string = resolved.type;
+const kind: 'value' | 'subscription' | 'execution' = resolved.kind;
+const executionMode: 'once' | 'continuous' | null = resolved.executionMode;
+const typeText: string | null = resolved.type;
 const countType: string = resolved.typeAt(['count']);
 const usedNames: readonly string[] = resolved.usedDeclarations.map(used => used.name);
 
@@ -169,15 +170,16 @@ query.subscribe({});
 // @ts-expect-error A failure of a subscription's event reaches its handler, so it takes no other.
 query.subscribe(() => {}, { onError: () => {} });
 
-// A source's implementation takes the function it delivers each event to, and answers what stops it.
+// An event source is a host call making a subscription, whose implementation takes the function it delivers each event to, and answers what stops it.
 const source: DomqlMemberDeclaration = {
     name: 'beats',
-    kind: 'eventSource',
+    kind: 'function',
+    invokedBy: 'host',
+    requestKind: 'subscription',
     target: 'element',
     arguments: 'positional',
-    parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, fixed: true, selects: 'eventType', nulls: 'propagate' }],
-    result: 'event<@selected>',
-    updates: { changes: 'constant', reads: 'captured' },
+    parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, fixed: true, selects: 'type', selector: 'event', nulls: 'propagate' }],
+    result: '@selected',
     implementation: ({ receiver, deliver }) => {
         const element = receiver as Element;
         const timer = setInterval(() => deliver?.({ n: element.childElementCount }), 1000);
@@ -186,27 +188,41 @@ const source: DomqlMemberDeclaration = {
     },
 };
 
-// An action is executed once and promises its result; a behavior runs until its handle is disposed.
+// A once execution is carried out and promises its result; a continuous execution runs until its handle is disposed.
 const moved: Promise<boolean> = domql.query<boolean>('panel.step("forward")', { panel }).executeAsync({ window, signal });
 const stepped: Promise<boolean> = domql.query<boolean>('panel.step("back")', { panel }).executeAsync();
-const trap: DomqlBehavior = domql.query('dialog.focusTrap()', { dialog: panel }).apply({ window, signal });
+const trap: DomqlExecutionHandle = domql.query('dialog.focusTrap()', { dialog: panel }).run({ window, signal });
 const trapping: 'ready' | 'disposed' = trap.status;
 const reported: DomqlEventListener = trap.subscribe('error', (sender, args) => {
-    const behavior: DomqlBehavior = sender;
+    const execution: DomqlExecutionHandle = sender;
 
-    return [behavior, args.error];
+    return [execution, args.error];
 }, { signal });
+
+// An execution is a host call declaring its mode, a continuous one declaring no result.
+const focusTrap: DomqlMemberDeclaration = {
+    name: 'focusTrap',
+    kind: 'function',
+    invokedBy: 'host',
+    requestKind: 'execution',
+    executionMode: 'continuous',
+    target: 'element',
+    implementation: ({ receiver, reportError }) => ({ update: () => {}, dispose: () => reportError?.(receiver) }),
+};
+
+// @ts-expect-error An execution runs once or continuously.
+const looping: DomqlMemberDeclaration = { name: 'loop', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'forever' };
 
 trap.update({ dialog: panel });
 trap.dispose();
 
-// @ts-expect-error A behavior's handle is updated with bindings.
+// @ts-expect-error An execution's handle is updated with bindings.
 trap.update('dialog.focusTrap()');
 
 // @ts-expect-error A query is bound again with bindings.
 query.with('panel.children.count');
 
-// @ts-expect-error A behavior raises error events alone.
+// @ts-expect-error An execution's handle raises error events alone.
 trap.subscribe('change', () => {});
 
 // A module declares its vocabulary as data, each declaration that runs code carrying its implementation.
@@ -220,7 +236,7 @@ const contents: DomqlModuleContents = {
         updates: { changes: 'unobserved', reads: 'fresh', tolerance: 0.5 },
         implementation: ({ receiver }) => ({ childCount: (receiver as Element).children.length }),
     }],
-    eventTypes: [{ name: 'chart-selected', data: 'number' }],
+    selectableTypes: [{ name: 'chart-selected', selector: 'event', type: 'number' }],
     predicates: [{ name: 'charted', verb: 'has', target: 'childMetrics', updates: { changes: 'constant', reads: 'fresh' }, implementation: ({ receiver }) => (receiver as { childCount: number }).childCount > 0 }],
     observationTypes: [{ name: 'chartsChanged', contract: 'maintained', identity: ['root'], shared: true, implementation: ({ notify }) => ({ stop: () => notify(), sample: () => ({ pending: true }) }) }],
     // A conversion's implementation takes the value and the reject that stops it.

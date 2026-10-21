@@ -3,6 +3,7 @@ import { LexicaModule } from '#lexica/language/vocabulary/LexicaModule.mjs';
 import { LexicaRegistry } from '#lexica/language/vocabulary/LexicaRegistry.mjs';
 import { Vocabulary } from '#lexica/language/vocabulary/Vocabulary.mjs';
 import { BrowserVocabulary } from '#domql/dom/BrowserVocabulary.mjs';
+import { DispatchTable } from '#domql/dom/DispatchTable.mjs';
 
 /** The message an error a call throws carries. */
 const messageOf = call => {
@@ -37,8 +38,8 @@ describe('BrowserVocabulary', () => {
         expect(names.filter(name => registry.getMembers(name).length === 0)).toEqual([]);
     });
 
-    it('gives every member observation coverage and, where partial, what it misses', () => {
-        for (const member of module.members) {
+    it('gives every member the evaluator invokes observation coverage and, where partial, what it misses', () => {
+        for (const member of module.members.filter(candidate => candidate.invokedBy !== 'host')) {
             expect(member.updates.changes).toBeTypeOf('string');
             expect(member.updates.changes === 'partly-observable' ? member.updates.misses : 'n/a').toBeTruthy();
         }
@@ -85,12 +86,24 @@ describe('BrowserVocabulary', () => {
         expect(extended.getPredicates('plotted').map(predicate => extended.getOwner(predicate))).toEqual(['charts']);
     });
 
-    it('refuses an event type a module declares that the DOM vocabulary declares', () => {
-        expect(messageOf(() => new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, new LexicaModule('twice', { eventTypes: [{ name: 'click', data: 'domEvent' }] })]))).toContain("'click' is declared already");
+    it('declares on as the event source of elements, the document and the window, a host call making a subscription, whose fixed type selects through the type selector event', () => {
+        const [on] = registry.getMembers('on');
+
+        expect(on).toMatchObject({ kind: 'function', invokedBy: 'host', target: ['element', 'document', 'window'], result: '@selected', parameters: [{ name: 'type', fixed: true, selects: 'type', selector: 'event' }] });
+        expect(DispatchTable.get(on)).toMatchObject({ requestKind: 'subscription', executionMode: null });
+        expect(module.typeSelectors).toEqual([{ name: 'event' }]);
+        expect(module.selectableTypes.map(key => `${key.name}: ${key.type}`)).toEqual([
+            'click: pointerEvent', 'pointerdown: pointerEvent', 'pointerup: pointerEvent', 'keydown: keyboardEvent', 'keyup: keyboardEvent', 'drop: dragEvent',
+            'focus: domEvent', 'blur: domEvent', 'input: domEvent', 'scroll: domEvent', 'resize: domEvent',
+        ]);
+    });
+
+    it('refuses a key a module declares for the type selector event that the DOM vocabulary maps already', () => {
+        expect(messageOf(() => new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, new LexicaModule('twice', { selectableTypes: [{ name: 'click', selector: 'event', type: 'domEvent' }] })]))).toContain("The type selector 'event' maps the key 'click' already, as the module 'domql' declared it");
     });
 
     describe('observations', () => {
-        const members = [...module.members, ...module.predicates];
+        const members = [...module.members.filter(member => member.invokedBy !== 'host'), ...module.predicates];
         const covered = declaration => ['observable', 'partly-observable'].includes(declaration.updates.changes);
 
         it('are named by every member whose changes they cover, and by no other', () => {

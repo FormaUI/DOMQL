@@ -65,13 +65,13 @@ const bindingsOf = () => {
     };
 };
 
-/** A module of a scroller an element offers, with an action that steps it and a behavior that pages it with the wheel, as the requests the specification shows. */
+/** A module of a scroller an element offers, with a once execution that steps it and a continuous one that pages it with the wheel, as the requests the specification shows. */
 const scrollModule = domql => domql.createModule('scroll', {
     types: [{ name: 'scroller', fields: { axis: 'string' } }],
     members: [
         { name: 'scroll', kind: 'function', syntax: 'function-call', arguments: 'options', target: 'element', parameters: [{ name: 'axis', kind: 'value', type: 'string', required: true, nulls: 'accept' }], result: 'scroller', updates: { changes: 'unobserved', reads: 'fresh' } },
-        { name: 'step', kind: 'action', syntax: 'function-call', arguments: 'options', target: 'scroller', parameters: [{ name: 'direction', kind: 'value', type: 'string', required: true, nulls: 'accept' }], result: 'boolean' },
-        { name: 'wheelPaging', kind: 'behavior', syntax: 'function-call', arguments: 'options', target: 'scroller', parameters: [{ name: 'modifier', kind: 'value', type: 'string', required: true, nulls: 'accept' }], result: 'boolean' },
+        { name: 'step', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', syntax: 'function-call', arguments: 'options', target: 'scroller', parameters: [{ name: 'direction', kind: 'value', type: 'string', required: true, nulls: 'accept' }], result: 'boolean' },
+        { name: 'wheelPaging', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'continuous', syntax: 'function-call', arguments: 'options', target: 'scroller', parameters: [{ name: 'modifier', kind: 'value', type: 'string', required: true, nulls: 'accept' }] },
     ],
 });
 

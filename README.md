@@ -16,7 +16,7 @@ DOMQL is a JavaScript library for querying the DOM, allowing you to read informa
 - Strings, interpolation, conversions and casts
 - Shadow trees crossed explicitly
 - Event subscriptions projected into data
-- Typed extension modules: members, observations, actions and behaviors
+- Typed extension modules: members, observations, event sources and executions
 - Validation before anything is evaluated
 - Definitions as JSON
 - One ES module with TypeScript declarations
@@ -88,7 +88,7 @@ The source import above works when serving the repository; the [library guide](n
 | Reading data | JavaScript assembles the result | A query describes the result |
 | Keeping data current | Application code repeats its reads | A watch tracks declared observations |
 | Events | Handlers work with events | Subscriptions project events into data |
-| Changing the page | DOM manipulation methods | Module-defined actions and behaviors |
+| Changing the page | DOM manipulation methods | Module-defined executions, once or continuous |
 | Extension | Plugins | Typed vocabulary modules |
 
 ## Documents
@@ -96,7 +96,7 @@ The source import above works when serving the repository; the [library guide](n
 | Document | What it holds |
 | --- | --- |
 | [Library guide](nuget/README.md) | Install DOMQL, learn the language by example and use the API |
-| [DOMQL specification](spec/README.md) | Queries, the DOM's vocabulary, evaluating and watching a query, its results, events, actions and behaviors, and the API |
+| [DOMQL specification](spec/README.md) | Queries, the DOM's vocabulary, evaluating and watching a query, its results, events, executions, and the API |
 | [Lexica specification](https://github.com/FormaUI/Lexica/blob/main/spec/README.md) | The language DOMQL is written in |
 | [Design](docs/domql-design.md) | How DOMQL is built, and the decisions it did not take |
 | [Status](docs/features-status.md) | What is implemented, what is being built, and what remains |

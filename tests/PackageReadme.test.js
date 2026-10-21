@@ -64,8 +64,8 @@ const examples = [
         answers: [['validation'], ["The argument 'name' of 'attribute' expects string and finds number", '(line 1, column 8, at /expression/argument)']],
     },
     { file: '21-module.js', observed: 'reads', answers: [['{ childCount: 3 }']] },
-    { file: '22-execute-action.js', observed: 'reads', answers: [['true']] },
-    { file: '23-apply-behavior.js', observed: 'printed', answers: [["'gold'"], ["'teal'"], ['undefined']] },
+    { file: '22-execute-once.js', observed: 'reads', answers: [['true']] },
+    { file: '23-run-continuously.js', observed: 'printed', answers: [["'gold'"], ["'teal'"], ['undefined']] },
 ];
 
 /** What an example gives: the values its comments show, those it names, or the result in the JSON block it names. */
@@ -105,7 +105,7 @@ describe('the package README', () => {
         const printed = [];
         const watches = [];
 
-        // The examples call domql as the README writes it: every result an evaluation or an action answers is kept, and every watch a query makes is disposed when they end.
+        // The examples call domql as the README writes it: every result an evaluation or an execution answers is kept, and every watch a query makes is disposed when they end.
         const kept = query => new Proxy(query, {
             get: (target, key) => {
                 switch (key) {

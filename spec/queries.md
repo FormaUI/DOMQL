@@ -111,7 +111,7 @@ A query belongs to the instance of the library that made it, and an instance ref
 
 A request is resolved before it is first carried out, and resolution validates it against the vocabulary registered then, as Lexica's [resolution](https://github.com/FormaUI/Lexica/blob/main/spec/runtime.md#runtime-bindings-and-resolution) sets out; a module a request names is registered by its caller beforehand. A misspelling or a wrong argument is an error before anything is evaluated; a member's fit to its receiver is checked once the receiver's type is specific enough, which a null receiver's is not; null is always a result.
 
-`query.resolve(options?)` resolves a request without evaluating anything, and answers its kind and its type; it needs no browser. Its options `watch` and `acceptPartialObservation` resolve it as a watch would, so a watch's refusal of a partly observable member, as [accepting partial observation](watches.md#accepting-partial-observation) sets out, is found before a watch starts.
+`query.resolve(options?)` resolves a request without evaluating anything, and answers its kind, `value`, `subscription` or `execution`, an execution's `executionMode`, null for a request of another kind, and its type, null for an execution that answers no result; it needs no browser. Its options `watch` and `acceptPartialObservation` resolve it as a watch would, so a watch's refusal of a partly observable member, as [accepting partial observation](watches.md#accepting-partial-observation) sets out, is found before a watch starts.
 
 <a id="operations-and-request-kinds"></a>
 

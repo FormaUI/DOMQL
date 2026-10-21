@@ -35,16 +35,16 @@ describe('DomqlQuery', () => {
 
         const attributes = [{ type: 'mutation', of: 'receiver', attributes: true }];
 
-        // A member that counts the evaluations that read it, an action and a behavior that record their calls, and a source that records its starts.
+        // A member that counts the evaluations that read it, a once execution and a continuous one that record their calls, and a source that records its starts.
         isolated.registerModule(isolated.createModule('tally', {
             members: [{ name: 'tally', kind: 'property', target: 'element', result: 'number', updates: { changes: 'observable', reads: 'fresh', observations: attributes }, implementation: () => ++evaluations }],
         }));
         isolated.registerModule(isolated.createModule('mark', {
-            members: [{ name: 'mark', kind: 'action', target: 'element', parameters: [], result: 'boolean', implementation: () => (calls.push('mark'), true) }],
+            members: [{ name: 'mark', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', target: 'element', parameters: [], result: 'boolean', implementation: () => (calls.push('mark'), true) }],
         }));
         isolated.registerModule(isolated.createModule('glow', {
             members: [{
-                name: 'glow', kind: 'behavior', target: 'element', parameters: [], result: 'boolean',
+                name: 'glow', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'continuous', target: 'element', parameters: [],
                 implementation: ({ reportError }) => {
                     calls.push('glow');
 
@@ -53,11 +53,10 @@ describe('DomqlQuery', () => {
             }],
         }));
         isolated.registerModule(isolated.createModule('beat', {
-            eventTypes: [{ name: 'beat', data: 'number' }],
             members: [{
-                name: 'beat', kind: 'eventSource', target: 'element', arguments: 'positional',
-                parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, fixed: true, selects: 'eventType', nulls: 'propagate' }],
-                result: 'event<number>', updates: { changes: 'unobserved', reads: 'captured' }, implementation: () => (calls.push('beat'), { stop: () => calls.push('stop') }),
+                name: 'beat', kind: 'function', invokedBy: 'host', requestKind: 'subscription', target: 'element', arguments: 'positional',
+                parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, nulls: 'propagate' }],
+                result: 'number', implementation: () => (calls.push('beat'), { stop: () => calls.push('stop') }),
             }],
         }));
     });
@@ -68,10 +67,10 @@ describe('DomqlQuery', () => {
 
     describe('an operation the request does not take', () => {
         it.each([
-            ['evaluating an action', () => isolated.query('panel.mark()', { panel }).evaluate(), "Cannot evaluate 'panel.mark()': it executes an effect.\nUse executeAsync()."],
-            ['watching a behavior', () => isolated.query('panel.glow()', { panel }).watch(), "Cannot watch 'panel.glow()': it applies a behavior.\nUse apply()."],
+            ['evaluating a once execution', () => isolated.query('panel.mark()', { panel }).evaluate(), "Cannot evaluate 'panel.mark()': it executes an effect once.\nUse executeAsync()."],
+            ['watching a continuous execution', () => isolated.query('panel.glow()', { panel }).watch(), "Cannot watch 'panel.glow()': it keeps an effect running.\nUse run()."],
             ['executing a query', () => isolated.query('panel.tally', { panel }).executeAsync(), "Cannot execute 'panel.tally': it produces a value.\nUse evaluate(), evaluateAsync() or watch()."],
-            ['applying an action', () => isolated.query('panel.mark()', { panel }).apply(), "Cannot apply 'panel.mark()': it executes an effect.\nUse executeAsync()."],
+            ['running a once execution', () => isolated.query('panel.mark()', { panel }).run(), "Cannot run 'panel.mark()': it executes an effect once.\nUse executeAsync()."],
             ['subscribing to a query', () => isolated.query('panel.tally', { panel }).subscribe(() => {}), "Cannot subscribe to 'panel.tally': it produces a value.\nUse evaluate(), evaluateAsync() or watch()."],
             ['evaluating a subscription', () => isolated.query('panel.beat("beat")', { panel }).evaluate(), "Cannot evaluate 'panel.beat(\"beat\")': it listens to events.\nUse subscribe()."],
         ])('is refused before anything runs: %s', async (_, operation, message) => {
@@ -106,10 +105,10 @@ describe('DomqlQuery', () => {
             expect(calls).toEqual([]);
         });
 
-        it('answers a disposed behavior that never starts', () => {
-            const behavior = isolated.query('panel.glow()', { panel }).apply({ signal: aborted() });
+        it('answers a disposed execution handle that never starts', () => {
+            const execution = isolated.query('panel.glow()', { panel }).run({ signal: aborted() });
 
-            expect(behavior.status).toBe('disposed');
+            expect(execution.status).toBe('disposed');
             expect(calls).toEqual([]);
         });
 
@@ -136,7 +135,7 @@ describe('DomqlQuery', () => {
     });
 
     describe('a signal that outlives what it ends', () => {
-        it('is let go of by a watch, a listener, an event listener and a behavior disposed otherwise', () => {
+        it('is let go of by a watch, a listener, an event listener and an execution handle disposed otherwise', () => {
             const signal = new AbortController().signal;
             const added = [];
             const removed = [];
@@ -147,12 +146,12 @@ describe('DomqlQuery', () => {
             const watch = isolated.query('panel:attribute["data-n"]', { panel }).watch({ schedule: 'immediate', signal });
             const listener = watch.subscribe('change', () => {}, { signal });
             const events = isolated.query('panel.beat("beat")', { panel }).subscribe(() => {}, { signal });
-            const behavior = isolated.query('panel.glow()', { panel }).apply({ signal });
+            const execution = isolated.query('panel.glow()', { panel }).run({ signal });
 
             listener.dispose();
             watch.dispose();
             events.dispose();
-            behavior.dispose();
+            execution.dispose();
 
             expect(added).toHaveLength(4);
             expect(removed).toEqual(expect.arrayContaining(added));
@@ -411,20 +410,20 @@ describe('DomqlQuery', () => {
         });
     });
 
-    describe('a behavior', () => {
+    describe('a continuous execution', () => {
         it('raises a failure it reports while it runs to its error listeners, and stops them when disposed', () => {
             let instance;
 
             isolated.registerModule(isolated.createModule('spark', {
-                members: [{ name: 'spark', kind: 'behavior', target: 'element', parameters: [], result: 'boolean', implementation: ({ reportError }) => (instance = { update: () => {}, dispose: () => {}, fail: reportError }) }],
+                members: [{ name: 'spark', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'continuous', target: 'element', parameters: [], implementation: ({ reportError }) => (instance = { update: () => {}, dispose: () => {}, fail: reportError }) }],
             }));
 
-            const behavior = isolated.query('panel.spark()', { panel }).apply();
+            const execution = isolated.query('panel.spark()', { panel }).run();
             const errors = [];
-            const listener = behavior.subscribe('error', (sender, args) => errors.push([args.error.message, sender === behavior]));
+            const listener = execution.subscribe('error', (sender, args) => errors.push([args.error.message, sender === execution]));
 
             instance.fail(new Error('flicker'));
-            behavior.dispose();
+            execution.dispose();
             instance.fail(new Error('after'));
 
             expect(errors).toEqual([['flicker', true]]);

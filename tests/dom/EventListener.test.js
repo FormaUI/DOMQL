@@ -96,8 +96,8 @@ describe('EventListener', () => {
     /** Registers a module whose source `beats` the function starts, delivering events that carry a number. */
     const registerBeats = start => isolated.registerModule(isolated.createModule('beats', {
         types: [{ name: 'beat', fields: { n: 'number' } }],
-        eventTypes: [{ name: 'beat', data: 'beat' }],
-        members: [{ name: 'beats', kind: 'eventSource', target: 'element', arguments: 'positional', parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, fixed: true, selects: 'eventType', nulls: 'propagate' }], result: 'event<@selected>', updates: { changes: 'constant', reads: 'captured' }, implementation: start }],
+        selectableTypes: [{ name: 'beat', selector: 'event', type: 'beat' }],
+        members: [{ name: 'beats', kind: 'function', invokedBy: 'host', requestKind: 'subscription', target: 'element', arguments: 'positional', parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, fixed: true, selects: 'type', selector: 'event', nulls: 'propagate' }], result: '@selected', implementation: start }],
     }));
 
     /** Dispatches an input event at the element, which bubbles to the panel. */
@@ -330,7 +330,7 @@ describe('EventListener', () => {
             deliver({ n: 2 });
 
             expect(failures).toHaveLength(1);
-            expect(failures[0].message).toContain("The event source 'beats' delivered an event whose 'n' is \"one\", and its type declares number");
+            expect(failures[0].message).toContain("The host call 'beats' supplied a value whose 'n' is \"one\", and 'n' is declared number");
             expect(results).toEqual([{ n: 2 }]);
             expect(listener.status).toBe('ready');
         });

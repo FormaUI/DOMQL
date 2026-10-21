@@ -2,7 +2,7 @@
 
 What this repository implements today, what is being built, and what remains. The [specification](../spec/README.md) is the contract and the [design](domql-design.md) the architecture; this document tracks how far the implementation has come. The language is Lexica's, and [Lexica's status](https://github.com/FormaUI/Lexica/blob/main/docs/features-status.md) tracks it.
 
-The implementation follows DOMQL's specification version `1.0.0-alpha.275`, and runs on a Lexica runtime that follows language version `1.0.0-alpha.31`; the specification describes `1.0.0-alpha.276`, whose host calls and executions, and whose queries of Lexica's version 32, are ahead of it, as [definition version 32](#definition-version-32) and [host calls and executions](#host-calls-and-executions) set out. **DOMQL reads definition version 31**: its queries write the implicit parameter `context`, and read `document` and `window` as roots where version 32 reads `domql.document` and `domql.window`. [Definition version 32](#definition-version-32) sets out what DOMQL still has to do for it.
+The implementation follows DOMQL's specification version `1.0.0-alpha.275`, and runs on a Lexica runtime that follows language version `1.0.0-alpha.31`; the specification describes `1.0.0-alpha.276`, whose queries of Lexica's version 32 are ahead of it, as [definition version 32](#definition-version-32) sets out, and whose [host calls and executions](#host-calls-and-executions) are implemented. **DOMQL reads definition version 31**: its queries write the implicit parameter `context`, and read `document` and `window` as roots where version 32 reads `domql.document` and `domql.window`. [Definition version 32](#definition-version-32) sets out what DOMQL still has to do for it.
 
 | Status | Meaning |
 | --- | --- |
@@ -21,11 +21,11 @@ The implementation follows DOMQL's specification version `1.0.0-alpha.275`, and 
 | Nodes and shadow trees | Partial | The node types are still built into Lexica, recognized by `nodeType`; DOMQL declares them as reference types with version 32 | [Nodes and shadow trees](../spec/nodes-and-shadow-trees.md) |
 | Properties, functions and predicates | Implemented | | [Built-in vocabulary](../spec/vocabulary.md) |
 | Conversions | Implemented | | [Built-in conversions](../spec/vocabulary.md#built-in-conversions) |
-| Event sources and event types | Partial | `on` is a Lexica event source and its event types Lexica's; a host call selecting through the type selector `event` comes with [host calls](#host-calls-and-executions) | [Events](../spec/events.md#event-sources) |
+| Event sources and event types | Implemented | | [Events](../spec/events.md#event-sources) |
 | Observation types | Implemented | | [Observation types](../spec/vocabulary.md#observations-types) |
 | `domql.document` and `domql.window` | Planned | Today `document` and `window` are roots of the language | [Module members](../spec/vocabulary.md#module-members) |
 | Observation targets DOMQL declares and resolves | Implemented | | [Observation targets](../spec/vocabulary.md#observations-targets) |
-| Extension modules | Partial | Declared in Lexica's version 32 shape; namespaces, qualified access and owner precedence come with Lexica's version 32, and the catalog of host calls with [host calls](#host-calls-and-executions) | [Extension modules](../spec/vocabulary.md#extension-modules) |
+| Extension modules | Partial | Declared in Lexica's version 32 shape; namespaces, qualified access and owner precedence come with Lexica's version 32 | [Extension modules](../spec/vocabulary.md#extension-modules) |
 
 ### The host
 
@@ -36,7 +36,7 @@ The implementation follows DOMQL's specification version `1.0.0-alpha.275`, and 
 | Watches, their dependencies and partial observation | Implemented | | [Watches](../spec/watches.md) |
 | Snapshots, live state and change sets | Implemented | | [Results](../spec/results.md) |
 | Subscriptions | Implemented | | [Events](../spec/events.md#subscribing) |
-| Once and continuous executions | Partial | Carried out as Lexica's actions and behaviors, through `apply` and `DomqlBehavior`; see [host calls and executions](#host-calls-and-executions) | [Executions](../spec/executions.md) |
+| Once and continuous executions | Implemented | | [Executions](../spec/executions.md) |
 | Handles and their events, lifetimes and errors | Implemented | | [The API](../spec/api.md) |
 
 ### Delivery
@@ -66,27 +66,9 @@ Version 32 is built in Lexica and DOMQL together, in three slices; [Lexica's sta
 
 ## Host calls and executions
 
-The specification describes DOMQL's operations over Lexica's [host calls](https://github.com/FormaUI/Lexica/blob/main/docs/features-status.md#host-calls): an event source and the executions are host calls, whose execution modes and implementations DOMQL keeps in a catalog of its own, carried out by `subscribe`, `executeAsync` and `run`. The implementation still carries them out as Lexica's request kinds.
+DOMQL carries out Lexica's [host calls](https://github.com/FormaUI/Lexica/blob/main/docs/features-status.md#host-calls) as the specification describes them: an event source and the executions are host calls, whose request kinds, execution modes and implementations DOMQL keeps in a catalog of its own, carried out by `subscribe`, `executeAsync` and `run`.
 
-**What is missing.**
-
-| Gap | Where the contract differs |
-| --- | --- |
-| A module declares its event sources, actions and behaviors as Lexica's member kinds, each carrying its implementation into Lexica | A host call, `invokedBy: 'host'`, whose `requestKind`, `executionMode` and implementation DOMQL keeps |
-| `on` is an `eventSource` with `updates`, and its event types are Lexica's event types | `on` is a host call whose fixed `type` selects through DOMQL's type selector `event` |
-| An operation reads Lexica's request kind, and its implementation is reached through Lexica's `resolveSource`, `resolveAction` and `resolveBehavior` | An operation reads the resolution's host call, looks its declaration up in the catalog, and prepares it through `prepareCall` |
-| `query.apply()` answers a `DomqlBehavior`, and the refusal of another operation says "it applies a behavior" | `query.run()` answers a `DomqlExecutionHandle`, and the refusal says the execution keeps running |
-| A behavior's declared result is accepted | A continuous execution declares no result, and one that does is refused |
-| The TypeScript declarations type `apply`, `DomqlBehavior` and the request kinds `action` and `behavior` | They type `run`, `DomqlExecutionHandle` and the request kinds of the specification |
-| The library guide's actions and behaviors, and the README's features and comparison | They describe executions, `executeAsync` and `run`; both move with the implementation, since the guide's examples run against it |
-
-**Dependencies.** Needs Lexica's host calls, and lands in the change that follows Lexica's.
-
-**Next steps.**
-
-1. Build the catalog: `domql.createModule` taking each host call's request kind, execution mode and implementation, and refusing a missing or unknown request kind, an execution without its mode, an event source with one, either field on a function the evaluator invokes, and a result on a continuous execution; test each refusal's module error.
-2. Declare `on` as a host call over the type selector `event`, its event types the selector's keys.
-3. Carry each operation out through the resolution's host call and the catalog; rename `apply` to `run` and `DomqlBehavior` to `DomqlExecutionHandle`, in the code, the declarations, the guide and the README.
+**What works.** `domql.createModule` keeping each host call's request kind, execution mode and implementation, and refusing a missing or unknown request kind, an execution without its mode, an event source given one or declaring no result, either field on a function the evaluator invokes, and a result on a continuous execution; `on` as a host call whose fixed `type` selects through DOMQL's type selector `event`, its event types the selector's keys; each operation reading the resolution's host call, looking its declaration up in the catalog, by its name on a receiver of unknown type, and preparing it through `prepareCall`; and `run` answering a `DomqlExecutionHandle`. The library guide and the README describe executions, and the declarations type them.
 
 ## Consuming Lexica
 

@@ -6,6 +6,8 @@ import { LexicaError } from '@formaui/lexica';
 
 export class EventListener {
     #evaluator;
+    #implementationOf;
+    #environment;
     #observations;
     #handler;
     #reportError;
@@ -28,16 +30,21 @@ export class EventListener {
 
     /**
      * Starts listening, so an event delivered once the constructor returns is heard; a source that cannot start fails it, and a signal already aborted answers an event listener that is disposed and starts nothing.
-     * A source may deliver while it starts: those events are captured and projected at once, and the handler receives them once the caller has the event listener, before any later event.
+     * The subscription's host call is prepared as listening starts, its receiver and arguments evaluated once. A source may deliver while it starts: those events are captured and projected at once, and the handler receives them once
+     * the caller has the event listener, before any later event.
      * @param {object} dependencies What the event listener listens to, and what it works with.
-     * @param {import('./QueryEvaluator.mjs').QueryEvaluator} dependencies.evaluator Evaluates the subscription.
+     * @param {import('./QueryEvaluator.mjs').QueryEvaluator} dependencies.evaluator Prepares the subscription's host call and projects each event.
+     * @param {(call: object) => Function} dependencies.implementationOf The implementation that starts the prepared call's event source, refusing one its module gives none.
+     * @param {{ window: Window, document: Document }} dependencies.environment The window and the document the source listens in, which its implementation receives.
      * @param {import('./Observations.mjs').Observations} dependencies.observations The observations of the window, which the projections hold sessions on.
      * @param {(error: unknown) => void} dependencies.reportError The environment's error reporting, which a failure of the handler reaches.
      * @param {(sender: EventListener, args: object) => unknown} dependencies.handler Receives the event listener and, for each event, `status: 'ready'` with its projected result as `value`, or `status: 'failed'` with the `error` that capturing or projecting it raised. What it returns is not awaited.
      * @param {AbortSignal} [dependencies.signal] Disposes the event listener when it aborts.
      */
-    constructor({ evaluator, observations, reportError, handler, signal }) {
+    constructor({ evaluator, implementationOf, environment, observations, reportError, handler, signal }) {
         this.#evaluator = evaluator;
+        this.#implementationOf = implementationOf;
+        this.#environment = environment;
         this.#observations = observations;
         this.#handler = handler;
         this.#reportError = error => {
@@ -56,7 +63,7 @@ export class EventListener {
         }
 
         try {
-            this.#sourceHandle = this.#start(evaluator.resolveSource());
+            this.#sourceHandle = this.#start(evaluator.prepareCall());
         } catch (error) {
             // A failed start ends the event listener: it lets go of what the events delivered while it started opened, drops their handler calls, and ignores what the source still delivers.
             this.#status = 'disposed';
@@ -101,37 +108,26 @@ export class EventListener {
         this.#lastProjection = null;
     }
 
-    /** Starts the source and answers what stops it; a source whose receiver or an argument is null has nothing to listen to. */
-    #start(source) {
-        if (source === null) {
+    /** Starts the source the prepared call names and answers what stops it; a skipped call, whose receiver or an argument is null, has nothing to listen to. */
+    #start(call) {
+        if (call.kind === 'skipped') {
             return { stop: () => {} };
         }
 
-        const { name, start, capture, receiver, args, environment, location } = source;
+        const { declaration: { name }, receiver, args, location } = call;
+        const start = this.#implementationOf(call);
 
-        // The source captures each event as the fields its type declares, during its delivery, before anything else reads it.
+        // Each event is projected during its delivery, captured as its type declares before anything else reads it.
         const deliver = event => {
-            if (this.#status === 'disposed') {
-                return;
+            if (this.#status !== 'disposed') {
+                this.#receive(call, event);
             }
-
-            let captured;
-
-            try {
-                captured = capture(event);
-            } catch (error) {
-                this.#runOrHold(() => this.#call({ status: 'failed', error }));
-
-                return;
-            }
-
-            this.#receive(captured);
         };
 
         let sourceHandle;
 
         try {
-            sourceHandle = start({ receiver, args, env: environment, deliver });
+            sourceHandle = start({ receiver, args, env: this.#environment, deliver });
         } catch (error) {
             throw LexicaError.evaluation(`The event source '${name}' failed to start listening`, location, { cause: error });
         }
@@ -144,11 +140,12 @@ export class EventListener {
     }
 
     /**
-     * Projects the captured event synchronously during source delivery, then hands the handler its immutable result.
-     * A successful projection replaces the sessions the event listener retains; one that fails hands the handler its error instead, lets go of the sessions it opened and keeps those retained before it, and the event listener goes on listening.
+     * Captures and projects the event through the prepared call synchronously during source delivery, then hands the handler its immutable result.
+     * A successful projection replaces the sessions the event listener retains; one that fails, in capturing the event or in projecting it, hands the handler its error instead, lets go of the sessions it opened and keeps those retained
+     * before it, and the event listener goes on listening.
      */
-    #receive(event) {
-        const projection = this.#evaluator.project(event, { observations: this.#observations, consumer: this });
+    #receive(call, event) {
+        const projection = this.#evaluator.project(call, event, { observations: this.#observations, consumer: this });
 
         if (projection.error !== null) {
             this.#release(projection);

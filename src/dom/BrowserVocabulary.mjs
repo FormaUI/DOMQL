@@ -3,6 +3,7 @@
  */
 
 import { lexica } from '@formaui/lexica';
+import { DispatchTable } from './DispatchTable.mjs';
 
 const { valueParameter, property, predicate } = lexica.declarations;
 
@@ -35,7 +36,7 @@ export class BrowserVocabulary {
     static moduleName = 'domql';
 
     /**
-     * DOMQL's module, made as every module is: its declarations, each carrying the implementation given for it where one is.
+     * DOMQL's module, made as every module DOMQL carries out is, through its dispatch table: its declarations, each carrying the implementation given for it where one is.
      * @param {Record<string, Function>} [implementations] The implementations, by the key each declaration is carried out under.
      */
     static createModule(implementations = {}) {
@@ -44,7 +45,7 @@ export class BrowserVocabulary {
         const observationType = (name, contract, key, rest = {}) => implementing(key, { name, contract, ...rest });
         const asked = (key, name, target, options) => implementing(key, predicate(name, target, undefined, options));
 
-        return lexica.createModule(BrowserVocabulary.moduleName, {
+        return DispatchTable.createModule(BrowserVocabulary.moduleName, {
             types: [
                 { name: 'size', fields: { width: 'number', height: 'number' } },
                 { name: 'rectangle', fields: { left: 'number', top: 'number', right: 'number', bottom: 'number', width: 'number', height: 'number' } },
@@ -58,18 +59,20 @@ export class BrowserVocabulary {
                 { name: 'dragEvent', fields: { target: 'element', clientX: 'number', clientY: 'number' } },
             ],
 
-            eventTypes: [
-                { name: 'click', data: 'pointerEvent' },
-                { name: 'pointerdown', data: 'pointerEvent' },
-                { name: 'pointerup', data: 'pointerEvent' },
-                { name: 'keydown', data: 'keyboardEvent' },
-                { name: 'keyup', data: 'keyboardEvent' },
-                { name: 'drop', data: 'dragEvent' },
-                { name: 'focus', data: 'domEvent' },
-                { name: 'blur', data: 'domEvent' },
-                { name: 'input', data: 'domEvent' },
-                { name: 'scroll', data: 'domEvent' },
-                { name: 'resize', data: 'domEvent' },
+            // The event types `on` listens to, each a key of the type selector `event` mapping to the type its events are captured as.
+            typeSelectors: [{ name: 'event' }],
+            selectableTypes: [
+                { name: 'click', selector: 'event', type: 'pointerEvent' },
+                { name: 'pointerdown', selector: 'event', type: 'pointerEvent' },
+                { name: 'pointerup', selector: 'event', type: 'pointerEvent' },
+                { name: 'keydown', selector: 'event', type: 'keyboardEvent' },
+                { name: 'keyup', selector: 'event', type: 'keyboardEvent' },
+                { name: 'drop', selector: 'event', type: 'dragEvent' },
+                { name: 'focus', selector: 'event', type: 'domEvent' },
+                { name: 'blur', selector: 'event', type: 'domEvent' },
+                { name: 'input', selector: 'event', type: 'domEvent' },
+                { name: 'scroll', selector: 'event', type: 'domEvent' },
+                { name: 'resize', selector: 'event', type: 'domEvent' },
             ],
 
             observationTypes: [
@@ -151,7 +154,8 @@ export class BrowserVocabulary {
                 implementing('firstMatching', lexica.declarations.function('first', 'node', 'element?', { parameters: SELECTOR_PARAMETERS, updates: updatesOf({ ...MATCHING, observations: [STRUCTURE, FOCUS, POPOVERS] }) })),
                 implementing('all', lexica.declarations.function('all', 'node', 'list<element>', { parameters: SELECTOR_PARAMETERS, updates: updatesOf({ ...MATCHING, observations: [STRUCTURE, FOCUS, POPOVERS] }) })),
 
-                implementing('on', { ...lexica.declarations.function('on', ['element', 'document', 'window'], 'event<@selected>', { parameters: [valueParameter('type', 'string', { fixed: true, selects: 'eventType' })], updates: updatesOf({ changes: 'constant', reads: 'captured' }) }), kind: 'eventSource' }),
+                // The event source, a host call its subscription listens to, delivering each event of the type its fixed argument selects.
+                implementing('on', { ...lexica.declarations.function('on', ['element', 'document', 'window'], '@selected', { invokedBy: 'host', parameters: [valueParameter('type', 'string', { fixed: true, selects: 'type', selector: 'event' })] }), requestKind: 'subscription' }),
             ],
         });
     }

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { BrowserModule } from '#domql/dom/BrowserModule.mjs';
 import { DomqlQuery } from '#domql/dom/DomqlQuery.mjs';
+import { DispatchTable } from '#domql/dom/DispatchTable.mjs';
 import { Observations } from '#domql/dom/Observations.mjs';
 import { QueryEvaluator } from '#domql/dom/QueryEvaluator.mjs';
 import { domql } from '#domql/domql.js';
@@ -1167,12 +1168,12 @@ describe('QueryEvaluator projection', () => {
         document.body.innerHTML = '';
     });
 
-    /** A module whose source `ticks` delivers events of the type it declares, and records each start. */
-    const ticks = data => lexica.createModule('ticks', {
+    /** A module whose source `ticks` delivers events of the type its key maps to in the type selector `event`, and records each start. */
+    const ticks = type => DispatchTable.createModule('ticks', {
         types: [{ name: 'tick', fields: { at: 'number', label: 'string?' } }],
-        eventTypes: [{ name: 'tick', data }],
+        selectableTypes: [{ name: 'tick', selector: 'event', type }],
         members: [{
-            name: 'ticks', kind: 'eventSource', target: 'element', arguments: 'positional', parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, fixed: true, selects: 'eventType', nulls: 'propagate' }], result: 'event<@selected>', updates: { changes: 'constant', reads: 'captured' },
+            name: 'ticks', kind: 'function', invokedBy: 'host', requestKind: 'subscription', target: 'element', arguments: 'positional', parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, fixed: true, selects: 'type', selector: 'event', nulls: 'propagate' }], result: '@selected',
             implementation: () => {
                 started.push(true);
 
@@ -1201,54 +1202,56 @@ describe('QueryEvaluator projection', () => {
         throw new Error('The call threw nothing');
     };
 
-    /** Captures the event as the subscription's source does, and projects it. */
-    const projectionOf = (evaluator, event) => evaluator.project(evaluator.resolveSource().capture(event), { observations });
+    /** Captures the event as its type declares and projects it, through the subscription's host call prepared for it. */
+    const projectionOf = (evaluator, event) => evaluator.project(evaluator.prepareCall(), event, { observations });
 
-    describe('the source', () => {
-        it('resolves into what starts it: the function, and the receiver and arguments evaluated now', () => {
-            const source = evaluatorOf('panel.ticks("tick") { at = context.at }', { panel }, [ticks('tick')]).resolveSource();
+    describe('the host call', () => {
+        it('is prepared into what starts it: its declaration, the receiver and the arguments prepared now, its implementation in DOMQL\'s dispatch table, and nothing started', () => {
+            const call = evaluatorOf('panel.ticks("tick") { at = context.at }', { panel }, [ticks('tick')]).prepareCall();
 
-            expect(source).toMatchObject({ name: 'ticks', receiver: panel, args: { type: 'tick' }, environment: { window, document } });
-            expect(typeof source.start).toBe('function');
+            expect(call).toMatchObject({ kind: 'prepared', declaration: { name: 'ticks' }, receiver: panel, args: { type: 'tick' } });
+            expect(typeof DispatchTable.get(call.declaration).implementation).toBe('function');
             expect(started).toEqual([]);
         });
 
-        it('is null where its receiver is, since there is nothing to listen to', () => {
-            expect(evaluatorOf('panel.first(".none")?.ticks("tick") { at = context.at }', { panel }, [ticks('tick')]).resolveSource()).toBeNull();
+        it('is skipped where its receiver is null, since there is nothing to listen to', () => {
+            expect(evaluatorOf('panel.first(".none")?.ticks("tick") { at = context.at }', { panel }, [ticks('tick')]).prepareCall()).toMatchObject({ kind: 'skipped' });
         });
 
-        it('is refused for a request that is not a subscription', () => {
-            expect(failureOf(() => evaluatorOf('panel.children.count', { panel }).resolveSource())).toMatchObject({ kind: 'evaluation', message: expect.stringContaining('A value request is not subscribed to') });
+        it('is refused for a request that ends in no host call', () => {
+            expect(failureOf(() => evaluatorOf('panel.children.count', { panel }).prepareCall())).toMatchObject({ kind: 'evaluation', message: expect.stringContaining('The script gives a value and ends in no host call, so there is nothing to prepare') });
+        });
+    });
+
+    describe('capturing an event', () => {
+        it('keeps the fields its type declares, a nullable one it does not carry as null', () => {
+            const evaluator = evaluatorOf('panel.ticks("tick") { at = context.at, label = context.label }', { panel }, [ticks('tick')]);
+
+            expect(projectionOf(evaluator, { at: 1, label: 'first', extra: true }).value).toEqual({ at: 1, label: 'first' });
+            expect(projectionOf(evaluator, { at: 1 }).value).toEqual({ at: 1, label: null });
         });
 
-        it('captures an event as the fields its type declares, a nullable one it does not carry as null', () => {
-            const { capture } = evaluatorOf('panel.ticks("tick") { at = context.at, label = context.label }', { panel }, [ticks('tick')]).resolveSource();
+        it('fails where the event carries mistyped data, whether its field is nullable or not', () => {
+            const evaluator = evaluatorOf('panel.ticks("tick") { at = context.at }', { panel }, [ticks('tick')]);
 
-            expect(capture({ at: 1, label: 'first', extra: true })).toEqual({ at: 1, label: 'first' });
-            expect(capture({ at: 1 })).toEqual({ at: 1, label: null });
-            expect(capture({ at: 1, label: 7 })).toEqual({ at: 1, label: null });
-        });
-
-        it('fails a capture where the event carries no value a field that is not nullable admits', () => {
-            const { capture } = evaluatorOf('panel.ticks("tick") { at = context.at }', { panel }, [ticks('tick')]).resolveSource();
-
-            expect(failureOf(() => capture({ at: 'soon' }))).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The event source 'ticks' delivered an event whose 'at' is \"soon\", and its type declares number") });
-            expect(failureOf(() => capture(null))).toMatchObject({ kind: 'evaluation' });
+            expect(projectionOf(evaluator, { at: 'soon' }).error).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The host call 'ticks' supplied a value whose 'at' is \"soon\", and 'at' is declared number") });
+            expect(projectionOf(evaluator, { at: 1, label: 7 }).error).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("whose 'label' is 7, and 'label' is declared string?") });
+            expect(projectionOf(evaluator, null).error).toMatchObject({ kind: 'evaluation' });
         });
 
         it('takes an event whole where its type declares no fields, and fails one that is not of its type', () => {
-            const { capture } = evaluatorOf('panel.ticks("tick")', { panel }, [ticks('number')]).resolveSource();
+            const evaluator = evaluatorOf('panel.ticks("tick")', { panel }, [ticks('number')]);
 
-            expect(capture(5)).toBe(5);
-            expect(failureOf(() => capture('five'))).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The event source 'ticks' delivered \"five\", and its event data is number") });
+            expect(projectionOf(evaluator, 5).value).toBe(5);
+            expect(projectionOf(evaluator, 'five').error).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The host call 'ticks' supplied \"five\", and it declares number") });
         });
 
-        it('captures a native event with its target, and null for a target that is no element', () => {
-            const { capture } = evaluatorOf('document.on("scroll") { id = context.target?:attribute["id"] }').resolveSource();
+        it('keeps a native event\'s target, and null for a target that is no element, a reference of another type', () => {
+            const evaluator = evaluatorOf('document.on("scroll") { id = context.target?:attribute["id"] }');
 
-            expect(capture(new window.Event('scroll'))).toEqual({ target: null });
-            expect(capture({ target: panel })).toEqual({ target: panel });
-            expect(capture({ target: document })).toEqual({ target: null });
+            expect(projectionOf(evaluator, new window.Event('scroll')).value).toEqual({ id: null });
+            expect(projectionOf(evaluator, { target: panel }).value).toEqual({ id: 'panel' });
+            expect(projectionOf(evaluator, { target: document }).value).toEqual({ id: null });
         });
     });
 

@@ -13,7 +13,7 @@ import { lexica } from '@formaui/lexica';
  * @property {(query: DomqlQuery, path: (string | number)[], options?: object) => object} watch
  * @property {(query: DomqlQuery, handler: Function, options?: object) => object} subscribe
  * @property {(query: DomqlQuery, options?: object) => Promise<unknown>} executeAsync
- * @property {(query: DomqlQuery, options?: object) => object} apply
+ * @property {(query: DomqlQuery, options?: object) => object} run
  */
 
 export class DomqlQuery {
@@ -79,14 +79,14 @@ export class DomqlQuery {
         return this.#operations.subscribe(this, handler, options);
     }
 
-    /** Executes the action once, and answers a promise of its result. */
+    /** Carries out the once execution the request ends in, and answers a promise of its result. */
     executeAsync(options) {
         return this.#operations.executeAsync(this, options);
     }
 
-    /** Applies the behavior, which has started once the call returns, and answers its handle. */
-    apply(options) {
-        return this.#operations.apply(this, options);
+    /** Runs the continuous execution the request ends in, which has started once the call returns, and answers its handle. */
+    run(options) {
+        return this.#operations.run(this, options);
     }
 }
 

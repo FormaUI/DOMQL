@@ -1,11 +1,13 @@
 domql.registerModule(domql.createModule('highlight', {
     members: [{
         name: 'highlight',
-        kind: 'behavior',
+        kind: 'function',
+        invokedBy: 'host',
+        requestKind: 'execution',
+        executionMode: 'continuous',
         target: 'element',
         arguments: 'positional',
         parameters: [{ name: 'color', kind: 'value', type: 'string', required: true, nulls: 'propagate' }],
-        result: 'null',
         implementation: ({ receiver: element, args: { color } }) => {
             let current = element;
 
@@ -23,7 +25,7 @@ domql.registerModule(domql.createModule('highlight', {
     }]
 }));
 
-const highlight = domql.query('panel.highlight(color)', { panel, color: 'gold' }).apply();
+const highlight = domql.query('panel.highlight(color)', { panel, color: 'gold' }).run();
 console.log(panel.dataset.highlight);
 // 'gold'
 

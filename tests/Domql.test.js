@@ -1303,7 +1303,8 @@ describe('domql evaluates', () => {
         it('answers the declared fields alone, frozen, so the resolution Lexica gave and its evaluator stay unreachable', () => {
             const resolved = domql.query('panel.size', { panel }).resolve();
 
-            expect(Object.keys(resolved).sort()).toEqual(['definition', 'kind', 'locate', 'type', 'typeAt', 'usedDeclarations']);
+            expect(Object.keys(resolved).sort()).toEqual(['definition', 'executionMode', 'kind', 'locate', 'type', 'typeAt', 'usedDeclarations']);
+            expect([resolved.kind, resolved.executionMode]).toEqual(['value', null]);
             expect(Object.isFrozen(resolved)).toBe(true);
             expect('createEvaluator' in resolved).toBe(false);
             expect(resolved.type).toBe('size?');
@@ -1587,10 +1588,10 @@ describe('domql modules', () => {
         });
     });
 
-    it('copy an action\'s structured result by its declared fields', async () => {
+    it('copy a once execution\'s structured result by its declared fields', async () => {
         isolated.registerModule(isolated.createModule('measure', {
             types: [{ name: 'measurement', fields: { width: 'number' } }],
-            members: [{ name: 'measure', kind: 'action', target: 'element', parameters: [], result: 'measurement', implementation: async () => ({ width: 5, raw: { internal: true } }) }],
+            members: [{ name: 'measure', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', target: 'element', parameters: [], result: 'measurement', implementation: async () => ({ width: 5, raw: { internal: true } }) }],
         }));
 
         await expect(isolated.query('panel.measure()', { panel: document.createElement('div') }).executeAsync()).resolves.toEqual({ width: 5 });
@@ -1680,6 +1681,15 @@ describe('domql modules', () => {
         expect(refused).toMatchObject({ kind: 'module', location: { module: 'frames', field: 'observationTargets' } });
         expect(refused.message).toContain("DOMQL resolves the observation targets its own module declares alone, and the module 'frames' declares one of its own");
         expect(() => isolated.query('panel.framed', { panel: document.createElement('div') }).resolve()).not.toThrow();
+    });
+
+    it('carry out a host call only as the dispatch table of DOMQL keeps it, refusing a module domql.createModule did not make', async () => {
+        const { lexica } = await import('@formaui/lexica');
+        const module = lexica.createModule('stray', { members: [{ name: 'stray', kind: 'function', invokedBy: 'host', target: 'element', parameters: [] }] });
+        const refused = getError(() => isolated.registerModule(module));
+
+        expect(refused).toMatchObject({ kind: 'module', location: { module: 'stray', declaration: 'stray', field: 'requestKind' } });
+        expect(refused.message).toContain("The module 'stray' declares the host call 'stray' without the request it makes; create the module with domql.createModule");
     });
 
     it('leave the registry of another copy of domql alone', () => {
@@ -1941,9 +1951,9 @@ describe('domql executeAsync', () => {
     let runs;
     let pending;
 
-    /** An action module: its one member, named for it, on an element, carried out by the function. */
-    const action = (name, implementation, { parameters = [], result = 'boolean' } = {}) => isolated.createModule(name, {
-        members: [{ name, kind: 'action', target: 'element', ...(parameters.length === 0 ? {} : { arguments: 'positional' }), parameters, result, implementation }],
+    /** A module of a once execution: its one member, named for it, on an element, carried out by the function. */
+    const execution = (name, implementation, { parameters = [], result = 'boolean' } = {}) => isolated.createModule(name, {
+        members: [{ name, kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', target: 'element', ...(parameters.length === 0 ? {} : { arguments: 'positional' }), parameters, result, implementation }],
     });
 
     const label = [{ name: 'label', kind: 'value', type: 'string', required: true, nulls: 'propagate' }];
@@ -1959,7 +1969,7 @@ describe('domql executeAsync', () => {
         window.reportError = error => reported.push(error);
 
         // Marks its element and answers whether the mark changed.
-        isolated.registerModule(action('mark', ({ receiver: element, args: { label }, signal }) => {
+        isolated.registerModule(execution('mark', ({ receiver: element, args: { label }, signal }) => {
             runs.push({ element, label, signal });
 
             const changed = element.dataset.mark !== label;
@@ -1970,34 +1980,34 @@ describe('domql executeAsync', () => {
         }, { parameters: label }));
 
         // Answers a promise the test settles, after marking its element as started.
-        isolated.registerModule(action('slow', ({ receiver: element, signal }) => {
+        isolated.registerModule(execution('slow', ({ receiver: element, signal }) => {
             element.dataset.state = 'started';
             runs.push({ element, signal });
 
             return new Promise((resolve, reject) => { pending = { resolve, reject }; });
         }));
 
-        isolated.registerModule(action('pick', ({ receiver: element }) => element.firstElementChild, { result: 'element?' }));
-        isolated.registerModule(action('broken', ({ receiver: element }) => {
+        isolated.registerModule(execution('pick', ({ receiver: element }) => element.firstElementChild, { result: 'element?' }));
+        isolated.registerModule(execution('broken', ({ receiver: element }) => {
             element.dataset.state = 'half';
 
             throw new Error('jammed');
         }));
-        isolated.registerModule(action('wrong', () => 'yes'));
+        isolated.registerModule(execution('wrong', () => 'yes'));
     });
 
     afterEach(() => {
         document.body.innerHTML = '';
     });
 
-    it('executes an action once and answers its result', async () => {
+    it('executes a once execution and answers its result', async () => {
         expect(await isolated.query('panel.mark(label)', { panel, label: 'seen' }).executeAsync()).toBe(true);
         expect(await isolated.query('panel.mark("seen")', { panel }).executeAsync()).toBe(false);
         expect(panel.dataset.mark).toBe('seen');
         expect(runs.map(run => run.label)).toEqual(['seen', 'seen']);
     });
 
-    it('waits for a result the action promises, and gives the action a signal even where the caller gave none', async () => {
+    it('waits for a result the execution promises, and gives the execution a signal even where the caller gave none', async () => {
         const running = isolated.query('panel.slow()', { panel }).executeAsync();
 
         await Promise.resolve();
@@ -2008,7 +2018,7 @@ describe('domql executeAsync', () => {
         expect(runs[0].signal.aborted).toBe(false);
     });
 
-    it('shapes the result by the object expression that follows the action, as immutable data', async () => {
+    it('shapes the result by the object expression that follows the execution, as immutable data', async () => {
         const result = await isolated.query('panel.pick() { id = context:attribute["id"] }', { panel }).executeAsync();
 
         expect(result).toEqual({ id: 'first' });
@@ -2020,20 +2030,20 @@ describe('domql executeAsync', () => {
         expect(runs).toEqual([]);
     });
 
-    it('rejects a result of another type than the action declares, naming the action', async () => {
-        await expect(isolated.query('panel.wrong()', { panel }).executeAsync()).rejects.toThrow(expect.objectContaining({ kind: 'evaluation', message: expect.stringContaining("The action 'wrong' answered \"yes\", and it declares boolean") }));
+    it('rejects a result of another type than the execution declares, naming it', async () => {
+        await expect(isolated.query('panel.wrong()', { panel }).executeAsync()).rejects.toThrow(expect.objectContaining({ kind: 'evaluation', message: expect.stringContaining("The host call 'wrong' supplied \"yes\", and it declares boolean") }));
     });
 
-    it('rejects a failure of the action with what it threw as the cause, and leaves what it changed', async () => {
+    it('rejects a failure of the execution with what it threw as the cause, and leaves what it changed', async () => {
         const error = await isolated.query('panel.broken()', { panel }).executeAsync().catch(failure => failure);
 
-        expect(error).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The action 'broken' failed: jammed") });
+        expect(error).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The execution 'broken' failed: jammed") });
         expect(error.cause.message).toBe('jammed');
         expect(panel.dataset.state).toBe('half');
         expect(reported).toEqual([]);
     });
 
-    it('rejects a failure the action promises, whatever it is', async () => {
+    it('rejects a failure the execution promises, whatever it is', async () => {
         const running = isolated.query('panel.slow()', { panel }).executeAsync().catch(failure => failure);
 
         await Promise.resolve();
@@ -2041,7 +2051,7 @@ describe('domql executeAsync', () => {
 
         const error = await running;
 
-        expect(error).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The action 'slow' failed: null") });
+        expect(error).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The execution 'slow' failed: null") });
         expect(error.cause).toBeNull();
     });
 
@@ -2054,7 +2064,7 @@ describe('domql executeAsync', () => {
         expect(runs).toEqual([]);
     });
 
-    it('rejects at once with the reason of a signal that aborts while the action runs, which learns of it, and discards its result', async () => {
+    it('rejects at once with the reason of a signal that aborts while the execution runs, which learns of it, and discards its result', async () => {
         const controller = new AbortController();
         const running = isolated.query('panel.slow()', { panel }).executeAsync({ signal: controller.signal }).catch(failure => failure);
 
@@ -2082,12 +2092,12 @@ describe('domql executeAsync', () => {
         await new Promise(resolve => setTimeout(resolve));
 
         expect(reported).toHaveLength(1);
-        expect(reported[0]).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The action 'slow' failed: late") });
+        expect(reported[0]).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The execution 'slow' failed: late") });
     });
 
-    it('is refused for a request of another kind, and an action request is refused by the other operations', async () => {
+    it('is refused for a request of another kind, and a request of a once execution is refused by the other operations', async () => {
         await expect(isolated.query('panel.children.count', { panel }).executeAsync()).rejects.toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringContaining("Cannot execute 'panel.children.count': it produces a value.\nUse evaluate(), evaluateAsync() or watch().") }));
-        expect(getError(() => isolated.query('panel.mark("seen")', { panel }).evaluate())).toMatchObject({ kind: 'validation', message: expect.stringContaining("Cannot evaluate 'panel.mark(\"seen\")': it executes an effect.\nUse executeAsync().") });
+        expect(getError(() => isolated.query('panel.mark("seen")', { panel }).evaluate())).toMatchObject({ kind: 'validation', message: expect.stringContaining("Cannot evaluate 'panel.mark(\"seen\")': it executes an effect once.\nUse executeAsync().") });
         expect(runs).toEqual([]);
     });
 
@@ -2193,45 +2203,59 @@ describe('domql receivers of unknown type', () => {
         listener.dispose();
     });
 
-    it('apply a behavior of a null binding with nothing started, until an update supplies its receiver', () => {
+    it('run a continuous execution of a null binding with nothing started, until an update supplies its receiver', () => {
         const calls = [];
 
         isolated.registerModule(isolated.createModule('mark', {
-            members: [{ name: 'mark', kind: 'behavior', target: 'element', parameters: [], result: 'boolean', implementation: ({ receiver: element }) => (calls.push(element), { update: () => {}, dispose: () => calls.push('dispose') }) }],
+            members: [{ name: 'mark', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'continuous', target: 'element', parameters: [], implementation: ({ receiver: element }) => (calls.push(element), { update: () => {}, dispose: () => calls.push('dispose') }) }],
         }));
 
-        const behavior = isolated.query('item?.mark()', { item: null }).apply();
+        const execution = isolated.query('item?.mark()', { item: null }).run();
 
         expect(calls).toEqual([]);
 
-        behavior.update({ item: panel });
-        behavior.update({ item: null });
+        execution.update({ item: panel });
+        execution.update({ item: null });
 
         expect(calls).toEqual([panel, 'dispose']);
     });
 
-    it('commit a behavior of a null binding to the declaration its first receiver selects', () => {
+    it('commit a continuous execution of a null binding to the declaration its first receiver selects', () => {
         const start = () => ({ update: () => {}, dispose: () => {} });
-        const behavior = { kind: 'behavior', parameters: [], result: 'boolean', implementation: start };
+        const execution = { kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'continuous', parameters: [], implementation: start };
 
         isolated.registerModule(isolated.createModule('mark', {
-            members: [{ ...behavior, name: 'mark', target: 'element' }, { ...behavior, name: 'mark', target: 'string' }],
+            members: [{ ...execution, name: 'mark', target: 'element' }, { ...execution, name: 'mark', target: 'string' }],
         }));
 
-        const applied = isolated.query('item?.mark()', { item: null }).apply();
+        const running = isolated.query('item?.mark()', { item: null }).run();
 
-        applied.update({ item: panel });
-        applied.update({ item: null });
+        running.update({ item: panel });
+        running.update({ item: null });
 
-        const error = getError(() => applied.update({ item: 'text' }));
+        const error = getError(() => running.update({ item: 'text' }));
 
         expect(error.kind).toBe('validation');
-        expect(error.message).toContain('another behavior');
+        expect(error.message).toContain('another execution');
+    });
+
+    it('refuse a name whose host calls disagree on what they request, which a receiver of unknown type leaves ambiguous', () => {
+        const once = { kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', parameters: [], result: 'boolean', implementation: () => true };
+
+        isolated.registerModule(isolated.createModule('ping', {
+            members: [{ ...once, name: 'ping', target: 'element' }, { ...once, name: 'ping', target: 'string', executionMode: 'continuous', result: undefined, implementation: () => ({ update: () => {}, dispose: () => {} }) }],
+        }));
+
+        const error = getError(() => isolated.query('thing?.ping()', { thing: null }).resolve());
+
+        expect(error).toMatchObject({ kind: 'validation', message: expect.stringContaining("'ping' follows a value whose type is unknown, and its host calls disagree on what they request, so what the request does is ambiguous") });
+        expect(isolated.query('thing.ping()', { thing: panel }).resolve()).toMatchObject({ kind: 'execution', executionMode: 'once' });
+        expect(isolated.query('thing.ping()', { thing: 'text' }).resolve()).toMatchObject({ kind: 'execution', executionMode: 'continuous' });
     });
 
     it('refuse a name whose declarations make requests of different kinds', () => {
         isolated.registerModule(isolated.createModule('ping', {
-            members: [{ name: 'ping', kind: 'action', target: 'element', parameters: [], result: 'boolean', implementation: () => true }],
+            members: [{ name: 'ping', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', target: 'element', parameters: [], result: 'boolean', implementation: () => true }],
         }));
         isolated.registerModule(isolated.createModule('radar', {
             types: [{ name: 'radar', fields: { level: 'number' } }],
@@ -2242,7 +2266,7 @@ describe('domql receivers of unknown type', () => {
 
         expect(error.kind).toBe('validation');
         expect(error.message).toContain('ambiguous');
-        expect(isolated.query('thing.ping()', { thing: panel }).resolve().kind).toBe('action');
+        expect(isolated.query('thing.ping()', { thing: panel }).resolve()).toMatchObject({ kind: 'execution', executionMode: 'once' });
     });
 
     it('take the declaration a cast names for a null binding, where the name\'s declarations make requests of different kinds', async () => {
@@ -2250,7 +2274,7 @@ describe('domql receivers of unknown type', () => {
 
         isolated.registerModule(isolated.createModule('ping', {
             members: [{
-                name: 'ping', kind: 'action', target: 'element', parameters: [], result: 'boolean',
+                name: 'ping', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', target: 'element', parameters: [], result: 'boolean',
                 implementation: ({ receiver: element }) => {
                     pings.push(element);
 
@@ -2265,7 +2289,7 @@ describe('domql receivers of unknown type', () => {
 
         const query = isolated.query('(thing as "element")?.ping()', { thing: null });
 
-        expect(query.resolve().kind).toBe('action');
+        expect(query.resolve()).toMatchObject({ kind: 'execution', executionMode: 'once' });
         expect(await query.executeAsync()).toBeNull();
         expect(pings).toEqual([]);
         expect(await query.with({ thing: panel }).executeAsync()).toBe(true);
@@ -2689,7 +2713,7 @@ describe('domql conversions', () => {
             ['a list type', '"a" to "list<number>"', "and 'list<number>' is none of them"],
             ['a nullable type', '"a" to "number?"', "and 'number?' is none of them"],
             ['a structured type that holds an element', '"a" to "pointerEvent"', "and 'pointerEvent' is none of them"],
-            ['an event source', 'panel.on("click") to "string"', "What 'to' converts is a value, and this one is an event source"],
+            ['an event source', 'panel.on("click") to "string"', "What 'to' converts is a value, and this one is a host call"],
         ])('is refused before anything is evaluated for %s', (_, text, message) => {
             const error = getError(() => isolated.query(text, { panel }).resolve());
 
@@ -2722,7 +2746,7 @@ describe('domql conversions', () => {
             ['a pair no conversion is declared for', 'try 5 to "boolean"', 'No conversion from number to boolean is declared'],
             ['a nullable value whose type has no conversion', 'try panel.closest(".row") to "string"', 'No conversion from element to string is declared'],
             ['a null whose target is no type of data', 'try value to "element"', "a node is cast to one of its kinds with 'as'"],
-            ['an event source', 'try panel.on("click") to "string"', "What 'to' converts is a value, and this one is an event source"],
+            ['an event source', 'try panel.on("click") to "string"', "What 'to' converts is a value, and this one is a host call"],
         ])('is refused before anything is evaluated for %s, as an ordinary conversion is', (_, text, message) => {
             const error = getError(() => isolated.query(text, { panel, value: null }).resolve());
 
@@ -2838,7 +2862,7 @@ describe('domql conversions', () => {
 
             expect(evaluate('if let r = panel.reading then { a = r, b = r } else null end')).toEqual({ a: '1', b: '1' });
             expect(reads).toBe(1);
-            expect(getError(() => isolated.query('if let e = panel.on("click") then 1 else 2 end', { panel }).resolve()).message).toContain("What 'if let' binds is a value, and this one is an event source");
+            expect(getError(() => isolated.query('if let e = panel.on("click") then 1 else 2 end', { panel }).resolve()).message).toContain("What 'if let' binds is a value, and this one is a host call");
         });
     });
 
@@ -3165,7 +3189,7 @@ describe('domql arithmetic', () => {
         ['a string', '"a" + 1', {}, "The left operand of '+' is a number, and this one is string"],
         ['a Boolean', 'x * true', { x: 2 }, "The right operand of '*' is a number, and this one is boolean"],
         ['a negation of text, which a conversion of the negated value would have made a number', '-5 to "string"', {}, "What '-' negates is a number, and this one is string"],
-        ['an event source', 'panel.on("click") + 1', { panel: document.body }, "The left operand of '+' is a value, and this one is an event source"],
+        ['an event source', 'panel.on("click") + 1', { panel: document.body }, "The left operand of '+' is a value, and this one is a host call"],
     ])('refuses %s, before anything is evaluated', (_, text, bindings, message) => {
         const error = getError(() => domql.query(text, bindings).resolve());
 
@@ -3286,12 +3310,18 @@ describe('domql bodies', () => {
         expect(evaluate('let w = 1\nreturn (do let w = 2 return w end) + w')).toBe(3);
     });
 
-    it('gives a value, refusing a result that is an event source before anything is subscribed to', () => {
+    it('returns the host call a script ends in after its locals, and gives a value wherever else it stands, refusing a host call there before anything is subscribed to', () => {
         const panel = document.createElement('div');
-        const error = getError(() => domql.query('let k = "x"\nreturn panel.on("click") { key = k }', { panel }).resolve());
+        const keys = [];
+        const listener = domql.query('let k = "x"\nreturn panel.on("click") { key = k }', { panel }).subscribe((sender, args) => keys.push(args.value));
 
-        expect(error).toMatchObject({ kind: 'validation', message: expect.stringContaining('A body gives a value, and its result is an event source'), location: { pointer: '/expression/result' } });
-        expect(getError(() => domql.query('let k = "x"\nreturn panel.on("click") { key = k }', { panel }).subscribe(() => {})).kind).toBe('validation');
+        panel.click();
+        listener.dispose();
+
+        const error = getError(() => domql.query('{ events = do let k = "x"\nreturn panel.on("click") { key = k } end }', { panel }).resolve());
+
+        expect(keys).toEqual([{ key: 'x' }]);
+        expect(error).toMatchObject({ kind: 'validation', message: expect.stringContaining('A host call ends the script, and this body gives its result to the expression around it, which takes a value'), location: { pointer: '/expression/fields/0/value/body/result' } });
     });
 
     it('narrows a binding a test guards, and settles a fixed argument only where every binding and its result do', () => {
@@ -4037,7 +4067,7 @@ describe('domql callback contracts', () => {
 
     it.each([
         ['on a property, which takes no parameters', { name: 'p', kind: 'property', target: 'element', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: true }], result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 0 }, "A member of kind 'property' declares name, kind, target, result, implementation, updates, and 'parameters' is none of them"],
-        ['on an action',{ name: 'p', kind: 'action', target: 'element', arguments: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: true }], result: 'number', implementation: () => 0 }, "The parameter 'f' belongs to a member of kind 'function'"],
+        ['on a host call', { name: 'p', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', target: 'element', arguments: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: true }], result: 'number', implementation: () => 0 }, "A host call takes value parameters alone, each argument prepared as a value its host keeps, and 'f' is a function parameter"],
         ['with a null policy', { name: 'p', kind: 'function', target: 'element', arguments: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: true, nulls: 'accept' }], result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 0 }, 'which a function parameter leaves out'],
         ['without its parameters', { name: 'p', kind: 'function', target: 'element', arguments: 'positional', parameters: [{ name: 'f', kind: 'function', type: 'number', required: true }], result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 0 }, "The parameter 'f' is a function that declares its parameters as a list of the types it is called with"],
         ['optional', { name: 'p', kind: 'function', target: 'element', arguments: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: false }], result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 0 }, "The parameter 'f' is a function, so it is required"],
@@ -4377,7 +4407,7 @@ describe('domql interpolated strings', () => {
         ['a value that can be null', '$"x{a}"', { a: null }, 'An interpolation can be null: give it a fallback, as in (… ?? "…"), or test it first', '/expression/parts/1/expression'],
         ['an attribute, which can be missing', '$"{panel:["id"]}"', { panel: document.body }, 'An interpolation can be null', '/expression/parts/0/expression'],
         ['a list', '$"{panel.children}"', { panel: document.body }, 'An interpolation inserts a string or a number, and this one is list<element>', '/expression/parts/0/expression'],
-        ['an event source', '$"{panel.on("click")}"', { panel: document.body }, 'An interpolation is a value, and this one is an event source', '/expression/parts/0/expression'],
+        ['an event source', '$"{panel.on("click")}"', { panel: document.body }, 'An interpolation is a value, and this one is a host call', '/expression/parts/0/expression'],
     ])('refuses to insert %s before anything is evaluated, naming the hole', (_, text, bindings, message, pointer) => {
         const error = getError(() => domql.query(text, bindings).resolve());
 
@@ -5007,7 +5037,7 @@ describe('domql named indexers', () => {
 
         it.each([
             ['a property', { kind: 'property', parameters: undefined }, "A member of kind 'property' declares name, kind, target, result, implementation, updates, and 'syntax' is none of them"],
-            ['an action', { kind: 'action', updates: undefined }, 'An indexer is a function'],
+            ['a host call', { invokedBy: 'host', requestKind: 'execution', executionMode: 'once', updates: undefined }, 'A host call is written as a function call'],
             ['no parameter', { parameters: [] }, 'An indexer is a function whose key is its one parameter'],
             ['two parameters', { parameters: [{ name: 'a', kind: 'value', type: 'number', required: true, nulls: 'propagate' }, { name: 'b', kind: 'value', type: 'number', required: true, nulls: 'propagate' }] }, 'An indexer is a function whose key is its one parameter'],
             ['an optional parameter', { parameters: [{ name: 'a', kind: 'value', type: 'number', required: false, nulls: 'propagate' }] }, 'a required value parameter'],
