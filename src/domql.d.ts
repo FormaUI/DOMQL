@@ -478,12 +478,19 @@ export interface DomqlModule {
     readonly conversions: readonly DomqlConversionDeclaration[];
 }
 
-/** Which build of DOMQL this is, and which specification it follows: two versions that change apart. */
+/** The versions DOMQL reports, which change apart. */
+export interface DomqlVersions {
+    /** The DOMQL runtime release version, which the package and the bundle carry. */
+    readonly runtime: string;
+    /** The DOMQL specification version the implementation follows. */
+    readonly specification: string;
+    /** The language specification version the Lexica runtime DOMQL runs on follows, its `lexica.info.versions.language`. */
+    readonly language: string;
+}
+
+/** Which build of DOMQL this is, and what it follows. */
 export interface DomqlInfo {
-    /** The version of this build of the library, as the package numbers it, `1.0.0-alpha.N` for a build of N commits; `1.0.0-alpha+source` where DOMQL runs from its sources. */
-    readonly version: string;
-    /** The version of the specification this implementation follows, `1.0.0-alpha`, which changes as the language does. */
-    readonly specificationVersion: string;
+    readonly versions: DomqlVersions;
 }
 
 /** DOMQL: makes query objects, formats requests, registers the modules that extend the vocabulary, and says which build it is and which specification it follows. */

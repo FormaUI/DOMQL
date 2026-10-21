@@ -2,7 +2,7 @@
 
 What this repository implements today, what is being built, and what remains. The [specification](../spec/README.md) is the contract and the [design](domql-design.md) the architecture; this document tracks how far the implementation has come. The language is Lexica's, and [Lexica's status](https://github.com/FormaUI/Lexica/blob/main/docs/features-status.md) tracks it.
 
-The specification describes DOMQL on Lexica's definition version 32. **DOMQL reads definition version 31**: its queries write the implicit parameter `context`, and read `document` and `window` as roots where version 32 reads `domql.document` and `domql.window`. [Definition version 32](#definition-version-32) sets out what DOMQL still has to do for it.
+The implementation follows DOMQL's specification version `1.0.0-alpha.275`, and runs on a Lexica runtime that follows language version `1.0.0-alpha.31`; the specification describes `1.0.0-alpha.276`, whose host calls and executions, and whose queries of Lexica's version 32, are ahead of it, as [definition version 32](#definition-version-32) and [host calls and executions](#host-calls-and-executions) set out. **DOMQL reads definition version 31**: its queries write the implicit parameter `context`, and read `document` and `window` as roots where version 32 reads `domql.document` and `domql.window`. [Definition version 32](#definition-version-32) sets out what DOMQL still has to do for it.
 
 | Status | Meaning |
 | --- | --- |

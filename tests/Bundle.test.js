@@ -3,6 +3,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { beforeAll, describe, it, expect } from 'vitest';
 import { bundle } from '../scripts/bundle.mjs';
+import { Versions } from '#domql/Versions.mjs';
 
 /** The bundle's one export statement, which names domql and LexicaError, in either order. */
 const EXPORT = /export\{([\w$]+) as (domql|LexicaError),([\w$]+) as (domql|LexicaError)\};?\s*$/;
@@ -11,11 +12,8 @@ describe('Bundle', () => {
     let text;
     let bundled;
 
-    /** The version a bundle is made for, as the package project would give it. */
-    const version = '1.0.0-alpha.7';
-
     beforeAll(async () => {
-        text = await bundle({ version });
+        text = await bundle();
         bundled = new Function(text.replace(EXPORT, 'return { $2: $1, $4: $3 };'))();
     });
 
@@ -44,16 +42,15 @@ describe('Bundle', () => {
         expect(query.definition.expression.fields.map(field => field.name)).toEqual(['size', 'hasFocus']);
         expect(bundled.domql.query(query.definition, { panel: 2 }).definition).toEqual(query.definition);
         expect(query.with({ panel: 3 }).definition).toBe(query.definition);
-        expect(bundled.domql.info.specificationVersion).toMatch(/^\d+\.\d+\.\d+(?:-alpha)?$/);
+        expect(bundled.domql.info.versions.specification).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?$/);
+        expect(bundled.domql.info.versions.language).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?$/);
     });
 
-    it('answers the version it was made for as its own, and the version of the sources where it was made for none', async () => {
-        const unversioned = new Function((await bundle()).replace(EXPORT, 'return { $2: $1, $4: $3 };'))();
-
-        expect(bundled.domql.info.version).toBe(version);
-        expect(text).toContain(JSON.stringify(version));
-        expect(unversioned.domql.info.version).toBe('1.0.0-alpha+source');
+    it('reports the runtime version the sources declare, as the sources do', () => {
+        expect(bundled.domql.info.versions.runtime).toBe(Versions.runtime);
+        expect(text).toContain(JSON.stringify(Versions.runtime));
         expect(Object.isFrozen(bundled.domql.info)).toBe(true);
+        expect(Object.isFrozen(bundled.domql.info.versions)).toBe(true);
     });
 
     it('keeps the errors the sources raise, as LexicaError', () => {

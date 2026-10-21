@@ -12,7 +12,6 @@
     <PropertyGroup>
         <IsPackable>true</IsPackable>
         <PackageId>formaui-net.DOMQL</PackageId>
-        <VersionPrefix>1.0.0</VersionPrefix>
         <Authors>Eyal Alon</Authors>
         <Description>DOMQL is a JavaScript library for querying the DOM, allowing you to read information from a document once or observe it as it changes.</Description>
         <PackageTags>domql;dom;query;language;csharp;javascript;dotnet;browser;forma;formaui</PackageTags>
@@ -28,19 +27,15 @@
         <None Include="README.md" Pack="true" PackagePath="\" />
     </ItemGroup>
 
-    <!-- The version: an alpha of 1.0.0 numbered by the commits of the history it is built from, so a clone counts only as much history as it holds. -->
-    <Target Name="NumberAlphaByCommits" BeforeTargets="GetAssemblyVersion;GenerateNuspec">
-        <Exec Command="git rev-list --count HEAD" ConsoleToMSBuild="true" StandardOutputImportance="low" WorkingDirectory="$(MSBuildProjectDirectory)">
-            <Output TaskParameter="ConsoleOutput" PropertyName="CommitCount" />
-        </Exec>
-        <PropertyGroup>
-            <Version>$(VersionPrefix)-alpha.$(CommitCount)</Version>
-            <PackageVersion>$(Version)</PackageVersion>
-        </PropertyGroup>
-    </Target>
+    <!-- The version: the runtime release version src/Versions.mjs declares, so the package, the bundle and the sources report one version. -->
+    <PropertyGroup>
+        <VersionsSource>$(MSBuildProjectDirectory)\..\src\Versions.mjs</VersionsSource>
+        <Version>$([System.Text.RegularExpressions.Regex]::Replace($([System.IO.File]::ReadAllText('$(VersionsSource)')), '(?s)^.*runtime = \x27([^\x27]+)\x27.*$', '$1'))</Version>
+        <PackageVersion>$(Version)</PackageVersion>
+    </PropertyGroup>
 
     <!-- A package without the bundle would ship nothing, and one whose bundle answers another version would misreport itself, so packing stops until publish.ps1 has made the bundle of this version. -->
-    <Target Name="EnsureBundle" BeforeTargets="Pack" DependsOnTargets="NumberAlphaByCommits">
+    <Target Name="EnsureBundle" BeforeTargets="Pack">
         <Error Condition="!Exists('$(MSBuildProjectDirectory)\wwwroot\domql.js')" Text="wwwroot/domql.js is missing; run ./publish.ps1, which bundles DOMQL and packs it." />
         <Error Condition="!$([System.IO.File]::ReadAllText('$(MSBuildProjectDirectory)\wwwroot\domql.js').Contains('&quot;$(Version)&quot;'))" Text="wwwroot/domql.js answers another version than $(Version); run ./publish.ps1, which bundles DOMQL of this version and packs it." />
     </Target>

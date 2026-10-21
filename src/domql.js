@@ -10,6 +10,7 @@ import { Observations } from './dom/Observations.mjs';
 import { QueryEvaluator } from './dom/QueryEvaluator.mjs';
 import { EventListener } from './dom/EventListener.mjs';
 import { Watch } from './dom/Watch.mjs';
+import { Versions } from './Versions.mjs';
 import { lexica, LexicaError } from '@formaui/lexica';
 
 /**
@@ -66,12 +67,6 @@ const REQUEST_KINDS = {
     action: { does: 'it executes an effect', takes: 'executeAsync()' },
     behavior: { does: 'it applies a behavior', takes: 'apply()' },
 };
-
-/**
- * The version of this build of the library: the package's version, which bundling sets, or, where DOMQL runs from its sources, the library's version marked as source by its build metadata.
- * @type {string}
- */
-const LIBRARY_VERSION = typeof DOMQL_VERSION === 'string' ? DOMQL_VERSION : '1.0.0-alpha+source';
 
 /** When a watch evaluates after a change, and what its events carry. */
 const WATCH_SCHEDULES = ['frame', 'immediate'];
@@ -514,7 +509,7 @@ export const domql = Object.freeze({
     format: source => Domql.format(source),
     createModule: (name, contents) => Domql.createModule(name, contents),
     registerModule: module => Domql.registerModule(module),
-    info: Object.freeze({ version: LIBRARY_VERSION, specificationVersion: lexica.info.specificationVersion }),
+    info: Object.freeze({ versions: Object.freeze({ runtime: Versions.runtime, specification: Versions.specification, language: Versions.language }) }),
 });
 
 export { LexicaError };

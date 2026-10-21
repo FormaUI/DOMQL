@@ -44,7 +44,7 @@ Each entry point and operation is listed here with what it takes, and the sectio
 | `domql.format(source)` | The canonical text of a text, a definition or a query object, as [formatting](https://github.com/FormaUI/Lexica/blob/main/spec/definition.md#definition-canonical-text) sets out |
 | `domql.createModule(name, contents)` | Creates a module from its declarations, each that runs code carrying its implementation, as [extension modules](vocabulary.md#extension-modules) set out |
 | `domql.registerModule(module)` | Registers a module's declarations in the instance's registry, as [extension modules](vocabulary.md#extension-modules) set out |
-| `domql.info` | Which build this is and which specification it follows: `version`, the package's version, `1.0.0-alpha+source` where DOMQL runs from its sources, and `specificationVersion`, the version of the specification it follows |
+| `domql.info` | Which build this is and what it follows, in `versions`: `runtime`, the runtime release version, which the package and the bundle carry, its sources reporting the same; `specification`, the version of DOMQL's specification it follows; and `language`, the language specification version the Lexica runtime it runs on follows, its `lexica.info.versions.language` |
 
 Almost every operation answers directly, so the plain name is the synchronous one, and every operation that answers a promise takes the suffix `Async`, as `evaluateAsync`, `readyAsync`, `refreshAsync` and `executeAsync` do.
 

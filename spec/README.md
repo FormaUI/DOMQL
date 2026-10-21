@@ -1,4 +1,4 @@
-# DOMQL Specification v1.0.0-alpha
+# DOMQL Specification v1.0.0-alpha.276
 
 DOMQL reads the DOM and shapes what it reads as data, keeps that data current as the document changes, delivers the page's events as data, and carries out the executions its modules declare. Its queries are scripts written in [Lexica](https://github.com/FormaUI/Lexica/blob/main/spec/README.md), whose specification defines the language and the runtime that reads, resolves and evaluates a script. DOMQL declares the DOM as Lexica's domain, in a module like any other, and is the host that carries each query out against a document. It adds no language rule: a rule of the language is Lexica's, and this specification links to it.
 
@@ -6,7 +6,7 @@ This specification is the authoritative contract for DOMQL. It states what DOMQL
 
 <a id="version"></a>
 
-**Version.** This specification describes DOMQL on Lexica's [definition version 32](https://github.com/FormaUI/Lexica/blob/main/spec/README.md#version).
+**Version.** This specification describes DOMQL's version `1.0.0-alpha.276`, which changes as DOMQL's contract does, apart from its runtime's version and from Lexica's language. It describes DOMQL on Lexica's language version `1.0.0-alpha.32`, of [definition version 32](https://github.com/FormaUI/Lexica/blob/main/spec/README.md#version). An implementation says which specification it follows, and which language version its Lexica runtime follows, in `domql.info.versions`, as [the API](api.md#api-entry-points-and-operations) sets out.
 
 ## What it covers
 

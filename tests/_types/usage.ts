@@ -14,8 +14,9 @@ const created: DomqlQuery<{ count: number }> = domql.query<{ count: number }>(de
 const rebound: DomqlQuery<{ count: number }> = query.with({ panel: document.body });
 // @ts-expect-error A query's bindings are no part of its API; `with` binds it anew.
 const bound: unknown = rebound.bindings;
-const version: string = domql.info.version;
-const specificationVersion: string = domql.info.specificationVersion;
+const version: string = domql.info.versions.runtime;
+const specificationVersion: string = domql.info.versions.specification;
+const languageVersion: string = domql.info.versions.language;
 const formatted: string = domql.format(query);
 const formattedText: string = domql.format(domql.format(definition));
 
@@ -306,4 +307,4 @@ const infixCall: DomqlDefinitionNode = { kind: 'infixCall', target: { kind: 'con
 // @ts-expect-error A local is named, as a field is.
 const unnamed: DomqlDefinitionNode = { kind: 'object', locals: [{ value: { kind: 'context' } }], fields: [] };
 
-export { bound, version, specificationVersion, formatted, formattedText, kind, typeText, count, anything, waited, shorthand, selected, selectedAsync, selectedWatch, key, listening, status, snapshot, failure, ready, refreshed, viewed, viewStatus, viewReady, smaller, held, livingSnapshot, livingReady, livingRefreshed, watchedAgain, keptAgain, clicking, source, moved, stepped, trapping, reported };
+export { bound, version, specificationVersion, languageVersion, formatted, formattedText, kind, typeText, count, anything, waited, shorthand, selected, selectedAsync, selectedWatch, key, listening, status, snapshot, failure, ready, refreshed, viewed, viewStatus, viewReady, smaller, held, livingSnapshot, livingReady, livingRefreshed, watchedAgain, keptAgain, clicking, source, moved, stepped, trapping, reported };

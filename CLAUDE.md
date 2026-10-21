@@ -25,6 +25,7 @@ Use these sources rather than inventing scope, status or style rules.
 | Path | Responsibility |
 | --- | --- |
 | `src/domql.js` | Entry point that composes the library's modules |
+| `src/Versions.mjs` | The versions DOMQL reports: its runtime release, the specification it follows, and the language its Lexica runtime follows |
 | `src/dom/` | Evaluation, watches, events, executions, observations, sessions and built-in implementations |
 | `src/snapshots/` | Computing, comparing, dispatching and applying snapshot updates using identity metadata; no DOM access |
 | `tests/` | Tests mirroring the source folders |
@@ -99,9 +100,11 @@ The specification states the contract; the design explains how DOMQL is built to
 
 Use these version rules:
 
-- Package version: `1.0.0-alpha.N`, where N is the number of commits in the build's history. The package project counts it once and passes it to bundling.
-- `domql.info.version` reports that package version. Packing rejects a bundle with a different version. Running from source reports `1.0.0-alpha+source`.
-- Specification version: `1.0.0-alpha`. Keep the specification title, design title, `Specification.mjs` and `domql.info.specificationVersion` aligned. Preserve the version-alignment test.
+- Each version is a literal in `src/Versions.mjs`, its one source, declared and never computed; the numbers may coincide, and neither determines another.
+- Runtime version: `Versions.runtime`, `1.0.0-alpha.N`, N chosen from the commit count when the release is numbered. The package project reads it, the bundle carries it, and `domql.info.versions.runtime` reports it, from the sources as from any build. Packing rejects a bundle of another version.
+- Specification version: `Versions.specification`, DOMQL's own, `1.0.0-alpha.N`, advanced as DOMQL's contract changes, never following the runtime version. The specification and design titles name the version the specification describes; `domql.info.versions.specification` reports, and the status names, the version the implementation follows, which may trail the titles while the specification moves ahead.
+- Language version: `Versions.language`, which `domql.info.versions.language` reports, is the language specification version the Lexica runtime DOMQL runs on follows, read from `lexica.info.versions.language`, never maintained here.
+- Preserve the version-alignment test, which checks these relationships without requiring the versions to match.
 
 ## Review and Git
 

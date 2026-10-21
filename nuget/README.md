@@ -719,7 +719,7 @@ Keep independent results in a top-level object, as above. If you instead write `
 | `domql.format(source)` | Return canonical query text from text, a definition or a query object; no bindings or registered vocabulary are needed. |
 | `domql.createModule(name, contents)` | Create an extension module. |
 | `domql.registerModule(module)` | Register a module for query resolution. |
-| `domql.info` | Read the build's `version` and `specificationVersion`. |
+| `domql.info` | Read the build's `versions`: its `runtime`, the DOMQL `specification` it follows, and the Lexica `language` it runs on. |
 
 A watch handle exposes `status`, `snapshot`, `error`, `readyAsync()`, `refreshAsync()`, `subscribe(eventName, handler)` and `dispose()`. Snapshot watches support `select(...path)`; live-state watches expose `liveState`. See [Watch a query](#watch-a-query) for examples.
 
