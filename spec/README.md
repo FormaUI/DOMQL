@@ -28,7 +28,7 @@ Start with [queries](queries.md), which shows a query with its parameters and it
 
 ## Documents
 
-1. [Queries](queries.md): what a query is and what it runs against, making a query and binding its parameters, preparation, request kinds and their operations, and selecting part of a result.
+1. [Queries](queries.md): what a query is and what it runs against, making a query and binding its parameters, resolution, request kinds and their operations, and selecting part of a result.
 2. [Nodes and shadow trees](nodes-and-shadow-trees.md): the DOM's node types, how kinds of node fit together, every crossing of a shadow boundary, and the trees and slots a node is in.
 3. [Built-in vocabulary](vocabulary.md): the `domql` module, its types, module members, properties, functions, predicates, conversions and observations, and the modules that extend it.
 4. [Evaluation](evaluation.md): evaluating a query once, how DOMQL's members read, waiting for maintained members, and the window an evaluation needs.

@@ -20,7 +20,7 @@ In this document:
 | Query | A Lexica script DOMQL carries out against a document | [Queries](queries.md#queries) |
 | Query object | What `domql.query` answers: a query's definition and its bindings, through which every operation on it is carried out | [Making a query](queries.md#making-a-query) |
 | Caller | The application that makes queries and carries them out, and does what it chooses with each result | [The API](api.md#api) |
-| Preparation | Resolving a request against the vocabulary registered when it is first carried out | [Preparation](queries.md#preparation) |
+| Resolution | Resolving a request against the vocabulary registered when it is first carried out, as Lexica resolves a script | [Resolution](queries.md#queries-resolution) |
 | Operation | What a caller carries a request out with: `evaluate`, `evaluateAsync`, `watch`, `select`, `subscribe`, `executeAsync` or `apply`, as its request kind takes | [Request kinds and their operations](queries.md#operations-and-request-kinds) |
 | Selection | A part of a query's result, which belongs to the query and whose every operation starts work of its own | [Selecting a result](queries.md#selecting-a-result) |
 | Handle | What an operation that keeps running answers, through which its caller follows it and ends it: a watch, an event listener or a behavior | [The API](api.md#api-objects) |

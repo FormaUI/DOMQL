@@ -33,7 +33,7 @@ Each entry point and operation is listed here with what it takes, and the sectio
 | `domql.query(text, bindings?)`, `domql.query(definition, bindings?)` | Makes a query object, binding its parameters, as [making a query](queries.md#making-a-query) sets out |
 | `query.definition` | The query's immutable definition, without its bindings |
 | `query.with(bindings)` | A new query with the same definition, bound to these bindings |
-| `query.resolve(options?)` | Resolves and types a request without evaluating anything, as [preparation](queries.md#preparation) sets out |
+| `query.resolve(options?)` | Resolves and types a request without evaluating anything, as [resolution](queries.md#queries-resolution) sets out |
 | `query.select(...path)` | A part of its result, as [selecting a result](queries.md#selecting-a-result) sets out |
 | `query.evaluate(options?)` | Evaluates a query once, as [evaluating a query](evaluation.md#evaluating) sets out; its option is `window` |
 | `query.evaluateAsync(options?)` | Evaluates a query once, waiting for its maintained members, as [waiting for maintained members](evaluation.md#waiting-for-maintained-members) sets out; its options are `window` and `signal` |
@@ -115,6 +115,6 @@ An operation that answers a handle, given a signal already aborted, answers a di
 
 ## Errors
 
-Every failure is a `LexicaError` with its `kind`, its `message` and the `location` it concerns, as Lexica's [diagnostics and errors](https://github.com/FormaUI/Lexica/blob/main/spec/diagnostics-and-errors.md) set out, and a caller reads the kind and the location rather than the message. A failure is reported where it arises: a syntax or structure failure as the query is made; a module failure as a module is created or registered, or as a request that uses a declaration without an implementation is prepared; a validation failure as the request is prepared; and an evaluation failure as it is carried out, a missing window among them.
+Every failure is a `LexicaError` with its `kind`, its `message` and the `location` it concerns, as Lexica's [diagnostics and errors](https://github.com/FormaUI/Lexica/blob/main/spec/diagnostics-and-errors.md) set out, and a caller reads the kind and the location rather than the message. A failure is reported where it arises: a syntax or structure failure as the query is made; a module failure as a module is created or registered, or as a request that uses a declaration without an implementation is resolved; a validation failure as the request is resolved; and an evaluation failure as it is carried out, a missing window among them.
 
 A failure no handler or caller receives, as an `"error"` event no listener receives, a failure of an `"error"` handler or of a subscription's handler, or one an action reports after its caller stopped waiting, goes to the **window's error reporting**, its `reportError`, or the console where the window has none. A watch, an event listener and a waiting evaluation let go of every observation they hold even where letting go of one fails: each attempts every cleanup, reports a failure of one to the window's error reporting, and never lets it replace its result, its error or its cancellation.

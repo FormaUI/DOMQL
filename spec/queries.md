@@ -34,7 +34,7 @@ In this document:
 
 1. [What a query runs against](#what-a-query-runs-against)
 2. [Making a query](#making-a-query)
-3. [Preparation](#preparation)
+3. [Resolution](#queries-resolution)
 4. [Request kinds and their operations](#operations-and-request-kinds)
 5. [Selecting a result](#selecting-a-result)
 
@@ -44,7 +44,7 @@ In this document:
 
 A query is evaluated against a document, with each parameter it names bound to something in that document or to plain data. `panel` is not found by the query: it stands for the element the caller bound under the name `panel`, which is how a query reaches a particular element without a selector for it.
 
-A query that names `panel` and `sentinel` is given those two elements, and fails to prepare when either is not bound. `domql.document` and `domql.window` need no binding, since they are always the document being queried and its window.
+A query that names `panel` and `sentinel` is given those two elements, and fails to resolve when either is not bound. `domql.document` and `domql.window` need no binding, since they are always the document being queried and its window.
 
 Conceptually, a caller supplies the query's text and the bindings, and gets back a result shaped like the query:
 
@@ -60,7 +60,7 @@ A caller can take that result once, keep it current as the document changes, or 
 
 ## Making a query
 
-`domql.query` takes text or a definition, and each produces a definition with the same meaning, prepared, validated and evaluated alike. Making a query parses the text and checks its structure, and describes work: it reads nothing in the document, starts no observation and makes no call across an interop boundary, and evaluating, watching, subscribing, executing and applying belong to the caller that carries it out. A text is parsed once and its definition reused for identical text, whatever the bindings. A definition created directly serves tooling and integrations.
+`domql.query` takes text or a definition, and each produces a definition with the same meaning, resolved, validated and evaluated alike. Making a query parses the text and checks its structure, and describes work: it reads nothing in the document, starts no observation and makes no call across an interop boundary, and evaluating, watching, subscribing, executing and applying belong to the caller that carries it out. A text is parsed once and its definition reused for identical text, whatever the bindings. A definition created directly serves tooling and integrations.
 
 ```js
 // From text, binding its parameters by name.
@@ -104,13 +104,14 @@ With the first bindings, the result is the following: an object expression follo
 
 A query belongs to the instance of the library that made it, and an instance refuses another's query with an error that names how to reuse it. A page can hold several instances, as independently bundled libraries each carry their own, and a query passes between them as its definition and a plain object of bindings, which the receiving instance validates and resolves against its own vocabulary. The refusal decides ownership alone, and validation and resolution enforce the contracts a definition meets.
 
+<a id="queries-resolution"></a>
 <a id="preparation"></a>
 
-## Preparation
+## Resolution
 
-A request is prepared before it is first carried out, and preparation validates it against the vocabulary registered then, as Lexica's [resolution](https://github.com/FormaUI/Lexica/blob/main/spec/runtime.md#runtime-bindings-and-resolution) sets out; a module a request names is registered by its caller beforehand. A misspelling or a wrong argument is an error before anything is evaluated; a member's fit to its receiver is checked once the receiver's type is specific enough, which a null receiver's is not; null is always a result.
+A request is resolved before it is first carried out, and resolution validates it against the vocabulary registered then, as Lexica's [resolution](https://github.com/FormaUI/Lexica/blob/main/spec/runtime.md#runtime-bindings-and-resolution) sets out; a module a request names is registered by its caller beforehand. A misspelling or a wrong argument is an error before anything is evaluated; a member's fit to its receiver is checked once the receiver's type is specific enough, which a null receiver's is not; null is always a result.
 
-`query.resolve(options?)` prepares a request without evaluating anything, and answers its kind and its type; it needs no browser. Its options `watch` and `acceptPartialObservation` resolve it as a watch would, so a watch's refusal of a partly observable member, as [accepting partial observation](watching.md#accepting-partial-observation) sets out, is found before a watch starts.
+`query.resolve(options?)` resolves a request without evaluating anything, and answers its kind and its type; it needs no browser. Its options `watch` and `acceptPartialObservation` resolve it as a watch would, so a watch's refusal of a partly observable member, as [accepting partial observation](watching.md#accepting-partial-observation) sets out, is found before a watch starts.
 
 <a id="operations-and-request-kinds"></a>
 

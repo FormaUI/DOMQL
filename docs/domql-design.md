@@ -5,7 +5,7 @@ The [DOMQL specification](../spec/README.md) is the contract: DOMQL's module, wh
 In this document:
 
 1. [Architecture](#architecture)
-2. [Preparation](#preparation)
+2. [Resolution](#resolution)
 3. [Sessions](#sessions)
 4. [Watching](#watching)
 5. [Comparing and patching](#comparing-and-patching)
@@ -29,7 +29,7 @@ DOMQL is Lexica's host. It registers its module in a Lexica registry beside the 
 
 The DOM enters as late as it can. Making and resolving a query read no DOM, so they work in Node.js; code under `src/dom/` reads the window and the document it is given, never a global, and code under `src/snapshots/` reads no DOM at all, only the results and the metadata Lexica records beside them. Dependencies point one way: `dom/` depends on Lexica and `snapshots/`, and `snapshots/` on Lexica alone.
 
-## Preparation
+## Resolution
 
 A resolution is kept for its definition, for the options it was made under, for the types of its bindings and the strings, numbers, Booleans and nulls they bind, which can select what a member reads, and for the vocabulary it was made against, and is released with the definition, so an unchanged query, and every query made from the same text, is resolved once however often it is evaluated. A text is parsed once through Lexica's cache of parsed texts, so identical texts share one definition and therefore one set of resolutions, whatever their bindings. Registering a module advances the registry's revision, and a resolution made before it is made again, so a request never runs against a vocabulary it was not resolved against.
 
@@ -81,7 +81,7 @@ DomqlQuery<PanelState> typed = Domql.Query<PanelState>(
 DomqlQuery untyped = Domql.Query("panel { size = it.size }", ("panel", panel));
 ```
 
-A `DomqlQuery<T>` answers a `T`, mapped by its declared contract, which matches the result's fields to the constructor parameters of `T` by name regardless of case, so a field `nearend` fills a parameter `NearEnd`, and reports an ambiguity where two fields differ only in case, since DOMQL itself tells them apart; a `DomqlQuery` answers a `DomqlSnapshot` giving structured access to its values. C# has no C# type standing for each vocabulary concept: a module contributes its declarations and implementations, and the text names what the query reads. `Domql.TryQuery` attempts exactly what `Domql.Query` does, making a query and checking the syntax and the structural rules that need no vocabulary, an empty object expression, a duplicate field and a reserved name among them, without resolving its vocabulary or evaluating anything, so a successful return means the query was made, not that it is ready to be carried out: a syntax or structure failure returns false with a diagnostic, and any other failure is thrown, never swallowed. A vocabulary failure, such as an unknown member, arrives when the query is prepared. C# cancels with a `CancellationToken` where JavaScript takes a `signal`.
+A `DomqlQuery<T>` answers a `T`, mapped by its declared contract, which matches the result's fields to the constructor parameters of `T` by name regardless of case, so a field `nearend` fills a parameter `NearEnd`, and reports an ambiguity where two fields differ only in case, since DOMQL itself tells them apart; a `DomqlQuery` answers a `DomqlSnapshot` giving structured access to its values. C# has no C# type standing for each vocabulary concept: a module contributes its declarations and implementations, and the text names what the query reads. `Domql.TryQuery` attempts exactly what `Domql.Query` does, making a query and checking the syntax and the structural rules that need no vocabulary, an empty object expression, a duplicate field and a reserved name among them, without resolving its vocabulary or evaluating anything, so a successful return means the query was made, not that it is ready to be carried out: a syntax or structure failure returns false with a diagnostic, and any other failure is thrown, never swallowed. A vocabulary failure, such as an unknown member, arrives when the query is resolved. C# cancels with a `CancellationToken` where JavaScript takes a `signal`.
 
 Its adapter owns the synchronization:
 
