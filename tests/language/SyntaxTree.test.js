@@ -38,7 +38,7 @@ describe('SyntaxTree', () => {
     it('reads an interpolated string as its start, its runs of text, the tokens around and within each hole, and its end, a hole\'s own braces told from its object expressions\'', () => {
         const tokens = Tokenizer.scan('$"a {{ {b { c = 1 }.c} d"').map(token => token.type === 'interpolated-text' ? [token.type, token.value] : token.type);
 
-        expect(tokens).toEqual(['interpolated-string-start', ['interpolated-text', 'a { '], 'interpolation-start', 'name', '{', 'name', '=', 'literal', '}', '.', 'name', 'interpolation-end', ['interpolated-text', ' d'], 'interpolated-string-end', 'end']);
+        expect(tokens).toEqual(['interpolated-string-start', ['interpolated-text', 'a { '], 'interpolation-start', 'identifier', '{', 'identifier', '=', 'literal', '}', '.', 'identifier', 'interpolation-end', ['interpolated-text', ' d'], 'interpolated-string-end', 'end']);
     });
 
     it('holds every character of the text in one token or in the trivia before one, the end of the text in the end token', () => {
@@ -107,10 +107,9 @@ describe('SyntaxTree', () => {
         ['a string never closed', 'a:["key', '"key', 'A string is never closed'],
         ['an escape no escape is for', '"a\\qb" == x', '"a\\qb"', 'A string escapes only'],
         ['a block comment never closed', 'a /* open', '/* open', 'A block comment is never closed'],
-        ['an @ with a space after it', '@ to', '@', "A reserved word follows '@' directly, as @to"],
-        ['an @ at the end of the text', 'a + @', '@', "A reserved word follows '@' directly, as @to"],
-        ['an @ before what is no word', '@"to"', '@', "'@' and what follows it are no reserved reference"],
-        ['an @ before a name that is no reserved word, which is written alone', '@panel.size', '@panel', "'panel' is no reserved word, so it is written alone: write 'panel', with no '@'"],
+        ['an @ with a space after it', '@ to', '@', "An identifier follows '@' directly, as @to"],
+        ['an @ at the end of the text', 'a + @', '@', "An identifier follows '@' directly, as @to"],
+        ['an @ before what is no word', '@"to"', '@', "'@' and what follows it are no lexical reference"],
     ])('scans text that is no token, %s, into an invalid token with its diagnostic, reading on after it', (_, text, invalidText, message) => {
         const tokens = Tokenizer.scan(text);
         const invalid = tokens.find(token => token.type === 'invalid');

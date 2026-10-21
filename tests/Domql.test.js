@@ -911,7 +911,6 @@ describe('domql', () => {
             ['a member written after a space, an object expression after it', 'panel on "click" { x: it.clientX }', 1, 7],
             ['a member written after a space with no argument', 'sentinel intersects', 1, 10],
             ['it naming a field with a colon', 'panel { it: it.size }', 1, 11],
-            ['an @ before a name, which a binding is named without', '@panel.size', 1, 1],
             ['a member given an argument without parentheses', 'target.is "attached"', 1, 11],
             ['an equality that chains', 'a == b == c', 1, 8],
             ['a negation after !=', 'a != not b', 1, 6],
@@ -3677,9 +3676,8 @@ describe('domql reserved names', () => {
         ['a parameter written with @', 'let f = function(@to) 1 end\nreturn 1', "A parameter is declared as it is written, with no '@': write 'to'"],
         ['a member written with @', 'value.@null', "A member is named as it is written after its dot, with no '@': write '.null'"],
         ['an indexer written with @', 'value:@true["k"]', "An indexer is named as it is written after its colon, with no '@': write ':true[…]'"],
-        ['@ before a name that is no reserved word', '@panel', "'panel' is no reserved word, so it is written alone: write 'panel', with no '@'"],
-        ['@ before a space', '@ to', "A reserved word follows '@' directly, as @to"],
-        ['@ before what is no word', '@1', "'@' and what follows it are no reserved reference"],
+        ['@ before a space', '@ to', "An identifier follows '@' directly, as @to"],
+        ['@ before what is no word', '@1', "'@' and what follows it are no lexical reference"],
         ['a bare keyword where a value stands', 'let to = 1\nreturn to + 1', "Found 'to', a keyword: write '@to' for the local or field of that name"],
     ])('refuses %s as text', (_, text, message) => {
         const error = getError(() => domql.query(text));
@@ -4308,16 +4306,17 @@ describe('domql query parameters', () => {
     });
 
     it('refuses ~ alone, which names no parameter, ~ a space parts from a name, and ~ naming a field', () => {
-        expect(getError(() => domql.query('a + ~'))).toMatchObject({ kind: 'syntax', message: expect.stringContaining("A parameter reference names its script parameter directly after '~', as ~room") });
-        expect(getError(() => domql.query('panel { a = ~ panel }'))).toMatchObject({ kind: 'syntax', message: expect.stringContaining("A parameter reference names its script parameter directly after '~'") });
+        expect(getError(() => domql.query('a + ~'))).toMatchObject({ kind: 'syntax', message: expect.stringContaining("A script parameter is named directly after '~', as ~room") });
+        expect(getError(() => domql.query('panel { a = ~ panel }'))).toMatchObject({ kind: 'syntax', message: expect.stringContaining("A script parameter is named directly after '~'") });
         expect(getError(() => domql.query('~.size')).kind).toBe('syntax');
         expect(getError(() => domql.query('{ ~ = 1 }')).kind).toBe('syntax');
     });
 
-    it('reads self as an ordinary name, a local or a binding, and refuses @ before it', () => {
+    it('reads self as an ordinary name, a local or a binding, @ before it reading the local, which a binding of its name is none', () => {
         expect(domql.query('let self = 2\nreturn self + 1').evaluate()).toBe(3);
         expect(domql.query('self', { self: 4 }).evaluate()).toBe(4);
-        expect(getError(() => domql.query('let self = 1\nreturn @self')).message).toContain("'self' is no reserved word, so it is written alone");
+        expect(domql.query('let self = 1\nreturn @self + self').evaluate()).toBe(2);
+        expect(getError(() => domql.query('@panel.size', { panel: document.body }))).toMatchObject({ kind: 'structure', message: expect.stringContaining("No local or field named 'panel' is in scope. Use '~panel' to read the script parameter"), location: { line: 1, column: 1 } });
     });
 
     it('reads a binding named context, it or a module after ~, and one named context, document or window alone, as any name', () => {
