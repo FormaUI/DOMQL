@@ -56,7 +56,7 @@ DOMQL's module declares each of its types with its members, as Lexica's [declari
 | `Shadow` | None | An element's [shadow view](nodes-and-shadow-trees.md#shadow-trees-the-view) | An element's `shadow`, or a declared binding |
 | `Aria` | None | An element's [ARIA view](#conditions) | An element's `aria`, or a declared binding |
 
-`Shadow` and `Aria` are views: an element's `shadow` and `aria` answer the element itself, of the view's type, whose `isInstance` accepts every element, and no wrapper is made or kept. DOMQL's `typeOf` never answers a view, and neither view is cast to from an `Element`, since memberships that accept one value relate no types. `Aria` declares a cast to `Element`, without an `impl`, so `(panel.aria as Element).aria` reads the element's view again. Each node type, `Window` and each view has no data form, so no result holds one.
+`Shadow` and `Aria` are views: an element's `shadow` and `aria` answer the element itself, of the view's type, whose `isInstance` accepts every element, and no wrapper is made or kept. DOMQL's `typeOf` never answers a view, and an `Element` can't be cast to either view: their memberships accepting every element doesn't make the types related. `Aria` declares a cast to `Element`, without an `impl`, so `(panel.aria as Element).aria` reads the element's view again. Each node type, `Window` and each view has no data form, so no result holds one.
 
 | Structured type | What it is | Fields |
 | --- | --- | --- |
