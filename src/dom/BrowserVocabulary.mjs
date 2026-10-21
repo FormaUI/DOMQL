@@ -1,11 +1,11 @@
 /**
- * BrowserVocabulary — DOMQL's vocabulary, the DOM's: its nodes, elements, shadow trees, ARIA views and window, their members, predicates, events and observations, as the specification's tables state them
+ * BrowserVocabulary — DOMQL's vocabulary, the DOM's: its nodes, elements, shadow trees, ARIA views and window, their members, Boolean functions among them, events and observations, and the document and the window a query reads, as the specification's tables state them
  */
 
 import { lexica } from '@formaui/lexica';
 import { DispatchTable } from './DispatchTable.mjs';
 
-const { valueParameter, property, predicate } = lexica.declarations;
+const { valueParameter, property } = lexica.declarations;
 
 /** The observations the members share. */
 const RESIZE = { type: 'resize', of: 'receiver' };
@@ -43,7 +43,7 @@ export class BrowserVocabulary {
         // A declaration takes the implementation given under its key, and none where none is given, which leaves it resolved against and never invoked.
         const implementing = (key, declaration) => (implementations[key] === undefined ? declaration : { ...declaration, implementation: implementations[key] });
         const observationType = (name, contract, key, rest = {}) => implementing(key, { name, contract, ...rest });
-        const asked = (key, name, target, options) => implementing(key, predicate(name, target, undefined, options));
+        const test = (key, name, target, { updates }) => implementing(key, lexica.declarations.function(name, target, 'boolean', { updates }));
 
         return DispatchTable.createModule(BrowserVocabulary.moduleName, {
             types: [
@@ -89,35 +89,37 @@ export class BrowserVocabulary {
             // The targets the observations observe besides the receiver and an argument: the window and the document, and the receiver's root, the root of the tree it is in, and its roots, every root of its flat-tree ancestry through slots and shadow hosts.
             observationTargets: [{ name: 'window' }, { name: 'document' }, { name: 'root', from: 'receiver' }, { name: 'roots', from: 'receiver', count: 'many' }],
 
-            // The predicates of elements and of the document, each as the browser decides it, its native semantics: a pseudo-class's matching, or the document's own state.
-            predicates: [
-                asked('disabled', 'disabled', 'element', { updates: updatesOf({ observations: [{ type: 'mutation', of: 'root', attributes: ['disabled'], childList: true, subtree: true }] }) }),
-                asked('readOnly', 'readonly', 'element', { updates: updatesOf({ observations: [{ type: 'mutation', of: 'receiver', attributes: ['readonly', 'type'] }] }) }),
-                asked('textEditable', 'text-editable', 'element', { updates: updatesOf({ changes: 'partly-observable', misses: 'the document\'s design mode', observations: [{ type: 'mutation', of: 'roots', attributes: ['disabled', 'readonly', 'type', 'contenteditable', 'inert'], childList: true, subtree: true }] }) }),
-                asked('focused', 'focus', 'element', { verb: 'has', updates: updatesOf({ observations: [FOCUS] }) }),
-                asked('focusWithin', 'focus-within', 'element', { verb: 'has', updates: updatesOf({ observations: [FOCUS] }) }),
-                asked('hover', 'hover', 'element', { updates: updatesOf({ changes: 'partly-observable', misses: 'an element moving under a pointer that does not move, where the browser fires no pointer event for it', observations: [{ type: 'event', of: 'document', types: ['pointerover', 'pointerout'] }] }) }),
-                asked('popoverOpen', 'popover-open', 'element', { updates: updatesOf({ observations: [POPOVERS] }) }),
-                asked('checked', 'checked', 'element', {
+            members: [
+                // The document the query runs against and its window, read through DOMQL's namespace from the environment its evaluator is given.
+                implementing('document', property('document', null, 'document', { updates: updatesOf({ changes: 'constant' }) })),
+                implementing('window', property('window', null, 'window', { updates: updatesOf({ changes: 'constant' }) })),
+
+                // The tests of elements and of the document, each a Boolean function as the browser decides it, its native semantics: a pseudo-class's matching, or the document's own state.
+                test('disabled', 'disabled', 'element', { updates: updatesOf({ observations: [{ type: 'mutation', of: 'root', attributes: ['disabled'], childList: true, subtree: true }] }) }),
+                test('readOnly', 'readonly', 'element', { updates: updatesOf({ observations: [{ type: 'mutation', of: 'receiver', attributes: ['readonly', 'type'] }] }) }),
+                test('textEditable', 'textEditable', 'element', { updates: updatesOf({ changes: 'partly-observable', misses: 'the document\'s design mode', observations: [{ type: 'mutation', of: 'roots', attributes: ['disabled', 'readonly', 'type', 'contenteditable', 'inert'], childList: true, subtree: true }] }) }),
+                test('focused', 'focus', 'element', { updates: updatesOf({ observations: [FOCUS] }) }),
+                test('focusWithin', 'focusWithin', 'element', { updates: updatesOf({ observations: [FOCUS] }) }),
+                test('hover', 'hover', 'element', { updates: updatesOf({ changes: 'partly-observable', misses: 'an element moving under a pointer that does not move, where the browser fires no pointer event for it', observations: [{ type: 'event', of: 'document', types: ['pointerover', 'pointerout'] }] }) }),
+                test('popoverOpen', 'popoverOpen', 'element', { updates: updatesOf({ observations: [POPOVERS] }) }),
+                test('checked', 'checked', 'element', {
                     updates: updatesOf({
                         changes: 'partly-observable',
                         misses: 'the page\'s code setting checked or selected, or a select\'s value or selectedIndex, which fires no event',
                         observations: [{ type: 'event', of: 'root', types: ['input', 'change', 'reset'], capture: true }, { type: 'mutation', of: 'root', attributes: ['checked', 'selected'], childList: true, subtree: true }],
                     }),
                 }),
-                asked('visible', 'visible', 'document', { updates: updatesOf({ observations: [{ type: 'visibility', of: 'receiver' }] }) }),
-                asked('hasFocus', 'focus', 'document', { verb: 'has', updates: updatesOf({ observations: [{ type: 'event', of: 'window', types: ['focus', 'blur'] }] }) }),
+                test('visible', 'visible', 'document', { updates: updatesOf({ observations: [{ type: 'visibility', of: 'receiver' }] }) }),
+                test('hasFocus', 'focus', 'document', { updates: updatesOf({ observations: [{ type: 'event', of: 'window', types: ['focus', 'blur'] }] }) }),
 
                 // The capabilities the window's browser offers, each the presence of the API it names, which says nothing of whether a particular use of it succeeds.
-                asked('supportsShare', 'share', 'window', { verb: 'supports', updates: updatesOf({ changes: 'constant' }) }),
-                asked('supportsClipboard', 'clipboard', 'window', { verb: 'supports', updates: updatesOf({ changes: 'constant' }) }),
+                test('supportsShare', 'share', 'window', { updates: updatesOf({ changes: 'constant' }) }),
+                test('supportsClipboard', 'clipboard', 'window', { updates: updatesOf({ changes: 'constant' }) }),
 
-                // The ARIA predicates of an element's ARIA view, each its own attribute's value read under its own contract, never its native state.
-                asked('ariaChecked', 'checked', 'aria', { updates: updatesOf({ observations: [{ type: 'mutation', of: 'receiver', attributes: ['aria-checked'] }] }) }),
-                asked('ariaDisabled', 'disabled', 'aria', { updates: updatesOf({ observations: [{ type: 'mutation', of: 'receiver', attributes: ['aria-disabled'] }] }) }),
-            ],
+                // The ARIA tests of an element's ARIA view, each its own attribute's value read under its own contract, never its native state.
+                test('ariaChecked', 'checked', 'aria', { updates: updatesOf({ observations: [{ type: 'mutation', of: 'receiver', attributes: ['aria-checked'] }] }) }),
+                test('ariaDisabled', 'disabled', 'aria', { updates: updatesOf({ observations: [{ type: 'mutation', of: 'receiver', attributes: ['aria-disabled'] }] }) }),
 
-            members: [
                 implementing('windowSize', property('size', 'window', 'size', { updates: updatesOf({ observations: [WINDOW_RESIZE] }) })),
                 implementing('devicePixelRatio', property('devicePixelRatio', 'window', 'number', { updates: updatesOf({ observations: [{ type: 'pixelRatio', of: 'window' }] }) })),
                 implementing('rect', property('rect', 'element', 'rectangle?', { updates: updatesOf({ ...GEOMETRY, observations: [RESIZE, SCROLLING, WINDOW_RESIZE] }) })),

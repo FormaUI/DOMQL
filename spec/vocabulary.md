@@ -3,13 +3,13 @@
 <a id="built-in-vocabulary"></a>
 <a id="vocabulary"></a>
 
-The **built-in vocabulary** is what DOMQL's module, `domql`, declares: the DOM's types, and the module members, properties, functions, predicates, conversions, event sources and observations a query reads them through. Everything a query can ask about is a member a module contributes, DOMQL's own module and every extension by one contract, so adding a member leaves the grammar unchanged.
+The **built-in vocabulary** is what DOMQL's module, `domql`, declares: the DOM's types, and the module members, properties, functions, Boolean functions among them, conversions, event sources and observations a query reads them through. Everything a query can ask about is a member a module contributes, DOMQL's own module and every extension by one contract, so adding a member leaves the grammar unchanged.
 
 ```domql
 panel.size?.width                        // A property of an element, then a field of the size it answers.
 panel:["data-key"]                       // An attribute, through the default indexer.
 panel.closest(".row")                    // A function, given its selector.
-panel.is("disabled")                     // A predicate, asked with is.
+panel.disabled()                         // A Boolean function, which tests the element.
 domql.window:media["(min-width: 40em)"]  // A named indexer of the window, a module member.
 ```
 
@@ -24,7 +24,7 @@ In this document:
 3. [Measurements and layout](#vocabulary-measurements-and-layout)
 4. [Properties](#properties)
 5. [Functions](#functions)
-6. [Predicates](#conditions)
+6. [Boolean functions](#boolean-functions)
 7. [Built-in conversions](#built-in-conversions)
 8. [Observations](#observations)
 9. [Extension modules](#extension-modules)
@@ -247,7 +247,7 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 **Type:** `aria`   **Reads:** Fresh
 
-**Result.** Its view of its ARIA states, whose [predicates](#conditions) `is` tests and whose default indexer reads its ARIA attributes
+**Result.** Its view of its ARIA states, which its [Boolean functions](#boolean-functions) test and its default indexer reads as its ARIA attributes
 
 **Changes.** Constant
 
@@ -395,7 +395,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 ### Any: is, has, supports
 
-`is`, `has` and `supports` are [Lexica's verbs](https://github.com/FormaUI/Lexica/blob/main/spec/vocabulary.md#predicates), which ask a predicate by its name; DOMQL declares the predicates they ask of its receivers, as [predicates](#conditions) set out.
+`is`, `has` and `supports` are [Lexica's verbs](https://github.com/FormaUI/Lexica/blob/main/spec/vocabulary.md#vocabulary-verbs), each given a test of its receiver as a function: one of DOMQL's [Boolean functions](#boolean-functions) by reference, `it.is(domql.checked)`, an arrow function, or an implicit body, `panel.is(it.disabled() or it.readonly())`.
 
 <a id="function-element-style"></a>
 
@@ -505,15 +505,17 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 `where` is a function [Lexica's own module](https://github.com/FormaUI/Lexica/blob/main/spec/vocabulary.md#vocabulary-list-members) declares, which owns lists, and Lexica's specification defines.
 
+<a id="boolean-functions"></a>
+
 <a id="conditions"></a>
 
 <a id="predicates"></a>
 
-## Predicates
+## Boolean functions
 
-DOMQL's predicates ask the DOM with Lexica's three verbs: `is` a state the user, the browser or the page sets and clears over time, `it.is("checked")`; `has` a possession or a presence, `it.has("focus")`; and `supports` a capability, `domql.window.supports("share")`.
+DOMQL tests the DOM with [Boolean functions](https://github.com/FormaUI/Lexica/blob/main/spec/vocabulary.md#vocabulary-boolean-functions), functions whose result is a Boolean: of a state the user, the browser or the page sets and clears over time, as `it.checked()` is; of a presence, as `it.focus()` is; and of a capability, as `domql.window.share()` is. A query calls one on its receiver, calls it through its module, `domql.checked(it)`, or gives it by reference to one of [Lexica's verbs](https://github.com/FormaUI/Lexica/blob/main/spec/vocabulary.md#vocabulary-verbs), `it.is(domql.checked)`, and each way reaches the one declaration, whose observations follow it.
 
-Each follows [Lexica's predicate contract](https://github.com/FormaUI/Lexica/blob/main/spec/vocabulary.md#predicates): it is asked with its one verb, its name is fixed, it applies to the receivers it declares, and it answers a Boolean or fails the evaluation. A Boolean that follows from the receiver's structure, or from another member's value, is a property of it, as `attached`, `hasChildren` and `hasSelection` are, and `has` with the name of a presence such as `has("children")` is refused naming the property that answers it, `hasChildren`. Predicates compose as Booleans do: `it:class["open"] and it.has("focus-within")`.
+Each applies to the receivers it declares, takes no argument, and answers a Boolean or fails the evaluation. A Boolean that follows from the receiver's structure, or from another member's value, is a property of it, as `attached`, `hasChildren` and `hasSelection` are. Boolean functions compose as Booleans do: `it:class["open"] and it.focusWithin()`.
 
 <a id="conditions-condition-declarations"></a>
 
@@ -527,54 +529,60 @@ Each follows [Lexica's predicate contract](https://github.com/FormaUI/Lexica/blo
 
 <a id="conditions-conditions-compose-as-booleans-do"></a>
 
-The built-in vocabulary declares these predicates, each asked with `is` but where the table names its verb, and each with its native semantics: what the browser itself decides, as its pseudo-class matches, as the document reports its own state, or as the browser offers an API.
+The built-in vocabulary declares these Boolean functions, each with its native semantics: what the browser itself decides, as its pseudo-class matches, as the document reports its own state, or as the browser offers an API.
 
-| Receiver | Predicate |
+| Receiver | Boolean function |
 | --- | --- |
-| Element | [`disabled`](#condition-element-is-disabled) |
-| Element | [`readonly`](#condition-element-is-readonly) |
-| Element | [`text-editable`](#condition-element-is-text-editable) |
-| Element | [`focus`, asked with `has`](#condition-element-has-focus) |
-| Element | [`focus-within`, asked with `has`](#condition-element-has-focus-within) |
-| Element | [`hover`](#condition-element-is-hover) |
-| Element | [`popover-open`](#condition-element-is-popover-open) |
-| Element | [`checked`](#condition-element-is-checked) |
-| Document | [`visible`](#condition-document-is-visible) |
-| Document | [`focus`, asked with `has`](#condition-document-has-focus) |
-| Window | [`share`, asked with `supports`](#condition-window-supports-share) |
-| Window | [`clipboard`, asked with `supports`](#condition-window-supports-clipboard) |
+| Element | [`disabled`](#boolean-function-element-disabled) |
+| Element | [`readonly`](#boolean-function-element-readonly) |
+| Element | [`textEditable`](#boolean-function-element-texteditable) |
+| Element | [`focus`](#boolean-function-element-focus) |
+| Element | [`focusWithin`](#boolean-function-element-focuswithin) |
+| Element | [`hover`](#boolean-function-element-hover) |
+| Element | [`popoverOpen`](#boolean-function-element-popoveropen) |
+| Element | [`checked`](#boolean-function-element-checked) |
+| Document | [`visible`](#boolean-function-document-visible) |
+| Document | [`focus`](#boolean-function-document-focus) |
+| Window | [`share`](#boolean-function-window-share) |
+| Window | [`clipboard`](#boolean-function-window-clipboard) |
+
+<a id="boolean-function-element-disabled"></a>
 
 <a id="condition-element-is-disabled"></a>
 
 <a id="conditions-element-isdisabled"></a>
 
-### Element: is("disabled")
+### Element: disabled
 
-**Reads:** Fresh
+**Syntax:** `disabled()`   **Reads:** Fresh
 
 **True when.** The element matches `:disabled`, as the browser decides it: by its own `disabled` attribute, a disabled ancestor `fieldset` other than through that fieldset's first `legend`, or a disabled `optgroup` holding an `option`; whether it carries a `disabled` attribute is `it:["disabled"]`, a separate question
 
 **Changes.** Observable: its own and its ancestors' `disabled` attributes and the structure between them
 
+<a id="boolean-function-element-readonly"></a>
+
 <a id="condition-element-is-readonly"></a>
 
 <a id="conditions-element-isreadonly"></a>
 
-### Element: is("readonly")
+### Element: readonly
 
-**Reads:** Fresh
+**Syntax:** `readonly()`   **Reads:** Fresh
 
 **True when.** Native `readonly` applies to the control and is set: a text area, or an input whose type is `text`, `search`, `url`, `tel`, `email`, `password`, `date`, `month`, `week`, `time`, `datetime-local` or `number`; any other element answers false, whatever its attributes
 
 **Changes.** Observable: its `readonly` and `type` attributes
 
+<a id="boolean-function-element-texteditable"></a>
+
 <a id="condition-element-is-text-editable"></a>
 
 <a id="conditions-element-istext-editable"></a>
 
-### Element: is("text-editable")
+### Element: textEditable
 
-**Reads:** Fresh
+**Syntax:** `textEditable()`   **Reads:** Fresh
 
 **True when.** The element supports text editing and its current state permits it: a text area, or an input whose type is `text`, `search`, `url`, `tel`, `email`, `password` or `number`, that is neither disabled nor read-only; or an element whose content is editable, as the nearest `contenteditable` of a state, its own or an ancestor's, decides: `true`, the empty value and `plaintext-only` make it editable and `false` does not, while an invalid value, `inherit` among them, inherits, as the attribute does natively; where none decides, the document's design mode does.
 
@@ -582,160 +590,182 @@ An element with the `inert` attribute, itself or on an ancestor in the flat tree
 
 **Changes.** Partly observable: everything `disabled` observes, the `readonly` and `type` attributes, the `contenteditable` attributes of the element and its ancestors, the `inert` attributes along its flat tree, and the structure and slot assignments between them are observed; the document's design mode is not
 
+<a id="boolean-function-element-focus"></a>
+
 <a id="condition-element-has-focus"></a>
 
 <a id="conditions-element-hasfocus"></a>
 
-### Element: has("focus")
+### Element: focus
 
-**Reads:** Fresh
+**Syntax:** `focus()`   **Reads:** Fresh
 
 **True when.** It is the focused element of its tree
 
 **Changes.** Observable: focus moving, and the focused element removed, which moves focus away
 
+<a id="boolean-function-element-focuswithin"></a>
+
 <a id="condition-element-has-focus-within"></a>
 
 <a id="conditions-element-hasfocus-within"></a>
 
-### Element: has("focus-within")
+### Element: focusWithin
 
-**Reads:** Fresh
+**Syntax:** `focusWithin()`   **Reads:** Fresh
 
 **True when.** It matches `:focus-within`: it or an element within it is focused, across the shadow trees it hosts
 
 **Changes.** Observable, as `focus` is
 
+<a id="boolean-function-element-hover"></a>
+
 <a id="condition-element-is-hover"></a>
 
 <a id="conditions-element-ishover"></a>
 
-### Element: is("hover")
+### Element: hover
 
-**Reads:** Fresh
+**Syntax:** `hover()`   **Reads:** Fresh
 
 **True when.** It matches `:hover`: the pointer is over it or over an element within it
 
 **Changes.** Partly observable: the pointer moving over and off elements is observed; an element moving under a pointer that does not move, where the browser fires no pointer event for it, is not
 
+<a id="boolean-function-element-popoveropen"></a>
+
 <a id="condition-element-is-popover-open"></a>
 
 <a id="conditions-element-ispopover-open"></a>
 
-### Element: is("popover-open")
+### Element: popoverOpen
 
-**Reads:** Fresh
+**Syntax:** `popoverOpen()`   **Reads:** Fresh
 
 **True when.** It matches `:popover-open`: it is a popover that is showing
 
 **Changes.** Observable: its showing and hiding, its `popover` attribute removed and its removal included
 
+<a id="boolean-function-element-checked"></a>
+
 <a id="condition-element-is-checked"></a>
 
 <a id="conditions-element-ischecked"></a>
 
-### Element: is("checked")
+### Element: checked
 
-**Reads:** Fresh
+**Syntax:** `checked()`   **Reads:** Fresh
 
 **True when.** It matches `:checked`: a checked checkbox or radio button, or a selected option
 
 **Changes.** Partly observable: the user's input in its tree, a radio button another of its group unchecks and an option its select changes included, form resets, the `checked` and `selected` attributes and the structure of its tree are observed; the page's code setting `checked` or `selected`, or a select's `value` or `selectedIndex`, fires no event and is not
 
+<a id="boolean-function-document-visible"></a>
+
 <a id="condition-document-is-visible"></a>
 
 <a id="conditions-document-isvisible"></a>
 
-### Document: is("visible")
+### Document: visible
 
-**Reads:** Fresh
+**Syntax:** `visible()`   **Reads:** Fresh
 
 **True when.** The document is visible
 
 **Changes.** Observable
 
+<a id="boolean-function-document-focus"></a>
+
 <a id="condition-document-has-focus"></a>
 
 <a id="conditions-document-hasfocus"></a>
 
-### Document: has("focus")
+### Document: focus
 
-**Reads:** Fresh
+**Syntax:** `focus()`   **Reads:** Fresh
 
 **True when.** Focus is anywhere within the document
 
 **Changes.** Observable
 
+<a id="boolean-function-window-share"></a>
+
 <a id="condition-window-supports-share"></a>
 
 <a id="conditions-window-supportsshare"></a>
 
-### Window: supports("share")
+### Window: share
 
-**Reads:** Fresh
+**Syntax:** `share()`   **Reads:** Fresh
 
 **True when.** The browser offers the Web Share API, `navigator.share`, in this context; it says nothing of whether a particular share succeeds, which takes the user's activation, data the browser can share and the user's choice
 
 **Changes.** Constant
 
+<a id="boolean-function-window-clipboard"></a>
+
 <a id="condition-window-supports-clipboard"></a>
 
 <a id="conditions-window-supportsclipboard"></a>
 
-### Window: supports("clipboard")
+### Window: clipboard
 
-**Reads:** Fresh
+**Syntax:** `clipboard()`   **Reads:** Fresh
 
 **True when.** The browser offers the asynchronous clipboard, `navigator.clipboard`, which it does in a secure context alone; it says nothing of whether reading or writing is permitted, which the user and the browser decide when it is asked
 
 **Changes.** Constant
 
-A predicate's ARIA counterpart is no part of it: `it.is("checked")` is what `:checked` matches, whatever `aria-checked` says. An element's ARIA states are predicates of its ARIA view, `it.aria`, a value of the type `aria`, which has no data form, so a result never holds one, and `it.aria.is("checked")` tests one.
+A Boolean function's ARIA counterpart is no part of it: `it.checked()` is what `:checked` matches, whatever `aria-checked` says. An element's ARIA states are Boolean functions of its ARIA view, `it.aria`, a value of the type `aria`, which has no data form, so a result never holds one, and `it.aria.checked()` tests one.
 
 Each reads the element's own attribute under a contract of its own, falling back on no native state, and observes that attribute:
 
-| Receiver | Predicate |
+| Receiver | Boolean function |
 | --- | --- |
-| ARIA view | [`checked`](#condition-aria-view-is-checked) |
-| ARIA view | [`disabled`](#condition-aria-view-is-disabled) |
+| ARIA view | [`checked`](#boolean-function-aria-view-checked) |
+| ARIA view | [`disabled`](#boolean-function-aria-view-disabled) |
+
+<a id="boolean-function-aria-view-checked"></a>
 
 <a id="condition-aria-view-is-checked"></a>
 
 <a id="conditions-aria-view-ischecked"></a>
 
-### ARIA view: is("checked")
+### ARIA view: checked
 
-**Reads:** Fresh
+**Syntax:** `checked()`   **Reads:** Fresh
 
 **True when.** The element's own `aria-checked` is `true`, compared ignoring ASCII case; a missing attribute, `false`, `mixed`, the empty string and any other value, padded with spaces included, answer false
 
 **Changes.** Observable: its `aria-checked` attribute
 
+<a id="boolean-function-aria-view-disabled"></a>
+
 <a id="condition-aria-view-is-disabled"></a>
 
 <a id="conditions-aria-view-isdisabled"></a>
 
-### ARIA view: is("disabled")
+### ARIA view: disabled
 
-**Reads:** Fresh
+**Syntax:** `disabled()`   **Reads:** Fresh
 
 **True when.** The element's own `aria-disabled` is `true`, compared as `checked` compares; an ancestor's `aria-disabled` is not read
 
 **Changes.** Observable: its `aria-disabled` attribute
 
-So `it.is("checked") or it.aria.is("checked")` is whether either says checked, and `it.aria:["checked"] == "mixed"` tells a mixed state, which an ARIA predicate answers false for, from the others. The ARIA view's default indexer reads the attribute written on the element, as `it:["aria-checked"]` does, and never the element's effective accessibility state.
+So `it.checked() or it.aria.checked()` is whether either says checked, and `it.aria:["checked"] == "mixed"` tells a mixed state, which the ARIA view's `checked` answers false for, from the others. The ARIA view's default indexer reads the attribute written on the element, as `it:["aria-checked"]` does, and never the element's effective accessibility state.
 
-No other ARIA attribute is a predicate until one is declared, each with a contract of its own, since not every ARIA attribute is a Boolean; an extension declares one on the ARIA view, a type it does not own, as the [rules for extensions](https://github.com/FormaUI/Lexica/blob/main/spec/modules.md#extensions) let any module do.
+No other ARIA attribute has a Boolean function until one is declared, each with a contract of its own, since not every ARIA attribute is a Boolean; an extension declares one on the ARIA view, a type it does not own, as the [rules for extensions](https://github.com/FormaUI/Lexica/blob/main/spec/modules.md#extensions) let any module do.
 
 <a id="conditions-related-questions"></a>
 
 ### Related questions
 
-`it.has("focus")` asks whether the element itself is focused, `it.has("focus-within")` whether focus is anywhere within it, and an extension can offer richer focus semantics, as a predicate of elements under its module's own name or as predicates of its own types; they are separate questions with separate names.
+`it.focus()` asks whether the element itself is focused, `it.focusWithin()` whether focus is anywhere within it, and an extension can offer richer focus semantics, as a Boolean function of elements under its module's own name or of its own types; they are separate questions with separate names.
 
-`readonly` and `text-editable` are separate questions too, and neither is the other's opposite:
+`readonly` and `textEditable` are separate questions too, and neither is the other's opposite:
 
-| Element | `readonly` | `text-editable` |
+| Element | `readonly` | `textEditable` |
 | --- | --- | --- |
 | An enabled, writable text input | false | true |
 | A read-only text input | true | false |
@@ -798,7 +828,7 @@ DOMQL resolves each target as it starts an observation, and each evaluation that
 
 ## Extension modules
 
-A module extends the built-in vocabulary as Lexica's [modules](https://github.com/FormaUI/Lexica/blob/main/spec/modules.md#modules) set out: it declares types of its own, and members, predicates, event types, executions, observation types and conversions on its own types or, under the [rules for extensions](https://github.com/FormaUI/Lexica/blob/main/spec/modules.md#extensions), on DOMQL's. `domql.createModule(name, contents)` creates one from its declarations, each that runs code carrying its implementation, and `domql.registerModule(module)` registers it in the instance's registry, which holds DOMQL's module and every module registered with it. A request is resolved against the vocabulary registered when it is first carried out, so a module a query names is registered beforehand, once, rather than for every evaluation.
+A module extends the built-in vocabulary as Lexica's [modules](https://github.com/FormaUI/Lexica/blob/main/spec/modules.md#modules) set out: it declares types of its own, and members, Boolean functions among them, event types, executions, observation types and conversions on its own types or, under the [rules for extensions](https://github.com/FormaUI/Lexica/blob/main/spec/modules.md#extensions), on DOMQL's. `domql.createModule(name, contents)` creates one from its declarations, each that runs code carrying its implementation, and `domql.registerModule(module)` registers it in the instance's registry, which holds DOMQL's module and every module registered with it. A request is resolved against the vocabulary registered when it is first carried out, so a module a query names is registered beforehand, once, rather than for every evaluation.
 
 - **What an implementation receives.** Every implementation receives the one object Lexica's [implementations](https://github.com/FormaUI/Lexica/blob/main/spec/members.md#members-what-an-implementation-receives) receive, whose `env` holds the `window` and the `document` the query runs against.
 - **Reading.** A member's implementation is synchronous and reads alone, as Lexica requires of every vocabulary, so evaluating, watching and subscribing change nothing; a change to the page is an [execution](executions.md).

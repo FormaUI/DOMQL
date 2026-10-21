@@ -12,7 +12,7 @@ export interface DomqlResolveOptions {
 
 /** How a query is evaluated once. */
 export interface DomqlEvaluateOptions {
-    /** The window `window` stands for, and whose document `document` stands for; by default the environment's. */
+    /** The window `domql.window` stands for, and whose document `domql.document` stands for; by default the environment's. */
     window?: Window;
 }
 
@@ -32,7 +32,7 @@ export interface DomqlWatchOptions {
     acceptPartialObservation?: boolean;
     /** Disposes the watch when it aborts; one already aborted answers a watch that is disposed and starts nothing. */
     signal?: AbortSignal;
-    /** The window `window` stands for, and whose document `document` stands for; by default the environment's. */
+    /** The window `domql.window` stands for, and whose document `domql.document` stands for; by default the environment's. */
     window?: Window;
 }
 
@@ -44,7 +44,7 @@ export interface DomqlLiveStateWatchOptions extends Omit<DomqlWatchOptions, 'upd
 
 /** How a subscription is listened to, or an execution carried out once or run. */
 export interface DomqlOperationOptions {
-    /** The window `window` stands for, and whose document `document` stands for; by default the environment's. */
+    /** The window `domql.window` stands for, and whose document `domql.document` stands for; by default the environment's. */
     window?: Window;
     /** Ends what the operation started when it aborts; one already aborted starts nothing. */
     signal?: AbortSignal;
@@ -165,8 +165,10 @@ export interface DomqlDefinition {
 export type DomqlDefinitionNode =
     | { readonly kind: 'literal'; readonly value: string | number | boolean | null }
     | { readonly kind: 'parameter'; readonly name: string }
-    | { readonly kind: 'root'; readonly name: 'document' | 'window' | 'root' }
-    | { readonly kind: 'context' }
+    | { readonly kind: 'it' }
+    | { readonly kind: 'root' }
+    /** A module's namespace, the target of a member read or a call through it alone, as `domql.window` reads DOMQL's window. */
+    | { readonly kind: 'namespace'; readonly name: string }
     | { readonly kind: 'local'; readonly name: string }
     | { readonly kind: 'member'; readonly target: DomqlDefinitionNode; readonly name: string | DomqlDefinitionNode; readonly optional?: true }
     | { readonly kind: 'call'; readonly target: DomqlDefinitionNode; readonly name: string; readonly optional?: true; readonly arguments: readonly DomqlDefinitionNode[] }
@@ -319,7 +321,7 @@ export interface DomqlObservationDeclaration {
     [argument: string]: DomqlObservationValue | undefined;
 }
 
-/** How a member or a predicate changes and reads, the changes it misses, the tolerance it is compared within and the observations that cover its changes. */
+/** How a member changes and reads, the changes it misses, the tolerance it is compared within and the observations that cover its changes. */
 export interface DomqlUpdates {
     changes: DomqlChangeCategory;
     reads: DomqlReadingMode;
@@ -385,8 +387,8 @@ export interface DomqlConversionDeclaration {
 export interface DomqlParameterDeclaration {
     name: string;
     /**
-     * A value, an expression evaluated against each item, a predicate, an expression of any value whose truthiness the implementation receives, or a function the expression declares,
-     * which the implementation calls while its own invocation lasts and only a function the evaluator invokes takes.
+     * A value; an expression, a body of each item, written as an expression evaluated against it or as a function of it; a predicate, an expression of any value whose truthiness the implementation receives; or a function: an arrow function, a function a name holds, a module's function
+     * by reference or an implicit body, which the implementation calls while its own invocation lasts and only a function the evaluator invokes takes.
      */
     kind: 'value' | 'expression' | 'predicate' | 'function';
     /** The parameter's type, in DOMQL's notation; a predicate's is `boolean`, what the implementation receives, and a function parameter's the type of its function's result. */
@@ -397,8 +399,8 @@ export interface DomqlParameterDeclaration {
     default?: unknown;
     /** Whether the argument names something the vocabulary resolves before any evaluation; a fixed parameter is a value parameter of type `string`. */
     fixed?: boolean;
-    /** What a fixed parameter names, and only a fixed one: the predicate a verb asks, or a type, which a function's result writes as `@selected`, through the type selector `selector` names, as `on`'s type does through `event`. */
-    selects?: 'predicate' | 'type';
+    /** What a fixed parameter names, and only a fixed one: a type, which a function's result writes as `@selected`, through the type selector `selector` names, as `on`'s type does through `event`. */
+    selects?: 'type';
     /** The type selector a parameter that selects a type selects through. */
     selector?: string;
     /** Whether a null argument makes the call answer null, or is accepted; a function parameter leaves it out, since a function is never null. */
@@ -409,7 +411,7 @@ export interface DomqlParameterDeclaration {
     omitted?: string;
 }
 
-/** What a member's or a predicate's implementation receives, by name: its receiver, which a module member has none of, its arguments by parameter name, the environment, and what its kind adds. */
+/** What a member's implementation receives, by name: its receiver, which a module member has none of, its arguments by parameter name, the environment, and what its kind adds. */
 export interface DomqlImplementationInput {
     readonly receiver?: unknown;
     readonly args: Readonly<Record<string, unknown>>;
@@ -453,7 +455,7 @@ export interface DomqlMemberDeclaration {
     result?: string;
     /** How it changes and reads; a property and a function the evaluator invokes take it, and a host call refuses it. */
     updates?: DomqlUpdates;
-    /** What carries it out, given one object it reads by name; a member without one is resolved against and never invoked, and a verb, which its predicate carries out, takes none. */
+    /** What carries it out, given one object it reads by name; a member without one is resolved against and never invoked. */
     implementation?: (input: DomqlImplementationInput) => unknown;
 }
 
@@ -462,8 +464,6 @@ export interface DomqlModuleContents {
     /** The structured types it declares, each with its fields' types. */
     types?: { name: string; fields: Record<string, string> }[];
     members?: DomqlMemberDeclaration[];
-    /** The predicates it declares, each asked by name with its verb. */
-    predicates?: DomqlPredicateDeclaration[];
     /** The type selectors it declares, each by its name alone. */
     typeSelectors?: { name: string }[];
     /** The keys it declares for type selectors, its own or a module's registered before it, as an event type is a key of DOMQL's selector `event`, each mapping to a type. */
@@ -474,28 +474,11 @@ export interface DomqlModuleContents {
     conversions?: DomqlConversionDeclaration[];
 }
 
-/**
- * A predicate: a Boolean of its receivers, which its verb asks by name, as `.is("name")` does, carried out by its own implementation under its own updates, so one predicate's observability is no other's.
- * A module names a predicate freely on its own types, and on any other names it for itself, as it does members; a name is declared once for overlapping receivers, whatever its verb.
- */
-export interface DomqlPredicateDeclaration {
-    /** Its name, words of letters and digits joined by hyphens, as `focus-within` is. */
-    name: string;
-    /** The verb that asks it, its one kind of Boolean question: `is` a state, the default, `has` a possession or a presence, and `supports` a capability. */
-    verb?: 'is' | 'has' | 'supports';
-    /** The types it applies to, in DOMQL's notation; a predicate always names one. */
-    target: string | string[];
-    updates: DomqlUpdates & { changes: 'constant' | 'observable' | 'partly-observable' | 'unobserved'; reads: 'fresh' | 'maintained' };
-    /** Tests it, given what a member's implementation is, its name as `args.name`, and answers a Boolean. */
-    implementation?: (input: DomqlImplementationInput) => boolean;
-}
-
 /** A vocabulary's declarations as data, each that runs code carrying its implementation. */
 export interface DomqlModule {
     readonly name: string;
     readonly types: readonly { readonly name: string; readonly fields: Readonly<Record<string, string>> }[];
     readonly members: readonly DomqlMemberDeclaration[];
-    readonly predicates: readonly DomqlPredicateDeclaration[];
     readonly typeSelectors: readonly { readonly name: string }[];
     readonly selectableTypes: readonly { readonly name: string; readonly selector: string; readonly type: string }[];
     readonly observationTypes: readonly DomqlObservationTypeDeclaration[];
@@ -526,7 +509,7 @@ export interface Domql {
     query<T = unknown>(text: string, bindings?: DomqlBindings): DomqlQuery<T>;
     /** Makes a query object from a request's definition, binding its parameters. */
     query<T = unknown>(definition: DomqlDefinition, bindings?: DomqlBindings): DomqlQuery<T>;
-    /** The canonical text of a request, given as its text, its definition or a query object: it parses and checks the structure, needs no bindings and no registered vocabulary, and formatting what it gives gives that again. */
+    /** The canonical text of a request, given as its text, its definition or a query object: it parses and checks the structure, writes with the names of the registered modules, needs no bindings, and formatting what it gives gives that again. */
     format(source: string | DomqlDefinition | DomqlQuery): string;
     /** Creates a module from the vocabulary it declares, each declaration that runs code carrying its implementation. */
     createModule(name: string, contents: DomqlModuleContents): DomqlModule;

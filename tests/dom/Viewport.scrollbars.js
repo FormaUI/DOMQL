@@ -23,7 +23,7 @@ describe('window.size where scrollbars take up the viewport\'s room', () => {
         const content = document.getElementById('content');
         const snapshots = [];
         const expected = [];
-        const watch = domql.query('window.size').watch();
+        const watch = domql.query('domql.window.size').watch();
 
         watch.subscribe('change', (sender, args) => snapshots.push(args.value));
         await frame();

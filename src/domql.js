@@ -24,13 +24,13 @@ import { lexica, LexicaError } from '@formaui/lexica';
 /**
  * How a query is evaluated once.
  * @typedef {object} DomqlEvaluateOptions
- * @property {Window} [window] The window `window` stands for, and whose document `document` stands for; by default the environment's.
+ * @property {Window} [window] The window `domql.window` stands for, and whose document `domql.document` stands for; by default the environment's.
  */
 
 /**
  * How a query is evaluated once, waiting for its maintained members.
  * @typedef {object} DomqlEvaluateAsyncOptions
- * @property {Window} [window] The window `window` stands for, and whose document `document` stands for; by default the environment's.
+ * @property {Window} [window] The window `domql.window` stands for, and whose document `domql.document` stands for; by default the environment's.
  * @property {AbortSignal} [signal] Cancels the evaluation, which then rejects with the signal's reason.
  */
 
@@ -41,13 +41,13 @@ import { lexica, LexicaError } from '@formaui/lexica';
  * @property {'snapshot' | 'liveState'} [updateStrategy] What the watch's events carry: each snapshot whole, or one object the watch keeps current in place, which keeps its identity.
  * @property {boolean} [acceptPartialObservation] Whether the watch accepts a member whose observations only partly cover its changes.
  * @property {AbortSignal} [signal] Disposes the watch when it aborts.
- * @property {Window} [window] The window `window` stands for, and whose document `document` stands for; by default the environment's.
+ * @property {Window} [window] The window `domql.window` stands for, and whose document `domql.document` stands for; by default the environment's.
  */
 
 /**
  * How a subscription is listened to, or an execution carried out once or run.
  * @typedef {object} DomqlOperationOptions
- * @property {Window} [window] The window `window` stands for, and whose document `document` stands for; by default the environment's.
+ * @property {Window} [window] The window `domql.window` stands for, and whose document `domql.document` stands for; by default the environment's.
  * @property {AbortSignal} [signal] Ends what the operation started when it aborts.
  */
 
@@ -105,7 +105,7 @@ class Domql {
     });
 
     /**
-     * Makes a query object from a request's text or its definition, binding its parameters. It parses the text, a text being parsed once and its definition reused for identical text, and checks the structure; it evaluates nothing and has no effect.
+     * Makes a query object from a request's text or its definition, binding its parameters. It parses the text with the names of the modules DOMQL's registry holds, each beginning its namespace, a text being parsed once and its definition reused for identical text, and checks the structure; it evaluates nothing and has no effect.
      * A query object of another DOMQL instance is refused, with how to make it here from its definition.
      * @param {string | object} source The request's text, or its definition.
      * @param {Record<string, unknown>} [bindings] The values supplied by parameter name.
@@ -113,7 +113,7 @@ class Domql {
      */
     static query(source, bindings = {}) {
         if (typeof source === 'string') {
-            return new DomqlQuery(lexica.parse(source), lexica.bind(bindings), Domql.#operations);
+            return new DomqlQuery(Domql.#moduleRegistry.parse(source), lexica.bind(bindings), Domql.#operations);
         }
 
         if (source instanceof DomqlQuery) {
@@ -128,21 +128,21 @@ class Domql {
     }
 
     /**
-     * The canonical text of a request, given as its text, its definition or a query object, which the three give alike. It parses and checks the structure as `query` does, and needs no bindings and no registered vocabulary, since it resolves nothing; formatting the text it gives gives that text again.
+     * The canonical text of a request, given as its text, its definition or a query object, which the three give alike. It parses and checks the structure as `query` does, and writes with the names of the modules DOMQL's registry holds, needing no bindings, since it resolves nothing; formatting the text it gives gives that text again.
      * Comments and the original layout are discarded, as a definition holds neither, and the order of the locals and the fields is kept.
      * @param {string | object | DomqlQuery} source The request's text, its definition, or a query object this instance made.
      * @returns {string}
      */
     static format(source) {
         if (source instanceof DomqlQuery) {
-            return lexica.format(source.definition);
+            return Domql.#moduleRegistry.format(source.definition);
         }
 
         if (typeof source?.with === 'function') {
             throw LexicaError.structure('A query object another DOMQL instance made is formatted from its definition, as domql.format(query.definition)', {});
         }
 
-        return lexica.format(source);
+        return Domql.#moduleRegistry.format(source);
     }
 
     /**
@@ -509,7 +509,7 @@ class Domql {
         if (requested !== request) {
             const { does, takes } = REQUESTS[requested];
 
-            throw LexicaError.validation(`Cannot ${verb} '${lexica.quote(query.definition)}': ${does}.\nUse ${takes}.`, Domql.#locationOf(query));
+            throw LexicaError.validation(`Cannot ${verb} '${Domql.#moduleRegistry.quote(query.definition)}': ${does}.\nUse ${takes}.`, Domql.#locationOf(query));
         }
 
         return resolution;

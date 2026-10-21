@@ -6,7 +6,7 @@ import { Parser } from '#lexica/language/Parser.mjs';
 import { NODE_KINDS, SyntaxTree } from '#lexica/language/SyntaxTree.mjs';
 import { TOKEN_TYPES, Tokenizer } from '#lexica/language/Tokenizer.mjs';
 
-const treeOf = text => new Parser(text).parse();
+const treeOf = (text, moduleNames = new Set()) => new Parser(text, moduleNames).parse();
 
 /** The node kinds of the tree, outermost first, tokens left out. */
 const kindsOf = node => (SyntaxTree.isToken(node) ? [] : [node.kind, ...node.children.flatMap(kindsOf)]);
@@ -15,12 +15,12 @@ describe('SyntaxTree', () => {
     it.each([
         'panel',
         '  panel.size  ',
-        '// A panel.\npanel { /* its\nfirst item */ open = context.first(".item") /* inline */.matches(/**/".open") // whether it is open\n}\n',
-        'panel {\n    let rows = context.all("tr"),\n\n    count = rows.count,\n    first = rows:[0]?:["data-key"]\n}',
-        'if let n = a to "number" then n elseif b then 1 else (?panel.parent.rect).width end',
-        '\t(a ?? b)\tas "element"',
-        '(?(panel.parent as "element").rect.width) == null and not x != y or (try v to"number" ?? 0)',
-        'a/* the value */to/* its type */"number"',
+        '// A panel.\npanel { /* its\nfirst item */ open = it.first(".item") /* inline */.matches(/**/".open") // whether it is open\n}\n',
+        'panel {\n    let rows = it.all("tr"),\n\n    count = rows.count,\n    first = rows:[0]?:["data-key"]\n}',
+        'if let n = a to number then n elseif b then 1 else (?panel.parent.rect).width end',
+        '\t(a ?? b)\tas element',
+        '(?(panel.parent as element).rect.width) == null and not x != y or (try v to number ?? 0)',
+        'a/* the value */to/* its type */number',
         '{ say = "say \\"hi\\" \\\\ // not a comment" }',
         'list:item[i]?.size // trailing comment with no line feed',
         '$"a {{b}} {  c ?? "}" /* } */ } and {$"{({ d = 1 }.d)}"}\\u{7B}"',
@@ -64,12 +64,13 @@ describe('SyntaxTree', () => {
     });
 
     it('names each node after the grammar rule that produces it, a rule that passes an operand on giving none', () => {
-        expect(kindsOf(treeOf('panel'))).toEqual(['source']);
-        expect(kindsOf(treeOf('a == b and c'))).toEqual(['source', 'conjunction', 'equality']);
-        expect(kindsOf(treeOf('panel.closest(".row")?.rect { top = context.top }'))).toEqual(['source', 'chain', 'member-call', 'dot-property-access', 'object', 'field', 'chain', 'dot-property-access']);
-        expect(kindsOf(treeOf('(?a.b) ?? (c as "node")'))).toEqual(['source', 'coalescing', 'optional-enclosed-access', 'member-chain', 'dot-property-access', 'parenthesized-expression', 'cast']);
-        expect(kindsOf(treeOf('if let v = a then v else 0 end'))).toEqual(['source', 'conditional-expression', 'conditional-binding']);
-        expect(kindsOf(treeOf('panel[name]?:attribute["id"]'))).toEqual(['source', 'chain', 'bracket-property-access', 'indexer']);
+        expect(kindsOf(treeOf('panel'))).toEqual(['script']);
+        expect(kindsOf(treeOf('a == b and c'))).toEqual(['script', 'conjunction', 'equality']);
+        expect(kindsOf(treeOf('panel.closest(".row")?.rect { top = it.top }'))).toEqual(['script', 'chain', 'member-call', 'dot-property-access', 'object', 'field', 'chain', 'dot-property-access']);
+        expect(kindsOf(treeOf('(?a.b) ?? (c as node)'))).toEqual(['script', 'coalescing', 'optional-enclosed-access', 'member-chain', 'dot-property-access', 'parenthesized-expression', 'cast']);
+        expect(kindsOf(treeOf('if let v = a then v else 0 end'))).toEqual(['script', 'conditional-expression', 'conditional-binding']);
+        expect(kindsOf(treeOf('panel[name]?:attribute["id"]'))).toEqual(['script', 'chain', 'bracket-property-access', 'indexer']);
+        expect(kindsOf(treeOf('domql.window.size', new Set(['domql'])))).toEqual(['script', 'chain', 'namespace-access', 'dot-property-access']);
     });
 
     it('starts and ends a node at its first and last tokens, its trivia left out', () => {
@@ -82,9 +83,9 @@ describe('SyntaxTree', () => {
     it('publishes every node kind the parser builds and every token type the tokenizer reads', () => {
         const texts = [
             'if let v = a then v elseif not b then 1 else 2 end',
-            'a == b and c != d or (try e to "number" ?? 0)',
-            '(?(panel.parent as "element").rect.width) ?? panel.closest(".row")?.rect { top = context.top }',
-            'panel { let rows = context.all("i"), first = rows:[0]?:["data-key"], name = context[name], open = context.matches(".x") }',
+            'a == b and c != d or (try e to number ?? 0)',
+            '(?(panel.parent as element).rect.width) ?? panel.closest(".row")?.rect { top = it.top }',
+            'panel { let rows = it.all("i"), first = rows:[0]?:["data-key"], name = it[name], open = it.matches(".x") }',
             '-a * 2 + b % 3 - c / d',
             '0 < a <= 1 and b > c >= d',
             '$"a {b}"',
@@ -92,7 +93,7 @@ describe('SyntaxTree', () => {
             'let a = 1\nreturn do let b = a return b end',
             'let g = (x, y) => x\nreturn f(z => z, g)',
         ];
-        const kinds = new Set(texts.flatMap(text => kindsOf(treeOf(text))));
+        const kinds = new Set([...texts.flatMap(text => kindsOf(treeOf(text))), ...kindsOf(treeOf('domql.window.size', new Set(['domql'])))]);
         const types = new Set(texts.flatMap(text => Tokenizer.scan(text).map(token => token.type)).concat(Tokenizer.scan('a = 1').map(token => token.type)));
 
         expect([...kinds].filter(kind => !NODE_KINDS.includes(kind))).toEqual([]);
@@ -122,7 +123,7 @@ describe('SyntaxTree', () => {
     });
 
     it('keeps the text a query was made from beside its definition, from which its tree is read again, the same definition given again keeping it, and none for a definition given directly', () => {
-        const text = 'panel {\n    // its size\n    size = context.size\n}';
+        const text = 'panel {\n    // its size\n    size = it.size\n}';
         const query = domql.query(text);
 
         expect(SyntaxTree.textOf(treeOf(ParsedTexts.textOf(query.definition)))).toBe(text);
@@ -131,7 +132,7 @@ describe('SyntaxTree', () => {
     });
 
     it('lowers into the definition a query of the text holds, which keeps nothing of the tree', () => {
-        const text = 'panel { let rows = context.all("i"), first = rows:[0]?:["data-key"] }';
+        const text = 'panel { let rows = it.all("i"), first = rows:[0]?:["data-key"] }';
         const { definition } = Lowering.lower(treeOf(text));
 
         expect(definition).toEqual(domql.query(text).definition);

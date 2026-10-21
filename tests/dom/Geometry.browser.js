@@ -37,7 +37,7 @@ describe('Geometry in a browser', () => {
         });
 
         it('are the viewport size for the window', () => {
-            const size = read('window.size');
+            const size = read('domql.window.size');
 
             expect(size).toEqual({ width: document.documentElement.clientWidth, height: document.documentElement.clientHeight });
             expect(size.width).toBeGreaterThan(0);
@@ -61,7 +61,7 @@ describe('Geometry in a browser', () => {
         it('follow a transform', () => {
             const box = add('position: absolute; left: 0; top: 0; width: 100px; height: 50px; transform: translate(15px, 25px)');
 
-            expect(read('box.rect { left = context.left, top = context.top, width = context.width, height = context.height }', { box })).toEqual({ left: 15, top: 25, width: 100, height: 50 });
+            expect(read('box.rect { left = it.left, top = it.top, width = it.width, height = it.height }', { box })).toEqual({ left: 15, top: 25, width: 100, height: 50 });
         });
 
         it('are the browser\'s bounding box for an element split across lines, whether or not its lines have an area', () => {
@@ -83,8 +83,8 @@ describe('Geometry in a browser', () => {
 
             [48, 64, 48].forEach(height => add(`height: ${height}px`, list));
 
-            expect(read('list.children.max(context.rect?.height)', { list })).toBe(64);
-            expect(read('list.children.sum(context.rect?.height)', { list })).toBe(160);
+            expect(read('list.children.max(it.rect?.height)', { list })).toBe(64);
+            expect(read('list.children.sum(it.rect?.height)', { list })).toBe(160);
         });
     });
 
@@ -161,11 +161,11 @@ describe('Geometry in a browser', () => {
         });
     });
 
-    describe('predicates the browser decides', () => {
+    describe('Boolean functions the browser decides', () => {
         it('knows when an element is disabled through its fieldset', () => {
             document.body.innerHTML = '<fieldset disabled><legend><input id="inLegend"></legend><input id="outside"></fieldset><input id="free">';
 
-            const answer = id => read('input.is("disabled")', { input: document.getElementById(id) });
+            const answer = id => read('input.disabled()', { input: document.getElementById(id) });
 
             expect(answer('outside')).toBe(true);
             expect(answer('inLegend')).toBe(false);
@@ -176,14 +176,14 @@ describe('Geometry in a browser', () => {
             document.body.innerHTML = '<input id="text"><input id="readonly" readonly><input id="checkbox" type="checkbox"><div id="editable" contenteditable="true"><span id="inner"></span></div><div id="plain"></div>';
 
             const element = id => document.getElementById(id);
-            const ask = (id, test) => read(`e.${test === 'focus' ? 'has' : 'is'}("${test}")`, { e: element(id) });
+            const ask = (id, test) => read(`e.${test}()`, { e: element(id) });
 
-            expect(ask('text', 'text-editable')).toBe(true);
-            expect(ask('readonly', 'text-editable')).toBe(false);
+            expect(ask('text', 'textEditable')).toBe(true);
+            expect(ask('readonly', 'textEditable')).toBe(false);
             expect(ask('readonly', 'readonly')).toBe(true);
-            expect(ask('checkbox', 'text-editable')).toBe(false);
-            expect(ask('inner', 'text-editable')).toBe(true);
-            expect(ask('plain', 'text-editable')).toBe(false);
+            expect(ask('checkbox', 'textEditable')).toBe(false);
+            expect(ask('inner', 'textEditable')).toBe(true);
+            expect(ask('plain', 'textEditable')).toBe(false);
 
             expect(ask('text', 'focus')).toBe(false);
 
@@ -201,7 +201,7 @@ describe('Geometry in a browser', () => {
             input.focus();
             input.setSelectionRange(2, 7);
 
-            expect(read('input.selection { start = context.start, finish = context.end }', { input })).toEqual({ start: 2, finish: 7 });
+            expect(read('input.selection { start = it.start, finish = it.end }', { input })).toEqual({ start: 2, finish: 7 });
             expect(read('input.hasSelection', { input })).toBe(true);
             expect(read('input:attribute["value"]', { input })).toBeNull();
         });
@@ -216,7 +216,7 @@ describe('Geometry in a browser', () => {
 
             panel.setAttribute('data-query', `(min-width: ${width}px)`);
 
-            const watch = domql.query('window:media[panel:["data-query"] ?? "all"]', { panel }).watch({ schedule: 'immediate' });
+            const watch = domql.query('domql.window:media[panel:["data-query"] ?? "all"]', { panel }).watch({ schedule: 'immediate' });
 
             watch.subscribe('change', (_sender, args) => snapshots.push(args.value));
 
@@ -237,10 +237,10 @@ describe('Geometry in a browser', () => {
         });
 
         it('answers the window around the document', () => {
-            expect(read('window.devicePixelRatio')).toBeGreaterThan(0);
-            expect(read('window:media["(min-width: 1px)"]')).toBe(true);
-            expect(read('window:media["(max-width: 0px)"]')).toBe(false);
-            expect(read('document.is("visible")')).toBe(true);
+            expect(read('domql.window.devicePixelRatio')).toBeGreaterThan(0);
+            expect(read('domql.window:media["(min-width: 1px)"]')).toBe(true);
+            expect(read('domql.window:media["(max-width: 0px)"]')).toBe(false);
+            expect(read('domql.document.visible()')).toBe(true);
         });
     });
 });

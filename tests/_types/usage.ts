@@ -7,8 +7,8 @@ const controller = new AbortController();
 const signal = controller.signal;
 
 // A query object is made from text or a definition, and bound again by `with`.
-const query: DomqlQuery<{ count: number }> = domql.query<{ count: number }>('panel { count = context.children.count }', { panel });
-const optional = domql.query('panel { size = context.size }', { panel: null, ids: [] });
+const query: DomqlQuery<{ count: number }> = domql.query<{ count: number }>('panel { count = it.children.count }', { panel });
+const optional = domql.query('panel { size = it.size }', { panel: null, ids: [] });
 const definition: DomqlDefinition = query.definition;
 const created: DomqlQuery<{ count: number }> = domql.query<{ count: number }>(definition, { panel });
 const rebound: DomqlQuery<{ count: number }> = query.with({ panel: document.body });
@@ -43,7 +43,7 @@ const selection: DomqlSelection<number> = query.select<number>('count');
 const selected: number = selection.evaluate({ window });
 const selectedAsync: Promise<number> = selection.evaluateAsync(evaluating);
 const selectedWatch: DomqlWatch<number> = selection.watch({ schedule: 'immediate' });
-const key: DomqlSelection<string> = domql.query('panel.children { key = context:attribute["data-key"] }', { panel }).select('items').select<string>(0, 'key');
+const key: DomqlSelection<string> = domql.query('panel.children { key = it:attribute["data-key"] }', { panel }).select('items').select<string>(0, 'key');
 
 // @ts-expect-error A path item is a field's name or a list index.
 query.select(true);
@@ -113,7 +113,7 @@ query.watch({ updateStrategy: 'changeSet' });
 query.watch({ onChange: () => {} });
 
 // Live state is one object the watch keeps current, which the caller reads and never writes.
-const living: DomqlLiveStateWatch<{ rows: { key: string }[] }> = domql.query<{ rows: { key: string }[] }>('{ rows = panel.children { key = context:attribute["data-key"] } }', { panel }).watch({
+const living: DomqlLiveStateWatch<{ rows: { key: string }[] }> = domql.query<{ rows: { key: string }[] }>('{ rows = panel.children { key = it:attribute["data-key"] } }', { panel }).watch({
     updateStrategy: 'liveState',
     signal,
 });
@@ -153,13 +153,13 @@ const watchedAgain: DomqlWatch<{ count: number }> = query.watch(watching);
 const keptAgain: DomqlLiveStateWatch<{ count: number }> = query.watch(keeping);
 
 // A subscription's handler receives the event listener and each event's result, or the failure that produced none.
-const clicks: DomqlEventListener = domql.query<{ x: number }>('panel.on("click") { x = context.clientX }', { panel }).subscribe((sender, args) => {
+const clicks: DomqlEventListener = domql.query<{ x: number }>('panel.on("click") { x = it.clientX }', { panel }).subscribe((sender, args) => {
     const listener: DomqlEventListener = sender;
 
     return args.status === 'ready' ? [listener, args.value.x] : args.error;
 }, { window, signal });
 const operating: DomqlOperationOptions = { window, signal };
-const keys: DomqlEventListener = domql.query<{ key: string }>('panel.on("keydown") { key = context.key }', { panel }).subscribe((sender, args) => args.status, operating);
+const keys: DomqlEventListener = domql.query<{ key: string }>('panel.on("keydown") { key = it.key }', { panel }).subscribe((sender, args) => args.status, operating);
 const clicking: 'ready' | 'disposed' = clicks.status;
 
 keys.dispose();
@@ -235,9 +235,16 @@ const contents: DomqlModuleContents = {
         result: 'childMetrics',
         updates: { changes: 'unobserved', reads: 'fresh', tolerance: 0.5 },
         implementation: ({ receiver }) => ({ childCount: (receiver as Element).children.length }),
+    }, {
+        // A test of its receiver is a function whose result is a Boolean, called as `it.metrics.charted()` or given to a verb, as `it.metrics.has(metrics.charted)`.
+        name: 'charted',
+        kind: 'function',
+        target: 'childMetrics',
+        result: 'boolean',
+        updates: { changes: 'constant', reads: 'fresh' },
+        implementation: ({ receiver }) => (receiver as { childCount: number }).childCount > 0,
     }],
     selectableTypes: [{ name: 'chart-selected', selector: 'event', type: 'number' }],
-    predicates: [{ name: 'charted', verb: 'has', target: 'childMetrics', updates: { changes: 'constant', reads: 'fresh' }, implementation: ({ receiver }) => (receiver as { childCount: number }).childCount > 0 }],
     observationTypes: [{ name: 'chartsChanged', contract: 'maintained', identity: ['root'], shared: true, implementation: ({ notify }) => ({ stop: () => notify(), sample: () => ({ pending: true }) }) }],
     // A conversion's implementation takes the value and the reject that stops it.
     conversions: [{ from: 'string', to: 'childMetrics', implementation: ({ value, reject }) => (typeof value === 'string' && /^[0-9]+$/.test(value) ? { childCount: Number(value) } : reject(`${String(value)} is no count`)) }],
@@ -246,8 +253,8 @@ const module: DomqlModule = domql.createModule('metrics', contents);
 
 domql.registerModule(module);
 
-// @ts-expect-error A module declares the Booleans its verbs ask as predicates, and no conditions.
-domql.createModule('tests', { conditions: [] });
+// @ts-expect-error A module declares its tests as members, functions whose result is a Boolean, and no predicates.
+domql.createModule('tests', { predicates: [] });
 
 // @ts-expect-error A module is created from its contents alone, each declaration carrying its implementation.
 domql.createModule('metrics', contents, {});
@@ -263,12 +270,9 @@ const binding: DomqlDefinitionNode = { kind: 'conditional', binding: { name: 'n'
 
 // A named indexer is a syntax a member declares, and a node of a definition that names its key.
 const keyed: DomqlDefinitionNode = { kind: 'indexer', target: { kind: 'parameter', name: 'panel' }, name: 'attribute', argument: { kind: 'literal', value: 'id' } };
-const predicates: DomqlModuleContents = {
-    predicates: [{ name: 'lit', target: 'element', updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: ['data-lit'] }] } }],
+const booleanFunctions: DomqlModuleContents = {
+    members: [{ name: 'lit', kind: 'function', target: 'element', result: 'boolean', updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: ['data-lit'] }] } }],
 };
-
-// @ts-expect-error A predicate changes as what it tests does, never derived from items it selects.
-const derivedPredicate: DomqlModuleContents = { predicates: [{ name: 'lit', target: 'element', updates: { changes: 'derived', reads: 'fresh' } }] };
 
 const indexers: DomqlModuleContents = {
     members: [{ name: 'token', kind: 'function', syntax: 'indexer', target: 'element', parameters: [{ name: 'name', kind: 'value', type: 'string', required: true, nulls: 'propagate' }], result: 'string?', updates: { changes: 'constant', reads: 'fresh' } }],
@@ -312,15 +316,15 @@ if (tested.kind === 'or') {
     }
 }
 
-// @ts-expect-error An equality compares two values, and a test is a member that answers a Boolean.
-const misread: DomqlDefinitionNode = { kind: 'predicate', verb: 'is', target: { kind: 'context' }, name: { kind: 'literal', value: null } };
+// @ts-expect-error A predicate is no node: a test is a member that answers a Boolean, called or given to a verb.
+const misread: DomqlDefinitionNode = { kind: 'predicate', verb: 'is', target: { kind: 'it' }, name: { kind: 'literal', value: null } };
 
-const named: DomqlDefinitionNode = { kind: 'object', target: { kind: 'parameter', name: 'panel' }, locals: [{ name: 'size', value: { kind: 'member', target: { kind: 'context' }, name: 'size' } }], fields: [{ name: 'width', value: { kind: 'optionalChain', target: { kind: 'member', target: { kind: 'local', name: 'size' }, name: 'width', optional: true } } }] };
+const named: DomqlDefinitionNode = { kind: 'object', target: { kind: 'parameter', name: 'panel' }, locals: [{ name: 'size', value: { kind: 'member', target: { kind: 'it' }, name: 'size' } }], fields: [{ name: 'width', value: { kind: 'optionalChain', target: { kind: 'member', target: { kind: 'local', name: 'size' }, name: 'width', optional: true } } }] };
 
 // @ts-expect-error An infixCall is no node: a function is a call or an indexer.
-const infixCall: DomqlDefinitionNode = { kind: 'infixCall', target: { kind: 'context' }, name: 'matches' };
+const infixCall: DomqlDefinitionNode = { kind: 'infixCall', target: { kind: 'it' }, name: 'matches' };
 
 // @ts-expect-error A local is named, as a field is.
-const unnamed: DomqlDefinitionNode = { kind: 'object', locals: [{ value: { kind: 'context' } }], fields: [] };
+const unnamed: DomqlDefinitionNode = { kind: 'object', locals: [{ value: { kind: 'it' } }], fields: [] };
 
 export { bound, version, specificationVersion, languageVersion, formatted, formattedText, kind, typeText, count, anything, waited, shorthand, selected, selectedAsync, selectedWatch, key, listening, status, snapshot, failure, ready, refreshed, viewed, viewStatus, viewReady, smaller, held, livingSnapshot, livingReady, livingRefreshed, watchedAgain, keptAgain, clicking, source, moved, stepped, trapping, reported };

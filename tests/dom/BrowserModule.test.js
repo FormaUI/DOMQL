@@ -5,8 +5,8 @@ import { BrowserVocabulary } from '#domql/dom/BrowserVocabulary.mjs';
 import { DispatchTable } from '#domql/dom/DispatchTable.mjs';
 import { VocabularyImplementations } from '#domql/dom/VocabularyImplementations.mjs';
 
-/** The declarations of a module that run code: its members, observation types, conversions and predicates. */
-const declarationsOf = module => [...module.members, ...module.observationTypes, ...module.conversions, ...module.predicates];
+/** The declarations of a module that run code: its members, observation types and conversions. */
+const declarationsOf = module => [...module.members, ...module.observationTypes, ...module.conversions];
 
 /** What carries the declaration out: its own implementation, or a host call's, which DOMQL's dispatch table keeps. */
 const implementationOf = declaration => declaration.implementation ?? DispatchTable.get(declaration)?.implementation;
@@ -20,7 +20,7 @@ describe('BrowserModule', () => {
         expect(module.members.map(member => member.name)).toEqual(BrowserVocabulary.module.members.map(member => member.name));
     });
 
-    it('carries out every member, conversion and predicate and starts every observation type the vocabulary declares', () => {
+    it('carries out every member and conversion and starts every observation type the vocabulary declares', () => {
         for (const declaration of declarationsOf(module)) {
             expect(implementationOf(declaration), declaration.name ?? `${declaration.from} to ${declaration.to}`).toBeTypeOf('function');
         }

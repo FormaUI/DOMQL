@@ -34,7 +34,7 @@ describe('domql evaluateAsync in a browser', () => {
     });
 
     it('evaluates it among the other members of an object expression', async () => {
-        const snapshot = await domql.query('item { near = context.intersects(), height = context.size?.height, id = context:attribute["id"] }', { item: inside }).evaluateAsync();
+        const snapshot = await domql.query('item { near = it.intersects(), height = it.size?.height, id = it:attribute["id"] }', { item: inside }).evaluateAsync();
 
         expect(snapshot).toEqual({ near: true, height: 40, id: 'inside' });
     });
@@ -217,7 +217,7 @@ describe('domql evaluateAsync in a browser', () => {
             box.style.cssText = 'width: 200px; height: 100px; padding: 10px';
             document.body.append(box);
 
-            const watch = domql.query('box { width = context.clientSize?.width, evaluations = context.clientEvaluations }', { box }).watch({ schedule: 'immediate', acceptPartialObservation: true });
+            const watch = domql.query('box { width = it.clientSize?.width, evaluations = it.clientEvaluations }', { box }).watch({ schedule: 'immediate', acceptPartialObservation: true });
 
             watches.push(watch);
             await watch.readyAsync();
@@ -271,7 +271,7 @@ describe('domql evaluateAsync in a browser', () => {
             it('delivers the projection of a click, with what the event carried', () => {
                 const results = [];
 
-                listeners.push(domql.query('panel.on("click") { id = context.target?:attribute["id"], button = context.button, height = context.target?.size?.height }', { panel }).subscribe((sender, args) => results.push(args.value)));
+                listeners.push(domql.query('panel.on("click") { id = it.target?:attribute["id"], button = it.button, height = it.target?.size?.height }', { panel }).subscribe((sender, args) => results.push(args.value)));
                 inside.click();
 
                 expect(results).toEqual([{ id: 'inside', button: 0, height: 40 }]);

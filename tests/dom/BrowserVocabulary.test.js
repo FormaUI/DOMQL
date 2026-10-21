@@ -57,13 +57,17 @@ describe('BrowserVocabulary', () => {
         expect(tests).toEqual(['element.attached', 'element.hasChildren', 'element.hasSelection']);
     });
 
-    it('declares the predicates of elements and of the document, each tested with is, the state the browser sets rather than one that follows from structure', () => {
-        const predicates = module.predicates.map(predicate => `${predicate.target}.${predicate.verb}("${predicate.name}")`);
+    it('declares the tests of elements, the document, the window and ARIA views as Boolean functions, the state the browser sets rather than one that follows from structure', () => {
+        const tests = module.members.filter(member => member.kind === 'function' && member.result === 'boolean' && member.parameters.length === 0).map(member => `${member.target}.${member.name}()`);
 
-        expect(predicates).toEqual([
-            'element.is("disabled")', 'element.is("readonly")', 'element.is("text-editable")', 'element.has("focus")', 'element.has("focus-within")', 'element.is("hover")', 'element.is("popover-open")', 'element.is("checked")',
-            'document.is("visible")', 'document.has("focus")', 'window.supports("share")', 'window.supports("clipboard")', 'aria.is("checked")', 'aria.is("disabled")',
+        expect(tests).toEqual([
+            'element.disabled()', 'element.readonly()', 'element.textEditable()', 'element.focus()', 'element.focusWithin()', 'element.hover()', 'element.popoverOpen()', 'element.checked()',
+            'document.visible()', 'document.focus()', 'window.share()', 'window.clipboard()', 'aria.checked()', 'aria.disabled()',
         ]);
+    });
+
+    it('declares the document a query runs against and its window as module members of domql, read through its namespace', () => {
+        expect(module.members.filter(member => member.target === undefined).map(member => `${member.name}: ${member.result}`)).toEqual(['document: document', 'window: window']);
     });
 
     it('lets one name answer on different receivers', () => {
@@ -75,15 +79,13 @@ describe('BrowserVocabulary', () => {
         expect(messageOf(() => new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, new LexicaModule('parent', { members: [declaration({ name: 'parent', target: 'shadowRoot' })] })]))).toContain('declared already');
     });
 
-    it('lets a module beside it declare a member and a predicate of any name on an element', () => {
+    it('lets a module beside it declare a member and a Boolean function of any name on an element', () => {
         const charts = new LexicaModule('charts', {
-            members: [declaration({ name: 'palette' })],
-            predicates: [{ name: 'plotted', target: 'element', updates: { changes: 'unobserved', reads: 'fresh' } }],
+            members: [declaration({ name: 'palette' }), declaration({ name: 'plotted', kind: 'function', result: 'boolean', parameters: [], updates: { changes: 'unobserved', reads: 'fresh' } })],
         });
         const extended = new LexicaRegistry([Vocabulary.module, BrowserVocabulary.module, charts]);
 
-        expect(extended.getMembers('palette').map(member => extended.getOwner(member))).toEqual(['charts']);
-        expect(extended.getPredicates('plotted').map(predicate => extended.getOwner(predicate))).toEqual(['charts']);
+        expect(['palette', 'plotted'].flatMap(name => extended.getMembers(name)).map(member => extended.getOwner(member))).toEqual(['charts', 'charts']);
     });
 
     it('declares on as the event source of elements, the document and the window, a host call making a subscription, whose fixed type selects through the type selector event', () => {
@@ -103,7 +105,7 @@ describe('BrowserVocabulary', () => {
     });
 
     describe('observations', () => {
-        const members = [...module.members.filter(member => member.invokedBy !== 'host'), ...module.predicates];
+        const members = module.members.filter(member => member.invokedBy !== 'host');
         const covered = declaration => ['observable', 'partly-observable'].includes(declaration.updates.changes);
 
         it('are named by every member whose changes they cover, and by no other', () => {

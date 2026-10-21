@@ -9,7 +9,7 @@ export class Versions {
     static runtime = '1.0.0-alpha.275';
 
     /** The DOMQL specification version the implementation follows. */
-    static specification = '1.0.0-alpha.275';
+    static specification = '1.0.0-alpha.276';
 
     /** The language specification version the Lexica runtime DOMQL runs on follows, as that runtime reports it. */
     static language = lexica.info.versions.language;

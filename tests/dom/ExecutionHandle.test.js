@@ -159,7 +159,7 @@ describe('ExecutionHandle', () => {
         it('validates the bindings before anything changes, leaving the execution as it was', () => {
             const highlight = run('target.highlight(color)', { target: panel, color: 'gold' });
 
-            expect(getError(() => highlight.update({ target: other }))).toMatchObject({ kind: 'validation', message: expect.stringContaining("No local in scope or binding is named 'color'") });
+            expect(getError(() => highlight.update({ target: other }))).toMatchObject({ kind: 'validation', message: expect.stringContaining("No local in scope or script parameter is named 'color'") });
             expect(getError(() => highlight.update({ target: other, color: 7 }))).toMatchObject({ kind: 'validation' });
             expect(getError(() => highlight.update(null))).toMatchObject({ kind: 'structure' });
             expect(panel.dataset.highlight).toBe('gold');

@@ -6,7 +6,6 @@ import { Observations } from '#domql/dom/Observations.mjs';
 import { QueryEvaluator } from '#domql/dom/QueryEvaluator.mjs';
 import { domql } from '#domql/domql.js';
 import { lexica, LexicaError } from '@formaui/lexica';
-import { BrowserVocabulary } from '#domql/dom/BrowserVocabulary.mjs';
 
 /** Gives the element a border box, since the test environment lays nothing out. */
 const lay = (element, { left = 0, top = 0, width = 0, height = 0 }) => {
@@ -26,9 +25,9 @@ const propertyModule = (name, implementation) => lexica.createModule(name, {
     members: [{ name, kind: 'property', target: 'element', result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation }],
 });
 
-/** Reads a query against a registry of its own holding Lexica's and the DOM vocabulary and the module, or the modules. */
+/** Reads a query against a registry of its own holding Lexica's module, DOMQL's with its implementations, and the module, or the modules. */
 const readWith = (modules, text, bindings) => {
-    const registry = lexica.createRegistry([BrowserVocabulary.module, ...[modules].flat()]);
+    const registry = lexica.createRegistry([BrowserModule.create(), ...[modules].flat()]);
     const query = domql.query(text, bindings);
     const resolved = registry.resolve(query.definition, DomqlQuery.bindingsOf(query));
 
@@ -103,19 +102,19 @@ describe('QueryEvaluator', () => {
         it('answers an empty list where nothing matches and null where an element is expected', () => {
             expect(read('panel.all(".none").count', { panel })).toBe(0);
             expect(read('panel.first(".none")?:attribute["id"]', { panel })).toBeNull();
-            expect(read('panel.closest(".none") { id = context:attribute["id"] }', { panel })).toBeNull();
+            expect(read('panel.closest(".none") { id = it:attribute["id"] }', { panel })).toBeNull();
         });
 
         it('reads list items by position', () => {
-            expect(read('panel.children.first { key = context:attribute["data-key"] }', { panel })).toEqual({ key: 'a1' });
-            expect(read('panel.children.last { key = context:attribute["data-key"] }', { panel })).toEqual({ key: 'a3' });
-            expect(read('panel.children:[1] { key = context:attribute["data-key"] }', { panel })).toEqual({ key: 'a2' });
-            expect(read('panel.children:[3] { key = context:attribute["data-key"] }', { panel })).toBeNull();
-            expect(read('panel.children:[-1] { key = context:attribute["data-key"] }', { panel })).toBeNull();
+            expect(read('panel.children.first { key = it:attribute["data-key"] }', { panel })).toEqual({ key: 'a1' });
+            expect(read('panel.children.last { key = it:attribute["data-key"] }', { panel })).toEqual({ key: 'a3' });
+            expect(read('panel.children:[1] { key = it:attribute["data-key"] }', { panel })).toEqual({ key: 'a2' });
+            expect(read('panel.children:[3] { key = it:attribute["data-key"] }', { panel })).toBeNull();
+            expect(read('panel.children:[-1] { key = it:attribute["data-key"] }', { panel })).toBeNull();
         });
 
         it('reads the parent', () => {
-            expect(read('(item.parent as "element") { id = context:attribute["id"] }', { item: items[0] })).toEqual({ id: 'panel' });
+            expect(read('(item.parent as element) { id = it:attribute["id"] }', { item: items[0] })).toEqual({ id: 'panel' });
         });
     });
 
@@ -134,10 +133,10 @@ describe('QueryEvaluator', () => {
         it('reads the immediate parent, the root of the tree and a shadow root\'s host', () => {
             const { host, root, inner } = shadowHost();
 
-            expect(read('(inner.parent as "shadowRoot")?.host?:attribute["id"]', { inner })).toBe('host');
+            expect(read('(inner.parent as shadowRoot)?.host?:attribute["id"]', { inner })).toBe('host');
             expect(read('inner.root.host?:attribute["id"]', { inner })).toBe('host');
             expect(read('inner.root.children.count', { inner })).toBe(1);
-            expect(read('(host.root as "document")?.children.count', { host })).toBe(1);
+            expect(read('(host.root as document)?.children.count', { host })).toBe(1);
             expect(read('host.root.host?:attribute["id"]', { host })).toBeNull();
             expect(read('~root.parent?.children.count', { root })).toBeNull();
             expect(read('~root.all("p").count', { root })).toBe(1);
@@ -147,11 +146,11 @@ describe('QueryEvaluator', () => {
         it('casts a node to its kind, failing for one of another kind, which an attempted cast answers null for', () => {
             const { inner } = shadowHost();
 
-            expect(() => read('(inner.parent as "element")?:attribute["id"]', { inner })).toThrow(expect.objectContaining({ kind: 'evaluation', message: expect.stringContaining('The cast to element rejected its value: it is a shadow root') }));
-            expect(read('(try inner.parent as "element")?:attribute["id"]', { inner })).toBeNull();
-            expect(read('(item.parent as "element")?:attribute["id"]', { item: items[0] })).toBe('panel');
-            expect(read('(item.root as "document")?.children.count', { item: items[0] })).toBe(1);
-            expect(read('(try item.root as "shadowRoot")?.children.count', { item: items[0] })).toBeNull();
+            expect(() => read('(inner.parent as element)?:attribute["id"]', { inner })).toThrow(expect.objectContaining({ kind: 'evaluation', message: expect.stringContaining('The cast to element rejected its value: it is a shadow root') }));
+            expect(read('(try inner.parent as element)?:attribute["id"]', { inner })).toBeNull();
+            expect(read('(item.parent as element)?:attribute["id"]', { item: items[0] })).toBe('panel');
+            expect(read('(item.root as document)?.children.count', { item: items[0] })).toBe(1);
+            expect(read('(try item.root as shadowRoot)?.children.count', { item: items[0] })).toBeNull();
         });
 
         it('answers the topmost element of a detached tree as its root, which has no parent', () => {
@@ -160,7 +159,7 @@ describe('QueryEvaluator', () => {
             detached.id = 'top';
             detached.innerHTML = '<b></b>';
 
-            expect(read('(b.root as "element")?:attribute["id"]', { b: detached.firstChild })).toBe('top');
+            expect(read('(b.root as element)?:attribute["id"]', { b: detached.firstChild })).toBe('top');
             expect(read('top.parent?.children.count', { top: detached })).toBeNull();
         });
     });
@@ -169,16 +168,16 @@ describe('QueryEvaluator', () => {
         it('answers null from the first null an optional access meets on', () => {
             const detached = document.createElement('div');
 
-            expect(read('(detached.parent as "element")?.size', { detached })).toBeNull();
+            expect(read('(detached.parent as element)?.size', { detached })).toBeNull();
             expect(read('detached.parent?.children.count', { detached })).toBeNull();
-            expect(read('detached { parent = (context.parent as "element")?.size, tag = context:attribute["id"] }', { detached })).toEqual({ parent: null, tag: null });
+            expect(read('detached { parent = (it.parent as element)?.size, tag = it:attribute["id"] }', { detached })).toEqual({ parent: null, tag: null });
         });
 
         it('skips the rest of an optional chain where a receiver is null, reading it where the receiver is present', () => {
             const reads = [];
             const registry = lexica.createRegistry([BrowserModule.create(), propertyModule('probe', ({ receiver }) => (reads.push(receiver), 1))]);
             const readProbe = item => {
-                const query = domql.query('(item.parent as "element")?.probe', { item });
+                const query = domql.query('(item.parent as element)?.probe', { item });
                 const resolved = registry.resolve(query.definition, DomqlQuery.bindingsOf(query));
 
                 return new QueryEvaluator(registry, resolved.createEvaluator(DomqlQuery.bindingsOf(query), { window, document })).evaluateOnce();
@@ -223,14 +222,14 @@ describe('QueryEvaluator', () => {
 
     describe('object expressions', () => {
         it('names each field as it is written, and keeps their order', () => {
-            const answer = read('panel { count = context.children.count, id = context:attribute["id"], attached = context.attached, children = context.hasChildren }', { panel });
+            const answer = read('panel { count = it.children.count, id = it:attribute["id"], attached = it.attached, children = it.hasChildren }', { panel });
 
             expect(answer).toEqual({ count: 3, id: 'panel', attached: true, children: true });
             expect(Object.keys(answer)).toEqual(['count', 'id', 'attached', 'children']);
         });
 
         it('applies an object expression to each item of a list, in order', () => {
-            expect(read('panel.children { key = context:attribute["data-key"], selected = context.matches("[aria-selected=true]") }', { panel })).toEqual([
+            expect(read('panel.children { key = it:attribute["data-key"], selected = it.matches("[aria-selected=true]") }', { panel })).toEqual([
                 { key: 'a1', selected: false },
                 { key: 'a2', selected: true },
                 { key: 'a3', selected: false },
@@ -244,29 +243,29 @@ describe('QueryEvaluator', () => {
 
     describe('lists', () => {
         it('aggregates the numbers an expression produces', () => {
-            expect(read('panel.children.max(context.rect?.height)', { panel })).toBe(64);
-            expect(read('panel.children.min(context.rect?.height)', { panel })).toBe(48);
-            expect(read('panel.children.sum(context.rect?.height)', { panel })).toBe(160);
+            expect(read('panel.children.max(it.rect?.height)', { panel })).toBe(64);
+            expect(read('panel.children.min(it.rect?.height)', { panel })).toBe(48);
+            expect(read('panel.children.sum(it.rect?.height)', { panel })).toBe(160);
         });
 
         it('answers the aggregates of an empty list', () => {
-            expect(read('panel.all(".none").max(context.rect?.height)', { panel })).toBeNull();
-            expect(read('panel.all(".none").min(context.rect?.height)', { panel })).toBeNull();
-            expect(read('panel.all(".none").sum(context.rect?.height)', { panel })).toBe(0);
+            expect(read('panel.all(".none").max(it.rect?.height)', { panel })).toBeNull();
+            expect(read('panel.all(".none").min(it.rect?.height)', { panel })).toBeNull();
+            expect(read('panel.all(".none").sum(it.rect?.height)', { panel })).toBe(0);
         });
 
         it('skips the items an expression produces null for', () => {
             const detached = [document.createElement('div'), document.createElement('div')];
 
-            expect(read('els.max(context.rect?.height)', { els: detached })).toBeNull();
-            expect(read('els.sum(context.rect?.height)', { els: detached })).toBe(0);
-            expect(read('els.max(context.rect?.height)', { els: [items[0], ...detached] })).toBe(48);
+            expect(read('els.max(it.rect?.height)', { els: detached })).toBeNull();
+            expect(read('els.sum(it.rect?.height)', { els: detached })).toBe(0);
+            expect(read('els.max(it.rect?.height)', { els: [items[0], ...detached] })).toBe(48);
         });
 
         it('keeps the items a Boolean expression holds for', () => {
-            expect(read('panel.children.where(context.matches("[aria-selected=true]")).count', { panel })).toBe(1);
-            expect(read('panel.children.where(context.hasChildren).count', { panel })).toBe(0);
-            expect(read('els.where(context.overlaps({ other = panel })).count', { els: [items[0], document.createElement('div')], panel })).toBe(1);
+            expect(read('panel.children.where(it.matches("[aria-selected=true]")).count', { panel })).toBe(1);
+            expect(read('panel.children.where(it.hasChildren).count', { panel })).toBe(0);
+            expect(read('els.where(it.overlaps({ other = panel })).count', { els: [items[0], document.createElement('div')], panel })).toBe(1);
         });
     });
 
@@ -274,12 +273,12 @@ describe('QueryEvaluator', () => {
         it('reads what a name names, as a dot property access does', () => {
             expect(read('panel["children"].count', { panel })).toBe(3);
             expect(read('panel["size"]?.width', { panel })).toBe(640);
-            expect(read('panel { size = context["size"], clientSize = context["clientSize"] }', { panel }).size).toEqual({ width: 640, height: 480 });
+            expect(read('panel { size = it["size"], clientSize = it["clientSize"] }', { panel }).size).toEqual({ width: 640, height: 480 });
         });
 
         it('takes the name from a bound string, a local, a conditional and a coalescing operator', () => {
             expect(read('panel[name]?.width', { panel, name: 'size' })).toBe(640);
-            expect(read('panel { let name = if wide then "size" else "clientSize" end, width = context[name]?.width }', { panel, wide: true })).toEqual({ width: 640 });
+            expect(read('panel { let name = if wide then "size" else "clientSize" end, width = it[name]?.width }', { panel, wide: true })).toEqual({ width: 640 });
             expect(read('panel[name ?? "size"]?.width', { panel, name: null })).toBe(640);
         });
 
@@ -287,7 +286,7 @@ describe('QueryEvaluator', () => {
             const detached = document.createElement('div');
 
             expect(read('detached[name]?.width', { detached, name: 'size' })).toBeNull();
-            expect(read('(detached.parent as "element")?[name]', { detached, name: 'size' })).toBeNull();
+            expect(read('(detached.parent as element)?[name]', { detached, name: 'size' })).toBeNull();
         });
     });
 
@@ -296,14 +295,14 @@ describe('QueryEvaluator', () => {
             document.body.insertAdjacentHTML('beforeend', '<button id="b" disabled></button><input id="i" readonly><textarea id="t"></textarea><div id="e" contenteditable="true"><span id="s"></span></div><div inert><div id="n" contenteditable="true"></div></div>');
             const element = id => document.getElementById(id);
 
-            expect(read('b.is("disabled")', { b: element('b') })).toBe(true);
-            expect(read('panel.is("disabled")', { panel })).toBe(false);
-            expect(read('i.is("readonly")', { i: element('i') })).toBe(true);
-            expect(read('i.is("text-editable")', { i: element('i') })).toBe(false);
-            expect(read('t.is("text-editable")', { t: element('t') })).toBe(true);
-            expect(read('s.is("text-editable")', { s: element('s') })).toBe(true);
-            expect(read('n.is("text-editable")', { n: element('n') })).toBe(false);
-            expect(read('panel.is("text-editable")', { panel })).toBe(false);
+            expect(read('b.disabled()', { b: element('b') })).toBe(true);
+            expect(read('panel.disabled()', { panel })).toBe(false);
+            expect(read('i.readonly()', { i: element('i') })).toBe(true);
+            expect(read('i.textEditable()', { i: element('i') })).toBe(false);
+            expect(read('t.textEditable()', { t: element('t') })).toBe(true);
+            expect(read('s.textEditable()', { s: element('s') })).toBe(true);
+            expect(read('n.textEditable()', { n: element('n') })).toBe(false);
+            expect(read('panel.textEditable()', { panel })).toBe(false);
             expect(read('panel.hasChildren', { panel })).toBe(true);
             expect(read('item.hasChildren', { item: items[0] })).toBe(false);
         });
@@ -317,16 +316,16 @@ describe('QueryEvaluator', () => {
             const button = document.createElement('button');
             document.body.append(button);
 
-            expect(read('button.has("focus")', { button })).toBe(false);
+            expect(read('button.focus()', { button })).toBe(false);
 
             button.focus();
 
-            expect(read('button.has("focus")', { button })).toBe(true);
+            expect(read('button.focus()', { button })).toBe(true);
         });
 
         it('answers the document\'s conditions', () => {
-            expect(read('document.is("visible")')).toBeTypeOf('boolean');
-            expect(read('document.has("focus")')).toBeTypeOf('boolean');
+            expect(read('domql.document.visible()')).toBeTypeOf('boolean');
+            expect(read('domql.document.focus()')).toBeTypeOf('boolean');
         });
 
         it('gives a member the document and the window it is read in where an argument names a root', () => {
@@ -335,7 +334,7 @@ describe('QueryEvaluator', () => {
             });
             const panel = document.body.appendChild(document.createElement('div'));
 
-            expect(readWith(module, 'panel.inside(document)', { panel })).toBe(true);
+            expect(readWith(module, 'panel.inside(domql.document)', { panel })).toBe(true);
         });
 
         it('answers a selection of a text control', () => {
@@ -344,13 +343,13 @@ describe('QueryEvaluator', () => {
             document.body.append(input);
             input.setSelectionRange(1, 3);
 
-            expect(read('input.selection { start = context.start, finish = context.end }', { input })).toEqual({ start: 1, finish: 3 });
+            expect(read('input.selection { start = it.start, finish = it.end }', { input })).toEqual({ start: 1, finish: 3 });
             expect(read('input.hasSelection', { input })).toBe(true);
 
             input.setSelectionRange(2, 2);
 
             expect(read('input.hasSelection', { input })).toBe(false);
-            expect(read('panel.selection { start = context.start }', { panel })).toBeNull();
+            expect(read('panel.selection { start = it.start }', { panel })).toBeNull();
         });
     });
 
@@ -391,12 +390,12 @@ describe('QueryEvaluator', () => {
         });
 
         it('test the implicit parameter inside an object expression and an expression argument', () => {
-            expect(read('panel { attached = context.attached, empty = context.hasChildren }', { panel })).toEqual({ attached: true, empty: true });
-            expect(read('panel.children.where(context.attached and context.has("focus")).count', { panel })).toBe(0);
+            expect(read('panel { attached = it.attached, empty = it.hasChildren }', { panel })).toEqual({ attached: true, empty: true });
+            expect(read('panel.children.where(it.attached and it.focus()).count', { panel })).toBe(0);
         });
 
-        it('read a test by a name the bindings hold, a condition and a member by name', () => {
-            expect(read('panel.has(state) or panel[other]', { panel, state: 'focus', other: 'attached' })).toBe(true);
+        it('read a test by reference, and a member by the name the bindings hold', () => {
+            expect(read('panel.has(domql.focus) or panel[other]', { panel, other: 'attached' })).toBe(true);
         });
 
         it('answer whether a subject is null with is null, never null itself', () => {
@@ -414,7 +413,7 @@ describe('QueryEvaluator', () => {
             expect(read('a == false', { a: false })).toBe(true);
             expect(read('a == b', { a: items[0], b: items[0] })).toBe(true);
             expect(read('a != b', { a: items[0], b: items[1] })).toBe(true);
-            expect(read('(item.parent as "element") == panel', { item: items[0], panel })).toBe(true);
+            expect(read('(item.parent as element) == panel', { item: items[0], panel })).toBe(true);
         });
 
         it('equal null to null alone, whatever the other value\'s type', () => {
@@ -476,7 +475,7 @@ describe('QueryEvaluator', () => {
 
         it('evaluate a local once for each application of its object expression, giving every use there its value', () => {
             const { module, record } = counting();
-            const result = readWith(module, 'rows { let n = context.counted, a = n, b = n }', { rows: items });
+            const result = readWith(module, 'rows { let n = it.counted, a = n, b = n }', { rows: items });
 
             expect(record.reads).toBe(3);
             expect(result).toEqual([{ a: 1, b: 1 }, { a: 2, b: 2 }, { a: 3, b: 3 }]);
@@ -485,44 +484,44 @@ describe('QueryEvaluator', () => {
         it('evaluate a local no evaluated expression uses never', () => {
             const { module, record } = counting();
 
-            expect(readWith(module, 'panel { let n = context.counted, a = 1 }', { panel })).toEqual({ a: 1 });
-            expect(readWith(module, 'panel { let n = context.counted, a = if on then n else 0 end }', { panel, on: false })).toEqual({ a: 0 });
+            expect(readWith(module, 'panel { let n = it.counted, a = 1 }', { panel })).toEqual({ a: 1 });
+            expect(readWith(module, 'panel { let n = it.counted, a = if on then n else 0 end }', { panel, on: false })).toEqual({ a: 0 });
             expect(record.reads).toBe(0);
         });
 
         it('evaluate a local at its first use, wherever that is', () => {
             const { module, record } = counting();
 
-            expect(readWith(module, 'panel { let n = context.counted, a = if on then n else 0 end, b = n }', { panel, on: false })).toEqual({ a: 0, b: 1 });
+            expect(readWith(module, 'panel { let n = it.counted, a = if on then n else 0 end, b = n }', { panel, on: false })).toEqual({ a: 0, b: 1 });
             expect(record.reads).toBe(1);
         });
 
         it('give a later evaluation fresh locals', () => {
             const { module } = counting();
 
-            expect(readWith(module, 'panel { let n = context.counted, a = n }', { panel })).toEqual({ a: 1 });
-            expect(readWith(module, 'panel { let n = context.counted, a = n }', { panel })).toEqual({ a: 2 });
+            expect(readWith(module, 'panel { let n = it.counted, a = n }', { panel })).toEqual({ a: 1 });
+            expect(readWith(module, 'panel { let n = it.counted, a = n }', { panel })).toEqual({ a: 2 });
         });
 
         it('keep the context of where a local is written, used inside a nested projection', () => {
-            const result = read('panel { let owner = context:attribute["id"], rows = context.children { owner = owner, key = context:attribute["data-key"] } }', { panel });
+            const result = read('panel { let owner = it:attribute["id"], rows = it.children { owner = owner, key = it:attribute["data-key"] } }', { panel });
 
             expect(result.rows).toEqual([{ owner: 'panel', key: 'a1' }, { owner: 'panel', key: 'a2' }, { owner: 'panel', key: 'a3' }]);
         });
 
         it('give a local to the expression an argument evaluates for each item', () => {
-            expect(read('panel { let selector = "[aria-selected=true]", selected = context.children.where(context.matches(selector)) { key = context:attribute["data-key"] } }', { panel }))
+            expect(read('panel { let selector = "[aria-selected=true]", selected = it.children.where(it.matches(selector)) { key = it:attribute["data-key"] } }', { panel }))
                 .toEqual({ selected: [{ key: 'a2' }] });
         });
 
         it('use the locals before it, and those of an enclosing object expression', () => {
-            expect(read('panel { let rows = context.children, let first = rows:[0], key = first?:attribute["data-key"], inner = context { last = rows:[2]?:attribute["data-key"] } }', { panel }))
+            expect(read('panel { let rows = it.children, let first = rows:[0], key = first?:attribute["data-key"], inner = it { last = rows:[2]?:attribute["data-key"] } }', { panel }))
                 .toEqual({ key: 'a1', inner: { last: 'a3' } });
         });
 
         it('stand where a bracket property access\'s name is, with the names they can give', () => {
-            expect(read('panel { let name = "size", width = context[name]?.width }', { panel })).toEqual({ width: 640 });
-            expect(read('panel { let name = chosen, let selected = name, width = context[selected]?.width }', { panel, chosen: 'size' })).toEqual({ width: 640 });
+            expect(read('panel { let name = "size", width = it[name]?.width }', { panel })).toEqual({ width: 640 });
+            expect(read('panel { let name = chosen, let selected = name, width = it[selected]?.width }', { panel, chosen: 'size' })).toEqual({ width: 640 });
         });
     });
 
@@ -569,16 +568,16 @@ describe('QueryEvaluator', () => {
 
     describe('the window', () => {
         it('reads the window and its media queries', () => {
-            expect(read('window.size.width')).toBeTypeOf('number');
-            expect(read('window.devicePixelRatio')).toBeTypeOf('number');
-            expect(read('window:media["(min-width: 0px)"]')).toBe(true);
-            expect(read('window { share = context.supports("share") }').share).toBeTypeOf('boolean');
+            expect(read('domql.window.size.width')).toBeTypeOf('number');
+            expect(read('domql.window.devicePixelRatio')).toBeTypeOf('number');
+            expect(read('domql.window:media["(min-width: 0px)"]')).toBe(true);
+            expect(read('domql.window { share = it.share() }').share).toBeTypeOf('boolean');
         });
 
         it('reads the window it is given', () => {
-            const query = domql.query('window.devicePixelRatio');
+            const query = domql.query('domql.window.devicePixelRatio');
 
-            expect(query.evaluate({ window: { document, devicePixelRatio: 3 } })).toBe(3);
+            expect(query.evaluate({ window: { document, devicePixelRatio: 3, get window() { return this; } } })).toBe(3);
         });
     });
 
@@ -593,7 +592,7 @@ describe('QueryEvaluator', () => {
 
     describe('answers', () => {
         it('are the same for a parsed query and one created from its definition', () => {
-            const parsed = domql.query('panel { count = context.children.count, keys = context.children { key = context:attribute["data-key"] } }', { panel });
+            const parsed = domql.query('panel { count = it.children.count, keys = it.children { key = it:attribute["data-key"] } }', { panel });
             const created = domql.query(parsed.definition, { panel });
 
             expect(created.evaluate()).toEqual(parsed.evaluate());
@@ -606,12 +605,12 @@ describe('QueryEvaluator', () => {
             expect(answer).toEqual(numbers);
             expect(answer).not.toBe(numbers);
             expect(Object.isFrozen(answer)).toBe(true);
-            expect(Object.isFrozen(read('panel { size = context.size }', { panel }))).toBe(true);
+            expect(Object.isFrozen(read('panel { size = it.size }', { panel }))).toBe(true);
         });
 
         it('read a field of a bound object', () => {
             expect(read('box.width', { box: { width: 5, height: 6 } })).toBe(5);
-            expect(read('box { width = context.width, other = context.height }', { box: { width: 5, height: 6 } })).toEqual({ width: 5, other: 6 });
+            expect(read('box { width = it.width, other = it.height }', { box: { width: 5, height: 6 } })).toEqual({ width: 5, other: 6 });
         });
     });
 
@@ -749,7 +748,7 @@ describe('QueryEvaluator evaluation', () => {
         it('describes each item of a projection by the branch it selected', () => {
             rows[1].setAttribute('data-on', '');
 
-            const { metadata } = watching('panel.children { pick = if (context:attribute["data-on"]) == null then 2 else 1 end }', { panel })();
+            const { metadata } = watching('panel.children { pick = if (it:attribute["data-on"]) == null then 2 else 1 end }', { panel })();
 
             expect(metadata.sources).toEqual(rows);
             expect(metadata.items[0].fields.pick.origin).toBe(metadata.items[2].fields.pick.origin);
@@ -776,7 +775,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('follow the document: the members read for each item the selector matched', () => {
-            const evaluation = evaluate('panel.all("i").max(context.rect?.height)', { panel });
+            const evaluation = evaluate('panel.all("i").max(it.rect?.height)', { panel });
             const measured = evaluation.dependencies.filter(dependency => dependency.member === 'rect');
 
             expect(membersOf(evaluation).slice(0, 2)).toEqual(['all', 'max']);
@@ -785,7 +784,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('stand where each member is written, inside the items of a list and the operands of an or', () => {
-            const evaluation = evaluate('panel.all("i") { h = context.rect?.height, on = context.attached or context.has("focus") }', { panel });
+            const evaluation = evaluate('panel.all("i") { h = it.rect?.height, on = it.attached or it.focus() }', { panel });
 
             expect(evaluation.dependencies.map(dependency => [dependency.member, dependency.pointer])).toEqual([
                 ['all', '/expression/target'],
@@ -798,12 +797,12 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('stop where an optional chain meets null, and reach as far as its receivers are present', () => {
-            expect(membersOf(evaluate('(item.parent as "element")?.size', { item: document.createElement('i') }))).toEqual(['parent']);
-            expect(membersOf(evaluate('(item.parent as "element")?.size', { item: rows[0] }))).toEqual(['parent', 'size']);
+            expect(membersOf(evaluate('(item.parent as element)?.size', { item: document.createElement('i') }))).toEqual(['parent']);
+            expect(membersOf(evaluate('(item.parent as element)?.size', { item: rows[0] }))).toEqual(['parent', 'size']);
         });
 
         it('include those of an argument that is a value of its own', () => {
-            const evaluation = evaluate('row.overlaps({ other = panel.parent as "element" })', { row: rows[0], panel });
+            const evaluation = evaluate('row.overlaps({ other = panel.parent as element })', { row: rows[0], panel });
             const overlaps = evaluation.dependencies.find(dependency => dependency.member === 'overlaps');
 
             expect(membersOf(evaluation)).toContain('parent');
@@ -834,7 +833,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('include only those of the locals evaluation used', () => {
-            expect(membersOf(evaluate('panel { let s = context.size, let c = context.clientSize, a = s, b = s }', { panel }))).toEqual(['size']);
+            expect(membersOf(evaluate('panel { let s = it.size, let c = it.clientSize, a = s, b = s }', { panel }))).toEqual(['size']);
         });
 
         it('include only those of the branch a conditional evaluated', () => {
@@ -843,8 +842,8 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('include the tests an or reached, and none it did not need', () => {
-            const reached = evaluate('panel.attached or panel.has("focus")', { panel });
-            const both = evaluate('panel.has("focus") or panel.attached', { panel });
+            const reached = evaluate('panel.attached or panel.focus()', { panel });
+            const both = evaluate('panel.focus() or panel.attached', { panel });
 
             expect(membersOf(reached)).toEqual(['attached']);
             expect(membersOf(both)).toEqual(['focus', 'attached']);
@@ -927,7 +926,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are held once for every call that observes the same, so a change calls the evaluation back once', async () => {
-            const evaluation = evaluate('panel.children { on = context.matches("[data-on]") }', { panel }, [], true);
+            const evaluation = evaluate('panel.children { on = it.matches("[data-on]") }', { panel }, [], true);
             const requests = evaluation.dependencies.flatMap(dependency => dependency.observations);
 
             expect(evaluation.dependencies.length).toBe(4);
@@ -941,7 +940,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are held once for every call that observes the same while a pending answer waits', async () => {
-            const evaluation = evaluate('panel.children { on = context.matches("[data-on]"), level = context.level }', { panel }, [waitingModule()]);
+            const evaluation = evaluate('panel.children { on = it.matches("[data-on]"), level = it.level }', { panel }, [waitingModule()]);
 
             expect(evaluation.isPending).toBe(true);
 
@@ -1005,7 +1004,7 @@ describe('QueryEvaluator evaluation', () => {
         };
 
         it('are taken over by every evaluation in turn, each from the one it replaces, so a run of them acquires nothing after the first', () => {
-            const run = evaluationsOf('panel.children { p = context.probe(), w = context.rect?.width }', { panel }, [probeModule()]);
+            const run = evaluationsOf('panel.children { p = it.probe(), w = it.rect?.width }', { panel }, [probeModule()]);
             let last = run.evaluate([]);
             const acquired = run.acquired();
 
@@ -1021,7 +1020,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are taken over where the evaluation observes the same again, so nothing is acquired or stopped', () => {
-            const run = evaluationsOf('panel.children { p = context.probe() }', { panel }, [probeModule()]);
+            const run = evaluationsOf('panel.children { p = it.probe() }', { panel }, [probeModule()]);
             const first = run.evaluate([]);
             const acquired = run.acquired();
             const second = run.evaluate([first]);
@@ -1039,7 +1038,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are taken from every evaluation replaced, so one only an earlier of them still holds is not started again', () => {
-            const run = evaluationsOf('panel.children { p = context.probe() }', { panel }, [probeModule()]);
+            const run = evaluationsOf('panel.children { p = it.probe() }', { panel }, [probeModule()]);
             const first = run.evaluate([]);
             const last = rows[2];
 
@@ -1096,7 +1095,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are held once, and taken over once, where the evaluation observes the same twice', () => {
-            const run = evaluationsOf('items { p = context.probe() }', { items: [rows[0], rows[0]] }, [probeModule()]);
+            const run = evaluationsOf('items { p = it.probe() }', { items: [rows[0], rows[0]] }, [probeModule()]);
             const first = run.evaluate([]);
 
             expect(run.acquired()).toBe(1);
@@ -1207,7 +1206,7 @@ describe('QueryEvaluator projection', () => {
 
     describe('the host call', () => {
         it('is prepared into what starts it: its declaration, the receiver and the arguments prepared now, its implementation in DOMQL\'s dispatch table, and nothing started', () => {
-            const call = evaluatorOf('panel.ticks("tick") { at = context.at }', { panel }, [ticks('tick')]).prepareCall();
+            const call = evaluatorOf('panel.ticks("tick") { at = it.at }', { panel }, [ticks('tick')]).prepareCall();
 
             expect(call).toMatchObject({ kind: 'prepared', declaration: { name: 'ticks' }, receiver: panel, args: { type: 'tick' } });
             expect(typeof DispatchTable.get(call.declaration).implementation).toBe('function');
@@ -1215,7 +1214,7 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('is skipped where its receiver is null, since there is nothing to listen to', () => {
-            expect(evaluatorOf('panel.first(".none")?.ticks("tick") { at = context.at }', { panel }, [ticks('tick')]).prepareCall()).toMatchObject({ kind: 'skipped' });
+            expect(evaluatorOf('panel.first(".none")?.ticks("tick") { at = it.at }', { panel }, [ticks('tick')]).prepareCall()).toMatchObject({ kind: 'skipped' });
         });
 
         it('is refused for a request that ends in no host call', () => {
@@ -1225,14 +1224,14 @@ describe('QueryEvaluator projection', () => {
 
     describe('capturing an event', () => {
         it('keeps the fields its type declares, a nullable one it does not carry as null', () => {
-            const evaluator = evaluatorOf('panel.ticks("tick") { at = context.at, label = context.label }', { panel }, [ticks('tick')]);
+            const evaluator = evaluatorOf('panel.ticks("tick") { at = it.at, label = it.label }', { panel }, [ticks('tick')]);
 
             expect(projectionOf(evaluator, { at: 1, label: 'first', extra: true }).value).toEqual({ at: 1, label: 'first' });
             expect(projectionOf(evaluator, { at: 1 }).value).toEqual({ at: 1, label: null });
         });
 
         it('fails where the event carries mistyped data, whether its field is nullable or not', () => {
-            const evaluator = evaluatorOf('panel.ticks("tick") { at = context.at }', { panel }, [ticks('tick')]);
+            const evaluator = evaluatorOf('panel.ticks("tick") { at = it.at }', { panel }, [ticks('tick')]);
 
             expect(projectionOf(evaluator, { at: 'soon' }).error).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The host call 'ticks' supplied a value whose 'at' is \"soon\", and 'at' is declared number") });
             expect(projectionOf(evaluator, { at: 1, label: 7 }).error).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("whose 'label' is 7, and 'label' is declared string?") });
@@ -1247,7 +1246,7 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('keeps a native event\'s target, and null for a target that is no element, a reference of another type', () => {
-            const evaluator = evaluatorOf('document.on("scroll") { id = context.target?:attribute["id"] }');
+            const evaluator = evaluatorOf('domql.document.on("scroll") { id = it.target?:attribute["id"] }');
 
             expect(projectionOf(evaluator, new window.Event('scroll')).value).toEqual({ id: null });
             expect(projectionOf(evaluator, { target: panel }).value).toEqual({ id: 'panel' });
@@ -1257,7 +1256,7 @@ describe('QueryEvaluator projection', () => {
 
     describe('an event', () => {
         it('is projected through the object expression that follows its source, as detached, immutable data', () => {
-            const evaluator = evaluatorOf('panel.ticks("tick") { at = context.at, label = context.label, count = panel.children.count }', { panel }, [ticks('tick')]);
+            const evaluator = evaluatorOf('panel.ticks("tick") { at = it.at, label = it.label, count = panel.children.count }', { panel }, [ticks('tick')]);
             const projection = projectionOf(evaluator, { at: 3, label: 'third' });
 
             expect(projection.error).toBeNull();
@@ -1266,7 +1265,7 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('reads what it captured, and the document as it is', () => {
-            const evaluator = evaluatorOf('document.on("scroll") { id = context.target?:attribute["id"] }');
+            const evaluator = evaluatorOf('domql.document.on("scroll") { id = it.target?:attribute["id"] }');
 
             expect(projectionOf(evaluator, { target: panel }).value).toEqual({ id: 'panel' });
             expect(projectionOf(evaluator, { target: document }).value).toEqual({ id: null });
@@ -1281,7 +1280,7 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('stands for its source, which the projection never starts or reads', () => {
-            const evaluator = evaluatorOf('panel.ticks("tick") { at = context.at }', { panel }, [ticks('tick')]);
+            const evaluator = evaluatorOf('panel.ticks("tick") { at = it.at }', { panel }, [ticks('tick')]);
 
             projectionOf(evaluator, { at: 1 });
             projectionOf(evaluator, { at: 2 });

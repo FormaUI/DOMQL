@@ -3,10 +3,10 @@ import { userEvent } from '@vitest/browser/context';
 import { domql } from '#domql/domql.js';
 
 /**
- * The built-in predicates in a real browser, each asked two ways after every cause: evaluated afresh, which is what the browser decides, and watched, which is what the predicate's observations catch.
- * Where the two agree, the watch caught the change; where only the evaluation moved, the change is one the predicate's contract says a watch misses.
+ * The built-in Boolean functions in a real browser, each called two ways after every cause: evaluated afresh, which is what the browser decides, and watched, which is what the function's observations catch.
+ * Where the two agree, the watch caught the change; where only the evaluation moved, the change is one the function's contract says a watch misses.
  */
-describe('Predicates in a browser', () => {
+describe('Boolean functions in a browser', () => {
     let watches;
 
     beforeEach(() => {
@@ -31,10 +31,9 @@ describe('Predicates in a browser', () => {
         return new Proxy({}, { get: (_, id) => document.getElementById(id) });
     };
 
-    /** Watches the element's predicate, asked with the verb that asks it, its ARIA predicate where asked, and answers what the watch last reported and what the browser decides now. */
+    /** Watches the element's Boolean function, or its ARIA view's where asked, and answers what the watch last reported and what the browser decides now. */
     const watching = async (element, name, isAria = false) => {
-        const verb = name === 'focus' || name === 'focus-within' ? 'has' : 'is';
-        const text = isAria ? `e.aria.is("${name}")` : `e.${verb}("${name}")`;
+        const text = isAria ? `e.aria.${name}()` : `e.${name}()`;
         const snapshots = [];
         const watch = domql.query(text, { e: element }).watch({ schedule: 'immediate', acceptPartialObservation: true });
 
@@ -127,11 +126,11 @@ describe('Predicates in a browser', () => {
         });
     });
 
-    describe('focus and focus-within', () => {
+    describe('focus and focusWithin', () => {
         it('follow focus moving into an element and within it', async () => {
             const { outer, field } = page('<div id="outer"><input id="field"></div><button id="other">x</button>');
             const focus = await watching(field, 'focus');
-            const within = await watching(outer, 'focus-within');
+            const within = await watching(outer, 'focusWithin');
 
             expect(await within.after(() => userEvent.click(field))).toEqual({ watched: true, decided: true });
             expect(focus.watched).toBe(true);
@@ -141,7 +140,7 @@ describe('Predicates in a browser', () => {
 
         it('follow the focused element being removed, which moves focus away', async () => {
             const { outer, field } = page('<div id="outer"><input id="field"></div>');
-            const within = await watching(outer, 'focus-within');
+            const within = await watching(outer, 'focusWithin');
 
             await within.after(() => field.focus());
 
@@ -169,7 +168,7 @@ describe('Predicates in a browser', () => {
         });
     });
 
-    describe('the ARIA predicates, as their attributes say', () => {
+    describe('the ARIA view\'s Boolean functions, as their attributes say', () => {
         it('follow aria-checked and aria-disabled as they change, mixed answering false', async () => {
             const { box } = page('<div id="box" role="checkbox"></div>');
             const checked = await watching(box, 'checked', true);
@@ -181,7 +180,7 @@ describe('Predicates in a browser', () => {
             expect(await disabled.after(() => box.removeAttribute('aria-disabled'))).toEqual({ watched: false, decided: false });
         });
 
-        it('stay as they are while the native state changes, as the native predicates do while the attributes change', async () => {
+        it('stay as they are while the native state changes, as the native functions do while the attributes change', async () => {
             const { box } = page('<input id="box" type="checkbox">');
             const aria = await watching(box, 'checked', true);
             const native = await watching(box, 'checked');
@@ -192,10 +191,10 @@ describe('Predicates in a browser', () => {
         });
     });
 
-    describe('popover-open, as :popover-open matches', () => {
+    describe('popoverOpen, as :popover-open matches', () => {
         it('follows a popover shown and hidden', async () => {
             const { tip } = page('<div id="tip" popover>tip</div>');
-            const open = await watching(tip, 'popover-open');
+            const open = await watching(tip, 'popoverOpen');
 
             expect(await open.after(() => tip.showPopover())).toEqual({ watched: true, decided: true });
             expect(await open.after(() => tip.hidePopover())).toEqual({ watched: false, decided: false });
@@ -203,8 +202,8 @@ describe('Predicates in a browser', () => {
 
         it('follows an open popover whose popover attribute is removed, or that is removed itself', async () => {
             const { tip, other } = page('<div id="tip" popover>tip</div><div id="other" popover>other</div>');
-            const open = await watching(tip, 'popover-open');
-            const otherOpen = await watching(other, 'popover-open');
+            const open = await watching(tip, 'popoverOpen');
+            const otherOpen = await watching(other, 'popoverOpen');
 
             await open.after(() => tip.showPopover());
 

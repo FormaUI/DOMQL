@@ -1,8 +1,8 @@
 domql.query(`
     panel {
-        count = context.children.count,
-        attached = context.attached,
-        hasChildren = context.hasChildren
+        count = it.children.count,
+        attached = it.attached,
+        hasChildren = it.hasChildren
     }
 `, { panel }).evaluate();
 // { count: 3, attached: true, hasChildren: true }

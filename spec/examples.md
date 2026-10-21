@@ -35,7 +35,7 @@ The query reads it:
     // The panel itself.
     panel = panel {
         size = it.size,
-        hasFocus = it.has("focus-within"),
+        hasFocus = it.focusWithin(),
         tier = it:style["--layout-tier"],
         columns = it.grid?.columns.count
     },
@@ -56,7 +56,7 @@ The query reads it:
 
     // The window around it.
     window = domql.window { size = it.size, dark = it:media["(prefers-color-scheme: dark)"] },
-    visible = domql.document.is("visible"),
+    visible = domql.document.visible(),
     kind = "list"
 }
 ```
@@ -99,13 +99,13 @@ Watching the query requires accepting partial observation, since `all`, `style`,
 | How many columns a grid lays out | `cards.grid?.columns.count` |
 | A table's tallest row | `table.all("tbody tr").max(it.rect?.height)` |
 | Each column's key and width | `table.all("[data-column]") { key = it:["data-column"], width = it.rect?.width }` |
-| A panel's size, and whether focus is within it | `panel { size = it.size, hasFocus = it.has("focus-within") }` |
+| A panel's size, and whether focus is within it | `panel { size = it.size, hasFocus = it.focusWithin() }` |
 | A text field's selection | `field.selection { start = it.start, finish = it.end }` |
-| Whether sharing is available | `domql.window.supports("share")` |
-| The ids of the text-editable elements in a panel | `panel.all("*").where(it.is("text-editable")) { id = it:["id"] }` |
-| An element's states and what it holds | `target { attached = it.attached, disabled = it.is("disabled"), hasChildren = it.hasChildren, hasSelection = it.hasSelection }` |
-| Whether a control cannot take text | `input.is("disabled") or input.is("readonly")` |
-| A control's state, one word | `input { state = if it.is("disabled") then "locked" elseif it.is("readonly") then "read" else "open" end }` |
+| Whether sharing is available | `domql.window.share()` |
+| The ids of the text-editable elements in a panel | `panel.all("*").where(it.textEditable()) { id = it:["id"] }` |
+| An element's states and what it holds | `target { attached = it.attached, disabled = it.disabled(), hasChildren = it.hasChildren, hasSelection = it.hasSelection }` |
+| Whether a control cannot take text | `input.disabled() or input.readonly()` |
+| A control's state, one word | `input { state = if it.disabled() then "locked" elseif it.readonly() then "read" else "open" end }` |
 | Whether an element has no parent | `panel.parent == null` |
-| The width of an element's parent element, null where the parent is none or no element | `(try panel.parent as "element")?.rect?.width` |
+| The width of an element's parent element, null where the parent is none or no element | `(try panel.parent as element)?.rect?.width` |
 | A list's size and its tallest item, the list read once | `panel { let items = it.all("[data-key]"), count = items.count, tallest = items.max(it.rect?.height) }` |

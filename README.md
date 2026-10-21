@@ -4,7 +4,7 @@
 
 DOMQL is a JavaScript library for querying the DOM, allowing you to read information from a document once or observe it as it changes. Its queries are written in [Lexica](https://github.com/FormaUI/Lexica).
 
-> **Alpha.** DOMQL reads Lexica's definition version 31, which writes the implicit parameter `context`; its specification describes version 32, which writes `it` and reads `domql.document` and `domql.window`. It is not yet published to npm or NuGet; you can [build and try it locally](#build-and-try-it). See [the status overview](docs/features-status.md).
+> **Alpha.** DOMQL reads Lexica's definition version 32, which its specification describes. It is not yet published to npm or NuGet; you can [build and try it locally](#build-and-try-it). See [the status overview](docs/features-status.md).
 
 ## Features
 
@@ -42,10 +42,10 @@ const panel = document.getElementById('panel');
 
 const query = domql.query(`
     panel {
-        count = context.children.count,
-        items = context.all("[data-key]") {
-            key = context:["data-key"],
-            selected = context.aria:["selected"] == "true"
+        count = it.children.count,
+        items = it.all("[data-key]") {
+            key = it:["data-key"],
+            selected = it.aria:["selected"] == "true"
         }
     }
 `, { panel });
@@ -66,7 +66,7 @@ The result is plain data:
 }
 ```
 
-Inside each object expression, `context` is the current element, and the field names you write become the result's. A snapshot is immutable and holds no live DOM reference, so evaluating again gives a new one and leaves the old one as it was:
+Inside each object expression, `it` is the current element, and the field names you write become the result's. A snapshot is immutable and holds no live DOM reference, so evaluating again gives a new one and leaves the old one as it was:
 
 ```js
 // Your app, a UI library or the user changes the page; DOMQL only reads it.

@@ -67,7 +67,7 @@ A caller can take that result once, keep it current as the document changes, or 
 const panelQuery = domql.query(`
     panel {
         size = it.size,
-        hasFocus = it.has("focus-within")
+        hasFocus = it.focusWithin()
     }
 `, { panel });
 

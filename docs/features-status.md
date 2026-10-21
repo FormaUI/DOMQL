@@ -2,7 +2,7 @@
 
 What this repository implements today, what is being built, and what remains. The [specification](../spec/README.md) is the contract and the [design](domql-design.md) the architecture; this document tracks how far the implementation has come. The language is Lexica's, and [Lexica's status](https://github.com/FormaUI/Lexica/blob/main/docs/features-status.md) tracks it.
 
-The implementation follows DOMQL's specification version `1.0.0-alpha.275`, and runs on a Lexica runtime that follows language version `1.0.0-alpha.31`; the specification describes `1.0.0-alpha.276`, whose queries of Lexica's version 32 are ahead of it, as [definition version 32](#definition-version-32) sets out, and whose [host calls and executions](#host-calls-and-executions) are implemented. **DOMQL reads definition version 31**: its queries write the implicit parameter `context`, and read `document` and `window` as roots where version 32 reads `domql.document` and `domql.window`. [Definition version 32](#definition-version-32) sets out what DOMQL still has to do for it.
+The implementation follows DOMQL's specification version `1.0.0-alpha.276`, the one the specification describes, and runs on a Lexica runtime that follows language version `1.0.0-alpha.32`. **DOMQL reads definition version 32**: its queries write the implicit parameter `it`, and read the document and the window through its module, as `domql.document` and `domql.window`. [Definition version 32](#definition-version-32) sets out what of it remains.
 
 | Status | Meaning |
 | --- | --- |
@@ -19,13 +19,13 @@ The implementation follows DOMQL's specification version `1.0.0-alpha.275`, and 
 | Area | Status | What remains | Contract |
 | --- | --- | --- | --- |
 | Nodes and shadow trees | Partial | The node types are still built into Lexica, recognized by `nodeType`; DOMQL declares them as reference types with version 32 | [Nodes and shadow trees](../spec/nodes-and-shadow-trees.md) |
-| Properties, functions and predicates | Implemented | | [Built-in vocabulary](../spec/vocabulary.md) |
+| Properties, functions and Boolean functions | Implemented | | [Built-in vocabulary](../spec/vocabulary.md) |
 | Conversions | Implemented | | [Built-in conversions](../spec/vocabulary.md#built-in-conversions) |
 | Event sources and event types | Implemented | | [Events](../spec/events.md#event-sources) |
 | Observation types | Implemented | | [Observation types](../spec/vocabulary.md#observations-types) |
-| `domql.document` and `domql.window` | Planned | Today `document` and `window` are roots of the language | [Module members](../spec/vocabulary.md#module-members) |
+| `domql.document` and `domql.window` | Implemented | | [Module members](../spec/vocabulary.md#module-members) |
 | Observation targets DOMQL declares and resolves | Implemented | | [Observation targets](../spec/vocabulary.md#observations-targets) |
-| Extension modules | Partial | Declared in Lexica's version 32 shape; namespaces, qualified access and owner precedence come with Lexica's version 32 | [Extension modules](../spec/vocabulary.md#extension-modules) |
+| Extension modules | Partial | Owner precedence, which comes with reference types | [Extension modules](../spec/vocabulary.md#extension-modules) |
 
 ### The host
 
@@ -50,7 +50,7 @@ The implementation follows DOMQL's specification version `1.0.0-alpha.275`, and 
 | The C# half | Planned | Not started; its API and its synchronization are designed | [The C# half](domql-design.md#the-c-half) |
 | Editor tooling | Planned | Lexica's, through its syntax tree | [Lexica's status](https://github.com/FormaUI/Lexica/blob/main/docs/features-status.md) |
 
-**Verification outside the gate.** `window.size` following a scrollbar that appears or goes is shown only by an experiment outside the gate, since the gate's Chromium hides scrollbars; a browser test with a launch of its own would bring it in without changing the other tests' geometry. Performance is measured outside the gate too, by `npm run bench` and `npm run scale` from `tests/`.
+**Verification outside the gate.** `domql.window.size` following a scrollbar that appears or goes is shown only by an experiment outside the gate, since the gate's Chromium hides scrollbars; a browser test with a launch of its own would bring it in without changing the other tests' geometry. Performance is measured outside the gate too, by `npm run bench` and `npm run scale` from `tests/`.
 
 ## Definition version 32
 
@@ -58,11 +58,11 @@ Version 32 is built in Lexica and DOMQL together, in three slices; [Lexica's sta
 
 | Slice | Status | DOMQL's part |
 | --- | --- | --- |
-| 1. The declaration shape | Implemented | Its vocabulary declared in the new shape, its implementations taking one object, its predicates replacing conditions |
-| 2. The version 32 definition | In progress | `domql.document` and `domql.window` as module members of `domql`; its observation targets, `window`, `document`, `root` and `roots`, declared and resolved by its own observations, which are built; its queries, examples, READMEs and guide moved to `it` and `domql.document`, in the commit that follows Lexica's switch |
+| 1. The declaration shape | Implemented | Its vocabulary declared in the new shape, its implementations taking one object |
+| 2. The version 32 definition | Implemented | `domql.document` and `domql.window` as module members of `domql`; its observation targets, `window`, `document`, `root` and `roots`, declared and resolved by its own observations, which are built; its tests as Boolean functions, which the verbs are given by reference; its queries, examples, READMEs and guide moved to `it`, `domql.document` and `domql.window` |
 | 3. Reference types | Planned | `node`, abstract, with `element`, `document`, `documentFragment` and `shadowRoot` beneath it, and `window`, each with its test; the comparer matching items by the references `sources` holds where each is unique in both lists, and by position otherwise, checked against duplicate references, repeated equal data values, null inputs and reordered items |
 
-**Next step.** DOMQL's part of Lexica's version 32 switch, in the commit that follows it: `domql.document` and `domql.window` as module members, and its queries, examples, READMEs and guide moved to `it` and `domql.document`.
+**Next step.** Reference types, the third slice, built with Lexica's.
 
 ## Host calls and executions
 

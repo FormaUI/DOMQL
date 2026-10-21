@@ -1,5 +1,5 @@
 /**
- * VocabularyImplementations — the implementations that carry out the DOM vocabulary's members and predicates
+ * VocabularyImplementations — the implementations that carry out the DOM vocabulary's members
  */
 
 /** The input types `readonly` applies to. */
@@ -18,6 +18,8 @@ export class VocabularyImplementations {
      */
     static get implementations() {
         return {
+            document: ({ env }) => env.document,
+            window: ({ env }) => env.window,
             windowSize: ({ receiver: window }) => {
                 const documentElement = window.document.documentElement;
 
