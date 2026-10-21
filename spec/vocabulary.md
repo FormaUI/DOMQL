@@ -3,7 +3,7 @@
 <a id="built-in-vocabulary"></a>
 <a id="vocabulary"></a>
 
-The **built-in vocabulary** is what DOMQL's module, `domql`, declares: the DOM's types, and the module members, properties, functions, Boolean functions among them, conversions, event sources and observations a query reads them through. Everything a query can ask about is a member a module contributes, DOMQL's own module and every extension by one contract, so adding a member leaves the grammar unchanged.
+The **built-in vocabulary** is what DOMQL's module, `domql`, declares: the DOM's types, and the module members, properties, functions, Boolean functions among them, event sources and observations a query reads them through. Everything a query can ask about is a member a module contributes, DOMQL's own module and every extension by one contract, so adding a member leaves the grammar unchanged.
 
 ```domql
 panel.size?.width                        // A property of an element, then a field of the size it answers.
@@ -37,8 +37,8 @@ DOMQL's module, `domql`, declares two [module members](https://github.com/FormaU
 
 | Member | Type | Reads | Changes |
 | --- | --- | --- | --- |
-| `domql.document` | `document` | The document the query runs against, from the environment DOMQL gives its evaluator | Constant for an evaluator |
-| `domql.window` | `window` | That document's window, which is also the layout viewport | Constant for an evaluator |
+| `domql.document` | `Document` | The document the query runs against, from the environment DOMQL gives its evaluator | Constant for an evaluator |
+| `domql.window` | `Window` | That document's window, which is also the layout viewport | Constant for an evaluator |
 
 Neither needs a binding, and a caller's binding named `domql` is read as `~domql`.
 
@@ -46,16 +46,26 @@ Neither needs a binding, and a caller's binding named `domql` is read as `~domql
 
 ## Types
 
-Besides the [nodes](nodes-and-shadow-trees.md#nodes) and the window, which a query reads through and a result never holds, DOMQL's module declares structured types, which hold data, and two views, which give an element's relationships members of their own:
+DOMQL's module declares each of its types with its members, as Lexica's [declaring a type](https://github.com/FormaUI/Lexica/blob/main/spec/modules.md#modules-declaring-a-type) sets out: its reference types, which a query reads through and a result never holds, and its structured types, which hold data. Its `typeOf` recognizes the values a host binds, and each reference type's `isInstance` checks membership:
 
-| Type | What it is | Fields |
+| Reference type | Supertype | What it is | Where a value has the type |
+| --- | --- | --- | --- |
+| `Node` | None, abstract | A [node](nodes-and-shadow-trees.md#nodes) of the DOM tree | A member's result, as `parent`'s and `root`'s, or a declared binding; never `typeOf`, since it is abstract |
+| `Element`, `Document`, `DocumentFragment`, `ShadowRoot` | `Node` | The kinds of node | DOMQL's `typeOf`, a member's result, as the items of `children` are, or a declared binding |
+| `Window` | None | The window a query runs in | DOMQL's `typeOf`, `domql.window`'s result, or a declared binding |
+| `Shadow` | None | An element's [shadow view](nodes-and-shadow-trees.md#shadow-trees-the-view) | An element's `shadow`, or a declared binding |
+| `Aria` | None | An element's [ARIA view](#conditions) | An element's `aria`, or a declared binding |
+
+`Shadow` and `Aria` are views: an element's `shadow` and `aria` answer the element itself, of the view's type, whose `isInstance` accepts every element, and no wrapper is made or kept. DOMQL's `typeOf` never answers a view, and neither view is cast to from an `Element`, since memberships that accept one value relate no types. `Aria` declares a cast to `Element`, without an `impl`, so `(panel.aria as Element).aria` reads the element's view again. Each node type, `Window` and each view has no data form, so no result holds one.
+
+| Structured type | What it is | Fields |
 | --- | --- | --- |
-| `size` | A width and a height | `width`, `height`: `number` |
-| `rectangle` | A box's edges and size | `left`, `top`, `right`, `bottom`, `width`, `height`: `number` |
-| `selection` | A text selection's range | `start`, `end`: `number` |
-| `grid` | A grid's column tracks | `columns`: `list<number>` |
-| `shadow` | An element's [shadow view](nodes-and-shadow-trees.md#shadow-trees-the-view) | None, since it has no data form |
-| `aria` | An element's [ARIA view](#conditions) | None, since it has no data form |
+| `Size` | A width and a height | `width`, `height`: `Number` |
+| `Rectangle` | A box's edges and size | `left`, `top`, `right`, `bottom`, `width`, `height`: `Number` |
+| `Selection` | A text selection's range | `start`, `end`: `Number` |
+| `Grid` | A grid's column tracks | `columns`: `List<Number>` |
+
+`on`, an event source, is one declaration DOMQL's module gives each of `Element`, `Document` and `Window`, the receivers it listens on.
 
 A field of a structured value, such as a rectangle's `width`, is data the value holds, read by property access, and is constant for that value. Facts that must describe one measurement are members of one structured value, which is captured once and read by each of its members, as a rectangle's edges are. The types of event data are set out in [events](events.md#event-types).
 
@@ -76,24 +86,24 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 | Receiver | Property | Type |
 | --- | --- | --- |
-| Window | [`size`](#property-window-size) | `size` |
-| Window | [`devicePixelRatio`](#property-window-devicepixelratio) | `number` |
-| Element | [`rect`](#property-element-rect) | `rectangle?` |
-| Element | [`size`](#property-element-size) | `size?` |
-| Element | [`clientSize`](#property-element-clientsize) | `size?` |
-| Element | [`grid`](#property-element-grid) | `grid?` |
-| Element | [`selection`](#property-element-selection) | `selection?` |
-| Node | [`children`](#property-node-children) | `list<element>` |
-| Node | [`parent`](#property-node-parent) | `node?` |
-| Node | [`root`](#property-node-root) | `node` |
-| Node | [`host`](#property-node-host) | `element?` |
-| Element | [`shadow`](#property-element-shadow) | `shadow` |
-| Element | [`aria`](#property-element-aria) | `aria` |
-| Shadow view | [`root`](#property-shadow-view-root) | `shadowRoot?` |
-| Shadow view | [`elements`](#property-shadow-view-elements) | `list<element>?` |
-| Element | [`attached`](#property-element-attached) | `boolean` |
-| Element | [`hasChildren`](#property-element-haschildren) | `boolean` |
-| Element | [`hasSelection`](#property-element-hasselection) | `boolean` |
+| Window | [`size`](#property-window-size) | `Size` |
+| Window | [`devicePixelRatio`](#property-window-devicepixelratio) | `Number` |
+| Element | [`rect`](#property-element-rect) | `Rectangle?` |
+| Element | [`size`](#property-element-size) | `Size?` |
+| Element | [`clientSize`](#property-element-clientsize) | `Size?` |
+| Element | [`grid`](#property-element-grid) | `Grid?` |
+| Element | [`selection`](#property-element-selection) | `Selection?` |
+| Node | [`children`](#property-node-children) | `List<Element>` |
+| Node | [`parent`](#property-node-parent) | `Node?` |
+| Node | [`root`](#property-node-root) | `Node` |
+| Node | [`host`](#property-node-host) | `Element?` |
+| Element | [`shadow`](#property-element-shadow) | `Shadow` |
+| Element | [`aria`](#property-element-aria) | `Aria` |
+| Shadow view | [`root`](#property-shadow-view-root) | `ShadowRoot?` |
+| Shadow view | [`elements`](#property-shadow-view-elements) | `List<Element>?` |
+| Element | [`attached`](#property-element-attached) | `Boolean` |
+| Element | [`hasChildren`](#property-element-haschildren) | `Boolean` |
+| Element | [`hasSelection`](#property-element-hasselection) | `Boolean` |
 
 <a id="property-window-size"></a>
 
@@ -101,7 +111,7 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 ### Window: size
 
-**Type:** `size`   **Reads:** Fresh
+**Type:** `Size`   **Reads:** Fresh
 
 **Result.** The layout viewport's `width` and `height`, excluding scrollbars
 
@@ -113,7 +123,7 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 ### Window: devicePixelRatio
 
-**Type:** `number`   **Reads:** Fresh
+**Type:** `Number`   **Reads:** Fresh
 
 **Result.** Device pixels per CSS pixel
 
@@ -125,7 +135,7 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 ### Element: rect
 
-**Type:** `rectangle?`   **Reads:** Fresh
+**Type:** `Rectangle?`   **Reads:** Fresh
 
 **Result.** Its border box's `left`, `top`, `right`, `bottom`, `width` and `height`, relative to the layout viewport
 
@@ -137,7 +147,7 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 ### Element: size
 
-**Type:** `size?`   **Reads:** Fresh
+**Type:** `Size?`   **Reads:** Fresh
 
 **Result.** Its border box's `width` and `height`
 
@@ -149,7 +159,7 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 ### Element: clientSize
 
-**Type:** `size?`   **Reads:** Fresh
+**Type:** `Size?`   **Reads:** Fresh
 
 **Result.** Its padding box's `width` and `height`, without scrollbars
 
@@ -161,7 +171,7 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 ### Element: grid
 
-**Type:** `grid?`   **Reads:** Fresh
+**Type:** `Grid?`   **Reads:** Fresh
 
 **Result.** Its grid's `columns`, the sizes of its column tracks, an empty list for an element that is no grid, and null while it has no layout box
 
@@ -173,9 +183,9 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 ### Element: selection
 
-**Type:** `selection?`   **Reads:** Fresh
+**Type:** `Selection?`   **Reads:** Fresh
 
-**Result.** Its selection's `start` and `end`, null for an element whose selection the browser does not expose: one that is no text input or text area, and an input of a type the selection API excludes, as `number`, `email` and `date` are
+**Result.** Its selection's `start` and `end`, null for an element whose selection the browser does not expose: one that is no text input or text area, and an input of a type the selection API excludes, as `Number`, `email` and `date` are
 
 **Changes.** Partly observable: input and selection events are observed, a selection the page's code sets is not
 
@@ -185,7 +195,7 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 ### Node: children
 
-**Type:** `list<element>`   **Reads:** Fresh
+**Type:** `List<Element>`   **Reads:** Fresh
 
 **Result.** Its child elements, in document order
 
@@ -197,7 +207,7 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 ### Node: parent
 
-**Type:** `node?`   **Reads:** Fresh
+**Type:** `Node?`   **Reads:** Fresh
 
 **Result.** Its parent in the DOM tree: a shadow root for the nodes directly in it, and null for a document, a document fragment, a shadow root and the topmost element of a detached tree, so it never crosses a shadow boundary
 
@@ -209,7 +219,7 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 ### Node: root
 
-**Type:** `node`   **Reads:** Fresh
+**Type:** `Node`   **Reads:** Fresh
 
 **Result.** The root of its tree: the document, a document fragment, the shadow root it is in, or the topmost element of a detached tree
 
@@ -221,7 +231,7 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 ### Node: host
 
-**Type:** `element?`   **Reads:** Fresh
+**Type:** `Element?`   **Reads:** Fresh
 
 **Result.** A shadow root's host, and null for any other node
 
@@ -233,7 +243,7 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 ### Element: shadow
 
-**Type:** `shadow`   **Reads:** Fresh
+**Type:** `Shadow`   **Reads:** Fresh
 
 **Result.** Its view of its shadow relationships
 
@@ -245,7 +255,7 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 ### Element: aria
 
-**Type:** `aria`   **Reads:** Fresh
+**Type:** `Aria`   **Reads:** Fresh
 
 **Result.** Its view of its ARIA states, which its [Boolean functions](#boolean-functions) test and its default indexer reads as its ARIA attributes
 
@@ -257,7 +267,7 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 ### Shadow view: root
 
-**Type:** `shadowRoot?`   **Reads:** Fresh
+**Type:** `ShadowRoot?`   **Reads:** Fresh
 
 **Result.** The open shadow root its element hosts, null where it hosts none or a closed one
 
@@ -269,7 +279,7 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 ### Shadow view: elements
 
-**Type:** `list<element>?`   **Reads:** Fresh
+**Type:** `List<Element>?`   **Reads:** Fresh
 
 **Result.** The elements its slot shows, flattened, as [`shadow.elements`](nodes-and-shadow-trees.md#shadow-trees-shadowelements) sets out, and null for an element that is no slot
 
@@ -281,7 +291,7 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 ### Element: attached
 
-**Type:** `boolean`   **Reads:** Fresh
+**Type:** `Boolean`   **Reads:** Fresh
 
 **Result.** Whether the element is attached to the document, including through a shadow root
 
@@ -293,7 +303,7 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 ### Element: hasChildren
 
-**Type:** `boolean`   **Reads:** Fresh
+**Type:** `Boolean`   **Reads:** Fresh
 
 **Result.** Whether it has at least one child element
 
@@ -305,7 +315,7 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 ### Element: hasSelection
 
-**Type:** `boolean`   **Reads:** Fresh
+**Type:** `Boolean`   **Reads:** Fresh
 
 **Result.** Whether a selection of at least one character lies within it: a non-collapsed selection in a text input or text area, or a non-collapsed document selection within its content; a collapsed caret is no selection
 
@@ -347,7 +357,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 ### Window: media
 
-**Syntax:** `:media[query]`   **Signature:** `query`: `string` → `boolean`   **Reads:** Fresh   **Fixed arguments:** None
+**Syntax:** `:media[query]`   **Signature:** `query`: `String` → `Boolean`   **Reads:** Fresh   **Fixed arguments:** None
 
 **Result.** Whether the media query matches
 
@@ -359,7 +369,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 ### Element: attribute
 
-**Syntax:** `:attribute[name]`, the default indexer, `:[name]`   **Signature:** `name`: `string` → `string?`   **Reads:** Fresh   **Fixed arguments:** None
+**Syntax:** `:attribute[name]`, the default indexer, `:[name]`   **Signature:** `name`: `String` → `String?`   **Reads:** Fresh   **Fixed arguments:** None
 
 **Result.** The attribute's value
 
@@ -371,7 +381,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 ### ARIA view: attribute
 
-**Syntax:** `:attribute[name]`, the default indexer, `:[name]`   **Signature:** `name`: `string` → `string?`   **Reads:** Fresh   **Fixed arguments:** None
+**Syntax:** `:attribute[name]`, the default indexer, `:[name]`   **Signature:** `name`: `String` → `String?`   **Reads:** Fresh   **Fixed arguments:** None
 
 **Result.** The value of the element's own attribute `aria-` and the name, as the element's `:attribute` reads it, so `it.aria:["checked"]` is `it:["aria-checked"]`: the string as written, or null where the attribute is absent, never a Boolean
 
@@ -383,7 +393,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 ### Element: class
 
-**Syntax:** `:class[name]`   **Signature:** `name`: `string` → `boolean`   **Reads:** Fresh   **Fixed arguments:** None
+**Syntax:** `:class[name]`   **Signature:** `name`: `String` → `Boolean`   **Reads:** Fresh   **Fixed arguments:** None
 
 **Result.** Whether its class list holds the class, one token: an empty name, or one holding a tab, a line feed, a form feed, a carriage return or a space, is an evaluation error
 
@@ -403,7 +413,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 ### Element: style
 
-**Syntax:** `:style[property]`   **Signature:** `property`: `string` → `string?`   **Reads:** Fresh   **Fixed arguments:** None
+**Syntax:** `:style[property]`   **Signature:** `property`: `String` → `String?`   **Reads:** Fresh   **Fixed arguments:** None
 
 **Result.** The property's computed value, custom properties included, null where the element is detached or the value is empty
 
@@ -415,7 +425,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 ### Element: intersects
 
-**Syntax:** `intersects({ root, margin })`   **Signature:** optional `root`: `element?`, the window when omitted or null; optional `margin`: `number`, 0 when omitted → `boolean?`   **Reads:** Maintained   **Fixed arguments:** None
+**Syntax:** `intersects({ root, margin })`   **Signature:** optional `root`: `Element?`, the window when omitted or null; optional `margin`: `Number`, 0 when omitted → `Boolean?`   **Reads:** Maintained   **Fixed arguments:** None
 
 **Result.** Whether the browser's intersection observation reports it intersecting the root, or the window without a root, grown by the margin, with its ancestors' clipping applied as the browser applies it
 
@@ -427,7 +437,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 ### Element: overlaps
 
-**Syntax:** `overlaps({ other, margin })`   **Signature:** required `other`: `element`; optional `margin`: `number`, 0 when omitted → `boolean?`   **Reads:** Fresh   **Fixed arguments:** None
+**Syntax:** `overlaps({ other, margin })`   **Signature:** required `other`: `Element`; optional `margin`: `Number`, 0 when omitted → `Boolean?`   **Reads:** Fresh   **Fixed arguments:** None
 
 **Result.** Whether its border box overlaps the other's, grown by the margin, compared as rectangles, null where either has no layout box, and, as `other` propagates null, where `other` is null
 
@@ -439,7 +449,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 ### Element: matches
 
-**Syntax:** `matches(selector)`   **Signature:** `selector`: `string` → `boolean`   **Reads:** Fresh   **Fixed arguments:** None
+**Syntax:** `matches(selector)`   **Signature:** `selector`: `String` → `Boolean`   **Reads:** Fresh   **Fixed arguments:** None
 
 **Result.** Whether it matches the selector
 
@@ -451,7 +461,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 ### Element: rectRelativeTo
 
-**Syntax:** `rectRelativeTo(relativeTo)`   **Signature:** `relativeTo`: `element` → `rectangle?`   **Reads:** Fresh   **Fixed arguments:** None
+**Syntax:** `rectRelativeTo(relativeTo)`   **Signature:** `relativeTo`: `Element` → `Rectangle?`   **Reads:** Fresh   **Fixed arguments:** None
 
 **Result.** Its border box's `left`, `top`, `right`, `bottom`, `width` and `height`, relative to `relativeTo`'s border box, null where either has no layout box, and, as `relativeTo` propagates null, where `relativeTo` is null
 
@@ -463,7 +473,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 ### Element: closest
 
-**Syntax:** `closest(selector)`   **Signature:** `selector`: `string` → `element?`   **Reads:** Fresh   **Fixed arguments:** None
+**Syntax:** `closest(selector)`   **Signature:** `selector`: `String` → `Element?`   **Reads:** Fresh   **Fixed arguments:** None
 
 **Result.** The nearest matching ancestor, itself included
 
@@ -475,7 +485,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 ### Node: first, all
 
-**Syntax:** `first(selector)`, `all(selector)`   **Signature:** `selector`: `string` → `element?`, `list<element>`   **Reads:** Fresh   **Fixed arguments:** None
+**Syntax:** `first(selector)`, `all(selector)`   **Signature:** `selector`: `String` → `Element?`, `List<Element>`   **Reads:** Fresh   **Fixed arguments:** None
 
 **Result.** The first matching descendant, and the matching descendants in document order, within its own tree
 
@@ -570,7 +580,7 @@ The built-in vocabulary declares these Boolean functions, each with its native s
 
 **Syntax:** `readonly()`   **Reads:** Fresh
 
-**True when.** Native `readonly` applies to the control and is set: a text area, or an input whose type is `text`, `search`, `url`, `tel`, `email`, `password`, `date`, `month`, `week`, `time`, `datetime-local` or `number`; any other element answers false, whatever its attributes
+**True when.** Native `readonly` applies to the control and is set: a text area, or an input whose type is `text`, `search`, `url`, `tel`, `email`, `password`, `date`, `month`, `week`, `time`, `datetime-local` or `Number`; any other element answers false, whatever its attributes
 
 **Changes.** Observable: its `readonly` and `type` attributes
 
@@ -584,7 +594,7 @@ The built-in vocabulary declares these Boolean functions, each with its native s
 
 **Syntax:** `textEditable()`   **Reads:** Fresh
 
-**True when.** The element supports text editing and its current state permits it: a text area, or an input whose type is `text`, `search`, `url`, `tel`, `email`, `password` or `number`, that is neither disabled nor read-only; or an element whose content is editable, as the nearest `contenteditable` of a state, its own or an ancestor's, decides: `true`, the empty value and `plaintext-only` make it editable and `false` does not, while an invalid value, `inherit` among them, inherits, as the attribute does natively; where none decides, the document's design mode does.
+**True when.** The element supports text editing and its current state permits it: a text area, or an input whose type is `text`, `search`, `url`, `tel`, `email`, `password` or `Number`, that is neither disabled nor read-only; or an element whose content is editable, as the nearest `contenteditable` of a state, its own or an ancestor's, decides: `true`, the empty value and `plaintext-only` make it editable and `false` does not, while an invalid value, `inherit` among them, inherits, as the attribute does natively; where none decides, the document's design mode does.
 
 An element with the `inert` attribute, itself or on an ancestor in the flat tree, which goes from each node to the slot it is assigned to, or otherwise to its parent, and from a shadow root to its host, is not text editable: this is the attribute's inertness, so the inertness a modal dialog gives the rest of the document does not count, and a slot in a closed shadow root hides an inert ancestor past it unless the element is inside that root
 
@@ -716,7 +726,7 @@ An element with the `inert` attribute, itself or on an ancestor in the flat tree
 
 **Changes.** Constant
 
-A Boolean function's ARIA counterpart is no part of it: `it.checked()` is what `:checked` matches, whatever `aria-checked` says. An element's ARIA states are Boolean functions of its ARIA view, `it.aria`, a value of the type `aria`, which has no data form, so a result never holds one, and `it.aria.checked()` tests one.
+A Boolean function's ARIA counterpart is no part of it: `it.checked()` is what `:checked` matches, whatever `aria-checked` says. An element's ARIA states are Boolean functions of its ARIA view, `it.aria`, a value of the type `Aria`, which has no data form, so a result never holds one, and `it.aria.checked()` tests one.
 
 Each reads the element's own attribute under a contract of its own, falling back on no native state, and observes that attribute:
 
@@ -777,14 +787,14 @@ No other ARIA attribute has a Boolean function until one is declared, each with 
 
 ## Built-in conversions
 
-The built-in vocabulary declares four conversions, each rejecting a value it cannot convert:
+A query converts with the four conversions [Lexica's own module](https://github.com/FormaUI/Lexica/blob/main/spec/vocabulary.md#vocabulary-conversions) declares between the language's types of data, which DOMQL's module, owning none of those types, declares none of; each rejects a value it cannot convert:
 
 | From | To | Converts |
 | --- | --- | --- |
-| `string` | `number` | HTML's valid floating-point syntax after trimming: the ASCII whitespace at either end, tab, line feed, form feed, carriage return and space, is removed, and the whole of what remains is an optional `-`, digits with an optional fraction, or a fraction alone, and an optional exponent, `e` or `E` with an optional sign, so `"-12"`, `" 3.5 "`, `".5"` and `"1e3"` convert; empty text, `"+1"`, `"1."`, `"0x10"`, `"Infinity"` and `"12px"` fail, as does a number too large to be finite, `"1e999"` |
-| `number` | `string` | The shortest decimal text that reads back as the same number, as ECMAScript's `Number::toString` writes it, in exponent form from `1e21` up and below `1e-6`, as `"1e+21"` and `"1e-7"`; negative zero is written `"0"`, the one number that does not read back as itself. Every number of DOMQL is finite |
-| `boolean` | `string` | `"true"` or `"false"` |
-| `string` | `boolean` | `"true"` and `"false"`, exactly; any other text fails, `"TRUE"`, `"1"` and `" true"` among them |
+| `String` | `Number` | HTML's valid floating-point syntax after trimming: the ASCII whitespace at either end, tab, line feed, form feed, carriage return and space, is removed, and the whole of what remains is an optional `-`, digits with an optional fraction, or a fraction alone, and an optional exponent, `e` or `E` with an optional sign, so `"-12"`, `" 3.5 "`, `".5"` and `"1e3"` convert; empty text, `"+1"`, `"1."`, `"0x10"`, `"Infinity"` and `"12px"` fail, as does a number too large to be finite, `"1e999"` |
+| `Number` | `String` | The shortest decimal text that reads back as the same number, as ECMAScript's `Number::toString` writes it, in exponent form from `1e21` up and below `1e-6`, as `"1e+21"` and `"1e-7"`; negative zero is written `"0"`, the one number that does not read back as itself. Every number of DOMQL is finite |
+| `Boolean` | `String` | `"true"` or `"false"` |
+| `String` | `Boolean` | `"true"` and `"false"`, exactly; any other text fails, `"TRUE"`, `"1"` and `" true"` among them |
 
 <a id="observations"></a>
 
@@ -828,7 +838,7 @@ DOMQL resolves each target as it starts an observation, and each evaluation that
 
 ## Extension modules
 
-A module extends the built-in vocabulary as Lexica's [modules](https://github.com/FormaUI/Lexica/blob/main/spec/modules.md#modules) set out: it declares types of its own, and members, Boolean functions among them, event types, executions, observation types and conversions on its own types or, under the [rules for extensions](https://github.com/FormaUI/Lexica/blob/main/spec/modules.md#extensions), on DOMQL's. `domql.createModule(name, contents)` creates one from its declarations, each that runs code carrying its implementation, and `domql.registerModule(module)` registers it in the instance's registry, which holds DOMQL's module and every module registered with it. A request is resolved against the vocabulary registered when it is first carried out, so a module a query names is registered beforehand, once, rather than for every evaluation.
+A module extends the built-in vocabulary as Lexica's [modules](https://github.com/FormaUI/Lexica/blob/main/spec/modules.md#modules) set out: it declares types of its own, each with its members and operators, Boolean functions among them, and event types, executions and observation types, and adds members to DOMQL's types in its [extensions](https://github.com/FormaUI/Lexica/blob/main/spec/modules.md#extensions), as `{ type: 'Aria', members: [/* description */] }` adds one to the ARIA view. `domql.createModule(name, contents)` creates one from its declarations, each that runs code carrying its implementation, and `domql.registerModule(module)` registers it in the instance's registry, which holds DOMQL's module and every module registered with it. A request is resolved against the vocabulary registered when it is first carried out, so a module a query names is registered beforehand, once, rather than for every evaluation.
 
 - **What an implementation receives.** Every implementation receives the one object Lexica's [implementations](https://github.com/FormaUI/Lexica/blob/main/spec/members.md#members-what-an-implementation-receives) receive, whose `env` holds the `window` and the `document` the query runs against.
 - **Reading.** A member's implementation is synchronous and reads alone, as Lexica requires of every vocabulary, so evaluating, watching and subscribing change nothing; a change to the page is an [execution](executions.md).

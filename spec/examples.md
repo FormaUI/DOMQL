@@ -107,5 +107,5 @@ Watching the query requires accepting partial observation, since `all`, `style`,
 | Whether a control cannot take text | `input.disabled() or input.readonly()` |
 | A control's state, one word | `input { state = if it.disabled() then "locked" elseif it.readonly() then "read" else "open" end }` |
 | Whether an element has no parent | `panel.parent == null` |
-| The width of an element's parent element, null where the parent is none or no element | `(try panel.parent as element)?.rect?.width` |
+| The width of an element's parent element, null where the parent is none or no element | `(try panel.parent as Element)?.rect?.width` |
 | A list's size and its tallest item, the list read once | `panel { let items = it.all("[data-key]"), count = items.count, tallest = items.max(it.rect?.height) }` |

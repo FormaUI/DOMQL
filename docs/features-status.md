@@ -2,7 +2,7 @@
 
 What this repository implements today, what is being built, and what remains. The [specification](../spec/README.md) is the contract and the [design](domql-design.md) the architecture; this document tracks how far the implementation has come. The language is Lexica's, and [Lexica's status](https://github.com/FormaUI/Lexica/blob/main/docs/features-status.md) tracks it.
 
-The implementation follows DOMQL's specification version `1.0.0-alpha.276`, the one the specification describes, and runs on a Lexica runtime that follows language version `1.0.0-alpha.32`. **DOMQL reads definition version 32**: its queries write the implicit parameter `it`, and read the document and the window through its module, as `domql.document` and `domql.window`. [Definition version 32](#definition-version-32) sets out what of it remains.
+The implementation follows DOMQL's specification version `1.0.0-alpha.276`, and runs on a Lexica runtime that follows language version `1.0.0-alpha.32`; the specification describes `1.0.0-alpha.277`, on Lexica's language version `1.0.0-alpha.33`, whose types and members version 32's third slice builds. **DOMQL reads definition version 32**: its queries write the implicit parameter `it`, and read the document and the window through its module, as `domql.document` and `domql.window`. [Definition version 32](#definition-version-32) sets out what of it remains.
 
 | Status | Meaning |
 | --- | --- |
@@ -18,14 +18,14 @@ The implementation follows DOMQL's specification version `1.0.0-alpha.276`, the 
 
 | Area | Status | What remains | Contract |
 | --- | --- | --- | --- |
-| Nodes and shadow trees | Partial | The node types are still built into Lexica, recognized by `nodeType`; DOMQL declares them as reference types with version 32 | [Nodes and shadow trees](../spec/nodes-and-shadow-trees.md) |
+| Nodes and shadow trees | Partial | The node types are still built into Lexica, recognized by `nodeType`; DOMQL declares them as its reference types, recognized by its `typeOf`, in slice 3 | [Nodes and shadow trees](../spec/nodes-and-shadow-trees.md) |
 | Properties, functions and Boolean functions | Implemented | | [Built-in vocabulary](../spec/vocabulary.md) |
 | Conversions | Implemented | | [Built-in conversions](../spec/vocabulary.md#built-in-conversions) |
 | Event sources and event types | Implemented | | [Events](../spec/events.md#event-sources) |
 | Observation types | Implemented | | [Observation types](../spec/vocabulary.md#observations-types) |
 | `domql.document` and `domql.window` | Implemented | | [Module members](../spec/vocabulary.md#module-members) |
 | Observation targets DOMQL declares and resolves | Implemented | | [Observation targets](../spec/vocabulary.md#observations-targets) |
-| Extension modules | Partial | Owner precedence, which comes with reference types | [Extension modules](../spec/vocabulary.md#extension-modules) |
+| Extension modules | Partial | Types declaring their members, extension blocks and owner precedence, which come with slice 3 | [Extension modules](../spec/vocabulary.md#extension-modules) |
 
 ### The host
 
@@ -60,9 +60,9 @@ Version 32 is built in Lexica and DOMQL together, in three slices; [Lexica's sta
 | --- | --- | --- |
 | 1. The declaration shape | Implemented | Its vocabulary declared in the new shape, its implementations taking one object |
 | 2. The version 32 definition | Implemented | `domql.document` and `domql.window` as module members of `domql`; its observation targets, `window`, `document`, `root` and `roots`, declared and resolved by its own observations, which are built; its tests as Boolean functions, which the verbs are given by reference; its queries, examples, READMEs and guide moved to `it`, `domql.document` and `domql.window` |
-| 3. Reference types | Planned | `node`, abstract, with `element`, `document`, `documentFragment` and `shadowRoot` beneath it, and `window`, each with its test; the comparer matching items by the references `sources` holds where each is unique in both lists, and by position otherwise, checked against duplicate references, repeated equal data values, null inputs and reordered items |
+| 3. Types and their members | Planned | Its vocabulary in Lexica's declaration shape, its types named in PascalCase, `on` one declaration in each of `Element`, `Document` and `Window`; its reference types `Node`, abstract, with `Element`, `Document`, `DocumentFragment` and `ShadowRoot` beneath it, `Window`, and the views `Shadow` and `Aria`, recognized by its `typeOf` and checked by each `isInstance`, the views given by `shadow` and `aria` alone; its cast from `Aria` to `Element`; `domql.query` binding through its registry, its bindings captured when a query is made; its scale workloads measuring binding and repeated evaluation; and the comparer matching items by identity only where both lists give a unique, non-null reference source for every item, and by position otherwise, arriving with Lexica's general sources |
 
-**Next step.** Reference types, the third slice, built with Lexica's.
+**Next step.** Slice 3, built step by step with Lexica's, as [Lexica's status](https://github.com/FormaUI/Lexica/blob/main/docs/features-status.md#definition-version-32) lists its steps: DOMQL's vocabulary moves to the declaration shape with the first, and declares its reference types with the second.
 
 ## Host calls and executions
 

@@ -34,7 +34,7 @@ An event source is subscribed to, and never read or watched: DOMQL starts it as 
 
 | Available on | Source | Delivers | Fixed |
 | --- | --- | --- | --- |
-| Element, document, window | `on(type)`, `type`: `string`, selecting through the type selector `event` | The native events of that type as they reach it, each with the members its event type offers, such as a pointer event's `button`, `clientX` and `clientY`; a type the selector maps no type to is a validation error | `type` |
+| Element, document, window | `on(type)`, `type`: `String`, selecting through the type selector `event` | The native events of that type as they reach it, each with the members its event type offers, such as a pointer event's `button`, `clientX` and `clientY`; a type the selector maps no type to is a validation error | `type` |
 
 `on` listens passively, so it never delays or prevents what the page does with an event.
 
@@ -46,12 +46,12 @@ DOMQL's module declares the [type selector](https://github.com/FormaUI/Lexica/bl
 
 | Event types | Type | Members |
 | --- | --- | --- |
-| `click`, `pointerdown`, `pointerup` | `pointerEvent` | `target`: `element`, `button`: `number`, `buttons`: `number`, `clientX`: `number`, `clientY`: `number`, `pointerType`: `string?` |
-| `keydown`, `keyup` | `keyboardEvent` | `target`: `element`, `key`: `string`, `code`: `string` |
-| `drop` | `dragEvent` | `target`: `element`, `clientX`: `number`, `clientY`: `number` |
-| `focus`, `blur`, `input`, `scroll`, `resize` | `domEvent` | `target`: `element?` |
+| `click`, `pointerdown`, `pointerup` | `PointerEvent` | `target`: `Element`, `button`: `Number`, `buttons`: `Number`, `clientX`: `Number`, `clientY`: `Number`, `pointerType`: `String?` |
+| `keydown`, `keyup` | `KeyboardEvent` | `target`: `Element`, `key`: `String`, `code`: `String` |
+| `drop` | `DragEvent` | `target`: `Element`, `clientX`: `Number`, `clientY`: `Number` |
+| `focus`, `blur`, `input`, `scroll`, `resize` | `DomEvent` | `target`: `Element?` |
 
-An event is captured when it is dispatched. A member the event carries no value of its type for is null where its type is nullable, as Lexica sets out, so `domEvent`'s `target` is null for a scroll or a resize that targets the document or the window, and `pointerEvent`'s `pointerType` for a browser that dispatches a click as a mouse event.
+An event is captured when it is dispatched. A member the event carries no value of its type for is null where its type is nullable, as Lexica sets out, so `DomEvent`'s `target` is null for a scroll or a resize that targets the document or the window, and `PointerEvent`'s `pointerType` for a browser that dispatches a click as a mouse event.
 
 <a id="subscribing"></a>
 

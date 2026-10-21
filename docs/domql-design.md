@@ -1,4 +1,4 @@
-# DOMQL Design v1.0.0-alpha.276
+# DOMQL Design v1.0.0-alpha.277
 
 The [DOMQL specification](../spec/README.md) is the contract: DOMQL's module, which declares the DOM as Lexica's domain, and the host that carries queries out against a document. This design sets out how this implementation is built to meet it, and the reasons behind the choices that shape it. It describes version 32, as the specification does, and the C# half, which is designed and not yet built; [the status overview](features-status.md) says where the implementation still differs. [Lexica's design](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md) sets out how the language and its runtime are built.
 
