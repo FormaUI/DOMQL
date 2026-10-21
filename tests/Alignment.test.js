@@ -23,8 +23,12 @@ describe('Alignment', () => {
         expect(specification).toContain(`describes DOMQL's version \`${described}\``);
     });
 
-    it('follows the specification version its status names, on the language version of the Lexica runtime it runs on', () => {
-        expect(status).toContain(`follows DOMQL's specification version \`${domql.info.versions.specification}\``);
+    it('follows the specification version its status table names, on the language version of the Lexica runtime it runs on, which the table names too', () => {
+        const [, specification] = status.match(/^\| DOMQL specification \| `([^`]+)` \|/m);
+        const [, language] = status.match(/^\| Lexica language \| `([^`]+)` \|/m);
+
+        expect(specification).toBe(domql.info.versions.specification);
+        expect(language).toBe(domql.info.versions.language);
         expect(domql.info.versions.language).toBe(lexica.info.versions.language);
     });
 
