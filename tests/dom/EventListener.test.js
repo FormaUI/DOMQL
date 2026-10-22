@@ -50,7 +50,7 @@ describe('EventListener', () => {
                 },
             }],
             members: [{
-                name: 'level', kind: 'property', target: 'element', result: 'number?',
+                name: 'level', kind: 'property', target: 'Element', result: 'Number?',
                 updates: { changes: 'observable', reads: 'maintained', observations: [{ type: 'level', of: 'receiver' }] },
                 implementation: ({ samples: [sample] }) => sample,
             }],
@@ -59,7 +59,7 @@ describe('EventListener', () => {
         // A member that fails while the test says so.
         isolated.registerModule(isolated.createModule('flaky', {
             members: [{
-                name: 'flaky', kind: 'property', target: 'element', result: 'number', updates: { changes: 'constant', reads: 'fresh' },
+                name: 'flaky', kind: 'property', target: 'Element', result: 'Number', updates: { changes: 'constant', reads: 'fresh' },
                 implementation: ({ receiver: element }) => {
                     if (broken) {
                         throw new Error('broken');
@@ -95,9 +95,9 @@ describe('EventListener', () => {
 
     /** Registers a module whose source `beats` the function starts, delivering events that carry a number. */
     const registerBeats = start => isolated.registerModule(isolated.createModule('beats', {
-        types: [{ name: 'beat', fields: { n: 'number' } }],
-        selectableTypes: [{ name: 'beat', selector: 'event', type: 'beat' }],
-        members: [{ name: 'beats', kind: 'function', invokedBy: 'host', requestKind: 'subscription', target: 'element', arguments: 'positional', parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, fixed: true, selects: 'type', selector: 'event', nulls: 'propagate' }], result: '@selected', implementation: start }],
+        types: [{ name: 'Beat', fields: { n: 'Number' } }],
+        selectableTypes: [{ name: 'beat', selector: 'event', type: 'Beat' }],
+        members: [{ name: 'beats', kind: 'function', invokedBy: 'host', requestKind: 'subscription', target: 'Element', arguments: 'positional', parameters: [{ name: 'type', kind: 'value', type: 'String', required: true, fixed: true, selects: 'type', selector: 'event', nulls: 'propagate' }], result: '@selected', implementation: start }],
     }));
 
     /** Dispatches an input event at the element, which bubbles to the panel. */
@@ -330,7 +330,7 @@ describe('EventListener', () => {
             deliver({ n: 2 });
 
             expect(failures).toHaveLength(1);
-            expect(failures[0].message).toContain("The host call 'beats' supplied a value whose 'n' is \"one\", and 'n' is declared number");
+            expect(failures[0].message).toContain("The host call 'beats' supplied a value whose 'n' is \"one\", and 'n' is declared Number");
             expect(results).toEqual([{ n: 2 }]);
             expect(listener.status).toBe('ready');
         });

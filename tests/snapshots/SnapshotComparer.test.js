@@ -14,23 +14,23 @@ let state;
 
 /** A property of an element the test module of its name declares, answering what the state holds under its name. */
 const property = (name, result, tolerance) => new LexicaModule(name, {
-    members: [{ name, kind: 'property', target: 'element', result, updates: { changes: 'constant', reads: 'fresh', tolerance }, implementation: () => state[name] }],
+    members: [{ name, kind: 'property', target: 'Element', result, updates: { changes: 'constant', reads: 'fresh', tolerance }, implementation: () => state[name] }],
 });
 
 /** A module of a meter, whose default indexer reads a level, and one of a reading, an indexer of an element, each answering the state's `r` within a tolerance of 2. */
 const indexerModules = () => {
-    const key = [{ name: 'key', kind: 'value', type: 'string', required: true, nulls: 'propagate' }];
-    const level = { kind: 'function', syntax: 'indexer', arguments: 'positional', parameters: key, result: 'number', updates: { changes: 'constant', reads: 'fresh', tolerance: 2 }, implementation: () => state.r };
+    const key = [{ name: 'key', kind: 'value', type: 'String', required: true, nulls: 'propagate' }];
+    const level = { kind: 'function', syntax: 'indexer', arguments: 'positional', parameters: key, result: 'Number', updates: { changes: 'constant', reads: 'fresh', tolerance: 2 }, implementation: () => state.r };
 
     return [
         new LexicaModule('meter', {
-            types: [{ name: 'meter', fields: { name: 'string' } }],
+            types: [{ name: 'Meter', fields: { name: 'String' } }],
             members: [
-                { name: 'meter', kind: 'property', target: 'element', result: 'meter', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => ({ name: 'm' }) },
-                { ...level, name: 'level', target: 'meter', default: true },
+                { name: 'meter', kind: 'property', target: 'Element', result: 'Meter', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => ({ name: 'm' }) },
+                { ...level, name: 'level', target: 'Meter', default: true },
             ],
         }),
-        new LexicaModule('reading', { members: [{ ...level, name: 'reading', target: 'element' }] }),
+        new LexicaModule('reading', { members: [{ ...level, name: 'reading', target: 'Element' }] }),
     ];
 };
 
@@ -39,7 +39,7 @@ const indexerModules = () => {
  * and `reconcile` compares two snapshots as the watch's comparer does. `wobble` answers a size within the tolerance given, `maybe` a size that can be null within it, `girth` a size and `steady` a number with none.
  */
 const watchOf = (text, bindings, { tolerance = 0.5 } = {}) => {
-    const registry = new LexicaRegistry([Vocabulary.module, BrowserModule.create(), property('wobble', 'size', tolerance), property('maybe', 'size?', tolerance), property('girth', 'size'), property('steady', 'number?'), ...indexerModules()]);
+    const registry = new LexicaRegistry([Vocabulary.module, BrowserModule.create(), property('wobble', 'Size', tolerance), property('maybe', 'Size?', tolerance), property('girth', 'Size'), property('steady', 'Number?'), ...indexerModules()]);
     const definition = ParsedTexts.parse(text);
     const locations = ParsedTexts.locationsOf(definition);
     const comparer = new SnapshotComparer();
@@ -413,7 +413,7 @@ describe('SnapshotComparer', () => {
 
         it('compares what an optional chain gives as the chain it holds, within the tolerance of its member', () => {
             const element = elementOf();
-            const watch = watchOf('element { width = (it.parent as element)?.wobble.width, box = (it.parent as element)?.wobble { w = it.width } }', { element }, { tolerance: 2 });
+            const watch = watchOf('element { width = (it.parent as Element)?.wobble.width, box = (it.parent as Element)?.wobble { w = it.width } }', { element }, { tolerance: 2 });
 
             elementOf({}, [element]);
             state.wobble = { width: 10, height: 40 };

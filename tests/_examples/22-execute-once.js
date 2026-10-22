@@ -5,10 +5,10 @@ domql.registerModule(domql.createModule('mark', {
         invokedBy: 'host',
         requestKind: 'execution',
         executionMode: 'once',
-        target: 'element',
+        target: 'Element',
         arguments: 'positional',
-        parameters: [{ name: 'label', kind: 'value', type: 'string', required: true, nulls: 'propagate' }],
-        result: 'boolean',
+        parameters: [{ name: 'label', kind: 'value', type: 'String', required: true, nulls: 'propagate' }],
+        result: 'Boolean',
         implementation: ({ receiver: element, args: { label } }) => {
             const changed = element.dataset.mark !== label;
 

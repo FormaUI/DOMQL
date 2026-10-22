@@ -7,7 +7,7 @@ let evaluations = 0;
 // A member read afresh at each evaluation, observing any attribute in the tree its receiver is in, so each evaluation is a snapshot of its own.
 domql.registerModule(domql.createModule('evaluations', {
     members: [{
-        name: 'evaluations', kind: 'property', target: 'element', result: 'number',
+        name: 'evaluations', kind: 'property', target: 'Element', result: 'Number',
         updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'root', attributes: true, subtree: true }] },
         implementation: () => ++evaluations,
     }],

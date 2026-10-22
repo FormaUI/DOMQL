@@ -280,8 +280,8 @@ class Domql {
         const resolution = Domql.#resolveFor('watch', query, { watch: true, acceptPartialObservation: acceptPartialObservation === true });
 
         // Live state is one object that keeps its identity, which null and a single value have none of.
-        // The type's notation tells it: a nullable type ends in `?`, an object type is written in braces and a list as `list<…>`.
-        if (updateStrategy === 'liveState' && (resolution.type.endsWith('?') || !(resolution.type.startsWith('{') || resolution.type.startsWith('list<')))) {
+        // The type's notation tells it: a nullable type ends in `?`, an object type is written in braces and a list as `List<…>`.
+        if (updateStrategy === 'liveState' && (resolution.type.endsWith('?') || !(resolution.type.startsWith('{') || resolution.type.startsWith('List<')))) {
             throw LexicaError.validation(`Live state keeps one object current, so its result is an object or a list that is never null, and this one is ${resolution.type}; put it in a top-level object expression`, Domql.#locationOf(query));
         }
 

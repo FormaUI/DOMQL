@@ -17,7 +17,7 @@ const messageOf = call => {
 };
 
 /** A property of an element a test module declares. */
-const declaration = overrides => ({ name: 'charts', kind: 'property', target: 'element', result: 'number', updates: { changes: 'constant', reads: 'fresh' }, ...overrides });
+const declaration = overrides => ({ name: 'charts', kind: 'property', target: 'Element', result: 'Number', updates: { changes: 'constant', reads: 'fresh' }, ...overrides });
 
 describe('BrowserVocabularyDeclarations', () => {
     const registry = new LexicaRegistry([Vocabulary.module, BrowserVocabularyDeclarations.module]);
@@ -52,36 +52,36 @@ describe('BrowserVocabularyDeclarations', () => {
     });
 
     it('declares each test as a Boolean member, a presence test named with has', () => {
-        const tests = module.members.filter(member => member.result === 'boolean' && member.kind === 'property').map(member => `${member.target}.${member.name}`);
+        const tests = module.members.filter(member => member.result === 'Boolean' && member.kind === 'property').map(member => `${member.target}.${member.name}`);
 
-        expect(tests).toEqual(['element.attached', 'element.hasChildren', 'element.hasSelection']);
+        expect(tests).toEqual(['Element.attached', 'Element.hasChildren', 'Element.hasSelection']);
     });
 
     it('declares the tests of elements, the document, the window and ARIA views as Boolean functions, the state the browser sets rather than one that follows from structure', () => {
-        const tests = module.members.filter(member => member.kind === 'function' && member.result === 'boolean' && member.parameters.length === 0).map(member => `${member.target}.${member.name}()`);
+        const tests = module.members.filter(member => member.kind === 'function' && member.result === 'Boolean' && member.parameters.length === 0).map(member => `${member.target}.${member.name}()`);
 
         expect(tests).toEqual([
-            'element.disabled()', 'element.readonly()', 'element.textEditable()', 'element.focus()', 'element.focusWithin()', 'element.hover()', 'element.popoverOpen()', 'element.checked()',
-            'document.visible()', 'document.focus()', 'window.share()', 'window.clipboard()', 'aria.checked()', 'aria.disabled()',
+            'Element.disabled()', 'Element.readonly()', 'Element.textEditable()', 'Element.focus()', 'Element.focusWithin()', 'Element.hover()', 'Element.popoverOpen()', 'Element.checked()',
+            'Document.visible()', 'Document.focus()', 'Window.share()', 'Window.clipboard()', 'Aria.checked()', 'Aria.disabled()',
         ]);
     });
 
     it('declares the document a query runs against and its window as module members of domql, read through its namespace', () => {
-        expect(module.members.filter(member => member.target === undefined).map(member => `${member.name}: ${member.result}`)).toEqual(['document: document', 'window: window']);
+        expect(module.members.filter(member => member.target === undefined).map(member => `${member.name}: ${member.result}`)).toEqual(['document: Document', 'window: Window']);
     });
 
     it('lets one name answer on different receivers', () => {
-        expect(registry.getMembers('size').map(member => member.target)).toEqual(['window', 'element']);
+        expect(registry.getMembers('size').map(member => member.target)).toEqual(['Window', 'Element']);
     });
 
     it('refuses a module\'s member the DOM vocabulary already answers on the same receiver, a kind of node included', () => {
-        expect(messageOf(() => new LexicaRegistry([Vocabulary.module, BrowserVocabularyDeclarations.module, new LexicaModule('size', { members: [declaration({ name: 'size', target: 'element' })] })]))).toContain('declared already');
-        expect(messageOf(() => new LexicaRegistry([Vocabulary.module, BrowserVocabularyDeclarations.module, new LexicaModule('parent', { members: [declaration({ name: 'parent', target: 'shadowRoot' })] })]))).toContain('declared already');
+        expect(messageOf(() => new LexicaRegistry([Vocabulary.module, BrowserVocabularyDeclarations.module, new LexicaModule('size', { members: [declaration({ name: 'size', target: 'Element' })] })]))).toContain('declared already');
+        expect(messageOf(() => new LexicaRegistry([Vocabulary.module, BrowserVocabularyDeclarations.module, new LexicaModule('parent', { members: [declaration({ name: 'parent', target: 'ShadowRoot' })] })]))).toContain('declared already');
     });
 
     it('lets a module beside it declare a member and a Boolean function of any name on an element', () => {
         const charts = new LexicaModule('charts', {
-            members: [declaration({ name: 'palette' }), declaration({ name: 'plotted', kind: 'function', result: 'boolean', parameters: [], updates: { changes: 'unobserved', reads: 'fresh' } })],
+            members: [declaration({ name: 'palette' }), declaration({ name: 'plotted', kind: 'function', result: 'Boolean', parameters: [], updates: { changes: 'unobserved', reads: 'fresh' } })],
         });
         const extended = new LexicaRegistry([Vocabulary.module, BrowserVocabularyDeclarations.module, charts]);
 
@@ -91,17 +91,17 @@ describe('BrowserVocabularyDeclarations', () => {
     it('declares on as the event source of elements, the document and the window, a host call making a subscription, whose fixed type selects through the type selector event', () => {
         const [on] = registry.getMembers('on');
 
-        expect(on).toMatchObject({ kind: 'function', invokedBy: 'host', target: ['element', 'document', 'window'], result: '@selected', parameters: [{ name: 'type', fixed: true, selects: 'type', selector: 'event' }] });
+        expect(on).toMatchObject({ kind: 'function', invokedBy: 'host', target: ['Element', 'Document', 'Window'], result: '@selected', parameters: [{ name: 'type', fixed: true, selects: 'type', selector: 'event' }] });
         expect(DispatchTable.get(on)).toMatchObject({ requestKind: 'subscription', executionMode: null });
         expect(module.typeSelectors).toEqual([{ name: 'event' }]);
         expect(module.selectableTypes.map(key => `${key.name}: ${key.type}`)).toEqual([
-            'click: pointerEvent', 'pointerdown: pointerEvent', 'pointerup: pointerEvent', 'keydown: keyboardEvent', 'keyup: keyboardEvent', 'drop: dragEvent',
-            'focus: domEvent', 'blur: domEvent', 'input: domEvent', 'scroll: domEvent', 'resize: domEvent',
+            'click: PointerEvent', 'pointerdown: PointerEvent', 'pointerup: PointerEvent', 'keydown: KeyboardEvent', 'keyup: KeyboardEvent', 'drop: DragEvent',
+            'focus: DomEvent', 'blur: DomEvent', 'input: DomEvent', 'scroll: DomEvent', 'resize: DomEvent',
         ]);
     });
 
     it('refuses a key a module declares for the type selector event that the DOM vocabulary maps already', () => {
-        expect(messageOf(() => new LexicaRegistry([Vocabulary.module, BrowserVocabularyDeclarations.module, new LexicaModule('twice', { selectableTypes: [{ name: 'click', selector: 'event', type: 'domEvent' }] })]))).toContain("The type selector 'event' maps the key 'click' already, as the module 'domql' declared it");
+        expect(messageOf(() => new LexicaRegistry([Vocabulary.module, BrowserVocabularyDeclarations.module, new LexicaModule('twice', { selectableTypes: [{ name: 'click', selector: 'event', type: 'DomEvent' }] })]))).toContain("The type selector 'event' maps the key 'click' already, as the module 'domql' declared it");
     });
 
     describe('observations', () => {

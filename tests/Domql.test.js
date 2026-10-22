@@ -186,7 +186,7 @@ describe('domql', () => {
             expect(domql.query('action == "save"').definition.expression).toEqual(equality(parameter('action'), literal('save')));
             expect(domql.query('a != b').definition.expression).toEqual(not(equality(parameter('a'), parameter('b'))));
             expect(domql.query('left.attribute["name"] == right.attribute["name"]').definition.expression).toEqual(equality(indexer('attribute', literal('name'), parameter('left')), indexer('attribute', literal('name'), parameter('right'))));
-            expect(domql.query('node as element == panel').definition.expression).toEqual(equality({ kind: 'cast', type: 'element', target: parameter('node') }, parameter('panel')));
+            expect(domql.query('node as Element == panel').definition.expression).toEqual(equality({ kind: 'cast', type: 'Element', target: parameter('node') }, parameter('panel')));
         });
 
         it('give is not, not around is, and not before is one definition', () => {
@@ -418,7 +418,7 @@ describe('domql', () => {
             ['a colon before optional brackets', 'panel?:[name]', 1, 6],
             ['a colon before brackets in an optional enclosed access', '(?panel:[name])', 1, 8],
             ['optional brackets after a dot', 'panel.?[name]', 1, 7],
-            ['a bracket after a conversion, which ends its chain', 'a to string[name]', 1, 12],
+            ['a bracket after a conversion, which ends its chain', 'a to String[name]', 1, 12],
         ])('refuse %s', (_, text, line, column) => {
             const error = getError(() => domql.query(text));
 
@@ -433,38 +433,38 @@ describe('domql', () => {
         const chain = target => ({ kind: 'optionalChain', target });
 
         it('read a target, as and the quoted type it casts to, which a chain continues from only in a group', () => {
-            expect(domql.query('panel.parent as element').definition.expression).toEqual(cast('element', member('parent', parameter('panel'))));
-            expect(domql.query('(panel.parent as element)?.rect').definition.expression).toEqual(chain(optional(member('rect', cast('element', member('parent', parameter('panel')))))));
-            expect(domql.query('(panel.parent as element).matches(".row")').definition.expression).toEqual(call('matches', literal('.row'), cast('element', member('parent', parameter('panel')))));
+            expect(domql.query('panel.parent as Element').definition.expression).toEqual(cast('Element', member('parent', parameter('panel'))));
+            expect(domql.query('(panel.parent as Element)?.rect').definition.expression).toEqual(chain(optional(member('rect', cast('Element', member('parent', parameter('panel')))))));
+            expect(domql.query('(panel.parent as Element).matches(".row")').definition.expression).toEqual(call('matches', literal('.row'), cast('Element', member('parent', parameter('panel')))));
         });
 
         it('take a coalescing operator in parentheses, an optional enclosed access and another cast in a group as targets', () => {
-            expect(domql.query('(a ?? b) as element').definition.expression).toEqual(cast('element', { kind: 'coalescing', value: parameter('a'), fallback: parameter('b') }));
-            expect(domql.query('(?node.parent) as element').definition.expression).toEqual(cast('element', chain(optional(member('parent', parameter('node'))))));
-            expect(domql.query('(a as node) as element').definition.expression).toEqual(cast('element', cast('node', parameter('a'))));
+            expect(domql.query('(a ?? b) as Element').definition.expression).toEqual(cast('Element', { kind: 'coalescing', value: parameter('a'), fallback: parameter('b') }));
+            expect(domql.query('(?node.parent) as Element').definition.expression).toEqual(cast('Element', chain(optional(member('parent', parameter('node'))))));
+            expect(domql.query('(a as Node) as Element').definition.expression).toEqual(cast('Element', cast('Node', parameter('a'))));
         });
 
         it('stand as the receiver of an optional enclosed access, their own target\'s accesses optional too', () => {
-            expect(domql.query('(?(panel.parent as element).rect.width)').definition).toEqual(domql.query('(panel?.parent as element)?.rect?.width').definition);
-            expect(domql.query('(?((node.parent as node) as element).rect)').definition).toEqual(domql.query('((node?.parent as node) as element)?.rect').definition);
+            expect(domql.query('(?(panel.parent as Element).rect.width)').definition).toEqual(domql.query('(panel?.parent as Element)?.rect?.width').definition);
+            expect(domql.query('(?((node.parent as Node) as Element).rect)').definition).toEqual(domql.query('((node?.parent as Node) as Element)?.rect').definition);
             // `it` and a literal are receivers a grouped cast holds, never keywords that tell a grouped target from a grouped cast.
-            expect(domql.query('panel { w = (?((it.parent as node) as element).rect) }').definition).toEqual(domql.query('panel { w = ((it?.parent as node) as element)?.rect }').definition);
-            expect(domql.query('(?((null as node) as element).rect)').definition).toEqual(domql.query('((null as node) as element)?.rect').definition);
+            expect(domql.query('panel { w = (?((it.parent as Node) as Element).rect) }').definition).toEqual(domql.query('panel { w = ((it?.parent as Node) as Element)?.rect }').definition);
+            expect(domql.query('(?((null as Node) as Element).rect)').definition).toEqual(domql.query('((null as Node) as Element)?.rect').definition);
         });
 
         it('stand as the receiver of an optional enclosed access with a grouped target that keeps its own rules, a coalescing operator or another optional enclosed access', () => {
-            expect(domql.query('(?((a.x ?? b.y) as element).rect.width)').definition).toEqual(domql.query('((a.x ?? b.y) as element)?.rect?.width').definition);
-            expect(domql.query('(?((?a.b) as element).c)').definition).toEqual(domql.query('(a?.b as element)?.c').definition);
-            expect(domql.query('(?(((a ?? b) as node) as element).rect)').definition).toEqual(domql.query('(((a ?? b) as node) as element)?.rect').definition);
-            expect(domql.query('(?((a ?? b as node) as element).rect)').definition).toEqual(domql.query('((a ?? b as node) as element)?.rect').definition);
-            expect(domql.query('(?((a as node ?? b) as element).rect)').definition).toEqual(domql.query('((a as node ?? b) as element)?.rect').definition);
+            expect(domql.query('(?((a.x ?? b.y) as Element).rect.width)').definition).toEqual(domql.query('((a.x ?? b.y) as Element)?.rect?.width').definition);
+            expect(domql.query('(?((?a.b) as Element).c)').definition).toEqual(domql.query('(a?.b as Element)?.c').definition);
+            expect(domql.query('(?(((a ?? b) as Node) as Element).rect)').definition).toEqual(domql.query('(((a ?? b) as Node) as Element)?.rect').definition);
+            expect(domql.query('(?((a ?? b as Node) as Element).rect)').definition).toEqual(domql.query('((a ?? b as Node) as Element)?.rect').definition);
+            expect(domql.query('(?((a as Node ?? b) as Element).rect)').definition).toEqual(domql.query('((a as Node ?? b) as Element)?.rect').definition);
         });
 
         it.each([
-            ['a grouped coalescing operator an access follows', '(?((a ?? b).x as element).rect)', 1, 12],
-            ['an optional enclosed access an access follows', '(?((?a.b).c as element).d)', 1, 10],
-            ['a conditional in parentheses', '(?((if a then b else c end) as element).d)', 1, 4],
-            ['a conditional in parentheses whose branch is a cast', '(?((if a then b as node else c end) as element).d)', 1, 4],
+            ['a grouped coalescing operator an access follows', '(?((a ?? b).x as Element).rect)', 1, 12],
+            ['an optional enclosed access an access follows', '(?((?a.b).c as Element).d)', 1, 10],
+            ['a conditional in parentheses', '(?((if a then b else c end) as Element).d)', 1, 4],
+            ['a conditional in parentheses whose branch is a cast', '(?((if a then b as Node else c end) as Element).d)', 1, 4],
             ['a coalescing operator that no cast holds', '(?((a ?? b)).rect)', 1, 12],
         ])('refuse as the cast an optional enclosed access receives %s', (_, text, line, column) => {
             const error = getError(() => domql.query(text));
@@ -474,13 +474,13 @@ describe('domql', () => {
         });
 
         it.each([
-            ['of a conditional in parentheses', '(if a then b else c end) as element', 1, 1],
-            ['of a chain an object expression continues', 'a { x = 1 } as element', 1, 1],
-            ['of an optional enclosed access a chain continues', '(?a.b).c as element', 1, 1],
-            ['of a coalescing operator a chain continues', '(a ?? b).c as element', 1, 1],
+            ['of a conditional in parentheses', '(if a then b else c end) as Element', 1, 1],
+            ['of a chain an object expression continues', 'a { x = 1 } as Element', 1, 1],
+            ['of an optional enclosed access a chain continues', '(?a.b).c as Element', 1, 1],
+            ['of a coalescing operator a chain continues', '(a ?? b).c as Element', 1, 1],
             ['to a type written as a string', 'a as "element"', 1, 6],
-            ['continued without a group', 'a as element?.rect', 1, 13],
-            ['of a cast without a group', 'a as node as element', 1, 11],
+            ['continued without a group', 'a as Element?.rect', 1, 13],
+            ['of a cast without a group', 'a as Node as Element', 1, 11],
         ])('refuse a cast %s', (_, text, line, column) => {
             const error = getError(() => domql.query(text));
 
@@ -490,7 +490,7 @@ describe('domql', () => {
 
         it.each([
             ['a type that is no string', cast(5, parameter('a')), '/expression/type'],
-            ['a target that is an infixCall, which is no node', cast('element', infixCall('matches', literal('.row'), parameter('a'))), '/expression/target'],
+            ['a target that is an infixCall, which is no node', cast('Element', infixCall('matches', literal('.row'), parameter('a'))), '/expression/target'],
         ])('refuse a definition of a cast with %s', (_, query, pointer) => {
             const error = getError(() => domql.query({ version: 33, expression: query }));
 
@@ -504,26 +504,26 @@ describe('domql', () => {
         const coalescing = (value, fallback) => ({ kind: 'coalescing', value, fallback });
 
         it('read a value, to and the type it converts to, written bare, binding looser than a cast and tighter than an equality, and chaining left to right', () => {
-            expect(domql.query('a to number').definition.expression).toEqual(conversion('number', parameter('a')));
-            expect(domql.query('panel.attribute["data-count"] to number').definition.expression).toEqual(conversion('number', indexer('attribute', literal('data-count'), parameter('panel'))));
-            expect(domql.query('panel.matches(".open") to string').definition.expression).toEqual(conversion('string', call('matches', literal('.open'), parameter('panel'))));
-            expect(domql.query('a to string to number').definition.expression).toEqual(conversion('number', conversion('string', parameter('a'))));
-            expect(domql.query('panel.attribute["data-count"] to number == 5').definition.expression).toEqual(equality(conversion('number', indexer('attribute', literal('data-count'), parameter('panel'))), literal(5)));
-            expect(domql.query('a to number ?? 0').definition.expression).toEqual(coalescing(conversion('number', parameter('a')), literal(0)));
-            expect(domql.query('a ?? b to number').definition.expression).toEqual(coalescing(parameter('a'), conversion('number', parameter('b'))));
-            expect(domql.query('not a to boolean').definition.expression).toEqual(not(conversion('boolean', parameter('a'))));
-            expect(domql.query('a as element to string').definition.expression).toEqual(conversion('string', { kind: 'cast', type: 'element', target: parameter('a') }));
-            expect(domql.query('sentinel.intersects() to string').definition.expression).toEqual(conversion('string', call('intersects', undefined, parameter('sentinel'))));
-            expect(domql.query('panel.matches(~to) to string').definition.expression).toEqual(conversion('string', call('matches', parameter('to'), parameter('panel'))));
+            expect(domql.query('a to Number').definition.expression).toEqual(conversion('Number', parameter('a')));
+            expect(domql.query('panel.attribute["data-count"] to Number').definition.expression).toEqual(conversion('Number', indexer('attribute', literal('data-count'), parameter('panel'))));
+            expect(domql.query('panel.matches(".open") to String').definition.expression).toEqual(conversion('String', call('matches', literal('.open'), parameter('panel'))));
+            expect(domql.query('a to String to Number').definition.expression).toEqual(conversion('Number', conversion('String', parameter('a'))));
+            expect(domql.query('panel.attribute["data-count"] to Number == 5').definition.expression).toEqual(equality(conversion('Number', indexer('attribute', literal('data-count'), parameter('panel'))), literal(5)));
+            expect(domql.query('a to Number ?? 0').definition.expression).toEqual(coalescing(conversion('Number', parameter('a')), literal(0)));
+            expect(domql.query('a ?? b to Number').definition.expression).toEqual(coalescing(parameter('a'), conversion('Number', parameter('b'))));
+            expect(domql.query('not a to Boolean').definition.expression).toEqual(not(conversion('Boolean', parameter('a'))));
+            expect(domql.query('a as Element to String').definition.expression).toEqual(conversion('String', { kind: 'cast', type: 'Element', target: parameter('a') }));
+            expect(domql.query('sentinel.intersects() to String').definition.expression).toEqual(conversion('String', call('intersects', undefined, parameter('sentinel'))));
+            expect(domql.query('panel.matches(~to) to String').definition.expression).toEqual(conversion('String', call('matches', parameter('to'), parameter('panel'))));
         });
 
         it('take to with or without the trivia around it, which separates nothing a token does not', () => {
-            const spaced = domql.query('a to number').definition;
+            const spaced = domql.query('a to Number').definition;
 
-            expect(domql.query('a to\n    number').definition).toEqual(spaced);
-            expect(domql.query('a/* the value */to/* its type */number').definition).toEqual(spaced);
-            expect(domql.query('(a)to number').definition).toEqual(spaced);
-            expect(domql.query('a["n"]to number').definition.expression).toEqual(conversion('number', indexer(undefined, literal('n'), parameter('a'))));
+            expect(domql.query('a to\n    Number').definition).toEqual(spaced);
+            expect(domql.query('a/* the value */to/* its type */Number').definition).toEqual(spaced);
+            expect(domql.query('(a)to Number').definition).toEqual(spaced);
+            expect(domql.query('a["n"]to Number').definition.expression).toEqual(conversion('Number', indexer(undefined, literal('n'), parameter('a'))));
         });
 
         it('take to as a keyword, which names a field, a local, a property, a call and an indexer as it is written, a reference to a local reading it after @ and a binding after ~', () => {
@@ -531,7 +531,7 @@ describe('domql', () => {
             expect(domql.query('panel { let to = it.size, width = @to.width }').definition.expression.fields[0].value).toEqual(member('width', { kind: 'local', name: 'to' }));
             expect(domql.query('range.to').definition.expression).toEqual(member('to', parameter('range')));
             expect(domql.query('range.to()').definition.expression).toEqual(call('to', undefined, parameter('range')));
-            expect(domql.query('range { let to = "3", value = @to to number }').definition.expression.fields[0].value).toEqual(conversion('number', { kind: 'local', name: 'to' }));
+            expect(domql.query('range { let to = "3", value = @to to Number }').definition.expression.fields[0].value).toEqual(conversion('Number', { kind: 'local', name: 'to' }));
             expect(domql.query('~to.size').definition.expression).toEqual(member('size', parameter('to')));
             expect(domql.query('range.to[1]').definition.expression).toEqual(indexer('to', literal(1), parameter('range')));
             expect(domql.query('panel { let to = ".x", open = it.matches(@to) }').definition.expression.fields[0].value).toEqual(call('matches', { kind: 'local', name: 'to' }));
@@ -542,11 +542,11 @@ describe('domql', () => {
 
         it.each([
             ['to a type written as a string', 'a to "number"', 1, 6],
-            ['continued without a group', 'a to number?.x', 1, 12],
-            ['followed by an object expression', 'a to number { x: 1 }', 1, 13],
-            ['followed by a member written after a space', 'a to number matches ".row"', 1, 13],
-            ['cast without a group', 'a to string as element', 1, 13],
-            ['written without the value it converts', 'to number', 1, 1],
+            ['continued without a group', 'a to Number?.x', 1, 12],
+            ['followed by an object expression', 'a to Number { x: 1 }', 1, 13],
+            ['followed by a member written after a space', 'a to Number matches ".row"', 1, 13],
+            ['cast without a group', 'a to String as Element', 1, 13],
+            ['written without the value it converts', 'to Number', 1, 1],
         ])('refuse a conversion %s', (_, text, line, column) => {
             const error = getError(() => domql.query(text));
 
@@ -556,7 +556,7 @@ describe('domql', () => {
 
         it.each([
             ['a type that is no string', conversion(5, parameter('a')), '/expression/type'],
-            ['no target', { kind: 'conversion', type: 'number' }, '/expression'],
+            ['no target', { kind: 'conversion', type: 'Number' }, '/expression'],
         ])('refuse a definition of a conversion with %s', (_, query, pointer) => {
             const error = getError(() => domql.query({ version: 33, expression: query }));
 
@@ -573,25 +573,25 @@ describe('domql', () => {
         const queryOf = text => domql.query(text).definition.expression;
 
         it('read try and the one conversion or cast it attempts, binding tighter than an equality and a coalescing operator', () => {
-            expect(queryOf('try a to number')).toEqual(attempt(conversion('number', parameter('a'))));
-            expect(queryOf('try panel["data-n"] to number')).toEqual(attempt(conversion('number', indexer(undefined, literal('data-n'), parameter('panel')))));
-            expect(queryOf('try (a to string) to number')).toEqual(attempt(conversion('number', conversion('string', parameter('a')))));
-            expect(queryOf('try a to number == 5')).toEqual(equality(attempt(conversion('number', parameter('a'))), literal(5)));
-            expect(queryOf('try a to number ?? 0')).toEqual(coalescing(attempt(conversion('number', parameter('a'))), literal(0)));
-            expect(queryOf('(try a to number) to string')).toEqual(conversion('string', attempt(conversion('number', parameter('a')))));
-            expect(queryOf('try node as element')).toEqual(attempt(cast('element', parameter('node'))));
-            expect(queryOf('try node.parent as element')).toEqual(attempt(cast('element', member('parent', parameter('node')))));
-            expect(queryOf('(try node as element) != null')).toEqual({ kind: 'not', operand: equality(attempt(cast('element', parameter('node'))), literal(null)) });
-            expect(queryOf('try node as element ?? panel')).toEqual(coalescing(attempt(cast('element', parameter('node'))), parameter('panel')));
-            expect(queryOf('try (node as element).parent as element')).toEqual(attempt(cast('element', member('parent', cast('element', parameter('node'))))));
-            expect(queryOf('try (node as element) to string')).toEqual(attempt(conversion('string', cast('element', parameter('node')))));
+            expect(queryOf('try a to Number')).toEqual(attempt(conversion('Number', parameter('a'))));
+            expect(queryOf('try panel["data-n"] to Number')).toEqual(attempt(conversion('Number', indexer(undefined, literal('data-n'), parameter('panel')))));
+            expect(queryOf('try (a to String) to Number')).toEqual(attempt(conversion('Number', conversion('String', parameter('a')))));
+            expect(queryOf('try a to Number == 5')).toEqual(equality(attempt(conversion('Number', parameter('a'))), literal(5)));
+            expect(queryOf('try a to Number ?? 0')).toEqual(coalescing(attempt(conversion('Number', parameter('a'))), literal(0)));
+            expect(queryOf('(try a to Number) to String')).toEqual(conversion('String', attempt(conversion('Number', parameter('a')))));
+            expect(queryOf('try node as Element')).toEqual(attempt(cast('Element', parameter('node'))));
+            expect(queryOf('try node.parent as Element')).toEqual(attempt(cast('Element', member('parent', parameter('node')))));
+            expect(queryOf('(try node as Element) != null')).toEqual({ kind: 'not', operand: equality(attempt(cast('Element', parameter('node'))), literal(null)) });
+            expect(queryOf('try node as Element ?? panel')).toEqual(coalescing(attempt(cast('Element', parameter('node'))), parameter('panel')));
+            expect(queryOf('try (node as Element).parent as Element')).toEqual(attempt(cast('Element', member('parent', cast('Element', parameter('node'))))));
+            expect(queryOf('try (node as Element) to String')).toEqual(attempt(conversion('String', cast('Element', parameter('node')))));
         });
 
         it('leave is and convertible names, as any word that is no keyword is', () => {
             const local = parameter('convertible');
 
             expect(domql.query('a == convertible').definition.expression).toEqual(equality(parameter('a'), local));
-            expect(domql.query('a == convertible to number').definition.expression).toEqual(equality(parameter('a'), conversion('number', local)));
+            expect(domql.query('a == convertible to Number').definition.expression).toEqual(equality(parameter('a'), conversion('Number', local)));
             expect(domql.query('a.convertible').definition.expression).toEqual(member('convertible', parameter('a')));
             expect(domql.query('{ is = 1 }').definition.expression.fields[0].name).toBe('is');
             expect(domql.query('panel { let is = it.size, width = is.width }').definition.expression.fields[0].value).toEqual(member('width', { kind: 'local', name: 'is' }));
@@ -601,14 +601,14 @@ describe('domql', () => {
         });
 
         it.each([
-            ['of a chain of conversions without a group', 'try a to string to number', 1, 1],
-            ['of a conversion of a cast without a group', 'try node as element to string', 1, 1],
+            ['of a chain of conversions without a group', 'try a to String to Number', 1, 1],
+            ['of a conversion of a cast without a group', 'try node as Element to String', 1, 1],
             ['of what is neither a conversion nor a cast', 'try a', 1, 1],
-            ['of another attempt', 'try try a to number', 1, 5],
+            ['of another attempt', 'try try a to Number', 1, 5],
             ['to a type written as a string', 'try a to "number"', 1, 10],
             ['casting to a type written as a string', 'try a as "element"', 1, 10],
-            ['chained by an equality', 'try a to number == 1 == 2', 1, 22],
-            ['that a cast takes as its target', '(try a as node) as element', 1, 1],
+            ['chained by an equality', 'try a to Number == 1 == 2', 1, 22],
+            ['that a cast takes as its target', '(try a as Node) as Element', 1, 1],
         ])('refuse an attempt %s', (_, text, line, column) => {
             const error = getError(() => domql.query(text));
 
@@ -619,10 +619,10 @@ describe('domql', () => {
         it.each([
             ['an attempt of a parameter', attempt(parameter('a')), '/expression/target'],
             ['an attempt of an equality', attempt(equality(parameter('a'), literal(1))), '/expression/target'],
-            ['an attempt of another attempt', attempt(attempt(conversion('number', parameter('a')))), '/expression/target'],
+            ['an attempt of another attempt', attempt(attempt(conversion('Number', parameter('a')))), '/expression/target'],
             ['an attempt of nothing', { kind: 'try' }, '/expression'],
-            ['a conversion that says it is attempted', { ...conversion('number', parameter('a')), attempt: true }, '/expression'],
-            ['a cast of an attempt', cast('element', attempt(cast('node', parameter('a')))), '/expression/target'],
+            ['a conversion that says it is attempted', { ...conversion('Number', parameter('a')), attempt: true }, '/expression'],
+            ['a cast of an attempt', cast('Element', attempt(cast('Node', parameter('a')))), '/expression/target'],
         ])('refuse a definition of %s, since try attempts a conversion or a cast', (_, query, pointer) => {
             const error = getError(() => domql.query({ version: 33, expression: query }));
 
@@ -1070,16 +1070,16 @@ describe('domql', () => {
         });
 
         it.each([
-            ['an element', () => document.createElement('div'), 'element'],
-            ['a number', () => 3, 'number'],
-            ['a list of numbers', () => [1, 2], 'list<number>'],
-            ['an object', () => ({ id: 'a', parent: document.createElement('div') }), '{ id: string, parent: element }'],
+            ['an element', () => document.createElement('div'), 'Element'],
+            ['a number', () => 3, 'Number'],
+            ['a list of numbers', () => [1, 2], 'List<Number>'],
+            ['an object', () => ({ id: 'a', parent: document.createElement('div') }), '{ id: String, parent: Element }'],
             ['null', () => null, 'null'],
-            ['the empty list', () => [], 'list<never>'],
-            ['a list of nulls alone', () => [null, null], 'list<null>'],
-            ['a list holding a null', () => [document.createElement('div'), null], 'list<element?>'],
-            ['an object holding a null', () => ({ id: 'a', parent: null }), '{ id: string, parent: null }'],
-            ['a list of lists, one of them empty', () => [[1], []], 'list<list<number>>'],
+            ['the empty list', () => [], 'List<Never>'],
+            ['a list of nulls alone', () => [null, null], 'List<null>'],
+            ['a list holding a null', () => [document.createElement('div'), null], 'List<Element?>'],
+            ['an object holding a null', () => ({ id: 'a', parent: null }), '{ id: String, parent: null }'],
+            ['a list of lists, one of them empty', () => [[1], []], 'List<List<Number>>'],
         ])('types %s from the value alone', (_, value, type) => {
             const bindings = DomqlQuery.bindingsOf(domql.query('target', { target: value() }));
 
@@ -1164,14 +1164,14 @@ describe('domql', () => {
             const created = domql.query(parsed.definition, { target: document.createElement('div') });
 
             expect(DomqlQuery.bindingsOf(parsed).typeOf('target')).toBe('null');
-            expect(DomqlQuery.bindingsOf(created).typeOf('target')).toBe('element');
+            expect(DomqlQuery.bindingsOf(created).typeOf('target')).toBe('Element');
         });
 
         it('types a binding that holds a node by its kind', () => {
             const host = document.createElement('div');
             const bindings = DomqlQuery.bindingsOf(domql.query('a.children.count', { a: host, b: document, c: document.createDocumentFragment(), d: host.attachShadow({ mode: 'open' }) }));
 
-            expect(['a', 'b', 'c', 'd'].map(name => bindings.typeOf(name))).toEqual(['element', 'document', 'documentFragment', 'shadowRoot']);
+            expect(['a', 'b', 'c', 'd'].map(name => bindings.typeOf(name))).toEqual(['Element', 'Document', 'DocumentFragment', 'ShadowRoot']);
         });
 
         it('refuses a binding of a node of another kind, such as text', () => {
@@ -1267,7 +1267,7 @@ describe('domql evaluates', () => {
         });
 
         it('is resolved with its options', () => {
-            expect(domql.query('domql.window.size').resolve().type.toString()).toBe('size');
+            expect(domql.query('domql.window.size').resolve().type.toString()).toBe('Size');
             expect(getError(() => domql.query('panel.matches(":hover")', { panel }).resolve({ watch: true })).kind).toBe('validation');
             expect(domql.query('panel.matches(":hover")', { panel }).resolve({ watch: true, acceptPartialObservation: true }).kind).toBe('value');
         });
@@ -1304,7 +1304,7 @@ describe('domql evaluates', () => {
         });
 
         it('leaves parsing and resolving to work without one', () => {
-            expect(domql.query('domql.window.size').resolve().type.toString()).toBe('size');
+            expect(domql.query('domql.window.size').resolve().type.toString()).toBe('Size');
         });
     });
 
@@ -1316,10 +1316,10 @@ describe('domql evaluates', () => {
             expect([resolved.kind, resolved.executionMode]).toEqual(['value', null]);
             expect(Object.isFrozen(resolved)).toBe(true);
             expect('createEvaluator' in resolved).toBe(false);
-            expect(resolved.type).toBe('size?');
-            expect(resolved.typeAt(['width'])).toBe('number?');
+            expect(resolved.type).toBe('Size?');
+            expect(resolved.typeAt(['width'])).toBe('Number?');
             expect(resolved.locate('/expression')).toMatchObject({ pointer: '/expression', line: 1 });
-            expect(resolved.usedDeclarations.map(used => used.name)).toEqual(['element.size']);
+            expect(resolved.usedDeclarations.map(used => used.name)).toEqual(['Element.size']);
             expect(Object.values(resolved).some(value => value !== null && typeof value === 'object' && 'createEvaluator' in value)).toBe(false);
         });
 
@@ -1390,7 +1390,7 @@ describe('domql modules', () => {
     });
 
     const module = name => isolated.createModule(name, {
-        members: [{ name, kind: 'property', target: 'element', result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 7 }],
+        members: [{ name, kind: 'property', target: 'Element', result: 'Number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 7 }],
     });
 
     describe('an observation type that is not shared', () => {
@@ -1413,7 +1413,7 @@ describe('domql modules', () => {
                     },
                 }],
                 members: [{
-                    name: 'level', kind: 'property', target: 'element', result: 'number?',
+                    name: 'level', kind: 'property', target: 'Element', result: 'Number?',
                     updates: { changes: 'observable', reads: 'maintained', observations: [{ type: 'level', of: 'receiver' }] },
                     implementation: ({ samples: [sample] }) => sample,
                 }],
@@ -1518,7 +1518,7 @@ describe('domql modules', () => {
                     },
                 }],
                 members: [{
-                    name: 'level', kind: 'property', target: 'element', result: 'number?',
+                    name: 'level', kind: 'property', target: 'Element', result: 'Number?',
                     updates: { changes: 'observable', reads: 'maintained', observations: [{ type: 'level', of: 'receiver' }] },
                     implementation: ({ samples: [value] }) => value,
                 }],
@@ -1546,14 +1546,14 @@ describe('domql modules', () => {
 
     describe('a structure a member answers', () => {
         /** Registers `pair`, a member of elements answering what `answer` gives, and the types it is declared with. */
-        const registerPair = (answer, result = 'pair') => {
+        const registerPair = (answer, result = 'Pair') => {
             isolated.registerModule(isolated.createModule('pair', {
                 types: [
-                    { name: 'pair', fields: { a: 'number', b: 'number' } },
-                    { name: 'span', fields: { from: 'pair', to: 'pair?', marks: 'list<pair>' } },
-                    { name: 'link', fields: { value: 'number', next: 'link?' } },
+                    { name: 'Pair', fields: { a: 'Number', b: 'Number' } },
+                    { name: 'Span', fields: { from: 'Pair', to: 'Pair?', marks: 'List<Pair>' } },
+                    { name: 'Link', fields: { value: 'Number', next: 'Link?' } },
                 ],
-                members: [{ name: 'pair', kind: 'property', target: 'element', result, updates: { changes: 'constant', reads: 'fresh' }, implementation: answer }],
+                members: [{ name: 'pair', kind: 'property', target: 'Element', result, updates: { changes: 'constant', reads: 'fresh' }, implementation: answer }],
             }));
         };
 
@@ -1579,13 +1579,13 @@ describe('domql modules', () => {
         });
 
         it('is copied as its declared shape at every depth, in its fields and in the items of a list', () => {
-            registerPair(() => ({ from: { a: 1, b: 2, x: 0 }, to: null, marks: [{ a: 3, b: 4, y: 0 }] }), 'span');
+            registerPair(() => ({ from: { a: 1, b: 2, x: 0 }, to: null, marks: [{ a: 3, b: 4, y: 0 }] }), 'Span');
 
             expect(isolated.query('panel.pair', { panel }).evaluate()).toEqual({ from: { a: 1, b: 2 }, to: null, marks: [{ a: 3, b: 4 }] });
         });
 
         it('holds its own type as deep as its value goes', () => {
-            registerPair(() => ({ value: 1, next: { value: 2, next: null, extra: true } }), 'link');
+            registerPair(() => ({ value: 1, next: { value: 2, next: null, extra: true } }), 'Link');
 
             expect(isolated.query('panel.pair', { panel }).evaluate()).toEqual({ value: 1, next: { value: 2, next: null } });
         });
@@ -1593,14 +1593,14 @@ describe('domql modules', () => {
         it('still fails where a declared field is missing or of another type', () => {
             registerPair(() => ({ a: 1 }));
 
-            expect(getError(() => isolated.query('panel.pair', { panel }).evaluate()).message).toContain("The member 'pair' answered {\"a\":1}, and it declares pair");
+            expect(getError(() => isolated.query('panel.pair', { panel }).evaluate()).message).toContain("The member 'pair' answered {\"a\":1}, and it declares Pair");
         });
     });
 
     it('copy a once execution\'s structured result by its declared fields', async () => {
         isolated.registerModule(isolated.createModule('measure', {
-            types: [{ name: 'measurement', fields: { width: 'number' } }],
-            members: [{ name: 'measure', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', target: 'element', parameters: [], result: 'measurement', implementation: async () => ({ width: 5, raw: { internal: true } }) }],
+            types: [{ name: 'Measurement', fields: { width: 'Number' } }],
+            members: [{ name: 'measure', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', target: 'Element', parameters: [], result: 'Measurement', implementation: async () => ({ width: 5, raw: { internal: true } }) }],
         }));
 
         await expect(isolated.query('panel.measure()', { panel: document.createElement('div') }).executeAsync()).resolves.toEqual({ width: 5 });
@@ -1610,7 +1610,7 @@ describe('domql modules', () => {
         class Reading {}
 
         const constant = (name, implementation) => isolated.createModule(name, {
-            members: [{ name, kind: 'property', target: 'element', result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation }],
+            members: [{ name, kind: 'property', target: 'Element', result: 'Number', updates: { changes: 'constant', reads: 'fresh' }, implementation }],
         });
 
         isolated.registerModule(constant('reading', () => new Reading()));
@@ -1618,13 +1618,13 @@ describe('domql modules', () => {
 
         const panel = document.createElement('div');
 
-        expect(getError(() => isolated.query('panel.reading', { panel }).evaluate()).message).toContain("The member 'reading' answered an instance of Reading, and it declares number");
-        expect(getError(() => isolated.query('panel.later', { panel }).evaluate()).message).toContain("The member 'later' answered a promise, and it declares number");
+        expect(getError(() => isolated.query('panel.reading', { panel }).evaluate()).message).toContain("The member 'reading' answered an instance of Reading, and it declares Number");
+        expect(getError(() => isolated.query('panel.later', { panel }).evaluate()).message).toContain("The member 'later' answered a promise, and it declares Number");
     });
 
     it('take the one parameter of an options input as the field of an object', () => {
         isolated.registerModule(isolated.createModule('zoom', {
-            members: [{ name: 'zoom', kind: 'function', target: 'element', arguments: 'options', parameters: [{ name: 'factor', kind: 'value', type: 'number', required: true, fixed: false, nulls: 'propagate' }], result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: ({ args }) => args.factor * 2 }],
+            members: [{ name: 'zoom', kind: 'function', target: 'Element', arguments: 'options', parameters: [{ name: 'factor', kind: 'value', type: 'Number', required: true, fixed: false, nulls: 'propagate' }], result: 'Number', updates: { changes: 'constant', reads: 'fresh' }, implementation: ({ args }) => args.factor * 2 }],
         }));
 
         const panel = document.createElement('div');
@@ -1636,7 +1636,7 @@ describe('domql modules', () => {
     it('fail inside an item of a list where the failing member is written', () => {
         isolated.registerModule(isolated.createModule('weight', {
             members: [{
-                name: 'weight', kind: 'property', target: 'element', result: 'number', updates: { changes: 'constant', reads: 'fresh' },
+                name: 'weight', kind: 'property', target: 'Element', result: 'Number', updates: { changes: 'constant', reads: 'fresh' },
                 implementation: ({ receiver: element }) => {
                     if (element.hasAttribute('aria-selected')) {
                         throw new Error('heavy');
@@ -1662,7 +1662,7 @@ describe('domql modules', () => {
 
         isolated.registerModule(module('zoom'));
 
-        expect(isolated.query('panel.zoom', { panel: element }).resolve().type.toString()).toBe('number');
+        expect(isolated.query('panel.zoom', { panel: element }).resolve().type.toString()).toBe('Number');
     });
 
     it('replace the resolutions made against the vocabulary before them', () => {
@@ -1682,7 +1682,7 @@ describe('domql modules', () => {
 
     it('observe DOMQL\'s targets through DOMQL\'s observation types, and declare no targets of their own, which DOMQL could not resolve', () => {
         const observing = of => isolated.createModule('framed', {
-            members: [{ name: 'framed', kind: 'property', target: 'element', result: 'number', updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of, childList: true }] }, implementation: () => 7 }],
+            members: [{ name: 'framed', kind: 'property', target: 'Element', result: 'Number', updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of, childList: true }] }, implementation: () => 7 }],
         });
         const refused = getError(() => isolated.registerModule(isolated.createModule('frames', { observationTargets: [{ name: 'frame' }] })));
 
@@ -1694,7 +1694,7 @@ describe('domql modules', () => {
 
     it('carry out a host call only as the dispatch table of DOMQL keeps it, refusing a module domql.createModule did not make', async () => {
         const { lexica } = await import('@formaui/lexica');
-        const module = lexica.createModule('stray', { members: [{ name: 'stray', kind: 'function', invokedBy: 'host', target: 'element', parameters: [] }] });
+        const module = lexica.createModule('stray', { members: [{ name: 'stray', kind: 'function', invokedBy: 'host', target: 'Element', parameters: [] }] });
         const refused = getError(() => isolated.registerModule(module));
 
         expect(refused).toMatchObject({ kind: 'module', location: { module: 'stray', declaration: 'stray', field: 'requestKind' } });
@@ -1732,7 +1732,7 @@ describe('domql instances', () => {
 
     it('reuse a query from its definition and a plain object of bindings, resolved against their own vocabulary', () => {
         other.registerModule(other.createModule('zoom', {
-            members: [{ name: 'zoom', kind: 'property', target: 'element', result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 7 }],
+            members: [{ name: 'zoom', kind: 'property', target: 'Element', result: 'Number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 7 }],
         }));
 
         const count = other.query('panel.children.count', { panel });
@@ -1790,14 +1790,14 @@ describe('domql evaluateAsync', () => {
             ],
             members: [
                 {
-                    name: 'level', kind: 'property', target: 'element', result: 'number?',
+                    name: 'level', kind: 'property', target: 'Element', result: 'Number?',
                     updates: { changes: 'observable', reads: 'maintained', observations: [{ type: 'level', of: 'receiver' }] },
                     implementation: ({ samples: [sample] }) => sample,
                 },
             ],
         }));
         isolated.registerModule(isolated.createModule('boom', {
-            members: [{ name: 'boom', kind: 'property', target: 'element', result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => { throw new Error('no'); } }],
+            members: [{ name: 'boom', kind: 'property', target: 'Element', result: 'Number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => { throw new Error('no'); } }],
         }));
     });
 
@@ -1961,11 +1961,11 @@ describe('domql executeAsync', () => {
     let pending;
 
     /** A module of a once execution: its one member, named for it, on an element, carried out by the function. */
-    const execution = (name, implementation, { parameters = [], result = 'boolean' } = {}) => isolated.createModule(name, {
-        members: [{ name, kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', target: 'element', ...(parameters.length === 0 ? {} : { arguments: 'positional' }), parameters, result, implementation }],
+    const execution = (name, implementation, { parameters = [], result = 'Boolean' } = {}) => isolated.createModule(name, {
+        members: [{ name, kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', target: 'Element', ...(parameters.length === 0 ? {} : { arguments: 'positional' }), parameters, result, implementation }],
     });
 
-    const label = [{ name: 'label', kind: 'value', type: 'string', required: true, nulls: 'propagate' }];
+    const label = [{ name: 'label', kind: 'value', type: 'String', required: true, nulls: 'propagate' }];
 
     beforeEach(async () => {
         vi.resetModules();
@@ -1996,7 +1996,7 @@ describe('domql executeAsync', () => {
             return new Promise((resolve, reject) => { pending = { resolve, reject }; });
         }));
 
-        isolated.registerModule(execution('pick', ({ receiver: element }) => element.firstElementChild, { result: 'element?' }));
+        isolated.registerModule(execution('pick', ({ receiver: element }) => element.firstElementChild, { result: 'Element?' }));
         isolated.registerModule(execution('broken', ({ receiver: element }) => {
             element.dataset.state = 'half';
 
@@ -2040,7 +2040,7 @@ describe('domql executeAsync', () => {
     });
 
     it('rejects a result of another type than the execution declares, naming it', async () => {
-        await expect(isolated.query('panel.wrong()', { panel }).executeAsync()).rejects.toThrow(expect.objectContaining({ kind: 'evaluation', message: expect.stringContaining("The host call 'wrong' supplied \"yes\", and it declares boolean") }));
+        await expect(isolated.query('panel.wrong()', { panel }).executeAsync()).rejects.toThrow(expect.objectContaining({ kind: 'evaluation', message: expect.stringContaining("The host call 'wrong' supplied \"yes\", and it declares Boolean") }));
     });
 
     it('rejects a failure of the execution with what it threw as the cause, and leaves what it changed', async () => {
@@ -2130,19 +2130,19 @@ describe('domql receivers of unknown type', () => {
 
     it('answer null for an optional access of a null binding, of the result its declarations share made nullable', () => {
         expect(isolated.query('panel?.size', { panel: null }).evaluate()).toBeNull();
-        expect(isolated.query('panel?.size', { panel: null }).resolve().type.toString()).toBe('size?');
-        expect(isolated.query('panel?.children.count', { panel: null }).resolve().type.toString()).toBe('number?');
+        expect(isolated.query('panel?.size', { panel: null }).resolve().type.toString()).toBe('Size?');
+        expect(isolated.query('panel?.children.count', { panel: null }).resolve().type.toString()).toBe('Number?');
     });
 
     it('answer null for an object expression following a null binding, its fields resolved against no value', () => {
         expect(isolated.query('{ panel = panel { size = it.size, key = it.attribute["data-key"] }, ids = ids }', { panel: null, ids: [] }).evaluate()).toEqual({ panel: null, ids: [] });
-        expect(isolated.query('panel { size = it.size }', { panel: null }).resolve().type.toString()).toBe('{ size: size? }?');
+        expect(isolated.query('panel { size = it.size }', { panel: null }).resolve().type.toString()).toBe('{ size: Size? }?');
     });
 
     it.each([
         ['a call no declaration has', 'panel?.sise()', 'no member of the vocabulary'],
         ['a name in a form none of its declarations takes', 'panel?.size()', 'is a property'],
-        ['an argument none of its declarations takes', 'panel?.attribute[5]', "expects string and finds number"],
+        ['an argument none of its declarations takes', 'panel?.attribute[5]', "expects String and finds Number"],
         ['a misspelled call in the object expression that follows', 'panel { size = it.sise() }', 'no member of the vocabulary'],
     ])('refuse %s', (_, text, message) => {
         const error = getError(() => isolated.query(text, { panel: null }).resolve());
@@ -2171,11 +2171,11 @@ describe('domql receivers of unknown type', () => {
 
         const rows = isolated.query('rows { c = it.children.count }', { rows: [] });
 
-        expect(rows.resolve().type.toString()).toBe('list<{ c: number }>');
+        expect(rows.resolve().type.toString()).toBe('List<{ c: Number }>');
         expect(isolated.query(rows.definition, { rows: [panel] }).evaluate()).toEqual([{ c: 0 }]);
-        expect(isolated.query('rows { w = it.rect?.width }', { rows: [] }).resolve().type.toString()).toBe('list<{ w: number? }>');
+        expect(isolated.query('rows { w = it.rect?.width }', { rows: [] }).resolve().type.toString()).toBe('List<{ w: Number? }>');
         expect(getError(() => isolated.query('rows { c = it.children.sise }', { rows: [] }).resolve()).message).toContain("'sise' is no member of the vocabulary");
-        expect(isolated.query('panel.children { c = it.children.count }', { panel }).resolve().type.toString()).toBe('list<{ c: number }>');
+        expect(isolated.query('panel.children { c = it.children.count }', { panel }).resolve().type.toString()).toBe('List<{ c: Number }>');
     });
 
     it('accept any property of data that has not arrived, the empty rows projected to the empty list', () => {
@@ -2216,7 +2216,7 @@ describe('domql receivers of unknown type', () => {
         const calls = [];
 
         isolated.registerModule(isolated.createModule('mark', {
-            members: [{ name: 'mark', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'continuous', target: 'element', parameters: [], implementation: ({ receiver: element }) => (calls.push(element), { update: () => {}, dispose: () => calls.push('dispose') }) }],
+            members: [{ name: 'mark', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'continuous', target: 'Element', parameters: [], implementation: ({ receiver: element }) => (calls.push(element), { update: () => {}, dispose: () => calls.push('dispose') }) }],
         }));
 
         const execution = isolated.query('item?.mark()', { item: null }).run();
@@ -2234,7 +2234,7 @@ describe('domql receivers of unknown type', () => {
         const execution = { kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'continuous', parameters: [], implementation: start };
 
         isolated.registerModule(isolated.createModule('mark', {
-            members: [{ ...execution, name: 'mark', target: 'element' }, { ...execution, name: 'mark', target: 'string' }],
+            members: [{ ...execution, name: 'mark', target: 'Element' }, { ...execution, name: 'mark', target: 'String' }],
         }));
 
         const running = isolated.query('item?.mark()', { item: null }).run();
@@ -2249,10 +2249,10 @@ describe('domql receivers of unknown type', () => {
     });
 
     it('refuse a name whose host calls disagree on what they request, which a receiver of unknown type leaves ambiguous', () => {
-        const once = { kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', parameters: [], result: 'boolean', implementation: () => true };
+        const once = { kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', parameters: [], result: 'Boolean', implementation: () => true };
 
         isolated.registerModule(isolated.createModule('ping', {
-            members: [{ ...once, name: 'ping', target: 'element' }, { ...once, name: 'ping', target: 'string', executionMode: 'continuous', result: undefined, implementation: () => ({ update: () => {}, dispose: () => {} }) }],
+            members: [{ ...once, name: 'ping', target: 'Element' }, { ...once, name: 'ping', target: 'String', executionMode: 'continuous', result: undefined, implementation: () => ({ update: () => {}, dispose: () => {} }) }],
         }));
 
         const error = getError(() => isolated.query('thing?.ping()', { thing: null }).resolve());
@@ -2264,11 +2264,11 @@ describe('domql receivers of unknown type', () => {
 
     it('refuse a name whose declarations make requests of different kinds', () => {
         isolated.registerModule(isolated.createModule('ping', {
-            members: [{ name: 'ping', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', target: 'element', parameters: [], result: 'boolean', implementation: () => true }],
+            members: [{ name: 'ping', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', target: 'Element', parameters: [], result: 'Boolean', implementation: () => true }],
         }));
         isolated.registerModule(isolated.createModule('radar', {
-            types: [{ name: 'radar', fields: { level: 'number' } }],
-            members: [{ name: 'ping', kind: 'function', target: 'radar', parameters: [], result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 1 }],
+            types: [{ name: 'Radar', fields: { level: 'Number' } }],
+            members: [{ name: 'ping', kind: 'function', target: 'Radar', parameters: [], result: 'Number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 1 }],
         }));
 
         const error = getError(() => isolated.query('thing?.ping()', { thing: null }).resolve());
@@ -2283,7 +2283,7 @@ describe('domql receivers of unknown type', () => {
 
         isolated.registerModule(isolated.createModule('ping', {
             members: [{
-                name: 'ping', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', target: 'element', parameters: [], result: 'boolean',
+                name: 'ping', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', target: 'Element', parameters: [], result: 'Boolean',
                 implementation: ({ receiver: element }) => {
                     pings.push(element);
 
@@ -2292,11 +2292,11 @@ describe('domql receivers of unknown type', () => {
             }],
         }));
         isolated.registerModule(isolated.createModule('radar', {
-            types: [{ name: 'radar', fields: { level: 'number' } }],
-            members: [{ name: 'ping', kind: 'function', target: 'radar', parameters: [], result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 1 }],
+            types: [{ name: 'Radar', fields: { level: 'Number' } }],
+            members: [{ name: 'ping', kind: 'function', target: 'Radar', parameters: [], result: 'Number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 1 }],
         }));
 
-        const query = isolated.query('(thing as element)?.ping()', { thing: null });
+        const query = isolated.query('(thing as Element)?.ping()', { thing: null });
 
         expect(query.resolve()).toMatchObject({ kind: 'execution', executionMode: 'once' });
         expect(await query.executeAsync()).toBeNull();
@@ -2308,8 +2308,8 @@ describe('domql receivers of unknown type', () => {
     it('run a function on the empty list, refusing one that more than one declaration takes', () => {
         isolated.registerModule(isolated.createModule('total', {
             members: [
-                { name: 'total', kind: 'property', target: 'list<number>', result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: ({ receiver: items }) => items.reduce((sum, item) => sum + item, 0) },
-                { name: 'total', kind: 'property', target: 'list<string>', result: 'string', updates: { changes: 'constant', reads: 'fresh' }, implementation: ({ receiver: items }) => items.join('') },
+                { name: 'total', kind: 'property', target: 'List<Number>', result: 'Number', updates: { changes: 'constant', reads: 'fresh' }, implementation: ({ receiver: items }) => items.reduce((sum, item) => sum + item, 0) },
+                { name: 'total', kind: 'property', target: 'List<String>', result: 'String', updates: { changes: 'constant', reads: 'fresh' }, implementation: ({ receiver: items }) => items.join('') },
             ],
         }));
 
@@ -2341,7 +2341,7 @@ describe('domql truthiness', () => {
 
     /** A module of one property on elements answering what the function gives, of the result type given. */
     const register = (name, result, read) => isolated.registerModule(isolated.createModule(name, {
-        members: [{ name, kind: 'property', target: 'element', result, updates: { changes: 'constant', reads: 'fresh' }, implementation: read }],
+        members: [{ name, kind: 'property', target: 'Element', result, updates: { changes: 'constant', reads: 'fresh' }, implementation: read }],
     }));
 
     it.each([
@@ -2382,8 +2382,8 @@ describe('domql truthiness', () => {
     it('evaluates each operand once, and none after the one that decides it, which never fails nor is read', () => {
         let reads = 0;
 
-        register('tally', 'string?', () => (++reads, null));
-        register('broken', 'string?', () => { throw new Error('unreadable'); });
+        register('tally', 'String?', () => (++reads, null));
+        register('broken', 'String?', () => { throw new Error('unreadable'); });
 
         expect(evaluate('panel.tally or "none"')).toBe('none');
         expect(reads).toBe(1);
@@ -2401,7 +2401,7 @@ describe('domql truthiness', () => {
         expect(evaluate('false or true')).toBe(true);
         expect(evaluate('none ?? 1', { none: null })).toBe(1);
         expect(evaluate('none or 1', { none: null })).toBe(1);
-        expect(evaluate('try "x" to number ?? 0')).toBe(0);
+        expect(evaluate('try "x" to Number ?? 0')).toBe(0);
     });
 
     it('leaves an equality as it was, so the text false is no false', () => {
@@ -2425,12 +2425,12 @@ describe('domql truthiness', () => {
 
     it('filters by the truthiness of a predicate, its function receiving a Boolean', () => {
         expect(evaluate('panel.children.where(it["data-x"]).count')).toBe(2);
-        expect(evaluate('panel.children.where(try it["data-x"] to number).count')).toBe(1);
+        expect(evaluate('panel.children.where(try it["data-x"] to Number).count')).toBe(1);
 
         const received = [];
 
         isolated.registerModule(isolated.createModule('picks', {
-            members: [{ name: 'picks', kind: 'function', syntax: 'function-call', arguments: 'positional', target: 'list<T>', result: 'number', updates: { changes: 'derived', reads: 'derived' }, parameters: [{ name: 'expression', kind: 'predicate', type: 'boolean', context: 'item', required: true, nulls: 'accept' }], implementation: ({ receiver: items, args: { expression } }) => items.filter(item => (received.push(expression(item)), expression(item))).length }],
+            members: [{ name: 'picks', kind: 'function', syntax: 'function-call', arguments: 'positional', target: 'List<T>', result: 'Number', updates: { changes: 'derived', reads: 'derived' }, parameters: [{ name: 'expression', kind: 'predicate', type: 'Boolean', context: 'item', required: true, nulls: 'accept' }], implementation: ({ receiver: items, args: { expression } }) => items.filter(item => (received.push(expression(item)), expression(item))).length }],
         }));
 
         expect(evaluate('panel.children.picks(it["data-x"])')).toBe(2);
@@ -2439,13 +2439,13 @@ describe('domql truthiness', () => {
 
     it('refuses a predicate declared of any type but boolean, and one that is no value', () => {
         expect(() => isolated.createModule('picks', {
-            members: [{ name: 'picks', kind: 'function', syntax: 'function-call', arguments: 'positional', target: 'list<T>', result: 'number', updates: { changes: 'derived', reads: 'derived' }, parameters: [{ name: 'expression', kind: 'predicate', type: 'string', context: 'item', required: true, nulls: 'accept' }], implementation: () => 0 }],
+            members: [{ name: 'picks', kind: 'function', syntax: 'function-call', arguments: 'positional', target: 'List<T>', result: 'Number', updates: { changes: 'derived', reads: 'derived' }, parameters: [{ name: 'expression', kind: 'predicate', type: 'String', context: 'item', required: true, nulls: 'accept' }], implementation: () => 0 }],
         })).toThrow(expect.objectContaining({ message: expect.stringContaining("The predicate parameter 'expression' is of type boolean") }));
         expect(getError(() => isolated.query('panel.children.where(it.on("click"))', { panel }).resolve()).kind).toBe('validation');
     });
 
     it('keeps a member declared to answer a Boolean to an actual Boolean, wherever it is tested', () => {
-        register('flag', 'boolean', () => 'yes');
+        register('flag', 'Boolean', () => 'yes');
 
         for (const text of ['if panel.flag then 1 else 0 end', 'panel.flag or true', 'not panel.flag', 'panel.children.where(panel.flag).count']) {
             const error = getError(() => evaluate(text));
@@ -2476,11 +2476,11 @@ describe('domql casts', () => {
     it('answers its target itself where it is of the type, strict or attempted', () => {
         const item = panel.firstElementChild;
 
-        expect(evaluate('(item.parent as element) == panel', { item })).toBe(true);
-        expect(evaluate('(try item.parent as element) == panel', { item })).toBe(true);
-        expect(evaluate('(panel.root as document) == domql.document')).toBe(true);
-        expect(evaluate('(panel as node) == panel')).toBe(true);
-        expect(evaluate('(try item.parent as element)?["id"]', { item })).toBe('panel');
+        expect(evaluate('(item.parent as Element) == panel', { item })).toBe(true);
+        expect(evaluate('(try item.parent as Element) == panel', { item })).toBe(true);
+        expect(evaluate('(panel.root as Document) == domql.document')).toBe(true);
+        expect(evaluate('(panel as Node) == panel')).toBe(true);
+        expect(evaluate('(try item.parent as Element)?["id"]', { item })).toBe('panel');
     });
 
     it.each([
@@ -2488,39 +2488,39 @@ describe('domql casts', () => {
         ['a shadow root', 'inner.parent', { inner: 'shadowed' }, '/expression/left'],
     ])('fails a strict cast of %s to an element, naming what it is, and answers null for an attempted one', (kind, target, bindings, pointer) => {
         const bound = bindings.inner === undefined ? {} : { inner: shadowed() };
-        const error = getError(() => evaluate(`(${target} as element) == null`, bound));
+        const error = getError(() => evaluate(`(${target} as Element) == null`, bound));
 
         expect(error.kind).toBe('evaluation');
-        expect(error.message).toContain(`The cast to element rejected its value: it is ${kind}`);
+        expect(error.message).toContain(`The cast to Element rejected its value: it is ${kind}`);
         expect(error.location.pointer).toBe(pointer);
-        expect(evaluate(`(try ${target} as element) == null`, bound)).toBe(true);
+        expect(evaluate(`(try ${target} as Element) == null`, bound)).toBe(true);
     });
 
     it('passes null through, strict or attempted', () => {
-        expect(evaluate('(item as element) == null', { item: null })).toBe(true);
-        expect(evaluate('(try item as element) == null', { item: null })).toBe(true);
-        expect(evaluate('(panel.first(".none") as element) == null')).toBe(true);
-        expect(evaluate('(panel.parent as element)?["id"]')).toBeNull();
+        expect(evaluate('(item as Element) == null', { item: null })).toBe(true);
+        expect(evaluate('(try item as Element) == null', { item: null })).toBe(true);
+        expect(evaluate('(panel.first(".none") as Element) == null')).toBe(true);
+        expect(evaluate('(panel.parent as Element)?["id"]')).toBeNull();
     });
 
     it('evaluates its target once, and leaves a failure of evaluating it an error, a strict cast within it and a value of no declared type among them', () => {
         let reads = 0;
 
         const register = (name, read) => isolated.registerModule(isolated.createModule(name, {
-            members: [{ name, kind: 'property', target: 'element', result: 'node', updates: { changes: 'constant', reads: 'fresh' }, implementation: read }],
+            members: [{ name, kind: 'property', target: 'Element', result: 'Node', updates: { changes: 'constant', reads: 'fresh' }, implementation: read }],
         }));
 
         register('reading', () => (reads++, document));
         register('broken', () => { throw new Error('unreadable'); });
         register('bogus', () => 5);
 
-        expect(evaluate('(try panel.reading as element) == null')).toBe(true);
+        expect(evaluate('(try panel.reading as Element) == null')).toBe(true);
         expect(reads).toBe(1);
 
         for (const [text, message] of [
-            ['(try panel.broken as element) == null', "The member 'broken' failed: unreadable"],
-            ['(try panel.bogus as element) == null', "The member 'bogus' answered 5, and it declares node"],
-            ['(try (panel.root as element).parent as element) == null', 'The cast to element rejected its value: it is a document'],
+            ['(try panel.broken as Element) == null', "The member 'broken' failed: unreadable"],
+            ['(try panel.bogus as Element) == null', "The member 'bogus' answered 5, and it declares Node"],
+            ['(try (panel.root as Element).parent as Element) == null', 'The cast to Element rejected its value: it is a document'],
         ]) {
             const error = getError(() => evaluate(text));
 
@@ -2530,9 +2530,9 @@ describe('domql casts', () => {
     });
 
     it.each([
-        ['a type that is no node', 'try panel as widget', "'as' casts to node or one of its kinds"],
-        ['a target that can never be of the type', 'try domql.document as element', 'A value of document can never be cast to element'],
-        ['a target that is no node', 'try 5 as element', 'A value of number can never be cast to element'],
+        ['a type that is no node', 'try panel as widget', "'as' casts to Node or one of its kinds"],
+        ['a target that can never be of the type', 'try domql.document as Element', 'A value of Document can never be cast to Element'],
+        ['a target that is no node', 'try 5 as Element', 'A value of Number can never be cast to Element'],
     ])('is refused before anything is evaluated for %s, attempted as it is strict', (_, text, message) => {
         const error = getError(() => isolated.query(text, { panel }).resolve());
 
@@ -2558,10 +2558,10 @@ describe('domql conversions', () => {
     /** A module of a structured type of its own, `celsius`, converted from a text such as "21C" or "21", rejecting any other, and to one such as "21C"; a test can give the conversion from text what it does instead. */
     const registerTemperature = ({ answer = null } = {}) => {
         isolated.registerModule(isolated.createModule('temperature', {
-            types: [{ name: 'celsius', fields: { degrees: 'number' } }],
+            types: [{ name: 'Celsius', fields: { degrees: 'Number' } }],
             conversions: [
                 {
-                    from: 'string', to: 'celsius',
+                    from: 'String', to: 'Celsius',
                     implementation: ({ value: text, reject }) => {
                         if (answer !== null) {
                             return answer(text, reject);
@@ -2574,7 +2574,7 @@ describe('domql conversions', () => {
                         return { degrees: Number(text.replace('C', '')), unit: 'C' };
                     },
                 },
-                { from: 'celsius', to: 'string', implementation: ({ value: { degrees } }) => `${degrees}C` },
+                { from: 'Celsius', to: 'String', implementation: ({ value: { degrees } }) => `${degrees}C` },
             ],
         }));
     };
@@ -2595,7 +2595,7 @@ describe('domql conversions', () => {
             ['\t\n\f\r 12 \r\n', 12],
             ['1e-400', 0],
         ])('take HTML\'s valid floating-point syntax after trimming ASCII whitespace: %j', (text, number) => {
-            expect(Object.is(evaluate('text to number', { text }), number)).toBe(true);
+            expect(Object.is(evaluate('text to Number', { text }), number)).toBe(true);
         });
 
         it.each([
@@ -2611,14 +2611,14 @@ describe('domql conversions', () => {
             ['digits of another script', '١٢'],
             ['whitespace that is not ASCII', ' 12'],
         ])('refuse %s as an evaluation error, never null', (_, text) => {
-            const error = getError(() => evaluate('text to number', { text }));
+            const error = getError(() => evaluate('text to Number', { text }));
 
             expect(error.kind).toBe('evaluation');
-            expect(error.message).toContain(`The conversion from string to number rejected its value: ${JSON.stringify(text)} is no number`);
+            expect(error.message).toContain(`The conversion from String to Number rejected its value: ${JSON.stringify(text)} is no number`);
         });
 
         it('refuses a number too large to be finite', () => {
-            const error = getError(() => evaluate('"1e999" to number'));
+            const error = getError(() => evaluate('"1e999" to Number'));
 
             expect(error.kind).toBe('evaluation');
             expect(error.message).toContain('"1e999" is too large a number to be finite');
@@ -2634,26 +2634,26 @@ describe('domql conversions', () => {
             [1e-7, '1e-7'],
             [-0, '0'],
         ])('write the shortest text that reads back as the same number, negative zero as 0: %d', (number, text) => {
-            expect(evaluate('number to string', { number })).toBe(text);
+            expect(evaluate('number to String', { number })).toBe(text);
         });
 
         it.each([0.1, 1 / 3, 1e21, 1e-7, 123456789.125, Number.MAX_VALUE, Number.MIN_VALUE])('read back as the same number: %d', number => {
-            expect(evaluate('number to string to number', { number })).toBe(number);
+            expect(evaluate('number to String to Number', { number })).toBe(number);
         });
     });
 
     describe('Booleans', () => {
         it('are written true and false', () => {
-            expect(evaluate('true to string')).toBe('true');
-            expect(evaluate('false to string')).toBe('false');
+            expect(evaluate('true to String')).toBe('true');
+            expect(evaluate('false to String')).toBe('false');
         });
 
         it('are read from true and false alone', () => {
-            expect(evaluate('"true" to boolean')).toBe(true);
-            expect(evaluate('"false" to boolean')).toBe(false);
+            expect(evaluate('"true" to Boolean')).toBe(true);
+            expect(evaluate('"false" to Boolean')).toBe(false);
 
             for (const text of ['TRUE', 'True', '1', '', ' true', 'yes']) {
-                const error = getError(() => evaluate('text to boolean', { text }));
+                const error = getError(() => evaluate('text to Boolean', { text }));
 
                 expect(error.kind, text).toBe('evaluation');
                 expect(error.message).toContain(`${JSON.stringify(text)} is no Boolean, which is written "true" or "false"`);
@@ -2665,40 +2665,40 @@ describe('domql conversions', () => {
         it('answers null for null without converting, nullable where the value is', () => {
             panel.setAttribute('data-count', '3');
 
-            const query = isolated.query('panel.attribute["data-missing"] to number', { panel });
+            const query = isolated.query('panel.attribute["data-missing"] to Number', { panel });
 
-            expect(String(query.resolve().type)).toBe('number?');
+            expect(String(query.resolve().type)).toBe('Number?');
             expect(query.evaluate()).toBeNull();
-            expect(evaluate('panel.attribute["data-count"] to number')).toBe(3);
+            expect(evaluate('panel.attribute["data-count"] to Number')).toBe(3);
         });
 
         it('lets ?? say what a missing value means, and leaves a malformed one an error', () => {
             panel.setAttribute('data-count', 'three');
 
-            expect(evaluate('panel.attribute["data-missing"] to number ?? 0')).toBe(0);
-            expect(getError(() => evaluate('panel.attribute["data-count"] to number ?? 0')).kind).toBe('evaluation');
+            expect(evaluate('panel.attribute["data-missing"] to Number ?? 0')).toBe(0);
+            expect(getError(() => evaluate('panel.attribute["data-count"] to Number ?? 0')).kind).toBe('evaluation');
         });
 
         it('answers null for a null of unknown type once its target is a type it converts to, however many conversions reach that type', () => {
             registerTemperature();
             isolated.registerModule(isolated.createModule('kelvin', {
-                types: [{ name: 'kelvin', fields: { degrees: 'number' } }],
-                conversions: [{ from: 'kelvin', to: 'number', implementation: ({ value: { degrees } }) => degrees }],
+                types: [{ name: 'Kelvin', fields: { degrees: 'Number' } }],
+                conversions: [{ from: 'Kelvin', to: 'Number', implementation: ({ value: { degrees } }) => degrees }],
             }));
 
-            const query = isolated.query('value to number', { value: null });
+            const query = isolated.query('value to Number', { value: null });
 
-            expect(String(query.resolve().type)).toBe('number?');
+            expect(String(query.resolve().type)).toBe('Number?');
             expect(query.evaluate()).toBeNull();
-            expect(evaluate('value to celsius', { value: null })).toBeNull();
-            expect(getError(() => evaluate('value to element', { value: null })).kind).toBe('validation');
+            expect(evaluate('value to Celsius', { value: null })).toBeNull();
+            expect(getError(() => evaluate('value to Element', { value: null })).kind).toBe('validation');
         });
 
         it('leaves a nullable value checked by its type without null', () => {
-            const error = getError(() => evaluate('panel.closest(".row") to string'));
+            const error = getError(() => evaluate('panel.closest(".row") to String'));
 
             expect(error.kind).toBe('validation');
-            expect(error.message).toContain('No conversion from element to string is declared, and element converts to nothing');
+            expect(error.message).toContain('No conversion from Element to String is declared, and Element converts to nothing');
         });
     });
 
@@ -2706,21 +2706,21 @@ describe('domql conversions', () => {
         it('answers itself, whatever conversions a module declares', () => {
             registerTemperature();
 
-            expect(evaluate('5 to number')).toBe(5);
-            expect(evaluate('"21C" to string')).toBe('21C');
-            expect(evaluate('("21C" to celsius) to celsius')).toEqual({ degrees: 21 });
+            expect(evaluate('5 to Number')).toBe(5);
+            expect(evaluate('"21C" to String')).toBe('21C');
+            expect(evaluate('("21C" to Celsius) to Celsius')).toEqual({ degrees: 21 });
         });
     });
 
     describe('a conversion that is not declared', () => {
         it.each([
-            ['a structured type that converts to nothing', 'panel.size to string', 'No conversion from size to string is declared, and size converts to nothing'],
-            ['a type reached only through another', '5 to boolean', 'No conversion from number to boolean is declared, and number converts to string'],
-            ['a list', 'panel.children to string', 'No conversion from list<element> to string is declared'],
-            ['a node, which a cast narrows', '"a" to element', "a node is cast to one of its kinds with 'as'"],
+            ['a structured type that converts to nothing', 'panel.size to String', 'No conversion from Size to String is declared, and Size converts to nothing'],
+            ['a type reached only through another', '5 to Boolean', 'No conversion from Number to Boolean is declared, and Number converts to String'],
+            ['a list', 'panel.children to String', 'No conversion from List<Element> to String is declared'],
+            ['a node, which a cast narrows', '"a" to Element', "a node is cast to one of its kinds with 'as'"],
             ['a type no module declares', '"a" to nope', "and 'nope' is none of them"],
-            ['a structured type that holds an element', '"a" to pointerEvent', "and 'pointerEvent' is none of them"],
-            ['an event source', 'panel.on("click") to string', "What 'to' converts is a value, and this one is a host call"],
+            ['a structured type that holds an element', '"a" to PointerEvent', "and 'PointerEvent' is none of them"],
+            ['an event source', 'panel.on("click") to String', "What 'to' converts is a value, and this one is a host call"],
         ])('is refused before anything is evaluated for %s', (_, text, message) => {
             const error = getError(() => isolated.query(text, { panel }).resolve());
 
@@ -2731,29 +2731,29 @@ describe('domql conversions', () => {
 
     describe('an attempted conversion', () => {
         it('answers the converted value, whatever it is, and null where the conversion rejects it', () => {
-            expect(evaluate('try "42" to number')).toBe(42);
-            expect(evaluate('try "0" to number')).toBe(0);
-            expect(evaluate('try "false" to boolean')).toBe(false);
-            expect(evaluate('try "hello" to number')).toBeNull();
-            expect(evaluate('try "1e999" to number')).toBeNull();
-            expect(evaluate('try "TRUE" to boolean')).toBeNull();
-            expect(evaluate('try "hello" to number ?? 0')).toBe(0);
-            expect(String(isolated.query('try "42" to number', { panel }).resolve().type)).toBe('number?');
-            expect(String(isolated.query('try "42" to number ?? 0', { panel }).resolve().type)).toBe('number');
+            expect(evaluate('try "42" to Number')).toBe(42);
+            expect(evaluate('try "0" to Number')).toBe(0);
+            expect(evaluate('try "false" to Boolean')).toBe(false);
+            expect(evaluate('try "hello" to Number')).toBeNull();
+            expect(evaluate('try "1e999" to Number')).toBeNull();
+            expect(evaluate('try "TRUE" to Boolean')).toBeNull();
+            expect(evaluate('try "hello" to Number ?? 0')).toBe(0);
+            expect(String(isolated.query('try "42" to Number', { panel }).resolve().type)).toBe('Number?');
+            expect(String(isolated.query('try "42" to Number ?? 0', { panel }).resolve().type)).toBe('Number');
         });
 
         it('answers null for null, and a value already of the type as it is', () => {
-            expect(evaluate('try value to number', { value: null })).toBeNull();
-            expect(evaluate('try 5 to number')).toBe(5);
-            expect(evaluate('try panel["data-missing"] to number')).toBeNull();
+            expect(evaluate('try value to Number', { value: null })).toBeNull();
+            expect(evaluate('try 5 to Number')).toBe(5);
+            expect(evaluate('try panel["data-missing"] to Number')).toBeNull();
         });
 
         it.each([
             ['a target no type has', 'try "a" to nope', "and 'nope' is none of them"],
-            ['a pair no conversion is declared for', 'try 5 to boolean', 'No conversion from number to boolean is declared'],
-            ['a nullable value whose type has no conversion', 'try panel.closest(".row") to string', 'No conversion from element to string is declared'],
-            ['a null whose target is no type of data', 'try value to element', "a node is cast to one of its kinds with 'as'"],
-            ['an event source', 'try panel.on("click") to string', "What 'to' converts is a value, and this one is a host call"],
+            ['a pair no conversion is declared for', 'try 5 to Boolean', 'No conversion from Number to Boolean is declared'],
+            ['a nullable value whose type has no conversion', 'try panel.closest(".row") to String', 'No conversion from Element to String is declared'],
+            ['a null whose target is no type of data', 'try value to Element', "a node is cast to one of its kinds with 'as'"],
+            ['an event source', 'try panel.on("click") to String', "What 'to' converts is a value, and this one is a host call"],
         ])('is refused before anything is evaluated for %s, as an ordinary conversion is', (_, text, message) => {
             const error = getError(() => isolated.query(text, { panel, value: null }).resolve());
 
@@ -2764,14 +2764,14 @@ describe('domql conversions', () => {
         it('attempts a conversion a module declares, answering null for a value it rejects', () => {
             registerTemperature();
 
-            expect(evaluate('try "21C" to celsius')).toEqual({ degrees: 21 });
-            expect(evaluate('try "warm" to celsius')).toBeNull();
+            expect(evaluate('try "21C" to Celsius')).toEqual({ degrees: 21 });
+            expect(evaluate('try "warm" to Celsius')).toBeNull();
         });
 
         it.each([
             ['throws', () => { throw new Error('the table of units is missing'); }, 'failed: the table of units is missing'],
             ['answers a value not of its type', () => '21', 'answered'],
-            ['answers null for a value that is not null', () => null, 'answered null, and it converts to celsius'],
+            ['answers null for a value that is not null', () => null, 'answered null, and it converts to Celsius'],
             ['rejects with a reason that is no string', (text, reject) => reject(42), 'rejected its value with a reason that is no string'],
             ['catches its rejection and answers a value', (text, reject) => {
                 try {
@@ -2785,29 +2785,29 @@ describe('domql conversions', () => {
         ])('leaves a fault an error, attempted or not, where the conversion %s', (_, answer, message) => {
             registerTemperature({ answer });
 
-            for (const text of ['"21C" to celsius', 'try "21C" to celsius']) {
+            for (const text of ['"21C" to Celsius', 'try "21C" to Celsius']) {
                 const error = getError(() => evaluate(text));
 
                 expect(error.kind, text).toBe('evaluation');
-                expect(error.message, text).toContain(`The conversion from string to celsius ${message}`);
+                expect(error.message, text).toContain(`The conversion from String to Celsius ${message}`);
             }
         });
 
         it('leaves a failure of evaluating its value an error, a rejection of a conversion within that value among them, since it attempts its own conversion alone', () => {
             isolated.registerModule(isolated.createModule('broken', {
-                members: [{ name: 'broken', kind: 'property', target: 'element', result: 'string', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => { throw new Error('unreadable'); } }],
+                members: [{ name: 'broken', kind: 'property', target: 'Element', result: 'String', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => { throw new Error('unreadable'); } }],
             }));
 
-            const failed = getError(() => evaluate('try panel.broken to number'));
+            const failed = getError(() => evaluate('try panel.broken to Number'));
 
             expect(failed.kind).toBe('evaluation');
             expect(failed.message).toContain("The member 'broken' failed: unreadable");
 
-            const rejected = getError(() => evaluate('try ("abc" to number) to string'));
+            const rejected = getError(() => evaluate('try ("abc" to Number) to String'));
 
             expect(rejected.kind).toBe('evaluation');
-            expect(rejected.message).toContain('The conversion from string to number rejected its value');
-            expect(evaluate('try ("12" to number) to string')).toBe('12');
+            expect(rejected.message).toContain('The conversion from String to Number rejected its value');
+            expect(evaluate('try ("12" to Number) to String')).toBe('12');
         });
 
         it('evaluates its value once and carries its conversion out once', () => {
@@ -2816,12 +2816,12 @@ describe('domql conversions', () => {
 
             registerTemperature({ answer: text => (conversions++, { degrees: Number(text.replace('C', '')) }) });
             isolated.registerModule(isolated.createModule('reading', {
-                members: [{ name: 'reading', kind: 'property', target: 'element', result: 'string', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => `${++reads}C` }],
+                members: [{ name: 'reading', kind: 'property', target: 'Element', result: 'String', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => `${++reads}C` }],
             }));
 
-            expect(evaluate('try panel.reading to celsius')).toEqual({ degrees: 1 });
+            expect(evaluate('try panel.reading to Celsius')).toEqual({ degrees: 1 });
             expect([reads, conversions]).toEqual([1, 1]);
-            expect(evaluate('if let reading = try panel.reading to celsius then @reading.degrees else null end')).toBe(2);
+            expect(evaluate('if let reading = try panel.reading to Celsius then @reading.degrees else null end')).toBe(2);
             expect([reads, conversions]).toEqual([2, 2]);
         });
     });
@@ -2832,9 +2832,9 @@ describe('domql conversions', () => {
             panel.setAttribute('data-zero', '0');
             panel.setAttribute('data-bad', 'twelve');
 
-            expect(evaluate('if let n = try panel["data-count"] to number then n else -1 end')).toBe(12);
-            expect(evaluate('if let n = try panel["data-zero"] to number then n else -1 end')).toBe(0);
-            expect(evaluate('if let n = try panel["data-bad"] to number then n else -1 end')).toBe(-1);
+            expect(evaluate('if let n = try panel["data-count"] to Number then n else -1 end')).toBe(12);
+            expect(evaluate('if let n = try panel["data-zero"] to Number then n else -1 end')).toBe(0);
+            expect(evaluate('if let n = try panel["data-bad"] to Number then n else -1 end')).toBe(-1);
             expect(evaluate('if let s = "" then s else "none" end')).toBe('');
             expect(evaluate('if let items = list then items.count else -1 end', { list: [] })).toBe(0);
             expect(evaluate('if let key = panel["data-missing"] then key else "unknown" end')).toBe('unknown');
@@ -2845,7 +2845,7 @@ describe('domql conversions', () => {
         });
 
         it('binds the value without null, and binds a value that cannot be null as well, which always takes its consequent', () => {
-            expect(String(isolated.query('if let key = panel["data-key"] then key else "unknown" end', { panel }).resolve().type)).toBe('string');
+            expect(String(isolated.query('if let key = panel["data-key"] then key else "unknown" end', { panel }).resolve().type)).toBe('String');
             expect(evaluate('if let node = panel then node["id"] else null end')).toBe('panel');
             expect(evaluate('if let a = null then a else 1 end')).toBe(1);
         });
@@ -2864,7 +2864,7 @@ describe('domql conversions', () => {
             let reads = 0;
 
             isolated.registerModule(isolated.createModule('reading', {
-                members: [{ name: 'reading', kind: 'property', target: 'element', result: 'string?', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => `${++reads}` }],
+                members: [{ name: 'reading', kind: 'property', target: 'Element', result: 'String?', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => `${++reads}` }],
             }));
 
             expect(evaluate('if let r = panel.reading then { a = r, b = r } else null end')).toEqual({ a: '1', b: '1' });
@@ -2878,25 +2878,25 @@ describe('domql conversions', () => {
             registerTemperature();
             panel.setAttribute('data-temperature', '21C');
 
-            expect(evaluate('panel.attribute["data-temperature"] to celsius')).toEqual({ degrees: 21 });
-            expect(evaluate('(panel.attribute["data-temperature"] to celsius)?.degrees')).toBe(21);
-            expect(evaluate('panel.attribute["data-temperature"] to celsius to string')).toBe('21C');
+            expect(evaluate('panel.attribute["data-temperature"] to Celsius')).toEqual({ degrees: 21 });
+            expect(evaluate('(panel.attribute["data-temperature"] to Celsius)?.degrees')).toBe(21);
+            expect(evaluate('panel.attribute["data-temperature"] to Celsius to String')).toBe('21C');
         });
 
         it('takes one conversion, never a chain of them, so a value reaches a type through another only where the query writes both', () => {
             registerTemperature();
 
-            expect(getError(() => evaluate('5 to celsius')).message).toContain('No conversion from number to celsius is declared');
-            expect(evaluate('5 to string to celsius')).toEqual({ degrees: 5 });
+            expect(getError(() => evaluate('5 to Celsius')).message).toContain('No conversion from Number to Celsius is declared');
+            expect(evaluate('5 to String to Celsius')).toEqual({ degrees: 5 });
         });
 
         it('fails with an evaluation error where it rejects its value, giving the reason', () => {
             registerTemperature();
 
-            const error = getError(() => evaluate('"warm" to celsius'));
+            const error = getError(() => evaluate('"warm" to Celsius'));
 
             expect(error.kind).toBe('evaluation');
-            expect(error.message).toContain('The conversion from string to celsius rejected its value: "warm" is no temperature');
+            expect(error.message).toContain('The conversion from String to Celsius rejected its value: "warm" is no temperature');
         });
 
         it('fails with an evaluation error where it throws, a fault, with what it threw as the cause', () => {
@@ -2904,10 +2904,10 @@ describe('domql conversions', () => {
 
             registerTemperature({ answer: () => { throw fault; } });
 
-            const error = getError(() => evaluate('"21C" to celsius'));
+            const error = getError(() => evaluate('"21C" to Celsius'));
 
             expect(error.kind).toBe('evaluation');
-            expect(error.message).toContain('The conversion from string to celsius failed: the table of units is missing');
+            expect(error.message).toContain('The conversion from String to Celsius failed: the table of units is missing');
             expect(error.cause).toBe(fault);
         });
 
@@ -2918,11 +2918,11 @@ describe('domql conversions', () => {
         ])('fails with an evaluation error where it answers %s', (_, answer) => {
             registerTemperature({ answer });
 
-            const error = getError(() => evaluate('"21C" to celsius'));
+            const error = getError(() => evaluate('"21C" to Celsius'));
 
             expect(error.kind).toBe('evaluation');
-            expect(error.message).toContain('The conversion from string to celsius answered');
-            expect(error.message).toContain('and it converts to celsius');
+            expect(error.message).toContain('The conversion from String to Celsius answered');
+            expect(error.message).toContain('and it converts to Celsius');
         });
 
         it('evaluates the value it converts once', () => {
@@ -2930,10 +2930,10 @@ describe('domql conversions', () => {
 
             registerTemperature();
             isolated.registerModule(isolated.createModule('reading', {
-                members: [{ name: 'reading', kind: 'property', target: 'element', result: 'string', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => `${++reads}C` }],
+                members: [{ name: 'reading', kind: 'property', target: 'Element', result: 'String', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => `${++reads}C` }],
             }));
 
-            expect(evaluate('panel.reading to celsius')).toEqual({ degrees: 1 });
+            expect(evaluate('panel.reading to Celsius')).toEqual({ degrees: 1 });
             expect(reads).toBe(1);
         });
     });
@@ -2955,15 +2955,15 @@ describe('domql Boolean functions', () => {
 
     /** A module of a test on elements, and of tests on a view type of its own, one partly observable, one whose function the test supplies. */
     const registerLit = ({ glow = view => view.on } = {}) => {
-        const test = (name, target, updates, implementation) => ({ name, kind: 'function', target, result: 'boolean', parameters: [], updates, implementation });
+        const test = (name, target, updates, implementation) => ({ name, kind: 'function', target, result: 'Boolean', parameters: [], updates, implementation });
 
         isolated.registerModule(isolated.createModule('lit', {
-            types: [{ name: 'litView', fields: { on: 'boolean' } }],
+            types: [{ name: 'LitView', fields: { on: 'Boolean' } }],
             members: [
-                { name: 'light', kind: 'property', target: 'element', result: 'litView', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => ({ on: true }) },
-                test('lit', 'element', { changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: ['data-lit'] }] }, ({ receiver: element }) => element.hasAttribute('data-lit')),
-                test('glowing', 'litView', { changes: 'partly-observable', misses: 'a glow its source sets alone', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: true }] }, ({ receiver: view }) => glow(view)),
-                test('steady', 'litView', { changes: 'constant', reads: 'fresh' }, () => true),
+                { name: 'light', kind: 'property', target: 'Element', result: 'LitView', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => ({ on: true }) },
+                test('lit', 'Element', { changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: ['data-lit'] }] }, ({ receiver: element }) => element.hasAttribute('data-lit')),
+                test('glowing', 'LitView', { changes: 'partly-observable', misses: 'a glow its source sets alone', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: true }] }, ({ receiver: view }) => glow(view)),
+                test('steady', 'LitView', { changes: 'constant', reads: 'fresh' }, () => true),
             ],
         }));
     };
@@ -2977,7 +2977,7 @@ describe('domql Boolean functions', () => {
         expect(evaluate('panel.is(lit.lit)')).toBe(true);
         expect(evaluate('panel.light.glowing()')).toBe(true);
         expect(evaluate('panel.lit() and panel.light.supports(lit.steady)')).toBe(true);
-        expect(String(isolated.query('panel.is(lit.lit)', { panel }).resolve().type)).toBe('boolean');
+        expect(String(isolated.query('panel.is(lit.lit)', { panel }).resolve().type)).toBe('Boolean');
     });
 
     it('takes a verb\'s test as an arrow function, a function a local holds or an implicit body, as any function parameter does', () => {
@@ -3000,8 +3000,8 @@ describe('domql Boolean functions', () => {
 
         const messageOf = text => getError(() => isolated.query(text, { panel }).resolve()).message;
 
-        expect(messageOf('panel.glowing()')).toContain("'glowing' is not available on element; it is available on litView");
-        expect(messageOf('domql.window.lit()')).toContain("'lit' is not available on window; it is available on element");
+        expect(messageOf('panel.glowing()')).toContain("'glowing' is not available on Element; it is available on LitView");
+        expect(messageOf('domql.window.lit()')).toContain("'lit' is not available on Window; it is available on Element");
         expect(messageOf('panel.is(lit.glowing)')).toContain("and 'lit.glowing' names no function that takes those or answers that");
     });
 
@@ -3037,7 +3037,7 @@ describe('domql Boolean functions', () => {
         const direct = getError(() => isolated.query('{ lit = panel.lit(), glowing = panel.light.glowing() }', { panel }).resolve({ watch: true }));
         const referenced = getError(() => isolated.query('{ lit = panel.lit(), glowing = panel.light.is(lit.glowing) }', { panel }).resolve({ watch: true }));
 
-        expect(direct.message).toContain(`A watch over 'litView.glowing' (which misses a glow its source sets alone) is refused unless the watch accepts partial observation`);
+        expect(direct.message).toContain(`A watch over 'LitView.glowing' (which misses a glow its source sets alone) is refused unless the watch accepts partial observation`);
         expect(direct.location.pointer).toBe('/expression/fields/1/value');
         expect(referenced.message).toContain(`A watch over 'lit.glowing' (which misses a glow its source sets alone) is refused unless the watch accepts partial observation`);
         expect(() => isolated.query('panel.light.glowing()', { panel }).resolve({ watch: true, acceptPartialObservation: true })).not.toThrow();
@@ -3045,7 +3045,7 @@ describe('domql Boolean functions', () => {
 
     it.each([
         ['throws', () => { throw new Error('the lamp is gone'); }, "The member 'glowing' failed: the lamp is gone"],
-        ['answers what is no Boolean', () => 'yes', "The member 'glowing' answered \"yes\", and it declares boolean"],
+        ['answers what is no Boolean', () => 'yes', "The member 'glowing' answered \"yes\", and it declares Boolean"],
     ])('fails with an evaluation error naming the function where it %s, called directly or as a verb\'s test', (_, glow, message) => {
         registerLit({ glow });
 
@@ -3125,9 +3125,9 @@ describe('domql ARIA conditions', () => {
 
     it.each([
         ['an item that is null', null, undefined, false],
-        ['an item without the attribute', 'element', undefined, false],
-        ['an item whose attribute is false', 'element', 'false', false],
-        ['an item whose attribute is true', 'element', 'true', true],
+        ['an item without the attribute', 'Element', undefined, false],
+        ['an item whose attribute is false', 'Element', 'false', false],
+        ['an item whose attribute is true', 'Element', 'true', true],
     ])('compares an optional ARIA read of %s with a string, skipping the indexer for null', (_, item, value, answer) => {
         if (value !== undefined) {
             element.setAttribute('aria-selected', value);
@@ -3144,12 +3144,12 @@ describe('domql ARIA conditions', () => {
         expect(domql.query('e.aria[key]', { e: element, key: 'expanded' }).evaluate()).toBe('false');
         expect(evaluate('e.aria[e["data-key"]]')).toBe('false');
         expect(domql.query('e.aria[key]', { e: element, key: null }).evaluate()).toBeNull();
-        expect(domql.query('e.aria[key]', { e: element, key: 'expanded' }).resolve().type.toString()).toBe('string?');
+        expect(domql.query('e.aria[key]', { e: element, key: 'expanded' }).resolve().type.toString()).toBe('String?');
     });
 
     it.each([
-        ['the view itself as a result, which is no data', 'e.aria', 'The result would hold aria, which is no data'],
-        ['a native test the view has not', 'e.aria.hover()', "'hover' is not available on aria; it is available on element"],
+        ['the view itself as a result, which is no data', 'e.aria', 'The result would hold Aria, which is no data'],
+        ['a native test the view has not', 'e.aria.hover()', "'hover' is not available on Aria; it is available on Element"],
         ['an ARIA test nothing declares', 'e.aria.expanded()', "'expanded' is no member of the vocabulary"],
     ])('refuses %s', (_, text, message) => {
         const error = getError(() => domql.query(text, { e: element }).resolve());
@@ -3175,12 +3175,12 @@ describe('domql arithmetic', () => {
 
         counter.setAttribute('data-count', '4');
 
-        expect(evaluate('counter["data-count"] to number ?? 0', { counter })).toBe(4);
-        expect(evaluate('(counter["data-count"] to number ?? 0) + 1 == 5', { counter })).toBe(true);
-        expect(evaluate('(a + b) to string', { a: 1, b: 3 })).toBe('4');
-        expect(evaluate('-x to number', { x: '4' })).toBe(-4);
-        expect(evaluate('(-n) to string', { n: 4 })).toBe('-4');
-        expect(evaluate('(try x to number ?? 0) + 1', { x: 'four' })).toBe(1);
+        expect(evaluate('counter["data-count"] to Number ?? 0', { counter })).toBe(4);
+        expect(evaluate('(counter["data-count"] to Number ?? 0) + 1 == 5', { counter })).toBe(true);
+        expect(evaluate('(a + b) to String', { a: 1, b: 3 })).toBe('4');
+        expect(evaluate('-x to Number', { x: '4' })).toBe(-4);
+        expect(evaluate('(-n) to String', { n: 4 })).toBe('-4');
+        expect(evaluate('(try x to Number ?? 0) + 1', { x: 'four' })).toBe(1);
     });
 
     it('folds a negation of a numeric literal into the literal, negative zero kept, and of anything else into a negation, as the tree reads it', () => {
@@ -3189,17 +3189,17 @@ describe('domql arithmetic', () => {
         expect(Object.is(queryOf('-0').value, -0)).toBe(true);
         expect(queryOf('- 1.5e2')).toEqual({ kind: 'literal', value: -150 });
         expect(queryOf('-x')).toEqual({ kind: 'negate', operand: { kind: 'parameter', name: 'x' } });
-        expect(queryOf('-5 to string')).toEqual({ kind: 'negate', operand: { kind: 'conversion', type: 'string', target: { kind: 'literal', value: 5 } } });
-        expect(queryOf('(-5) to string')).toEqual({ kind: 'conversion', type: 'string', target: { kind: 'literal', value: -5 } });
+        expect(queryOf('-5 to String')).toEqual({ kind: 'negate', operand: { kind: 'conversion', type: 'String', target: { kind: 'literal', value: 5 } } });
+        expect(queryOf('(-5) to String')).toEqual({ kind: 'conversion', type: 'String', target: { kind: 'literal', value: -5 } });
         expect(queryOf('panel.client-size')).toEqual({ kind: 'arithmetic', operator: '-', left: { kind: 'member', target: { kind: 'parameter', name: 'panel' }, name: 'client' }, right: { kind: 'parameter', name: 'size' } });
     });
 
     it.each([
-        ['an attempt as an operand, which can be null', 'try x to number + 1', { x: '4' }, "The left operand of '+' can be null"],
-        ['a conversion of text that can be missing', 'panel["data-n"] to number + 1', { panel: document.body }, "The left operand of '+' can be null"],
-        ['a string', '"a" + 1', {}, "The left operand of '+' is a number, and this one is string"],
-        ['a Boolean', 'x * true', { x: 2 }, "The right operand of '*' is a number, and this one is boolean"],
-        ['a negation of text, which a conversion of the negated value would have made a number', '-5 to string', {}, "What '-' negates is a number, and this one is string"],
+        ['an attempt as an operand, which can be null', 'try x to Number + 1', { x: '4' }, "The left operand of '+' can be null"],
+        ['a conversion of text that can be missing', 'panel["data-n"] to Number + 1', { panel: document.body }, "The left operand of '+' can be null"],
+        ['a string', '"a" + 1', {}, "The left operand of '+' is a number, and this one is String"],
+        ['a Boolean', 'x * true', { x: 2 }, "The right operand of '*' is a number, and this one is Boolean"],
+        ['a negation of text, which a conversion of the negated value would have made a number', '-5 to String', {}, "What '-' negates is a number, and this one is String"],
         ['an event source', 'panel.on("click") + 1', { panel: document.body }, "The left operand of '+' is a value, and this one is a host call"],
     ])('refuses %s, before anything is evaluated', (_, text, bindings, message) => {
         const error = getError(() => domql.query(text, bindings).resolve());
@@ -3245,8 +3245,8 @@ describe('domql arithmetic', () => {
         expect(domql.format('a ?? -1')).toBe('a ?? -1');
         expect(domql.format('(a ?? 0) + 1')).toBe('(a ?? 0) + 1');
         expect(domql.format('(a + 1) == b')).toBe('a + 1 == b');
-        expect(domql.format('(-5) to string')).toBe('(-5) to string');
-        expect(domql.format('-5 to string')).toBe('-5 to string');
+        expect(domql.format('(-5) to String')).toBe('(-5) to String');
+        expect(domql.format('-5 to String')).toBe('-5 to String');
         expect(domql.format('(-0) { a = 1 }')).toBe('(-0) { a = 1 }');
         expect(domql.format('a * -2')).toBe('a * -2');
         expect(domql.format('-2 * 3')).toBe('-2 * 3');
@@ -3674,7 +3674,7 @@ describe('domql reserved names', () => {
     });
 
     it('takes to as a declared name, a reference, a field, a member and a conversion in one query', () => {
-        expect(evaluate('let to = "3"\nreturn { to = @to to number, from = range.to, next = @to + 1 }', { range: { to: 9 } })).toEqual({ to: 3, from: 9, next: 4 });
+        expect(evaluate('let to = "3"\nreturn { to = @to to Number, from = range.to, next = @to + 1 }', { range: { to: 9 } })).toEqual({ to: 3, from: 9, next: 4 });
     });
 
     it.each([
@@ -3800,8 +3800,8 @@ describe('domql object root', () => {
     });
 
     it('merges references that identify one outermost object with the same fields, and refuses references with other fields', () => {
-        expect(refusalOf('{ let early = function() root end, a = 1, b = do let r = if f then root else early() end return 1 end }', { f: true }).message).toContain("The branches of 'if' are of one type, and these are root { a: number } and root { }");
-        expect(refusalOf('{ a = 1, b = do let r = root ?? { x = 1 } return 1 end }').message).toContain("The value and the fallback of '??' are of one type, and these are root { a: number } and { x: number }");
+        expect(refusalOf('{ let early = function() root end, a = 1, b = do let r = if f then root else early() end return 1 end }', { f: true }).message).toContain("The branches of 'if' are of one type, and these are root { a: Number } and root { }");
+        expect(refusalOf('{ a = 1, b = do let r = root ?? { x = 1 } return 1 end }').message).toContain("The value and the fallback of '??' are of one type, and these are root { a: Number } and { x: Number }");
     });
 
     it('refuses every result that would hold root, an acyclic one included', () => {
@@ -3939,7 +3939,7 @@ describe('domql function values and arrow functions', () => {
 
         expect(evaluate(text, { wide: true })).toBe(3);
         expect(evaluate(text, { wide: false })).toBe(20);
-        expect(refusalOf('let a = x => x + 1\nlet b = x => "s"\nlet pick = if wide then a else b end\nreturn pick(2)', { wide: true }).message).toContain("'pick' may be any of 2 functions, whose results are of no one type: number, string");
+        expect(refusalOf('let a = x => x + 1\nlet b = x => "s"\nlet pick = if wide then a else b end\nreturn pick(2)', { wide: true }).message).toContain("'pick' may be any of 2 functions, whose results are of no one type: Number, String");
         expect(refusalOf('let f = x => x\nlet g = if c then f else null end\nreturn g(1)', { c: true }).message).toContain("'g' may hold null, and only a function is called");
     });
 
@@ -4015,8 +4015,8 @@ describe('domql callback contracts', () => {
         // A function that sorts a list by a function comparing two of its items, which it keeps where the test can call it later, and one that calls its function with what the test says.
         isolated.registerModule(isolated.createModule('sortBy', {
             members: [{
-                name: 'sortBy', kind: 'function', target: 'list<T>', arguments: 'positional', result: 'list<T>', updates: { changes: 'derived', reads: 'derived' },
-                parameters: [{ name: 'compare', kind: 'function', parameters: ['T', 'T'], type: 'number', required: true }],
+                name: 'sortBy', kind: 'function', target: 'List<T>', arguments: 'positional', result: 'List<T>', updates: { changes: 'derived', reads: 'derived' },
+                parameters: [{ name: 'compare', kind: 'function', parameters: ['T', 'T'], type: 'Number', required: true }],
                 implementation: ({ receiver: list, args: { compare } }) => {
                     saved = compare;
 
@@ -4026,15 +4026,15 @@ describe('domql callback contracts', () => {
         }));
         isolated.registerModule(isolated.createModule('rank', {
             members: [{
-                name: 'rank', kind: 'function', target: 'element', arguments: 'options', result: 'number', updates: { changes: 'constant', reads: 'fresh' },
-                parameters: [{ name: 'weight', kind: 'value', type: 'number', required: true, nulls: 'propagate' }, { name: 'score', kind: 'function', parameters: ['number'], type: 'number', required: true }],
+                name: 'rank', kind: 'function', target: 'Element', arguments: 'options', result: 'Number', updates: { changes: 'constant', reads: 'fresh' },
+                parameters: [{ name: 'weight', kind: 'value', type: 'Number', required: true, nulls: 'propagate' }, { name: 'score', kind: 'function', parameters: ['Number'], type: 'Number', required: true }],
                 implementation: ({ args: { weight, score } }) => score(weight),
             }],
         }));
         isolated.registerModule(isolated.createModule('probe', {
             members: [{
-                name: 'probe', kind: 'function', target: 'element', arguments: 'positional', result: 'number', updates: { changes: 'constant', reads: 'fresh' },
-                parameters: [{ name: 'measure', kind: 'function', parameters: ['element'], type: 'number', required: true }],
+                name: 'probe', kind: 'function', target: 'Element', arguments: 'positional', result: 'Number', updates: { changes: 'constant', reads: 'fresh' },
+                parameters: [{ name: 'measure', kind: 'function', parameters: ['Element'], type: 'Number', required: true }],
                 implementation: ({ receiver: element, args: { measure } }) => measure(...calls.shift()(element)),
             }],
         }));
@@ -4042,7 +4042,7 @@ describe('domql callback contracts', () => {
 
     const evaluate = text => isolated.query(text, { panel }).evaluate();
     const refusalOf = text => getError(() => isolated.query(text, { panel }).resolve());
-    const byNumber = '(a, b) => (a["data-n"] to number ?? 0) - (b["data-n"] to number ?? 0)';
+    const byNumber = '(a, b) => (a["data-n"] to Number ?? 0) - (b["data-n"] to Number ?? 0)';
 
     it('gives a member an arrow written as the argument, a named one or a regular function passed by its name, checked against its contract', () => {
         expect(evaluate(`panel.children.sortBy(${byNumber}) { n = it["data-n"] }`)).toEqual([{ n: '1' }, { n: '2' }, { n: '3' }]);
@@ -4052,8 +4052,8 @@ describe('domql callback contracts', () => {
 
     it.each([
         ['one of another number of parameters', 'panel.children.sortBy(a => 0).count', "The function given as 'compare' of 'sortBy' takes one argument, and its contract passes 2"],
-        ['one giving another type', 'panel.children.sortBy((a, b) => "x").count', "The function given as 'compare' of 'sortBy' gives string, and its contract takes number"],
-        ['no function', 'panel.children.sortBy(1).count', "The parameter 'compare' of 'sortBy' takes a function, and finds number"],
+        ['one giving another type', 'panel.children.sortBy((a, b) => "x").count', "The function given as 'compare' of 'sortBy' gives String, and its contract takes Number"],
+        ['no function', 'panel.children.sortBy(1).count', "The parameter 'compare' of 'sortBy' takes a function, and finds Number"],
         ['a function that may be null', 'let f = (a, b) => 0\nreturn panel.children.sortBy(if c then f else null end).count', "The parameter 'compare' of 'sortBy' takes a function, and this one may be null"],
     ])('refuses %s in preparation', (_, text, message) => {
         expect(getError(() => isolated.query(text, { panel, c: true }).resolve()).message).toContain(message);
@@ -4072,7 +4072,7 @@ describe('domql callback contracts', () => {
 
     it('fails a function its member calls with arguments its contract does not declare, with the function\'s own failure', () => {
         calls.push(() => [1]);
-        expect(getError(() => evaluate('panel.probe(e => 1)'))).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The function given as 'measure' of 'probe' is called with 1, and its contract declares element") });
+        expect(getError(() => evaluate('panel.probe(e => 1)'))).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The function given as 'measure' of 'probe' is called with 1, and its contract declares Element") });
         calls.push(element => [element, element]);
         expect(getError(() => evaluate('panel.probe(e => 1)')).message).toContain("is called with 2 arguments, and its contract declares 1");
         calls.push(element => [element]);
@@ -4080,15 +4080,15 @@ describe('domql callback contracts', () => {
     });
 
     it.each([
-        ['on a property, which takes no parameters', { name: 'p', kind: 'property', target: 'element', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: true }], result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 0 }, "A member of kind 'property' declares name, kind, target, result, implementation, updates, and 'parameters' is none of them"],
-        ['on a host call', { name: 'p', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', target: 'element', arguments: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: true }], result: 'number', implementation: () => 0 }, "A host call takes value parameters alone, each argument prepared as a value its host keeps, and 'f' is a function parameter"],
-        ['with a null policy', { name: 'p', kind: 'function', target: 'element', arguments: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: true, nulls: 'accept' }], result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 0 }, 'which a function parameter leaves out'],
-        ['without its parameters', { name: 'p', kind: 'function', target: 'element', arguments: 'positional', parameters: [{ name: 'f', kind: 'function', type: 'number', required: true }], result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 0 }, "The parameter 'f' is a function that declares its parameters as a list of the types it is called with"],
-        ['optional', { name: 'p', kind: 'function', target: 'element', arguments: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: false }], result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 0 }, "The parameter 'f' is a function, so it is required"],
-        ['fixed', { name: 'p', kind: 'function', target: 'element', arguments: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: true, fixed: true }], result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 0 }, "The parameter 'f' is a function, so it cannot be fixed"],
-        ['with a context', { name: 'p', kind: 'function', target: 'element', arguments: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: true, context: 'item' }], result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 0 }, "The parameter 'f' is a function, so it declares no 'context'"],
-        ['beside a value parameter declaring parameters', { name: 'p', kind: 'function', target: 'element', arguments: 'positional', parameters: [{ name: 'v', kind: 'value', type: 'number', required: true, nulls: 'propagate', parameters: [] }], result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 0 }, "The parameter 'v' is no function, so it declares no parameters"],
-        ['an observation is given', { name: 'p', kind: 'function', target: 'element', arguments: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'number', required: true }], result: 'number', updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'resize', of: { argument: 'f' } }] }, implementation: () => 0 }, "The observation 'resize' is given the parameter 'f', a function that lasts only while the member's invocation does"],
+        ['on a property, which takes no parameters', { name: 'p', kind: 'property', target: 'Element', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'Number', required: true }], result: 'Number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 0 }, "A member of kind 'property' declares name, kind, target, result, implementation, updates, and 'parameters' is none of them"],
+        ['on a host call', { name: 'p', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', target: 'Element', arguments: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'Number', required: true }], result: 'Number', implementation: () => 0 }, "A host call takes value parameters alone, each argument prepared as a value its host keeps, and 'f' is a function parameter"],
+        ['with a null policy', { name: 'p', kind: 'function', target: 'Element', arguments: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'Number', required: true, nulls: 'accept' }], result: 'Number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 0 }, 'which a function parameter leaves out'],
+        ['without its parameters', { name: 'p', kind: 'function', target: 'Element', arguments: 'positional', parameters: [{ name: 'f', kind: 'function', type: 'Number', required: true }], result: 'Number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 0 }, "The parameter 'f' is a function that declares its parameters as a list of the types it is called with"],
+        ['optional', { name: 'p', kind: 'function', target: 'Element', arguments: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'Number', required: false }], result: 'Number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 0 }, "The parameter 'f' is a function, so it is required"],
+        ['fixed', { name: 'p', kind: 'function', target: 'Element', arguments: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'Number', required: true, fixed: true }], result: 'Number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 0 }, "The parameter 'f' is a function, so it cannot be fixed"],
+        ['with a context', { name: 'p', kind: 'function', target: 'Element', arguments: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'Number', required: true, context: 'item' }], result: 'Number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 0 }, "The parameter 'f' is a function, so it declares no 'context'"],
+        ['beside a value parameter declaring parameters', { name: 'p', kind: 'function', target: 'Element', arguments: 'positional', parameters: [{ name: 'v', kind: 'value', type: 'Number', required: true, nulls: 'propagate', parameters: [] }], result: 'Number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 0 }, "The parameter 'v' is no function, so it declares no parameters"],
+        ['an observation is given', { name: 'p', kind: 'function', target: 'Element', arguments: 'positional', parameters: [{ name: 'f', kind: 'function', parameters: [], type: 'Number', required: true }], result: 'Number', updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'resize', of: { argument: 'f' } }] }, implementation: () => 0 }, "The observation 'resize' is given the parameter 'f', a function that lasts only while the member's invocation does"],
     ])('refuses a module declaring a function parameter %s', (_, member, message) => {
         expect(getError(() => isolated.createModule('p', { members: [member] }))).toMatchObject({ kind: 'module', message: expect.stringContaining(message) });
     });
@@ -4109,8 +4109,8 @@ describe('domql object root of an options object', () => {
 
         isolated.registerModule(isolated.createModule('span', {
             members: [{
-                name: 'span', kind: 'function', target: 'element', arguments: 'options', result: 'string', updates: { changes: 'constant', reads: 'fresh' },
-                parameters: [value('anchor', 'element?', { default: null, nulls: 'accept' }), value('start', 'number'), value('end', 'number', { default: 10 })],
+                name: 'span', kind: 'function', target: 'Element', arguments: 'options', result: 'String', updates: { changes: 'constant', reads: 'fresh' },
+                parameters: [value('anchor', 'Element?', { default: null, nulls: 'accept' }), value('start', 'Number'), value('end', 'Number', { default: 10 })],
                 implementation: ({ args: { anchor, start, end } }) => `${anchor?.id ?? '-'}:${start}-${end}`,
             }],
         }));
@@ -4119,13 +4119,13 @@ describe('domql object root of an options object', () => {
 
         isolated.registerModule(isolated.createModule('pick', {
             members: [{
-                name: 'pick', kind: 'function', target: 'list<T>', arguments: 'options', result: 'number', updates: { changes: 'derived', reads: 'derived' },
-                parameters: [value('limit', 'number', { default: 10 }), evaluated('by', 'expression', 'number'), evaluated('keep', 'predicate', 'boolean')],
+                name: 'pick', kind: 'function', target: 'List<T>', arguments: 'options', result: 'Number', updates: { changes: 'derived', reads: 'derived' },
+                parameters: [value('limit', 'Number', { default: 10 }), evaluated('by', 'expression', 'Number'), evaluated('keep', 'predicate', 'Boolean')],
                 implementation: ({ receiver: list, args: { limit, by, keep } }) => list.slice(0, limit).filter(keep).reduce((sum, item) => sum + by(item), 0),
             }],
         }));
         isolated.registerModule(isolated.createModule('tally', {
-            members: [{ name: 'tally', kind: 'property', target: 'element', result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => ++tallies }],
+            members: [{ name: 'tally', kind: 'property', target: 'Element', result: 'Number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => ++tallies }],
         }));
     });
 
@@ -4137,7 +4137,7 @@ describe('domql object root of an options object', () => {
         expect(evaluate('panel.span({ start = 2, end = root.start + 3 })')).toBe('-:2-5');
         expect(evaluate('panel.span({ anchor = panel, start = root.anchor.children.count })')).toBe('panel:3-10');
         expect(evaluate('panel.span({ start = 1, end = root.["start"] + 1 })')).toBe('-:1-2');
-        expect(isolated.query('panel.intersects({ margin = 200, root = if root.margin > 100 then panel else null end })', { panel }).resolve().type.toString()).toBe('boolean?');
+        expect(isolated.query('panel.intersects({ margin = 200, root = if root.margin > 100 then panel else null end })', { panel }).resolve().type.toString()).toBe('Boolean?');
     });
 
     it('evaluates each option once, in the order they are written, whatever order the member declares them in', () => {
@@ -4153,7 +4153,7 @@ describe('domql object root of an options object', () => {
     });
 
     it('brings each written option into scope after its initializer, for the options after it, whatever order the member declares them in', () => {
-        expect(isolated.query('panel.intersects({ margin = 200, root = if margin > 100 then panel else null end })', { panel }).resolve().type.toString()).toBe('boolean?');
+        expect(isolated.query('panel.intersects({ margin = 200, root = if margin > 100 then panel else null end })', { panel }).resolve().type.toString()).toBe('Boolean?');
         expect(evaluate('panel.span({ start = 2, end = start + 3 })')).toBe('-:2-5');
         expect(evaluate('panel.span({ end = 4, start = @end - 1 })')).toBe('-:3-4');
         expect(evaluate('panel.span({ anchor = panel, start = anchor.children.count })')).toBe('panel:3-10');
@@ -4206,11 +4206,11 @@ describe('domql projections, blocks and casts as the specification defines them'
         const panel = document.createElement('div');
         const query = domql.query('xs { a = 1 }', { xs: [panel, null] });
 
-        expect(query.resolve().type.toString()).toBe('list<{ a: number }?>');
+        expect(query.resolve().type.toString()).toBe('List<{ a: Number }?>');
         expect(query.evaluate()).toEqual([{ a: 1 }, null]);
         expect(domql.query('xs { a = 1 } { b = it.a + 1 }', { xs: [panel, null] }).evaluate()).toEqual([{ b: 2 }, null]);
-        expect(domql.query('xs { a = 1 }', { xs: [null] }).resolve().type.toString()).toBe('list<{ a: number }?>');
-        expect(domql.query('panel.children { a = 1 }', { panel }).resolve().type.toString()).toBe('list<{ a: number }>');
+        expect(domql.query('xs { a = 1 }', { xs: [null] }).resolve().type.toString()).toBe('List<{ a: Number }?>');
+        expect(domql.query('panel.children { a = 1 }', { panel }).resolve().type.toString()).toBe('List<{ a: Number }>');
     });
 
     it('records a do block as a node of its own, so it is a branch whose result its expression gives, apart from one that returns', () => {
@@ -4235,18 +4235,18 @@ describe('domql projections, blocks and casts as the specification defines them'
         ['grouped arithmetic the accesses follow', { kind: 'member', target: { kind: 'arithmetic', operator: '+', left: { kind: 'parameter', name: 'a' }, right: { kind: 'parameter', name: 'b' } }, name: 'parent' }],
         ['an object expression following a value', { kind: 'object', target: { kind: 'parameter', name: 'a' }, fields: [{ name: 'b', value: { kind: 'literal', value: 1 } }] }],
     ])('refuses a cast whose target is %s, which no text writes', (_, target) => {
-        expect(getError(() => domql.query({ version: 33, expression: { kind: 'cast', type: 'element', target } }))).toMatchObject({ kind: 'structure', location: { pointer: '/expression/target' } });
+        expect(getError(() => domql.query({ version: 33, expression: { kind: 'cast', type: 'Element', target } }))).toMatchObject({ kind: 'structure', location: { pointer: '/expression/target' } });
     });
 
     it.each([
-        'panel.parent as element',
-        '(a ?? b) as element',
-        '(?a.b.c) as element',
-        'a?.b as element',
-        '(a as node).parent as element',
-        '(panel.parent as node) as element',
-        'panel["x"] as element',
-        '$"x" as element',
+        'panel.parent as Element',
+        '(a ?? b) as Element',
+        '(?a.b.c) as Element',
+        'a?.b as Element',
+        '(a as Node).parent as Element',
+        '(panel.parent as Node) as Element',
+        'panel["x"] as Element',
+        '$"x" as Element',
     ])('writes the cast %s as text that parses to its definition', text => {
         const { definition } = domql.query(text);
 
@@ -4388,7 +4388,7 @@ describe('domql interpolated strings', () => {
         expect(evaluate('$"{({ x = 1 }.x)}"')).toBe('1');
         expect(evaluate('$"{a /* } */ ?? "}"}"', { a: null })).toBe('}');
         expect(evaluate('$"{if a then "yes" else "no" end} {n + 1}"', { a: true, n: 1 })).toBe('yes 2');
-        expect(evaluate('$"{a to string}"', { a: false })).toBe('false');
+        expect(evaluate('$"{a to String}"', { a: false })).toBe('false');
     });
 
     it('reads its holes in the scope it is written in, with the implicit parameter there', () => {
@@ -4420,10 +4420,10 @@ describe('domql interpolated strings', () => {
     });
 
     it.each([
-        ['a Boolean, whose text to string gives', '$"{a}"', { a: true }, "An interpolation inserts a string or a number, and this one is boolean; give its text with … to string, or choose it with a conditional", '/expression/parts/0/expression'],
+        ['a Boolean, whose text to String gives', '$"{a}"', { a: true }, "An interpolation inserts a string or a number, and this one is Boolean; give its text with … to String, or choose it with a conditional", '/expression/parts/0/expression'],
         ['a value that can be null', '$"x{a}"', { a: null }, 'An interpolation can be null: give it a fallback, as in (… ?? "…"), or test it first', '/expression/parts/1/expression'],
         ['an attribute, which can be missing', '$"{panel["id"]}"', { panel: document.body }, 'An interpolation can be null', '/expression/parts/0/expression'],
-        ['a list', '$"{panel.children}"', { panel: document.body }, 'An interpolation inserts a string or a number, and this one is list<element>', '/expression/parts/0/expression'],
+        ['a list', '$"{panel.children}"', { panel: document.body }, 'An interpolation inserts a string or a number, and this one is List<Element>', '/expression/parts/0/expression'],
         ['an event source', '$"{panel.on("click")}"', { panel: document.body }, 'An interpolation is a value, and this one is a host call', '/expression/parts/0/expression'],
     ])('refuses to insert %s before anything is evaluated, naming the hole', (_, text, bindings, message, pointer) => {
         const error = getError(() => domql.query(text, bindings).resolve());
@@ -4440,9 +4440,9 @@ describe('domql interpolated strings', () => {
     });
 
     it('stands as a cast\'s target as a string literal does, what its holes hold never read as the group\'s own', () => {
-        expect(domql.query('(?($"{a ?? "b"}" as element).rect)').definition.expression.kind).toBe('optionalChain');
-        expect(getError(() => domql.query('($"{a ?? "b"}" as element)', { a: 'x' }).resolve()).kind).toBe('validation');
-        expect(getError(() => domql.query('(?($"{a as element}").rect)'))).toMatchObject({ message: expect.stringContaining('A group as the receiver of an optional enclosed access holds a cast'), location: { line: 1, column: 21 } });
+        expect(domql.query('(?($"{a ?? "b"}" as Element).rect)').definition.expression.kind).toBe('optionalChain');
+        expect(getError(() => domql.query('($"{a ?? "b"}" as Element)', { a: 'x' }).resolve()).kind).toBe('validation');
+        expect(getError(() => domql.query('(?($"{a as Element}").rect)'))).toMatchObject({ message: expect.stringContaining('A group as the receiver of an optional enclosed access holds a cast'), location: { line: 1, column: 21 } });
     });
 
     it('records its text and its interpolations in order, each run of text the characters it stands for', () => {
@@ -4466,7 +4466,7 @@ describe('domql interpolated strings', () => {
         const query = { kind: 'interpolatedString', parts: [{ kind: 'text', value: 'a' }, { kind: 'text', value: '' }, { kind: 'text', value: 'b' }, hole({ kind: 'parameter', name: 'flag' }), { kind: 'text', value: '' }, hole(inner)] };
         const error = getError(() => domql.query({ version: 33, expression: query }, { flag: true }).resolve());
 
-        expect(error.message).toContain('An interpolation inserts a string or a number, and this one is boolean');
+        expect(error.message).toContain('An interpolation inserts a string or a number, and this one is Boolean');
         expect(error.location.pointer).toBe('/expression/parts/3/expression');
 
         const nested = { kind: 'interpolatedString', parts: [{ kind: 'text', value: '' }, hole({ kind: 'literal', value: 'x' }), hole(inner)] };
@@ -4612,9 +4612,9 @@ describe('domql raw strings and blocks', () => {
     it('takes no string of any form where a cast or a conversion names its type, which is a name written bare', () => {
         const panel = document.createElement('div');
 
-        expect(domql.query("(panel.parent as element)?.children.count", { panel }).evaluate()).toBeNull();
-        expect(getError(() => domql.query(lines('try "3" to """', '    number', '    """'), {})).message).toContain("'to' names the type it converts to bare, as a member's name is written: write 'to number'");
-        expect(getError(() => domql.query("(panel.parent as 'element')?.children.count", { panel })).message).toContain("write 'as element'");
+        expect(domql.query("(panel.parent as Element)?.children.count", { panel }).evaluate()).toBeNull();
+        expect(getError(() => domql.query(lines('try "3" to """', '    Number', '    """'), {})).message).toContain("'to' names the type it converts to bare, as a member's name is written: write 'to Number'");
+        expect(getError(() => domql.query("(panel.parent as 'Element')?.children.count", { panel })).message).toContain("write 'as Element'");
         expect(getError(() => domql.query('panel as $"element"', { panel })).message).toContain('Expected the name of the type it casts to');
     });
 
@@ -4732,10 +4732,10 @@ describe('domql comparisons', () => {
     });
 
     it.each([
-        ['a grouped comparison, which is a Boolean', '(a < b) < c', { a: 1, b: 2, c: 3 }, "The left operand of '<' is a number, and this one is boolean", '/expression/operands/0'],
+        ['a grouped comparison, which is a Boolean', '(a < b) < c', { a: 1, b: 2, c: 3 }, "The left operand of '<' is a number, and this one is Boolean", '/expression/operands/0'],
         ['an operand that can be null', 'a < b', { a: 1, b: null }, "The right operand of '<' can be null, and a comparison takes numbers alone: give it a fallback, as in (… ?? 0), or test it first", '/expression/operands/1'],
-        ['text, which ordering takes no part in', '"a" < "b"', {}, "The left operand of '<' is a number, and this one is string", '/expression/operands/0'],
-        ['a middle operand of text', '0 <= x < 2', { x: '1' }, "The right operand of '<=' is a number, and this one is string", '/expression/operands/1'],
+        ['text, which ordering takes no part in', '"a" < "b"', {}, "The left operand of '<' is a number, and this one is String", '/expression/operands/0'],
+        ['a middle operand of text', '0 <= x < 2', { x: '1' }, "The right operand of '<=' is a number, and this one is String", '/expression/operands/1'],
     ])('refuses %s before anything is evaluated, naming the operand', (_, text, bindings, message, pointer) => {
         const error = getError(() => domql.query(text, bindings).resolve());
 
@@ -4838,10 +4838,10 @@ describe('domql members written after their receiver and a space', () => {
         expect(domql.query('panel.on("click") { button = it.button }', { panel }).resolve().kind).toBe('subscription');
     });
 
-    it('answer matches as a boolean of a receiver that cannot be null, and as a boolean? only through optional access or a null argument', () => {
-        expect(domql.query('panel.matches(".toolbar")', { panel }).resolve().type.toString()).toBe('boolean');
-        expect(domql.query('panel.first(".row")?.matches(".open")', { panel }).resolve().type.toString()).toBe('boolean?');
-        expect(domql.query('panel.matches(selector)', { panel, selector: null }).resolve().type.toString()).toBe('boolean?');
+    it('answer matches as a boolean of a receiver that cannot be null, and as a Boolean? only through optional access or a null argument', () => {
+        expect(domql.query('panel.matches(".toolbar")', { panel }).resolve().type.toString()).toBe('Boolean');
+        expect(domql.query('panel.first(".row")?.matches(".open")', { panel }).resolve().type.toString()).toBe('Boolean?');
+        expect(domql.query('panel.matches(selector)', { panel, selector: null }).resolve().type.toString()).toBe('Boolean?');
         expect(evaluate('panel.matches(selector)', { selector: null })).toBeNull();
     });
 
@@ -4859,8 +4859,8 @@ describe('domql members written after their receiver and a space', () => {
         ['intersects', 'panel.first(".row") intersects { root: panel }', 'panel.first(".row")'],
         ['overlaps', '(a ?? b) overlaps { other: panel }', '(a ?? b)'],
         ['on', 'panel on "click" { x: it.clientX }', 'panel'],
-        ['matches', 'panel.parent as element matches ".row"', '(panel.parent as element)'],
-        ['matches', 'panel["n"] to string matches ".row"', '(panel["n"] to string)'],
+        ['matches', 'panel.parent as Element matches ".row"', '(panel.parent as Element)'],
+        ['matches', 'panel["n"] to String matches ".row"', '(panel["n"] to String)'],
     ])('refuse %s written after its receiver and a space, giving the call to write', (name, text, receiver) => {
         const error = getError(() => domql.query(text, { panel }));
 
@@ -4896,9 +4896,9 @@ describe('domql named indexers', () => {
         const counts = { entries: 0, reads: 0 };
 
         isolated.registerModule(isolated.createModule('entry', {
-            types: [{ name: 'record', fields: { label: 'string', rank: 'number' } }],
+            types: [{ name: 'Record', fields: { label: 'String', rank: 'Number' } }],
             members: [{
-                name: 'entry', kind: 'function', syntax: 'indexer', target: 'element', arguments: 'positional', parameters: [{ name: 'index', kind: 'value', type: 'number', required: true, nulls: 'propagate' }], result: 'record?', updates: { changes: 'constant', reads: 'fresh' },
+                name: 'entry', kind: 'function', syntax: 'indexer', target: 'Element', arguments: 'positional', parameters: [{ name: 'index', kind: 'value', type: 'Number', required: true, nulls: 'propagate' }], result: 'Record?', updates: { changes: 'constant', reads: 'fresh' },
                 implementation: ({ receiver: element, args: { index } }) => {
                     counts.entries++;
 
@@ -4907,7 +4907,7 @@ describe('domql named indexers', () => {
             }],
         }));
         isolated.registerModule(isolated.createModule('entries', {
-            members: [{ name: 'entries', kind: 'property', target: 'element', result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => ++counts.reads }],
+            members: [{ name: 'entries', kind: 'property', target: 'Element', result: 'Number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => ++counts.reads }],
         }));
 
         return counts;
@@ -4927,7 +4927,7 @@ describe('domql named indexers', () => {
             const error = getError(() => isolated.query('panel.attribute[5]', { panel }).resolve());
 
             expect(error.kind).toBe('validation');
-            expect(error.message).toContain("The argument 'name' of 'attribute' expects string and finds number");
+            expect(error.message).toContain("The argument 'name' of 'attribute' expects String and finds Number");
         });
 
         it('give the form to write for an indexer written as a property, and for a member written as an indexer', () => {
@@ -4935,7 +4935,7 @@ describe('domql named indexers', () => {
 
             expect(messageOf('panel.attribute.["data-key"]')).toContain("'attribute' is an indexer: write 'panel.attribute[…]'");
             expect(messageOf('panel.style')).toContain("'style' is an indexer: write 'panel.style[…]'");
-            expect(messageOf('panel.size?["width"]')).toContain('size has no unnamed indexer');
+            expect(messageOf('panel.size?["width"]')).toContain('Size has no unnamed indexer');
             expect(messageOf('panel.closest[".row"]')).toContain(`'closest' uses call syntax: write 'panel.closest(".row")'`);
         });
 
@@ -4962,17 +4962,17 @@ describe('domql named indexers', () => {
         it('takes the key its indexer takes, and is refused for a receiver whose type has none', () => {
             const messageOf = text => getError(() => isolated.query(text, { panel }).resolve()).message;
 
-            expect(messageOf('panel[5]')).toContain("The argument 'name' of 'attribute' expects string and finds number");
-            expect(messageOf('domql.window["x"]')).toContain('window has no unnamed indexer');
+            expect(messageOf('panel[5]')).toContain("The argument 'name' of 'attribute' expects String and finds Number");
+            expect(messageOf('domql.window["x"]')).toContain('Window has no unnamed indexer');
             expect(messageOf('panel.first(".row")["x"]')).toContain(`write 'panel.first(".row")?["x"]'`);
         });
 
         it('is one a module declares for a type of its own, and one at most for any receiver', () => {
-            const tokens = { name: 'token', kind: 'function', syntax: 'indexer', default: true, target: 'palette', arguments: 'positional', parameters: [{ name: 'name', kind: 'value', type: 'string', required: true, nulls: 'propagate' }], result: 'string?', updates: { changes: 'constant', reads: 'fresh' }, implementation: ({ receiver: palette, args: { name } }) => palette[name] ?? null };
+            const tokens = { name: 'token', kind: 'function', syntax: 'indexer', default: true, target: 'Palette', arguments: 'positional', parameters: [{ name: 'name', kind: 'value', type: 'String', required: true, nulls: 'propagate' }], result: 'String?', updates: { changes: 'constant', reads: 'fresh' }, implementation: ({ receiver: palette, args: { name } }) => palette[name] ?? null };
 
             isolated.registerModule(isolated.createModule('palette', {
-                types: [{ name: 'palette', fields: { accent: 'string' } }],
-                members: [tokens, { name: 'palette', kind: 'property', target: 'element', result: 'palette', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => ({ accent: 'teal' }) }],
+                types: [{ name: 'Palette', fields: { accent: 'String' } }],
+                members: [tokens, { name: 'palette', kind: 'property', target: 'Element', result: 'Palette', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => ({ accent: 'teal' }) }],
             }));
 
             expect(evaluate('panel.palette["accent"]')).toBe('teal');
@@ -4980,18 +4980,18 @@ describe('domql named indexers', () => {
             expect(evaluate('panel["data-key"]')).toBe('k1');
 
             const competing = getError(() => isolated.registerModule(isolated.createModule('rival', {
-                members: [{ ...tokens, name: 'rival', target: 'element', implementation: () => null }],
+                members: [{ ...tokens, name: 'rival', target: 'Element', implementation: () => null }],
             })));
 
             expect(competing.kind).toBe('module');
-            expect(competing.message).toContain("'attribute' is the default indexer of element already");
+            expect(competing.message).toContain("'attribute' is the default indexer of Element already");
 
             const twice = getError(() => isolated.registerModule(isolated.createModule('swatch', {
-                types: [{ name: 'swatch', fields: { hue: 'number' } }],
-                members: [{ ...tokens, name: 'hue', target: 'swatch', implementation: () => null }, { ...tokens, name: 'shade', target: 'swatch', implementation: () => null }],
+                types: [{ name: 'Swatch', fields: { hue: 'Number' } }],
+                members: [{ ...tokens, name: 'hue', target: 'Swatch', implementation: () => null }, { ...tokens, name: 'shade', target: 'Swatch', implementation: () => null }],
             })));
 
-            expect(twice.message).toContain("'hue' is the default indexer of swatch already");
+            expect(twice.message).toContain("'hue' is the default indexer of Swatch already");
         });
 
         it.each([
@@ -4999,7 +4999,7 @@ describe('domql named indexers', () => {
             ['for a member that is no indexer', { syntax: 'function-call', default: true }, 'Only an indexer is the default of its receivers'],
             ['for a property', { kind: 'property', parameters: undefined, arguments: undefined, default: true }, "A member of kind 'property' declares name, kind, target, result, implementation, updates, and 'default' is none of them"],
         ])('is refused where a declaration marks a default %s', (_, overrides, message) => {
-            const declaration = { name: 'entries', kind: 'function', target: 'element', arguments: 'positional', parameters: [{ name: 'index', kind: 'value', type: 'number', required: true, nulls: 'propagate' }], result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 1, ...overrides };
+            const declaration = { name: 'entries', kind: 'function', target: 'Element', arguments: 'positional', parameters: [{ name: 'index', kind: 'value', type: 'Number', required: true, nulls: 'propagate' }], result: 'Number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 1, ...overrides };
             const error = getError(() => isolated.createModule('entries', { members: [declaration] }));
 
             expect(error.message).toContain(message);
@@ -5063,12 +5063,12 @@ describe('domql named indexers', () => {
             ['a property', { kind: 'property', parameters: undefined }, "A member of kind 'property' declares name, kind, target, result, implementation, updates, and 'syntax' is none of them"],
             ['a host call', { invokedBy: 'host', requestKind: 'execution', executionMode: 'once', updates: undefined }, 'A host call is written as a function call'],
             ['no parameter', { parameters: [] }, 'An indexer is a function whose key is its one parameter'],
-            ['two parameters', { parameters: [{ name: 'a', kind: 'value', type: 'number', required: true, nulls: 'propagate' }, { name: 'b', kind: 'value', type: 'number', required: true, nulls: 'propagate' }] }, 'An indexer is a function whose key is its one parameter'],
-            ['an optional parameter', { parameters: [{ name: 'a', kind: 'value', type: 'number', required: false, nulls: 'propagate' }] }, 'a required value parameter'],
-            ['an expression parameter', { parameters: [{ name: 'a', kind: 'expression', type: 'boolean?', context: 'item', required: true, nulls: 'accept' }] }, 'a required value parameter'],
+            ['two parameters', { parameters: [{ name: 'a', kind: 'value', type: 'Number', required: true, nulls: 'propagate' }, { name: 'b', kind: 'value', type: 'Number', required: true, nulls: 'propagate' }] }, 'An indexer is a function whose key is its one parameter'],
+            ['an optional parameter', { parameters: [{ name: 'a', kind: 'value', type: 'Number', required: false, nulls: 'propagate' }] }, 'a required value parameter'],
+            ['an expression parameter', { parameters: [{ name: 'a', kind: 'expression', type: 'Boolean?', context: 'item', required: true, nulls: 'accept' }] }, 'a required value parameter'],
             ['options for its input', { arguments: 'options' }, "An indexer's key is its one argument, so its arguments are positional"],
         ])('is refused where it declares %s', (_, overrides, message) => {
-            const declaration = { name: 'entries', kind: 'function', syntax: 'indexer', target: 'element', parameters: [{ name: 'index', kind: 'value', type: 'number', required: true, nulls: 'propagate' }], result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 1, ...overrides };
+            const declaration = { name: 'entries', kind: 'function', syntax: 'indexer', target: 'Element', parameters: [{ name: 'index', kind: 'value', type: 'Number', required: true, nulls: 'propagate' }], result: 'Number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => 1, ...overrides };
             const error = getError(() => isolated.createModule('entries', { members: [declaration] }));
 
             expect(error.kind).toBe('module');
@@ -5098,7 +5098,7 @@ describe('domql list indexing', () => {
         ['negative zero, which is zero', '-0', 'a1'],
         ['a fractional index', '1.5', null],
         ['an index a binding gives', 'i', 'a2', { i: 1 }],
-        ['an index computed from an attribute', 'panel["data-i"] to number', 'a3', {}, '2'],
+        ['an index computed from an attribute', 'panel["data-i"] to Number', 'a3', {}, '2'],
     ])('answers %s', (_, key, answer, bindings = {}, attribute) => {
         if (attribute !== undefined) {
             panel.setAttribute('data-i', attribute);
@@ -5116,9 +5116,9 @@ describe('domql list indexing', () => {
     });
 
     it('answers an item that can be null, and refuses an index that is no number and a receiver that can be null without optional access', () => {
-        expect(domql.query('panel.children[0]?.size', { panel }).resolve().type.toString()).toBe('size?');
-        expect(domql.query('panel.children[i]?.size', { panel, i: null }).resolve().type.toString()).toBe('size?');
-        expect(getError(() => domql.query('panel.children["1"]', { panel }).resolve()).message).toContain('expects number and finds string');
+        expect(domql.query('panel.children[0]?.size', { panel }).resolve().type.toString()).toBe('Size?');
+        expect(domql.query('panel.children[i]?.size', { panel, i: null }).resolve().type.toString()).toBe('Size?');
+        expect(getError(() => domql.query('panel.children["1"]', { panel }).resolve()).message).toContain('expects Number and finds String');
         expect(getError(() => domql.query('none.children[0]', { none: null }).resolve()).kind).toBe('validation');
     });
 });

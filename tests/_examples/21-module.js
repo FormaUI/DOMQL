@@ -1,13 +1,13 @@
 const metricsModule = domql.createModule('metrics', {
     types: [{
-        name: 'childMetrics',
-        fields: { childCount: 'number' }
+        name: 'ChildMetrics',
+        fields: { childCount: 'Number' }
     }],
     members: [{
         name: 'metrics',
         kind: 'property',
-        target: 'element',
-        result: 'childMetrics',
+        target: 'Element',
+        result: 'ChildMetrics',
         updates: { changes: 'unobserved', reads: 'fresh' },
         implementation: ({ receiver: element }) => ({ childCount: element.children.length })
     }]

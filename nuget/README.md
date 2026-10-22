@@ -580,15 +580,15 @@ then { key = row["data-key"], top = row.rect?.top }
 else null end
 ```
 
-`if let` tests truthiness as `if` does, so `0`, empty text and an empty list take the `then` branch, and `false` takes `else`. It pairs with `try`: `if let count = try panel["data-count"] to number then … else … end` converts once and uses the number in its branch.
+`if let` tests truthiness as `if` does, so `0`, empty text and an empty list take the `then` branch, and `false` takes `else`. It pairs with `try`: `if let count = try panel["data-count"] to Number then … else … end` converts once and uses the number in its branch.
 
 ### Cast a node
 
 `parent` and `root` return nodes, which may be elements, documents, document fragments or shadow roots. Use `as` when a node must be of a specific kind, and `try … as` when it may be of another:
 
 ```domql
-(panel.parent as element)?.rect?.width
-(try panel.parent as element)?.rect?.width
+(panel.parent as Element)?.rect?.width
+(try panel.parent as Element)?.rect?.width
 ```
 
 The first fails with an error if the parent is not an element, such as a document or a shadow root, and the second returns null for it. Both return null for a missing parent, and the optional accesses account for that and for an element without a layout box.
@@ -599,7 +599,7 @@ Attributes hold text. Use `to` to convert a value to another type, such as the u
 
 ```js
 domql.query(
-    'panel.all("[data-key]").sum(it["data-unread"] to number ?? 0)',
+    'panel.all("[data-key]").sum(it["data-unread"] to Number ?? 0)',
     { panel }
 ).evaluate();
 // 7
@@ -610,7 +610,7 @@ domql.query(
 To handle text that does not convert yourself, attempt the conversion with `try`, which answers null where the conversion rejects the value:
 
 ```domql
-panel { count = try it["data-count"] to number ?? 0 }
+panel { count = try it["data-count"] to Number ?? 0 }
 ```
 
 A missing attribute and malformed text both give null, so `?? 0` supplies zero, and valid text converts to its number. A fault in a conversion, such as one that throws, is still an error.
@@ -620,7 +620,7 @@ A conversion never answers null for text it accepts, so where text is present, a
 ```domql
 panel {
     let count = it["data-count"],
-    count = if let n = try count to number then { status = "valid", value = n }
+    count = if let n = try count to Number then { status = "valid", value = n }
     elseif count == null then { status = "missing", value = null }
     else { status = "malformed", value = null } end
 }
@@ -640,7 +640,7 @@ Use `+`, `-`, `*`, `/` and `%` to derive the values a result needs from those a 
 panel {
     remaining = (it.clientSize?.width ?? 0) - (it.first("[data-key]")?.rect?.width ?? 0),
     half = (it.rect?.width ?? 0) / 2,
-    unreadAfterNext = (it.first("[data-unread]")?["data-unread"] to number ?? 0) + 1,
+    unreadAfterNext = (it.first("[data-unread]")?["data-unread"] to Number ?? 0) + 1,
     fits = 0 < (it.clientSize?.width ?? 0) - 32 <= 400
 }
 ```
@@ -657,7 +657,7 @@ panel {
 }
 ```
 
-An interpolation inserts a string as it is and a number as `to string` writes it. A value that can be null needs a fallback, as `?? "none"` gives the attribute above, and a Boolean takes `to string` or a conditional, so no `null` or `true` reaches the text by accident. Write a literal brace twice, `{{` or `}}`, and begin an interpolation that starts with an object expression with a space, `{ { x = 1 }.x}`.
+An interpolation inserts a string as it is and a number as `to String` writes it. A value that can be null needs a fallback, as `?? "none"` gives the attribute above, and a Boolean takes `to String` or a conditional, so no `null` or `true` reaches the text by accident. Write a literal brace twice, `{{` or `}}`, and begin an interpolation that starts with an object expression with a space, `{ { x = 1 }.x}`.
 
 ### Cross a shadow boundary
 
@@ -741,7 +741,7 @@ Pass an `AbortSignal` in the options for `evaluateAsync`, `watch`, `subscribe`, 
 const resolved = domql.query('panel?.children.count', { panel: null }).resolve();
 
 resolved.kind; // 'value'
-resolved.type; // 'number?'
+resolved.type; // 'Number?'
 ```
 
 ### Handle errors
@@ -766,7 +766,7 @@ try {
 
     console.error(error.kind, error.message, error.location);
     // validation
-    // The argument 'name' of 'attribute' expects string and finds number
+    // The argument 'name' of 'attribute' expects String and finds Number
     // (line 1, column 7, at /expression/argument)
 }
 ```
@@ -792,14 +792,14 @@ This example adds a `metrics` member to elements, exposing a child count:
 ```js
 const metricsModule = domql.createModule('metrics', {
     types: [{
-        name: 'childMetrics',
-        fields: { childCount: 'number' }
+        name: 'ChildMetrics',
+        fields: { childCount: 'Number' }
     }],
     members: [{
         name: 'metrics',
         kind: 'property',
-        target: 'element',
-        result: 'childMetrics',
+        target: 'Element',
+        result: 'ChildMetrics',
         updates: { changes: 'unobserved', reads: 'fresh' },
         implementation: ({ receiver: element }) => ({ childCount: element.children.length })
     }]
@@ -815,7 +815,7 @@ A member's `updates` declare how its value changes and how it is read. `reads: '
 
 Register modules once during setup, rather than on every evaluation.
 
-Modules can also declare Boolean members, properties and functions whose result is a `boolean`, and conversions to and from their own types, each naming the type it converts from, the type it converts to and the implementation that converts a value. That implementation receives `{ value, reject }`, and calls `reject(reason)` for a value it cannot convert, which stops it at once; any other exception it throws is reported as a fault. A query calls a Boolean function, `it.checked()`, or gives it to a verb by reference, `it.is(domql.checked)`, and its `updates` name its own observations either way.
+Modules can also declare Boolean members, properties and functions whose result is a `Boolean`, and conversions to and from their own types, each naming the type it converts from, the type it converts to and the implementation that converts a value. That implementation receives `{ value, reject }`, and calls `reject(reason)` for a value it cannot convert, which stops it at once; any other exception it throws is reported as a fault. A query calls a Boolean function, `it.checked()`, or gives it to a verb by reference, `it.is(domql.checked)`, and its `updates` name its own observations either way.
 
 A member the host invokes, `invokedBy: 'host'`, is a host call that DOMQL carries out: an event source, `requestKind: 'subscription'`, or an execution, `requestKind: 'execution'`, which runs `once` or `continuous` as its `executionMode` says. An event source's implementation receives the receiver, arguments, environment and an event-delivery callback, as `{ receiver, args, env, deliver }`, and returns an object with a `stop` method to end listening. Each event is captured as the type its declaration's result names, and a module adds event types of its own as keys of DOMQL's type selector `event`, each naming the type its events are captured as.
 
@@ -837,10 +837,10 @@ domql.registerModule(domql.createModule('mark', {
         invokedBy: 'host',
         requestKind: 'execution',
         executionMode: 'once',
-        target: 'element',
+        target: 'Element',
         arguments: 'positional',
-        parameters: [{ name: 'label', kind: 'value', type: 'string', required: true, nulls: 'propagate' }],
-        result: 'boolean',
+        parameters: [{ name: 'label', kind: 'value', type: 'String', required: true, nulls: 'propagate' }],
+        result: 'Boolean',
         implementation: ({ receiver: element, args: { label } }) => {
             const changed = element.dataset.mark !== label;
 
@@ -873,9 +873,9 @@ domql.registerModule(domql.createModule('highlight', {
         invokedBy: 'host',
         requestKind: 'execution',
         executionMode: 'continuous',
-        target: 'element',
+        target: 'Element',
         arguments: 'positional',
-        parameters: [{ name: 'color', kind: 'value', type: 'string', required: true, nulls: 'propagate' }],
+        parameters: [{ name: 'color', kind: 'value', type: 'String', required: true, nulls: 'propagate' }],
         implementation: ({ receiver: element, args: { color } }) => {
             let current = element;
 

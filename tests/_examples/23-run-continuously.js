@@ -5,9 +5,9 @@ domql.registerModule(domql.createModule('highlight', {
         invokedBy: 'host',
         requestKind: 'execution',
         executionMode: 'continuous',
-        target: 'element',
+        target: 'Element',
         arguments: 'positional',
-        parameters: [{ name: 'color', kind: 'value', type: 'string', required: true, nulls: 'propagate' }],
+        parameters: [{ name: 'color', kind: 'value', type: 'String', required: true, nulls: 'propagate' }],
         implementation: ({ receiver: element, args: { color } }) => {
             let current = element;
 

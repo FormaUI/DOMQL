@@ -47,7 +47,7 @@ describe('Watch', () => {
                 },
             }],
             members: [{
-                name: 'level', kind: 'property', target: 'element', result: 'number?',
+                name: 'level', kind: 'property', target: 'Element', result: 'Number?',
                 updates: { changes: 'observable', reads: 'maintained', observations: [{ type: 'level', of: 'receiver' }] },
                 implementation: ({ samples: [sample] }) => sample,
             }],
@@ -57,11 +57,11 @@ describe('Watch', () => {
         const attributes = [{ type: 'mutation', of: 'receiver', attributes: true }];
 
         isolated.registerModule(isolated.createModule('tally', {
-            members: [{ name: 'tally', kind: 'property', target: 'element', result: 'number', updates: { changes: 'observable', reads: 'fresh', observations: attributes }, implementation: () => ++evaluations }],
+            members: [{ name: 'tally', kind: 'property', target: 'Element', result: 'Number', updates: { changes: 'observable', reads: 'fresh', observations: attributes }, implementation: () => ++evaluations }],
         }));
         isolated.registerModule(isolated.createModule('flaky', {
             members: [{
-                name: 'flaky', kind: 'property', target: 'element', result: 'number', updates: { changes: 'observable', reads: 'fresh', observations: attributes },
+                name: 'flaky', kind: 'property', target: 'Element', result: 'Number', updates: { changes: 'observable', reads: 'fresh', observations: attributes },
                 implementation: ({ receiver: element }) => {
                     if (broken) {
                         throw new Error('broken');
@@ -270,7 +270,7 @@ describe('Watch', () => {
     describe('a Boolean function', () => {
         it.each(['panel.lit()', 'panel.is(lit.lit)'])('follows the observations its own declaration names, written %s', async text => {
             isolated.registerModule(isolated.createModule('lit', {
-                members: [{ name: 'lit', kind: 'function', target: 'element', result: 'boolean', parameters: [], updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: ['data-lit'] }] }, implementation: ({ receiver: element }) => element.hasAttribute('data-lit') }],
+                members: [{ name: 'lit', kind: 'function', target: 'Element', result: 'Boolean', parameters: [], updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: ['data-lit'] }] }, implementation: ({ receiver: element }) => element.hasAttribute('data-lit') }],
             }));
             watch(text, { panel });
             await settle();
@@ -362,7 +362,7 @@ describe('Watch', () => {
     describe('a list\'s unnamed indexer', () => {
         it('follows an index that changes, and the list it indexes as items are added before it', async () => {
             panel.setAttribute('data-i', '0');
-            watch('panel.children[panel["data-i"] to number]?["data-n"]', { panel });
+            watch('panel.children[panel["data-i"] to Number]?["data-n"]', { panel });
             await settle();
 
             panel.setAttribute('data-i', '1');
@@ -380,7 +380,7 @@ describe('Watch', () => {
 
         it('answers null through optional access while its receiver is null, and follows the receiver once it is not', async () => {
             panel.setAttribute('data-i', '1');
-            watch('panel.first(".group")?.children[panel["data-i"] to number]?["data-n"]', { panel }, { acceptPartialObservation: true });
+            watch('panel.first(".group")?.children[panel["data-i"] to Number]?["data-n"]', { panel }, { acceptPartialObservation: true });
             await settle();
 
             const group = Object.assign(document.createElement('div'), { className: 'group', innerHTML: '<i data-n="a"></i><i data-n="b"></i>' });
@@ -400,7 +400,7 @@ describe('Watch', () => {
         it('follows what each operand reads, evaluating the left operand and then the right', async () => {
             panel.setAttribute('data-a', '1');
             panel.setAttribute('data-b', '2');
-            watch('(panel["data-a"] to number ?? 0) + (panel["data-b"] to number ?? 0) * 10', { panel });
+            watch('(panel["data-a"] to Number ?? 0) + (panel["data-b"] to Number ?? 0) * 10', { panel });
             await settle();
 
             panel.setAttribute('data-a', '5');
@@ -451,7 +451,7 @@ describe('Watch', () => {
                     },
                 }],
                 members: [{
-                    name: 'meter', kind: 'property', target: 'element', result: 'number',
+                    name: 'meter', kind: 'property', target: 'Element', result: 'Number',
                     updates: { changes: 'observable', reads: 'maintained', tolerance: 2, observations: [{ type: 'meter', of: 'receiver' }] },
                     implementation: ({ samples: [sample] }) => sample,
                 }],
@@ -514,13 +514,13 @@ describe('Watch', () => {
         it('follows what a function a member is given reads while the member calls it', async () => {
             isolated.registerModule(isolated.createModule('sortBy', {
                 members: [{
-                    name: 'sortBy', kind: 'function', target: 'list<T>', arguments: 'positional', result: 'list<T>', updates: { changes: 'derived', reads: 'derived' },
-                    parameters: [{ name: 'compare', kind: 'function', parameters: ['T', 'T'], type: 'number', required: true }],
+                    name: 'sortBy', kind: 'function', target: 'List<T>', arguments: 'positional', result: 'List<T>', updates: { changes: 'derived', reads: 'derived' },
+                    parameters: [{ name: 'compare', kind: 'function', parameters: ['T', 'T'], type: 'Number', required: true }],
                     implementation: ({ receiver: list, args: { compare } }) => [...list].sort(compare),
                 }],
             }));
 
-            watch('panel.children.sortBy((a, b) => (a["data-n"] to number ?? 0) - (b["data-n"] to number ?? 0)) { n = it["data-n"] }', { panel });
+            watch('panel.children.sortBy((a, b) => (a["data-n"] to Number ?? 0) - (b["data-n"] to Number ?? 0)) { n = it["data-n"] }', { panel });
             await settle();
             panel.children[1].setAttribute('data-n', '0');
             await settle();
@@ -596,7 +596,7 @@ describe('Watch', () => {
         });
 
         it('follows an operand only while the comparisons before it pass evaluation on to it', async () => {
-            watch('0 < (try panel["data-on"] to number ?? 0) < (panel.level ?? 100)', { panel });
+            watch('0 < (try panel["data-on"] to Number ?? 0) < (panel.level ?? 100)', { panel });
             await settle();
 
             expect(gauges.has(panel)).toBe(false);
@@ -618,14 +618,14 @@ describe('Watch', () => {
 
     describe('a conversion', () => {
         it('follows the value it converts, fails while that value has no conversion, and recovers once it has', async () => {
-            const watched = watch('panel.attribute["data-n"] to number', { panel });
+            const watched = watch('panel.attribute["data-n"] to Number', { panel });
 
             await settle();
             await change(panel, 2);
             await change(panel, 'two');
 
             expect(watched.status).toBe('failed');
-            expect(failures.map(failure => failure.message)).toEqual([expect.stringContaining('The conversion from string to number rejected its value: "two" is no number')]);
+            expect(failures.map(failure => failure.message)).toEqual([expect.stringContaining('The conversion from String to Number rejected its value: "two" is no number')]);
 
             await change(panel, 3);
 
@@ -634,7 +634,7 @@ describe('Watch', () => {
         });
 
         it('lets an attempted conversion fall back for malformed text without failing, and give the converted value once the text converts', async () => {
-            const watched = watch('panel { value = try it["data-n"] to number ?? 0 }', { panel });
+            const watched = watch('panel { value = try it["data-n"] to Number ?? 0 }', { panel });
 
             await settle();
             await change(panel, 'two');
@@ -650,7 +650,7 @@ describe('Watch', () => {
         });
 
         it('follows a conditional binding through the value it binds and the branch it takes', async () => {
-            watch('if let n = try panel["data-n"] to number then { n = n } else { n = -1 } end', { panel });
+            watch('if let n = try panel["data-n"] to Number then { n = n } else { n = -1 } end', { panel });
             await settle();
             await change(panel, 'two');
             await change(panel, 5);
@@ -661,7 +661,7 @@ describe('Watch', () => {
         });
 
         it('lets ?? say what a missing value means, which it follows as the value comes and goes', async () => {
-            watch('panel.attribute["data-n"] to number ?? 0', { panel });
+            watch('panel.attribute["data-n"] to Number ?? 0', { panel });
             await settle();
 
             panel.removeAttribute('data-n');
@@ -745,7 +745,7 @@ describe('Watch', () => {
 
             isolated.registerModule(isolated.createModule('nudge', {
                 members: [{
-                    name: 'nudge', kind: 'property', target: 'element', result: 'number', updates: { changes: 'constant', reads: 'fresh' },
+                    name: 'nudge', kind: 'property', target: 'Element', result: 'Number', updates: { changes: 'constant', reads: 'fresh' },
                     implementation: () => {
                         const nudge = duringEvaluation;
 
@@ -801,7 +801,7 @@ describe('Watch', () => {
 
     describe('an and and an or', () => {
         it('follow the left operand, and the right only while the left passes evaluation on to it', async () => {
-            watch('{ level = (try panel["data-on"] to number) or panel.level }', { panel });
+            watch('{ level = (try panel["data-on"] to Number) or panel.level }', { panel });
             await settle();
             gauges.get(panel).sample = { pending: false, value: 5 };
             gauges.get(panel).notify();
@@ -862,7 +862,7 @@ describe('Watch', () => {
         it('holds what it reads past a receiver only while that receiver is present', async () => {
             const item = document.createElement('i');
 
-            watch('{ level = (item.parent as element)?.level }', { item }, { acceptPartialObservation: true });
+            watch('{ level = (item.parent as Element)?.level }', { item }, { acceptPartialObservation: true });
             await settle();
 
             expect(snapshots).toEqual([{ level: null }]);
@@ -1033,7 +1033,7 @@ describe('Watch', () => {
                     },
                 }],
                 members: [{
-                    name: 'probe', kind: 'property', target: 'element', result: 'number', updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'probe', of: 'receiver' }] },
+                    name: 'probe', kind: 'property', target: 'Element', result: 'Number', updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'probe', of: 'receiver' }] },
                     implementation: ({ receiver: element }) => {
                         probes.calls++;
 
@@ -1261,7 +1261,7 @@ describe('Watch', () => {
                         return { stop: () => stopped.push(target.id) };
                     },
                 }],
-                members: [{ name: 'reach', kind: 'property', target: 'element', result: 'number', updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'reach', of: 'receiver' }] }, implementation: () => 1 }],
+                members: [{ name: 'reach', kind: 'property', target: 'Element', result: 'Number', updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'reach', of: 'receiver' }] }, implementation: () => 1 }],
             }));
             document.body.innerHTML = '<i id="a"></i><i id="b"></i><i id="c"></i>';
 

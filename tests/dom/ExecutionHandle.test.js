@@ -23,9 +23,9 @@ describe('ExecutionHandle', () => {
     /** A module of a continuous execution: its one member, named for it, on an element, taking a color. */
     const execution = (name, start) => isolated.createModule(name, {
         members: [{
-            name, kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'continuous', target: 'element',
+            name, kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'continuous', target: 'Element',
             arguments: 'positional',
-            parameters: [{ name: 'color', kind: 'value', type: 'string', required: true, nulls: 'propagate' }],
+            parameters: [{ name: 'color', kind: 'value', type: 'String', required: true, nulls: 'propagate' }],
             implementation: start,
         }],
     });

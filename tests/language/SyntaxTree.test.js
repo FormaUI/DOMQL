@@ -17,9 +17,9 @@ describe('SyntaxTree', () => {
         '  panel.size  ',
         '// A panel.\npanel { /* its\nfirst item */ open = it.first(".item") /* inline */.matches(/**/".open") // whether it is open\n}\n',
         'panel {\n    let rows = it.all("tr"),\n\n    count = rows.count,\n    first = rows[0]?["data-key"]\n}',
-        'if let n = a to number then n elseif b then 1 else (?panel.parent.rect).width end',
+        'if let n = a to Number then n elseif b then 1 else (?panel.parent.rect).width end',
         '\t(a ?? b)\tas element',
-        '(?(panel.parent as element).rect.width) == null and not x != y or (try v to number ?? 0)',
+        '(?(panel.parent as Element).rect.width) == null and not x != y or (try v to Number ?? 0)',
         'a/* the value */to/* its type */number',
         '{ say = "say \\"hi\\" \\\\ // not a comment" }',
         'list[i]?.size // trailing comment with no line feed',
@@ -67,7 +67,7 @@ describe('SyntaxTree', () => {
         expect(kindsOf(treeOf('panel'))).toEqual(['script']);
         expect(kindsOf(treeOf('a == b and c'))).toEqual(['script', 'conjunction', 'equality']);
         expect(kindsOf(treeOf('panel.closest(".row")?.rect { top = it.top }'))).toEqual(['script', 'chain', 'member-call', 'dot-property-access', 'object', 'field', 'chain', 'dot-property-access']);
-        expect(kindsOf(treeOf('(?a.b) ?? (c as node)'))).toEqual(['script', 'coalescing', 'optional-enclosed-access', 'member-chain', 'dot-property-access', 'parenthesized-expression', 'cast']);
+        expect(kindsOf(treeOf('(?a.b) ?? (c as Node)'))).toEqual(['script', 'coalescing', 'optional-enclosed-access', 'member-chain', 'dot-property-access', 'parenthesized-expression', 'cast']);
         expect(kindsOf(treeOf('if let v = a then v else 0 end'))).toEqual(['script', 'conditional-expression', 'conditional-binding']);
         expect(kindsOf(treeOf('panel.[name]?.attribute["id"]'))).toEqual(['script', 'chain', 'computed-property-access', 'dot-property-access', 'indexer']);
         expect(kindsOf(treeOf('node as domql.element'))).toEqual(['script', 'cast', 'type-name']);
@@ -84,7 +84,7 @@ describe('SyntaxTree', () => {
     it('publishes every node kind the parser builds and every token type the tokenizer reads', () => {
         const texts = [
             'if let v = a then v elseif not b then 1 else 2 end',
-            'a == b and c != d or (try e to number ?? 0)',
+            'a == b and c != d or (try e to Number ?? 0)',
             '(?(panel.parent as domql.element).rect.width) ?? panel.closest(".row")?.rect { top = it.top }',
             'panel { let rows = it.all("i"), first = rows[0]?["data-key"], name = it.[name], open = it.matches(".x") }',
             '-a * 2 + b % 3 - c / d',

@@ -70,14 +70,14 @@ describe('DefinitionWriter', () => {
         'panel.["data-key"]',
         'panel.[if wide then "size" else "clientSize" end]',
         '(?panel.parent.[name].width)',
-        'panel.parent as element',
-        '(panel.parent as element)?.rect',
-        '(panel.parent as element).matches(".row")',
-        'panel.parent as element to string',
-        '(a ?? b) as element',
-        '(?a.b) as element',
-        '(a as node) as element',
-        '(panel.parent as element)?.attached',
+        'panel.parent as Element',
+        '(panel.parent as Element)?.rect',
+        '(panel.parent as Element).matches(".row")',
+        'panel.parent as Element to String',
+        '(a ?? b) as Element',
+        '(?a.b) as Element',
+        '(a as Node) as Element',
+        '(panel.parent as Element)?.attached',
         'not a',
         'not not a',
         'not panel.attached',
@@ -86,50 +86,50 @@ describe('DefinitionWriter', () => {
         'not (a ?? false)',
         '(not a) ?? false',
         'if not a then 1 else 2 end',
-        'panel.attribute["data-count"] to number',
-        'panel.attribute["data-count"] to number == 5',
-        'a to string to number',
-        '(a ?? b) to number',
-        'a to number ?? 0',
-        'a ?? b to number',
-        'not a to boolean',
-        '(a to string).attribute["id"]',
-        '(a to string).length',
-        'panel.parent as element to string',
+        'panel.attribute["data-count"] to Number',
+        'panel.attribute["data-count"] to Number == 5',
+        'a to String to Number',
+        '(a ?? b) to Number',
+        'a to Number ?? 0',
+        'a ?? b to Number',
+        'not a to Boolean',
+        '(a to String).attribute["id"]',
+        '(a to String).length',
+        'panel.parent as Element to String',
         '{ from = 1, to = 2 }',
         'panel { let to = it.size, width = @to.width }',
-        'range.to to string',
-        'range.to() to string',
-        'sentinel.intersects() to string',
-        'panel.media[query]to string',
-        'panel.attribute[~to] to number',
-        'try a to number',
-        'try panel.attribute["data-n"] to number ?? 0',
-        'try (a to string) to number',
-        'try a to number == 5',
-        '(try a to number) to string',
-        'try (a ?? "1") to number',
-        'try node as element',
-        'try node.parent as element ?? panel',
-        '(try node as element) != null',
-        '(try node as element)?.rect',
-        'try (node as element).parent as element',
-        'try (node as element) to string',
-        'try (preferred ?? fallback) as element',
-        'node as element',
-        'if let n = try a to number then n else 0 end',
+        'range.to to String',
+        'range.to() to String',
+        'sentinel.intersects() to String',
+        'panel.media[query]to String',
+        'panel.attribute[~to] to Number',
+        'try a to Number',
+        'try panel.attribute["data-n"] to Number ?? 0',
+        'try (a to String) to Number',
+        'try a to Number == 5',
+        '(try a to Number) to String',
+        'try (a ?? "1") to Number',
+        'try node as Element',
+        'try node.parent as Element ?? panel',
+        '(try node as Element) != null',
+        '(try node as Element)?.rect',
+        'try (node as Element).parent as Element',
+        'try (node as Element) to String',
+        'try (preferred ?? fallback) as Element',
+        'node as Element',
+        'if let n = try a to Number then n else 0 end',
         'if a then 1 elseif let n = b then n else 0 end',
         'if let row = panel.closest(".row") then { key = row["data-key"] } else null end',
-        '(if let n = a then n else 0 end) to string',
+        '(if let n = a then n else 0 end) to String',
         'if let b = a == 1 then b else false end',
         'if let n = a ?? b then n else 0 end',
         'a.checked() != false',
         '{ is = a.checked() }',
-        '(try a to number) == 5',
+        '(try a to Number) == 5',
         'a == convertible',
-        'a == (convertible to number)',
-        'a != (convertible to string to number)',
-        '{ convertible = try a to number }',
+        'a == (convertible to Number)',
+        'a != (convertible to String to Number)',
+        '{ convertible = try a to Number }',
         'panel.attribute["data-key"]',
         'panel["data-key"]',
         'panel.class["open"]',
@@ -154,9 +154,9 @@ describe('DefinitionWriter', () => {
         '(?panel.first(".row").attribute["id"])',
         '(panel.attribute["n"]).attribute["id"]',
         'panel.matches(row.attribute["key"])',
-        'panel.attribute["n"] to number',
-        'try panel.attribute["n"] to number',
-        'panel.lookup["a"] as element',
+        'panel.attribute["n"] to Number',
+        'try panel.attribute["n"] to Number',
+        'panel.lookup["a"] as Element',
     ])('writes text that parses back to the same definition: %s', text => {
         const { definition } = domql.query(text, { panel });
 
@@ -177,16 +177,16 @@ describe('DefinitionWriter', () => {
         expect(write('if a then 1 else if b then 2 else 3 end end')).toBe('if a then 1 elseif b then 2 else 3 end');
         expect(write('if a then 1 else (if b then 2 else 3 end) end')).toBe('if a then 1 elseif b then 2 else 3 end');
         expect(write('(if a then b else c end) and d')).toBe('(if a then b else c end) and d');
-        expect(write('(panel.attribute["n"]) to number')).toBe('panel.attribute["n"] to number');
-        expect(write('(a to string) to number')).toBe('a to string to number');
-        expect(write('(a to number) == 5')).toBe('a to number == 5');
-        expect(write('(a == b) to string')).toBe('(a == b) to string');
-        expect(write('(a ?? b) to number')).toBe('(a ?? b) to number');
-        expect(write('(try a to number) ?? 0')).toBe('try a to number ?? 0');
-        expect(write('(try a to number) == 5')).toBe('try a to number == 5');
-        expect(write('(try node as element) != null')).toBe('try node as element != null');
-        expect(write('try (node as element) to string')).toBe('try (node as element) to string');
-        expect(write('try (a to number)')).toBe('try a to number');
+        expect(write('(panel.attribute["n"]) to Number')).toBe('panel.attribute["n"] to Number');
+        expect(write('(a to String) to Number')).toBe('a to String to Number');
+        expect(write('(a to Number) == 5')).toBe('a to Number == 5');
+        expect(write('(a == b) to String')).toBe('(a == b) to String');
+        expect(write('(a ?? b) to Number')).toBe('(a ?? b) to Number');
+        expect(write('(try a to Number) ?? 0')).toBe('try a to Number ?? 0');
+        expect(write('(try a to Number) == 5')).toBe('try a to Number == 5');
+        expect(write('(try node as Element) != null')).toBe('try node as Element != null');
+        expect(write('try (node as Element) to String')).toBe('try (node as Element) to String');
+        expect(write('try (a to Number)')).toBe('try a to Number');
         expect(write('if let n = (a ?? b) then n else 0 end')).toBe('if let n = a ?? b then n else 0 end');
         expect(write('-(if let n = a then n else 0 end)')).toBe('-(if let n = a then n else 0 end)');
     });
@@ -209,13 +209,13 @@ describe('DefinitionWriter', () => {
             ['a conditional with an elseif, a line for each clause', 'panel { state = if it.disabled() then "locked" elseif it.readonly() then "read" else "open" end }', 'panel {\n    state = if it.disabled() then "locked"\n    elseif it.readonly() then "read"\n    else "open"\n    end\n}'],
             ['a conditional binding with an elseif, a line for each clause', 'panel { v = if let a = it["a"] then a elseif let b = it["b"] then b else "none" end }', 'panel {\n    v = if let a = it["a"] then a\n    elseif let b = it["b"] then b\n    else "none"\n    end\n}'],
             ['one space around and and or', 'a   and(b or   c)', 'a and (b or c)'],
-            ['one space around to and ==, and none in a call', 'panel . matches ( ".x" )   to string   ==   null', 'panel.matches(".x") to string == null'],
+            ['one space around to and ==, and none in a call', 'panel . matches ( ".x" )   to String   ==   null', 'panel.matches(".x") to String == null'],
             ['no space around an indexer', 'panel  .  attribute  [ "role" ]   ==   null', 'panel.attribute["role"] == null'],
             ['no trailing comma', 'panel { size = it.size, key = 1, }', 'panel {\n    size = it.size,\n    key = 1\n}'],
             ['no comment and no original layout', 'panel // the panel\n    /* its size */ .size', 'panel.size'],
             ['an optional access as one token, with the group that ends its chain', '(panel.parent  ?.children) . count', '(panel.parent?.children).count'],
-            ['a cast in an optional enclosed access as the optional accesses it writes', '(?(panel.parent as element).rect.width)', '(panel?.parent as element)?.rect?.width'],
-            ['a grouped coalescing operator cast in an optional enclosed access, its sides as written', '(?((a.x ?? b) as element).rect)', '((a.x ?? b) as element)?.rect'],
+            ['a cast in an optional enclosed access as the optional accesses it writes', '(?(panel.parent as Element).rect.width)', '(panel?.parent as Element)?.rect?.width'],
+            ['a grouped coalescing operator cast in an optional enclosed access, its sides as written', '(?((a.x ?? b) as Element).rect)', '((a.x ?? b) as Element)?.rect'],
             ['an equality negated as is not, however its negation is written', 'not (a == b)', 'a != b'],
             ['a negation, grouped only where what it negates needs it', 'not ((panel.attached))', 'not panel.attached'],
             ['a computed property access of a string literal that is a name, as the name', 'panel.["size"]', 'panel.size'],

@@ -260,7 +260,7 @@ export interface DomqlResolvedDefinition {
     readonly kind: 'value' | 'subscription' | 'execution';
     /** How an execution runs, once or continuously; null for a request of another kind. */
     readonly executionMode: 'once' | 'continuous' | null;
-    /** The type of the request's result, in type notation, such as `number?` or `list<element>`; null for an execution that answers none. */
+    /** The type of the request's result, in type notation, such as `Number?` or `List<Element>`; null for an execution that answers none. */
     readonly type: string | null;
     /** The declarations the request uses, with the name a message gives each and where each is used. */
     readonly usedDeclarations: readonly { readonly declaration: object; readonly name: string; readonly pointer: string }[];
@@ -303,7 +303,7 @@ export interface DomqlArgumentReference {
     argument: string;
 }
 
-/** An argument of the member with a prefix joined to it, for a value parameter of type `string`, as `{ argument: 'name', prefix: 'aria-' }` names the attribute `aria-` and the name. */
+/** An argument of the member with a prefix joined to it, for a value parameter of type `String`, as `{ argument: 'name', prefix: 'aria-' }` names the attribute `aria-` and the name. */
 export interface DomqlPrefixedArgumentReference extends DomqlArgumentReference {
     /** What is joined before the argument, a string no empty one. */
     prefix: string;
@@ -375,9 +375,9 @@ export interface DomqlConversionImplementationInput {
 
 /** A conversion from one type of data to another, which `to` asks for: a value already of a type converts to itself, so none is declared from a type to itself. */
 export interface DomqlConversionDeclaration {
-    /** The type it converts from: `number`, `string`, `boolean` or a structured type. */
+    /** The type it converts from: `Number`, `String`, `Boolean` or a structured type. */
     from: string;
-    /** The type it converts to: `number`, `string`, `boolean` or a structured type. */
+    /** The type it converts to: `Number`, `String`, `Boolean` or a structured type. */
     to: string;
     /** Converts the value, reading nothing else, and answers the converted value, of the type it converts to, or calls `reject` where the value has none. */
     implementation?: (input: DomqlConversionImplementationInput) => unknown;
@@ -391,13 +391,13 @@ export interface DomqlParameterDeclaration {
      * by reference or an implicit body, which the implementation calls while its own invocation lasts and only a function the evaluator invokes takes.
      */
     kind: 'value' | 'expression' | 'predicate' | 'function';
-    /** The parameter's type, in DOMQL's notation; a predicate's is `boolean`, what the implementation receives, and a function parameter's the type of its function's result. */
+    /** The parameter's type, in DOMQL's notation; a predicate's is `Boolean`, what the implementation receives, and a function parameter's the type of its function's result. */
     type: string;
     /** The types its function is called with, in order, in DOMQL's notation; only a function parameter declares them. */
     parameters?: string[];
     required: boolean;
     default?: unknown;
-    /** Whether the argument names something the vocabulary resolves before any evaluation; a fixed parameter is a value parameter of type `string`. */
+    /** Whether the argument names something the vocabulary resolves before any evaluation; a fixed parameter is a value parameter of type `String`. */
     fixed?: boolean;
     /** What a fixed parameter names, and only a fixed one: a type, which a function's result writes as `@selected`, through the type selector `selector` names, as `on`'s type does through `event`. */
     selects?: 'type';

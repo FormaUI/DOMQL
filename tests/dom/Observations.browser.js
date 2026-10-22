@@ -291,7 +291,7 @@ describe('Observations in a browser', () => {
                 return parameter.default;
             }
 
-            return { string: 'x', number: 1, element: other }[parameter.type] ?? 'x';
+            return { String: 'x', Number: 1, Element: other }[parameter.type] ?? 'x';
         };
 
         it('starts and ends every observation it names, against a real receiver', async () => {
@@ -303,7 +303,7 @@ describe('Observations in a browser', () => {
 
             for (const declaration of declarations) {
                 const first = [declaration.target].flat()[0];
-                const receiver = first === 'window' ? window : first === 'document' ? document : element;
+                const receiver = first === 'Window' ? window : first === 'Document' ? document : element;
                 const args = Object.fromEntries((declaration.parameters ?? []).map(parameter => [parameter.name, argumentFor(parameter, other)]));
 
                 for (const observation of declaration.updates.observations) {

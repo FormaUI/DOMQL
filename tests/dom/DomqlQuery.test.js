@@ -37,14 +37,14 @@ describe('DomqlQuery', () => {
 
         // A member that counts the evaluations that read it, a once execution and a continuous one that record their calls, and a source that records its starts.
         isolated.registerModule(isolated.createModule('tally', {
-            members: [{ name: 'tally', kind: 'property', target: 'element', result: 'number', updates: { changes: 'observable', reads: 'fresh', observations: attributes }, implementation: () => ++evaluations }],
+            members: [{ name: 'tally', kind: 'property', target: 'Element', result: 'Number', updates: { changes: 'observable', reads: 'fresh', observations: attributes }, implementation: () => ++evaluations }],
         }));
         isolated.registerModule(isolated.createModule('mark', {
-            members: [{ name: 'mark', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', target: 'element', parameters: [], result: 'boolean', implementation: () => (calls.push('mark'), true) }],
+            members: [{ name: 'mark', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', target: 'Element', parameters: [], result: 'Boolean', implementation: () => (calls.push('mark'), true) }],
         }));
         isolated.registerModule(isolated.createModule('glow', {
             members: [{
-                name: 'glow', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'continuous', target: 'element', parameters: [],
+                name: 'glow', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'continuous', target: 'Element', parameters: [],
                 implementation: ({ reportError }) => {
                     calls.push('glow');
 
@@ -54,9 +54,9 @@ describe('DomqlQuery', () => {
         }));
         isolated.registerModule(isolated.createModule('beat', {
             members: [{
-                name: 'beat', kind: 'function', invokedBy: 'host', requestKind: 'subscription', target: 'element', arguments: 'positional',
-                parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, nulls: 'propagate' }],
-                result: 'number', implementation: () => (calls.push('beat'), { stop: () => calls.push('stop') }),
+                name: 'beat', kind: 'function', invokedBy: 'host', requestKind: 'subscription', target: 'Element', arguments: 'positional',
+                parameters: [{ name: 'type', kind: 'value', type: 'String', required: true, nulls: 'propagate' }],
+                result: 'Number', implementation: () => (calls.push('beat'), { stop: () => calls.push('stop') }),
             }],
         }));
     });
@@ -415,7 +415,7 @@ describe('DomqlQuery', () => {
             let instance;
 
             isolated.registerModule(isolated.createModule('spark', {
-                members: [{ name: 'spark', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'continuous', target: 'element', parameters: [], implementation: ({ reportError }) => (instance = { update: () => {}, dispose: () => {}, fail: reportError }) }],
+                members: [{ name: 'spark', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'continuous', target: 'Element', parameters: [], implementation: ({ reportError }) => (instance = { update: () => {}, dispose: () => {}, fail: reportError }) }],
             }));
 
             const execution = isolated.query('panel.spark()', { panel }).run();

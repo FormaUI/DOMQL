@@ -67,11 +67,11 @@ const bindingsOf = () => {
 
 /** A module of a scroller an element offers, with a once execution that steps it and a continuous one that pages it with the wheel, as the requests the specification shows. */
 const scrollModule = domql => domql.createModule('scroll', {
-    types: [{ name: 'scroller', fields: { axis: 'string' } }],
+    types: [{ name: 'Scroller', fields: { axis: 'String' } }],
     members: [
-        { name: 'scroll', kind: 'function', syntax: 'function-call', arguments: 'options', target: 'element', parameters: [{ name: 'axis', kind: 'value', type: 'string', required: true, nulls: 'accept' }], result: 'scroller', updates: { changes: 'unobserved', reads: 'fresh' } },
-        { name: 'step', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', syntax: 'function-call', arguments: 'options', target: 'scroller', parameters: [{ name: 'direction', kind: 'value', type: 'string', required: true, nulls: 'accept' }], result: 'boolean' },
-        { name: 'wheelPaging', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'continuous', syntax: 'function-call', arguments: 'options', target: 'scroller', parameters: [{ name: 'modifier', kind: 'value', type: 'string', required: true, nulls: 'accept' }] },
+        { name: 'scroll', kind: 'function', syntax: 'function-call', arguments: 'options', target: 'Element', parameters: [{ name: 'axis', kind: 'value', type: 'String', required: true, nulls: 'accept' }], result: 'Scroller', updates: { changes: 'unobserved', reads: 'fresh' } },
+        { name: 'step', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', syntax: 'function-call', arguments: 'options', target: 'Scroller', parameters: [{ name: 'direction', kind: 'value', type: 'String', required: true, nulls: 'accept' }], result: 'Boolean' },
+        { name: 'wheelPaging', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'continuous', syntax: 'function-call', arguments: 'options', target: 'Scroller', parameters: [{ name: 'modifier', kind: 'value', type: 'String', required: true, nulls: 'accept' }] },
     ],
 });
 

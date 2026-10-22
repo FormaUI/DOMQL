@@ -22,7 +22,7 @@ const read = (text, bindings = {}) => domql.query(text, bindings).evaluate();
 
 /** A module of one number property named for itself, answered by the function. */
 const propertyModule = (name, implementation) => lexica.createModule(name, {
-    members: [{ name, kind: 'property', target: 'element', result: 'number', updates: { changes: 'constant', reads: 'fresh' }, implementation }],
+    members: [{ name, kind: 'property', target: 'Element', result: 'Number', updates: { changes: 'constant', reads: 'fresh' }, implementation }],
 });
 
 /** Reads a query against a registry of its own holding Lexica's module, DOMQL's with its implementations, and the module, or the modules. */
@@ -38,7 +38,7 @@ const readWith = (modules, text, bindings) => {
 const probes = () => {
     const record = { yes: 0, no: 0 };
     const probe = (name, answer) => lexica.createModule(name, {
-        members: [{ name, kind: 'property', target: 'element', result: 'boolean', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => { record[name]++; return answer; } }],
+        members: [{ name, kind: 'property', target: 'Element', result: 'Boolean', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => { record[name]++; return answer; } }],
     });
 
     return { module: [probe('yes', true), probe('no', false)], record };
@@ -114,7 +114,7 @@ describe('QueryEvaluator', () => {
         });
 
         it('reads the parent', () => {
-            expect(read('(item.parent as element) { id = it.attribute["id"] }', { item: items[0] })).toEqual({ id: 'panel' });
+            expect(read('(item.parent as Element) { id = it.attribute["id"] }', { item: items[0] })).toEqual({ id: 'panel' });
         });
     });
 
@@ -133,10 +133,10 @@ describe('QueryEvaluator', () => {
         it('reads the immediate parent, the root of the tree and a shadow root\'s host', () => {
             const { host, root, inner } = shadowHost();
 
-            expect(read('(inner.parent as shadowRoot)?.host?.attribute["id"]', { inner })).toBe('host');
+            expect(read('(inner.parent as ShadowRoot)?.host?.attribute["id"]', { inner })).toBe('host');
             expect(read('inner.root.host?.attribute["id"]', { inner })).toBe('host');
             expect(read('inner.root.children.count', { inner })).toBe(1);
-            expect(read('(host.root as document)?.children.count', { host })).toBe(1);
+            expect(read('(host.root as Document)?.children.count', { host })).toBe(1);
             expect(read('host.root.host?.attribute["id"]', { host })).toBeNull();
             expect(read('~root.parent?.children.count', { root })).toBeNull();
             expect(read('~root.all("p").count', { root })).toBe(1);
@@ -146,11 +146,11 @@ describe('QueryEvaluator', () => {
         it('casts a node to its kind, failing for one of another kind, which an attempted cast answers null for', () => {
             const { inner } = shadowHost();
 
-            expect(() => read('(inner.parent as element)?.attribute["id"]', { inner })).toThrow(expect.objectContaining({ kind: 'evaluation', message: expect.stringContaining('The cast to element rejected its value: it is a shadow root') }));
-            expect(read('(try inner.parent as element)?.attribute["id"]', { inner })).toBeNull();
-            expect(read('(item.parent as element)?.attribute["id"]', { item: items[0] })).toBe('panel');
-            expect(read('(item.root as document)?.children.count', { item: items[0] })).toBe(1);
-            expect(read('(try item.root as shadowRoot)?.children.count', { item: items[0] })).toBeNull();
+            expect(() => read('(inner.parent as Element)?.attribute["id"]', { inner })).toThrow(expect.objectContaining({ kind: 'evaluation', message: expect.stringContaining('The cast to Element rejected its value: it is a shadow root') }));
+            expect(read('(try inner.parent as Element)?.attribute["id"]', { inner })).toBeNull();
+            expect(read('(item.parent as Element)?.attribute["id"]', { item: items[0] })).toBe('panel');
+            expect(read('(item.root as Document)?.children.count', { item: items[0] })).toBe(1);
+            expect(read('(try item.root as ShadowRoot)?.children.count', { item: items[0] })).toBeNull();
         });
 
         it('answers the topmost element of a detached tree as its root, which has no parent', () => {
@@ -159,7 +159,7 @@ describe('QueryEvaluator', () => {
             detached.id = 'top';
             detached.innerHTML = '<b></b>';
 
-            expect(read('(b.root as element)?.attribute["id"]', { b: detached.firstChild })).toBe('top');
+            expect(read('(b.root as Element)?.attribute["id"]', { b: detached.firstChild })).toBe('top');
             expect(read('top.parent?.children.count', { top: detached })).toBeNull();
         });
     });
@@ -168,16 +168,16 @@ describe('QueryEvaluator', () => {
         it('answers null from the first null an optional access meets on', () => {
             const detached = document.createElement('div');
 
-            expect(read('(detached.parent as element)?.size', { detached })).toBeNull();
+            expect(read('(detached.parent as Element)?.size', { detached })).toBeNull();
             expect(read('detached.parent?.children.count', { detached })).toBeNull();
-            expect(read('detached { parent = (it.parent as element)?.size, tag = it.attribute["id"] }', { detached })).toEqual({ parent: null, tag: null });
+            expect(read('detached { parent = (it.parent as Element)?.size, tag = it.attribute["id"] }', { detached })).toEqual({ parent: null, tag: null });
         });
 
         it('skips the rest of an optional chain where a receiver is null, reading it where the receiver is present', () => {
             const reads = [];
             const registry = lexica.createRegistry([BrowserModule.create(), propertyModule('probe', ({ receiver }) => (reads.push(receiver), 1))]);
             const readProbe = item => {
-                const query = domql.query('(item.parent as element)?.probe', { item });
+                const query = domql.query('(item.parent as Element)?.probe', { item });
                 const resolved = registry.resolve(query.definition, DomqlQuery.bindingsOf(query));
 
                 return new QueryEvaluator(registry, resolved.createEvaluator(DomqlQuery.bindingsOf(query), { window, document })).evaluateOnce();
@@ -286,7 +286,7 @@ describe('QueryEvaluator', () => {
             const detached = document.createElement('div');
 
             expect(read('detached.[name]?.width', { detached, name: 'size' })).toBeNull();
-            expect(read('(detached.parent as element)?.[name]', { detached, name: 'size' })).toBeNull();
+            expect(read('(detached.parent as Element)?.[name]', { detached, name: 'size' })).toBeNull();
         });
     });
 
@@ -330,7 +330,7 @@ describe('QueryEvaluator', () => {
 
         it('gives a member the document and the window it is read in where an argument names a root', () => {
             const module = lexica.createModule('inside', {
-                members: [{ name: 'inside', kind: 'function', target: 'element', arguments: 'positional', parameters: [{ name: 'of', kind: 'value', type: 'document', required: true, nulls: 'propagate' }], result: 'boolean', updates: { changes: 'unobserved', reads: 'fresh' }, implementation: ({ receiver: element, args: { of } }) => element.ownerDocument === of && of === document }],
+                members: [{ name: 'inside', kind: 'function', target: 'Element', arguments: 'positional', parameters: [{ name: 'of', kind: 'value', type: 'Document', required: true, nulls: 'propagate' }], result: 'Boolean', updates: { changes: 'unobserved', reads: 'fresh' }, implementation: ({ receiver: element, args: { of } }) => element.ownerDocument === of && of === document }],
             });
             const panel = document.body.appendChild(document.createElement('div'));
 
@@ -413,7 +413,7 @@ describe('QueryEvaluator', () => {
             expect(read('a == false', { a: false })).toBe(true);
             expect(read('a == b', { a: items[0], b: items[0] })).toBe(true);
             expect(read('a != b', { a: items[0], b: items[1] })).toBe(true);
-            expect(read('(item.parent as element) == panel', { item: items[0], panel })).toBe(true);
+            expect(read('(item.parent as Element) == panel', { item: items[0], panel })).toBe(true);
         });
 
         it('equal null to null alone, whatever the other value\'s type', () => {
@@ -643,25 +643,25 @@ describe('QueryEvaluator', () => {
         it('report a module that answers a type other than the one it declares', () => {
             const error = failureWith(propertyModule('broken', () => 'seven'), 'panel.broken', { panel });
 
-            expect(error.message).toContain('answered "seven", and it declares number');
+            expect(error.message).toContain('answered "seven", and it declares Number');
         });
 
         it('report a module that answers a list with a hole, which holds no value there', () => {
             const gappy = lexica.createModule('gappy', {
-                members: [{ name: 'gappy', kind: 'property', target: 'element', result: 'list<number?>', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => [1, , 2] }],
+                members: [{ name: 'gappy', kind: 'property', target: 'Element', result: 'List<Number?>', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => [1, , 2] }],
             });
 
-            expect(failureWith(gappy, 'panel.gappy', { panel }).message).toContain('answered a list with a hole at index 1, and it declares list<number?>');
+            expect(failureWith(gappy, 'panel.gappy', { panel }).message).toContain('answered a list with a hole at index 1, and it declares List<Number?>');
         });
 
         it('name an element a module answers where a number is declared', () => {
-            expect(failureWith(propertyModule('leaking', ({ receiver }) => receiver), 'panel.leaking', { panel }).message).toContain('answered an element, and it declares number');
+            expect(failureWith(propertyModule('leaking', ({ receiver }) => receiver), 'panel.leaking', { panel }).message).toContain('answered an element, and it declares Number');
         });
 
         it('report a module that declares and does not implement', () => {
             expect(() => readWith(propertyModule('declared'), 'panel.declared', { panel })).toThrow(expect.objectContaining({
                 kind: 'module',
-                message: expect.stringContaining("'element.declared' has no implementation"),
+                message: expect.stringContaining("'Element.declared' has no implementation"),
                 location: { module: 'declared', declaration: 'declared', field: 'implementation' },
             }));
         });
@@ -797,12 +797,12 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('stop where an optional chain meets null, and reach as far as its receivers are present', () => {
-            expect(membersOf(evaluate('(item.parent as element)?.size', { item: document.createElement('i') }))).toEqual(['parent']);
-            expect(membersOf(evaluate('(item.parent as element)?.size', { item: rows[0] }))).toEqual(['parent', 'size']);
+            expect(membersOf(evaluate('(item.parent as Element)?.size', { item: document.createElement('i') }))).toEqual(['parent']);
+            expect(membersOf(evaluate('(item.parent as Element)?.size', { item: rows[0] }))).toEqual(['parent', 'size']);
         });
 
         it('include those of an argument that is a value of its own', () => {
-            const evaluation = evaluate('row.overlaps({ other = panel.parent as element })', { row: rows[0], panel });
+            const evaluation = evaluate('row.overlaps({ other = panel.parent as Element })', { row: rows[0], panel });
             const overlaps = evaluation.dependencies.find(dependency => dependency.member === 'overlaps');
 
             expect(membersOf(evaluation)).toContain('parent');
@@ -863,7 +863,7 @@ describe('QueryEvaluator evaluation', () => {
     const waitingModule = () => lexica.createModule('level', {
         observationTypes: [{ name: 'level', contract: 'maintained', implementation: () => ({ stop: () => {}, sample: () => ({ pending: true, value: null }) }) }],
         members: [{
-            name: 'level', kind: 'property', target: 'element', result: 'number?',
+            name: 'level', kind: 'property', target: 'Element', result: 'Number?',
             updates: { changes: 'observable', reads: 'maintained', observations: [{ type: 'level', of: 'receiver' }] },
             implementation: ({ samples: [sample] }) => sample,
         }],
@@ -972,9 +972,9 @@ describe('QueryEvaluator evaluation', () => {
                 },
             }],
             members: [{
-                name: 'probe', kind: 'function', target: 'element', result: 'number',
+                name: 'probe', kind: 'function', target: 'Element', result: 'Number',
                 arguments: 'positional',
-                parameters: [{ name: 'names', kind: 'value', type: 'list<string>', required: false, default: [], fixed: false, nulls: 'propagate' }],
+                parameters: [{ name: 'names', kind: 'value', type: 'List<String>', required: false, default: [], fixed: false, nulls: 'propagate' }],
                 updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'probe', of: 'receiver', names: { argument: 'names' } }] },
                 implementation: () => 1,
             }],
@@ -1169,10 +1169,10 @@ describe('QueryEvaluator projection', () => {
 
     /** A module whose source `ticks` delivers events of the type its key maps to in the type selector `event`, and records each start. */
     const ticks = type => DispatchTable.createModule('ticks', {
-        types: [{ name: 'tick', fields: { at: 'number', label: 'string?' } }],
+        types: [{ name: 'Tick', fields: { at: 'Number', label: 'String?' } }],
         selectableTypes: [{ name: 'tick', selector: 'event', type }],
         members: [{
-            name: 'ticks', kind: 'function', invokedBy: 'host', requestKind: 'subscription', target: 'element', arguments: 'positional', parameters: [{ name: 'type', kind: 'value', type: 'string', required: true, fixed: true, selects: 'type', selector: 'event', nulls: 'propagate' }], result: '@selected',
+            name: 'ticks', kind: 'function', invokedBy: 'host', requestKind: 'subscription', target: 'Element', arguments: 'positional', parameters: [{ name: 'type', kind: 'value', type: 'String', required: true, fixed: true, selects: 'type', selector: 'event', nulls: 'propagate' }], result: '@selected',
             implementation: () => {
                 started.push(true);
 
@@ -1206,7 +1206,7 @@ describe('QueryEvaluator projection', () => {
 
     describe('the host call', () => {
         it('is prepared into what starts it: its declaration, the receiver and the arguments prepared now, its implementation in DOMQL\'s dispatch table, and nothing started', () => {
-            const call = evaluatorOf('panel.ticks("tick") { at = it.at }', { panel }, [ticks('tick')]).prepareCall();
+            const call = evaluatorOf('panel.ticks("tick") { at = it.at }', { panel }, [ticks('Tick')]).prepareCall();
 
             expect(call).toMatchObject({ kind: 'prepared', declaration: { name: 'ticks' }, receiver: panel, args: { type: 'tick' } });
             expect(typeof DispatchTable.get(call.declaration).implementation).toBe('function');
@@ -1214,7 +1214,7 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('is skipped where its receiver is null, since there is nothing to listen to', () => {
-            expect(evaluatorOf('panel.first(".none")?.ticks("tick") { at = it.at }', { panel }, [ticks('tick')]).prepareCall()).toMatchObject({ kind: 'skipped' });
+            expect(evaluatorOf('panel.first(".none")?.ticks("tick") { at = it.at }', { panel }, [ticks('Tick')]).prepareCall()).toMatchObject({ kind: 'skipped' });
         });
 
         it('is refused for a request that ends in no host call', () => {
@@ -1224,25 +1224,25 @@ describe('QueryEvaluator projection', () => {
 
     describe('capturing an event', () => {
         it('keeps the fields its type declares, a nullable one it does not carry as null', () => {
-            const evaluator = evaluatorOf('panel.ticks("tick") { at = it.at, label = it.label }', { panel }, [ticks('tick')]);
+            const evaluator = evaluatorOf('panel.ticks("tick") { at = it.at, label = it.label }', { panel }, [ticks('Tick')]);
 
             expect(projectionOf(evaluator, { at: 1, label: 'first', extra: true }).value).toEqual({ at: 1, label: 'first' });
             expect(projectionOf(evaluator, { at: 1 }).value).toEqual({ at: 1, label: null });
         });
 
         it('fails where the event carries mistyped data, whether its field is nullable or not', () => {
-            const evaluator = evaluatorOf('panel.ticks("tick") { at = it.at }', { panel }, [ticks('tick')]);
+            const evaluator = evaluatorOf('panel.ticks("tick") { at = it.at }', { panel }, [ticks('Tick')]);
 
-            expect(projectionOf(evaluator, { at: 'soon' }).error).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The host call 'ticks' supplied a value whose 'at' is \"soon\", and 'at' is declared number") });
-            expect(projectionOf(evaluator, { at: 1, label: 7 }).error).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("whose 'label' is 7, and 'label' is declared string?") });
+            expect(projectionOf(evaluator, { at: 'soon' }).error).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The host call 'ticks' supplied a value whose 'at' is \"soon\", and 'at' is declared Number") });
+            expect(projectionOf(evaluator, { at: 1, label: 7 }).error).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("whose 'label' is 7, and 'label' is declared String?") });
             expect(projectionOf(evaluator, null).error).toMatchObject({ kind: 'evaluation' });
         });
 
         it('takes an event whole where its type declares no fields, and fails one that is not of its type', () => {
-            const evaluator = evaluatorOf('panel.ticks("tick")', { panel }, [ticks('number')]);
+            const evaluator = evaluatorOf('panel.ticks("tick")', { panel }, [ticks('Number')]);
 
             expect(projectionOf(evaluator, 5).value).toBe(5);
-            expect(projectionOf(evaluator, 'five').error).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The host call 'ticks' supplied \"five\", and it declares number") });
+            expect(projectionOf(evaluator, 'five').error).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The host call 'ticks' supplied \"five\", and it declares Number") });
         });
 
         it('keeps a native event\'s target, and null for a target that is no element, a reference of another type', () => {
@@ -1256,7 +1256,7 @@ describe('QueryEvaluator projection', () => {
 
     describe('an event', () => {
         it('is projected through the object expression that follows its source, as detached, immutable data', () => {
-            const evaluator = evaluatorOf('panel.ticks("tick") { at = it.at, label = it.label, count = panel.children.count }', { panel }, [ticks('tick')]);
+            const evaluator = evaluatorOf('panel.ticks("tick") { at = it.at, label = it.label, count = panel.children.count }', { panel }, [ticks('Tick')]);
             const projection = projectionOf(evaluator, { at: 3, label: 'third' });
 
             expect(projection.error).toBeNull();
@@ -1272,7 +1272,7 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('fails its projection where a member fails, without throwing', () => {
-            const evaluator = evaluatorOf('panel.ticks("tick") { match = panel.matches("[") }', { panel }, [ticks('tick')]);
+            const evaluator = evaluatorOf('panel.ticks("tick") { match = panel.matches("[") }', { panel }, [ticks('Tick')]);
             const projection = projectionOf(evaluator, { at: 1 });
 
             expect(projection.value).toBeUndefined();
@@ -1280,7 +1280,7 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('stands for its source, which the projection never starts or reads', () => {
-            const evaluator = evaluatorOf('panel.ticks("tick") { at = it.at }', { panel }, [ticks('tick')]);
+            const evaluator = evaluatorOf('panel.ticks("tick") { at = it.at }', { panel }, [ticks('Tick')]);
 
             projectionOf(evaluator, { at: 1 });
             projectionOf(evaluator, { at: 2 });
