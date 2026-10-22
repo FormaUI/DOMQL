@@ -5,7 +5,7 @@ import { domql } from '#domql/domql.js';
 const SIZES = [1000, 10000, 100000];
 
 /** Each row as data: its key, whether it is selected, and its box. */
-const ROWS_TEXT = 'table.all("tr") { key = it:attribute["data-key"], selected = it.matches(".selected"), box = it.rect { width = it.width, height = it.height } }';
+const ROWS_TEXT = 'table.all("tr") { key = it.attribute["data-key"], selected = it.matches(".selected"), box = it.rect { width = it.width, height = it.height } }';
 
 /** How many times a phase runs before it is timed, and how many times it is timed, at a size: fewer for a larger table, never fewer than three. */
 const runsOf = rows => ({ warmUp: 2, iterations: Math.max(3, Math.min(50, Math.round(200000 / rows))) });

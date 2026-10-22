@@ -13,8 +13,8 @@ panel {
     let rows = it.all("[data-key]"),
     width = it.size?.width,
     items = rows {
-        key = it:["data-key"],
-        selected = it.aria:["selected"] == "true"
+        key = it["data-key"],
+        selected = it.aria["selected"] == "true"
     },
     count = rows.count
 }
@@ -23,7 +23,7 @@ panel {
 - `panel` reads an element supplied by the caller.
 - `panel { … }` shapes a result object. Within its fields, `it` is the panel.
 - `let rows = …` names an intermediate value. It is not an output field.
-- `it:["data-key"]` reads an attribute through the default indexer.
+- `it["data-key"]` reads an attribute through the element's unnamed indexer.
 - `rows { … }` projects each list item. Inside that projection, `it` is the item.
 - `?.` continues only when its receiver is not null.
 - `width`, `items` and `count` are result fields. Fields and locals use `=`; equality uses `==`.

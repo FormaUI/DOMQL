@@ -172,7 +172,7 @@ export type DomqlDefinitionNode =
     | { readonly kind: 'local'; readonly name: string }
     | { readonly kind: 'member'; readonly target: DomqlDefinitionNode; readonly name: string | DomqlDefinitionNode; readonly optional?: true }
     | { readonly kind: 'call'; readonly target: DomqlDefinitionNode; readonly name: string; readonly optional?: true; readonly arguments: readonly DomqlDefinitionNode[] }
-    | { readonly kind: 'indexer'; readonly target: DomqlDefinitionNode; readonly name?: string; readonly argument: DomqlDefinitionNode; readonly optional?: true }
+    | { readonly kind: 'indexer'; readonly target: DomqlDefinitionNode; readonly argument: DomqlDefinitionNode; readonly optional?: true }
     | { readonly kind: 'object'; readonly target?: DomqlDefinitionNode; readonly locals?: readonly DomqlDefinitionLocal[]; readonly fields: readonly DomqlDefinitionField[] }
     | { readonly kind: 'optionalChain'; readonly target: DomqlDefinitionNode }
     | { readonly kind: 'coalescing'; readonly value: DomqlDefinitionNode; readonly fallback: DomqlDefinitionNode }
@@ -443,11 +443,11 @@ export interface DomqlMemberDeclaration {
     executionMode?: 'once' | 'continuous';
     /** The types it applies to, in DOMQL's notation, or none for a module member. */
     target?: string | string[];
-    /** How a member that is no property is written: a function call, `it.device("lamp")`, the default, or a named indexer, `it:setting["mode"]`, a function whose one required value parameter is its key. A property takes none. */
+    /** How a member that is no property is written: a function call, `it.device("lamp")`, the default, or a named indexer, `it.setting["mode"]`, a function whose one required value parameter is its key. A property takes none. */
     syntax?: 'function-call' | 'indexer';
     /** The form its arguments take where it has parameters, an optional one included: one for each parameter, in order, the required ones before the optional ones, or one options object whose fields supply them; an indexer's is positional. */
     arguments?: 'positional' | 'options';
-    /** Whether an indexer is the default of its receivers, which `:[…]` invokes, as `item` is a list's; a module designates one at most for a receiver type. */
+    /** Whether an indexer is the default of its receivers, which `[…]` invokes, as `item` is a list's; a module designates one at most for a receiver type. */
     default?: boolean;
     /** Its parameters; a property takes none. */
     parameters?: DomqlParameterDeclaration[];

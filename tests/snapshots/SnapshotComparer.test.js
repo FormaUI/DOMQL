@@ -81,7 +81,7 @@ describe('SnapshotComparer', () => {
     describe('reconcile', () => {
         it('gives the previous snapshot itself where nothing changed', () => {
             const element = elementOf({ a: '1', b: '2' });
-            const watch = watchOf('element { a = it:attribute["a"], b = it:attribute["b"] }', { element });
+            const watch = watchOf('element { a = it.attribute["a"], b = it.attribute["b"] }', { element });
             const previous = watch.snapshot();
 
             expect(watch.reconcile(previous, watch.snapshot())).toBe(previous.value);
@@ -90,7 +90,7 @@ describe('SnapshotComparer', () => {
         it('shares every branch that did not change and builds new ones along the paths that did', () => {
             const second = elementOf({ key: 'b' });
             const element = elementOf({ id: 'x' }, [elementOf({ key: 'a' }), second]);
-            const watch = watchOf('element { id = it:attribute["id"], items = it.children { key = it:attribute["key"] } }', { element });
+            const watch = watchOf('element { id = it.attribute["id"], items = it.children { key = it.attribute["key"] } }', { element });
             const previous = watch.snapshot();
 
             second.setAttribute('key', 'c');
@@ -106,7 +106,7 @@ describe('SnapshotComparer', () => {
 
         it('builds an object anew from the first field that changed, sharing the fields before and after it that did not', () => {
             const element = elementOf({ key: 'a' });
-            const watch = watchOf('element { size = it.wobble, key = it:attribute["key"], box = it.girth }', { element });
+            const watch = watchOf('element { size = it.wobble, key = it.attribute["key"], box = it.girth }', { element });
 
             state.wobble = { width: 10, height: 20 };
             state.girth = { width: 30, height: 40 };
@@ -128,7 +128,7 @@ describe('SnapshotComparer', () => {
 
         it('gives a new object where the previous one has fields the expression does not name, even where every named field is the same', () => {
             const element = elementOf({ a: '1', b: '2' });
-            const watch = watchOf('element { a = it:attribute["a"], b = it:attribute["b"] }', { element });
+            const watch = watchOf('element { a = it.attribute["a"], b = it.attribute["b"] }', { element });
             const next = watch.snapshot();
             const previous = { value: Object.freeze({ a: '1', b: '2', c: '3' }), metadata: next.metadata };
             const reconciled = watch.reconcile(previous, next);
@@ -139,7 +139,7 @@ describe('SnapshotComparer', () => {
 
         it('gives a new object where the previous one lacks a field the expression names, though it has as many fields and reading the missing one compares equal', () => {
             const element = elementOf({ a: '1' });
-            const watch = watchOf('element { a = it:attribute["a"], b = it:attribute["b"] }', { element });
+            const watch = watchOf('element { a = it.attribute["a"], b = it.attribute["b"] }', { element });
             const next = watch.snapshot();
             const previous = { value: Object.freeze({ a: '1', x: '2' }), metadata: next.metadata };
             const reconciled = watch.reconcile(previous, next);
@@ -169,7 +169,7 @@ describe('SnapshotComparer', () => {
         it('compares a list by position where its items came from no reference, and gives a new one where its length changed', () => {
             const second = elementOf({ key: 'b' });
             const element = elementOf({}, [elementOf({ key: 'a' }), second]);
-            const watch = watchOf('element { keys = it.children { key = it:attribute["key"] }.where(it.key != null) }', { element });
+            const watch = watchOf('element { keys = it.children { key = it.attribute["key"] }.where(it.key != null) }', { element });
             const previous = watch.snapshot();
 
             second.remove();
@@ -183,7 +183,7 @@ describe('SnapshotComparer', () => {
 
         it('compares strings, Booleans and null exactly', () => {
             const element = elementOf({ s: 'a', class: 'x' });
-            const watch = watchOf('element { s = it:attribute["s"], b = it.matches(".x"), n = it:attribute["none"] }', { element });
+            const watch = watchOf('element { s = it.attribute["s"], b = it.matches(".x"), n = it.attribute["none"] }', { element });
             const previous = watch.snapshot();
 
             expect(watch.reconcile(previous, watch.snapshot())).toBe(previous.value);
@@ -220,9 +220,9 @@ describe('SnapshotComparer', () => {
         });
 
         it.each([
-            ['a named indexer', 'element { r = it:reading["x"] }'],
-            ['a default indexer', 'element { r = it.meter:["x"] }'],
-            ['an optional indexer', 'element { r = it?:reading["x"] }'],
+            ['a named indexer', 'element { r = it.reading["x"] }'],
+            ['an unnamed indexer', 'element { r = it.meter["x"] }'],
+            ['an optional indexer', 'element { r = it?.reading["x"] }'],
         ])('compares a number %s answered within its tolerance, as a call or a property is', (_, text) => {
             const watch = watchOf(text, { element: elementOf() });
             const previous = watch.snapshot();
@@ -234,7 +234,7 @@ describe('SnapshotComparer', () => {
         });
 
         it('treats a difference exactly at the tolerance as unchanged, and one beyond it as a change', () => {
-            const watch = watchOf('element { r = it:reading["x"] }', { element: elementOf() });
+            const watch = watchOf('element { r = it.reading["x"] }', { element: elementOf() });
             const previous = watch.snapshot();
             const at = r => ((state.r = r), watch.reconcile(previous, watch.snapshot()));
 
@@ -245,7 +245,7 @@ describe('SnapshotComparer', () => {
         });
 
         it('measures each change from the snapshot it keeps, so small steps that add up beyond the tolerance report the value they reach', () => {
-            const watch = watchOf('element { r = it:reading["x"] }', { element: elementOf() });
+            const watch = watchOf('element { r = it.reading["x"] }', { element: elementOf() });
             let kept = watch.snapshot();
             const reported = [];
 
@@ -373,10 +373,10 @@ describe('SnapshotComparer', () => {
             });
         });
 
-        describe('under a bracket property access', () => {
+        describe('under a computed property access', () => {
             it('compares a number within the tolerance of the property both values came from, and exactly where they came from different ones', () => {
                 const element = elementOf();
-                const watch = watchOf('element[if wide then "wobble" else "girth" end]?.width', { element, wide: true }, { tolerance: 2 });
+                const watch = watchOf('element.[if wide then "wobble" else "girth" end]?.width', { element, wide: true }, { tolerance: 2 });
                 const wide = watch.snapshot();
 
                 state.wobble = { width: 101.5, height: 40 };
@@ -464,7 +464,7 @@ describe('SnapshotComparer', () => {
         });
 
         it('compares a field read through root as the field it reads, within the tolerance of its member', () => {
-            const watch = watchOf('element { width = it.wobble.width, again = root.width, named = root[name] }', { element: elementOf(), name: 'width' }, { tolerance: 2 });
+            const watch = watchOf('element { width = it.wobble.width, again = root.width, named = root.[name] }', { element: elementOf(), name: 'width' }, { tolerance: 2 });
             const previous = watch.snapshot();
 
             state.wobble = { width: 101.5, height: 40 };
@@ -489,7 +489,7 @@ describe('SnapshotComparer', () => {
         it('matches the items of a list projected from elements by element, so a reorder shares every item that did not change', () => {
             const [a, b, c] = [elementOf({ key: 'a', n: '1' }), elementOf({ key: 'b', n: '2' }), elementOf({ key: 'c', n: '3' })];
             const element = elementOf({}, [a, b, c]);
-            const watch = watchOf('element.children { key = it:attribute["key"], n = it:attribute["n"] }', { element });
+            const watch = watchOf('element.children { key = it.attribute["key"], n = it.attribute["n"] }', { element });
             const previous = watch.snapshot();
 
             element.prepend(c);
@@ -506,7 +506,7 @@ describe('SnapshotComparer', () => {
         it('matches by element a list a conditional chose, following the metadata of the value it gave', () => {
             const [a, b] = [elementOf({ key: 'a' }), elementOf({ key: 'b' })];
             const element = elementOf({}, [a, b]);
-            const watch = watchOf('if wide then element.children { key = it:attribute["key"] } else null end', { element, wide: true });
+            const watch = watchOf('if wide then element.children { key = it.attribute["key"] } else null end', { element, wide: true });
             const previous = watch.snapshot();
 
             element.prepend(b);
@@ -519,7 +519,7 @@ describe('SnapshotComparer', () => {
 
         it('compares the items of an object expression over a list, an item that is null staying null', () => {
             const element = elementOf({}, [elementOf({ key: 'a' }), elementOf({ key: 'b' })]);
-            const watch = watchOf('element.children { key = it:attribute["key"] }', { element });
+            const watch = watchOf('element.children { key = it.attribute["key"] }', { element });
             const { metadata } = watch.snapshot();
             const previous = { value: Object.freeze([Object.freeze({ key: 'a' }), null]), metadata };
 

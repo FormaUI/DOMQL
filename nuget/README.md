@@ -77,8 +77,8 @@ const query = domql.query(`
     panel {
         count = it.children.count,
         items = it.all("[data-key]") {
-            key = it:["data-key"],
-            selected = it.aria:["selected"] == "true"
+            key = it["data-key"],
+            selected = it.aria["selected"] == "true"
         }
     }
 `, { panel });
@@ -165,8 +165,8 @@ Keep a toolbar in step with the panel's selection, whichever code selects an ite
 ```js
 const selection = domql.query(`
     panel.children
-        .where(it.aria:["selected"] == "true") {
-            key = it:["data-key"]
+        .where(it.aria["selected"] == "true") {
+            key = it["data-key"]
         }
 `, { panel }).watch();
 
@@ -233,8 +233,8 @@ list.innerHTML = '<li data-key="b1">Apples</li><li data-key="b2">Pears</li>';
 
 const live = domql.query(`
     list.children {
-        key = it:["data-key"],
-        selected = it.aria:["selected"] == "true"
+        key = it["data-key"],
+        selected = it.aria["selected"] == "true"
     }
 `, { list }).watch({ updateStrategy: 'liveState' });
 
@@ -278,8 +278,8 @@ const activations = domql.query(`
     panel.on("click") {
         let item = it.target?.closest("[data-key]"),
 
-        key = item?:["data-key"],
-        wasSelected = item?.aria:["selected"] == "true",
+        key = item?["data-key"],
+        wasSelected = item?.aria["selected"] == "true",
         selectedCount = panel.all("[aria-selected=true]").count
     }
 `, { panel }).subscribe((sender, args) => {
@@ -330,16 +330,16 @@ panel.all("[data-key]").count
 button.matches(".toolbar > button:first-child")
 ```
 
-A named indexer reads a value of its receiver by a key, written after a colon with the key in brackets. `attribute` reads an attribute, `style` a computed style, and `class` whether the element has a class; the window's `media` reads whether a media query matches, which a watch follows as it begins and ceases to:
+A named indexer reads a value of its receiver by a key, written after its name in brackets. `attribute` reads an attribute, `style` a computed style, and `class` whether the element has a class; the window's `media` reads whether a media query matches, which a watch follows as it begins and ceases to:
 
 ```domql
-panel:attribute["data-key"]
-panel:style["display"]
-panel:class["open"]
-domql.window:media["(min-width: 40em)"]
+panel.attribute["data-key"]
+panel.style["display"]
+panel.class["open"]
+domql.window.media["(min-width: 40em)"]
 ```
 
-The key can be any expression of the type the indexer takes, such as a binding, `panel:attribute[name]`. An element's default indexer is `attribute`, so `panel:["data-key"]` reads the attribute too, and a list's is `item`, so `panel.children:[0]` is its first child. Use `?:` when the receiver can be null: `panel.first(".row")?:["data-key"]` is null when there is no row, and its key is not evaluated.
+The key can be any expression of the type the indexer takes, such as a binding, `panel.attribute[name]`. An element's unnamed indexer reads an attribute as well, so `panel["data-key"]` reads the attribute too, and a list's reads an item, so `panel.children[0]` is its first child. Use `?[` when the receiver can be null: `panel.first(".row")?["data-key"]` is null when there is no row, and its key is not evaluated.
 
 All DOMQL names are case-sensitive and use names such as `clientSize`, `rectRelativeTo` and `devicePixelRatio`. Any word names a field, a local, a function, a parameter or a member, a keyword, `true`, `null`, `it`, `root` and DOMQL's module name, `domql`, among them, as `{ end = selection.end }` and `record.then` do. Where a value stands, such a word keeps its own meaning, so a local or a field it names is read as `@end`, and a caller's binding it names as `~end`. Strings passed to browser APIs, including selectors and attribute names, follow the browser's rules. A string escapes `\"`, `\\`, `\n`, `\r`, `\t` and `\e`, the escape character, and names any character by its code point with `\u{…}`, as `"\u{A0}"` writes a no-break space, which is hard to tell from a space when written as itself. A raw string, in single quotes, keeps its backslashes as text, as `'C:\Users\Eyal\'` and `'\d{3}-\d{2}'` do, and doubles its quote to hold one, `'It''s ready'`; `$'…'` interpolates one as `$"…"` does a string. An inline string stands on one line; for text on lines of its own, write a block, three or more quotes and a line break opening it and as many closing it first on a later line, whose indentation is removed from every line: `"""`, `'''`, `$"""` or `$'''`.
 
@@ -383,8 +383,8 @@ An object expression after a list runs for each item, with `it` referring to tha
 ```js
 domql.query(`
     panel.all("[data-key]") {
-        key = it:["data-key"],
-        selected = it.aria:["selected"] == "true"
+        key = it["data-key"],
+        selected = it.aria["selected"] == "true"
     }
 `, { panel }).evaluate();
 // [
@@ -396,12 +396,12 @@ domql.query(`
 
 A list keeps the order of its source, here the document's, and neither projecting nor filtering it reorders it.
 
-A member after a list operates on the list itself. Use `count`, `first`, `last` and its default indexer, `:[index]`, as `it.children:[2]` for the third child, to inspect it. Use `where` to keep items whose expression is truthy:
+A member after a list operates on the list itself. Use `count`, `first`, `last` and its unnamed indexer, `[index]`, as `it.children[2]` for the third child, to inspect it. Use `where` to keep items whose expression is truthy:
 
 ```js
 domql.query(`
     panel.all("[data-key]")
-        .where(it.aria:["selected"] == "true")
+        .where(it.aria["selected"] == "true")
         .count
 `, { panel }).evaluate();
 // 1
@@ -461,7 +461,7 @@ return {
 
 `do … end` writes a body wherever an expression stands, as `doubled = do let half = width / 2 return half * 4 end` does in a field, and each branch of a conditional, `if … then … else … end`, is one too: within one conditional, every branch gives its result with `return` or none does. A body's locals run once each, in order, whether or not anything uses them, while an object expression's locals run only where a field reads them. `return` completes its own body, so a `do` block's `return` gives that block's value, never the query's.
 
-An argument, an indexer's key, a bracket property access and an interpolation each hold a simple expression, and an argument may be an arrow function instead: values, operators, calls and member reads, and a conditional of one `if` branch and one `else` branch of those, as `calculate(if compact then 10 else 20 end)` is. A `do` block, a conditional that binds a value, has `elseif` or gives its branches with `return`, and an object expression with locals, are bound to a local first, and the local is passed. A function called there may use any of them in its own body.
+An argument, an indexer's key, a computed property access and an interpolation each hold a simple expression, and an argument may be an arrow function instead: values, operators, calls and member reads, and a conditional of one `if` branch and one `else` branch of those, as `calculate(if compact then 10 else 20 end)` is. A `do` block, a conditional that binds a value, has `elseif` or gives its branches with `return`, and an object expression with locals, are bound to a local first, and the local is passed. A function called there may use any of them in its own body.
 
 ### Reuse a calculation with a function
 
@@ -507,7 +507,7 @@ A targeted object expression returns null when its receiver is null, as optional
 
 ```js
 domql.query(
-    'panel.first(".missing")?:["data-key"]',
+    'panel.first(".missing")?["data-key"]',
     { panel }
 ).evaluate();
 // null
@@ -523,7 +523,7 @@ An element's state that the user or the browser changes, such as whether it is c
 control { checked = it.checked(), ariaChecked = it.aria.checked() }
 ```
 
-`.checked()` is true for a checked checkbox or radio button, or a selected option, as `:checked` matches. `.aria.checked()` is true only where `aria-checked` is `"true"`; read `it.aria:["checked"]`, the attribute's own text as `it:["aria-checked"]` reads it, or null where it is absent, to tell `"mixed"` from `"false"`. The two never stand in for each other, so write `it.checked() or it.aria.checked()` where either counts. Elements answer `disabled()`, `readonly()`, `textEditable()`, `hover()`, `popoverOpen()`, `checked()`, `focus()` and `focusWithin()`; the document `visible()` and `focus()`; and the window `share()` and `clipboard()`, whether the browser offers each API.
+`.checked()` is true for a checked checkbox or radio button, or a selected option, as `:checked` matches. `.aria.checked()` is true only where `aria-checked` is `"true"`; read `it.aria["checked"]`, the attribute's own text as `it["aria-checked"]` reads it, or null where it is absent, to tell `"mixed"` from `"false"`. The two never stand in for each other, so write `it.checked() or it.aria.checked()` where either counts. Elements answer `disabled()`, `readonly()`, `textEditable()`, `hover()`, `popoverOpen()`, `checked()`, `focus()` and `focusWithin()`; the document `visible()` and `focus()`; and the window `share()` and `clipboard()`, whether the browser offers each API.
 
 `.is`, `.has` and `.supports` take a test as a function and answer what it does, so a condition can be asked in its question's words: `it.has(domql.focus)` is `it.focus()`, and `it.is(it.disabled() or it.readonly())` asks either.
 
@@ -546,7 +546,7 @@ input.disabled() or (input.readonly() and not input.textEditable())
 Only `null` and `false` are falsey; every other value is truthy, including `0`, `""` and an empty list. A condition, an operand of `and`, `or` or `not`, and the expression of `where` can be any value. `and` and `or` return the operand that decides them, so they also choose values:
 
 ```domql
-panel:["data-label"] or "untitled"
+panel["data-label"] or "untitled"
 panel { let input = it.first("input"), width = input and input.rect?.width }
 ```
 
@@ -576,11 +576,11 @@ Use `if let` to name a value and choose by whether it is truthy. The name is ava
 
 ```domql
 if let row = cell.closest(".row")
-then { key = row:["data-key"], top = row.rect?.top }
+then { key = row["data-key"], top = row.rect?.top }
 else null end
 ```
 
-`if let` tests truthiness as `if` does, so `0`, empty text and an empty list take the `then` branch, and `false` takes `else`. It pairs with `try`: `if let count = try panel:["data-count"] to number then … else … end` converts once and uses the number in its branch.
+`if let` tests truthiness as `if` does, so `0`, empty text and an empty list take the `then` branch, and `false` takes `else`. It pairs with `try`: `if let count = try panel["data-count"] to number then … else … end` converts once and uses the number in its branch.
 
 ### Cast a node
 
@@ -599,7 +599,7 @@ Attributes hold text. Use `to` to convert a value to another type, such as the u
 
 ```js
 domql.query(
-    'panel.all("[data-key]").sum(it:["data-unread"] to number ?? 0)',
+    'panel.all("[data-key]").sum(it["data-unread"] to number ?? 0)',
     { panel }
 ).evaluate();
 // 7
@@ -610,7 +610,7 @@ domql.query(
 To handle text that does not convert yourself, attempt the conversion with `try`, which answers null where the conversion rejects the value:
 
 ```domql
-panel { count = try it:["data-count"] to number ?? 0 }
+panel { count = try it["data-count"] to number ?? 0 }
 ```
 
 A missing attribute and malformed text both give null, so `?? 0` supplies zero, and valid text converts to its number. A fault in a conversion, such as one that throws, is still an error.
@@ -619,7 +619,7 @@ A conversion never answers null for text it accepts, so where text is present, a
 
 ```domql
 panel {
-    let count = it:["data-count"],
+    let count = it["data-count"],
     count = if let n = try count to number then { status = "valid", value = n }
     elseif count == null then { status = "missing", value = null }
     else { status = "malformed", value = null } end
@@ -640,7 +640,7 @@ Use `+`, `-`, `*`, `/` and `%` to derive the values a result needs from those a 
 panel {
     remaining = (it.clientSize?.width ?? 0) - (it.first("[data-key]")?.rect?.width ?? 0),
     half = (it.rect?.width ?? 0) / 2,
-    unreadAfterNext = (it.first("[data-unread]")?:["data-unread"] to number ?? 0) + 1,
+    unreadAfterNext = (it.first("[data-unread]")?["data-unread"] to number ?? 0) + 1,
     fits = 0 < (it.clientSize?.width ?? 0) - 32 <= 400
 }
 ```
@@ -653,7 +653,7 @@ Write `$` before a string to insert values into it, each expression in braces:
 
 ```domql
 panel {
-    summary = $"{it.children.count} items, {it:["data-count"] ?? "none"} unread"
+    summary = $"{it.children.count} items, {it["data-count"] ?? "none"} unread"
 }
 ```
 
@@ -671,10 +671,10 @@ host.shadow.root?.all("p").count
 
 ### Choose a property by name
 
-Use brackets when the property name comes from a string:
+Use `.[…]`, brackets after a dot, when the property name comes from a string:
 
 ```js
-domql.query('panel[name].count', {
+domql.query('panel.[name].count', {
     panel,
     name: 'children'
 }).evaluate();
@@ -758,7 +758,7 @@ DOMQL reports failures as a `LexicaError` with `kind`, `message` and a structure
 
 ```js
 try {
-    domql.query('panel:[200]', { panel }).evaluate();
+    domql.query('panel[200]', { panel }).evaluate();
 } catch (error) {
     if (error?.name !== 'LexicaError') {
         throw error;
@@ -767,7 +767,7 @@ try {
     console.error(error.kind, error.message, error.location);
     // validation
     // The argument 'name' of 'attribute' expects string and finds number
-    // (line 1, column 8, at /expression/argument)
+    // (line 1, column 7, at /expression/argument)
 }
 ```
 

@@ -34,7 +34,7 @@ describe('domql evaluateAsync in a browser', () => {
     });
 
     it('evaluates it among the other members of an object expression', async () => {
-        const snapshot = await domql.query('item { near = it.intersects(), height = it.size?.height, id = it:attribute["id"] }', { item: inside }).evaluateAsync();
+        const snapshot = await domql.query('item { near = it.intersects(), height = it.size?.height, id = it.attribute["id"] }', { item: inside }).evaluateAsync();
 
         expect(snapshot).toEqual({ near: true, height: 40, id: 'inside' });
     });
@@ -85,7 +85,7 @@ describe('domql evaluateAsync in a browser', () => {
 
         it('follows what a function call reads, the branch a changed condition selects in its body, and what it captures, made anew at each evaluation', async () => {
             const snapshots = [];
-            const watch = domql.query('let wide = item:["data-wide"] == "yes"\nlet measure = function(box) if wide then box.size?.width ?? 0 else box.size?.height ?? 0 end end\nreturn measure(item)', { item: inside }).watch();
+            const watch = domql.query('let wide = item["data-wide"] == "yes"\nlet measure = function(box) if wide then box.size?.width ?? 0 else box.size?.height ?? 0 end end\nreturn measure(item)', { item: inside }).watch();
 
             watch.subscribe('change', (sender, args) => snapshots.push(args.value));
             watches.push(watch);
@@ -271,7 +271,7 @@ describe('domql evaluateAsync in a browser', () => {
             it('delivers the projection of a click, with what the event carried', () => {
                 const results = [];
 
-                listeners.push(domql.query('panel.on("click") { id = it.target?:attribute["id"], button = it.button, height = it.target?.size?.height }', { panel }).subscribe((sender, args) => results.push(args.value)));
+                listeners.push(domql.query('panel.on("click") { id = it.target?.attribute["id"], button = it.button, height = it.target?.size?.height }', { panel }).subscribe((sender, args) => results.push(args.value)));
                 inside.click();
 
                 expect(results).toEqual([{ id: 'inside', button: 0, height: 40 }]);

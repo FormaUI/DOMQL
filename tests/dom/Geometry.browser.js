@@ -146,9 +146,9 @@ describe('Geometry in a browser', () => {
         it('read a custom property and a computed value, and answer null for one that is not set', () => {
             const box = add('--tier: medium; width: 120px');
 
-            expect(read('box:style["--tier"]', { box })).toBe('medium');
-            expect(read('box:style["width"]', { box })).toBe('120px');
-            expect(read('box:style["--none"]', { box })).toBeNull();
+            expect(read('box.style["--tier"]', { box })).toBe('medium');
+            expect(read('box.style["width"]', { box })).toBe('120px');
+            expect(read('box.style["--none"]', { box })).toBeNull();
         });
 
         it('read the sizes of the column tracks of a grid, and none for an element that is no grid', () => {
@@ -203,7 +203,7 @@ describe('Geometry in a browser', () => {
 
             expect(read('input.selection { start = it.start, finish = it.end }', { input })).toEqual({ start: 2, finish: 7 });
             expect(read('input.hasSelection', { input })).toBe(true);
-            expect(read('input:attribute["value"]', { input })).toBeNull();
+            expect(read('input.attribute["value"]', { input })).toBeNull();
         });
 
         it('follows a media query as it begins and ceases to match, and the query a dynamic key names', async () => {
@@ -216,7 +216,7 @@ describe('Geometry in a browser', () => {
 
             panel.setAttribute('data-query', `(min-width: ${width}px)`);
 
-            const watch = domql.query('domql.window:media[panel:["data-query"] ?? "all"]', { panel }).watch({ schedule: 'immediate' });
+            const watch = domql.query('domql.window.media[panel["data-query"] ?? "all"]', { panel }).watch({ schedule: 'immediate' });
 
             watch.subscribe('change', (_sender, args) => snapshots.push(args.value));
 
@@ -238,8 +238,8 @@ describe('Geometry in a browser', () => {
 
         it('answers the window around the document', () => {
             expect(read('domql.window.devicePixelRatio')).toBeGreaterThan(0);
-            expect(read('domql.window:media["(min-width: 1px)"]')).toBe(true);
-            expect(read('domql.window:media["(max-width: 0px)"]')).toBe(false);
+            expect(read('domql.window.media["(min-width: 1px)"]')).toBe(true);
+            expect(read('domql.window.media["(max-width: 0px)"]')).toBe(false);
             expect(read('domql.document.visible()')).toBe(true);
         });
     });

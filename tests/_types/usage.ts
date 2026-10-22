@@ -43,7 +43,7 @@ const selection: DomqlSelection<number> = query.select<number>('count');
 const selected: number = selection.evaluate({ window });
 const selectedAsync: Promise<number> = selection.evaluateAsync(evaluating);
 const selectedWatch: DomqlWatch<number> = selection.watch({ schedule: 'immediate' });
-const key: DomqlSelection<string> = domql.query('panel.children { key = it:attribute["data-key"] }', { panel }).select('items').select<string>(0, 'key');
+const key: DomqlSelection<string> = domql.query('panel.children { key = it.attribute["data-key"] }', { panel }).select('items').select<string>(0, 'key');
 
 // @ts-expect-error A path item is a field's name or a list index.
 query.select(true);
@@ -113,7 +113,7 @@ query.watch({ updateStrategy: 'changeSet' });
 query.watch({ onChange: () => {} });
 
 // Live state is one object the watch keeps current, which the caller reads and never writes.
-const living: DomqlLiveStateWatch<{ rows: { key: string }[] }> = domql.query<{ rows: { key: string }[] }>('{ rows = panel.children { key = it:attribute["data-key"] } }', { panel }).watch({
+const living: DomqlLiveStateWatch<{ rows: { key: string }[] }> = domql.query<{ rows: { key: string }[] }>('{ rows = panel.children { key = it.attribute["data-key"] } }', { panel }).watch({
     updateStrategy: 'liveState',
     signal,
 });
@@ -268,8 +268,10 @@ const attempted: DomqlDefinitionNode = { kind: 'try', target: { kind: 'conversio
 const probed: DomqlDefinitionNode = { kind: 'try', target: { kind: 'cast', type: 'element', target: { kind: 'parameter', name: 'node' } } };
 const binding: DomqlDefinitionNode = { kind: 'conditional', binding: { name: 'n', value: attempted }, consequent: { kind: 'local', name: 'n' }, alternative: { kind: 'literal', value: 0 } };
 
-// A named indexer is a syntax a member declares, and a node of a definition that names its key.
-const keyed: DomqlDefinitionNode = { kind: 'indexer', target: { kind: 'parameter', name: 'panel' }, name: 'attribute', argument: { kind: 'literal', value: 'id' } };
+// A named indexer is a syntax a member declares, and an indexer node of the member access its name is written in, which holds its key; an indexer node names nothing itself.
+const keyed: DomqlDefinitionNode = { kind: 'indexer', target: { kind: 'member', target: { kind: 'parameter', name: 'panel' }, name: 'attribute' }, argument: { kind: 'literal', value: 'id' } };
+// @ts-expect-error An indexer node has no name.
+const namedIndexer: DomqlDefinitionNode = { kind: 'indexer', target: { kind: 'parameter', name: 'panel' }, name: 'attribute', argument: { kind: 'literal', value: 'id' } };
 const booleanFunctions: DomqlModuleContents = {
     members: [{ name: 'lit', kind: 'function', target: 'element', result: 'boolean', updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: ['data-lit'] }] } }],
 };

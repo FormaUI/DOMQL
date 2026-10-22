@@ -1,4 +1,4 @@
-domql.query('panel[name].count', {
+domql.query('panel.[name].count', {
     panel,
     name: 'children'
 }).evaluate();

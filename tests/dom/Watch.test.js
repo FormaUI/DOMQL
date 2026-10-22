@@ -120,7 +120,7 @@ describe('Watch', () => {
 
     describe('the first snapshot', () => {
         it('is reported after the call returns, through the change event every snapshot raises', async () => {
-            const watched = watch('panel:attribute["data-n"]', { panel });
+            const watched = watch('panel.attribute["data-n"]', { panel });
 
             expect(watched.status).toBe('pending');
             expect(watched.snapshot).toBeUndefined();
@@ -151,7 +151,7 @@ describe('Watch', () => {
         });
 
         it('reports a null snapshot, which is read beside the status', async () => {
-            const watched = watch('panel.first(".none")?:attribute["data-n"]', { panel }, { acceptPartialObservation: true });
+            const watched = watch('panel.first(".none")?.attribute["data-n"]', { panel }, { acceptPartialObservation: true });
 
             await settle();
 
@@ -163,7 +163,7 @@ describe('Watch', () => {
 
     describe('changes', () => {
         it('are followed by an evaluation, which reports a snapshot that differs', async () => {
-            watch('panel:attribute["data-n"]', { panel });
+            watch('panel.attribute["data-n"]', { panel });
             await settle();
             await change(panel, 5);
 
@@ -171,7 +171,7 @@ describe('Watch', () => {
         });
 
         it('report nothing when the snapshot is the one last reported', async () => {
-            watch('panel:attribute["data-n"]', { panel });
+            watch('panel.attribute["data-n"]', { panel });
             await settle();
             await change(panel, 1);
 
@@ -179,7 +179,7 @@ describe('Watch', () => {
         });
 
         it('are delivered as snapshots that share what did not change', async () => {
-            watch('panel { id = it:attribute["id"], items = it.children { n = it:attribute["data-n"] } }', { panel });
+            watch('panel { id = it.attribute["id"], items = it.children { n = it.attribute["data-n"] } }', { panel });
             await settle();
             await change(panel.children[1], 7);
 
@@ -193,7 +193,7 @@ describe('Watch', () => {
         });
 
         it('are followed through the elements the query now reads: one added is observed, one removed is not', async () => {
-            watch('panel.children { n = it:attribute["data-n"] }', { panel });
+            watch('panel.children { n = it.attribute["data-n"] }', { panel });
             await settle();
 
             const added = document.createElement('i');
@@ -253,7 +253,7 @@ describe('Watch', () => {
 
     describe('the class indexer', () => {
         it('follows the class attribute, reporting where the class comes and goes', async () => {
-            watch('panel:class["open"]', { panel });
+            watch('panel.class["open"]', { panel });
             await settle();
 
             panel.classList.add('open');
@@ -291,7 +291,7 @@ describe('Watch', () => {
             panel.setAttribute('data-which', 'data-a');
             panel.setAttribute('data-a', 'a1');
             panel.setAttribute('data-b', 'b1');
-            watch('panel:attribute[panel:attribute["data-which"] ?? "data-a"]', { panel });
+            watch('panel.attribute[panel.attribute["data-which"] ?? "data-a"]', { panel });
             await settle();
 
             panel.setAttribute('data-a', 'a2');
@@ -313,7 +313,7 @@ describe('Watch', () => {
 
             try {
                 panel.setAttribute('aria-checked', 'false');
-                watch('{ short = panel.aria:["checked"], full = panel:["aria-checked"] }', { panel });
+                watch('{ short = panel.aria["checked"], full = panel["aria-checked"] }', { panel });
                 await settle();
 
                 expect(observe.mock.calls.filter(([, options]) => options.attributeFilter?.includes('aria-checked'))).toHaveLength(1);
@@ -339,7 +339,7 @@ describe('Watch', () => {
             panel.setAttribute('aria-checked', 'true');
             panel.setAttribute('aria-expanded', 'false');
             panel.setAttribute('data-key', 'checked');
-            watch('panel.aria:[panel:["data-key"]]', { panel });
+            watch('panel.aria[panel["data-key"]]', { panel });
             await settle();
 
             panel.setAttribute('data-key', 'expanded');
@@ -359,10 +359,10 @@ describe('Watch', () => {
         });
     });
 
-    describe('a list\'s default indexer', () => {
+    describe('a list\'s unnamed indexer', () => {
         it('follows an index that changes, and the list it indexes as items are added before it', async () => {
             panel.setAttribute('data-i', '0');
-            watch('panel.children:[panel:["data-i"] to number]?:["data-n"]', { panel });
+            watch('panel.children[panel["data-i"] to number]?["data-n"]', { panel });
             await settle();
 
             panel.setAttribute('data-i', '1');
@@ -380,7 +380,7 @@ describe('Watch', () => {
 
         it('answers null through optional access while its receiver is null, and follows the receiver once it is not', async () => {
             panel.setAttribute('data-i', '1');
-            watch('panel.first(".group")?.children:[panel:["data-i"] to number]?:["data-n"]', { panel }, { acceptPartialObservation: true });
+            watch('panel.first(".group")?.children[panel["data-i"] to number]?["data-n"]', { panel }, { acceptPartialObservation: true });
             await settle();
 
             const group = Object.assign(document.createElement('div'), { className: 'group', innerHTML: '<i data-n="a"></i><i data-n="b"></i>' });
@@ -400,7 +400,7 @@ describe('Watch', () => {
         it('follows what each operand reads, evaluating the left operand and then the right', async () => {
             panel.setAttribute('data-a', '1');
             panel.setAttribute('data-b', '2');
-            watch('(panel:["data-a"] to number ?? 0) + (panel:["data-b"] to number ?? 0) * 10', { panel });
+            watch('(panel["data-a"] to number ?? 0) + (panel["data-b"] to number ?? 0) * 10', { panel });
             await settle();
 
             panel.setAttribute('data-a', '5');
@@ -469,7 +469,7 @@ describe('Watch', () => {
                 '    let pass = function(r) r.s end,',
                 '    let back = function(r) r end,',
                 '    w = first.meter,',
-                '    s = if panel:["data-on"] == "1" then first.meter else 0 end,',
+                '    s = if panel["data-on"] == "1" then first.meter else 0 end,',
                 '    alias = do let r = root return r.s end,',
                 '    argument = pass(root),',
                 '    returned = back(root).s,',
@@ -496,7 +496,7 @@ describe('Watch', () => {
         it('follows the condition that chooses a function, and what the function it chose reads, never what one it did not choose reads', async () => {
             panel.setAttribute('data-a', 'x');
             panel.setAttribute('data-b', 'y');
-            watch('let a = () => panel:["data-a"] ?? "-"\nlet b = () => panel:["data-b"] ?? "-"\nlet pick = if panel:["data-on"] == "a" then a else b end\nreturn pick()', { panel });
+            watch('let a = () => panel["data-a"] ?? "-"\nlet b = () => panel["data-b"] ?? "-"\nlet pick = if panel["data-on"] == "a" then a else b end\nreturn pick()', { panel });
             await settle();
 
             panel.setAttribute('data-a', 'x2');
@@ -520,7 +520,7 @@ describe('Watch', () => {
                 }],
             }));
 
-            watch('panel.children.sortBy((a, b) => (a:["data-n"] to number ?? 0) - (b:["data-n"] to number ?? 0)) { n = it:["data-n"] }', { panel });
+            watch('panel.children.sortBy((a, b) => (a["data-n"] to number ?? 0) - (b["data-n"] to number ?? 0)) { n = it["data-n"] }', { panel });
             await settle();
             panel.children[1].setAttribute('data-n', '0');
             await settle();
@@ -533,7 +533,7 @@ describe('Watch', () => {
         it('follows what each call reads, the branch a changed condition selects in it, and captures made anew at each evaluation', async () => {
             panel.setAttribute('data-a', '1');
             panel.setAttribute('data-b', '2');
-            watch('let read = function(name) if panel:["data-on"] == "a" then panel:["data-a"] ?? "-" else panel:[name] ?? "-" end end\nreturn { b = read("data-b") }', { panel });
+            watch('let read = function(name) if panel["data-on"] == "a" then panel["data-a"] ?? "-" else panel[name] ?? "-" end end\nreturn { b = read("data-b") }', { panel });
             await settle();
 
             panel.setAttribute('data-b', '3');
@@ -564,7 +564,7 @@ describe('Watch', () => {
     describe('an interpolated string', () => {
         it('follows what its holes read, reporting its text only where the text changes', async () => {
             panel.setAttribute('data-a', 'x');
-            watch('$"<{panel:["data-a"] ?? "-"}|{panel:["data-b"] ?? "-"}>"', { panel });
+            watch('$"<{panel["data-a"] ?? "-"}|{panel["data-b"] ?? "-"}>"', { panel });
             await settle();
 
             panel.setAttribute('data-a', 'y');
@@ -596,7 +596,7 @@ describe('Watch', () => {
         });
 
         it('follows an operand only while the comparisons before it pass evaluation on to it', async () => {
-            watch('0 < (try panel:["data-on"] to number ?? 0) < (panel.level ?? 100)', { panel });
+            watch('0 < (try panel["data-on"] to number ?? 0) < (panel.level ?? 100)', { panel });
             await settle();
 
             expect(gauges.has(panel)).toBe(false);
@@ -618,7 +618,7 @@ describe('Watch', () => {
 
     describe('a conversion', () => {
         it('follows the value it converts, fails while that value has no conversion, and recovers once it has', async () => {
-            const watched = watch('panel:attribute["data-n"] to number', { panel });
+            const watched = watch('panel.attribute["data-n"] to number', { panel });
 
             await settle();
             await change(panel, 2);
@@ -634,7 +634,7 @@ describe('Watch', () => {
         });
 
         it('lets an attempted conversion fall back for malformed text without failing, and give the converted value once the text converts', async () => {
-            const watched = watch('panel { value = try it:["data-n"] to number ?? 0 }', { panel });
+            const watched = watch('panel { value = try it["data-n"] to number ?? 0 }', { panel });
 
             await settle();
             await change(panel, 'two');
@@ -650,7 +650,7 @@ describe('Watch', () => {
         });
 
         it('follows a conditional binding through the value it binds and the branch it takes', async () => {
-            watch('if let n = try panel:["data-n"] to number then { n = n } else { n = -1 } end', { panel });
+            watch('if let n = try panel["data-n"] to number then { n = n } else { n = -1 } end', { panel });
             await settle();
             await change(panel, 'two');
             await change(panel, 5);
@@ -661,7 +661,7 @@ describe('Watch', () => {
         });
 
         it('lets ?? say what a missing value means, which it follows as the value comes and goes', async () => {
-            watch('panel:attribute["data-n"] to number ?? 0', { panel });
+            watch('panel.attribute["data-n"] to number ?? 0', { panel });
             await settle();
 
             panel.removeAttribute('data-n');
@@ -801,7 +801,7 @@ describe('Watch', () => {
 
     describe('an and and an or', () => {
         it('follow the left operand, and the right only while the left passes evaluation on to it', async () => {
-            watch('{ level = (try panel:["data-on"] to number) or panel.level }', { panel });
+            watch('{ level = (try panel["data-on"] to number) or panel.level }', { panel });
             await settle();
             gauges.get(panel).sample = { pending: false, value: 5 };
             gauges.get(panel).notify();
@@ -828,7 +828,7 @@ describe('Watch', () => {
 
     describe('a local', () => {
         it('holds what it reads only while an evaluation uses it: from when a branch first reaches it until none does', async () => {
-            watch('panel { let level = it.level, value = if it:attribute["data-on"] == null then 0 else @level end }', { panel });
+            watch('panel { let level = it.level, value = if it.attribute["data-on"] == null then 0 else @level end }', { panel });
             await settle();
 
             expect(snapshots).toEqual([{ value: 0 }]);
@@ -888,7 +888,7 @@ describe('Watch', () => {
         it('holds what its right operand reads only while it evaluates that operand', async () => {
             const item = panel.querySelector('i');
 
-            watch('{ v = (item:attribute["data-on"]) == null or item.level == null }', { item });
+            watch('{ v = (item.attribute["data-on"]) == null or item.level == null }', { item });
             await settle();
 
             expect(snapshots.at(-1)).toEqual({ v: true });
@@ -910,11 +910,11 @@ describe('Watch', () => {
         });
     });
 
-    describe('a bracket property access', () => {
+    describe('a computed property access', () => {
         it('follows what its name reads and the property it selects, holding the one it no longer selects no longer', async () => {
             const item = panel.querySelector('i');
 
-            watch('{ v = item[if item:attribute["data-on"] == null then "level" else "tally" end] }', { item });
+            watch('{ v = item.[if item.attribute["data-on"] == null then "level" else "tally" end] }', { item });
             await settle();
             gauges.get(item).sample = { pending: false, value: 4 };
             gauges.get(item).notify();
@@ -1123,7 +1123,7 @@ describe('Watch', () => {
     describe('a handler that fails', () => {
         it('is raised as an error event and leaves the watch running with the state it was handed accepted', async () => {
             let fails = true;
-            const watched = watch('panel:attribute["data-n"]', { panel }, {
+            const watched = watch('panel.attribute["data-n"]', { panel }, {
                 onChange: snapshot => {
                     snapshots.push(snapshot);
 
@@ -1145,7 +1145,7 @@ describe('Watch', () => {
         });
 
         it('is reported when it rejects, and is not waited for', async () => {
-            const watched = watch('panel:attribute["data-n"]', { panel }, { onChange: () => Promise.reject(new Error('later')) });
+            const watched = watch('panel.attribute["data-n"]', { panel }, { onChange: () => Promise.reject(new Error('later')) });
 
             await settle();
 
@@ -1154,14 +1154,14 @@ describe('Watch', () => {
         });
 
         it('goes to the diagnostic reporting where no error listener receives it', async () => {
-            watch('panel:attribute["data-n"]', { panel }, { onChange: () => { throw new Error('consumer'); }, onError: null });
+            watch('panel.attribute["data-n"]', { panel }, { onChange: () => { throw new Error('consumer'); }, onError: null });
             await settle();
 
             expect(reported.map(error => error.message)).toEqual(['consumer']);
         });
 
         it('sends the failure of the error handler to the diagnostic reporting, calling nothing again', async () => {
-            watch('panel:attribute["data-n"]', { panel }, {
+            watch('panel.attribute["data-n"]', { panel }, {
                 onChange: () => { throw new Error('consumer'); },
                 onError: error => {
                     failures.push(error);
@@ -1178,8 +1178,8 @@ describe('Watch', () => {
         it('lets the handlers of other watches run when one fails', async () => {
             const others = [];
 
-            watch('panel:attribute["data-n"]', { panel }, { onChange: () => { throw new Error('first'); } });
-            watch('panel:attribute["data-n"]', { panel }, { onChange: snapshot => others.push(snapshot) });
+            watch('panel.attribute["data-n"]', { panel }, { onChange: () => { throw new Error('first'); } });
+            watch('panel.attribute["data-n"]', { panel }, { onChange: snapshot => others.push(snapshot) });
             await settle();
             await change(panel, 2);
 
@@ -1194,7 +1194,7 @@ describe('Watch', () => {
                 throw new Error('reporting');
             };
 
-            const watched = watch('panel:attribute["data-n"]', { panel }, {
+            const watched = watch('panel.attribute["data-n"]', { panel }, {
                 onChange: snapshot => {
                     snapshots.push(snapshot);
                     throw new Error('consumer');
@@ -1215,9 +1215,9 @@ describe('Watch', () => {
         it('go on when one is disposed', async () => {
             const first = [];
             const second = [];
-            const disposed = watch('panel:attribute["data-n"]', { panel }, { onChange: snapshot => first.push(snapshot) });
+            const disposed = watch('panel.attribute["data-n"]', { panel }, { onChange: snapshot => first.push(snapshot) });
 
-            watch('panel:attribute["data-n"]', { panel }, { onChange: snapshot => second.push(snapshot) });
+            watch('panel.attribute["data-n"]', { panel }, { onChange: snapshot => second.push(snapshot) });
             await settle();
             disposed.dispose();
             await change(panel, 2);
@@ -1231,7 +1231,7 @@ describe('Watch', () => {
             const other = [];
             const failed = watch('panel.flaky', { panel }, { onChange: snapshot => failing.push(snapshot) });
 
-            watch('panel:attribute["data-n"]', { panel }, { onChange: snapshot => other.push(snapshot) });
+            watch('panel.attribute["data-n"]', { panel }, { onChange: snapshot => other.push(snapshot) });
             await settle();
 
             broken = true;
@@ -1307,7 +1307,7 @@ describe('Watch', () => {
         });
 
         it('settles without delivering where the snapshot did not change', async () => {
-            const watched = watch('panel:attribute["data-n"]', { panel });
+            const watched = watch('panel.attribute["data-n"]', { panel });
 
             await settle();
             await watched.refreshAsync();
@@ -1361,7 +1361,7 @@ describe('Watch', () => {
         });
 
         it('rejects when called after disposal', async () => {
-            const watched = watch('panel:attribute["data-n"]', { panel });
+            const watched = watch('panel.attribute["data-n"]', { panel });
 
             watched.dispose();
 
@@ -1372,7 +1372,7 @@ describe('Watch', () => {
     describe('dispose', () => {
         it('ends the watch: it reports nothing more and lets go of every observation', async () => {
             const [first] = panel.children;
-            const watched = watch('{ n = item.level, id = panel:attribute["data-n"] }', { item: first, panel });
+            const watched = watch('{ n = item.level, id = panel.attribute["data-n"] }', { item: first, panel });
 
             await settle();
             gauges.get(first).sample = { pending: false, value: 1 };
@@ -1408,7 +1408,7 @@ describe('Watch', () => {
         });
 
         it('prevents the first snapshot when it comes before it', async () => {
-            const watched = watch('panel:attribute["data-n"]', { panel });
+            const watched = watch('panel.attribute["data-n"]', { panel });
 
             watched.dispose();
             await settle();
@@ -1417,7 +1417,7 @@ describe('Watch', () => {
         });
 
         it('does nothing when it is repeated', async () => {
-            const watched = watch('panel:attribute["data-n"]', { panel });
+            const watched = watch('panel.attribute["data-n"]', { panel });
 
             await settle();
             watched.dispose();
@@ -1428,7 +1428,7 @@ describe('Watch', () => {
 
         it('lets a handler already running finish, and starts none after', async () => {
             let finished = false;
-            const watched = watch('panel:attribute["data-n"]', { panel }, {
+            const watched = watch('panel.attribute["data-n"]', { panel }, {
                 onChange: async snapshot => {
                     snapshots.push(snapshot);
                     watched.dispose();
@@ -1458,7 +1458,7 @@ describe('Watch', () => {
         };
 
         it('hands its change handler one object, kept current in place, with the change set just applied to it', async () => {
-            const { watched, calls } = watchLive('panel { n = it:attribute["data-n"], rows = it.children { n = it:attribute["data-n"] } }', { panel });
+            const { watched, calls } = watchLive('panel { n = it.attribute["data-n"], rows = it.children { n = it.attribute["data-n"] } }', { panel });
 
             await settle();
             await change(panel.children[1], 7);
@@ -1475,7 +1475,7 @@ describe('Watch', () => {
 
         it('keeps the object of each item as its element moves, and adds and removes items in place', async () => {
             const [first, second] = panel.children;
-            const { watched } = watchLive('{ rows = panel.children { n = it:attribute["data-n"] } }', { panel });
+            const { watched } = watchLive('{ rows = panel.children { n = it.attribute["data-n"] } }', { panel });
 
             await settle();
 
@@ -1506,7 +1506,7 @@ describe('Watch', () => {
             first.setAttribute('data-n', '0');
             second.setAttribute('data-n', '0');
 
-            const { watched } = watchLive('{ rows = panel.children { n = it:attribute["data-n"] } }', { panel });
+            const { watched } = watchLive('{ rows = panel.children { n = it.attribute["data-n"] } }', { panel });
 
             await settle();
 
@@ -1524,7 +1524,7 @@ describe('Watch', () => {
         });
 
         it('leaves the object as it was through a failed evaluation, and brings it up to date in one change set on recovery', async () => {
-            const { watched, calls } = watchLive('{ n = panel.flaky, m = panel:attribute["data-n"] }', { panel });
+            const { watched, calls } = watchLive('{ n = panel.flaky, m = panel.attribute["data-n"] }', { panel });
 
             await settle();
             broken = true;
@@ -1555,7 +1555,7 @@ describe('Watch', () => {
         });
 
         it('stops changing the object once disposed, and the caller keeps it as it last was', async () => {
-            const { watched } = watchLive('{ n = panel:attribute["data-n"] }', { panel });
+            const { watched } = watchLive('{ n = panel.attribute["data-n"] }', { panel });
 
             await settle();
 
@@ -1568,12 +1568,12 @@ describe('Watch', () => {
         });
 
         it('is refused for a result that is no object or list, or that can be null', () => {
-            expect(() => watch('panel:attribute["data-n"]', { panel }, { updateStrategy: 'liveState' })).toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringContaining('Live state keeps one object current') }));
-            expect(() => watch('item { n = it:attribute["data-n"] }', { item: null }, { updateStrategy: 'liveState' })).toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringContaining('put it in a top-level object expression') }));
+            expect(() => watch('panel.attribute["data-n"]', { panel }, { updateStrategy: 'liveState' })).toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringContaining('Live state keeps one object current') }));
+            expect(() => watch('item { n = it.attribute["data-n"] }', { item: null }, { updateStrategy: 'liveState' })).toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringContaining('put it in a top-level object expression') }));
         });
 
         it('is held only by a watch that keeps live state', async () => {
-            const watched = watch('{ n = panel:attribute["data-n"] }', { panel });
+            const watched = watch('{ n = panel.attribute["data-n"] }', { panel });
 
             await settle();
 
@@ -1602,7 +1602,7 @@ describe('Watch', () => {
         });
 
         it('takes a schedule and an update strategy that exist', () => {
-            const query = isolated.query('panel:attribute["id"]', { panel });
+            const query = isolated.query('panel.attribute["id"]', { panel });
 
             for (const options of [{ schedule: 'later' }, { updateStrategy: 'patch' }]) {
                 expect(() => query.watch(options)).toThrow(expect.objectContaining({ name: 'LexicaError', kind: 'structure' }));
@@ -1610,7 +1610,7 @@ describe('Watch', () => {
         });
 
         it('takes listeners of its change and error events alone, each with the function that handles them', () => {
-            const watched = watch('panel:attribute["id"]', { panel });
+            const watched = watch('panel.attribute["id"]', { panel });
 
             for (const [eventName, handler] of [['change', 3], ['error', 3], ['changed', () => {}]]) {
                 expect(() => watched.subscribe(eventName, handler)).toThrow(expect.objectContaining({ name: 'LexicaError', kind: 'structure' }));
@@ -1625,7 +1625,7 @@ describe('Watch', () => {
         });
 
         it('is scheduled by animation frame only in a window that has them', () => {
-            const query = isolated.query('panel:attribute["id"]', { panel });
+            const query = isolated.query('panel.attribute["id"]', { panel });
             const frameless = { document, reportError: () => {} };
 
             expect(() => query.watch({ window: frameless })).toThrow(expect.objectContaining({ kind: 'structure' }));

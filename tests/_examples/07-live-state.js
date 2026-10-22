@@ -4,8 +4,8 @@ list.innerHTML = '<li data-key="b1">Apples</li><li data-key="b2">Pears</li>';
 
 const live = domql.query(`
     list.children {
-        key = it:["data-key"],
-        selected = it.aria:["selected"] == "true"
+        key = it["data-key"],
+        selected = it.aria["selected"] == "true"
     }
 `, { list }).watch({ updateStrategy: 'liveState' });
 

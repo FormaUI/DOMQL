@@ -52,7 +52,7 @@ describe('LanguageResolver', () => {
 
         it('keeps the item type through where, first and at', () => {
             expect(resolve('panel.children.where(it.attached).first?.size').type.toString()).toBe('size?');
-            expect(resolve('panel.children:[0]?.size').type.toString()).toBe('size?');
+            expect(resolve('panel.children[0]?.size').type.toString()).toBe('size?');
         });
 
         it('types an object expression by its written field names', () => {
@@ -67,7 +67,7 @@ describe('LanguageResolver', () => {
         it.each([
             ['the result', 'panel.loose'],
             ['a field', 'panel { v = it.loose }'],
-            ['an argument', 'panel.children:[panel.loose]'],
+            ['an argument', 'panel.children[panel.loose]'],
             ['an expression', 'panel.children.where(it.loose).count'],
             ['an operand of and', 'panel.loose and 1'],
             ['a condition', 'if panel.loose then 1 else 2 end'],
@@ -149,7 +149,7 @@ describe('LanguageResolver', () => {
         });
 
         it('shapes the result of a once execution by the result projection that follows it', () => {
-            const resolved = resolveWith('panel.pick() { id = it:attribute["id"] }');
+            const resolved = resolveWith('panel.pick() { id = it.attribute["id"] }');
 
             expect(resolved.hostCall.name).toBe('pick');
             expect(resolved.type.toString()).toBe('{ id: string? }');
@@ -161,7 +161,7 @@ describe('LanguageResolver', () => {
 
         it('resolves a continuous execution, which declares no result and so takes no result projection', () => {
             expect(resolveWith('panel.focusTrap()').type).toBeNull();
-            expect(failureWith('panel.focusTrap() { id = it:attribute["id"] }').message).toContain('declares no result, since its host supplies no values, so it takes no result projection');
+            expect(failureWith('panel.focusTrap() { id = it.attribute["id"] }').message).toContain('declares no result, since its host supplies no values, so it takes no result projection');
         });
 
         it('refuses a member after an execution, and an execution inside a query', () => {
@@ -336,9 +336,9 @@ describe('LanguageResolver', () => {
         });
 
         it('refuses a member written in a form its declaration does not take, giving the form it does', () => {
-            expect(failure('domql.window.media("(min-width: 1px)")').message).toContain(`'media' is an indexer: write 'domql.window:media["(min-width: 1px)"]'`);
-            expect(failure('panel.attribute("id")').message).toContain(`'attribute' is an indexer: write 'panel:attribute["id"]'`);
-            expect(failure('panel:closest[".row"]').message).toContain(`'closest' uses call syntax: write 'panel.closest(".row")'`);
+            expect(failure('domql.window.media("(min-width: 1px)")').message).toContain(`'media' is an indexer: write 'domql.window.media["(min-width: 1px)"]'`);
+            expect(failure('panel.attribute("id")').message).toContain(`'attribute' is an indexer: write 'panel.attribute["id"]'`);
+            expect(failure('panel.closest[".row"]').message).toContain(`'closest' uses call syntax: write 'panel.closest(".row")'`);
             expect(failure('panel.parent()').message).toContain("'parent' is a property: write 'panel.parent'");
             expect(failure('panel.size?.width()').message).toContain("write 'panel.size?.width'");
         });
@@ -365,8 +365,8 @@ describe('LanguageResolver', () => {
         });
 
         it('makes a call answer null for a written null on a propagating parameter', () => {
-            expect(resolve('domql.window:media["(min-width: 1px)"]').type.toString()).toBe('boolean');
-            expect(resolve('domql.window:media[null]').type.toString()).toBe('boolean?');
+            expect(resolve('domql.window.media["(min-width: 1px)"]').type.toString()).toBe('boolean');
+            expect(resolve('domql.window.media[null]').type.toString()).toBe('boolean?');
         });
 
         it('lets an aggregate expression produce null per item', () => {
@@ -374,59 +374,59 @@ describe('LanguageResolver', () => {
         });
 
         it('refuses an aggregate expression of another type', () => {
-            expect(failure('panel.children.sum(it:attribute["id"])').message).toContain('must produce number?');
+            expect(failure('panel.children.sum(it.attribute["id"])').message).toContain('must produce number?');
         });
     });
 
     describe('fixed names', () => {
-        it('resolves a bracket property access to the type the properties its names name share', () => {
-            expect(resolve('panel["children"].count').type.toString()).toBe('number');
-            expect(resolve('panel[name]', { panel, name: 'size' }).type.toString()).toBe('size?');
-            expect(resolve('panel { let name = if wide then "size" else "clientSize" end, s = it[name] }', { panel, wide: true }).type.toString()).toBe('{ s: size? }');
-            expect(resolve('panel[null ?? "size"]').type.toString()).toBe('size?');
+        it('resolves a computed property access to the type the properties its names name share', () => {
+            expect(resolve('panel.["children"].count').type.toString()).toBe('number');
+            expect(resolve('panel.[name]', { panel, name: 'size' }).type.toString()).toBe('size?');
+            expect(resolve('panel { let name = if wide then "size" else "clientSize" end, s = it.[name] }', { panel, wide: true }).type.toString()).toBe('{ s: size? }');
+            expect(resolve('panel.[null ?? "size"]').type.toString()).toBe('size?');
         });
 
         it('determines the names a conditional binding gives as its value does, without null, in its consequent', () => {
-            expect(resolve('let key = if let name = chosen then name else "clientSize" end\nreturn panel[key]', { panel, chosen: 'size' }).type.toString()).toBe('size?');
-            expect(resolve('if let name = chosen then panel[name] else null end', { panel, chosen: 'size' }).type.toString()).toBe('size?');
-            expect(failure('if let name = panel:["data-name"] then panel[name] else null end', { panel }).message).toContain('A bracket property access reads a name determined when the expression is resolved');
+            expect(resolve('let key = if let name = chosen then name else "clientSize" end\nreturn panel.[key]', { panel, chosen: 'size' }).type.toString()).toBe('size?');
+            expect(resolve('if let name = chosen then panel.[name] else null end', { panel, chosen: 'size' }).type.toString()).toBe('size?');
+            expect(failure('if let name = panel["data-name"] then panel.[name] else null end', { panel }).message).toContain('A computed property access reads a name determined when the expression is resolved');
         });
 
         it.each([
-            ['an and and an or settle, a flag bound true', 'panel[wide and "size" or "rect"]', { wide: true }, 'size?'],
-            ['an and and an or settle, a flag bound false', 'panel[wide and "size" or "rect"]', { wide: false }, 'rectangle?'],
-            ['an and and an or choose between, by a value read when the query is evaluated', 'panel[panel.first(".a") and "size" or "clientSize"]', {}, 'size?'],
-            ['an or gives past a falsey middle operand, which passes evaluation on', 'panel[wide and label or "rect"]', { wide: true, label: null }, 'rectangle?'],
-            ['an or gives from a truthy middle operand', 'panel[wide and label or "rect"]', { wide: true, label: 'size' }, 'size?'],
-            ['an or gives past a null operand', 'panel[first or second]', { first: null, second: 'size' }, 'size?'],
-            ['a conditional whose fixed condition selects one branch, the other left unread', 'panel[if wide then "size" else "nonsense" end]', { wide: true }, 'size?'],
-            ['a conditional whose condition is read when the query is evaluated, either branch possible', 'panel[if panel.attached then "size" else "clientSize" end]', {}, 'size?'],
-            ['a coalescing operator whose value cannot be null, its fallback never asked for names', 'panel["size" ?? panel:["x"]]', {}, 'size?'],
-        ])('resolves a bracket property access to the names %s', (_, text, bindings, type) => {
+            ['an and and an or settle, a flag bound true', 'panel.[wide and "size" or "rect"]', { wide: true }, 'size?'],
+            ['an and and an or settle, a flag bound false', 'panel.[wide and "size" or "rect"]', { wide: false }, 'rectangle?'],
+            ['an and and an or choose between, by a value read when the query is evaluated', 'panel.[panel.first(".a") and "size" or "clientSize"]', {}, 'size?'],
+            ['an or gives past a falsey middle operand, which passes evaluation on', 'panel.[wide and label or "rect"]', { wide: true, label: null }, 'rectangle?'],
+            ['an or gives from a truthy middle operand', 'panel.[wide and label or "rect"]', { wide: true, label: 'size' }, 'size?'],
+            ['an or gives past a null operand', 'panel.[first or second]', { first: null, second: 'size' }, 'size?'],
+            ['a conditional whose fixed condition selects one branch, the other left unread', 'panel.[if wide then "size" else "nonsense" end]', { wide: true }, 'size?'],
+            ['a conditional whose condition is read when the query is evaluated, either branch possible', 'panel.[if panel.attached then "size" else "clientSize" end]', {}, 'size?'],
+            ['a coalescing operator whose value cannot be null, its fallback never asked for names', 'panel.["size" ?? panel["x"]]', {}, 'size?'],
+        ])('resolves a computed property access to the names %s', (_, text, bindings, type) => {
             expect(resolve(text, { panel, ...bindings }).type.toString()).toBe(type);
         });
 
         it.each([
-            ['an and that can give false', 'panel[wide and "size"]', { wide: false }, "A bracket property access reads a string, and 'wide and \"size\"' can be false"],
-            ['a name an and and an or reach that no property has', 'panel[wide and "nonsense" or "size"]', { wide: true }, "'nonsense' is no member of the vocabulary"],
-            ['an and of a Boolean member and a name, whose values no one type holds', 'panel { v = it[it.attached and "size" or "clientSize"] }', {}, "What 'and' gives is false or string"],
-            ['a value that is no name', 'panel[count]', { count: 5 }, 'A bracket property access reads a name determined when the expression is resolved'],
-            ['a fallback whose names go unasked, which is validated all the same', 'panel["size" ?? panel.nonsense]', {}, "'nonsense' is no member of the vocabulary"],
-        ])('refuses a bracket property access through %s', (_, text, bindings, message) => {
+            ['an and that can give false', 'panel.[wide and "size"]', { wide: false }, "A computed property access reads a string, and 'wide and \"size\"' can be false"],
+            ['a name an and and an or reach that no property has', 'panel.[wide and "nonsense" or "size"]', { wide: true }, "'nonsense' is no member of the vocabulary"],
+            ['an and of a Boolean member and a name, whose values no one type holds', 'panel { v = it.[it.attached and "size" or "clientSize"] }', {}, "What 'and' gives is false or string"],
+            ['a value that is no name', 'panel.[count]', { count: 5 }, 'A computed property access reads a name determined when the expression is resolved'],
+            ['a fallback whose names go unasked, which is validated all the same', 'panel.["size" ?? panel.nonsense]', {}, "'nonsense' is no member of the vocabulary"],
+        ])('refuses a computed property access through %s', (_, text, bindings, message) => {
             expect(failure(text, { panel, ...bindings }).message).toContain(message);
         });
 
-        it('refuses a bracket property access whose names cannot be determined, can be null, name no property or are of different types', () => {
-            expect(failure('panel[panel:attribute["data-name"]]').message).toContain('A bracket property access reads a name determined when the expression is resolved');
-            expect(failure('panel[name]', { panel, name: null }).message).toContain("A bracket property access reads a string, and 'name' can be null");
-            expect(failure('panel["depth"]').message).toContain("'depth' is no member of the vocabulary");
-            expect(failure('panel[if panel.attached then "size" else "children" end]', { panel }).message).toContain('are of one type, and these are size?, list<element>');
+        it('refuses a computed property access whose names cannot be determined, can be null, name no property or are of different types', () => {
+            expect(failure('panel.[panel.attribute["data-name"]]').message).toContain('A computed property access reads a name determined when the expression is resolved');
+            expect(failure('panel.[name]', { panel, name: null }).message).toContain("A computed property access reads a string, and 'name' can be null");
+            expect(failure('panel.["depth"]').message).toContain("'depth' is no member of the vocabulary");
+            expect(failure('panel.[if panel.attached then "size" else "children" end]', { panel }).message).toContain('are of one type, and these are size?, list<element>');
         });
 
-        it('refuses a bracket property access of a receiver that can be null, giving the optional form', () => {
-            expect(failure('panel.first(".a")[name]', { panel, name: 'size' }).message).toContain(`write 'panel.first(".a")?[name]'`);
-            expect(resolve('panel.first(".a")?[name]', { panel, name: 'size' }).type.toString()).toBe('size?');
-            expect(resolve('row?[name]', { row: null, name: 'id' }).type.toString()).toBe('null');
+        it('refuses a computed property access of a receiver that can be null, giving the optional form', () => {
+            expect(failure('panel.first(".a").[name]', { panel, name: 'size' }).message).toContain(`write 'panel.first(".a")?.[name]'`);
+            expect(resolve('panel.first(".a")?.[name]', { panel, name: 'size' }).type.toString()).toBe('size?');
+            expect(resolve('row?.[name]', { row: null, name: 'id' }).type.toString()).toBe('null');
         });
 
         it('resolves an event type', () => {
@@ -454,13 +454,13 @@ describe('LanguageResolver', () => {
         it('refuses an event type an expression settles to a name the vocabulary lacks, and one that reads the document to settle', () => {
             expect(failure('domql.document.on(wide and "keydown" or "nothing") { key = it.key }', { wide: false }).message).toContain("The type selector 'event' maps no type to the key 'nothing'");
             expect(failure('domql.document.on(if panel.attached then "keydown" else "keydown" end) { key = it.key }', { panel }).message).toContain("a string the expression's resolution settles");
-            expect(failure('domql.document.on(panel:["data-t"] ?? "keydown") { key = it.key }', { panel }).message).toContain("a string the expression's resolution settles");
+            expect(failure('domql.document.on(panel["data-t"] ?? "keydown") { key = it.key }', { panel }).message).toContain("a string the expression's resolution settles");
         });
 
         it('resolves an event type a conditional binding holds where its value is a literal or a bound parameter, and refuses one any other expression gives', () => {
             expect(resolve('let type = if let chosen = "keydown" then chosen else "keyup" end\nreturn domql.document.on(type) { key = it.key }').type).toBe('{ key: string }');
             expect(resolve('let type = if let chosen = kind then chosen else "keyup" end\nreturn domql.document.on(type) { key = it.key }', { kind: 'keydown' }).type).toBe('{ key: string }');
-            expect(failure('let type = if let chosen = panel:["data-t"] then chosen else "keyup" end\nreturn domql.document.on(type) { key = it.key }', { panel }).message).toContain("a string the expression's resolution settles");
+            expect(failure('let type = if let chosen = panel["data-t"] then chosen else "keyup" end\nreturn domql.document.on(type) { key = it.key }', { panel }).message).toContain("a string the expression's resolution settles");
         });
 
         it('refuses an event type the vocabulary does not declare', () => {
@@ -540,7 +540,7 @@ describe('LanguageResolver', () => {
 
         it('points into a definition that has no text', () => {
             const definition = {
-                version: 32,
+                version: 33,
                 expression: { kind: 'member', target: { kind: 'parameter', name: 'panel' }, name: 'nonsense', arguments: [] },
             };
 
@@ -603,7 +603,7 @@ describe('LanguageResolver', () => {
             expect(resolved.getResolution('/expression').declaration.name).toBe('disabled');
             expect(resolve('(panel.parent as element)?.attached').type.toString()).toBe('boolean?');
             expect(resolve('(panel.parent as element)?.disabled()').type.toString()).toBe('boolean?');
-            expect(resolve('panel[name]', { panel, name: 'attached' }).type.toString()).toBe('boolean');
+            expect(resolve('panel.[name]', { panel, name: 'attached' }).type.toString()).toBe('boolean');
             expect(resolve('domql.document.visible() and domql.document.focus()').type.toString()).toBe('boolean');
         });
 
@@ -735,7 +735,7 @@ describe('LanguageResolver', () => {
     describe('locals', () => {
         it('type a use of a local as the value it names', () => {
             expect(resolve('panel { let size = it.size, width = size?.width }').type.toString()).toBe('{ width: number? }');
-            expect(resolve('panel { let rows = it.children, rows = rows { key = it:attribute["data-key"] } }').type.toString()).toBe('{ rows: list<{ key: string? }> }');
+            expect(resolve('panel { let rows = it.children, rows = rows { key = it.attribute["data-key"] } }').type.toString()).toBe('{ rows: list<{ key: string? }> }');
         });
 
         it('resolve a local where it is written, whatever implicit parameter its use has', () => {
@@ -743,7 +743,7 @@ describe('LanguageResolver', () => {
         });
 
         it('let a local hold what is no data, which no field can', () => {
-            expect(resolve('panel { let first = it.children:[0], key = first?:attribute["data-key"] }').type.toString()).toBe('{ key: string? }');
+            expect(resolve('panel { let first = it.children[0], key = first?.attribute["data-key"] }').type.toString()).toBe('{ key: string? }');
         });
 
         it('validate a local no field uses', () => {
@@ -798,7 +798,7 @@ describe('LanguageResolver', () => {
 
     describe('the resolved definition', () => {
         it('names each field of each object expression once, as it is written', () => {
-            const resolved = resolveInLexica('panel { size = it.size, kind = it:attribute["role"], attached = it.attached, clientSize = it["clientSize"], rows = it.all("i") { rect = it.rect } }');
+            const resolved = resolveInLexica('panel { size = it.size, kind = it.attribute["role"], attached = it.attached, clientSize = it.["clientSize"], rows = it.all("i") { rect = it.rect } }');
             const { expression: query } = resolved.definition;
 
             expect(resolved.fieldNamesOf(query)).toEqual(['size', 'kind', 'attached', 'clientSize', 'rows']);

@@ -2,15 +2,15 @@
 
 ## Current state
 
-**DOMQL's vocabulary, queries, watches, events and executions are implemented on Lexica's definition version 32. The next task is DOMQL's part of Lexica's new type and member declaration model.** Declaring the DOM as DOMQL's own reference types, its view cast, and matching by projection sources follow it.
+**DOMQL's vocabulary, queries, watches, events and executions are implemented on Lexica's definition version 33. The next task is the rest of DOMQL's part of Lexica's new type and member declaration model.** Declaring the DOM as DOMQL's own reference types, its view cast, and matching by projection sources follow it.
 
 | Version | Implementation | Specification |
 | --- | --- | --- |
 | DOMQL specification | `1.0.0-alpha.276` | `1.0.0-alpha.277` |
-| Lexica language | `1.0.0-alpha.32` | `1.0.0-alpha.33` |
-| Definition format | 32 | 33 |
+| Lexica language | `1.0.0-alpha.33` | `1.0.0-alpha.33` |
+| Definition format | 33 | 33 |
 
-DOMQL's queries write the implicit parameter `it` and read the document and the window through its module, as `domql.document` and `domql.window`. Its vocabulary still uses Lexica's flat member declarations, and its node types are still built into Lexica. The specification describes the replacement, but that work has not started; it follows Lexica's steps one by one.
+DOMQL's queries write the implicit parameter `it` and read the document and the window through its module, as `domql.document` and `domql.window`. Its queries write Lexica's indexers and computed properties, `panel.attribute["id"]`, `panel["id"]` and `panel.[name]`, but its vocabulary still uses Lexica's flat member declarations, and its node types are still built into Lexica. The specification describes the replacement, which follows Lexica's steps part by part.
 
 The bundle and type declarations are built, with Lexica bundled inside `domql.js`. npm and NuGet packages are packed locally but unpublished. The C# half is designed and not started.
 
@@ -20,10 +20,9 @@ The [specification](../spec/README.md) defines the contract; the [design](domql-
 
 ## Next: DOMQL's declarations
 
-**Step 1 — Planned, not started.** Move DOMQL's vocabulary to Lexica's declaration model, as Lexica's step 1 delivers it, and read definition version 33.
+**Step 1 — In progress.** Move DOMQL's vocabulary to Lexica's declaration model, as Lexica's step 1 delivers it, and read definition version 33. Each of the four parts of [Lexica's step 1](https://github.com/FormaUI/Lexica/blob/main/docs/features-status.md#next-type-and-member-declarations) is a checkpoint DOMQL moves with: Lexica's part 1, the parser and definition version 33, is in, and DOMQL's queries, examples, READMEs and guide write its indexer and computed property forms.
 
 - Declare each of DOMQL's types with its members, its structured types' fields among them, its indexers as the `indexer` kind, with a `name` for a named indexer and without one for a type's unnamed indexer, and `impl`.
-- Move DOMQL's indexer and computed property forms to Lexica's: `:attribute[…]`, `:class[…]`, `:media[…]` and `:style[…]` to `.attribute[…]`, `.class[…]`, `.media[…]` and `.style[…]`, `:item[…]` and `:[…]` to a type's unnamed indexer, `[…]`, and a property read by a computed name from `[…]` to `.[…]`, in its specification, queries, examples, READMEs and guide.
 - Name its types in PascalCase: `Element`, `Size`, `Rectangle`, `PointerEvent` and the rest.
 - Declare `on` once in each of `Element`, `Document` and `Window`, the receivers it listens on, reusing one JavaScript declaration.
 - Accept a cast or a conversion naming a type qualified by its module, as `panel as domql.Element`, and move DOMQL's queries, examples, READMEs and guide to the PascalCase type names.
@@ -79,7 +78,7 @@ Complete the types and members work, in Lexica and DOMQL, before publishing pack
 
 ### Consuming Lexica
 
-**Current:** DOMQL depends on `@formaui/lexica` through `file:../formaui-net.Lexica`, a local link to a checkout beside this one, imports Lexica's entry point alone, and bundles it into `domql.js`. Lexica's tests that run through DOMQL's entry point are DOMQL's integration tests.
+**Current:** DOMQL depends on `@formaui/lexica` through `file:../formaui-net.Lexica`, a local link to a checkout beside this one, imports Lexica's entry point alone, and bundles it into `domql.js`. It requires that checkout at Lexica's commit `689ea14` or later, the step 1 checkpoint it last moved with. Lexica's tests that run through DOMQL's entry point are DOMQL's integration tests.
 
 **Remaining:**
 

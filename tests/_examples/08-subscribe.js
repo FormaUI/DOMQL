@@ -2,8 +2,8 @@ const activations = domql.query(`
     panel.on("click") {
         let item = it.target?.closest("[data-key]"),
 
-        key = item?:["data-key"],
-        wasSelected = item?.aria:["selected"] == "true",
+        key = item?["data-key"],
+        wasSelected = item?.aria["selected"] == "true",
         selectedCount = panel.all("[aria-selected=true]").count
     }
 `, { panel }).subscribe((sender, args) => {

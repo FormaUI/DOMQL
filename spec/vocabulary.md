@@ -7,10 +7,10 @@ The **built-in vocabulary** is what DOMQL's module, `domql`, declares: the DOM's
 
 ```domql
 panel.size?.width                        // A property of an element, then a field of the size it answers.
-panel:["data-key"]                       // An attribute, through the default indexer.
+panel["data-key"]                        // An attribute, through the unnamed indexer.
 panel.closest(".row")                    // A function, given its selector.
 panel.disabled()                         // A Boolean function, which tests the element.
-domql.window:media["(min-width: 40em)"]  // A named indexer of the window, a module member.
+domql.window.media["(min-width: 40em)"]  // A named indexer of the window, a module member.
 ```
 
 Properties and functions are named in camelCase, and names are case-sensitive. Built-in members expose state or event sources; executions come from extensions. A property is read by property access, and a function is written as a call or as a named indexer, as its declaration says; the tables write each as it is written, with a receiver left out. A member available on a node is available on each of its kinds, one available on an element on elements alone, and one available on a shadow view on an element's `shadow`.
@@ -257,7 +257,7 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 **Type:** `Aria`   **Reads:** Fresh
 
-**Result.** Its view of its ARIA states, which its [Boolean functions](#boolean-functions) test and its default indexer reads as its ARIA attributes
+**Result.** Its view of its ARIA states, which its [Boolean functions](#boolean-functions) test and its unnamed indexer reads as its ARIA attributes
 
 **Changes.** Constant
 
@@ -333,17 +333,17 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 ## Functions
 
-A function performs a lookup, a calculation or a selection with the argument it is given. A name with parentheses, as `closest(selector)`, is a call, `it.closest(".row")`; a name in brackets after a colon, as `:attribute[name]`, is a named indexer, `it:attribute["data-key"]`; and braces show an options object, whose fields supply the parameters, as `intersects({ root, margin })` does, `it.intersects({ root = panel })`.
+A function performs a lookup, a calculation or a selection with the argument it is given. A name with parentheses, as `closest(selector)`, is a call, `it.closest(".row")`; a name with brackets after it, as `attribute[name]`, is a named indexer, `it.attribute["data-key"]`; and braces show an options object, whose fields supply the parameters, as `intersects({ root, margin })` does, `it.intersects({ root = panel })`.
 
 Each function states what it answers, how its result changes, how it reads, and which of its parameters are fixed.
 
 | Receiver | Function |
 | --- | --- |
-| Window | [`:media[query]`](#function-window-media) |
-| Element | [`:attribute[name]`, the default indexer, `:[name]`](#function-element-attribute) |
-| ARIA view | [`:attribute[name]`, the default indexer, `:[name]`](#function-aria-view-attribute) |
-| Element | [`:class[name]`](#function-element-class) |
-| Element | [`:style[property]`](#function-element-style) |
+| Window | [`.media[query]`](#function-window-media) |
+| Element | [`.attribute[name]`, and the unnamed indexer, `[name]`](#function-element-attribute) |
+| ARIA view | [`.attribute[name]`, and the unnamed indexer, `[name]`](#function-aria-view-attribute) |
+| Element | [`.class[name]`](#function-element-class) |
+| Element | [`.style[property]`](#function-element-style) |
 | Element | [`intersects({ root, margin })`](#function-element-intersects) |
 | Element | [`overlaps({ other, margin })`](#function-element-overlaps) |
 | Element | [`matches(selector)`](#function-element-matches) |
@@ -357,7 +357,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 ### Window: media
 
-**Syntax:** `:media[query]`   **Signature:** `query`: `String` → `Boolean`   **Reads:** Fresh   **Fixed arguments:** None
+**Syntax:** `.media[query]`   **Signature:** `query`: `String` → `Boolean`   **Reads:** Fresh   **Fixed arguments:** None
 
 **Result.** Whether the media query matches
 
@@ -369,7 +369,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 ### Element: attribute
 
-**Syntax:** `:attribute[name]`, the default indexer, `:[name]`   **Signature:** `name`: `String` → `String?`   **Reads:** Fresh   **Fixed arguments:** None
+**Syntax:** `.attribute[name]`, and the unnamed indexer, `[name]`   **Signature:** `name`: `String` → `String?`   **Reads:** Fresh   **Fixed arguments:** None
 
 **Result.** The attribute's value
 
@@ -381,9 +381,9 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 ### ARIA view: attribute
 
-**Syntax:** `:attribute[name]`, the default indexer, `:[name]`   **Signature:** `name`: `String` → `String?`   **Reads:** Fresh   **Fixed arguments:** None
+**Syntax:** `.attribute[name]`, and the unnamed indexer, `[name]`   **Signature:** `name`: `String` → `String?`   **Reads:** Fresh   **Fixed arguments:** None
 
-**Result.** The value of the element's own attribute `aria-` and the name, as the element's `:attribute` reads it, so `it.aria:["checked"]` is `it:["aria-checked"]`: the string as written, or null where the attribute is absent, never a Boolean
+**Result.** The value of the element's own attribute `aria-` and the name, as the element's `:attribute` reads it, so `it.aria["checked"]` is `it["aria-checked"]`: the string as written, or null where the attribute is absent, never a Boolean
 
 **Changes.** Observable: that attribute
 
@@ -393,7 +393,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 ### Element: class
 
-**Syntax:** `:class[name]`   **Signature:** `name`: `String` → `Boolean`   **Reads:** Fresh   **Fixed arguments:** None
+**Syntax:** `.class[name]`   **Signature:** `name`: `String` → `Boolean`   **Reads:** Fresh   **Fixed arguments:** None
 
 **Result.** Whether its class list holds the class, one token: an empty name, or one holding a tab, a line feed, a form feed, a carriage return or a space, is an evaluation error
 
@@ -413,7 +413,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 ### Element: style
 
-**Syntax:** `:style[property]`   **Signature:** `property`: `String` → `String?`   **Reads:** Fresh   **Fixed arguments:** None
+**Syntax:** `.style[property]`   **Signature:** `property`: `String` → `String?`   **Reads:** Fresh   **Fixed arguments:** None
 
 **Result.** The property's computed value, custom properties included, null where the element is detached or the value is empty
 
@@ -497,7 +497,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 ### List: item
 
-`:item[index]`, the default indexer `:[index]`, is a function [Lexica's own module](https://github.com/FormaUI/Lexica/blob/main/spec/vocabulary.md#vocabulary-list-members) declares, which owns lists, and Lexica's specification defines.
+The unnamed indexer, `[index]`, is a function [Lexica's own module](https://github.com/FormaUI/Lexica/blob/main/spec/vocabulary.md#vocabulary-list-members) declares, which owns lists, and Lexica's specification defines.
 
 <a id="function-list-max-min-sum"></a>
 
@@ -525,7 +525,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 DOMQL tests the DOM with [Boolean functions](https://github.com/FormaUI/Lexica/blob/main/spec/vocabulary.md#vocabulary-boolean-functions), functions whose result is a Boolean: of a state the user, the browser or the page sets and clears over time, as `it.checked()` is; of a presence, as `it.focus()` is; and of a capability, as `domql.window.share()` is. A query calls one on its receiver, calls it through its module, `domql.checked(it)`, or gives it by reference to one of [Lexica's verbs](https://github.com/FormaUI/Lexica/blob/main/spec/vocabulary.md#vocabulary-verbs), `it.is(domql.checked)`, and each way reaches the one declaration, whose observations follow it.
 
-Each applies to the receivers it declares, takes no argument, and answers a Boolean or fails the evaluation. A Boolean that follows from the receiver's structure, or from another member's value, is a property of it, as `attached`, `hasChildren` and `hasSelection` are. Boolean functions compose as Booleans do: `it:class["open"] and it.focusWithin()`.
+Each applies to the receivers it declares, takes no argument, and answers a Boolean or fails the evaluation. A Boolean that follows from the receiver's structure, or from another member's value, is a property of it, as `attached`, `hasChildren` and `hasSelection` are. Boolean functions compose as Booleans do: `it.class["open"] and it.focusWithin()`.
 
 <a id="conditions-condition-declarations"></a>
 
@@ -566,7 +566,7 @@ The built-in vocabulary declares these Boolean functions, each with its native s
 
 **Syntax:** `disabled()`   **Reads:** Fresh
 
-**True when.** The element matches `:disabled`, as the browser decides it: by its own `disabled` attribute, a disabled ancestor `fieldset` other than through that fieldset's first `legend`, or a disabled `optgroup` holding an `option`; whether it carries a `disabled` attribute is `it:["disabled"]`, a separate question
+**True when.** The element matches `:disabled`, as the browser decides it: by its own `disabled` attribute, a disabled ancestor `fieldset` other than through that fieldset's first `legend`, or a disabled `optgroup` holding an `option`; whether it carries a `disabled` attribute is `it["disabled"]`, a separate question
 
 **Changes.** Observable: its own and its ancestors' `disabled` attributes and the structure between them
 
@@ -763,7 +763,7 @@ Each reads the element's own attribute under a contract of its own, falling back
 
 **Changes.** Observable: its `aria-disabled` attribute
 
-So `it.checked() or it.aria.checked()` is whether either says checked, and `it.aria:["checked"] == "mixed"` tells a mixed state, which the ARIA view's `checked` answers false for, from the others. The ARIA view's default indexer reads the attribute written on the element, as `it:["aria-checked"]` does, and never the element's effective accessibility state.
+So `it.checked() or it.aria.checked()` is whether either says checked, and `it.aria["checked"] == "mixed"` tells a mixed state, which the ARIA view's `checked` answers false for, from the others. The ARIA view's unnamed indexer reads the attribute written on the element, as `it["aria-checked"]` does, and never the element's effective accessibility state.
 
 No other ARIA attribute has a Boolean function until one is declared, each with a contract of its own, since not every ARIA attribute is a Boolean; an extension declares one on the ARIA view, a type it does not own, as the [rules for extensions](https://github.com/FormaUI/Lexica/blob/main/spec/modules.md#extensions) let any module do.
 

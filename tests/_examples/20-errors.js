@@ -1,5 +1,5 @@
 try {
-    domql.query('panel:[200]', { panel }).evaluate();
+    domql.query('panel[200]', { panel }).evaluate();
 } catch (error) {
     if (error?.name !== 'LexicaError') {
         throw error;
@@ -8,5 +8,5 @@ try {
     console.error(error.kind, error.message, error.location);
     // validation
     // The argument 'name' of 'attribute' expects string and finds number
-    // (line 1, column 8, at /expression/argument)
+    // (line 1, column 7, at /expression/argument)
 }

@@ -35,7 +35,7 @@ In this document:
 | Built-in vocabulary | What DOMQL's module, `domql`, declares | [Built-in vocabulary](vocabulary.md#built-in-vocabulary) |
 | Node | A value of the DOM tree, of a kind of node: an element, a document, a document fragment or a shadow root | [Nodes](nodes-and-shadow-trees.md#nodes) |
 | Shadow view | An element's `shadow`, whose members answer its shadow relationships | [The view](nodes-and-shadow-trees.md#shadow-trees-the-view) |
-| ARIA view | An element's `aria`, whose Boolean functions and default indexer read its own ARIA attributes | [Boolean functions](vocabulary.md#boolean-functions) |
+| ARIA view | An element's `aria`, whose Boolean functions and unnamed indexer read its own ARIA attributes | [Boolean functions](vocabulary.md#boolean-functions) |
 | A node's root | The root of the tree the node is in | [Trees and slots](nodes-and-shadow-trees.md#trees-and-slots) |
 | Flat-tree ancestors | The nodes reached from a node step by step, through the slot it is assigned to, a shadow root's host, or its parent | [Trees and slots](nodes-and-shadow-trees.md#trees-and-slots) |
 | A node's roots | The roots of the trees that hold or can show a node, collected along its flat-tree ancestry | [Trees and slots](nodes-and-shadow-trees.md#trees-and-slots) |

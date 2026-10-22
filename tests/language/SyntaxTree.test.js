@@ -16,13 +16,13 @@ describe('SyntaxTree', () => {
         'panel',
         '  panel.size  ',
         '// A panel.\npanel { /* its\nfirst item */ open = it.first(".item") /* inline */.matches(/**/".open") // whether it is open\n}\n',
-        'panel {\n    let rows = it.all("tr"),\n\n    count = rows.count,\n    first = rows:[0]?:["data-key"]\n}',
+        'panel {\n    let rows = it.all("tr"),\n\n    count = rows.count,\n    first = rows[0]?["data-key"]\n}',
         'if let n = a to number then n elseif b then 1 else (?panel.parent.rect).width end',
         '\t(a ?? b)\tas element',
         '(?(panel.parent as element).rect.width) == null and not x != y or (try v to number ?? 0)',
         'a/* the value */to/* its type */number',
         '{ say = "say \\"hi\\" \\\\ // not a comment" }',
-        'list:item[i]?.size // trailing comment with no line feed',
+        'list[i]?.size // trailing comment with no line feed',
         '$"a {{b}} {  c ?? "}" /* } */ } and {$"{({ d = 1 }.d)}"}\\u{7B}"',
         "{\n    a = '''\n        raw \\d\n        ''', // a comment\n    b = $\"\"\"\r\n      {c} and {{d}}\r\n      \"\"\"\n}",
     ])('reconstructs its text exactly, whitespace and comments included: %j', text => {
@@ -69,7 +69,8 @@ describe('SyntaxTree', () => {
         expect(kindsOf(treeOf('panel.closest(".row")?.rect { top = it.top }'))).toEqual(['script', 'chain', 'member-call', 'dot-property-access', 'object', 'field', 'chain', 'dot-property-access']);
         expect(kindsOf(treeOf('(?a.b) ?? (c as node)'))).toEqual(['script', 'coalescing', 'optional-enclosed-access', 'member-chain', 'dot-property-access', 'parenthesized-expression', 'cast']);
         expect(kindsOf(treeOf('if let v = a then v else 0 end'))).toEqual(['script', 'conditional-expression', 'conditional-binding']);
-        expect(kindsOf(treeOf('panel[name]?:attribute["id"]'))).toEqual(['script', 'chain', 'bracket-property-access', 'indexer']);
+        expect(kindsOf(treeOf('panel.[name]?.attribute["id"]'))).toEqual(['script', 'chain', 'computed-property-access', 'dot-property-access', 'indexer']);
+        expect(kindsOf(treeOf('node as domql.element'))).toEqual(['script', 'cast', 'type-name']);
         expect(kindsOf(treeOf('domql.window.size', new Set(['domql'])))).toEqual(['script', 'chain', 'namespace-access', 'dot-property-access']);
     });
 
@@ -84,8 +85,8 @@ describe('SyntaxTree', () => {
         const texts = [
             'if let v = a then v elseif not b then 1 else 2 end',
             'a == b and c != d or (try e to number ?? 0)',
-            '(?(panel.parent as element).rect.width) ?? panel.closest(".row")?.rect { top = it.top }',
-            'panel { let rows = it.all("i"), first = rows:[0]?:["data-key"], name = it[name], open = it.matches(".x") }',
+            '(?(panel.parent as domql.element).rect.width) ?? panel.closest(".row")?.rect { top = it.top }',
+            'panel { let rows = it.all("i"), first = rows[0]?["data-key"], name = it.[name], open = it.matches(".x") }',
             '-a * 2 + b % 3 - c / d',
             '0 < a <= 1 and b > c >= d',
             '$"a {b}"',
@@ -104,7 +105,7 @@ describe('SyntaxTree', () => {
     it.each([
         ['an unexpected character', 'a # b', '#', "Unexpected '#'"],
         ['a single exclamation mark', 'a ! 1', '!', "Unexpected '!': an inequality is written '!='"],
-        ['a string never closed', 'a:["key', '"key', 'A string is never closed'],
+        ['a string never closed', 'a["key', '"key', 'A string is never closed'],
         ['an escape no escape is for', '"a\\qb" == x', '"a\\qb"', 'A string escapes only'],
         ['a block comment never closed', 'a /* open', '/* open', 'A block comment is never closed'],
         ['an @ with a space after it', '@ to', '@', "An identifier follows '@' directly, as @to"],
@@ -131,7 +132,7 @@ describe('SyntaxTree', () => {
     });
 
     it('lowers into the definition a query of the text holds, which keeps nothing of the tree', () => {
-        const text = 'panel { let rows = it.all("i"), first = rows:[0]?:["data-key"] }';
+        const text = 'panel { let rows = it.all("i"), first = rows[0]?["data-key"] }';
         const { definition } = Lowering.lower(treeOf(text));
 
         expect(definition).toEqual(domql.query(text).definition);

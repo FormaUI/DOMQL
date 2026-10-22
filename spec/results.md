@@ -15,8 +15,8 @@ A query's **result** is data: an evaluation answers it once, and a watch reports
 ```js
 const live = domql.query(`
     list.children {
-        key = it:["data-key"],
-        selected = it.aria:["selected"] == "true"
+        key = it["data-key"],
+        selected = it.aria["selected"] == "true"
     }
 `, { list }).watch({ updateStrategy: "liveState" });
 
@@ -72,7 +72,7 @@ A watch keeps its result as live state when its caller chooses it as its update 
 
 A watch reports a snapshot that differs from the last one it reported, compared field by field and item by item. Strings, Booleans and null compare exactly; a number compares within the tolerance its member declares, and exactly where it declares none; a number arithmetic computed compares exactly, whatever tolerance a member it reads declares.
 
-A number a conditional gave compares within the tolerance of the member its branch read where the number last reported came from the same branch, and exactly where it came from another, which is a different reading whose difference no tolerance absorbs. A number a coalescing operator gave compares the same way, by the side it came from, its value or its fallback, one an `and` or an `or` gave by the operand it answered, and one a bracket property access gave by the property its name selected. A conditional can select a different branch at each place in the result, as for each item of a list, and each place is compared by the branch selected there.
+A number a conditional gave compares within the tolerance of the member its branch read where the number last reported came from the same branch, and exactly where it came from another, which is a different reading whose difference no tolerance absorbs. A number a coalescing operator gave compares the same way, by the side it came from, its value or its fallback, one an `and` or an `or` gave by the operand it answered, and one a computed property access gave by the property its name selected. A conditional can select a different branch at each place in the result, as for each item of a list, and each place is compared by the branch selected there.
 
 <a id="results-keeping-a-copy"></a>
 <a id="domql-and-its-host"></a>

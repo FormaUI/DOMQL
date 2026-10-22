@@ -36,26 +36,26 @@ The query reads it:
     panel = panel {
         size = it.size,
         hasFocus = it.focusWithin(),
-        tier = it:style["--layout-tier"],
+        tier = it.style["--layout-tier"],
         columns = it.grid?.columns.count
     },
 
     // Every item, and the items in the panel's view; the field above hides
     // the binding panel, which ~panel reads.
     items = rows {
-        key = it:["data-key"],
+        key = it["data-key"],
         height = it.rect?.height,
-        selected = it.aria:["selected"] == "true"
+        selected = it.aria["selected"] == "true"
     },
     inView = rows.where(it.intersects({ root = ~panel })).count,
     tallest = rows.max(it.rect?.height),
 
     // Whether the end of the list is near, and which item is selected.
     nearEnd = sentinel.intersects({ root = ~panel, margin = 200 }),
-    current = ~panel.first("[aria-selected=true]")?:["data-key"],
+    current = ~panel.first("[aria-selected=true]")?["data-key"],
 
     // The window around it.
-    window = domql.window { size = it.size, dark = it:media["(prefers-color-scheme: dark)"] },
+    window = domql.window { size = it.size, dark = it.media["(prefers-color-scheme: dark)"] },
     visible = domql.document.visible(),
     kind = "list"
 }
@@ -95,14 +95,14 @@ Watching the query requires accepting partial observation, since `all`, `style`,
 | --- | --- |
 | Whether an element is near the end of a scrolling panel | `sentinel.intersects({ root = panel, margin = 200 })` |
 | How many items of a list are in its view | `list.all("li").where(it.intersects({ root = list })).count` |
-| A layout tier a container query sets | `header:style["--layout-tier"]` |
+| A layout tier a container query sets | `header.style["--layout-tier"]` |
 | How many columns a grid lays out | `cards.grid?.columns.count` |
 | A table's tallest row | `table.all("tbody tr").max(it.rect?.height)` |
-| Each column's key and width | `table.all("[data-column]") { key = it:["data-column"], width = it.rect?.width }` |
+| Each column's key and width | `table.all("[data-column]") { key = it["data-column"], width = it.rect?.width }` |
 | A panel's size, and whether focus is within it | `panel { size = it.size, hasFocus = it.focusWithin() }` |
 | A text field's selection | `field.selection { start = it.start, finish = it.end }` |
 | Whether sharing is available | `domql.window.share()` |
-| The ids of the text-editable elements in a panel | `panel.all("*").where(it.textEditable()) { id = it:["id"] }` |
+| The ids of the text-editable elements in a panel | `panel.all("*").where(it.textEditable()) { id = it["id"] }` |
 | An element's states and what it holds | `target { attached = it.attached, disabled = it.disabled(), hasChildren = it.hasChildren, hasSelection = it.hasSelection }` |
 | Whether a control cannot take text | `input.disabled() or input.readonly()` |
 | A control's state, one word | `input { state = if it.disabled() then "locked" elseif it.readonly() then "read" else "open" end }` |

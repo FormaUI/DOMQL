@@ -123,7 +123,7 @@ describe('DomqlQuery', () => {
 
         it('answers a stopped listener of a watch, which hears nothing', async () => {
             const heard = [];
-            const watch = isolated.query('panel:attribute["data-n"]', { panel }).watch({ schedule: 'immediate' });
+            const watch = isolated.query('panel.attribute["data-n"]', { panel }).watch({ schedule: 'immediate' });
             const listener = watch.subscribe('change', (sender, args) => heard.push(args.value), { signal: aborted() });
 
             await settle();
@@ -143,7 +143,7 @@ describe('DomqlQuery', () => {
             vi.spyOn(signal, 'addEventListener').mockImplementation((type, listener) => added.push(listener));
             vi.spyOn(signal, 'removeEventListener').mockImplementation((type, listener) => removed.push(listener));
 
-            const watch = isolated.query('panel:attribute["data-n"]', { panel }).watch({ schedule: 'immediate', signal });
+            const watch = isolated.query('panel.attribute["data-n"]', { panel }).watch({ schedule: 'immediate', signal });
             const listener = watch.subscribe('change', () => {}, { signal });
             const events = isolated.query('panel.beat("beat")', { panel }).subscribe(() => {}, { signal });
             const execution = isolated.query('panel.glow()', { panel }).run({ signal });
@@ -160,7 +160,7 @@ describe('DomqlQuery', () => {
 
     describe('a watch\'s listeners', () => {
         it('receive the result the watch has first when they subscribe late, and the changes after it', async () => {
-            const watch = isolated.query('panel:attribute["data-n"]', { panel }).watch({ schedule: 'immediate' });
+            const watch = isolated.query('panel.attribute["data-n"]', { panel }).watch({ schedule: 'immediate' });
 
             await settle();
             panel.setAttribute('data-n', '2');
@@ -180,7 +180,7 @@ describe('DomqlQuery', () => {
         it('each receive the event where another throws, the failure reaching the watch\'s error listeners', async () => {
             const heard = [];
             const errors = [];
-            const watch = isolated.query('panel:attribute["data-n"]', { panel }).watch({ schedule: 'immediate' });
+            const watch = isolated.query('panel.attribute["data-n"]', { panel }).watch({ schedule: 'immediate' });
 
             watch.subscribe('change', () => {
                 throw new Error('first');
@@ -201,7 +201,7 @@ describe('DomqlQuery', () => {
 
         it('send a failure of an error listener to the window\'s error reporting, and never to the error listeners again', async () => {
             const errors = [];
-            const watch = isolated.query('panel:attribute["data-n"]', { panel }).watch({ schedule: 'immediate' });
+            const watch = isolated.query('panel.attribute["data-n"]', { panel }).watch({ schedule: 'immediate' });
 
             watch.subscribe('change', () => {
                 throw new Error('change');
@@ -218,7 +218,7 @@ describe('DomqlQuery', () => {
         });
 
         it('send a failure no error listener receives to the window\'s error reporting', async () => {
-            const watch = isolated.query('panel:attribute["data-n"]', { panel }).watch({ schedule: 'immediate' });
+            const watch = isolated.query('panel.attribute["data-n"]', { panel }).watch({ schedule: 'immediate' });
 
             watch.subscribe('change', () => {
                 throw new Error('unheard');
@@ -233,7 +233,7 @@ describe('DomqlQuery', () => {
             ['an event the watch does not raise', watch => watch.subscribe('changes', () => {}), "no 'changes'"],
             ['a handler that is no function', watch => watch.subscribe('change', 'render'), 'function'],
         ])('refuse %s', (_, subscribe, message) => {
-            const watch = isolated.query('panel:attribute["data-n"]', { panel }).watch({ schedule: 'immediate' });
+            const watch = isolated.query('panel.attribute["data-n"]', { panel }).watch({ schedule: 'immediate' });
             let error;
 
             try {
@@ -250,7 +250,7 @@ describe('DomqlQuery', () => {
 
     describe('selected views', () => {
         it('share the watch\'s evaluation, and raise their part only where it changed', async () => {
-            const query = isolated.query('panel { n = it:attribute["data-n"], tally = it.tally, rows = it.children { n = it:attribute["data-n"] } }', { panel });
+            const query = isolated.query('panel { n = it.attribute["data-n"], tally = it.tally, rows = it.children { n = it.attribute["data-n"] } }', { panel });
             const watch = query.watch({ schedule: 'immediate' });
             const second = [];
             const tallies = [];
@@ -281,7 +281,7 @@ describe('DomqlQuery', () => {
 
         it('stop a listener by its own signal, leaving the watch and its other listeners running', async () => {
             const controller = new AbortController();
-            const watch = isolated.query('panel { n = it:attribute["data-n"] }', { panel }).watch({ schedule: 'immediate' });
+            const watch = isolated.query('panel { n = it.attribute["data-n"] }', { panel }).watch({ schedule: 'immediate' });
             const stopped = [];
             const running = [];
             const listener = watch.select('n').subscribe('change', (sender, args) => stopped.push(args.value), { signal: controller.signal });
@@ -301,7 +301,7 @@ describe('DomqlQuery', () => {
 
         it('stop with the watch when its signal aborts, which ends the work it owns', async () => {
             const controller = new AbortController();
-            const watch = isolated.query('panel { n = it:attribute["data-n"], tally = it.tally }', { panel }).watch({ schedule: 'immediate', signal: controller.signal });
+            const watch = isolated.query('panel { n = it.attribute["data-n"], tally = it.tally }', { panel }).watch({ schedule: 'immediate', signal: controller.signal });
             const listener = watch.select('n').subscribe('change', () => {});
 
             await settle();
@@ -315,8 +315,8 @@ describe('DomqlQuery', () => {
         });
 
         it('check a path\'s fit against the result at once, and belong to snapshot watches alone', () => {
-            const watch = isolated.query('panel { n = it:attribute["data-n"] }', { panel }).watch({ schedule: 'immediate' });
-            const live = isolated.query('panel { n = it:attribute["data-n"] }', { panel }).watch({ schedule: 'immediate', updateStrategy: 'liveState' });
+            const watch = isolated.query('panel { n = it.attribute["data-n"] }', { panel }).watch({ schedule: 'immediate' });
+            const live = isolated.query('panel { n = it.attribute["data-n"] }', { panel }).watch({ schedule: 'immediate', updateStrategy: 'liveState' });
 
             expect(() => watch.select('missing')).toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringContaining("'missing'") }));
             expect(() => watch.select('n', 0)).toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringContaining('no list') }));
@@ -335,7 +335,7 @@ describe('DomqlQuery', () => {
         });
 
         it('evaluates the whole query and answers the part, null past a null or an index out of range', () => {
-            const query = isolated.query('panel { n = it:attribute["data-n"], rows = it.children { n = it:attribute["data-n"] } }', { panel });
+            const query = isolated.query('panel { n = it.attribute["data-n"], rows = it.children { n = it.attribute["data-n"] } }', { panel });
 
             expect(query.select('rows', 1, 'n').evaluate()).toBe('2');
             expect(query.select('rows').select(0).evaluate()).toEqual({ n: '1' });
@@ -353,7 +353,7 @@ describe('DomqlQuery', () => {
         });
 
         it('watches the part, raised where it changed, and refuses to keep it as live state', async () => {
-            const selection = isolated.query('panel { n = it:attribute["data-n"], rows = it.children { n = it:attribute["data-n"] } }', { panel }).select('rows', 0, 'n');
+            const selection = isolated.query('panel { n = it.attribute["data-n"], rows = it.children { n = it.attribute["data-n"] } }', { panel }).select('rows', 0, 'n');
             const watch = selection.watch({ schedule: 'immediate' });
             const heard = [];
 
@@ -377,7 +377,7 @@ describe('DomqlQuery', () => {
 
             other.setAttribute('data-n', '8');
 
-            const query = isolated.query('panel:attribute["data-n"]', { panel });
+            const query = isolated.query('panel.attribute["data-n"]', { panel });
             const watch = query.watch({ schedule: 'immediate' });
             const rebound = query.with({ panel: other });
 
@@ -392,7 +392,7 @@ describe('DomqlQuery', () => {
         });
 
         it('makes a query from text alone, refusing an operation until a required binding is supplied', () => {
-            const template = isolated.query('panel:attribute["data-n"]');
+            const template = isolated.query('panel.attribute["data-n"]');
 
             expect(() => template.evaluate()).toThrow(expect.objectContaining({ kind: 'validation', message: expect.stringContaining("No local in scope or script parameter is named 'panel'") }));
             expect(template.with({ panel }).evaluate()).toBe('1');
@@ -402,7 +402,7 @@ describe('DomqlQuery', () => {
             vi.resetModules();
 
             const { domql: other } = await import('#domql/domql.js');
-            const foreign = other.query('panel:attribute["data-n"]', { panel });
+            const foreign = other.query('panel.attribute["data-n"]', { panel });
 
             expect(() => isolated.query(foreign)).toThrow(expect.objectContaining({ kind: 'structure', message: expect.stringContaining('query.definition') }));
             expect(() => isolated.query(isolated.query('panel', { panel }))).toThrow(expect.objectContaining({ kind: 'structure', message: expect.stringContaining('query.with(bindings)') }));
