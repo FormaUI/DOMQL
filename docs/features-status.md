@@ -26,7 +26,7 @@ DOMQL follows [Lexica's implementation plan](https://github.com/FormaUI/Lexica/b
 
 | Part | Follows | Work | State |
 | --- | --- | --- | --- |
-| 0 | — | [A pinned Lexica](#part-0--a-pinned-lexica) | Done |
+| 0 | — | [A pinned Lexica](#part-0--a-pinned-lexica) | ✅ Done |
 | 1 | Lexica's units 1 and 2 | [Declarations and the runtime](#checkpoint-1--declarations-and-the-runtime) | Planned |
 | 2 | Lexica's unit 3 | [Script text and imports](#checkpoint-2--script-text-and-imports) | Planned |
 | 3 | Lexica's unit 4 | [Collections in results](#checkpoint-3--collections-in-results) | Planned |
@@ -35,7 +35,7 @@ DOMQL follows [Lexica's implementation plan](https://github.com/FormaUI/Lexica/b
 
 ### Part 0 — A pinned Lexica
 
-**Done.** DOMQL builds against Lexica at the commit `lexica.commit` pins, locally and in CI, so Lexica's stages land without reaching it until the pin moves; `LEXICA_SOURCE` links a Lexica checkout's working tree instead, for a change made in both. `CLAUDE.md` and `CONTRIBUTING.md` describe both, and the README names definition version 33.
+✅ **Done.** DOMQL builds against Lexica at the commit `lexica.commit` pins, locally and in CI, so Lexica's stages land without reaching it until the pin moves; `LEXICA_SOURCE` links a Lexica checkout's working tree instead, for a change made in both. `CLAUDE.md` and `CONTRIBUTING.md` describe both, and the README names definition version 33.
 
 ### Checkpoint 1 — Declarations and the runtime
 
