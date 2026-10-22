@@ -25,6 +25,7 @@ The [specification](../spec/README.md) defines the contract; the [design](domql-
 - Declare each of DOMQL's types with its members, its structured types' fields among them, its indexers as the `indexer` kind, with a `name` for a named indexer and without one for a type's unnamed indexer, and `impl`.
 - Declare `on` once in each of `Element`, `Document` and `Window`, the receivers it listens on, reusing one JavaScript declaration.
 - Accept a cast or a conversion naming a type qualified by its module, as `panel as domql.Element`.
+- Name DOMQL's module `Domql`, once Lexica refuses a module whose name begins with a lowercase letter, so its queries read `Domql.document`, `Domql.window` and `panel as Domql.Element`; the package, its file `domql.js` and the product keep their names.
 
 **Completion:** DOMQL's vocabulary in the new shape and its queries on definition version 33 pass the gate, browser tests included.
 
