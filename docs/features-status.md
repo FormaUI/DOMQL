@@ -2,7 +2,7 @@
 
 ## Current state
 
-**DOMQL's vocabulary, queries, watches, events and executions are implemented on Lexica's definition version 33. The next work is [part 0](#part-0--a-pinned-lexica) of the [implementation plan](#implementation-plan): building against a pinned Lexica commit, so DOMQL migrates once at each of its two checkpoints.**
+**DOMQL's vocabulary, queries, watches, events and executions are implemented on Lexica's definition version 33. The next work is [part 0](#part-0--a-pinned-lexica) of the [implementation plan](#implementation-plan): building against a pinned Lexica commit, so DOMQL migrates once at each of its three checkpoints.**
 
 | Version | Implementation | Specification |
 | --- | --- | --- |
@@ -20,7 +20,7 @@ The [specification](../spec/README.md) defines the contract; the [design](domql-
 
 DOMQL follows [Lexica's implementation plan](https://github.com/FormaUI/Lexica/blob/main/docs/features-status.md#implementation-plan), whose units are grouped by the code they rewrite.
 
-- **Two migration checkpoints.** DOMQL builds against a pinned Lexica commit, so Lexica's stages land without breaking it, and migrates once after Lexica's unit 2 and once after its unit 3; the release then changes how it consumes Lexica, through the published packages. Each checkpoint moves every aspect it touches to its final form, and passes DOMQL's gate, browser tests included, on the Lexica commit it pins.
+- **Three migration checkpoints.** DOMQL builds against a pinned Lexica commit, so Lexica's stages land without breaking it, and migrates once after Lexica's unit 2, once after its unit 3, and once after its unit 4; the release then changes how it consumes Lexica, through the published packages. Each checkpoint moves every aspect it touches to its final form, and passes DOMQL's gate, browser tests included, on the Lexica commit it pins.
 - **Breaking changes are made directly,** without compatibility layers, migration notes or deprecations, until the beta.
 - **Documents move with their checkpoint.** The READMEs, the library guide, the specification, the type declarations and this file change in the checkpoint that changes what they describe.
 
@@ -29,8 +29,9 @@ DOMQL follows [Lexica's implementation plan](https://github.com/FormaUI/Lexica/b
 | 0 | — | [A pinned Lexica](#part-0--a-pinned-lexica) | Planned |
 | 1 | Lexica's units 1 and 2 | [Declarations and the runtime](#checkpoint-1--declarations-and-the-runtime) | Planned |
 | 2 | Lexica's unit 3 | [Script text and imports](#checkpoint-2--script-text-and-imports) | Planned |
-| 3 | Checkpoint 2 | [The C# half](#part-3--the-c-half) | Planned |
-| Release | Lexica's unit 6 | [Release work](#release-work) | Planned |
+| 3 | Lexica's unit 4 | [Collections in results](#checkpoint-3--collections-in-results) | Planned |
+| 4 | Checkpoint 3 | [The C# half](#part-4--the-c-half) | Planned |
+| Release | Lexica's unit 7 | [Release work](#release-work) | Planned |
 
 ### Part 0 — A pinned Lexica
 
@@ -80,11 +81,25 @@ DOMQL's queries move to Lexica's script text once, on Lexica's unit 3 commit.
 
 Contracts: [Queries](../spec/queries.md), [the API](../spec/api.md).
 
-### Part 3 — The C# half
+### Checkpoint 3 — Collections in results
 
-The C# half follows checkpoint 2, so its API is built on the final query text, imports and definition version 34, never reworked after them.
+DOMQL's handling of results moves once to Lexica's collections, on Lexica's unit 4 commit.
+
+- **Comparing and patching:** `SnapshotComparer`, `SnapshotPatcher` and live state compare and apply dictionaries, in their exported form `{ entries: [{ key, value }, …] }` and in their order, and pairs, `{ key, value }`, every change set reproducing the next result from its baseline.
+- **Addressing:** result paths and selections address the exported forms, a numeric dictionary key never taken for a list index, and say whether a selection follows a position or a key.
+- **Matching:** items matched by the sources and the lineage Lexica reports, as [checkpoint 1](#checkpoint-1--declarations-and-the-runtime) matches by sources, DOMQL deciding the policy and Lexica promising no unique correspondence.
+- **Documents:** the results document and the API describe dictionaries and pairs in results.
+
+**Completion:** DOMQL's results holding lists and dictionaries pass the gate, browser tests included, on Lexica's unit 4 commit.
+
+Contracts: [Results](../spec/results.md), [Lexica's collections](https://github.com/FormaUI/Lexica/blob/main/docs/proposals/collections.md).
+
+### Part 4 — The C# half
+
+The C# half follows checkpoint 3, so its API is built on the final query text, imports, definition version and result representations, never reworked after them.
 
 - **Its API,** as [the design](domql-design.md#the-c-half) sets out: `Domql.Query` and `Domql.Query<T>` from text or a definition, binding its parameters; `Domql.TryQuery`, answering false with a diagnostic for a syntax or structure failure; and `query.Definition`. A `DomqlQuery<T>` maps a result onto `T` by its declared contract, and a `DomqlQuery` answers a `DomqlSnapshot`.
+- **Results:** lists, dictionaries and pairs mapped onto `T` and read through a `DomqlSnapshot` by their exported forms.
 - **Imports:** the effective imports checkpoint 2 sets, `Domql` and those the application configures among them, applied as the JavaScript half applies them.
 - **Its adapter's synchronization:** live state with its baseline from the first ready event, one update at a time, no partial state, obsolete watches rejected, recovery from uncertainty, and handler failures reported, not retried.
 - **One way of applying:** its application of change sets passes the conformance corpus the JavaScript patcher passes too.
@@ -108,7 +123,7 @@ Complete the implementation plan, in Lexica and DOMQL, before publishing package
 2. Write the NuGet bundle with `../lexica/lexica.js` as an import, and the npm bundle with `@formaui/lexica`, rather than carrying Lexica inside.
 3. Have the gate check that DOMQL's packages depend on Lexica's and Lexica's on nothing of DOMQL's, and run DOMQL's tests against the packaged Lexica.
 
-Needs Lexica's packages, which its [unit 6](https://github.com/FormaUI/Lexica/blob/main/docs/features-status.md#unit-6--release) publishes.
+Needs Lexica's packages, which its [unit 7](https://github.com/FormaUI/Lexica/blob/main/docs/features-status.md#unit-7--release) publishes.
 
 ### Packages
 
@@ -133,7 +148,7 @@ This work is separate from the implementation plan above. No order is assigned h
 
 | Work | Status | Remaining |
 | --- | --- | --- |
-| Editor tooling | Planned | Lexica's, through its syntax tree, in its [unit 5](https://github.com/FormaUI/Lexica/blob/main/docs/features-status.md#unit-5--tooling) |
+| Editor tooling | Planned | Lexica's, through its syntax tree, in its [unit 6](https://github.com/FormaUI/Lexica/blob/main/docs/features-status.md#unit-6--tooling) |
 
 **Verification outside the gate.** `domql.window.size` following a scrollbar that appears or goes is shown only by an experiment outside the gate, since the gate's Chromium hides scrollbars; a browser test with a launch of its own would bring it in without changing the other tests' geometry. Performance is measured outside the gate too, by `npm run bench` and `npm run scale` from `tests/`.
 
