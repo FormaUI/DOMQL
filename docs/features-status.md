@@ -22,7 +22,8 @@ The [specification](../spec/README.md) defines the contract; the [design](domql-
 
 **Step 1 — Planned, not started.** Move DOMQL's vocabulary to Lexica's declaration model, as Lexica's step 1 delivers it, and read definition version 33.
 
-- Declare each of DOMQL's types with its members, its structured types' fields among them, and use the `indexer` and `default-indexer` kinds and `impl`.
+- Declare each of DOMQL's types with its members, its structured types' fields among them, its indexers as the `indexer` kind, with a `name` for a named indexer and without one for a type's unnamed indexer, and `impl`.
+- Move DOMQL's indexer and computed property forms to Lexica's: `:attribute[…]`, `:class[…]`, `:media[…]` and `:style[…]` to `.attribute[…]`, `.class[…]`, `.media[…]` and `.style[…]`, `:item[…]` and `:[…]` to a type's unnamed indexer, `[…]`, and a property read by a computed name from `[…]` to `.[…]`, in its specification, queries, examples, READMEs and guide.
 - Name its types in PascalCase: `Element`, `Size`, `Rectangle`, `PointerEvent` and the rest.
 - Declare `on` once in each of `Element`, `Document` and `Window`, the receivers it listens on, reusing one JavaScript declaration.
 - Accept a cast or a conversion naming a type qualified by its module, as `panel as domql.Element`, and move DOMQL's queries, examples, READMEs and guide to the PascalCase type names.
