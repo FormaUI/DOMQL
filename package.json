@@ -9,6 +9,6 @@
         "esbuild": "^0.25.0"
     },
     "dependencies": {
-        "@formaui/lexica": "file:../formaui-net.Lexica"
+        "@formaui/lexica": "file:.lexica"
     }
 }

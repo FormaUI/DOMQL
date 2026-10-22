@@ -14,16 +14,15 @@ You'll need:
 - PowerShell to run the build scripts.
 - The .NET SDK pinned in `nuget/global.json`.
 
-DOMQL is written in [Lexica](https://github.com/FormaUI/Lexica), which it depends on through a checkout beside this one, until a Lexica package is released. Clone both into one folder, `formaui-net.Lexica` beside `formaui-net.DOMQL`.
+DOMQL is written in [Lexica](https://github.com/FormaUI/Lexica), which it builds against at the commit `lexica.commit` pins, taken from a checkout beside this one, until a Lexica package is released. Clone both into one folder, `formaui-net.Lexica` beside `formaui-net.DOMQL`.
 
-After cloning the repositories, install the dependencies, the root's linking Lexica's checkout, and run the unit tests:
+After cloning the repositories, run the build, which extracts the pinned Lexica into `.lexica`, installs the dependencies and runs the unit tests:
 
 ```sh
-npm install
-cd tests
-npm install
-npm test
+pwsh ./build.ps1
 ```
+
+To work on Lexica and DOMQL together, set `LEXICA_SOURCE` to a Lexica checkout, and the build links `.lexica` to its working tree; unset it to build against the pinned commit again.
 
 Run the full build from the repository root:
 

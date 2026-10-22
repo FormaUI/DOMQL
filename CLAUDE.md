@@ -40,7 +40,7 @@ Add a folder when a new responsibility needs one. Keep dependencies in this dire
 - `dom/` may depend on Lexica and `snapshots/`.
 - `snapshots/` may depend on Lexica.
 
-The language is [Lexica](https://github.com/FormaUI/Lexica), the package `@formaui/lexica`, which DOMQL imports by its name and depends on through `file:../formaui-net.Lexica`, a checkout beside this one, until a Lexica package is released. A change to the language is made there, and a change DOMQL needs of it in both repositories together.
+The language is [Lexica](https://github.com/FormaUI/Lexica), the package `@formaui/lexica`, which DOMQL imports by its name and depends on through `file:.lexica`, until a Lexica package is released. `build.ps1` fills `.lexica` with Lexica at the commit `lexica.commit` pins, taken from a checkout beside this one, `formaui-net.Lexica`, so a Lexica commit reaches DOMQL only when `lexica.commit` moves to it; with `LEXICA_SOURCE` naming a Lexica checkout, `.lexica` links to that checkout's working tree instead. A change to the language is made there, and a change DOMQL needs of it in both repositories together, with `LEXICA_SOURCE` set, moving `lexica.commit` once Lexica's commit exists.
 
 Pass the window and document into DOM code; do not read globals there. Importing the language layer and resolving a query must work without a DOM.
 

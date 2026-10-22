@@ -2,7 +2,7 @@
 
 ## Current state
 
-**DOMQL's vocabulary, queries, watches, events and executions are implemented on Lexica's definition version 33. The next work is [part 0](#part-0--a-pinned-lexica) of the [implementation plan](#implementation-plan): building against a pinned Lexica commit, so DOMQL migrates once at each of its three checkpoints.**
+**DOMQL's vocabulary, queries, watches, events and executions are implemented on Lexica's definition version 33. DOMQL builds against a pinned Lexica commit, [part 0](#part-0--a-pinned-lexica) of the [implementation plan](#implementation-plan), so it migrates once at each of its three checkpoints; the next is [checkpoint 1](#checkpoint-1--declarations-and-the-runtime), once Lexica's units 1 and 2 land.**
 
 | Version | Implementation | Specification |
 | --- | --- | --- |
@@ -26,7 +26,7 @@ DOMQL follows [Lexica's implementation plan](https://github.com/FormaUI/Lexica/b
 
 | Part | Follows | Work | State |
 | --- | --- | --- | --- |
-| 0 | — | [A pinned Lexica](#part-0--a-pinned-lexica) | Planned |
+| 0 | — | [A pinned Lexica](#part-0--a-pinned-lexica) | Done |
 | 1 | Lexica's units 1 and 2 | [Declarations and the runtime](#checkpoint-1--declarations-and-the-runtime) | Planned |
 | 2 | Lexica's unit 3 | [Script text and imports](#checkpoint-2--script-text-and-imports) | Planned |
 | 3 | Lexica's unit 4 | [Collections in results](#checkpoint-3--collections-in-results) | Planned |
@@ -35,8 +35,7 @@ DOMQL follows [Lexica's implementation plan](https://github.com/FormaUI/Lexica/b
 
 ### Part 0 — A pinned Lexica
 
-- DOMQL's dependency names one Lexica commit, which local builds and CI both build against, in place of CI's checkout of Lexica's `main`; a `LEXICA_SOURCE` setting points DOMQL at a local checkout for coordinated changes, and `CLAUDE.md` and `CONTRIBUTING.md` describe both.
-- The README names the definition version DOMQL reads, 33, in place of 32.
+**Done.** DOMQL builds against Lexica at the commit `lexica.commit` pins, locally and in CI, so Lexica's stages land without reaching it until the pin moves; `LEXICA_SOURCE` links a Lexica checkout's working tree instead, for a change made in both. `CLAUDE.md` and `CONTRIBUTING.md` describe both, and the README names definition version 33.
 
 ### Checkpoint 1 — Declarations and the runtime
 
@@ -115,7 +114,7 @@ Complete the implementation plan, in Lexica and DOMQL, before publishing package
 
 ### Consuming Lexica
 
-**Current:** DOMQL depends on `@formaui/lexica` through `file:../formaui-net.Lexica`, a local link to a checkout beside this one, imports Lexica's entry point alone, and bundles it into `domql.js`. It requires that checkout at Lexica's commit `62e528b` or later, the last Lexica commit it moved with. Lexica's tests that run through DOMQL's entry point are DOMQL's integration tests.
+**Current:** DOMQL depends on `@formaui/lexica` through `file:.lexica`, which the build fills with Lexica at the commit `lexica.commit` pins, `0e98b3e`, taken from a checkout beside this one, or links to the checkout `LEXICA_SOURCE` names; CI checks Lexica out at the same commit. It imports Lexica's entry point alone, and bundles it into `domql.js`. Lexica's tests that run through DOMQL's entry point are DOMQL's integration tests.
 
 **Remaining:**
 

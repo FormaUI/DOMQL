@@ -1,6 +1,9 @@
 # Dependencies, installed by npm in the repository root and in tests/.
 node_modules/
 
+# Lexica at the commit lexica.commit pins, or a link to the checkout LEXICA_SOURCE names, which build.ps1 prepares; without a trailing slash, so a link is ignored as a folder is.
+/.lexica
+
 # The package project's build output and the packed package.
 nuget/bin/
 nuget/obj/
