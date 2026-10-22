@@ -39,7 +39,7 @@ const indexerModules = () => {
  * and `reconcile` compares two snapshots as the watch's comparer does. `wobble` answers a size within the tolerance given, `maybe` a size that can be null within it, `girth` a size and `steady` a number with none.
  */
 const watchOf = (text, bindings, { tolerance = 0.5 } = {}) => {
-    const registry = new LexicaRegistry([Vocabulary.module, BrowserModule.create(), property('wobble', 'Size', tolerance), property('maybe', 'Size?', tolerance), property('girth', 'Size'), property('steady', 'Number?'), ...indexerModules()]);
+    const registry = new LexicaRegistry([Vocabulary.module, BrowserModule.create(), property('wobble', 'domql.Size', tolerance), property('maybe', 'domql.Size?', tolerance), property('girth', 'domql.Size'), property('steady', 'Number?'), ...indexerModules()]);
     const definition = ParsedTexts.parse(text);
     const locations = ParsedTexts.locationsOf(definition);
     const comparer = new SnapshotComparer();

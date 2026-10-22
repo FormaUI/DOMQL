@@ -77,7 +77,7 @@ Complete the types and members work, in Lexica and DOMQL, before publishing pack
 
 ### Consuming Lexica
 
-**Current:** DOMQL depends on `@formaui/lexica` through `file:../formaui-net.Lexica`, a local link to a checkout beside this one, imports Lexica's entry point alone, and bundles it into `domql.js`. It requires that checkout at Lexica's commit `7cbea35` or later, the step 1 checkpoint it last moved with. Lexica's tests that run through DOMQL's entry point are DOMQL's integration tests.
+**Current:** DOMQL depends on `@formaui/lexica` through `file:../formaui-net.Lexica`, a local link to a checkout beside this one, imports Lexica's entry point alone, and bundles it into `domql.js`. It requires that checkout at Lexica's commit `62e528b` or later, the step 1 checkpoint it last moved with. Lexica's tests that run through DOMQL's entry point are DOMQL's integration tests.
 
 **Remaining:**
 

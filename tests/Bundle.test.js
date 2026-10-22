@@ -18,7 +18,8 @@ describe('Bundle', () => {
     });
 
     it('is one file that imports nothing', () => {
-        expect(text).not.toMatch(/\bimport\s*[({"'*\w]/);
+        // An import begins a statement, or calls import(); a string naming the word, as a declaration's import field does, is neither.
+        expect(text).not.toMatch(/(?:^|[;{}])\s*import\s*[{"'*\w]|\bimport\s*\(/m);
     });
 
     it('exports domql and LexicaError alone', () => {

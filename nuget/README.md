@@ -783,7 +783,7 @@ Node.js can create and resolve queries without a DOM. Evaluation requires a supp
 
 ## Extend the vocabulary
 
-Modules add capabilities to DOMQL without changing its syntax. Each module supplies declarations describing its types and members, and each declaration that runs code carries the JavaScript function that implements it as its `implementation`.
+Modules add capabilities to DOMQL without changing its syntax. Each module supplies declarations describing its types and members, and each declaration that runs code carries the JavaScript function that implements it as its `implementation`. A declaration names its own module's types and the language's, as `Number` and `Element`, by their names, and another module's qualified by that module's name, as `domql.Rectangle`.
 
 An implementation receives one object that holds what it is given by name: a member's `receiver`, its `args` by parameter name and the `env` it reads in, the window and the document. Implementations used for synchronous query evaluation must be synchronous and read-only.
 
