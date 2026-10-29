@@ -133,6 +133,7 @@ const DOCUMENTS = {
     ],
     'docs/domql-design.md': [],
     'docs/features-status.md': [],
+    'docs/forma-javascripts-domql-replacement.md': [],
     'README.md': [],
 };
 
