@@ -46,7 +46,7 @@ In this document:
 
 ## How a member changes
 
-Every member declares how its result changes, by the categories [Lexica defines](https://github.com/FormaUI/Lexica/blob/main/spec/members.md#how-a-member-changes), and a watch decides by each what it may follow:
+Every member declares how its result changes, by the categories [Lexica defines](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/members.md#how-a-member-changes), and a watch decides by each what it may follow:
 
 | Category | As in DOMQL | In a watch |
 | --- | --- | --- |

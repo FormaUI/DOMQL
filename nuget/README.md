@@ -2,9 +2,9 @@
 
 **A declarative approach to managing the DOM.**
 
-DOMQL is a JavaScript library for querying the DOM, allowing you to read information from a document once or observe it as it changes. This guide takes you from your first query to watching results, handling events and extending the library. Its queries are written in [Lexica](https://github.com/FormaUI/Lexica).
+DOMQL is a JavaScript library for querying the DOM, allowing you to read information from a document once or observe it as it changes. This guide takes you from your first query to watching results, handling events and extending the library. Its queries are written in [Lexica](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/README.md), the language now named [Nexo](https://github.com/FormaUI/Nexo).
 
-> **Alpha:** `formaui-net.DOMQL` is not yet published to NuGet. [Build the package locally](#install-and-load) to try it. The package distributes a JavaScript ES module; the API in this guide runs in JavaScript. Every example here runs on this alpha, which reads Lexica's definition version 32; the specifications describe version 33. [The status overview](https://github.com/FormaUI/DOMQL/blob/main/docs/features-status.md) says what is implemented and what is being built.
+> **Alpha:** `formaui-net.DOMQL` is not yet published to NuGet. [Build the package locally](#install-and-load) to try it. The package distributes a JavaScript ES module; the API in this guide runs in JavaScript. Every example here runs on this alpha, on Lexica's language `1.0.0-alpha.33`, definition version 33. [The status overview](https://github.com/FormaUI/DOMQL/blob/main/docs/features-status.md) says what is implemented and what is being built.
 
 ## In this guide
 
@@ -819,7 +819,7 @@ Modules can also declare Boolean members, properties and functions whose result 
 
 A member the host invokes, `invokedBy: 'host'`, is a host call that DOMQL carries out: an event source, `requestKind: 'subscription'`, or an execution, `requestKind: 'execution'`, which runs `once` or `continuous` as its `executionMode` says. An event source's implementation receives the receiver, arguments, environment and an event-delivery callback, as `{ receiver, args, env, deliver }`, and returns an object with a `stop` method to end listening. Each event is captured as the type its declaration's result names, and a module adds event types of its own as keys of DOMQL's type selector `event`, each naming the type its events are captured as.
 
-[Lexica's modules](https://github.com/FormaUI/Lexica/blob/main/spec/modules.md#modules) specify the full extension contracts. The next section shows execution modules.
+[Lexica's modules](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/modules.md#modules) specify the full extension contracts. The next section shows execution modules.
 
 ## Execute once and run continuously
 
@@ -911,8 +911,8 @@ console.log(panel.dataset.highlight);
 ## Learn more
 
 - [Repository README](https://github.com/FormaUI/DOMQL): what DOMQL is for, what is built, and how to build and test it.
-- [Lexica specification](https://github.com/FormaUI/Lexica/blob/main/spec/README.md): the language DOMQL is written in, its syntax, types, null semantics and vocabulary contracts.
+- [Lexica specification](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/README.md): the language DOMQL is written in, its syntax, types, null semantics and vocabulary contracts.
 - [DOMQL specification](https://github.com/FormaUI/DOMQL/blob/main/spec/README.md): queries, the DOM's vocabulary, evaluating and watching a query, its results, events, executions, and the API.
-- [DOMQL design](https://github.com/FormaUI/DOMQL/blob/main/docs/domql-design.md): how DOMQL is built, and the decisions it did not take, and the [Lexica design](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md): how the language and its runtime are built.
+- [DOMQL design](https://github.com/FormaUI/DOMQL/blob/main/docs/domql-design.md): how DOMQL is built, and the decisions it did not take, and the [Lexica design](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/docs/lexica-design.md): how the language and its runtime are built.
 
 - [Status](https://github.com/FormaUI/DOMQL/blob/main/docs/features-status.md): what is implemented, what is being built, and what remains.

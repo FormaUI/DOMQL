@@ -14,7 +14,11 @@ You'll need:
 - PowerShell to run the build scripts.
 - The .NET SDK pinned in `nuget/global.json`.
 
-DOMQL is written in [Lexica](https://github.com/FormaUI/Lexica), which it builds against at the commit `lexica.commit` pins, taken from a checkout beside this one, until a Lexica package is released. Clone both into one folder, `formaui-net.Lexica` beside `formaui-net.DOMQL`.
+DOMQL is written in [Lexica](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/README.md), which it builds against at the commit `lexica.commit` pins, taken from a checkout beside this one, until a package of the language is released. Lexica has since been renamed Nexo, and its repository is [FormaUI/Nexo](https://github.com/FormaUI/Nexo), which keeps that commit. Clone it beside this repository under the name the build looks for:
+
+```sh
+git clone https://github.com/FormaUI/Nexo.git formaui-net.Lexica
+```
 
 After cloning the repositories, run the build, which extracts the pinned Lexica into `.lexica`, installs the dependencies and runs the unit tests:
 
@@ -41,8 +45,9 @@ Run the full build from the repository root:
 | `nuget/` | Package project and library guide |
 | `spec/` | The specification, split by subject, with its index |
 | `docs/` | The design and the status overview |
+| `VERSION-HISTORY.md` | Each DOMQL version and what it changed |
 
-The [Lexica specification](https://github.com/FormaUI/Lexica/blob/main/spec/README.md) defines the language and its runtime, and the [DOMQL specification](spec/README.md) the DOM vocabulary, how queries are carried out, and the public API. The [Lexica design](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md) and the [DOMQL design](docs/domql-design.md) set out how each is built. If a change affects either contract, update the relevant document before implementing it. The [status overview](docs/features-status.md) tracks what is implemented, what is being built, and what remains.
+The [Lexica specification](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/README.md) defines the language and its runtime, and the [DOMQL specification](spec/README.md) the DOM vocabulary, how queries are carried out, and the public API. The [Lexica design](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/docs/lexica-design.md) and the [DOMQL design](docs/domql-design.md) set out how each is built. If a change affects either contract, update the relevant document before implementing it. The [status overview](docs/features-status.md) tracks what is implemented, what is being built, and what remains.
 
 ## Develop a change
 

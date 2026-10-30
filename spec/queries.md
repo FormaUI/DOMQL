@@ -82,7 +82,7 @@ const fromDefinition = domql.query(panelQuery.definition, { panel });
 
 ### Binding its parameters
 
-Each parameter is bound under the name the query uses, with a value Lexica's [script parameters and bindings](https://github.com/FormaUI/Lexica/blob/main/spec/scripts.md#scripts-script-parameters) allow, and a result is data, which a caller receives in its own language's form. `with` answers a new query whose bindings replace the old ones whole; the query it was called on, and every operation running from it, are unaffected. A query can be made without its bindings and bound afterwards, and a required binding that is missing fails before anything is carried out.
+Each parameter is bound under the name the query uses, with a value Lexica's [script parameters and bindings](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/scripts.md#scripts-script-parameters) allow, and a result is data, which a caller receives in its own language's form. `with` answers a new query whose bindings replace the old ones whole; the query it was called on, and every operation running from it, are unaffected. A query can be made without its bindings and bound afterwards, and a required binding that is missing fails before anything is carried out.
 
 A binding declares no type: every value is typed from itself, a null, an empty list and a list holding nulls among them, so a query is made for an element that is not there yet as it is for one that is.
 
@@ -109,7 +109,7 @@ A query belongs to the instance of the library that made it, and an instance ref
 
 ## Resolution
 
-A request is resolved before it is first carried out, and resolution validates it against the vocabulary registered then, as Lexica's [resolution](https://github.com/FormaUI/Lexica/blob/main/spec/runtime.md#runtime-bindings-and-resolution) sets out; a module a request names is registered by its caller beforehand. A misspelling or a wrong argument is an error before anything is evaluated; a member's fit to its receiver is checked once the receiver's type is specific enough, which a null receiver's is not; null is always a result.
+A request is resolved before it is first carried out, and resolution validates it against the vocabulary registered then, as Lexica's [resolution](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/runtime.md#runtime-bindings-and-resolution) sets out; a module a request names is registered by its caller beforehand. A misspelling or a wrong argument is an error before anything is evaluated; a member's fit to its receiver is checked once the receiver's type is specific enough, which a null receiver's is not; null is always a result.
 
 `query.resolve(options?)` resolves a request without evaluating anything, and answers its kind, `value`, `subscription` or `execution`, an execution's `executionMode`, null for a request of another kind, and its type, null for an execution that answers no result; it needs no browser. Its options `watch` and `acceptPartialObservation` resolve it as a watch would, so a watch's refusal of a partly observable member, as [accepting partial observation](watches.md#accepting-partial-observation) sets out, is found before a watch starts.
 
@@ -117,7 +117,7 @@ A request is resolved before it is first carried out, and resolution validates i
 
 ## Request kinds and their operations
 
-Evaluating, watching or subscribing to a request reads the document and changes nothing, whatever vocabulary it uses; an [execution](executions.md) explicitly requests effects, carried out only when its caller executes or runs it. The request's source decides its kind: a query gives a value, or ends in a [host call](https://github.com/FormaUI/Lexica/blob/main/spec/members.md#members-host-calls), which DOMQL carries out as its declaration says, by subscribing to an event source, or by executing once or running continuously an execution of that mode. The one entry point serves every request kind, and resolution refuses an operation the kind does not take before anything is evaluated or started, with a validation error that says what the request does and names the operation it takes:
+Evaluating, watching or subscribing to a request reads the document and changes nothing, whatever vocabulary it uses; an [execution](executions.md) explicitly requests effects, carried out only when its caller executes or runs it. The request's source decides its kind: a query gives a value, or ends in a [host call](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/members.md#members-host-calls), which DOMQL carries out as its declaration says, by subscribing to an event source, or by executing once or running continuously an execution of that mode. The one entry point serves every request kind, and resolution refuses an operation the kind does not take before anything is evaluated or started, with a validation error that says what the request does and names the operation it takes:
 
 ```text
 Cannot execute 'panel.size': it produces a value.

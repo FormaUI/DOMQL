@@ -2,7 +2,7 @@
 
 <a id="terms"></a>
 
-Each term this specification uses, what it means, and where its authoritative explanation is. A term here defines nothing its linked document does not, and a term of the language, as a script, a binding, a member or a request kind, is [Lexica's](https://github.com/FormaUI/Lexica/blob/main/spec/terms.md).
+Each term this specification uses, what it means, and where its authoritative explanation is. A term here defines nothing its linked document does not, and a term of the language, as a script, a binding, a member or a request kind, is [Lexica's](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/terms.md).
 
 In this document:
 
@@ -67,7 +67,7 @@ In this document:
 
 | Term | Meaning | Reference |
 | --- | --- | --- |
-| Host call | Lexica's call of a function the host invokes, which ends a query; DOMQL carries each out as an event source or an execution | [Host calls](https://github.com/FormaUI/Lexica/blob/main/spec/members.md#members-host-calls) |
+| Host call | Lexica's call of a function the host invokes, which ends a query; DOMQL carries each out as an event source or an execution | [Host calls](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/members.md#members-host-calls) |
 | Event source | A host call that delivers things that happened, as `on(type)` does | [Event sources](events.md#event-sources) |
 | Event type | A key of DOMQL's type selector `event`, which names the type its events are captured as | [Event types](events.md#event-types) |
 | Subscription | A query whose chain ends in an event source, which shapes each event into data | [Events](events.md#events) |

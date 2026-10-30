@@ -32,6 +32,17 @@ describe('Alignment', () => {
         expect(domql.info.versions.language).toBe(lexica.info.versions.language);
     });
 
+    it('has a version history whose newest entry is the version the specification describes, on the language and definition format it names', () => {
+        const history = read('VERSION-HISTORY.md');
+        const [, newest, language, format] = history.match(/^## `([^`]+)`\r?\n\r?\n\*[^·*]+· Lexica language `([^`]+)` · definition format (\d+)/m);
+        const [, described] = specification.match(/^# DOMQL Specification v(\S+)$/m);
+        const [, describedLanguage, describedFormat] = specification.match(/on Lexica's language version `([^`]+)`, of \[definition version (\d+)\]/);
+
+        expect(newest).toBe(described);
+        expect(language).toBe(describedLanguage);
+        expect(format).toBe(describedFormat);
+    });
+
     it('has a package that carries the runtime version the sources declare, which they report', () => {
         expect(project).toContain('src\\Versions.mjs');
         expect(domql.info.versions.runtime).toBe(Versions.runtime);

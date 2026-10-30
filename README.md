@@ -2,9 +2,9 @@
 
 **A declarative approach to managing the DOM.**
 
-DOMQL is a JavaScript library for querying the DOM, allowing you to read information from a document once or observe it as it changes. Its queries are written in [Lexica](https://github.com/FormaUI/Lexica).
+DOMQL is a JavaScript library for querying the DOM, allowing you to read information from a document once or observe it as it changes. Its queries are written in [Lexica](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/README.md), the language now named [Nexo](https://github.com/FormaUI/Nexo).
 
-> **Alpha.** DOMQL reads Lexica's definition version 33; its specification describes the DOM as types it declares as its own. It is not yet published to npm or NuGet; you can [build and try it locally](#build-and-try-it). See [the status overview](docs/features-status.md).
+> **Alpha.** DOMQL runs on Lexica's language `1.0.0-alpha.33`, definition version 33, and moves to Nexo in four checkpoints; its specification describes the DOM as types it declares as its own. It is not yet published to npm or NuGet; you can [build and try it locally](#build-and-try-it). See [the status overview](docs/features-status.md).
 
 ## Features
 
@@ -97,7 +97,8 @@ The source import above works when serving the repository; the [library guide](n
 | --- | --- |
 | [Library guide](nuget/README.md) | Install DOMQL, learn the language by example and use the API |
 | [DOMQL specification](spec/README.md) | Queries, the DOM's vocabulary, evaluating and watching a query, its results, events, executions, and the API |
-| [Lexica specification](https://github.com/FormaUI/Lexica/blob/main/spec/README.md) | The language DOMQL is written in |
+| [Lexica specification](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/README.md) | The language DOMQL is written in, at the commit DOMQL builds against |
+| [Version history](VERSION-HISTORY.md) | Each version of DOMQL, with the features it added and what it changed |
 | [Design](docs/domql-design.md) | How DOMQL is built, and the decisions it did not take |
 | [Status](docs/features-status.md) | What is implemented, what is being built, and what remains |
 | [Contributing](CONTRIBUTING.md) | Report a bug, develop a change and run the checks |

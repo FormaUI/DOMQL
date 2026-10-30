@@ -1,12 +1,12 @@
 # DOMQL Specification v1.0.0-alpha.277
 
-DOMQL reads the DOM and shapes what it reads as data, keeps that data current as the document changes, delivers the page's events as data, and carries out the executions its modules declare. Its queries are scripts written in [Lexica](https://github.com/FormaUI/Lexica/blob/main/spec/README.md), whose specification defines the language and the runtime that reads, resolves and evaluates a script. DOMQL declares the DOM as Lexica's domain, in a module like any other, and is the host that carries each query out against a document. It adds no language rule: a rule of the language is Lexica's, and this specification links to it.
+DOMQL reads the DOM and shapes what it reads as data, keeps that data current as the document changes, delivers the page's events as data, and carries out the executions its modules declare. Its queries are scripts written in [Lexica](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/README.md), whose specification defines the language and the runtime that reads, resolves and evaluates a script. DOMQL declares the DOM as Lexica's domain, in a module like any other, and is the host that carries each query out against a document. It adds no language rule: a rule of the language is Lexica's, and this specification links to it.
 
 This specification is the authoritative contract for DOMQL. It states what DOMQL is, not how far its implementation has come: [the status overview](../docs/features-status.md) says what this repository implements, and [the design](../docs/domql-design.md) how it is built.
 
 <a id="version"></a>
 
-**Version.** This specification describes DOMQL's version `1.0.0-alpha.277`, which changes as DOMQL's contract does, apart from its runtime's version and from Lexica's language. It describes DOMQL on Lexica's language version `1.0.0-alpha.33`, of [definition version 33](https://github.com/FormaUI/Lexica/blob/main/spec/README.md#version). An implementation says which specification it follows, and which language version its Lexica runtime follows, in `domql.info.versions`, as [the API](api.md#api-entry-points-and-operations) sets out.
+**Version.** This specification describes DOMQL's version `1.0.0-alpha.277`, which changes as DOMQL's contract does, apart from its runtime's version and from Lexica's language. It describes DOMQL on Lexica's language version `1.0.0-alpha.33`, of [definition version 33](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/README.md#version). An implementation says which specification it follows, and which language version its Lexica runtime follows, in `domql.info.versions`, as [the API](api.md#api-entry-points-and-operations) sets out.
 
 ## What it covers
 
@@ -14,8 +14,8 @@ Five layers meet whenever a query runs. Lexica's specification covers the first 
 
 | Layer | What it owns | Documents |
 | --- | --- | --- |
-| The language | What a query means: its syntax, names and scope, values and types, expressions and functions, members, and the contracts a vocabulary keeps | [Lexica's specification](https://github.com/FormaUI/Lexica/blob/main/spec/README.md) |
-| The runtime | Reading, resolving and evaluating a script for a host, with its bindings and its results | [Lexica's runtime](https://github.com/FormaUI/Lexica/blob/main/spec/runtime.md) |
+| The language | What a query means: its syntax, names and scope, values and types, expressions and functions, members, and the contracts a vocabulary keeps | [Lexica's specification](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/README.md) |
+| The runtime | Reading, resolving and evaluating a script for a host, with its bindings and its results | [Lexica's runtime](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/runtime.md) |
 | DOMQL's module | The DOM as Lexica's domain: its nodes and shadow trees, its members, its Boolean functions among them, its conversions, its event sources and event types, and the observations that follow its changes | [Nodes and shadow trees](nodes-and-shadow-trees.md), [vocabulary](vocabulary.md), [events](events.md) |
 | DOMQL, the host | Carrying a query out against a document: evaluating it, watching it, and invoking its host calls, delivering its events and carrying out its executions, through the API a caller uses | [Queries](queries.md), [evaluation](evaluation.md), [watches](watches.md), [results](results.md), [events](events.md), [executions](executions.md), [the API](api.md) |
 | The caller | The application around DOMQL: which queries it makes, when it carries each out, and what it does with each result | The caller's own |

@@ -14,7 +14,7 @@ In this document:
 
 ## Nodes
 
-A node is a value of the DOM tree. DOMQL's module declares the nodes as [reference types](https://github.com/FormaUI/Lexica/blob/main/spec/types.md#reference-types): `Node`, abstract, and beneath it its kinds, `Element`, `Document`, `DocumentFragment`, a document fragment that is no shadow root, and `ShadowRoot`. DOMQL's `typeOf` recognizes a bound node as the kind it is, never as `Node` itself, and each type's `isInstance` checks membership, so a host may still bind a node declared as a `Node`. `Window` is a reference type of a hierarchy of its own, no node. Text and comment nodes are none of these kinds, and are refused as bindings.
+A node is a value of the DOM tree. DOMQL's module declares the nodes as [reference types](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/types.md#reference-types): `Node`, abstract, and beneath it its kinds, `Element`, `Document`, `DocumentFragment`, a document fragment that is no shadow root, and `ShadowRoot`. DOMQL's `typeOf` recognizes a bound node as the kind it is, never as `Node` itself, and each type's `isInstance` checks membership, so a host may still bind a node declared as a `Node`. `Window` is a reference type of a hierarchy of its own, no node. Text and comment nodes are none of these kinds, and are refused as bindings.
 
 <a id="nodes-kinds-fit-where-a-node-does"></a>
 

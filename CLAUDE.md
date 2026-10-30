@@ -8,15 +8,16 @@ Read the documents that govern the affected contract:
 
 | Document | Authority |
 | --- | --- |
-| [Lexica specification](https://github.com/FormaUI/Lexica/blob/main/spec/README.md) | The language, Lexica's, in its own repository: syntax, resolution, values, requests, vocabulary contracts, definitions and diagnostics |
+| [Lexica specification](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/README.md) | The language, Lexica's, at the commit DOMQL builds against: syntax, resolution, values, requests, vocabulary contracts, definitions and diagnostics |
 | [DOMQL specification](spec/README.md) | DOMQL's module and DOMQL as host: queries, nodes and shadow trees, the built-in vocabulary, evaluation, watching, results, events, executions, and the public API, one document per subject |
-| [Lexica design](https://github.com/FormaUI/Lexica/blob/main/docs/lexica-design.md) | How Lexica is built: its stages, registries, evaluation and tooling |
+| [Lexica design](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/docs/lexica-design.md) | How Lexica is built: its stages, registries, evaluation and tooling |
 | [DOMQL design](docs/domql-design.md) | How DOMQL is built: its architecture, resolution, sessions, watching, comparing and patching, the C# half, and the decisions not taken |
-| [Status](docs/features-status.md) | What is implemented, what is in progress, what remains, open decisions and deferred work |
+| [Status](docs/features-status.md) | What is implemented, the migration to Nexo, the planned capabilities, open decisions and deferred work |
+| [Version history](VERSION-HISTORY.md) | Each DOMQL version, newest first, with the features it added, what it changed and what it breaks |
 | [Library guide](nuget/README.md) | Using DOMQL by example; it ships in the package, so it links absolutely |
 | `.editorconfig` | Code style; read it before writing C# |
 
-Update the specification before changing a contract, the vocabulary, the API or what an operation does, and the design before changing how DOMQL is built. Each subject has one home: state a rule where it belongs and link to it elsewhere; a rule of the language is Lexica's. Record a gap between the design and the code in the status overview until it closes, and update a row's status as soon as its work lands.
+Update the specification before changing a contract, the vocabulary, the API or what an operation does, and the design before changing how DOMQL is built. Advance the specification version whenever DOMQL's contract changes, and add the version's entry to the [version history](VERSION-HISTORY.md) in the same commit. Each subject has one home: state a rule where it belongs and link to it elsewhere; a rule of the language is Lexica's. Record a gap between the design and the code in the status overview until it closes, and update a row's status as soon as its work lands.
 
 Use these sources rather than inventing scope, status or style rules.
 
@@ -32,6 +33,7 @@ Use these sources rather than inventing scope, status or style rules.
 | `scripts/` | Bundling scripts |
 | `spec/` | The specification, one document per subject, indexed by `spec/README.md` |
 | `docs/` | The design and the status overview |
+| `VERSION-HISTORY.md` | Each DOMQL version and what it changed |
 | `nuget/` | The package project, which distributes the bundle, and the library guide |
 | `.local/` | Personal experiments, spikes, notes and benchmark baselines; ignored by Git |
 
@@ -40,7 +42,7 @@ Add a folder when a new responsibility needs one. Keep dependencies in this dire
 - `dom/` may depend on Lexica and `snapshots/`.
 - `snapshots/` may depend on Lexica.
 
-The language is [Lexica](https://github.com/FormaUI/Lexica), the package `@formaui/lexica`, which DOMQL imports by its name and depends on through `file:.lexica`, until a Lexica package is released. `build.ps1` fills `.lexica` with Lexica at the commit `lexica.commit` pins, taken from a checkout beside this one, `formaui-net.Lexica`, so a Lexica commit reaches DOMQL only when `lexica.commit` moves to it; with `LEXICA_SOURCE` naming a Lexica checkout, `.lexica` links to that checkout's working tree instead. A change to the language is made there, and a change DOMQL needs of it in both repositories together, with `LEXICA_SOURCE` set, moving `lexica.commit` once Lexica's commit exists.
+The language is Lexica, the package `@formaui/lexica`, which DOMQL imports by its name and depends on through `file:.lexica`, until a package of the language is released. Lexica has since been renamed Nexo, its repository [FormaUI/Nexo](https://github.com/FormaUI/Nexo), which keeps the commit DOMQL pins; DOMQL calls it Lexica until its [migration](docs/features-status.md#migration-to-nexo) adopts the new name. `build.ps1` fills `.lexica` with the commit `lexica.commit` pins, taken from a checkout of that repository beside this one, named `formaui-net.Lexica`, so a commit reaches DOMQL only when `lexica.commit` moves to it; with `LEXICA_SOURCE` naming a checkout, `.lexica` links to that checkout's working tree instead. A change to the language is made there, and a change DOMQL needs of it in both repositories together, with `LEXICA_SOURCE` set, moving `lexica.commit` once the language's commit exists.
 
 Pass the window and document into DOM code; do not read globals there. Importing the language layer and resolving a query must work without a DOM.
 
