@@ -266,6 +266,7 @@ describe('SnapshotPatcher', () => {
 
     const roundTrips = [
         ['fields, nulls and positional lists', freeze({ a: 1, b: { c: [1, 2] }, d: null }), null, freeze({ a: 2, b: { c: [2] }, d: { e: 'x' } }), null],
+        ['fields whose names a pointer escapes, at every depth', freeze({ 'a/b': { '~c': [1, { 'd~/e': 2 }], plain: 1 }, '~': 0 }), null, freeze({ 'a/b': { '~c': [1, { 'd~/e': 3 }, 4], plain: 1 }, '~': 1 }), null],
         ['a projected list reordered, updated, grown and shrunk at once', ...(() => {
             const [a, b, c, d, e] = elements('a', 'b', 'c', 'd', 'e');
 

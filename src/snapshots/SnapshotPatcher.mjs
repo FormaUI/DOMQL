@@ -64,8 +64,8 @@ export class SnapshotPatcher {
             return;
         }
 
-        const parent = SnapshotPatcher.#valueAt(target, path.slice(0, -1));
-        const token = path.at(-1);
+        const parent = SnapshotPatcher.#valueAt(target, path, path.length - 1);
+        const token = path[path.length - 1];
 
         if (Array.isArray(parent)) {
             const index = token === '-' && op === 'add' ? parent.length : SnapshotPatcher.#parseIndex(token);
@@ -96,8 +96,8 @@ export class SnapshotPatcher {
             throw new TypeError('A change set cannot remove the whole result');
         }
 
-        const parent = SnapshotPatcher.#valueAt(target, path.slice(0, -1));
-        const token = path.at(-1);
+        const parent = SnapshotPatcher.#valueAt(target, path, path.length - 1);
+        const token = path[path.length - 1];
 
         if (Array.isArray(parent)) {
             const index = SnapshotPatcher.#parseIndex(token);
@@ -251,24 +251,29 @@ export class SnapshotPatcher {
         });
     }
 
-    static #valueAt(node, path) {
-        return path.reduce((current, token) => {
-            if (Array.isArray(current)) {
-                const index = SnapshotPatcher.#parseIndex(token);
+    /** The value the first tokens of the path, as many as given, reach from the node. */
+    static #valueAt(node, path, length) {
+        let current = node;
 
-                if (index >= current.length) {
+        for (let index = 0; index < length; index++) {
+            const token = path[index];
+
+            if (Array.isArray(current)) {
+                const position = SnapshotPatcher.#parseIndex(token);
+
+                if (position >= current.length) {
                     throw new TypeError(`The path reaches past the end of a list, at '${token}'`);
                 }
 
-                return current[index];
+                current = current[position];
+            } else if (ObjectUtils.isNonArrayObject(current) && Object.hasOwn(current, token)) {
+                current = current[token];
+            } else {
+                throw new TypeError(`The path names '${token}', which the result does not hold`);
             }
+        }
 
-            if (ObjectUtils.isNonArrayObject(current) && Object.hasOwn(current, token)) {
-                return current[token];
-            }
-
-            throw new TypeError(`The path names '${token}', which the result does not hold`);
-        }, node);
+        return current;
     }
 
     /** The tokens of a JSON Pointer, unescaped. */
@@ -277,7 +282,20 @@ export class SnapshotPatcher {
             throw new TypeError(`'${pointer}' is no JSON Pointer`);
         }
 
-        return pointer === '' ? [] : pointer.slice(1).split('/').map(token => token.replaceAll('~1', '/').replaceAll('~0', '~'));
+        if (pointer === '') {
+            return [];
+        }
+
+        const tokens = pointer.slice(1).split('/');
+
+        // A token holds an escape only where it holds a tilde.
+        for (let index = 0; index < tokens.length; index++) {
+            if (tokens[index].includes('~')) {
+                tokens[index] = tokens[index].replaceAll('~1', '/').replaceAll('~0', '~');
+            }
+        }
+
+        return tokens;
     }
 
     static #parseIndex(token) {
