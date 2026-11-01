@@ -35,6 +35,21 @@ const APPLE_PLATFORMS = new Set(['macOS', 'iOS']);
 /** A `tabindex` that HTML's rules for parsing integers read as an integer. */
 const TAB_INDEX = /^[\t\n\f\r ]*[-+]?[0-9]/;
 
+/**
+ * The members DOMQL reads for an event, by name, where no property of the event answers them as data: a pointer the event carries none of, which a click the keyboard caused gives as `-1` and `""` and a mouse event
+ * lacks; the points a touch list holds; and the formats a drag's data transfer lists, each none where the event carries none. Every other member is the event's own property.
+ * @type {Map<string, (event: Event) => unknown>}
+ */
+const EVENT_MEMBERS = new Map([
+    ['pointerId', event => (typeof event.pointerId === 'number' && event.pointerId !== -1 ? event.pointerId : null)],
+    ['pointerType', event => (typeof event.pointerType === 'string' && event.pointerType !== '' ? event.pointerType : null)],
+    ['touches', event => Array.from(event.touches ?? [])],
+    ['types', event => Array.from(event.dataTransfer?.types ?? [])],
+]);
+
+/** What reads an event as DOMQL delivers it: a member DOMQL reads for it, and otherwise the event's own property, read from the event itself. */
+const EVENT_READING = { get: (event, name) => (EVENT_MEMBERS.has(name) ? EVENT_MEMBERS.get(name)(event) : Reflect.get(event, name)) };
+
 export class BrowserVocabularyImplementations {
     /**
      * Each implementation reads, from one object by name, the receiver, the arguments by parameter name and the environment the request is read in; a maintained member also its samples, and a source the function it delivers each event to, answering what stops it.
@@ -111,11 +126,13 @@ export class BrowserVocabularyImplementations {
             all: ({ receiver: node, args: { selector } }) => [...node.querySelectorAll(selector)],
             on: ({ receiver: target, args: { type, options }, deliver }) => {
                 // Listening observes each event as it reaches the target, in the capture phase where its option says so, and a passive listener leaves its course to the page.
+                // Each event is delivered as DOMQL reads it, with the members it reads for the event.
                 const capture = options?.capture === true;
+                const listener = event => deliver(new Proxy(event, EVENT_READING));
 
-                target.addEventListener(type, deliver, { passive: true, capture });
+                target.addEventListener(type, listener, { passive: true, capture });
 
-                return { stop: () => target.removeEventListener(type, deliver, { capture }) };
+                return { stop: () => target.removeEventListener(type, listener, { capture }) };
             },
 
             attached: ({ receiver: element }) => element.isConnected,

@@ -6,6 +6,22 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-289"></a>
+
+## `1.0.0-alpha.289`
+
+*November 1, 2026 · Nexo language `1.0.0-beta.15` · definition format 38*
+
+DOMQL delivers the events of a pointer, a touch, the wheel and a drag, with the pointer, the count, the time and the keys held.
+
+**Events**
+
+- [Event types](spec/events.md#event-types): `dblclick`, `pointermove`, `pointercancel` and `lostpointercapture` are each a `PointerEvent`, which adds `pointerId`, `detail`, `timeStamp` and the modifiers `ctrlKey`, `metaKey`, `altKey` and `shiftKey`; its `pointerId` and `pointerType` are null where the event carries no pointer, as [D28](docs/decisions.md#d28) records.
+- `touchstart` and `touchmove` are a `TouchEvent { target, touches, timeStamp }`, each touch a `Touch { identifier, clientX, clientY }`; `wheel` a `WheelEvent { target, deltaX, deltaY, deltaMode, timeStamp }`; and `dragstart`, `dragenter`, `dragover`, `dragleave` and `dragend` beside `drop` a `DragEvent`, which adds `types`, `timeStamp` and the modifiers, as [D29](docs/decisions.md#d29) records.
+- `on` reads `pointerId`, `pointerType`, `touches` and `types` for every event it delivers, where no property of the event answers them as data.
+
+**Breaking:** a click the keyboard caused answers a null `pointerType`, where it answered `""`.
+
 <a id="v1-0-0-alpha-288"></a>
 
 ## `1.0.0-alpha.288`

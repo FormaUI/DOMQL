@@ -411,3 +411,36 @@ Each entry is one of three kinds:
   - `on` in the options form, `on({ type = "click", capture = true })`, which breaks every subscription written.
   - A positional Boolean, `on("click", true)`, which says nothing where it is read.
   - A source of its own, `onCapture(type)`, a second name for one source differing in an option.
+
+<a id="d28"></a>
+
+## D28 — A click and a pointer event share `PointerEvent`, its pointer null where it carries none
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `click`, `dblclick` and the pointer events `pointerdown`, `pointerup`, `pointermove`, `pointercancel` and `lostpointercapture` each map to `PointerEvent`, whose `pointerId` and `pointerType` are null where the event carries no pointer: a click the keyboard caused, a `dblclick`, and a click a browser dispatches as a mouse event. It carries `detail`, `timeStamp` and the modifiers `ctrlKey`, `metaKey`, `altKey` and `shiftKey`, which touch, wheel and drag events carry too.
+- **Why:**
+  - A browser test settled it: Chromium dispatches a keyboard click as a pointer event whose `pointerId` is `-1` and whose `pointerType` is `""`, the Pointer Events specification's way of saying no pointer, and a `dblclick` as a mouse event, which has neither. Null says it once, where a query would otherwise test each value.
+  - The facts of a click and of a pointer event are the same, a button, a position, a count and the keys held, so one type keeps one contract, as it already made `pointerType` nullable for a click dispatched as a mouse event.
+  - The keys held decide what a press, a wheel turn or a drop means, so every event of a pointer, a touch, the wheel and a drag carries them.
+- **Declined:**
+  - A `MouseEvent` for `click` and `dblclick`, whose `pointerId` would name what it lacks, and which changes the type a click maps to.
+  - Keeping `""` for a keyboard click's `pointerType`, which a query tells from a real pointer's only by its value.
+- **Breaking:** a keyboard click's `pointerType` is null, where it was `""`.
+
+<a id="d29"></a>
+
+## D29 — Touch, wheel and drag events, and the members DOMQL reads for an event
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `touchstart` and `touchmove` map to `TouchEvent { target, touches, timeStamp }` with the modifiers, each touch a `Touch { identifier, clientX, clientY }`; `wheel` to `WheelEvent { target, deltaX, deltaY, deltaMode, timeStamp }` with the modifiers; and the drag events `dragstart`, `dragenter`, `dragover`, `dragleave` and `dragend` beside `drop` to `DragEvent`, which adds `types`. `on` delivers each event as the native event, reading for it the members no property answers as data: `pointerId` and `pointerType`, `touches` and `types`.
+- **Why:**
+  - A touch list is no list, and the formats a drag carries are its data transfer's, so DOMQL reads them for the event; every other member is the event's property of its name, so a module's event type reads the native event as before.
+  - `types` is what a drop zone decides by while a drag passes over it, since the browser holds the data back until the drop.
+  - `touchstart` and `touchmove` are what a gesture observes beside its pointer events, which cover a touch ending as `pointerup` and `pointercancel`.
+- **Declined:**
+  - `touchend`, `touchcancel` and a touch event's `changedTouches`, which pointer events answer.
+  - A drag's data before the drop, which the browser doesn't expose.

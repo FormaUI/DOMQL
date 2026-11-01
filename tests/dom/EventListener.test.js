@@ -311,6 +311,88 @@ describe('EventListener', () => {
         });
     });
 
+    describe('event types', () => {
+        /** The event given, its data transfer the one given, as a drag carries one. */
+        const carrying = (event, dataTransfer) => Object.defineProperty(event, 'dataTransfer', { value: dataTransfer });
+
+        it('captures a pointer event\'s pointer, its count of clicks, the time it was dispatched and the keys held', () => {
+            subscribe('panel.on("pointermove") { id = it.pointerId, kind = it.pointerType, x = it.clientX, count = it.detail, timed = it.timeStamp >= 0, ctrl = it.ctrlKey, meta = it.metaKey, alt = it.altKey, shift = it.shiftKey }', { panel });
+
+            panel.dispatchEvent(new window.PointerEvent('pointermove', { bubbles: true, pointerId: 3, pointerType: 'pen', clientX: 7, ctrlKey: true, shiftKey: true }));
+
+            expect(results).toEqual([{ id: 3, kind: 'pen', x: 7, count: 0, timed: true, ctrl: true, meta: false, alt: false, shift: true }]);
+        });
+
+        it('captures no pointer for a click the keyboard caused, which carries the pointer -1 and the type "", or for a dblclick, which is a mouse event', () => {
+            subscribe('panel.on("click") { id = it.pointerId, kind = it.pointerType, count = it.detail }', { panel });
+            subscribe('panel.on("dblclick") { id = it.pointerId, kind = it.pointerType, count = it.detail }', { panel });
+
+            panel.dispatchEvent(new window.PointerEvent('click', { bubbles: true, pointerId: -1, pointerType: '', detail: 1 }));
+            panel.dispatchEvent(new window.MouseEvent('dblclick', { bubbles: true, detail: 2 }));
+
+            expect(results).toEqual([{ id: null, kind: null, count: 1 }, { id: null, kind: null, count: 2 }]);
+        });
+
+        it('captures the pointer events of a gesture, each a pointer event', () => {
+            subscribe('panel.on("pointercancel") { id = it.pointerId }', { panel });
+            subscribe('panel.on("lostpointercapture") { id = it.pointerId }', { panel });
+
+            panel.dispatchEvent(new window.PointerEvent('pointercancel', { bubbles: true, pointerId: 5 }));
+            panel.dispatchEvent(new window.PointerEvent('lostpointercapture', { bubbles: true, pointerId: 6 }));
+
+            expect(results).toEqual([{ id: 5 }, { id: 6 }]);
+        });
+
+        it('captures a wheel turn\'s deltas, their unit and the keys held', () => {
+            subscribe('panel.on("wheel") { x = it.deltaX, y = it.deltaY, mode = it.deltaMode, ctrl = it.ctrlKey }', { panel });
+
+            // A browser's wheel event is a mouse event, which carries the keys held; the simulated one carries none, so its deltas are given to a mouse event.
+            panel.dispatchEvent(Object.assign(new window.MouseEvent('wheel', { bubbles: true, ctrlKey: true }), { deltaX: 1, deltaY: -3, deltaMode: 1 }));
+
+            expect(results).toEqual([{ x: 1, y: -3, mode: 1, ctrl: true }]);
+        });
+
+        it('captures the points a touch event holds, in order', () => {
+            const [first] = panel.children;
+
+            subscribe('panel.on("touchmove") { points = it.touches { id = it.identifier, x = it.clientX, y = it.clientY }, shift = it.shiftKey }', { panel });
+            subscribe('panel.on("touchstart") { count = it.touches.count, target = it.target["id"] }', { panel });
+
+            first.dispatchEvent(new window.TouchEvent('touchmove', { bubbles: true, shiftKey: true, touches: [new window.Touch({ identifier: 4, target: first, clientX: 5, clientY: 6 }), new window.Touch({ identifier: 2, target: first, clientX: 1, clientY: 2 })] }));
+            first.dispatchEvent(new window.TouchEvent('touchstart', { bubbles: true }));
+
+            expect(results).toEqual([{ points: [{ id: 4, x: 5, y: 6 }, { id: 2, x: 1, y: 2 }], shift: true }, { count: 0, target: 'a' }]);
+        });
+
+        it('captures the formats a drag carries as its data transfer lists them, and none where it carries no data transfer', () => {
+            const kinds = ['dragstart', 'dragenter', 'dragover', 'dragleave', 'dragend', 'drop'];
+
+            kinds.forEach(kind => subscribe(`panel.on("${kind}") { kind = "${kind}", types = it.types, x = it.clientX, alt = it.altKey }`, { panel }));
+            kinds.forEach(kind => panel.dispatchEvent(carrying(new window.MouseEvent(kind, { bubbles: true, clientX: 9, altKey: true }), { types: ['Files', 'text/plain'] })));
+            panel.dispatchEvent(new window.MouseEvent('dragover', { bubbles: true }));
+            panel.dispatchEvent(carrying(new window.MouseEvent('drop', { bubbles: true }), null));
+
+            expect(results).toEqual([
+                ...kinds.map(kind => ({ kind, types: ['Files', 'text/plain'], x: 9, alt: true })),
+                { kind: 'dragover', types: [], x: 0, alt: false },
+                { kind: 'drop', types: [], x: 0, alt: false },
+            ]);
+        });
+
+        it('reads the members DOMQL reads for an event of a module\'s event type too, and every other member as the event\'s own', () => {
+            isolated.registerModule(isolated.createModule('Swipes', {
+                types: [{ name: 'Swipe', kind: 'structured', members: [{ name: 'pointerId', kind: 'property', result: 'Number?' }, { name: 'distance', kind: 'property', result: 'Number' }] }],
+                mappings: [{ selector: 'event', key: 'swipe', type: 'Swipe' }],
+            }));
+
+            subscribe('import Swipes\npanel.on("swipe") { id = it.pointerId, distance = it.distance }', { panel });
+
+            panel.dispatchEvent(Object.assign(new window.Event('swipe'), { pointerId: -1, distance: 40 }));
+
+            expect(results).toEqual([{ id: null, distance: 40 }]);
+        });
+    });
+
     describe('sessions', () => {
         it('answer null for a maintained member still pending, and the sample that arrived for a later event', () => {
             const [first] = panel.children;

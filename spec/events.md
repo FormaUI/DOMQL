@@ -54,12 +54,24 @@ DOMQL's module declares the [type selector](https://github.com/FormaUI/Nexo/blob
 
 | Event types | Type | Members |
 | --- | --- | --- |
-| `click`, `pointerdown`, `pointerup` | `PointerEvent` | `target`: `Element`, `button`: `Number`, `buttons`: `Number`, `clientX`: `Number`, `clientY`: `Number`, `pointerType`: `String?` |
+| `click`, `dblclick`, `pointerdown`, `pointerup`, `pointermove`, `pointercancel`, `lostpointercapture` | `PointerEvent` | `target`: `Element`, `button`: `Number`, `buttons`: `Number`, `clientX`: `Number`, `clientY`: `Number`, `pointerType`: `String?`, `pointerId`: `Number?`, `detail`: `Number`, `timeStamp`: `Number`, and the modifiers |
+| `touchstart`, `touchmove` | `TouchEvent` | `target`: `Element`, `touches`: `List<Touch>`, `timeStamp`: `Number`, and the modifiers |
+| `wheel` | `WheelEvent` | `target`: `Element`, `deltaX`: `Number`, `deltaY`: `Number`, `deltaMode`: `Number`, `timeStamp`: `Number`, and the modifiers |
 | `keydown`, `keyup` | `KeyboardEvent` | `target`: `Element`, `key`: `String`, `code`: `String` |
-| `drop` | `DragEvent` | `target`: `Element`, `clientX`: `Number`, `clientY`: `Number` |
+| `dragstart`, `dragenter`, `dragover`, `dragleave`, `dragend`, `drop` | `DragEvent` | `target`: `Element`, `clientX`: `Number`, `clientY`: `Number`, `types`: `List<String>`, `timeStamp`: `Number`, and the modifiers |
 | `focus`, `blur`, `input`, `scroll`, `resize` | `DomEvent` | `target`: `Element?` |
 
-An event is captured when it is dispatched. A member the event carries no value of its type for is null where its type is nullable, as Nexo sets out, so `DomEvent`'s `target` is null for a scroll or a resize that targets the document or the window, and `PointerEvent`'s `pointerType` for a browser that dispatches a click as a mouse event.
+The **modifiers** are `ctrlKey`, `metaKey`, `altKey` and `shiftKey`, each a `Boolean`, whether that key was held as the event was dispatched. A `Touch` is one point touching the surface, `{ identifier, clientX, clientY }`, each a `Number`.
+
+An event is captured when it is dispatched. Each member is the event's own property of its name, as the browser answers it, a `detail` the count of clicks a click or a `dblclick` makes, a `timeStamp` the time it was dispatched in milliseconds from the document's time origin, and a `deltaMode` the unit of a wheel's deltas, `0` for pixels, `1` for lines and `2` for pages, but for these, which DOMQL reads for the event since no property of it answers them as data:
+
+- **`pointerId` and `pointerType`** are null where the event carries no pointer: a click the keyboard caused, which the browser gives the pointer `-1` and the type `""`, a `dblclick`, which is a mouse event, and a click a browser dispatches as a mouse event.
+- **`touches`** holds the points touching the surface, in the order the event's touch list holds them, and none where it carries no touch list.
+- **`types`** holds the formats a drag carries, as its data transfer lists them, `"Files"` while it carries files, and none where it carries no data transfer. The data itself is no member, since the browser holds it back until the drop.
+
+DOMQL reads these members so for every event `on` delivers, of a module's event type as of its own.
+
+A member the event carries no value of its type for is null where its type is nullable, as Nexo sets out, so `DomEvent`'s `target` is null for a scroll or a resize that targets the document or the window.
 
 <a id="subscribing"></a>
 

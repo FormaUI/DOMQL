@@ -42,6 +42,9 @@ const RANGE_MISSES = 'the page\'s code moving a range other than the selection\'
 
 const SELECTOR_PARAMETERS = [valueParameter('selector', 'String')];
 
+/** The modifier keys an event of a pointer, a touch, the wheel or a drag carries, each whether it was held as the event was dispatched. */
+const MODIFIERS = { ctrlKey: 'Boolean', metaKey: 'Boolean', altKey: 'Boolean', shiftKey: 'Boolean' };
+
 /** The tolerance of a measurement of layout in CSS pixels: a twentieth of a pixel, more than a unit of the browser's layout and less than a device pixel. */
 const LAYOUT_TOLERANCE = 0.05;
 
@@ -315,21 +318,26 @@ export class BrowserVocabularyDeclarations {
                 structuredType('Listening', { capture: 'Boolean' }),
                 // An event such as scroll or resize can target the document or the window, which is no element.
                 structuredType('DomEvent', { target: 'Element?' }),
-                // A browser that dispatches a click as a mouse event gives it no pointer type.
-                structuredType('PointerEvent', { target: 'Element', button: 'Number', buttons: 'Number', clientX: 'Number', clientY: 'Number', pointerType: 'String?' }),
+                // A click the keyboard caused, a dblclick, which is a mouse event, and a click a browser dispatches as one carry no pointer, so no pointer id or type.
+                structuredType('PointerEvent', { target: 'Element', button: 'Number', buttons: 'Number', clientX: 'Number', clientY: 'Number', pointerType: 'String?', pointerId: 'Number?', detail: 'Number', timeStamp: 'Number', ...MODIFIERS }),
+                // A touch event, and each point touching the surface as it is dispatched.
+                structuredType('TouchEvent', { target: 'Element', touches: 'List<Touch>', timeStamp: 'Number', ...MODIFIERS }),
+                structuredType('Touch', { identifier: 'Number', clientX: 'Number', clientY: 'Number' }),
+                structuredType('WheelEvent', { target: 'Element', deltaX: 'Number', deltaY: 'Number', deltaMode: 'Number', timeStamp: 'Number', ...MODIFIERS }),
                 structuredType('KeyboardEvent', { target: 'Element', key: 'String', code: 'String' }),
-                structuredType('DragEvent', { target: 'Element', clientX: 'Number', clientY: 'Number' }),
+                // A drag's formats, as its data transfer lists them, the data itself held back by the browser until the drop.
+                structuredType('DragEvent', { target: 'Element', clientX: 'Number', clientY: 'Number', types: 'List<String>', timeStamp: 'Number', ...MODIFIERS }),
             ],
 
             // The event types `on` listens to, each a key of the type selector `event` mapping to the type its events are captured as.
             typeSelectors: [{ name: 'event' }],
             mappings: [
-                { selector: 'event', key: 'click', type: 'PointerEvent' },
-                { selector: 'event', key: 'pointerdown', type: 'PointerEvent' },
-                { selector: 'event', key: 'pointerup', type: 'PointerEvent' },
+                ...['click', 'dblclick', 'pointerdown', 'pointerup', 'pointermove', 'pointercancel', 'lostpointercapture'].map(key => ({ selector: 'event', key, type: 'PointerEvent' })),
+                ...['touchstart', 'touchmove'].map(key => ({ selector: 'event', key, type: 'TouchEvent' })),
+                { selector: 'event', key: 'wheel', type: 'WheelEvent' },
                 { selector: 'event', key: 'keydown', type: 'KeyboardEvent' },
                 { selector: 'event', key: 'keyup', type: 'KeyboardEvent' },
-                { selector: 'event', key: 'drop', type: 'DragEvent' },
+                ...['dragstart', 'dragenter', 'dragover', 'dragleave', 'dragend', 'drop'].map(key => ({ selector: 'event', key, type: 'DragEvent' })),
                 { selector: 'event', key: 'focus', type: 'DomEvent' },
                 { selector: 'event', key: 'blur', type: 'DomEvent' },
                 { selector: 'event', key: 'input', type: 'DomEvent' },

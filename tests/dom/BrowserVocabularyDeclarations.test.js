@@ -50,7 +50,7 @@ describe('BrowserVocabularyDeclarations', () => {
     it('declares the DOM\'s reference types, the views of an element and the structured types of its measurements and events', () => {
         expect(module.types.map(type => `${type.kind} ${type.name}${type.supertype === undefined ? '' : ` : ${type.supertype}`}${type.abstract ? ', abstract' : ''}`)).toEqual([
             'reference Node, abstract', 'reference Element : Node', 'reference Document : Node', 'reference DocumentFragment : Node', 'reference ShadowRoot : Node', 'reference Window', 'reference Shadow', 'reference Aria', 'reference Range',
-            'structured Size', 'structured Rectangle', 'structured Selection', 'structured DocumentSelection', 'structured Grid', 'structured Scroll', 'structured ScrollAxis', 'structured Playback', 'structured Location', 'structured SizeLimits', 'structured File', 'structured Listening', 'structured DomEvent', 'structured PointerEvent', 'structured KeyboardEvent', 'structured DragEvent',
+            'structured Size', 'structured Rectangle', 'structured Selection', 'structured DocumentSelection', 'structured Grid', 'structured Scroll', 'structured ScrollAxis', 'structured Playback', 'structured Location', 'structured SizeLimits', 'structured File', 'structured Listening', 'structured DomEvent', 'structured PointerEvent', 'structured TouchEvent', 'structured Touch', 'structured WheelEvent', 'structured KeyboardEvent', 'structured DragEvent',
         ]);
         expect(module.types.filter(type => type.kind === 'structured').map(type => `${type.name} { ${type.members.map(member => `${member.name}: ${member.result}`).join(', ')} }`)).toEqual([
             'Size { width: Number, height: Number }',
@@ -66,9 +66,12 @@ describe('BrowserVocabularyDeclarations', () => {
             'File { name: String, bytes: Number, type: String, lastModified: Number }',
             'Listening { capture: Boolean }',
             'DomEvent { target: Element? }',
-            'PointerEvent { target: Element, button: Number, buttons: Number, clientX: Number, clientY: Number, pointerType: String? }',
+            'PointerEvent { target: Element, button: Number, buttons: Number, clientX: Number, clientY: Number, pointerType: String?, pointerId: Number?, detail: Number, timeStamp: Number, ctrlKey: Boolean, metaKey: Boolean, altKey: Boolean, shiftKey: Boolean }',
+            'TouchEvent { target: Element, touches: List<Touch>, timeStamp: Number, ctrlKey: Boolean, metaKey: Boolean, altKey: Boolean, shiftKey: Boolean }',
+            'Touch { identifier: Number, clientX: Number, clientY: Number }',
+            'WheelEvent { target: Element, deltaX: Number, deltaY: Number, deltaMode: Number, timeStamp: Number, ctrlKey: Boolean, metaKey: Boolean, altKey: Boolean, shiftKey: Boolean }',
             'KeyboardEvent { target: Element, key: String, code: String }',
-            'DragEvent { target: Element, clientX: Number, clientY: Number }',
+            'DragEvent { target: Element, clientX: Number, clientY: Number, types: List<String>, timeStamp: Number, ctrlKey: Boolean, metaKey: Boolean, altKey: Boolean, shiftKey: Boolean }',
         ]);
         expect(module.types.filter(type => type.kind === 'structured').flatMap(type => type.members).every(member => member.kind === 'property' && member.updates === undefined && member.impl === undefined)).toBe(true);
     });
@@ -281,7 +284,9 @@ describe('BrowserVocabularyDeclarations', () => {
         expect(module.typeSelectors).toEqual([{ name: 'event' }]);
         expect(module.mappings.every(mapping => mapping.selector === 'event')).toBe(true);
         expect(module.mappings.map(mapping => `${mapping.key}: ${mapping.type}`)).toEqual([
-            'click: PointerEvent', 'pointerdown: PointerEvent', 'pointerup: PointerEvent', 'keydown: KeyboardEvent', 'keyup: KeyboardEvent', 'drop: DragEvent',
+            'click: PointerEvent', 'dblclick: PointerEvent', 'pointerdown: PointerEvent', 'pointerup: PointerEvent', 'pointermove: PointerEvent', 'pointercancel: PointerEvent', 'lostpointercapture: PointerEvent',
+            'touchstart: TouchEvent', 'touchmove: TouchEvent', 'wheel: WheelEvent', 'keydown: KeyboardEvent', 'keyup: KeyboardEvent',
+            'dragstart: DragEvent', 'dragenter: DragEvent', 'dragover: DragEvent', 'dragleave: DragEvent', 'dragend: DragEvent', 'drop: DragEvent',
             'focus: DomEvent', 'blur: DomEvent', 'input: DomEvent', 'scroll: DomEvent', 'resize: DomEvent',
         ]);
     });
