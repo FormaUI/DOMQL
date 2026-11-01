@@ -206,6 +206,9 @@ export class QueryEvaluator {
         let isPending = false;
         let roots = null;
 
+        // The receiver's root, found at the first observation of it.
+        let root;
+
         for (let place = 0; place < observationDeclarations.length; place++) {
             const observationDeclaration = observationDeclarations[place];
 
@@ -232,7 +235,7 @@ export class QueryEvaluator {
             }
 
             const isOfRoot = observationDeclaration.of === 'root';
-            const target = isOfRoot ? Observations.rootOf(receiver, this.#observationContext.rootOf) : observations.targetOf(observationDeclaration, receiver, args);
+            const target = !isOfRoot ? observations.targetOf(observationDeclaration, receiver, args) : root === undefined ? (root = Observations.rootOf(receiver, this.#observationContext.rootOf)) : root;
             const cachedSession = this.#holdAt(observationDeclaration, args, target);
 
             if (cachedSession !== null) {
@@ -333,22 +336,25 @@ export class QueryEvaluator {
         const { followedRoots } = this.#observationContext;
 
         // Every receiver leaving a root changes the root's own structure, so each root is followed once an evaluation, whichever receiver is in it.
-        roots.forEach(root => {
+        for (let index = 0; index < roots.length; index++) {
+            const root = roots[index];
+
             if (followedRoots.has(root)) {
-                return;
+                continue;
             }
 
             followedRoots.add(root);
-            ANCESTRY_OBSERVATIONS.forEach(observationDeclaration => {
+
+            for (const observationDeclaration of ANCESTRY_OBSERVATIONS) {
                 if (this.#moduleRegistry.getObservationType(observationDeclaration.type) !== undefined) {
                     const cachedSession = this.#holdAt(observationDeclaration, NO_ARGUMENTS, root);
 
                     requests?.push(cachedSession.request);
                 }
-            });
-        });
+            }
+        }
 
-        this.#followAttachment(receiver, roots.at(-1) ?? null, requests);
+        this.#followAttachment(receiver, roots.length === 0 ? null : roots[roots.length - 1], requests);
     }
 
     /** Follows whether the receiver is attached, once an evaluation, where the outermost root of its ancestry is the top of a detached tree, which moves without a change inside any root. */
