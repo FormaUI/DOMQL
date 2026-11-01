@@ -1273,6 +1273,30 @@ describe('QueryEvaluator projection', () => {
             expect(projection.error).toMatchObject({ kind: 'evaluation', code: 'NEXO5007', message: expect.stringContaining("The member 'matches' failed") });
         });
 
+        it('holds the observations of its maintained members alone, each read in the order its member names them, and none of those of its other members, whose changes it does not follow', () => {
+            const level = elementModule('level', [{
+                name: 'level', kind: 'property', result: 'Number?',
+                updates: { changes: 'observable', reads: 'maintained', observations: [{ type: 'mutation', of: 'root', childList: true, subtree: true }, { type: 'gauge', of: 'receiver' }, { type: 'dial', of: 'receiver' }] },
+                impl: ({ samples: [gauge, dial] }) => gauge * 10 + dial,
+            }], {
+                observationTypes: [
+                    { name: 'gauge', contract: 'maintained', impl: () => ({ stop: () => {}, sample: () => ({ pending: false, value: 4 }) }) },
+                    { name: 'dial', contract: 'maintained', impl: () => ({ stop: () => {}, sample: () => ({ pending: false, value: 2 }) }) },
+                ],
+            });
+            const evaluator = evaluatorOf('import Ticks\nimport Level\npanel:ticks("tick") { at = it.at, level = panel:level, count = panel.children.count, id = panel.attribute["id"], hidden = panel.first("i")?.matches(".x") }', { panel }, [ticks('Tick'), level]);
+            const projection = projectionOf(evaluator, { at: 1 });
+
+            expect(projection.error).toBeNull();
+            expect(projection.value).toEqual({ at: 1, level: 42, count: 1, id: 'panel', hidden: false });
+            expect(projection.dependencies).toBeNull();
+            expect(observations.runningCount).toBe(2);
+
+            projection.dispose();
+
+            expect(observations.runningCount).toBe(0);
+        });
+
         it('stands for its source, which the projection never starts or reads', () => {
             const evaluator = evaluatorOf('import Ticks\npanel:ticks("tick") { at = it.at }', { panel }, [ticks('Tick')]);
 

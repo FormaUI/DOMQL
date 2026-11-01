@@ -69,6 +69,9 @@ export class QueryEvaluator {
     /** The hooks through which the evaluator reports each invocation to the observing evaluation in progress, or null before the first, since an evaluation once uses none. @type {object | null} */
     #host = null;
 
+    /** The hooks of a projection, or null before the first. @type {object | null} */
+    #samplingHost = null;
+
     /**
      * @param {import('@formaui-net/nexo').NexoRegistry} moduleRegistry The registry the request was resolved against, whose observation types the host looks up.
      * @param {import('@formaui-net/nexo').NexoEvaluator} evaluator The evaluator Nexo created from the request's resolution, with its bindings and the window and the document it reads.
@@ -100,7 +103,7 @@ export class QueryEvaluator {
      */
     evaluate({ observations, onChange, holdsAllObservations = false, replaces = null, consumer = null, recordsDependencies = false }) {
         // Resolving again stands within the evaluation, so a refusal fails it as any failure does, never thrown to the caller.
-        return this.#evaluateWithObservations({ observations, onChange, holdsAllObservations, replaces, consumer, recordsDependencies, waits: true }, host => this.#currentEvaluator().evaluate(host));
+        return this.#evaluateWithObservations({ observations, onChange, holdsAllObservations, replaces, consumer, recordsDependencies, waits: true }, () => this.#currentEvaluator().evaluate(this.#getHost()));
     }
 
     /** Prepares the host call the request ends in, as Nexo's evaluator prepares it: the call to invoke, or a skipped call where there is nothing to invoke. */
@@ -134,7 +137,7 @@ export class QueryEvaluator {
      * @param {object | null} [observationContext.consumer] Whom the projections serve, so an observation of a type that is not shared is reached again by its later projections.
      */
     project(call, value, { observations, consumer = null }) {
-        return this.#evaluateWithObservations({ observations, onChange: () => {}, holdsAllObservations: false, replaces: null, consumer, recordsDependencies: false, waits: false }, host => call.project(value, host));
+        return this.#evaluateWithObservations({ observations, onChange: () => {}, holdsAllObservations: false, replaces: null, consumer, recordsDependencies: false, waits: false }, () => call.project(value, this.#getSamplingHost()));
     }
 
     /** The hooks through which the evaluator reports each invocation to the observing evaluation in progress, created at the first evaluation that observes. */
@@ -143,6 +146,14 @@ export class QueryEvaluator {
             beforeInvoke: request => this.#observe(request),
             afterInvoke: (request, value) => this.#followDetachedReceiver(request, value),
         }));
+    }
+
+    /**
+     * The hooks of a projection, created at the first: they read the samples of maintained members alone, since a projection holds no observation of changes, waits for nothing and records nothing, so a detached receiver is
+     * not followed either.
+     */
+    #getSamplingHost() {
+        return (this.#samplingHost ??= Object.freeze({ beforeInvoke: request => this.#sample(request) }));
     }
 
     /** Runs an evaluation that records what it depends on, answering the evaluation; one that waits holds what a pending result waits on, and lets a failure seen through a pending member pass. */
@@ -161,7 +172,7 @@ export class QueryEvaluator {
         this.#observationContext = observationContext;
 
         try {
-            ({ value, metadata } = produce(this.#getHost()));
+            ({ value, metadata } = produce());
         } catch (failure) {
             // An evaluation that fails having read a maintained member still pending reports nothing and waits for its sample, since the failure may come from the null the member answered, and nothing tells which failures do; one that fails before it reads a pending member reports its failure.
             error = waits && observationContext.isPending ? null : failure;
@@ -258,6 +269,45 @@ export class QueryEvaluator {
         }
 
         return samples;
+    }
+
+    /**
+     * Holds the maintained observations of the call alone, answering their samples in the order the declaration names them, as `#observe` answers them, for a projection, which needs nothing else observed.
+     * Answers that a sample is still pending, which makes the member answer null and the projection pending.
+     */
+    #sample({ declaration, receiver, args }) {
+        if (declaration.updates?.reads !== 'maintained') {
+            return NO_SAMPLES;
+        }
+
+        const { observations } = this.#observationContext;
+        const samples = [];
+        let isPending = false;
+
+        for (const observationDeclaration of declaration.updates.observations) {
+            if (this.#moduleRegistry.getObservationType(observationDeclaration.type).contract !== 'maintained') {
+                continue;
+            }
+
+            // A maintained observation observes one target, so never the roots of a receiver's ancestry.
+            const target = observationDeclaration.of === 'root' ? Observations.rootOf(receiver, this.#observationContext.rootOf) : observations.targetOf(observationDeclaration, receiver, args);
+            const cachedSession = this.#holdAt(observationDeclaration, args, target);
+
+            if (cachedSession !== null) {
+                const sample = cachedSession.session.sample();
+
+                isPending ||= sample.pending;
+                samples.push(sample.value);
+            }
+        }
+
+        if (isPending) {
+            this.#observationContext.isPending = true;
+
+            return PENDING;
+        }
+
+        return samples.length === 0 ? NO_SAMPLES : samples;
     }
 
     /** A member that answered null for an element that is detached depends on whether the element is attached, so it is read again when the element returns. */
