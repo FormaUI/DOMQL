@@ -27,6 +27,7 @@ export class BrowserObservationImplementations {
             observePixelRatio: BrowserObservationImplementations.#observePixelRatio,
             observeEvents: BrowserObservationImplementations.#observeEvents,
             observeVisibility: BrowserObservationImplementations.#observeVisibility,
+            observeNavigation: BrowserObservationImplementations.#observeNavigation,
         };
     }
 
@@ -200,6 +201,16 @@ export class BrowserObservationImplementations {
     /** Whether the document is visible. */
     static #observeVisibility({ request: { target }, notify }) {
         return BrowserObservationImplementations.#listen(target, ['visibilitychange'], false, notify);
+    }
+
+    /**
+     * The window's URL: the Navigation API's current entry changing, which every navigation within the document and the history API change, or, in a browser without it, the window's `popstate` and `hashchange`,
+     * which a change the history API makes fires neither of.
+     */
+    static #observeNavigation({ request: { target }, notify }) {
+        const navigation = target.navigation;
+
+        return navigation ? BrowserObservationImplementations.#listen(navigation, ['currententrychange'], false, notify) : BrowserObservationImplementations.#listen(target, ['popstate', 'hashchange'], false, notify);
     }
 
     static #listen(target, types, capture, notify) {

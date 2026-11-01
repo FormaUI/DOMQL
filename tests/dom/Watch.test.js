@@ -311,6 +311,71 @@ describe('Watch', () => {
         });
     });
 
+    describe('structure and the window', () => {
+        it('follows an element\'s siblings and its place among them as its parent\'s children change', async () => {
+            const [first, second] = panel.children;
+
+            watch('item { previous = it.previousSibling?["data-n"], index = it.index }', { item: second }, { acceptPartialObservation: true });
+            await settle();
+
+            panel.prepend(document.createElement('b'));
+            await settle();
+            first.remove();
+            await settle();
+
+            expect(snapshots).toEqual([{ previous: '1', index: 1 }, { previous: '1', index: 2 }, { previous: null, index: 1 }]);
+        });
+
+        it('follows whether a node holds another as its subtree changes', async () => {
+            const [first, second] = panel.children;
+
+            watch('first.contains(second)', { first, second });
+            await settle();
+
+            first.append(second);
+            await settle();
+            panel.append(second);
+            await settle();
+
+            expect(snapshots).toEqual([false, true, false]);
+        });
+
+        it('follows the capture of a pointer as the browser reports it got and lost, at the element and, once it is removed, at the document', async () => {
+            const [item] = panel.children;
+            let captured = false;
+
+            item.hasPointerCapture = () => captured;
+            watch('item.hasPointerCapture(1)', { item });
+            await settle();
+
+            captured = true;
+            item.dispatchEvent(new Event('gotpointercapture'));
+            await settle();
+            captured = false;
+            document.dispatchEvent(new Event('lostpointercapture'));
+            await settle();
+
+            expect(snapshots).toEqual([false, true, false]);
+        });
+
+        it('follows the window\'s URL as its hash changes, which a browser without the Navigation API reports alone', async () => {
+            const start = window.location.href;
+
+            watch('Domql.window.location.hash', {}, { acceptPartialObservation: true });
+            await settle();
+
+            try {
+                window.history.replaceState(null, '', '#moved');
+                window.dispatchEvent(new Event('hashchange'));
+                await settle();
+
+                expect(snapshots).toEqual(['', '#moved']);
+            } finally {
+                window.history.replaceState(null, '', start);
+            }
+        });
+    });
+
     describe('values and text', () => {
         it('follows the text of a subtree as it is edited, a text node\'s data included', async () => {
             panel.innerHTML = '<p>one</p>';

@@ -730,6 +730,20 @@ Domql.document.selection?.range {
 
 The browser reports every selection the user or the page's code makes, so a watch follows the selection as it moves.
 
+### Read where an element stands
+
+`index` reads an element's place among its parent's child elements, `previousSibling` and `nextSibling` its neighbours, and `contains` whether a node holds another:
+
+```domql
+item {
+    index = it.index,
+    next = it.nextSibling?["data-key"],
+    inPanel = panel.contains(it)
+}
+```
+
+`Domql.window.location` reads the window's URL, which a watch follows as the history API changes it, and `Domql.window.shortcutModifier` the key a shortcut is written with, `"Meta"` on Apple platforms and `"Control"` elsewhere.
+
 ### Choose a property by name
 
 Use `.[…]`, brackets after a dot, when the property name comes from a string:

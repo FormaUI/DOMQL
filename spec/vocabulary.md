@@ -69,6 +69,7 @@ DOMQL's module declares each of its types with its members, as Nexo's [declaring
 | `Scroll` | How far a box is scrolled along each of its logical axes | `inline`, `block`: `ScrollAxis` |
 | `ScrollAxis` | How far a box is scrolled along one axis | `offset`, `extent`, `viewport`: `Number` |
 | `Playback` | A media element's playback | `paused`, `muted`, `ended`: `Boolean`; `currentTime`, `volume`: `Number`; `duration`: `Number?` |
+| `Location` | The parts of a URL a page navigates by | `href`, `pathname`, `search`, `hash`: `String` |
 
 `on`, an event source, is one declaration DOMQL's module gives each of `Element`, `Document` and `Window`, the receivers it listens on.
 
@@ -109,6 +110,8 @@ A property exposes a value, read by property access, and takes no argument. Each
 | Window | [`size`](#property-window-size) | `Size` |
 | Window | [`scroll`](#property-window-scroll) | `Scroll` |
 | Window | [`devicePixelRatio`](#property-window-devicepixelratio) | `Number` |
+| Window | [`location`](#property-window-location) | `Location` |
+| Window | [`shortcutModifier`](#property-window-shortcutmodifier) | `String` |
 | Element | [`rect`](#property-element-rect) | `Rectangle?` |
 | Element | [`clientRect`](#property-element-clientrect) | `Rectangle?` |
 | Element | [`size`](#property-element-size) | `Size?` |
@@ -135,6 +138,8 @@ A property exposes a value, read by property access, and takes no argument. Each
 | Element | [`attached`](#property-element-attached) | `Boolean` |
 | Element | [`hasChildren`](#property-element-haschildren) | `Boolean` |
 | Element | [`hasSelection`](#property-element-hasselection) | `Boolean` |
+| Element | [`previousSibling`, `nextSibling`](#property-element-siblings) | `Element?` |
+| Element | [`index`](#property-element-index) | `Number?` |
 | Document | [`selection`](#property-document-selection) | `DocumentSelection?` |
 | Range | [`rect`](#property-range-rect) | `Rectangle?` |
 | Range | [`collapsed`](#property-range-collapsed) | `Boolean` |
@@ -174,6 +179,26 @@ A property exposes a value, read by property access, and takes no argument. Each
 **Result.** Device pixels per CSS pixel
 
 **Changes.** Observable
+
+<a id="property-window-location"></a>
+
+### Window: location
+
+**Type:** `Location`   **Reads:** Fresh
+
+**Result.** The window's URL: its whole `href`, its `pathname`, its `search`, the query with its `?`, and its `hash`, the fragment with its `#`, each the empty string where the URL has none, as `location` answers them
+
+**Changes.** Partly observable: the [`navigation`](#observations-types) observation is observed, which follows every navigation within the document, the history API's `pushState` and `replaceState` included, through the Navigation API; in a browser without it, `popstate` and `hashchange` alone are observed, and a change the history API makes fires neither
+
+<a id="property-window-shortcutmodifier"></a>
+
+### Window: shortcutModifier
+
+**Type:** `String`   **Reads:** Fresh
+
+**Result.** The modifier key a keyboard shortcut is written with on the platform the browser runs on, as a keyboard event's `key` names it: `"Meta"`, the Command key, on an Apple platform, and `"Control"` on any other. The platform is the one `navigator.userAgentData` names, `macOS` and `iOS` being Apple's, and, in a browser that offers none, the one `navigator.platform` names, whose `Mac`, `iPhone`, `iPad` and `iPod` are, an iPad that names itself a Mac included
+
+**Changes.** Constant
 
 <a id="property-element-rect"></a>
 
@@ -473,6 +498,26 @@ An element that is no scroll container is scrolled by 0. Null while it has no la
 
 **Changes.** Observable, as `selection`
 
+<a id="property-element-siblings"></a>
+
+### Element: previousSibling, nextSibling
+
+**Type:** `Element?`   **Reads:** Fresh
+
+**Result.** The element before it and the element after it among its parent's child elements, a text or a comment node between them passed over, and null where there is none, as at either end and where it has no parent
+
+**Changes.** Partly observable, as `parent`
+
+<a id="property-element-index"></a>
+
+### Element: index
+
+**Type:** `Number?`   **Reads:** Fresh
+
+**Result.** Its place among its parent's child elements, from 0, as an item's place in its parent's `children`; null where it has no parent. A list's order of its own is Nexo's `indexOf`, so `items.indexOf(item)` is an item's place in any list
+
+**Changes.** Partly observable, as `parent`
+
 <a id="property-document-selection"></a>
 
 ### Document: selection
@@ -552,8 +597,10 @@ Each function states what it answers, how its result changes, how it reads, and 
 | Element | [`matches(selector)`](#function-element-matches) |
 | Element | [`rectRelativeTo(relativeTo)`](#function-element-rectrelativeto) |
 | Element | [`closest(selector)`](#function-element-closest) |
+| Element | [`hasPointerCapture(pointerId)`](#function-element-haspointercapture) |
 | Element | [`scrollContainer({ axis })`](#function-element-scrollcontainer) |
 | Node | [`first(selector)`, `all(selector)`](#function-node-first-all) |
+| Node | [`contains(other)`](#function-node-contains) |
 | Range | [`intersects(node)`](#function-range-intersects) |
 | Range | [`all(selector)`](#function-range-all) |
 | Range | [`offsetsIn(element)`](#function-range-offsetsin) |
@@ -701,6 +748,16 @@ A box whose overflow is not `visible` along one axis computes `visible` as `auto
 
 **Changes.** Partly observable: the attributes and the structure of every tree its flat-tree ancestry passes through are observed; a stylesheet changing which rules apply is not
 
+<a id="function-element-haspointercapture"></a>
+
+### Element: hasPointerCapture
+
+**Syntax:** `hasPointerCapture(pointerId)`   **Signature:** `pointerId`: `Number` → `Boolean`   **Reads:** Fresh   **Fixed arguments:** None
+
+**Result.** Whether it holds the capture of the pointer, as `hasPointerCapture` answers: from the moment the page's code sets it, before the browser reports it
+
+**Changes.** Observable: its `gotpointercapture` and `lostpointercapture` events, and the document's `lostpointercapture`, which the browser fires where the element holding a capture is removed. The browser fires them as it processes the capture at the pointer's next event, so a watch reports a capture set at that event
+
 <a id="function-node-first-all"></a>
 
 <a id="functions-node-first-all"></a>
@@ -712,6 +769,16 @@ A box whose overflow is not `visible` along one axis computes `visible` as `auto
 **Result.** The first matching descendant, and the matching descendants in document order, within its own tree
 
 **Changes.** Partly observable, as `matches`
+
+<a id="function-node-contains"></a>
+
+### Node: contains
+
+**Syntax:** `contains(other)`   **Signature:** `other`: `Node` → `Boolean`   **Reads:** Fresh   **Fixed arguments:** None
+
+**Result.** Whether the other node is it or one of its descendants, within its own tree, so a node in a shadow tree it hosts is not; as `other` propagates null, null where `other` is null
+
+**Changes.** Observable: the structure of its subtree
 
 <a id="function-range-intersects"></a>
 
@@ -1102,7 +1169,7 @@ A query converts with the four conversions [Nexo's own module](https://github.co
 
 ## Observations
 
-A member names the [observations](https://github.com/FormaUI/Nexo/blob/65d247bc6f6b0dde1b701bbfd41f19a40838174c/spec/runtime/observations.md#observations) that cover its changes, each by its type and its target, and DOMQL starts each one that a watch, a waiting evaluation or an event's object expression needs, and stops it once nothing needs it. DOMQL's module declares the browser's observations as eight observation types, which the members of any module can name, and five observation targets.
+A member names the [observations](https://github.com/FormaUI/Nexo/blob/65d247bc6f6b0dde1b701bbfd41f19a40838174c/spec/runtime/observations.md#observations) that cover its changes, each by its type and its target, and DOMQL starts each one that a watch, a waiting evaluation or an event's object expression needs, and stops it once nothing needs it. DOMQL's module declares the browser's observations as nine observation types, which the members of any module can name, and five observation targets.
 
 <a id="observations-types"></a>
 
@@ -1120,6 +1187,7 @@ Each type is shared by equivalent requests, those of the same target and the sam
 | `pixelRatio` | Invalidation | The device pixel ratio | None | None |
 | `event` | Invalidation | Events of the given types reaching the target, or reaching it in the capture phase | `types`, a list of event types; `capture`, a Boolean, false when omitted | `types`, `capture` |
 | `visibility` | Invalidation | Whether the document is visible | None | None |
+| `navigation` | Invalidation | The window's URL: the Navigation API's current entry changing, which every navigation within the document and the history API change, or, in a browser without it, the window's `popstate` and `hashchange` | None | None |
 
 <a id="observations-targets"></a>
 

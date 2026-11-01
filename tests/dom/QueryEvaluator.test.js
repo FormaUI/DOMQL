@@ -625,6 +625,59 @@ describe('QueryEvaluator', () => {
         });
     });
 
+    describe('siblings and containment', () => {
+        it('reads an element\'s siblings and its place among them, and null for each where it has no parent', () => {
+            const detached = document.createElement('div');
+
+            expect(read('item { previous = it.previousSibling?["data-key"], next = it.nextSibling?["data-key"], index = it.index }', { item: items[1] })).toEqual({ previous: 'a1', next: 'a3', index: 1 });
+            expect(read('item { previous = it.previousSibling?["data-key"], index = it.index }', { item: items[0] })).toEqual({ previous: null, index: 0 });
+            expect(read('detached { previous = it.previousSibling == null, next = it.nextSibling == null, index = it.index }', { detached })).toEqual({ previous: true, next: true, index: null });
+            expect(read('Domql.document.first("html")?.index')).toBe(0);
+        });
+
+        it('answers whether a node holds another, itself included, within its own tree, and null for a null other', () => {
+            const host = document.createElement('div');
+            const shadowRoot = host.attachShadow({ mode: 'open' });
+
+            shadowRoot.innerHTML = '<p></p>';
+            panel.append(host);
+
+            expect(read('{ child = panel.contains(item), itself = panel.contains(panel), parent = item.contains(panel), shadowed = panel.contains(shadowed), none = panel.contains(none) }', { panel, item: items[2], shadowed: shadowRoot.firstElementChild, none: null })).toEqual({
+                child: true, itself: true, parent: false, shadowed: false, none: null,
+            });
+            expect(read('Domql.document.contains(panel)', { panel })).toBe(true);
+        });
+
+        it('answers whether an element holds the capture of a pointer', () => {
+            items[0].hasPointerCapture = pointerId => pointerId === 7;
+
+            expect(read('{ held = item.hasPointerCapture(7), other = item.hasPointerCapture(1) }', { item: items[0] })).toEqual({ held: true, other: false });
+        });
+    });
+
+    describe('the window\'s location and platform', () => {
+        /** A window of its own, its navigator the one given. */
+        const windowWith = navigator => ({ document, navigator, location: window.location, get window() { return this; } });
+
+        it('reads the parts of the window\'s URL a page navigates by', () => {
+            const { href, pathname, search, hash } = window.location;
+
+            expect(read('Domql.window.location')).toEqual({ href, pathname, search, hash });
+        });
+
+        it('names the primary shortcut modifier, Meta on Apple platforms and Control elsewhere, from the platform the user agent names, or the one navigator.platform does where it names none', () => {
+            const modifierOf = navigator => domql.query('Domql.window.shortcutModifier').evaluate({ window: windowWith(navigator) });
+
+            expect(modifierOf({ userAgentData: { platform: 'macOS' }, platform: 'MacIntel' })).toBe('Meta');
+            expect(modifierOf({ userAgentData: { platform: 'Windows' }, platform: 'MacIntel' })).toBe('Control');
+            expect(modifierOf({ userAgentData: { platform: 'Linux' } })).toBe('Control');
+            expect(modifierOf({ platform: 'MacIntel' })).toBe('Meta');
+            expect(modifierOf({ platform: 'iPhone' })).toBe('Meta');
+            expect(modifierOf({ platform: 'Win32' })).toBe('Control');
+            expect(modifierOf({})).toBe('Control');
+        });
+    });
+
     describe('the document selection', () => {
         beforeEach(() => {
             document.body.innerHTML = '<div id="editor"><p id="p">hello <b id="b">world</b> again</p><a id="link" href="#">link</a></div>';

@@ -2,11 +2,11 @@
 
 ## Current state
 
-**DOMQL's vocabulary, queries, watches, events and executions are implemented on Nexo's language `1.0.0-beta.8`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.283`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next is [the C# half](#the-c-half).**
+**DOMQL's vocabulary, queries, watches, events and executions are implemented on Nexo's language `1.0.0-beta.8`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.284`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next is [the C# half](#the-c-half).**
 
 | Version | Implementation | Specification |
 | --- | --- | --- |
-| DOMQL specification | `1.0.0-alpha.283` | `1.0.0-alpha.283` |
+| DOMQL specification | `1.0.0-alpha.284` | `1.0.0-alpha.284` |
 | Nexo language | `1.0.0-beta.8` | `1.0.0-beta.8` |
 | Definition format | 38 | 38 |
 
@@ -62,6 +62,9 @@ Each feature, the contract that states it, its state in the implementation, and 
 | An element's `text`, `html`, `localName`, `classes` and `inlineStyle[property]` | [`text`](../spec/vocabulary.md#property-element-text), [`html`](../spec/vocabulary.md#property-element-html), [`inlineStyle`](../spec/vocabulary.md#function-element-inlinestyle) | Implemented | [`alpha.282`](../VERSION-HISTORY.md#v1-0-0-alpha-282) |
 | A media element's `playback`, observed through its media events | [`playback`](../spec/vocabulary.md#property-element-playback) | Implemented | [`alpha.282`](../VERSION-HISTORY.md#v1-0-0-alpha-282) |
 | The document selection, `Domql.document.selection`, its `Range`, and an editable element's `selection` | [Document `selection`](../spec/vocabulary.md#property-document-selection), [`Range`](../spec/vocabulary.md#property-range-rect), [Element `selection`](../spec/vocabulary.md#property-element-selection) | Implemented; an element's `selection` and `hasSelection` observable, as [D20](decisions.md#d20) records | [`alpha.283`](../VERSION-HISTORY.md#v1-0-0-alpha-283) |
+| Siblings, an element's `index` and `contains(other)`; `follows(other)` declined, as [D22](decisions.md#d22) records | [Siblings](../spec/vocabulary.md#property-element-siblings), [`index`](../spec/vocabulary.md#property-element-index), [`contains`](../spec/vocabulary.md#function-node-contains) | Implemented | [`alpha.284`](../VERSION-HISTORY.md#v1-0-0-alpha-284) |
+| The window's `location`, followed through the Navigation API, and its `shortcutModifier`; `Document.documentElement` declined, as [D23](decisions.md#d23) records | [`location`](../spec/vocabulary.md#property-window-location), [`shortcutModifier`](../spec/vocabulary.md#property-window-shortcutmodifier) | Implemented | [`alpha.284`](../VERSION-HISTORY.md#v1-0-0-alpha-284) |
+| `hasPointerCapture(pointerId)` | [`hasPointerCapture`](../spec/vocabulary.md#function-element-haspointercapture) | Implemented | [`alpha.284`](../VERSION-HISTORY.md#v1-0-0-alpha-284) |
 | Following a change a member misses through a body's local | [Following a change a member misses](../spec/watches.md#dependencies-following-what-a-member-misses) | Implemented | [`alpha.282`](../VERSION-HISTORY.md#v1-0-0-alpha-282) |
 
 ### The host
@@ -128,7 +131,7 @@ The language's part is Nexo's already, adopted with the [migration](#migration-t
 1. **The host side.** The C# half (A1), change sets against an acknowledged result and a refresh that delivers (A2, A3), modules loaded on request (A4); occurrences a behavior offers and its owner (C1, C4); DOMQL's observations for module code (C5); and the first executions, focus and scrolling (X1, X2).
 2. **Input.** Module state per document (C8), synchronous handling stated (C10), ordered delivery (A5), capture-phase observing (E1), and pointer, wheel and keyboard members (E2, E3, E9).
 3. **Presentation.** The top-layer executions (X3), commands to a running behavior (C3), focus events (E5), owned writes and their ownership (X5, A10), nullable options (C11) and the frame promise (T2).
-4. **Virtualization.** State a behavior offers and history per holder (C2, C9), and siblings (V9).
+4. **Virtualization.** State a behavior offers and history per holder (C2, C9).
 5. **Gestures and files.** Pointer and drag events (E2, E4), pointer capture (X4), files (V14, X10), dispatch (X8) and continuous measurement (O3).
 6. **Dialogs and frames.** Presentation events (E7), size limits (V12) and ordered executions (T3).
 7. **The remaining facilities.** Browser facilities and form controls (X6, X7), reactions in the browser (A7), and animation, loading and media events (E8).
@@ -140,11 +143,8 @@ The language's part is Nexo's already, adopted with the [migration](#migration-t
 
 | | Addition |
 | --- | --- |
-| V9 | `Node.contains(other)` → `Boolean`; element siblings or `Element.index`; optionally `Element.follows(other)` |
 | V12 | `Element.sizeLimits { minWidth, minHeight, maxWidth, maxHeight }`, or a conversion of a `px` length: `style["min-width"]` answers `"120px"`, which the String-to-Number conversion refuses |
 | V14 | `Element.files` → `List<File>?`, `File { name, size, type, lastModified }` |
-| V17 | `Window.location { href }`, `Document.documentElement`, and a platform fact that replaces the deprecated `navigator.platform` |
-| V18 | Function `hasPointerCapture(pointerId)` → `Boolean` |
 
 <a id="planned-events"></a>
 

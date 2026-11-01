@@ -318,3 +318,34 @@ Each entry is one of three kinds:
   - An editor reads the caret as it reads a text area's, and offsets in `text` agree with what `text` answers, in UTF-16 code units as Nexo's strings count them.
   - A paragraph inside an editing host answers its own offsets, which a block-by-block editor needs; limiting it to the host would answer null there for no reason.
 - **Declined:** the editing host alone, as the plan wrote, for the reason above.
+
+<a id="d22"></a>
+
+## D22 — Siblings, `index` and `contains`, and no `follows`
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** An element has `previousSibling` and `nextSibling`, its neighbouring elements, and `index`, its place among its parent's child elements, each null where it has no parent; a node has `contains(other)`. No `follows(other)` is declared.
+- **Why:**
+  - DOMQL's values are elements, never text nodes, so a sibling is an element, and the short name reads as `children` and `parent` do.
+  - A list's order is Nexo's own: `all` answers document order and `indexOf` an item's place in it, so `items.indexOf(a) < items.indexOf(b)` answers what `follows` would. `follows` couldn't sort a list either, since Nexo's `orderBy` refuses a reference as its key (NEXO5036).
+  - `contains` observes its own subtree's structure, so it is observable; the siblings and `index` observe their tree's as `parent` does, and miss what it misses.
+- **Declined:** `follows(other)`, for the reasons above.
+
+<a id="d23"></a>
+
+## D23 — `location`, `shortcutModifier`, and no `documentElement`
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** The window has `location`, a `Location { href, pathname, search, hash }`, which a ninth observation type, `navigation`, follows, and `shortcutModifier`, `"Meta"` on an Apple platform and `"Control"` on any other. `Document.documentElement` is not declared.
+- **Why:**
+  - A browser test settled that the Navigation API fires `currententrychange` for `pushState`, `replaceState`, a hash changing and a traversal, which `popstate` and `hashchange` alone miss for the history API; so `navigation` listens to it where the browser offers it, and `location` is partly observable only in a browser that doesn't.
+  - What a page needs of its platform is the modifier its shortcuts use, not the platform's name, so the member answers that, in the names a keyboard event's `key` uses. It reads `navigator.userAgentData` where the browser offers it, and `navigator.platform`, the one signal the others give, where it doesn't.
+  - `Domql.document.first(":root")` reads the root element already, and no query needs it observed apart from what `first` observes.
+- **Declined:**
+  - A `platform` naming the operating system, which every query would map to the modifier itself.
+  - `origin` beside the four parts, constant for a document.
+  - `documentElement`, for the reason above.

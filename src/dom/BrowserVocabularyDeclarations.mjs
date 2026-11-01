@@ -54,6 +54,8 @@ const STYLE = { changes: 'partly-observable', misses: 'rules matching from elsew
 const RENDERING = [ANCESTRY_STYLE, RESIZE];
 const RENDERING_MISSES = 'a stylesheet\'s rules hiding or showing it where its box keeps its size, as a box of no size, and content-visibility skipping it';
 const MEASURED = { tolerance: LAYOUT_TOLERANCE };
+// An element's place among its siblings, which the structure of its tree decides, as its parent does.
+const SIBLINGS = { changes: 'partly-observable', misses: 'a detached tree inserted into another detached tree or into a shadow root', observations: [{ type: 'mutation', of: 'root', childList: true, subtree: true }] };
 
 /**
  * The kind of node a value is, by the type its `nodeType` names, or null where it is no element, document or fragment. A node holds functions, which data never does, so data that names a `nodeType` is never taken for one;
@@ -117,6 +119,7 @@ export class BrowserVocabularyDeclarations {
                     implementing('host', property('host', 'Element?', { updates: updatesOf({ changes: 'constant' }) })),
                     implementing('firstMatching', func('first', 'Element?', { parameters: SELECTOR_PARAMETERS, updates: updatesOf({ ...MATCHING, observations: [STRUCTURE, FOCUS, POPOVERS] }) })),
                     implementing('all', func('all', 'List<Element>', { parameters: SELECTOR_PARAMETERS, updates: updatesOf({ ...MATCHING, observations: [STRUCTURE, FOCUS, POPOVERS] }) })),
+                    implementing('contains', func('contains', 'Boolean', { parameters: [valueParameter('other', 'Node')], updates: updatesOf({ observations: [{ type: 'mutation', of: 'receiver', childList: true, subtree: true }] }) })),
                 ], { abstract: true }),
 
                 referenceType('Element', value => nodeKindOf(value) === 'Element', [
@@ -178,6 +181,13 @@ export class BrowserVocabularyDeclarations {
                     implementing('attached', property('attached', 'Boolean', { updates: updatesOf({ changes: 'partly-observable', misses: 'a detached tree inserted into a shadow root in the document', observations: [{ type: 'attachment', of: 'receiver' }] }) })),
                     implementing('hasChildren', property('hasChildren', 'Boolean', { updates: updatesOf({ observations: [CHILDREN] }) })),
                     implementing('hasSelection', property('hasSelection', 'Boolean', { updates: updatesOf({ observations: TEXT_SELECTION }) })),
+                    implementing('previousSibling', property('previousSibling', 'Element?', { updates: updatesOf(SIBLINGS) })),
+                    implementing('nextSibling', property('nextSibling', 'Element?', { updates: updatesOf(SIBLINGS) })),
+                    implementing('index', property('index', 'Number?', { updates: updatesOf(SIBLINGS) })),
+                    implementing('hasPointerCapture', func('hasPointerCapture', 'Boolean', {
+                        parameters: [valueParameter('pointerId', 'Number')],
+                        updates: updatesOf({ observations: [{ type: 'event', of: 'receiver', types: ['gotpointercapture', 'lostpointercapture'] }, { type: 'event', of: 'document', types: ['lostpointercapture'] }] }),
+                    })),
 
                     // An attribute, read by the named indexer and by the element's unnamed one alike.
                     ...[null, 'attribute'].map(name => implementing('attribute', indexer(name, 'String?', { parameters: [valueParameter('name', 'String')], updates: updatesOf({ observations: [{ type: 'mutation', of: 'receiver', attributes: [{ argument: 'name' }] }] }) }))),
@@ -230,6 +240,8 @@ export class BrowserVocabularyDeclarations {
                         }),
                     })),
                     implementing('devicePixelRatio', property('devicePixelRatio', 'Number', { updates: updatesOf({ observations: [{ type: 'pixelRatio', of: 'window' }] }) })),
+                    implementing('location', property('location', 'Location', { updates: updatesOf({ changes: 'partly-observable', misses: 'in a browser without the Navigation API, a change the history API makes, which fires no event', observations: [{ type: 'navigation', of: 'window' }] }) })),
+                    implementing('shortcutModifier', property('shortcutModifier', 'String', { updates: updatesOf({ changes: 'constant' }) })),
                     implementing('media', indexer('media', 'Boolean', { parameters: [valueParameter('query', 'String')], updates: updatesOf({ observations: [{ type: 'media', of: 'window', query: { argument: 'query' } }] }) })),
 
                     // The capabilities the window's browser offers, each the presence of the API it names, which says nothing of whether a particular use of it succeeds.
@@ -281,6 +293,8 @@ export class BrowserVocabularyDeclarations {
                 structuredType('ScrollAxis', { offset: 'Number', extent: 'Number', viewport: 'Number' }),
                 // A media element's playback; its duration unknown until its metadata loads, and without an end for a stream.
                 structuredType('Playback', { paused: 'Boolean', muted: 'Boolean', ended: 'Boolean', currentTime: 'Number', duration: 'Number?', volume: 'Number' }),
+                // The parts of the window's URL a page navigates by.
+                structuredType('Location', { href: 'String', pathname: 'String', search: 'String', hash: 'String' }),
                 // An event such as scroll or resize can target the document or the window, which is no element.
                 structuredType('DomEvent', { target: 'Element?' }),
                 // A browser that dispatches a click as a mouse event gives it no pointer type.
@@ -314,6 +328,7 @@ export class BrowserVocabularyDeclarations {
                 observationType('pixelRatio', 'invalidation', 'observePixelRatio'),
                 observationType('event', 'invalidation', 'observeEvents', { identity: ['types', 'capture'] }),
                 observationType('visibility', 'invalidation', 'observeVisibility'),
+                observationType('navigation', 'invalidation', 'observeNavigation'),
             ],
 
             // The targets the observations observe besides the receiver and an argument: the window and the document; the receiver's root, the root of the tree it is in, and its roots, every root of its flat-tree ancestry through slots and shadow hosts;

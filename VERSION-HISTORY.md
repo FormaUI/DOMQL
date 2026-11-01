@@ -6,6 +6,21 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-284"></a>
+
+## `1.0.0-alpha.284`
+
+*November 1, 2026 · Nexo language `1.0.0-beta.8` · definition format 38*
+
+DOMQL reads an element's siblings and place, whether a node holds another, a pointer's capture, the window's URL and its shortcut modifier.
+
+**Vocabulary**
+
+- [`previousSibling`, `nextSibling`](spec/vocabulary.md#property-element-siblings) and [`index`](spec/vocabulary.md#property-element-index) answer an element's neighbours and its place among its parent's child elements, and [`contains(other)`](spec/vocabulary.md#function-node-contains) whether a node holds another, as [D22](docs/decisions.md#d22) records.
+- [`hasPointerCapture(pointerId)`](spec/vocabulary.md#function-element-haspointercapture) answers whether an element holds a pointer's capture, observed through the capture events.
+- [`Domql.window.location`](spec/vocabulary.md#property-window-location) answers a `Location { href, pathname, search, hash }`, and [`shortcutModifier`](spec/vocabulary.md#property-window-shortcutmodifier) `"Meta"` or `"Control"`, as [D23](docs/decisions.md#d23) records.
+- [Observation types](spec/vocabulary.md#observations-types): `navigation`, the window's URL, through the Navigation API where the browser offers it.
+
 <a id="v1-0-0-alpha-283"></a>
 
 ## `1.0.0-alpha.283`

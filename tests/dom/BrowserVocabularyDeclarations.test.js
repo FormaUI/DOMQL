@@ -50,7 +50,7 @@ describe('BrowserVocabularyDeclarations', () => {
     it('declares the DOM\'s reference types, the views of an element and the structured types of its measurements and events', () => {
         expect(module.types.map(type => `${type.kind} ${type.name}${type.supertype === undefined ? '' : ` : ${type.supertype}`}${type.abstract ? ', abstract' : ''}`)).toEqual([
             'reference Node, abstract', 'reference Element : Node', 'reference Document : Node', 'reference DocumentFragment : Node', 'reference ShadowRoot : Node', 'reference Window', 'reference Shadow', 'reference Aria', 'reference Range',
-            'structured Size', 'structured Rectangle', 'structured Selection', 'structured DocumentSelection', 'structured Grid', 'structured Scroll', 'structured ScrollAxis', 'structured Playback', 'structured DomEvent', 'structured PointerEvent', 'structured KeyboardEvent', 'structured DragEvent',
+            'structured Size', 'structured Rectangle', 'structured Selection', 'structured DocumentSelection', 'structured Grid', 'structured Scroll', 'structured ScrollAxis', 'structured Playback', 'structured Location', 'structured DomEvent', 'structured PointerEvent', 'structured KeyboardEvent', 'structured DragEvent',
         ]);
         expect(module.types.filter(type => type.kind === 'structured').map(type => `${type.name} { ${type.members.map(member => `${member.name}: ${member.result}`).join(', ')} }`)).toEqual([
             'Size { width: Number, height: Number }',
@@ -61,6 +61,7 @@ describe('BrowserVocabularyDeclarations', () => {
             'Scroll { inline: ScrollAxis, block: ScrollAxis }',
             'ScrollAxis { offset: Number, extent: Number, viewport: Number }',
             'Playback { paused: Boolean, muted: Boolean, ended: Boolean, currentTime: Number, duration: Number?, volume: Number }',
+            'Location { href: String, pathname: String, search: String, hash: String }',
             'DomEvent { target: Element? }',
             'PointerEvent { target: Element, button: Number, buttons: Number, clientX: Number, clientY: Number, pointerType: String? }',
             'KeyboardEvent { target: Element, key: String, code: String }',
@@ -71,13 +72,14 @@ describe('BrowserVocabularyDeclarations', () => {
 
     it('declares each member the specification lists within the type it reads', () => {
         expect(typeMembers.map(({ type, member }) => nameOf(type, member)).sort()).toEqual([
-            'Node.children', 'Node.parent', 'Node.root', 'Node.host', 'Node.first', 'Node.all',
+            'Node.children', 'Node.parent', 'Node.root', 'Node.host', 'Node.first', 'Node.all', 'Node.contains',
             'Element.disabled', 'Element.readonly', 'Element.textEditable', 'Element.focus', 'Element.focusWithin', 'Element.displayed', 'Element.focusable', 'Element.hover', 'Element.popoverOpen', 'Element.checked', 'Element.indeterminate', 'Element.autofilled',
             'Element.localName', 'Element.classes', 'Element.text', 'Element.html', 'Element.value', 'Element.playback', 'Element.inlineStyle',
             'Element.rect', 'Element.clientRect', 'Element.size', 'Element.clientSize', 'Element.scroll', 'Element.grid', 'Element.selection', 'Element.shadow', 'Element.aria', 'Element.direction', 'Element.attached', 'Element.hasChildren', 'Element.hasSelection',
+            'Element.previousSibling', 'Element.nextSibling', 'Element.index', 'Element.hasPointerCapture',
             'Element[]', 'Element.attribute', 'Element.class', 'Element.style', 'Element.intersects', 'Element.overlaps', 'Element.matches', 'Element.rectRelativeTo', 'Element.closest', 'Element.scrollContainer', 'Element.on',
             'Document.visible', 'Document.focus', 'Document.activeElement', 'Document.selection', 'Document.on',
-            'Window.size', 'Window.scroll', 'Window.devicePixelRatio', 'Window.media', 'Window.share', 'Window.clipboard', 'Window.on',
+            'Window.size', 'Window.scroll', 'Window.devicePixelRatio', 'Window.location', 'Window.shortcutModifier', 'Window.media', 'Window.share', 'Window.clipboard', 'Window.on',
             'Shadow.root', 'Shadow.elements',
             'Aria.checked', 'Aria.disabled', 'Aria[]', 'Aria.attribute', 'Aria as Element',
             'Range.rect', 'Range.collapsed', 'Range.text', 'Range.startElement', 'Range.endElement', 'Range.commonAncestor', 'Range.intersects', 'Range.all', 'Range.offsetsIn',

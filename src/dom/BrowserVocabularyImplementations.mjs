@@ -26,6 +26,9 @@ const VALUE_ELEMENTS = new Set(['input', 'textarea', 'select']);
 /** The media elements. */
 const MEDIA_ELEMENTS = new Set(['audio', 'video']);
 
+/** The platforms whose primary shortcut modifier is Meta, Command on their keyboards, by the name `navigator.userAgentData` gives them. */
+const APPLE_PLATFORMS = new Set(['macOS', 'iOS']);
+
 /** A `tabindex` that HTML's rules for parsing integers read as an integer. */
 const TAB_INDEX = /^[\t\n\f\r ]*[-+]?[0-9]/;
 
@@ -116,6 +119,17 @@ export class BrowserVocabularyImplementations {
             textEditable: ({ receiver: element }) => BrowserVocabularyImplementations.#isTextEditable(element),
             focused: ({ receiver: element }) => element.getRootNode().activeElement === element,
             focusWithin: ({ receiver: element }) => element.matches(':focus-within'),
+            contains: ({ receiver: node, args: { other } }) => node.contains(other),
+            previousSibling: ({ receiver: element }) => element.previousElementSibling,
+            nextSibling: ({ receiver: element }) => element.nextElementSibling,
+            index: ({ receiver: element }) => (element.parentNode === null ? null : Array.prototype.indexOf.call(element.parentNode.children, element)),
+            hasPointerCapture: ({ receiver: element, args: { pointerId } }) => element.hasPointerCapture(pointerId),
+            location: ({ receiver: window }) => {
+                const { href, pathname, search, hash } = window.location;
+
+                return { href, pathname, search, hash };
+            },
+            shortcutModifier: ({ receiver: window }) => (BrowserVocabularyImplementations.#isApple(window.navigator) ? 'Meta' : 'Control'),
             displayed: ({ receiver: element }) => element.isConnected && element.checkVisibility(),
             indeterminate: ({ receiver: element }) => element.matches(':indeterminate'),
             autofilled: ({ receiver: element }) => BrowserVocabularyImplementations.#isAutofilled(element),
@@ -465,6 +479,16 @@ export class BrowserVocabularyImplementations {
         }
 
         return element.ownerDocument.designMode === 'on';
+    }
+
+    /**
+     * Whether the window runs on an Apple platform, as `navigator.userAgentData` names it, or, in a browser that offers none, as `navigator.platform` does, the one signal such a browser gives, an iPad's that names a Mac
+     * included.
+     */
+    static #isApple(navigator) {
+        const platform = navigator.userAgentData?.platform;
+
+        return platform === undefined ? /^(Mac|iPhone|iPad|iPod)/.test(navigator.platform ?? '') : APPLE_PLATFORMS.has(platform);
     }
 
     /** Whether the browser has filled the field, as `:autofill` matches, or the prefixed `:-webkit-autofill` in a browser that knows no other. */

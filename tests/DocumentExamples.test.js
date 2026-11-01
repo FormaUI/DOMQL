@@ -127,6 +127,7 @@ const DOCUMENTS = {
         { about: 'measuring scrolling', results: { 0: { scrolled: false, atEnd: true } } },
         { about: 'values and text', results: { 0: { name: 'div', classes: ['open'], entered: '' } } },
         { about: 'the selection' },
+        { about: 'where an element stands', results: { 0: { index: 0, next: 'a2', inPanel: true } } },
     ],
     'docs/domql-design.md': [],
     'docs/features-status.md': [],
