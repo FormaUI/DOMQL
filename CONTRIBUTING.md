@@ -14,7 +14,7 @@ You'll need:
 - PowerShell to run the build scripts.
 - The .NET SDK pinned in `nuget/global.json`.
 
-DOMQL is written in [Nexo](https://github.com/FormaUI/Nexo/blob/65d247bc6f6b0dde1b701bbfd41f19a40838174c/spec/README.md), which it builds against at the commit `nexo.commit` pins, taken from a checkout of [FormaUI/Nexo](https://github.com/FormaUI/Nexo) beside this one, until it consumes a released package. Clone it beside this repository under the name the build looks for:
+DOMQL is written in [Nexo](https://github.com/FormaUI/Nexo/blob/2cb596ea0d1a1fc624552783b30139379124bb67/spec/README.md), which it builds against at the commit `nexo.commit` pins, taken from a checkout of [FormaUI/Nexo](https://github.com/FormaUI/Nexo) beside this one, until it consumes a released package. Clone it beside this repository under the name the build looks for:
 
 ```sh
 git clone https://github.com/FormaUI/Nexo.git formaui-net.Nexo
@@ -47,7 +47,7 @@ Run the full build from the repository root:
 | `docs/` | The design and the status overview |
 | `VERSION-HISTORY.md` | Each DOMQL version and what it changed |
 
-The [Nexo specification](https://github.com/FormaUI/Nexo/blob/65d247bc6f6b0dde1b701bbfd41f19a40838174c/spec/README.md) defines the language and its runtime, and the [DOMQL specification](spec/README.md) the DOM vocabulary, how queries are carried out, and the public API. The [Nexo design](https://github.com/FormaUI/Nexo/blob/65d247bc6f6b0dde1b701bbfd41f19a40838174c/docs/nexo-design.md) and the [DOMQL design](docs/domql-design.md) set out how each is built. If a change affects either contract, update the relevant document before implementing it. The [status overview](docs/features-status.md) tracks what is implemented, what is being built, and what remains.
+The [Nexo specification](https://github.com/FormaUI/Nexo/blob/2cb596ea0d1a1fc624552783b30139379124bb67/spec/README.md) defines the language and its runtime, and the [DOMQL specification](spec/README.md) the DOM vocabulary, how queries are carried out, and the public API. The [Nexo design](https://github.com/FormaUI/Nexo/blob/2cb596ea0d1a1fc624552783b30139379124bb67/docs/nexo-design.md) and the [DOMQL design](docs/domql-design.md) set out how each is built. If a change affects either contract, update the relevant document before implementing it. The [status overview](docs/features-status.md) tracks what is implemented, what is being built, and what remains.
 
 ## Develop a change
 

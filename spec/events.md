@@ -3,7 +3,7 @@
 <a id="events"></a>
 <a id="event-delivery"></a>
 
-An **event source** delivers things that happened, as a click or a key pressed, and a **subscription** shapes each event it delivers into data, read as the event is dispatched. An event source is a [host call](https://github.com/FormaUI/Nexo/blob/65d247bc6f6b0dde1b701bbfd41f19a40838174c/spec/language/members.md#members-host-calls) DOMQL carries out by subscribing to it, and a subscription is a query whose chain ends in one: a caller subscribes to it, and the caller's handler receives one result for each event, immutable data that holds no event object and no element.
+An **event source** delivers things that happened, as a click or a key pressed, and a **subscription** shapes each event it delivers into data, read as the event is dispatched. An event source is a [host call](https://github.com/FormaUI/Nexo/blob/2cb596ea0d1a1fc624552783b30139379124bb67/spec/language/members.md#members-host-calls) DOMQL carries out by subscribing to it, and a subscription is a query whose chain ends in one: a caller subscribes to it, and the caller's handler receives one result for each event, immutable data that holds no event object and no element.
 
 ```js
 const clicks = domql.query(`
@@ -30,7 +30,7 @@ In this document:
 
 ## Event sources
 
-An event source is subscribed to, and never read or watched: DOMQL starts it as its caller subscribes, and has each event it delivers projected through the object expression that follows it, as Nexo [projects a value its host supplies](https://github.com/FormaUI/Nexo/blob/65d247bc6f6b0dde1b701bbfd41f19a40838174c/spec/runtime/host-calls.md#runtime-host-calls), each event captured as the members of the type its event type maps to.
+An event source is subscribed to, and never read or watched: DOMQL starts it as its caller subscribes, and has each event it delivers projected through the object expression that follows it, as Nexo [projects a value its host supplies](https://github.com/FormaUI/Nexo/blob/2cb596ea0d1a1fc624552783b30139379124bb67/spec/runtime/host-calls.md#runtime-host-calls), each event captured as the members of the type its event type maps to.
 
 | Available on | Source | Delivers | Fixed |
 | --- | --- | --- | --- |
@@ -42,7 +42,7 @@ An event source is subscribed to, and never read or watched: DOMQL starts it as 
 
 ## Event types
 
-DOMQL's module declares the [type selector](https://github.com/FormaUI/Nexo/blob/65d247bc6f6b0dde1b701bbfd41f19a40838174c/spec/language/vocabulary.md#vocabulary-type-selectors) `event`, whose keys are the event types, and a module extends it with event types of its own as it extends DOMQL's types. The built-in event types, the type each maps to, and the members each event offers:
+DOMQL's module declares the [type selector](https://github.com/FormaUI/Nexo/blob/2cb596ea0d1a1fc624552783b30139379124bb67/spec/language/vocabulary.md#vocabulary-type-selectors) `event`, whose keys are the event types, and a module extends it with event types of its own as it extends DOMQL's types. The built-in event types, the type each maps to, and the members each event offers:
 
 | Event types | Type | Members |
 | --- | --- | --- |
