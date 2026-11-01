@@ -66,11 +66,8 @@ export class QueryEvaluator {
     /** What the evaluation in progress records, or null where none does. @type {ObservationContext | null} */
     #observationContext = null;
 
-    /** The hooks through which the evaluator reports each invocation to the observing evaluation in progress. */
-    #host = Object.freeze({
-        beforeInvoke: request => this.#observe(request),
-        afterInvoke: (request, value) => this.#followDetachedReceiver(request, value),
-    });
+    /** The hooks through which the evaluator reports each invocation to the observing evaluation in progress, or null before the first, since an evaluation once uses none. @type {object | null} */
+    #host = null;
 
     /**
      * @param {import('@formaui-net/nexo').NexoRegistry} moduleRegistry The registry the request was resolved against, whose observation types the host looks up.
@@ -140,6 +137,14 @@ export class QueryEvaluator {
         return this.#evaluateWithObservations({ observations, onChange: () => {}, holdsAllObservations: false, replaces: null, consumer, recordsDependencies: false, waits: false }, host => call.project(value, host));
     }
 
+    /** The hooks through which the evaluator reports each invocation to the observing evaluation in progress, created at the first evaluation that observes. */
+    #getHost() {
+        return (this.#host ??= Object.freeze({
+            beforeInvoke: request => this.#observe(request),
+            afterInvoke: (request, value) => this.#followDetachedReceiver(request, value),
+        }));
+    }
+
     /** Runs an evaluation that records what it depends on, answering the evaluation; one that waits holds what a pending result waits on, and lets a failure seen through a pending member pass. */
     #evaluateWithObservations({ observations, onChange, holdsAllObservations, replaces, consumer, recordsDependencies, waits }, produce) {
         // A watch's sessions are carried from each evaluation to the next, so one it keeps needing is taken where it is rather than moved.
@@ -156,7 +161,7 @@ export class QueryEvaluator {
         this.#observationContext = observationContext;
 
         try {
-            ({ value, metadata } = produce(this.#host));
+            ({ value, metadata } = produce(this.#getHost()));
         } catch (failure) {
             // An evaluation that fails having read a maintained member still pending reports nothing and waits for its sample, since the failure may come from the null the member answered, and nothing tells which failures do; one that fails before it reads a pending member reports its failure.
             error = waits && observationContext.isPending ? null : failure;
