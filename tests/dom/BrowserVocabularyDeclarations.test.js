@@ -49,13 +49,14 @@ describe('BrowserVocabularyDeclarations', () => {
 
     it('declares the DOM\'s reference types, the views of an element and the structured types of its measurements and events', () => {
         expect(module.types.map(type => `${type.kind} ${type.name}${type.supertype === undefined ? '' : ` : ${type.supertype}`}${type.abstract ? ', abstract' : ''}`)).toEqual([
-            'reference Node, abstract', 'reference Element : Node', 'reference Document : Node', 'reference DocumentFragment : Node', 'reference ShadowRoot : Node', 'reference Window', 'reference Shadow', 'reference Aria',
-            'structured Size', 'structured Rectangle', 'structured Selection', 'structured Grid', 'structured Scroll', 'structured ScrollAxis', 'structured Playback', 'structured DomEvent', 'structured PointerEvent', 'structured KeyboardEvent', 'structured DragEvent',
+            'reference Node, abstract', 'reference Element : Node', 'reference Document : Node', 'reference DocumentFragment : Node', 'reference ShadowRoot : Node', 'reference Window', 'reference Shadow', 'reference Aria', 'reference Range',
+            'structured Size', 'structured Rectangle', 'structured Selection', 'structured DocumentSelection', 'structured Grid', 'structured Scroll', 'structured ScrollAxis', 'structured Playback', 'structured DomEvent', 'structured PointerEvent', 'structured KeyboardEvent', 'structured DragEvent',
         ]);
         expect(module.types.filter(type => type.kind === 'structured').map(type => `${type.name} { ${type.members.map(member => `${member.name}: ${member.result}`).join(', ')} }`)).toEqual([
             'Size { width: Number, height: Number }',
             'Rectangle { left: Number, top: Number, right: Number, bottom: Number, width: Number, height: Number }',
             'Selection { start: Number, end: Number }',
+            'DocumentSelection { type: String, collapsed: Boolean, rangeCount: Number, anchorElement: Element?, focusElement: Element?, range: Range? }',
             'Grid { columns: List<Number> }',
             'Scroll { inline: ScrollAxis, block: ScrollAxis }',
             'ScrollAxis { offset: Number, extent: Number, viewport: Number }',
@@ -75,10 +76,11 @@ describe('BrowserVocabularyDeclarations', () => {
             'Element.localName', 'Element.classes', 'Element.text', 'Element.html', 'Element.value', 'Element.playback', 'Element.inlineStyle',
             'Element.rect', 'Element.clientRect', 'Element.size', 'Element.clientSize', 'Element.scroll', 'Element.grid', 'Element.selection', 'Element.shadow', 'Element.aria', 'Element.direction', 'Element.attached', 'Element.hasChildren', 'Element.hasSelection',
             'Element[]', 'Element.attribute', 'Element.class', 'Element.style', 'Element.intersects', 'Element.overlaps', 'Element.matches', 'Element.rectRelativeTo', 'Element.closest', 'Element.scrollContainer', 'Element.on',
-            'Document.visible', 'Document.focus', 'Document.activeElement', 'Document.on',
+            'Document.visible', 'Document.focus', 'Document.activeElement', 'Document.selection', 'Document.on',
             'Window.size', 'Window.scroll', 'Window.devicePixelRatio', 'Window.media', 'Window.share', 'Window.clipboard', 'Window.on',
             'Shadow.root', 'Shadow.elements',
             'Aria.checked', 'Aria.disabled', 'Aria[]', 'Aria.attribute', 'Aria as Element',
+            'Range.rect', 'Range.collapsed', 'Range.text', 'Range.startElement', 'Range.endElement', 'Range.commonAncestor', 'Range.intersects', 'Range.all', 'Range.offsetsIn',
         ].sort());
     });
 
@@ -115,7 +117,7 @@ describe('BrowserVocabularyDeclarations', () => {
 
         expect(measured).toEqual([
             'Element.rect within 0.05', 'Element.clientRect within 0.05', 'Element.size within 0.05', 'Element.clientSize within 0.05', 'Element.scroll within 0.05', 'Element.grid within 0.05', 'Element.rectRelativeTo within 0.05',
-            'Window.size within 0.05', 'Window.scroll within 0.05',
+            'Window.size within 0.05', 'Window.scroll within 0.05', 'Range.rect within 0.05',
         ]);
     });
 
@@ -137,7 +139,7 @@ describe('BrowserVocabularyDeclarations', () => {
     it('declares each test as a Boolean member, a presence test named with has', () => {
         const tests = typeMembers.filter(({ member }) => member.result === 'Boolean' && member.kind === 'property').map(({ type, member }) => nameOf(type, member));
 
-        expect(tests).toEqual(['Element.attached', 'Element.hasChildren', 'Element.hasSelection']);
+        expect(tests).toEqual(['Element.attached', 'Element.hasChildren', 'Element.hasSelection', 'Range.collapsed']);
     });
 
     it('declares the tests of elements, the document, the window and ARIA views as Boolean functions, the state the browser sets rather than one that follows from structure', () => {
@@ -162,6 +164,7 @@ describe('BrowserVocabularyDeclarations', () => {
         const host = document.createElement('div');
         const shadowRoot = host.attachShadow({ mode: 'open' });
         const values = {
+            range: document.createRange(),
             element: document.createElement('div'),
             document,
             fragment: document.createDocumentFragment(),
@@ -174,12 +177,13 @@ describe('BrowserVocabularyDeclarations', () => {
 
         it('gives a bound element, document, document fragment, shadow root and window their types, and a text or a comment node, and data that names a nodeType, none', () => {
             expect(Object.fromEntries(Object.entries(values).map(([name, value]) => [name, module.typeOf(value)]))).toEqual({
-                element: 'Element', document: 'Document', fragment: 'DocumentFragment', shadowRoot: 'ShadowRoot', window: 'Window', text: null, comment: null, data: null,
+                range: 'Range', element: 'Element', document: 'Document', fragment: 'DocumentFragment', shadowRoot: 'ShadowRoot', window: 'Window', text: null, comment: null, data: null,
             });
         });
 
         it('admits each value to its type, its supertype and, an element, the views of it, and a text or a comment node, and data that names a nodeType, to none', () => {
             expect(Object.fromEntries(Object.entries(values).map(([name, value]) => [name, referenceTypes.filter(type => type.isInstance(value)).map(type => type.name)]))).toEqual({
+                range: ['Range'],
                 element: ['Node', 'Element', 'Shadow', 'Aria'],
                 document: ['Node', 'Document'],
                 fragment: ['Node', 'DocumentFragment'],

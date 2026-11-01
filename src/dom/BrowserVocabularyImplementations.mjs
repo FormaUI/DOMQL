@@ -129,6 +129,16 @@ export class BrowserVocabularyImplementations {
             focusable: ({ receiver: element }) => BrowserVocabularyImplementations.#isFocusable(element),
             direction: ({ receiver: element }) => (element.matches(':dir(rtl)') ? 'rtl' : 'ltr'),
             activeElement: ({ receiver: document }) => BrowserVocabularyImplementations.#activeElement(document),
+            documentSelection: ({ receiver: document }) => BrowserVocabularyImplementations.#documentSelection(document),
+            rangeRect: ({ receiver: range }) => BrowserVocabularyImplementations.#rangeRect(range),
+            rangeCollapsed: ({ receiver: range }) => range.collapsed,
+            rangeText: ({ receiver: range }) => range.toString(),
+            startElement: ({ receiver: range }) => BrowserVocabularyImplementations.#elementOf(range.startContainer),
+            endElement: ({ receiver: range }) => BrowserVocabularyImplementations.#elementOf(range.endContainer),
+            commonAncestor: ({ receiver: range }) => BrowserVocabularyImplementations.#elementOf(range.commonAncestorContainer),
+            rangeIntersects: ({ receiver: range, args: { node } }) => range.intersectsNode(node),
+            rangeAll: ({ receiver: range, args: { selector } }) => BrowserVocabularyImplementations.#allIn(range, selector),
+            offsetsIn: ({ receiver: range, args: { element } }) => BrowserVocabularyImplementations.#offsetsIn(range, element),
             hover: ({ receiver: element }) => element.matches(':hover'),
             popoverOpen: ({ receiver: element }) => element.matches(':popover-open'),
             checked: ({ receiver: element }) => element.matches(':checked'),
@@ -292,11 +302,95 @@ export class BrowserVocabularyImplementations {
         return style.gridTemplateColumns.split(/\s+/).map(track => Number.parseFloat(track)).filter(size => Number.isFinite(size));
     }
 
-    /** The start and end of the selection of a text input or text area, or null for any other element. */
+    /**
+     * The start and end of the selection of a text input or text area; of an element whose content is editable, the document's selection as offsets in its text, null where it lies not wholly within it; and null for any
+     * other element.
+     */
     static #selection(element) {
+        if (!BrowserVocabularyImplementations.#isTextControl(element) && element.isContentEditable) {
+            const selection = element.ownerDocument.getSelection();
+
+            return selection === null || selection.rangeCount === 0 ? null : BrowserVocabularyImplementations.#offsetsIn(selection.getRangeAt(0), element);
+        }
+
         const start = BrowserVocabularyImplementations.#range(element);
 
         return start === null ? null : { start: start[0], end: start[1] };
+    }
+
+    /** The document's selection as it stands, or null where the document has none to offer, as one without a browsing context. */
+    static #documentSelection(document) {
+        const selection = document.getSelection();
+
+        if (selection === null) {
+            return null;
+        }
+
+        return {
+            type: selection.type,
+            collapsed: selection.isCollapsed,
+            rangeCount: selection.rangeCount,
+            anchorElement: BrowserVocabularyImplementations.#elementOf(selection.anchorNode),
+            focusElement: BrowserVocabularyImplementations.#elementOf(selection.focusNode),
+            range: selection.rangeCount === 0 ? null : selection.getRangeAt(0),
+        };
+    }
+
+    /** The element a boundary of a range is in: the node itself where it is an element, the element holding its text otherwise, and null for a document, a fragment or no node. */
+    static #elementOf(node) {
+        if (node === null || node === undefined) {
+            return null;
+        }
+
+        return node.nodeType === 1 ? node : node.parentElement ?? null;
+    }
+
+    /** The bounding box of what a range holds, relative to the layout viewport, or null where it lies in a tree that is not attached. */
+    static #rangeRect(range) {
+        if (!range.commonAncestorContainer.isConnected) {
+            return null;
+        }
+
+        const { left, top, width, height } = range.getBoundingClientRect();
+
+        return { left, top, right: left + width, bottom: top + height, width, height };
+    }
+
+    /** The elements matching the selector that the range intersects, in document order: the ancestors of what it holds, then the elements within it. */
+    static #allIn(range, selector) {
+        const ancestor = range.commonAncestorContainer;
+        const holder = ancestor.nodeType === 1 ? ancestor : ancestor.parentNode;
+        const ancestors = [];
+
+        for (let current = BrowserVocabularyImplementations.#elementOf(ancestor); current !== null; current = current.parentElement) {
+            if (current.matches(selector)) {
+                ancestors.unshift(current);
+            }
+        }
+
+        const within = holder === null || typeof holder.querySelectorAll !== 'function' ? [] : [...holder.querySelectorAll(selector)].filter(element => range.intersectsNode(element));
+
+        return [...ancestors, ...within];
+    }
+
+    /** A range's start and end as offsets in the element's text, as `text` reads it, or null where either boundary lies outside the element. */
+    static #offsetsIn(range, element) {
+        const isWithin = node => node === element || element.contains(node);
+
+        if (!isWithin(range.startContainer) || !isWithin(range.endContainer)) {
+            return null;
+        }
+
+        const before = element.ownerDocument.createRange();
+
+        before.setStart(element, 0);
+        before.setEnd(range.startContainer, range.startOffset);
+
+        const start = before.toString().length;
+
+        before.setEnd(range.endContainer, range.endOffset);
+
+        return { start, end: before.toString().length };
     }
 
     static #range(element) {

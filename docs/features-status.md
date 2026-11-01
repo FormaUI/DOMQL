@@ -2,11 +2,11 @@
 
 ## Current state
 
-**DOMQL's vocabulary, queries, watches, events and executions are implemented on Nexo's language `1.0.0-beta.8`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.282`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next is [the C# half](#the-c-half).**
+**DOMQL's vocabulary, queries, watches, events and executions are implemented on Nexo's language `1.0.0-beta.8`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.283`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next is [the C# half](#the-c-half).**
 
 | Version | Implementation | Specification |
 | --- | --- | --- |
-| DOMQL specification | `1.0.0-alpha.282` | `1.0.0-alpha.282` |
+| DOMQL specification | `1.0.0-alpha.283` | `1.0.0-alpha.283` |
 | Nexo language | `1.0.0-beta.8` | `1.0.0-beta.8` |
 | Definition format | 38 | 38 |
 
@@ -61,6 +61,7 @@ Each feature, the contract that states it, its state in the implementation, and 
 | A control's `value`, and Boolean functions `indeterminate()` and `autofilled()` | [`value`](../spec/vocabulary.md#property-element-value), [`indeterminate`](../spec/vocabulary.md#boolean-function-element-indeterminate), [`autofilled`](../spec/vocabulary.md#boolean-function-element-autofilled) | Implemented; no observation follows autofill itself, as [D17](decisions.md#d17) records | [`alpha.282`](../VERSION-HISTORY.md#v1-0-0-alpha-282) |
 | An element's `text`, `html`, `localName`, `classes` and `inlineStyle[property]` | [`text`](../spec/vocabulary.md#property-element-text), [`html`](../spec/vocabulary.md#property-element-html), [`inlineStyle`](../spec/vocabulary.md#function-element-inlinestyle) | Implemented | [`alpha.282`](../VERSION-HISTORY.md#v1-0-0-alpha-282) |
 | A media element's `playback`, observed through its media events | [`playback`](../spec/vocabulary.md#property-element-playback) | Implemented | [`alpha.282`](../VERSION-HISTORY.md#v1-0-0-alpha-282) |
+| The document selection, `Domql.document.selection`, its `Range`, and an editable element's `selection` | [Document `selection`](../spec/vocabulary.md#property-document-selection), [`Range`](../spec/vocabulary.md#property-range-rect), [Element `selection`](../spec/vocabulary.md#property-element-selection) | Implemented; an element's `selection` and `hasSelection` observable, as [D20](decisions.md#d20) records | [`alpha.283`](../VERSION-HISTORY.md#v1-0-0-alpha-283) |
 | Following a change a member misses through a body's local | [Following a change a member misses](../spec/watches.md#dependencies-following-what-a-member-misses) | Implemented | [`alpha.282`](../VERSION-HISTORY.md#v1-0-0-alpha-282) |
 
 ### The host
@@ -131,7 +132,7 @@ The language's part is Nexo's already, adopted with the [migration](#migration-t
 5. **Gestures and files.** Pointer and drag events (E2, E4), pointer capture (X4), files (V14, X10), dispatch (X8) and continuous measurement (O3).
 6. **Dialogs and frames.** Presentation events (E7), size limits (V12) and ordered executions (T3).
 7. **The remaining facilities.** Browser facilities and form controls (X6, X7), reactions in the browser (A7), and animation, loading and media events (E8).
-8. **Editing and data views.** The document selection and editing events (V8, E6, X9, A8), and transient measurement with subtree-scoped `all` (C7, O2, T1).
+8. **Editing and data views.** Editing events and selection placement (E6, X9, A8), and transient measurement with subtree-scoped `all` (C7, O2, T1).
 
 <a id="planned-vocabulary"></a>
 
@@ -139,7 +140,6 @@ The language's part is Nexo's already, adopted with the [migration](#migration-t
 
 | | Addition |
 | --- | --- |
-| V8 | The document selection, `Domql.document.selection` → `DocumentSelection? { type, collapsed, rangeCount, anchorElement, focusElement, range }`, and a `Range` type, `{ rect, collapsed, text, startElement, endElement, commonAncestor, intersects(node), all(selector), offsetsIn(element) }`; observable through `selectionchange`. `Element.selection` extended to an editing host. The Selection API fires `selectionchange` for script-made selections too, so these may be observable rather than partly observable, which `hasSelection`'s contract denies today; a browser test settles it |
 | V9 | `Node.contains(other)` → `Boolean`; element siblings or `Element.index`; optionally `Element.follows(other)` |
 | V12 | `Element.sizeLimits { minWidth, minHeight, maxWidth, maxHeight }`, or a conversion of a `px` length: `style["min-width"]` answers `"120px"`, which the String-to-Number conversion refuses |
 | V14 | `Element.files` → `List<File>?`, `File { name, size, type, lastModified }` |

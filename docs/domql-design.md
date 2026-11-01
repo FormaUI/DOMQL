@@ -1,6 +1,6 @@
-# DOMQL Design v1.0.0-alpha.282
+# DOMQL Design v1.0.0-alpha.283
 
-The [DOMQL specification](../spec/README.md) is the contract: DOMQL's module, which declares the DOM as Nexo's domain, and the host that carries queries out against a document. This design sets out how this implementation is built to meet it, and the reasons behind the choices that shape it. It describes DOMQL's version `1.0.0-alpha.282` on Nexo's definition version 38, as the specification does, and the C# half, which is designed and not yet built; [the status overview](features-status.md) says where the implementation still differs. [Nexo's design](https://github.com/FormaUI/Nexo/blob/65d247bc6f6b0dde1b701bbfd41f19a40838174c/docs/nexo-design.md), at the commit DOMQL builds against, sets out how the language and its runtime are built.
+The [DOMQL specification](../spec/README.md) is the contract: DOMQL's module, which declares the DOM as Nexo's domain, and the host that carries queries out against a document. This design sets out how this implementation is built to meet it, and the reasons behind the choices that shape it. It describes DOMQL's version `1.0.0-alpha.283` on Nexo's definition version 38, as the specification does, and the C# half, which is designed and not yet built; [the status overview](features-status.md) says where the implementation still differs. [Nexo's design](https://github.com/FormaUI/Nexo/blob/65d247bc6f6b0dde1b701bbfd41f19a40838174c/docs/nexo-design.md), at the commit DOMQL builds against, sets out how the language and its runtime are built.
 
 In this document:
 

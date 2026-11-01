@@ -6,6 +6,21 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-283"></a>
+
+## `1.0.0-alpha.283`
+
+*November 1, 2026 · Nexo language `1.0.0-beta.8` · definition format 38*
+
+DOMQL reads the document's selection and the range it holds, and follows a selection the page's code makes.
+
+**Vocabulary**
+
+- [`Domql.document.selection`](spec/vocabulary.md#property-document-selection) answers a `DocumentSelection { type, collapsed, rangeCount, anchorElement, focusElement, range }`, read through an object expression since it holds references.
+- [`Range`](spec/vocabulary.md#vocabulary-types) is a reference type with [`rect`](spec/vocabulary.md#property-range-rect), `collapsed`, `text`, `startElement`, `endElement`, `commonAncestor`, [`intersects(node)`](spec/vocabulary.md#function-range-intersects), [`all(selector)`](spec/vocabulary.md#function-range-all) and [`offsetsIn(element)`](spec/vocabulary.md#function-range-offsetsin), and DOMQL's `typeOf` recognizes a range a host binds.
+- [`selection`](spec/vocabulary.md#property-element-selection) answers, for an element whose content is editable, the document's selection as offsets in its text, as [D21](docs/decisions.md#d21) records.
+- `selection` and `hasSelection` are observable: the browser fires `selectionchange` for a selection the page's code sets, and they observe their subtree for the nodes that take a selection with them, as [D20](docs/decisions.md#d20) records. A watch of either needs no partial observation.
+
 <a id="v1-0-0-alpha-282"></a>
 
 ## `1.0.0-alpha.282`

@@ -55,14 +55,16 @@ DOMQL's module declares each of its types with its members, as Nexo's [declaring
 | `Window` | None | The window a query runs in | DOMQL's `typeOf`, `Domql.window`'s result, or a declared binding |
 | `Shadow` | None | An element's [shadow view](nodes-and-shadow-trees.md#shadow-trees-the-view) | An element's `shadow`, or a declared binding |
 | `Aria` | None | An element's [ARIA view](#conditions) | An element's `aria`, or a declared binding |
+| `Range` | None | A range of a document, as the document's selection holds one | A selection's `range`, DOMQL's `typeOf` for a range a host binds, or a declared binding |
 
-`Shadow` and `Aria` are views: an element's `shadow` and `aria` answer the element itself, of the view's type, whose `isInstance` accepts every element, and no wrapper is made or kept. DOMQL's `typeOf` never answers a view, and an `Element` can't be cast to either view: their memberships accepting every element doesn't make the types related. `Aria` declares a cast to `Element`, without an `impl`, so `(panel.aria as Element).aria` reads the element's view again. Each node type, `Window` and each view has no data form, so no result holds one.
+`Shadow` and `Aria` are views: an element's `shadow` and `aria` answer the element itself, of the view's type, whose `isInstance` accepts every element, and no wrapper is made or kept. DOMQL's `typeOf` never answers a view, and an `Element` can't be cast to either view: their memberships accepting every element doesn't make the types related. `Aria` declares a cast to `Element`, without an `impl`, so `(panel.aria as Element).aria` reads the element's view again. Each node type, `Window`, each view and `Range` has no data form, so no result holds one.
 
 | Structured type | What it is | Properties |
 | --- | --- | --- |
 | `Size` | A width and a height | `width`, `height`: `Number` |
 | `Rectangle` | A box's edges and size | `left`, `top`, `right`, `bottom`, `width`, `height`: `Number` |
 | `Selection` | A text selection's range | `start`, `end`: `Number` |
+| `DocumentSelection` | The document's selection as it stands | `type`: `String`; `collapsed`: `Boolean`; `rangeCount`: `Number`; `anchorElement`, `focusElement`: `Element?`; `range`: `Range?` |
 | `Grid` | A grid's column tracks | `columns`: `List<Number>` |
 | `Scroll` | How far a box is scrolled along each of its logical axes | `inline`, `block`: `ScrollAxis` |
 | `ScrollAxis` | How far a box is scrolled along one axis | `offset`, `extent`, `viewport`: `Number` |
@@ -70,7 +72,7 @@ DOMQL's module declares each of its types with its members, as Nexo's [declaring
 
 `on`, an event source, is one declaration DOMQL's module gives each of `Element`, `Document` and `Window`, the receivers it listens on.
 
-A property of a structured value's data shape, such as a rectangle's `width`, is data the value holds, read by property access, and is constant for that value. Facts that must describe one measurement are members of one structured value, which is captured once and read by each of its members, as a rectangle's edges are. The types of event data are set out in [events](events.md#event-types).
+A property of a structured value's data shape, such as a rectangle's `width`, is data the value holds, read by property access, and is constant for that value. A structured value that holds a reference, as a `DocumentSelection` holds its `range`, is read through an object expression, as an event is, since no result holds a reference. Facts that must describe one measurement are members of one structured value, which is captured once and read by each of its members, as a rectangle's edges are. The types of event data are set out in [events](events.md#event-types).
 
 <a id="vocabulary-measurements-and-layout"></a>
 <a id="elements-without-a-layout-box"></a>
@@ -133,6 +135,11 @@ A property exposes a value, read by property access, and takes no argument. Each
 | Element | [`attached`](#property-element-attached) | `Boolean` |
 | Element | [`hasChildren`](#property-element-haschildren) | `Boolean` |
 | Element | [`hasSelection`](#property-element-hasselection) | `Boolean` |
+| Document | [`selection`](#property-document-selection) | `DocumentSelection?` |
+| Range | [`rect`](#property-range-rect) | `Rectangle?` |
+| Range | [`collapsed`](#property-range-collapsed) | `Boolean` |
+| Range | [`text`](#property-range-text) | `String` |
+| Range | [`startElement`, `endElement`, `commonAncestor`](#property-range-elements) | `Element?` |
 
 <a id="property-window-size"></a>
 
@@ -250,9 +257,9 @@ An element that is no scroll container is scrolled by 0. Null while it has no la
 
 **Type:** `Selection?`   **Reads:** Fresh
 
-**Result.** Its selection's `start` and `end`, null for an element whose selection the browser does not expose: one that is no text input or text area, and an input of a type the selection API excludes, as `number`, `email` and `date` are
+**Result.** Its selection's `start` and `end`: a text input's or a text area's, as the selection API answers them; for any other element whose content is editable, the document's selection as offsets in its [`text`](#property-element-text), as a range's [`offsetsIn`](#function-range-offsetsin) answers them, and null where the selection lies not wholly within it. Null for an element whose selection the browser does not expose: one that is neither a text control nor editable, and an input of a type the selection API excludes, as `number`, `email` and `date` are
 
-**Changes.** Partly observable: input and selection events are observed, a selection the page's code sets is not
+**Changes.** Observable: its `select` and `input` events, the document's `selectionchange`, which the browser fires for every selection the user or the page's code makes, a text control's at the control, whence it bubbles, and its `type` attribute and the structure and text of its subtree, whose nodes removed take a selection with them without a `selectionchange`
 
 <a id="property-node-children"></a>
 
@@ -464,7 +471,57 @@ An element that is no scroll container is scrolled by 0. Null while it has no la
 
 **Result.** Whether a selection of at least one character lies within it: a non-collapsed selection in a text input or text area, or a non-collapsed document selection within its content; a collapsed caret is no selection
 
-**Changes.** Partly observable: input and selection events are observed, a selection the page's code sets is not
+**Changes.** Observable, as `selection`
+
+<a id="property-document-selection"></a>
+
+### Document: selection
+
+**Type:** `DocumentSelection?`   **Reads:** Fresh
+
+**Result.** The document's selection as it stands, as its `getSelection()` answers it: its `type`, `"None"`, `"Caret"` or `"Range"`; whether it is `collapsed`; its `rangeCount`; the elements its anchor and its focus are in, `anchorElement` and `focusElement`, each the node itself where it is an element and the element holding its text otherwise; and its first `range`, null where it holds none. Null where the document offers no selection, as one without a browsing context. A selection inside a shadow tree is reported as the browser reports it to the document, at the shadow host in Chromium. It holds references, so a query reads it through an object expression: `Domql.document.selection { type = it.type, text = it.range?.text }`
+
+**Changes.** Partly observable: its `selectionchange`, which the browser fires for every selection the user or the page's code makes, and the structure of the document, whose nodes removed take the selection with them without one, are observed; the nodes holding the selection removed from a shadow tree are not
+
+<a id="property-range-rect"></a>
+
+### Range: rect
+
+**Type:** `Rectangle?`   **Reads:** Fresh   **Tolerance:** [0.05](#vocabulary-tolerance)
+
+**Result.** The bounding box of what it holds, relative to the layout viewport, as `getBoundingClientRect` answers it, a caret's of no width included; null where it lies in a tree that is not attached
+
+**Changes.** Partly observable: the document's `selectionchange`, its structure and its text, the window's size and the scrolling of the document's scroll containers are observed; a move none of them causes, as `rect` misses for an element, and a range other than the selection's that the page's code moves, are not
+
+<a id="property-range-collapsed"></a>
+
+### Range: collapsed
+
+**Type:** `Boolean`   **Reads:** Fresh
+
+**Result.** Whether its start and its end are the same point
+
+**Changes.** Partly observable: the document's `selectionchange`, its structure and its text are observed; a range other than the selection's that the page's code moves, and a change inside a shadow tree, are not
+
+<a id="property-range-text"></a>
+
+### Range: text
+
+**Type:** `String`   **Reads:** Fresh
+
+**Result.** The text it holds, as its `toString()` joins its text nodes, in the way an element's [`text`](#property-element-text) joins its own
+
+**Changes.** Partly observable, as `collapsed`
+
+<a id="property-range-elements"></a>
+
+### Range: startElement, endElement, commonAncestor
+
+**Type:** `Element?`   **Reads:** Fresh
+
+**Result.** The element its start is in, its end is in, and the nearest that holds both: each the boundary's node itself where it is an element, the element holding its text otherwise, and null where that node is a document or a document fragment
+
+**Changes.** Partly observable, as `collapsed`
 
 <a id="property-list-count-first-last"></a>
 
@@ -497,6 +554,9 @@ Each function states what it answers, how its result changes, how it reads, and 
 | Element | [`closest(selector)`](#function-element-closest) |
 | Element | [`scrollContainer({ axis })`](#function-element-scrollcontainer) |
 | Node | [`first(selector)`, `all(selector)`](#function-node-first-all) |
+| Range | [`intersects(node)`](#function-range-intersects) |
+| Range | [`all(selector)`](#function-range-all) |
+| Range | [`offsetsIn(element)`](#function-range-offsetsin) |
 
 <a id="function-window-media"></a>
 
@@ -652,6 +712,36 @@ A box whose overflow is not `visible` along one axis computes `visible` as `auto
 **Result.** The first matching descendant, and the matching descendants in document order, within its own tree
 
 **Changes.** Partly observable, as `matches`
+
+<a id="function-range-intersects"></a>
+
+### Range: intersects
+
+**Syntax:** `intersects(node)`   **Signature:** `node`: `Node` → `Boolean`   **Reads:** Fresh   **Fixed arguments:** None
+
+**Result.** Whether it holds any part of the node, as `intersectsNode` answers: false for a node of another tree, and true for an ancestor of what it holds
+
+**Changes.** Partly observable, as `collapsed`
+
+<a id="function-range-all"></a>
+
+### Range: all
+
+**Syntax:** `all(selector)`   **Signature:** `selector`: `String` → `List<Element>`   **Reads:** Fresh   **Fixed arguments:** None
+
+**Result.** The elements matching the selector that it intersects, in document order: those among the ancestors of what it holds, its common ancestor included, then those within its common ancestor that it holds a part of, so `range.all("a[href]")` holds a link that holds the whole range and every link it crosses
+
+**Changes.** Partly observable: as `collapsed`, the document's attributes and focus moving, and as [`matches`](#function-element-matches) misses, pointer state and control state are not observed
+
+<a id="function-range-offsetsin"></a>
+
+### Range: offsetsIn
+
+**Syntax:** `offsetsIn(element)`   **Signature:** `element`: `Element` → `Selection?`   **Reads:** Fresh   **Fixed arguments:** None
+
+**Result.** Its start and its end as offsets in the element's [`text`](#property-element-text), in UTF-16 code units, as Nexo's strings count them; null where either boundary lies outside the element
+
+**Changes.** Partly observable, as `collapsed`
 
 <a id="function-list-item"></a>
 

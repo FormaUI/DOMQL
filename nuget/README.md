@@ -716,6 +716,20 @@ panel {
 
 A value the page's code sets fires no event, so a watch of `value` needs `acceptPartialObservation`, as the specification's members say of each.
 
+### Read the selection
+
+`Domql.document.selection` reads the document's selection as it stands, and its `range` what the selection holds: its text, its box, the elements it touches and its offsets in an element's text. A text control's or an editable element's own `selection` answers its `start` and `end`:
+
+```domql
+Domql.document.selection?.range {
+    text = it.text,
+    links = it.all("a[href]") { href = it["href"] },
+    top = it.rect?.top
+}
+```
+
+The browser reports every selection the user or the page's code makes, so a watch follows the selection as it moves.
+
 ### Choose a property by name
 
 Use `.[…]`, brackets after a dot, when the property name comes from a string:

@@ -288,3 +288,33 @@ Each entry is one of three kinds:
   - Nexo runs a body's locals in order whether or not anything uses them, and records their reads, so the dependency needs no feature of its own. A watch test settles it.
   - A dependency the query states travels with its definition, so a definition carried to another instance follows the same changes.
 - **Declined:** a watch option naming an invalidation beyond its query's, which a definition would not carry and which repeats what a local already says.
+
+<a id="d20"></a>
+
+## D20 — The document selection, and what a browser test settled of it
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `Domql.document.selection` answers a `DocumentSelection { type, collapsed, rangeCount, anchorElement, focusElement, range }`, captured as it stands, and its `range` is a `Range`, a reference type whose members read the live range: `rect`, `collapsed`, `text`, `startElement`, `endElement`, `commonAncestor`, `intersects(node)`, `all(selector)` and `offsetsIn(element)`. DOMQL's `typeOf` recognizes a live range a host binds. An element's `selection` and `hasSelection` become observable.
+- **Why:**
+  - A browser test settled what the plan left open. Chromium fires `selectionchange` for every selection the page's code makes, collapses or moves, at the document, and for a text control's, at the control, from which it bubbles to the document: `setSelectionRange`, `select()` and a value the page's code sets each fire it.
+  - The same test found the one change that fires none: the nodes holding the selection removed, which collapses it. So `selection` and `hasSelection` observe their own subtree as well, and the document's `selection` the document's structure, which leaves only a removal inside a shadow tree unobserved.
+  - The facts of one selection belong together, so they are one structured value, captured once, as a rectangle's edges are. Its range stays a reference, since what it holds is read on demand, and a structure holding a reference is read through an object expression, as an event is.
+  - A `Range`'s members observe the selection and the document, so a range the page's code moves, other than the selection's, is missed, and they are partly observable.
+- **Declined:**
+  - `DocumentSelection` as a reference type read fresh member by member, which could answer a type of one selection and a range of the next.
+  - Keeping `selection` and `hasSelection` partly observable, which the browser no longer justifies.
+
+<a id="d21"></a>
+
+## D21 — An editable element's `selection` is the document's, in its text
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** For an element whose content is editable, `selection` answers the document's selection as offsets in the element's `text`, `{ start, end }` as a text control's are, and null where the selection lies not wholly within it. It applies to every editable element, an editing host's descendants included.
+- **Why:**
+  - An editor reads the caret as it reads a text area's, and offsets in `text` agree with what `text` answers, in UTF-16 code units as Nexo's strings count them.
+  - A paragraph inside an editing host answers its own offsets, which a block-by-block editor needs; limiting it to the host would answer null there for no reason.
+- **Declined:** the editing host alone, as the plan wrote, for the reason above.

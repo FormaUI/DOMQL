@@ -126,6 +126,7 @@ const DOCUMENTS = {
         { about: 'a shadow tree', results: { 0: 1 } },
         { about: 'measuring scrolling', results: { 0: { scrolled: false, atEnd: true } } },
         { about: 'values and text', results: { 0: { name: 'div', classes: ['open'], entered: '' } } },
+        { about: 'the selection' },
     ],
     'docs/domql-design.md': [],
     'docs/features-status.md': [],

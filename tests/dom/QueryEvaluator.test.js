@@ -625,6 +625,45 @@ describe('QueryEvaluator', () => {
         });
     });
 
+    describe('the document selection', () => {
+        beforeEach(() => {
+            document.body.innerHTML = '<div id="editor"><p id="p">hello <b id="b">world</b> again</p><a id="link" href="#">link</a></div>';
+        });
+
+        const byId = id => document.getElementById(id);
+
+        it('reads the selection as it stands, the elements its anchor and focus are in, and its first range', () => {
+            document.getSelection().setBaseAndExtent(byId('b').firstChild, 1, byId('link').firstChild, 2);
+
+            expect(read('Domql.document.selection { type = it.type, collapsed = it.collapsed, count = it.rangeCount, anchor = it.anchorElement?["id"], focus = it.focusElement?["id"] }')).toEqual({
+                type: 'Range', collapsed: false, count: 1, anchor: 'b', focus: 'link',
+            });
+            expect(read('Domql.document.selection?.range { text = it.text, collapsed = it.collapsed, start = it.startElement?["id"], end = it.endElement?["id"], common = it.commonAncestor?["id"] }')).toEqual({
+                text: 'orld againli', collapsed: false, start: 'b', end: 'link', common: 'editor',
+            });
+        });
+
+        it('reads the elements a range touches, its offsets in an element\'s text, and whether it intersects a node', () => {
+            document.getSelection().setBaseAndExtent(byId('b').firstChild, 1, byId('link').firstChild, 2);
+
+            expect(read('Domql.document.selection?.range { touched = it.all("div, b, a") { id = it["id"] }, inEditor = it.offsetsIn(editor), inParagraph = it.offsetsIn(p), crosses = it.intersects(p) }', { editor: byId('editor'), p: byId('p') })).toEqual({
+                touched: [{ id: 'editor' }, { id: 'b' }, { id: 'link' }], inEditor: { start: 7, end: 19 }, inParagraph: null, crosses: true,
+            });
+        });
+
+        it('answers no range for a selection that holds none, and reads a range bound as a value', () => {
+            document.getSelection().removeAllRanges();
+
+            expect(read('Domql.document.selection { type = it.type, collapsed = it.collapsed, hasRange = it.range != null }')).toEqual({ type: 'None', collapsed: true, hasRange: false });
+
+            const range = document.createRange();
+
+            range.selectNodeContents(byId('b'));
+
+            expect(read('range { text = it.text, start = it.startElement?["id"] }', { range })).toEqual({ text: 'world', start: 'b' });
+        });
+    });
+
     describe('scrolling', () => {
         it('reads how far an element is scrolled along each axis of its writing mode, its offset without the sign RTL gives it', () => {
             scrollTo(panel, { scrollLeft: -30, scrollTop: 12.5, scrollWidth: 900, scrollHeight: 1200, clientWidth: 640, clientHeight: 480 });

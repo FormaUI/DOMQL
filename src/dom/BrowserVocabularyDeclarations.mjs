@@ -27,10 +27,17 @@ const ANCESTRY_STYLE = { type: 'mutation', of: 'roots', attributes: true, childL
 const USER_INPUT = { type: 'event', of: 'root', types: ['input', 'change', 'reset'], capture: true };
 // What a media element reports of its playback.
 const MEDIA_EVENTS = { type: 'event', of: 'receiver', types: ['play', 'pause', 'playing', 'ended', 'volumechange', 'timeupdate', 'durationchange', 'seeking', 'seeked', 'emptied', 'loadedmetadata'] };
+// The document's selection changing, which the browser reports for every selection the user or the page's code makes, a text control's included, which bubbles from the control.
+const SELECTION_CHANGE = { type: 'event', of: 'document', types: ['selectionchange'] };
+// A selection within an element: its own selection events, the document's, and its subtree, whose nodes removed take a selection with them without a selectionchange.
 const TEXT_SELECTION = [
     { type: 'event', of: 'receiver', types: ['select', 'input'] },
-    { type: 'event', of: 'document', types: ['selectionchange'] },
+    SELECTION_CHANGE,
+    { type: 'mutation', of: 'receiver', attributes: ['type'], childList: true, characterData: true, subtree: true },
 ];
+// A range of the document: the selection changing, and the document's structure and text, which move a range's boundaries.
+const RANGE_CHANGES = [SELECTION_CHANGE, { type: 'mutation', of: 'document', childList: true, characterData: true, subtree: true }];
+const RANGE_MISSES = 'the page\'s code moving a range other than the selection\'s, and a change inside a shadow tree';
 
 const SELECTOR_PARAMETERS = [valueParameter('selector', 'String')];
 
@@ -69,6 +76,9 @@ const nodeKindOf = value => {
     }
 };
 
+/** Whether the value is a range of a document: a live range, which a static range is not, since it lacks `intersectsNode`. */
+const isRange = value => value !== null && typeof value === 'object' && typeof value.intersectsNode === 'function' && typeof value.getBoundingClientRect === 'function' && nodeKindOf(value.commonAncestorContainer?.ownerDocument ?? value.commonAncestorContainer) === 'Document';
+
 /** Whether the value is a window: its own `window`, holding a document, which data that reaches itself never holds. */
 const isWindow = value => value !== null && typeof value === 'object' && value.window === value && nodeKindOf(value.document) === 'Document';
 
@@ -97,7 +107,7 @@ export class BrowserVocabularyDeclarations {
 
         return DispatchTable.createModule(BrowserVocabularyDeclarations.moduleName, {
             // A bound value's type: the kind of node it is, or the window. A text or a comment node is none, and is refused as a binding.
-            typeOf: value => nodeKindOf(value) ?? (isWindow(value) ? 'Window' : null),
+            typeOf: value => nodeKindOf(value) ?? (isWindow(value) ? 'Window' : isRange(value) ? 'Range' : null),
 
             types: [
                 referenceType('Node', value => nodeKindOf(value) !== null, [
@@ -149,7 +159,7 @@ export class BrowserVocabularyDeclarations {
                         }),
                     })),
                     implementing('grid', property('grid', 'Grid?', { updates: updatesOf({ ...STYLE, ...MEASURED, observations: [RESIZE, ATTRIBUTES] }) })),
-                    implementing('selection', property('selection', 'Selection?', { updates: updatesOf({ changes: 'partly-observable', misses: 'selections the page\'s code sets', observations: TEXT_SELECTION }) })),
+                    implementing('selection', property('selection', 'Selection?', { updates: updatesOf({ observations: TEXT_SELECTION }) })),
                     implementing('shadow', property('shadow', 'Shadow', { updates: updatesOf({ changes: 'constant' }) })),
                     implementing('aria', property('aria', 'Aria', { updates: updatesOf({ changes: 'constant' }) })),
                     implementing('localName', property('localName', 'String', { updates: updatesOf({ changes: 'constant' }) })),
@@ -167,7 +177,7 @@ export class BrowserVocabularyDeclarations {
                     implementing('direction', property('direction', 'String', { updates: updatesOf({ changes: 'partly-observable', misses: 'the text that decides an ancestor\'s dir="auto", or its own', observations: [{ type: 'mutation', of: 'roots', attributes: ['dir'], childList: true, subtree: true }] }) })),
                     implementing('attached', property('attached', 'Boolean', { updates: updatesOf({ changes: 'partly-observable', misses: 'a detached tree inserted into a shadow root in the document', observations: [{ type: 'attachment', of: 'receiver' }] }) })),
                     implementing('hasChildren', property('hasChildren', 'Boolean', { updates: updatesOf({ observations: [CHILDREN] }) })),
-                    implementing('hasSelection', property('hasSelection', 'Boolean', { updates: updatesOf({ changes: 'partly-observable', misses: 'selections the page\'s code sets', observations: TEXT_SELECTION }) })),
+                    implementing('hasSelection', property('hasSelection', 'Boolean', { updates: updatesOf({ observations: TEXT_SELECTION }) })),
 
                     // An attribute, read by the named indexer and by the element's unnamed one alike.
                     ...[null, 'attribute'].map(name => implementing('attribute', indexer(name, 'String?', { parameters: [valueParameter('name', 'String')], updates: updatesOf({ observations: [{ type: 'mutation', of: 'receiver', attributes: [{ argument: 'name' }] }] }) }))),
@@ -196,6 +206,13 @@ export class BrowserVocabularyDeclarations {
                     test('visible', 'visible', { updates: updatesOf({ observations: [{ type: 'visibility', of: 'receiver' }] }) }),
                     test('hasFocus', 'focus', { updates: updatesOf({ observations: [{ type: 'event', of: 'window', types: ['focus', 'blur'] }] }) }),
                     implementing('activeElement', property('activeElement', 'Element?', { updates: updatesOf({ observations: [FOCUS] }) })),
+                    implementing('documentSelection', property('selection', 'DocumentSelection?', {
+                        updates: updatesOf({
+                            changes: 'partly-observable',
+                            misses: 'the nodes holding the selection removed from a shadow tree, which collapses it without a selectionchange',
+                            observations: [SELECTION_CHANGE, { type: 'mutation', of: 'receiver', childList: true, subtree: true }],
+                        }),
+                    })),
                     on,
                 ], { supertype: 'Node' }),
 
@@ -237,9 +254,27 @@ export class BrowserVocabularyDeclarations {
                     { kind: 'operator', name: 'cast', result: 'Element' },
                 ]),
 
+                // A range of a document, as the document's selection holds one, read as it stands at each read.
+                referenceType('Range', isRange, [
+                    implementing('rangeRect', property('rect', 'Rectangle?', { updates: updatesOf({ ...GEOMETRY, ...MEASURED, observations: [...RANGE_CHANGES, WINDOW_RESIZE, { type: 'event', of: 'document', types: ['scroll'], capture: true }] }) })),
+                    implementing('rangeCollapsed', property('collapsed', 'Boolean', { updates: updatesOf({ changes: 'partly-observable', misses: RANGE_MISSES, observations: RANGE_CHANGES }) })),
+                    implementing('rangeText', property('text', 'String', { updates: updatesOf({ changes: 'partly-observable', misses: RANGE_MISSES, observations: RANGE_CHANGES }) })),
+                    implementing('startElement', property('startElement', 'Element?', { updates: updatesOf({ changes: 'partly-observable', misses: RANGE_MISSES, observations: RANGE_CHANGES }) })),
+                    implementing('endElement', property('endElement', 'Element?', { updates: updatesOf({ changes: 'partly-observable', misses: RANGE_MISSES, observations: RANGE_CHANGES }) })),
+                    implementing('commonAncestor', property('commonAncestor', 'Element?', { updates: updatesOf({ changes: 'partly-observable', misses: RANGE_MISSES, observations: RANGE_CHANGES }) })),
+                    implementing('rangeIntersects', func('intersects', 'Boolean', { parameters: [valueParameter('node', 'Node')], updates: updatesOf({ changes: 'partly-observable', misses: RANGE_MISSES, observations: RANGE_CHANGES }) })),
+                    implementing('rangeAll', func('all', 'List<Element>', {
+                        parameters: SELECTOR_PARAMETERS,
+                        updates: updatesOf({ changes: 'partly-observable', misses: `${RANGE_MISSES}, ${MATCHING.misses}`, observations: [SELECTION_CHANGE, { type: 'mutation', of: 'document', attributes: true, childList: true, characterData: true, subtree: true }, FOCUS] }),
+                    })),
+                    implementing('offsetsIn', func('offsetsIn', 'Selection?', { parameters: [valueParameter('element', 'Element')], updates: updatesOf({ changes: 'partly-observable', misses: RANGE_MISSES, observations: RANGE_CHANGES }) })),
+                ]),
+
                 structuredType('Size', { width: 'Number', height: 'Number' }),
                 structuredType('Rectangle', { left: 'Number', top: 'Number', right: 'Number', bottom: 'Number', width: 'Number', height: 'Number' }),
                 structuredType('Selection', { start: 'Number', end: 'Number' }),
+                // The document's selection as it stands: its type, whether it is collapsed, its ranges, the elements its anchor and its focus are in, and its first range.
+                structuredType('DocumentSelection', { type: 'String', collapsed: 'Boolean', rangeCount: 'Number', anchorElement: 'Element?', focusElement: 'Element?', range: 'Range?' }),
                 structuredType('Grid', { columns: 'List<Number>' }),
                 // How far a box is scrolled along each of its logical axes, and along one of them.
                 structuredType('Scroll', { inline: 'ScrollAxis', block: 'ScrollAxis' }),
