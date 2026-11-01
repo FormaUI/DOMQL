@@ -66,6 +66,7 @@ DOMQL's module declares each of its types with its members, as Nexo's [declaring
 | `Grid` | A grid's column tracks | `columns`: `List<Number>` |
 | `Scroll` | How far a box is scrolled along each of its logical axes | `inline`, `block`: `ScrollAxis` |
 | `ScrollAxis` | How far a box is scrolled along one axis | `offset`, `extent`, `viewport`: `Number` |
+| `Playback` | A media element's playback | `paused`, `muted`, `ended`: `Boolean`; `currentTime`, `volume`: `Number`; `duration`: `Number?` |
 
 `on`, an event source, is one declaration DOMQL's module gives each of `Element`, `Document` and `Window`, the receivers it listens on.
 
@@ -120,6 +121,12 @@ A property exposes a value, read by property access, and takes no argument. Each
 | Element | [`shadow`](#property-element-shadow) | `Shadow` |
 | Element | [`aria`](#property-element-aria) | `Aria` |
 | Element | [`direction`](#property-element-direction) | `String` |
+| Element | [`localName`](#property-element-localname) | `String` |
+| Element | [`classes`](#property-element-classes) | `List<String>` |
+| Element | [`text`](#property-element-text) | `String` |
+| Element | [`html`](#property-element-html) | `String` |
+| Element | [`value`](#property-element-value) | `String?` |
+| Element | [`playback`](#property-element-playback) | `Playback?` |
 | Document | [`activeElement`](#property-document-activeelement) | `Element?` |
 | Shadow view | [`root`](#property-shadow-view-root) | `ShadowRoot?` |
 | Shadow view | [`elements`](#property-shadow-view-elements) | `List<Element>?` |
@@ -329,6 +336,66 @@ An element that is no scroll container is scrolled by 0. Null while it has no la
 
 **Changes.** Partly observable: the `dir` attributes and the structure of every tree its flat-tree ancestry passes through are observed, the document element's among them; the text that decides an ancestor's `dir="auto"`, or its own, is not
 
+<a id="property-element-localname"></a>
+
+### Element: localName
+
+**Type:** `String`   **Reads:** Fresh
+
+**Result.** Its local name, in lowercase for an HTML element, as `"div"`
+
+**Changes.** Constant
+
+<a id="property-element-classes"></a>
+
+### Element: classes
+
+**Type:** `List<String>`   **Reads:** Fresh
+
+**Result.** The classes its class list holds, each once, in the order they are first written
+
+**Changes.** Observable: its `class` attribute
+
+<a id="property-element-text"></a>
+
+### Element: text
+
+**Type:** `String`   **Reads:** Fresh
+
+**Result.** The text of its subtree, as `textContent` joins its text nodes in document order: no markup, and the text of no shadow tree, and none of the content of a template it holds
+
+**Changes.** Observable: its subtree's structure and text
+
+<a id="property-element-html"></a>
+
+### Element: html
+
+**Type:** `String`   **Reads:** Fresh
+
+**Result.** The markup of its content, as `innerHTML` serializes it: no shadow tree is serialized, and the content of a template it holds is
+
+**Changes.** Partly observable: its subtree's structure, attributes and text are observed; a change inside the content of a template it holds is not
+
+<a id="property-element-value"></a>
+
+### Element: value
+
+**Type:** `String?`   **Reads:** Fresh
+
+**Result.** The value of an `input`, a `textarea` or a `select`, as its `value` answers it, the empty string where nothing is entered or selected, and null for any other element
+
+**Changes.** Partly observable: the user's input, changes and a form's reset in its tree, its `value`, `selected` and `type` attributes, and the structure and text of its subtree, which a text area's default and a select's options decide, are observed; the page's code setting its value, or a select's `selectedIndex`, fires no event and is not
+
+<a id="property-element-playback"></a>
+
+### Element: playback
+
+**Type:** `Playback?`   **Reads:** Fresh
+
+**Result.** An `audio` or a `video` element's playback: whether it is `paused`, `muted` and `ended`; its `currentTime` and its `duration`, in seconds, the duration null until its metadata has loaded and for a stream without an end; and its `volume`, from 0 to 1. Null for any other element
+
+**Changes.** Partly observable: its media events, `play`, `pause`, `playing`, `ended`, `volumechange`, `timeupdate`, `durationchange`, `seeking`, `seeked`, `emptied` and `loadedmetadata`, are observed; its current time advancing between two `timeupdate` events, which the browser fires every 15 to 250 milliseconds while it plays, is not
+
 <a id="property-document-activeelement"></a>
 
 ### Document: activeElement
@@ -422,6 +489,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 | ARIA view | [`.attribute[name]`, and the unnamed indexer, `[name]`](#function-aria-view-attribute) |
 | Element | [`.class[name]`](#function-element-class) |
 | Element | [`.style[property]`](#function-element-style) |
+| Element | [`.inlineStyle[property]`](#function-element-inlinestyle) |
 | Element | [`intersects({ root, margin })`](#function-element-intersects) |
 | Element | [`overlaps({ other, margin })`](#function-element-overlaps) |
 | Element | [`matches(selector)`](#function-element-matches) |
@@ -490,6 +558,16 @@ Each function states what it answers, how its result changes, how it reads, and 
 **Result.** The property's computed value, custom properties included, null where the element is detached or the value is empty
 
 **Changes.** Partly observable: its own size and attributes are observed, rules matching from elsewhere are not
+
+<a id="function-element-inlinestyle"></a>
+
+### Element: inlineStyle
+
+**Syntax:** `.inlineStyle[property]`   **Signature:** `property`: `String` → `String?`   **Reads:** Fresh   **Fixed arguments:** None
+
+**Result.** The property's value as its `style` attribute declares it, custom properties included, without its priority, and null where it declares none; what applies, whatever declares it, is `style[property]`
+
+**Changes.** Observable: its `style` attribute
 
 <a id="function-element-intersects"></a>
 
@@ -637,6 +715,8 @@ The built-in vocabulary declares these Boolean functions, each with its native s
 | Element | [`hover`](#boolean-function-element-hover) |
 | Element | [`popoverOpen`](#boolean-function-element-popoveropen) |
 | Element | [`checked`](#boolean-function-element-checked) |
+| Element | [`indeterminate`](#boolean-function-element-indeterminate) |
+| Element | [`autofilled`](#boolean-function-element-autofilled) |
 | Document | [`visible`](#boolean-function-document-visible) |
 | Document | [`focus`](#boolean-function-document-focus) |
 | Window | [`share`](#boolean-function-window-share) |
@@ -781,6 +861,26 @@ Whether the Tab key reaches it, which a negative `tabindex` prevents, is another
 **True when.** It matches `:checked`: a checked checkbox or radio button, or a selected option
 
 **Changes.** Partly observable: the user's input in its tree, a radio button another of its group unchecks and an option its select changes included, form resets, the `checked` and `selected` attributes and the structure of its tree are observed; the page's code setting `checked` or `selected`, or a select's `value` or `selectedIndex`, fires no event and is not
+
+<a id="boolean-function-element-indeterminate"></a>
+
+### Element: indeterminate
+
+**Syntax:** `indeterminate()`   **Reads:** Fresh
+
+**True when.** It matches `:indeterminate`: a checkbox the page's code made mixed, a radio button none of whose group is checked, or a progress bar without a value
+
+**Changes.** Partly observable: the user's input in its tree and form resets, the `checked`, `name`, `type` and `value` attributes and the structure of its tree are observed; the page's code setting `indeterminate` or `checked` fires no event and is not
+
+<a id="boolean-function-element-autofilled"></a>
+
+### Element: autofilled
+
+**Syntax:** `autofilled()`   **Reads:** Fresh
+
+**True when.** It matches `:autofill`, or `:-webkit-autofill` in a browser that knows no other: the browser filled its value, from a saved address or password, and the user has not edited it since
+
+**Changes.** Partly observable: the user's input and changes in its tree are observed, which the browser fires as it fills a field the user chose a suggestion for; the browser filling a field on its own, as a password manager does as the page loads, fires no event and is not. No observation follows the filling itself, since one would write a stylesheet into the page, which watching never does
 
 <a id="boolean-function-document-visible"></a>
 

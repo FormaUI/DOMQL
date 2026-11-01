@@ -311,6 +311,64 @@ describe('Watch', () => {
         });
     });
 
+    describe('values and text', () => {
+        it('follows the text of a subtree as it is edited, a text node\'s data included', async () => {
+            panel.innerHTML = '<p>one</p>';
+            watch('panel.text', { panel });
+            await settle();
+
+            panel.firstElementChild.firstChild.data = 'two';
+            await settle();
+            panel.append(document.createElement('br'));
+            await settle();
+            panel.lastElementChild.replaceWith('three');
+            await settle();
+
+            expect(snapshots).toEqual(['one', 'two', 'twothree']);
+        });
+
+        it('follows a value the user types, and misses one the page\'s code sets, which fires no event', async () => {
+            panel.innerHTML = '<input value="a">';
+
+            const field = panel.firstElementChild;
+
+            watch('field.value', { field }, { acceptPartialObservation: true });
+            await settle();
+
+            field.value = 'ab';
+            field.dispatchEvent(new Event('input', { bubbles: true }));
+            await settle();
+            field.value = 'abc';
+            await settle();
+
+            expect(snapshots).toEqual(['a', 'ab']);
+        });
+
+        it('follows a move its members miss where a body reads what causes it, as a sibling\'s text edited moves a block', async () => {
+            panel.innerHTML = '<p>first</p><p>second</p>';
+
+            const [first, block] = panel.children;
+            let top = 20;
+
+            block.getClientRects = () => [{ left: 0, top, width: 100, height: 20 }];
+            panel.getClientRects = () => [{ left: 0, top: 0, width: 100, height: 100 }];
+
+            const moved = [];
+            const followed = [];
+
+            watch('block.rectRelativeTo(panel)?.top', { block, panel }, { acceptPartialObservation: true, onChange: value => moved.push(value) });
+            watch('let edited = panel.text\nreturn block.rectRelativeTo(panel)?.top', { block, panel }, { acceptPartialObservation: true, onChange: value => followed.push(value) });
+            await settle();
+
+            top = 40;
+            first.firstChild.data = 'first, now long enough to wrap onto a second line';
+            await settle();
+
+            expect(moved).toEqual([20]);
+            expect(followed).toEqual([20, 40]);
+        });
+    });
+
     describe('a Boolean function', () => {
         it.each([
             ['called', 'panel:lit()'],

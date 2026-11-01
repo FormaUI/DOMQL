@@ -78,6 +78,19 @@ A watch's dependencies are what its last evaluation actually read: each member a
 - **A chain that met null depends on what it read before the null,** so `it.closest(".row")` finding nothing still depends on the ancestors it searched, and the watch evaluates again when one starts to match.
 - **A watch keeps its bindings.** A query `with` other bindings starts a watch of its own. When the replacement watch is ready before the old watch is disposed, shared observations with matching targets and identifying arguments remain running throughout the replacement.
 
+<a id="dependencies-following-what-a-member-misses"></a>
+
+### Following a change a member misses
+
+A query follows a change its members miss by reading a member that observes it. A body's local runs whether or not anything uses it, as Nexo's [ordered evaluation](https://github.com/FormaUI/Nexo/blob/65d247bc6f6b0dde1b701bbfd41f19a40838174c/spec/language/scripts.md#bodies-ordered-evaluation) sets out, so it adds the dependency without adding to the result. A row a sibling's edit moves, which `rectRelativeTo` misses, is followed by reading the text around it:
+
+```domql
+let edited = panel.text
+return item.rectRelativeTo(panel)?.top
+```
+
+The watch evaluates again whenever the panel's text changes, and reports the row's position where it moved. Reading `text` reads the whole subtree at each evaluation, so a member that observes the change more narrowly serves better where one does. A watch takes no dependency of its own beside its query's, so the definition carries every dependency its watch follows.
+
 <a id="watching-when-a-watch-evaluates"></a>
 
 ## When a watch evaluates

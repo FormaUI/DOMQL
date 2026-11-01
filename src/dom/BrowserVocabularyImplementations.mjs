@@ -20,6 +20,12 @@ const AXES = new Set(['inline', 'block']);
 /** The elements focusable by default where they are enabled, as HTML's focusable areas name them, beside those with a condition of their own: a link, a summary, a media element and an editing host. */
 const FOCUSABLE_ELEMENTS = new Set(['button', 'select', 'textarea', 'iframe']);
 
+/** The elements whose value the user edits. */
+const VALUE_ELEMENTS = new Set(['input', 'textarea', 'select']);
+
+/** The media elements. */
+const MEDIA_ELEMENTS = new Set(['audio', 'video']);
+
 /** A `tabindex` that HTML's rules for parsing integers read as an integer. */
 const TAB_INDEX = /^[\t\n\f\r ]*[-+]?[0-9]/;
 
@@ -111,6 +117,15 @@ export class BrowserVocabularyImplementations {
             focused: ({ receiver: element }) => element.getRootNode().activeElement === element,
             focusWithin: ({ receiver: element }) => element.matches(':focus-within'),
             displayed: ({ receiver: element }) => element.isConnected && element.checkVisibility(),
+            indeterminate: ({ receiver: element }) => element.matches(':indeterminate'),
+            autofilled: ({ receiver: element }) => BrowserVocabularyImplementations.#isAutofilled(element),
+            localName: ({ receiver: element }) => element.localName,
+            classes: ({ receiver: element }) => [...element.classList],
+            text: ({ receiver: element }) => element.textContent,
+            html: ({ receiver: element }) => element.innerHTML,
+            value: ({ receiver: element }) => (VALUE_ELEMENTS.has(element.localName) ? element.value : null),
+            playback: ({ receiver: element }) => BrowserVocabularyImplementations.#playback(element),
+            inlineStyle: ({ receiver: element, args: { property } }) => element.style.getPropertyValue(property) || null,
             focusable: ({ receiver: element }) => BrowserVocabularyImplementations.#isFocusable(element),
             direction: ({ receiver: element }) => (element.matches(':dir(rtl)') ? 'rtl' : 'ltr'),
             activeElement: ({ receiver: document }) => BrowserVocabularyImplementations.#activeElement(document),
@@ -356,6 +371,26 @@ export class BrowserVocabularyImplementations {
         }
 
         return element.ownerDocument.designMode === 'on';
+    }
+
+    /** Whether the browser has filled the field, as `:autofill` matches, or the prefixed `:-webkit-autofill` in a browser that knows no other. */
+    static #isAutofilled(element) {
+        try {
+            return element.matches(':autofill');
+        } catch {
+            return element.matches(':-webkit-autofill');
+        }
+    }
+
+    /** The playback of a media element, or null for any other element: its duration null until it is known, and for a stream without an end. */
+    static #playback(element) {
+        if (!MEDIA_ELEMENTS.has(element.localName)) {
+            return null;
+        }
+
+        const { paused, muted, ended, currentTime, duration, volume } = element;
+
+        return { paused, muted, ended, currentTime, duration: Number.isFinite(duration) ? duration : null, volume };
     }
 
     /** The focused element of the document, through each open shadow root a focused host holds, or null where the document reports none, its body or its root element. */

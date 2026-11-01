@@ -217,3 +217,74 @@ Each entry is one of three kinds:
   - An element's `visible()`, beside the document's, for a question no query needs apart from `focusable()`.
   - Deciding focusability by trying `focus()`, which changes the page.
   - A `tabbable()`, which a query answers as `it.focusable() and (it["tabindex"] ?? "0") != "-1"` where it needs one.
+
+<a id="d15"></a>
+
+## D15 — `text` and `html` read a subtree, and no `hasText`
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `text` answers `textContent` and `html` answers `innerHTML`. `text` is observable through its subtree's structure and text; `html` observes its attributes too, and is partly observable, since a change inside the content of a template it holds, which it serializes, reaches no observation of the subtree. No `hasText` is declared.
+- **Why:**
+  - `textContent` and `innerHTML` are what a page's own code reads of an editable region, so a query reads what the page's code would.
+  - `it.text != ""`, or Nexo's own `trim` and `length` on it, answers what `hasText` would, so a Boolean of its own adds a name and no question.
+- **Declined:**
+  - `innerText`, which needs layout and answers differently as styles change, with nothing to observe them.
+  - Calling `html` observable, which a template's content would contradict.
+
+<a id="d16"></a>
+
+## D16 — `classes`, `inlineStyle` and `localName`
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** An element's class list is `classes`, a `List<String>` of each class once in the order first written. Its declared inline style is the named indexer `inlineStyle[property]`, null where the `style` attribute declares none. Its `localName` is constant.
+- **Why:**
+  - DOMQL names its members as plain words, `children` and `parent` among them, and a list of strings is no `DOMTokenList`, so the plan's `classList` became `classes`, beside the `class[name]` test.
+  - `inlineStyle` sits beside `style`, the computed value, and reads the other question: what the element itself declares, as a style editor shows it.
+- **Declined:** `classList`, the platform's name for a live token list a query never holds.
+
+<a id="d17"></a>
+
+## D17 — `autofilled()` without an autofill observation
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `autofilled()` matches `:autofill`, or `:-webkit-autofill` where a browser knows no other, and observes the user's input and changes in its tree. It is partly observable: the browser filling a field on its own, as a password manager does as the page loads, fires no event. O4's autofill observation is not built.
+- **Why:**
+  - The adapter the plan named writes a stylesheet into the page that starts an animation on `:autofill` and listens for it. Watching never changes the page, and an `animation-name` of its own would replace the page's animations on every field.
+  - The browser fires `input` and `change` as it fills a field the user chose a suggestion for, which is the change an application acts on.
+- **Declined:**
+  - The stylesheet animation adapter, for the reasons above.
+  - Polling `:autofill`, which spends a frame's work on every watched field to catch a change that happens once.
+- **Reopened by:** an event or an observer the browser offers for autofill.
+
+<a id="d18"></a>
+
+## D18 — `playback` is a structured member of elements
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `playback` answers `Playback { paused, muted, ended, currentTime, duration, volume }` for an `audio` or a `video` element and null for any other. `duration` is null until the metadata loads and for a stream without an end. It observes the element's media events and is partly observable, since the current time advances between two `timeupdate` events.
+- **Why:**
+  - DOMQL declares no type for media elements, and a member of every element answering null for the others keeps one member where a type of its own would add a kind of node.
+  - The browser answers `NaN` and `Infinity` for a duration it doesn't know, and DOMQL's numbers are finite, so null says it.
+  - The media events are O4's playback observation, built as the plan names it.
+- **Declined:** following the current time every frame, which would evaluate a watch sixty times a second for a member a player reads as it chooses.
+
+<a id="d19"></a>
+
+## D19 — A query follows what its members miss through a body's local
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** A watch takes no dependency of its own beside its query's. A query that needs a change its members miss reads a member that observes it, in a body's local where its result needs nothing of it, as `let edited = panel.text` before `return item.rectRelativeTo(panel)?.top`. The specification shows it in [following a change a member misses](../spec/watches.md#dependencies-following-what-a-member-misses).
+- **Why:**
+  - Nexo runs a body's locals in order whether or not anything uses them, and records their reads, so the dependency needs no feature of its own. A watch test settles it.
+  - A dependency the query states travels with its definition, so a definition carried to another instance follows the same changes.
+- **Declined:** a watch option naming an invalidation beyond its query's, which a definition would not carry and which repeats what a local already says.

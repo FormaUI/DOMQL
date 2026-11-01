@@ -702,6 +702,20 @@ panel.scroll {
 
 `scrollContainer()` finds the nearest ancestor the user can scroll, across shadow roots and slots, and is null where the window scrolls the element. A watch compares each measurement within a twentieth of a pixel, so a box settling by less reports no change.
 
+### Read values and text
+
+`value` reads what a user entered in a control, `text` an element's text and `html` its markup, `classes` its class list and `localName` its name; a watch follows what the user types:
+
+```domql
+panel {
+    name = it.localName,
+    classes = it.classes,
+    entered = it.first("input")?.value
+}
+```
+
+A value the page's code sets fires no event, so a watch of `value` needs `acceptPartialObservation`, as the specification's members say of each.
+
 ### Choose a property by name
 
 Use `.[…]`, brackets after a dot, when the property name comes from a string:

@@ -88,7 +88,9 @@ const DOCUMENTS = {
         { about: 'scrolling', each: true, context: COMPARED },
     ],
     'spec/evaluation.md': [],
-    'spec/watches.md': [],
+    'spec/watches.md': [
+        { about: 'a body local following what a member misses' },
+    ],
     'spec/results.md': [],
     'spec/events.md': [
         { about: 'a subscription reading a maintained member' },
@@ -123,6 +125,7 @@ const DOCUMENTS = {
         { about: 'interpolated text', results: { 0: { summary: '3 items, 12 unread' } } },
         { about: 'a shadow tree', results: { 0: 1 } },
         { about: 'measuring scrolling', results: { 0: { scrolled: false, atEnd: true } } },
+        { about: 'values and text', results: { 0: { name: 'div', classes: ['open'], entered: '' } } },
     ],
     'docs/domql-design.md': [],
     'docs/features-status.md': [],

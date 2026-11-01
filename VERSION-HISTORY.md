@@ -6,6 +6,26 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-282"></a>
+
+## `1.0.0-alpha.282`
+
+*November 1, 2026 · Nexo language `1.0.0-beta.8` · definition format 38*
+
+DOMQL reads what a user entered, an element's text, markup, name, classes and declared style, and a media element's playback.
+
+**Vocabulary**
+
+- [`value`](spec/vocabulary.md#property-element-value) answers the value of an `input`, a `textarea` or a `select`, and null for any other element.
+- [`indeterminate()`](spec/vocabulary.md#boolean-function-element-indeterminate) and [`autofilled()`](spec/vocabulary.md#boolean-function-element-autofilled) test `:indeterminate` and `:autofill`; no observation follows autofill itself, as [D17](docs/decisions.md#d17) records.
+- [`text`](spec/vocabulary.md#property-element-text) and [`html`](spec/vocabulary.md#property-element-html) answer a subtree's text and markup, as [D15](docs/decisions.md#d15) records.
+- [`localName`](spec/vocabulary.md#property-element-localname), [`classes`](spec/vocabulary.md#property-element-classes) and [`inlineStyle[property]`](spec/vocabulary.md#function-element-inlinestyle) answer an element's name, its class list and its declared style, as [D16](docs/decisions.md#d16) records.
+- [`playback`](spec/vocabulary.md#property-element-playback) answers a media element's playback, observed through its media events, as [D18](docs/decisions.md#d18) records.
+
+**Watches**
+
+- [Following a change a member misses](spec/watches.md#dependencies-following-what-a-member-misses): a body's local that reads a member observing the change, as `text` does an edit, makes a watch follow it, as [D19](docs/decisions.md#d19) records.
+
 <a id="v1-0-0-alpha-281"></a>
 
 ## `1.0.0-alpha.281`

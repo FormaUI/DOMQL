@@ -589,6 +589,42 @@ describe('QueryEvaluator', () => {
         });
     });
 
+    describe('values and text', () => {
+        it('reads the value of a control the user edits, and null for any other element', () => {
+            document.body.innerHTML = '<input id="field" value="typed"><textarea id="area">written</textarea><select id="list"><option>a</option><option selected>b</option></select><div id="plain"></div>';
+
+            const value = id => read('e.value', { e: document.getElementById(id) });
+
+            expect(['field', 'area', 'list', 'plain'].map(value)).toEqual(['typed', 'written', 'b', null]);
+        });
+
+        it('reads an element\'s text, its markup, its name, its classes and an inline style property as it is declared', () => {
+            document.body.innerHTML = '<p id="p" class="lead  wide lead" style="margin-top: 2em; --tier: low">Hello <b>world</b></p>';
+
+            const p = document.getElementById('p');
+
+            expect(read('p { text = it.text, html = it.html, name = it.localName, classes = it.classes, margin = it.inlineStyle["margin-top"], tier = it.inlineStyle["--tier"], none = it.inlineStyle["color"] }', { p })).toEqual({
+                text: 'Hello world', html: 'Hello <b>world</b>', name: 'p', classes: ['lead', 'wide'], margin: '2em', tier: 'low', none: null,
+            });
+        });
+
+        it('reads the playback of a media element, its unknown duration null, and null for any other element', () => {
+            const video = document.createElement('video');
+
+            video.muted = true;
+
+            expect(read('{ video = video.playback, plain = plain.playback }', { video, plain: panel })).toEqual({
+                video: { paused: true, muted: true, ended: false, currentTime: 0, duration: null, volume: 1 }, plain: null,
+            });
+        });
+
+        it('answers whether a field is autofilled, which nothing has filled', () => {
+            document.body.innerHTML = '<input id="field">';
+
+            expect(read('e.autofilled()', { e: document.getElementById('field') })).toBe(false);
+        });
+    });
+
     describe('scrolling', () => {
         it('reads how far an element is scrolled along each axis of its writing mode, its offset without the sign RTL gives it', () => {
             scrollTo(panel, { scrollLeft: -30, scrollTop: 12.5, scrollWidth: 900, scrollHeight: 1200, clientWidth: 640, clientHeight: 480 });

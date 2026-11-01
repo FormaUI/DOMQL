@@ -23,6 +23,10 @@ const CLIENT_RESIZE = { type: 'resize', of: 'receiver', box: 'client' };
 const ELEMENT_SCROLL = [{ type: 'event', of: 'receiver', types: ['scroll'] }, CLIENT_RESIZE, { type: 'resize', of: 'children' }];
 // The style along the flat-tree ancestry: the attributes and structure of every tree it passes through.
 const ANCESTRY_STYLE = { type: 'mutation', of: 'roots', attributes: true, childList: true, subtree: true };
+// The user's input in a tree: input and change events, and a form's reset, captured at the root, since reset does not bubble.
+const USER_INPUT = { type: 'event', of: 'root', types: ['input', 'change', 'reset'], capture: true };
+// What a media element reports of its playback.
+const MEDIA_EVENTS = { type: 'event', of: 'receiver', types: ['play', 'pause', 'playing', 'ended', 'volumechange', 'timeupdate', 'durationchange', 'seeking', 'seeked', 'emptied', 'loadedmetadata'] };
 const TEXT_SELECTION = [
     { type: 'event', of: 'receiver', types: ['select', 'input'] },
     { type: 'event', of: 'document', types: ['selectionchange'] },
@@ -120,9 +124,17 @@ export class BrowserVocabularyDeclarations {
                         updates: updatesOf({
                             changes: 'partly-observable',
                             misses: 'the page\'s code setting checked or selected, or a select\'s value or selectedIndex, which fires no event',
-                            observations: [{ type: 'event', of: 'root', types: ['input', 'change', 'reset'], capture: true }, { type: 'mutation', of: 'root', attributes: ['checked', 'selected'], childList: true, subtree: true }],
+                            observations: [USER_INPUT, { type: 'mutation', of: 'root', attributes: ['checked', 'selected'], childList: true, subtree: true }],
                         }),
                     }),
+                    test('indeterminate', 'indeterminate', {
+                        updates: updatesOf({
+                            changes: 'partly-observable',
+                            misses: 'the page\'s code setting indeterminate or checked, which fires no event',
+                            observations: [USER_INPUT, { type: 'mutation', of: 'root', attributes: ['checked', 'name', 'type', 'value'], childList: true, subtree: true }],
+                        }),
+                    }),
+                    test('autofilled', 'autofilled', { updates: updatesOf({ changes: 'partly-observable', misses: 'the browser filling a field on its own, as a password manager does as the page loads, which fires no event', observations: [USER_INPUT] }) }),
 
                     implementing('rect', property('rect', 'Rectangle?', { updates: updatesOf({ ...GEOMETRY, ...MEASURED, observations: [RESIZE, SCROLLING, WINDOW_RESIZE] }) })),
                     implementing('clientRect', property('clientRect', 'Rectangle?', { updates: updatesOf({ ...GEOMETRY, ...MEASURED, observations: [CLIENT_RESIZE, SCROLLING, WINDOW_RESIZE] }) })),
@@ -140,6 +152,18 @@ export class BrowserVocabularyDeclarations {
                     implementing('selection', property('selection', 'Selection?', { updates: updatesOf({ changes: 'partly-observable', misses: 'selections the page\'s code sets', observations: TEXT_SELECTION }) })),
                     implementing('shadow', property('shadow', 'Shadow', { updates: updatesOf({ changes: 'constant' }) })),
                     implementing('aria', property('aria', 'Aria', { updates: updatesOf({ changes: 'constant' }) })),
+                    implementing('localName', property('localName', 'String', { updates: updatesOf({ changes: 'constant' }) })),
+                    implementing('classes', property('classes', 'List<String>', { updates: updatesOf({ observations: [{ type: 'mutation', of: 'receiver', attributes: ['class'] }] }) })),
+                    implementing('text', property('text', 'String', { updates: updatesOf({ observations: [{ type: 'mutation', of: 'receiver', childList: true, characterData: true, subtree: true }] }) })),
+                    implementing('html', property('html', 'String', { updates: updatesOf({ changes: 'partly-observable', misses: 'a change inside the content of a template it holds', observations: [{ type: 'mutation', of: 'receiver', attributes: true, childList: true, characterData: true, subtree: true }] }) })),
+                    implementing('value', property('value', 'String?', {
+                        updates: updatesOf({
+                            changes: 'partly-observable',
+                            misses: 'the page\'s code setting its value, or a select\'s selectedIndex, which fires no event',
+                            observations: [USER_INPUT, { type: 'mutation', of: 'receiver', attributes: ['value', 'selected', 'type'], childList: true, characterData: true, subtree: true }],
+                        }),
+                    })),
+                    implementing('playback', property('playback', 'Playback?', { updates: updatesOf({ changes: 'partly-observable', misses: 'its current time advancing between two timeupdate events', observations: [MEDIA_EVENTS] }) })),
                     implementing('direction', property('direction', 'String', { updates: updatesOf({ changes: 'partly-observable', misses: 'the text that decides an ancestor\'s dir="auto", or its own', observations: [{ type: 'mutation', of: 'roots', attributes: ['dir'], childList: true, subtree: true }] }) })),
                     implementing('attached', property('attached', 'Boolean', { updates: updatesOf({ changes: 'partly-observable', misses: 'a detached tree inserted into a shadow root in the document', observations: [{ type: 'attachment', of: 'receiver' }] }) })),
                     implementing('hasChildren', property('hasChildren', 'Boolean', { updates: updatesOf({ observations: [CHILDREN] }) })),
@@ -149,6 +173,7 @@ export class BrowserVocabularyDeclarations {
                     ...[null, 'attribute'].map(name => implementing('attribute', indexer(name, 'String?', { parameters: [valueParameter('name', 'String')], updates: updatesOf({ observations: [{ type: 'mutation', of: 'receiver', attributes: [{ argument: 'name' }] }] }) }))),
                     implementing('class', indexer('class', 'Boolean', { parameters: [valueParameter('name', 'String')], updates: updatesOf({ observations: [{ type: 'mutation', of: 'receiver', attributes: ['class'] }] }) })),
                     implementing('style', indexer('style', 'String?', { parameters: [valueParameter('property', 'String')], updates: updatesOf({ ...STYLE, observations: [RESIZE, ATTRIBUTES] }) })),
+                    implementing('inlineStyle', indexer('inlineStyle', 'String?', { parameters: [valueParameter('property', 'String')], updates: updatesOf({ observations: [{ type: 'mutation', of: 'receiver', attributes: ['style'] }] }) })),
                     implementing('intersects', func('intersects', 'Boolean?', {
                         arguments: 'options',
                         parameters: [valueParameter('root', 'Element?', { default: null, nulls: 'accept', omitted: 'the window' }), valueParameter('margin', 'Number', { default: 0 })],
@@ -219,6 +244,8 @@ export class BrowserVocabularyDeclarations {
                 // How far a box is scrolled along each of its logical axes, and along one of them.
                 structuredType('Scroll', { inline: 'ScrollAxis', block: 'ScrollAxis' }),
                 structuredType('ScrollAxis', { offset: 'Number', extent: 'Number', viewport: 'Number' }),
+                // A media element's playback; its duration unknown until its metadata loads, and without an end for a stream.
+                structuredType('Playback', { paused: 'Boolean', muted: 'Boolean', ended: 'Boolean', currentTime: 'Number', duration: 'Number?', volume: 'Number' }),
                 // An event such as scroll or resize can target the document or the window, which is no element.
                 structuredType('DomEvent', { target: 'Element?' }),
                 // A browser that dispatches a click as a mouse event gives it no pointer type.
