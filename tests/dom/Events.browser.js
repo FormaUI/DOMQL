@@ -105,6 +105,38 @@ describe('Events in a browser', () => {
         });
     });
 
+    describe('keyboard events and what every event carries', () => {
+        it('capture a key the user presses with the modifiers held, and AltGr, which the browser answers through getModifierState alone', async () => {
+            document.body.innerHTML = '<input id="field">';
+
+            const field = document.getElementById('field');
+            const keys = subscribe('field.on("keydown") { code = it.code, ctrl = it.ctrlKey, shift = it.shiftKey, altGraph = it.altGraphKey, repeat = it.repeat }', { field });
+
+            field.focus();
+            await userEvent.keyboard('{Control>}{Shift>}k{/Shift}{/Control}');
+            keys.splice(0, 2);
+            field.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: '@', code: 'KeyQ', modifierAltGraph: true, repeat: true }));
+
+            expect(keys).toEqual([{ code: 'KeyK', ctrl: true, shift: true, altGraph: false, repeat: false }, { code: 'KeyQ', ctrl: false, shift: false, altGraph: true, repeat: true }]);
+        });
+
+        it('capture the elements an event passes through, across an open shadow root, and whether a listener before the subscription cancelled it', async () => {
+            document.body.innerHTML = '<div id="host"></div>';
+
+            const host = document.getElementById('host');
+            const shadowRoot = host.attachShadow({ mode: 'open' });
+
+            shadowRoot.innerHTML = '<button id="inner">Press</button>';
+            shadowRoot.getElementById('inner').addEventListener('click', event => event.preventDefault());
+
+            const clicks = subscribe('Domql.document.on("click") { path = it.composedPath { name = it.localName }, cancelled = it.defaultPrevented, target = it.target.localName }');
+
+            await userEvent.click(shadowRoot.getElementById('inner'));
+
+            expect(clicks).toEqual([{ path: [{ name: 'button' }, { name: 'div' }, { name: 'body' }, { name: 'html' }], cancelled: true, target: 'div' }]);
+        });
+    });
+
     describe('focus, editing, presentation, animation, loading and media events', () => {
         /** Waits for the next event of the type at the target. */
         const next = (target, type) => new Promise(resolve => target.addEventListener(type, resolve, { once: true }));

@@ -486,3 +486,21 @@ Each entry is one of three kinds:
   - A browser test settled it: Chromium dispatches a `ToggleEvent` for a popover, a `details` element and a dialog alike, so the states are never missing, and a toggle a page dispatches as a plain event fails its projection, as any event of the wrong kind does.
   - A dialog's `close` and `cancel`, an image's `load` and `error` and a media element's events carry nothing a query reads beyond what happened and where, so they are `DomEvent`s, as `scroll` is.
 - **Declined:** an animation's `elapsedTime` and `pseudoElement`, which no query needs yet.
+
+<a id="d33"></a>
+
+## D33 — A key's members, and the members every event carries
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `KeyboardEvent` adds `repeat`, `isComposing`, the modifiers `ctrlKey`, `metaKey`, `altKey` and `shiftKey`, and `altGraphKey`, whether AltGr was held. Every event type DOMQL declares holds `timeStamp`, `defaultPrevented` and `composedPath`, the elements the event passes through, from its target outwards.
+- **Why:**
+  - A shortcut is a key and the modifiers held with it, and a key held down repeats, which a shortcut usually ignores; a key pressed while composing belongs to the composition, not to the page.
+  - AltGr types characters on many layouts, where Ctrl+Alt reads the same as it to the modifiers alone, and only `getModifierState("AltGraph")` tells them apart, so DOMQL reads it for the event; `altGraphKey` is named as the modifiers are.
+  - The time, whether the event was cancelled and its path are facts of every event, so every event type holds them, as one concept takes one contract; `timeStamp`, which the pointer, touch, wheel and drag events held, now stands beside the others.
+  - A query reads elements alone, so `composedPath` leaves out shadow roots, the document and the window; it lists what the browser exposes where the subscription listens, so a closed shadow tree stays closed.
+  - A passive subscription reads `defaultPrevented` as its listener runs, so it says what the listeners before it did, which a listener in the capture phase at the window hears before any.
+- **Declined:**
+  - `getModifierState` for every key, as `CapsLock` and `NumLock`, which no query needs yet.
+  - The path's shadow roots and document, which a query can't read as elements.

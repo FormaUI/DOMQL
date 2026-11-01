@@ -471,6 +471,35 @@ describe('EventListener', () => {
             expect(results).toEqual([...kinds.map(kind => ({ kind, target: 'panel' })), { target: null }]);
         });
 
+        it('captures a key, whether it repeats or is composed, and the keys held with it, AltGr among them', () => {
+            subscribe('panel.on("keydown") { key = it.key, code = it.code, repeat = it.repeat, composing = it.isComposing, ctrl = it.ctrlKey, meta = it.metaKey, alt = it.altKey, shift = it.shiftKey, altGraph = it.altGraphKey }', { panel });
+
+            panel.dispatchEvent(new window.KeyboardEvent('keydown', { bubbles: true, key: 's', code: 'KeyS', repeat: true, ctrlKey: true }));
+            // AltGr is answered by getModifierState alone, which the simulated document answers as Alt, so the event answers it here.
+            panel.dispatchEvent(Object.assign(new window.KeyboardEvent('keydown', { bubbles: true, key: '@', code: 'KeyQ', isComposing: true }), { getModifierState: key => key === 'AltGraph' }));
+
+            expect(results).toEqual([
+                { key: 's', code: 'KeyS', repeat: true, composing: false, ctrl: true, meta: false, alt: false, shift: false, altGraph: false },
+                { key: '@', code: 'KeyQ', repeat: false, composing: true, ctrl: false, meta: false, alt: false, shift: false, altGraph: true },
+            ]);
+        });
+
+        it('captures when every event was dispatched, whether a listener before the subscription\'s cancelled it, and the elements it passes through, from its target outwards', () => {
+            const [first] = panel.children;
+
+            first.addEventListener('pointerdown', event => event.preventDefault());
+            subscribe('panel.on("pointerdown") { timed = it.timeStamp >= 0, cancelled = it.defaultPrevented, path = it.composedPath { id = it["id"], name = it.localName } }', { panel });
+            subscribe('panel.on("scroll") { cancelled = it.defaultPrevented, path = it.composedPath.count }', { panel });
+
+            first.dispatchEvent(new window.PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+            panel.dispatchEvent(new window.Event('scroll'));
+
+            expect(results).toEqual([
+                { timed: true, cancelled: true, path: [{ id: 'a', name: 'i' }, { id: 'panel', name: 'div' }, { id: null, name: 'body' }, { id: null, name: 'html' }] },
+                { cancelled: false, path: 3 },
+            ]);
+        });
+
         it('reads the members DOMQL reads for an event of a module\'s event type too, and every other member as the event\'s own', () => {
             isolated.registerModule(isolated.createModule('Swipes', {
                 types: [{ name: 'Swipe', kind: 'structured', members: [{ name: 'pointerId', kind: 'property', result: 'Number?' }, { name: 'distance', kind: 'property', result: 'Number' }] }],
@@ -841,7 +870,7 @@ describe('EventListener', () => {
             const executed = isolated.query('import Later\npanel:later() { id = it.target?["id"] }', { panel }).executeAsync();
 
             isolated.registerModule(isolated.createModule('Gadgets', recognizing()));
-            finish({ target: panel });
+            finish({ target: panel, timeStamp: 0, defaultPrevented: false, composedPath: [] });
 
             await expect(executed).resolves.toEqual({ id: 'panel' });
         });
@@ -866,7 +895,7 @@ describe('EventListener', () => {
 
             first.classList.remove('target');
             isolated.registerModule(isolated.createModule('Gadgets', recognizing()));
-            finish({ target: panel });
+            finish({ target: panel, timeStamp: 0, defaultPrevented: false, composedPath: [] });
 
             await expect(executed).rejects.toThrow(expect.objectContaining({ kind: 'evaluation', code: 'DOMQL5015', message: expect.stringContaining("made the request of 'later' stale, and preparing it again reaches no host call; carry it out again"), location: { pointer: '/expression/chain/context', offset: 13, line: 2, column: 1 } }));
             expect(first.dataset.state).toBe('done');

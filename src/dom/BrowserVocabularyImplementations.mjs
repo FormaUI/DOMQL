@@ -37,8 +37,9 @@ const TAB_INDEX = /^[\t\n\f\r ]*[-+]?[0-9]/;
 
 /**
  * The members DOMQL reads for an event, by name, where no property of the event answers them as data: a pointer the event carries none of, which a click the keyboard caused gives as `-1` and `""` and a mouse event
- * lacks; the points a touch list holds; the formats a drag's data transfer or a clipboard event's data lists, each none where the event carries none; and an edit's kind and whether it is composed, empty and false
- * for an input event that says neither, as HTML fires at a select or a checkbox. Every other member is the event's own property.
+ * lacks; the points a touch list holds; the formats a drag's data transfer or a clipboard event's data lists, each none where the event carries none; an edit's kind and whether it is composed, empty and false
+ * for an input event that says neither, as HTML fires at a select or a checkbox; whether AltGr is held, which only a method answers; and the elements the event passes through, its composed path's elements alone.
+ * Every other member is the event's own property.
  * @type {Map<string, (event: Event) => unknown>}
  */
 const EVENT_MEMBERS = new Map([
@@ -48,6 +49,8 @@ const EVENT_MEMBERS = new Map([
     ['types', event => Array.from((event.dataTransfer ?? event.clipboardData)?.types ?? [])],
     ['inputType', event => event.inputType ?? ''],
     ['isComposing', event => event.isComposing === true],
+    ['altGraphKey', event => typeof event.getModifierState === 'function' && event.getModifierState('AltGraph') === true],
+    ['composedPath', event => (typeof event.composedPath === 'function' ? event.composedPath().filter(target => target.nodeType === 1) : [])],
 ]);
 
 /** What reads an event as DOMQL delivers it: a member DOMQL reads for it, and otherwise the event's own property, read from the event itself. */

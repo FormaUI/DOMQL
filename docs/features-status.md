@@ -2,11 +2,11 @@
 
 ## Current state
 
-**DOMQL's vocabulary, queries, watches, events and executions are implemented on Nexo's language `1.0.0-beta.15`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.290`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next is [the C# half](#the-c-half).**
+**DOMQL's vocabulary, queries, watches, events and executions are implemented on Nexo's language `1.0.0-beta.15`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.291`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next is [the C# half](#the-c-half).**
 
 | Version | Implementation | Specification |
 | --- | --- | --- |
-| DOMQL specification | `1.0.0-alpha.290` | `1.0.0-alpha.290` |
+| DOMQL specification | `1.0.0-alpha.291` | `1.0.0-alpha.291` |
 | Nexo language | `1.0.0-beta.15` | `1.0.0-beta.15` |
 | Definition format | 38 | 38 |
 
@@ -52,6 +52,7 @@ Each feature, the contract that states it, its state in the implementation, and 
 | Listening in the capture phase, `on(type, { capture = true })`, for observing alone | [Event sources](../spec/events.md#event-sources) | Implemented, as [D27](decisions.md#d27) records | [`alpha.288`](../VERSION-HISTORY.md#v1-0-0-alpha-288) |
 | Pointer, touch, wheel and drag events, their pointer, count, time, modifiers, touches and formats | [Event types](../spec/events.md#event-types) | Implemented, as [D28](decisions.md#d28) and [D29](decisions.md#d29) record | [`alpha.289`](../VERSION-HISTORY.md#v1-0-0-alpha-289) |
 | Focus, editing, clipboard, composition, presentation, animation, loading and media events | [Event types](../spec/events.md#event-types) | Implemented, as [D30](decisions.md#d30) to [D32](decisions.md#d32) record | [`alpha.290`](../VERSION-HISTORY.md#v1-0-0-alpha-290) |
+| A key's repeat, composition and modifiers, AltGr among them, and every event's time, cancellation and path | [Event types](../spec/events.md#event-types) | Implemented, as [D33](decisions.md#d33) records | [`alpha.291`](../VERSION-HISTORY.md#v1-0-0-alpha-291) |
 | Extension modules: their types, extensions read with `:`, observations, event sources and executions | [Extension modules](../spec/vocabulary.md#extension-modules) | Implemented | [`alpha.278`](../VERSION-HISTORY.md#v1-0-0-alpha-278) |
 | The DOM declared as DOMQL's own reference types, and the cast from `Aria` to `Element` | [Nodes](../spec/nodes-and-shadow-trees.md#nodes), [types](../spec/vocabulary.md#vocabulary-types) | Implemented | [`alpha.278`](../VERSION-HISTORY.md#v1-0-0-alpha-278) |
 | Diagnostic codes of DOMQL's own | [Errors](../spec/errors.md) | Implemented | [`alpha.278`](../VERSION-HISTORY.md#v1-0-0-alpha-278) |
@@ -134,7 +135,7 @@ The language's part is Nexo's already, adopted with the [migration](#migration-t
 **The order of the work:**
 
 1. **The host side.** The C# half (A1), change sets against an acknowledged result and a refresh that delivers (A2, A3), modules loaded on request (A4); occurrences a behavior offers and its owner (C1, C4); DOMQL's observations for module code (C5); and the first executions, focus and scrolling (X1, X2).
-2. **Input.** Module state per document (C8), synchronous handling stated (C10), ordered delivery (A5), and keyboard members (E9).
+2. **Input.** Module state per document (C8), synchronous handling stated (C10) and ordered delivery (A5).
 3. **Presentation.** The top-layer executions (X3), commands to a running behavior (C3), owned writes and their ownership (X5, A10), nullable options (C11) and the frame promise (T2).
 4. **Virtualization.** State a behavior offers and history per holder (C2, C9).
 5. **Gestures and files.** Pointer capture (X4), files (X10), dispatch (X8) and continuous measurement (O3).
@@ -152,11 +153,7 @@ None remains: V1 to V18 are implemented, as [the features](#the-doms-vocabulary)
 
 ### Events
 
-E1 to E8 are implemented, as [the features](#the-doms-vocabulary) show: `on` takes a `Listening` option ([D27](decisions.md#d27)), a click shares `PointerEvent` with the pointer events ([D28](decisions.md#d28)), `touchend` and `touchcancel` are declined, since pointer events cover them ([D29](decisions.md#d29)), and `focus` and `blur` are each a `FocusEvent` ([D30](decisions.md#d30)).
-
-| | Addition |
-| --- | --- |
-| E9 | Keyboard members `repeat` and `isComposing`; `defaultPrevented` and `composedPath` on every event |
+None remains: E1 to E9 are implemented, as [the features](#the-doms-vocabulary) show. `on` takes a `Listening` option ([D27](decisions.md#d27)), a click shares `PointerEvent` with the pointer events ([D28](decisions.md#d28)), `touchend` and `touchcancel` are declined, since pointer events cover them ([D29](decisions.md#d29)), `focus` and `blur` are each a `FocusEvent` ([D30](decisions.md#d30)), and every event carries its time, its cancellation and its path ([D33](decisions.md#d33)).
 
 <a id="planned-observation"></a>
 

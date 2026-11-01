@@ -54,11 +54,11 @@ DOMQL's module declares the [type selector](https://github.com/FormaUI/Nexo/blob
 
 | Event types | Type | Members |
 | --- | --- | --- |
-| `click`, `dblclick`, `pointerdown`, `pointerup`, `pointermove`, `pointercancel`, `lostpointercapture` | `PointerEvent` | `target`: `Element`, `button`: `Number`, `buttons`: `Number`, `clientX`: `Number`, `clientY`: `Number`, `pointerType`: `String?`, `pointerId`: `Number?`, `detail`: `Number`, `timeStamp`: `Number`, and the modifiers |
-| `touchstart`, `touchmove` | `TouchEvent` | `target`: `Element`, `touches`: `List<Touch>`, `timeStamp`: `Number`, and the modifiers |
-| `wheel` | `WheelEvent` | `target`: `Element`, `deltaX`: `Number`, `deltaY`: `Number`, `deltaMode`: `Number`, `timeStamp`: `Number`, and the modifiers |
-| `keydown`, `keyup` | `KeyboardEvent` | `target`: `Element`, `key`: `String`, `code`: `String` |
-| `dragstart`, `dragenter`, `dragover`, `dragleave`, `dragend`, `drop` | `DragEvent` | `target`: `Element`, `clientX`: `Number`, `clientY`: `Number`, `types`: `List<String>`, `timeStamp`: `Number`, and the modifiers |
+| `click`, `dblclick`, `pointerdown`, `pointerup`, `pointermove`, `pointercancel`, `lostpointercapture` | `PointerEvent` | `target`: `Element`, `button`: `Number`, `buttons`: `Number`, `clientX`: `Number`, `clientY`: `Number`, `pointerType`: `String?`, `pointerId`: `Number?`, `detail`: `Number`, and the modifiers |
+| `touchstart`, `touchmove` | `TouchEvent` | `target`: `Element`, `touches`: `List<Touch>`, and the modifiers |
+| `wheel` | `WheelEvent` | `target`: `Element`, `deltaX`: `Number`, `deltaY`: `Number`, `deltaMode`: `Number`, and the modifiers |
+| `keydown`, `keyup` | `KeyboardEvent` | `target`: `Element`, `key`: `String`, `code`: `String`, `repeat`: `Boolean`, `isComposing`: `Boolean`, the modifiers, and `altGraphKey`: `Boolean` |
+| `dragstart`, `dragenter`, `dragover`, `dragleave`, `dragend`, `drop` | `DragEvent` | `target`: `Element`, `clientX`: `Number`, `clientY`: `Number`, `types`: `List<String>`, and the modifiers |
 | `focus`, `blur`, `focusin`, `focusout` | `FocusEvent` | `target`: `Element?`, `relatedTarget`: `Element?` |
 | `beforeinput`, `input` | `InputEvent` | `target`: `Element?`, `inputType`: `String`, `data`: `String?`, `isComposing`: `Boolean` |
 | `paste`, `copy`, `cut` | `ClipboardEvent` | `target`: `Element`, `types`: `List<String>` |
@@ -67,11 +67,13 @@ DOMQL's module declares the [type selector](https://github.com/FormaUI/Nexo/blob
 | `animationstart`, `animationend`, `animationcancel` | `AnimationEvent` | `target`: `Element`, `animationName`: `String` |
 | `scroll`, `resize`, `selectionchange`, `close`, `cancel`, `load`, `error`, `play`, `pause`, `volumechange`, `ended` | `DomEvent` | `target`: `Element?` |
 
-The **modifiers** are `ctrlKey`, `metaKey`, `altKey` and `shiftKey`, each a `Boolean`, whether that key was held as the event was dispatched. A `Touch` is one point touching the surface, `{ identifier, clientX, clientY }`, each a `Number`.
+Every event type holds, beside its own, the members every event carries: `timeStamp`: `Number`, `defaultPrevented`: `Boolean` and `composedPath`: `List<Element>`. The **modifiers** are `ctrlKey`, `metaKey`, `altKey` and `shiftKey`, each a `Boolean`, whether that key was held as the event was dispatched. A `Touch` is one point touching the surface, `{ identifier, clientX, clientY }`, each a `Number`.
 
 An event is captured when it is dispatched. Each member is the event's own property of its name, as the browser answers it:
 
-- **A pointer's and a wheel's.** A `detail` is the count of clicks a click or a `dblclick` makes, a `timeStamp` the time it was dispatched in milliseconds from the document's time origin, and a `deltaMode` the unit of a wheel's deltas, `0` for pixels, `1` for lines and `2` for pages.
+- **Every event's.** A `timeStamp` is the time it was dispatched, in milliseconds from the document's time origin, and `defaultPrevented` whether a listener that ran before the subscription's cancelled it, which a listener nearer its target, or one added before it where it listens, can have done.
+- **A pointer's and a wheel's.** A `detail` is the count of clicks a click or a `dblclick` makes, and a `deltaMode` the unit of a wheel's deltas, `0` for pixels, `1` for lines and `2` for pages.
+- **A key's.** `repeat` is whether the key is held down and repeating, and the modifiers are the keys held with it.
 - **Focus.** A `relatedTarget` is the element focus leaves, for a `focus` or a `focusin`, or moves to, for a `blur` or a `focusout`; `focusin` and `focusout` bubble, where `focus` and `blur` don't.
 - **Editing.** An `inputType` is the kind of edit, as `insertText` or `deleteContentBackward`, and its `data` the text it inserts, null where it inserts none; a composition's `data` is the text it composes; and `selectionchange` reaches the document, or a text control whose selection moves.
 - **Presentation and animation.** A toggle's `oldState` and `newState` are `"open"` or `"closed"`, as a popover, a `details` element and a dialog report them, and an animation's `animationName` the name of its keyframes.
@@ -82,6 +84,8 @@ DOMQL reads these members for the event, since no property of it answers them as
 - **`touches`** holds the points touching the surface, in the order the event's touch list holds them, and none where it carries no touch list.
 - **`types`** holds the formats a drag carries, as its data transfer lists them, `"Files"` while it carries files, or a clipboard event's, as its clipboard data lists them, and none where it carries neither. The data itself is no member, since the browser holds a drag's back until the drop and a clipboard event's is the page's to read.
 - **`inputType`** is `""`, and **`isComposing`** false, for an input event that says neither, as HTML fires at a select, a checkbox or a radio button.
+- **`altGraphKey`** is whether AltGr was held, as the event's `getModifierState("AltGraph")` answers it, which no property says.
+- **`composedPath`** holds the elements the event passes through, from its target outwards, as its composed path lists them where the subscription hears it: shadow roots, the document and the window are left out, and so are the elements of a closed shadow tree the subscription stands outside of.
 
 DOMQL reads these members so for every event `on` delivers, of a module's event type as of its own.
 

@@ -1465,6 +1465,9 @@ describe('QueryEvaluator projection', () => {
     /** Captures the event as its type declares and projects it, through the subscription's host call prepared for it. */
     const projectionOf = (evaluator, event) => evaluator.project(evaluator.prepareHostCall(), event, { observations });
 
+    /** A scroll as `on` delivers one targeting the value given: its target, and what every event carries. */
+    const scrollAt = target => ({ target, timeStamp: 0, defaultPrevented: false, composedPath: [] });
+
     describe('the host call', () => {
         it('is prepared into what starts it: its declaration, the receiver and the arguments prepared now, its implementation in DOMQL\'s dispatch table, and nothing started', () => {
             const call = evaluatorOf('import Ticks\npanel:ticks("tick") { at = it.at }', { panel }, [ticks('Tick')]).prepareHostCall();
@@ -1506,12 +1509,18 @@ describe('QueryEvaluator projection', () => {
             expect(projectionOf(evaluator, 'five').error).toMatchObject({ kind: 'evaluation', code: 'NEXO5015', message: expect.stringContaining("The host call 'ticks' supplied \"five\", and it declares Number") });
         });
 
-        it('keeps a native event\'s target, and null for a target that is no element, a reference of another type', () => {
+        it('keeps an event\'s target, and null for one it carries none of or that is no element, a reference of another type', () => {
             const evaluator = evaluatorOf('Domql.document.on("scroll") { id = it.target?.attribute["id"] }');
 
-            expect(projectionOf(evaluator, new window.Event('scroll')).value).toEqual({ id: null });
-            expect(projectionOf(evaluator, { target: panel }).value).toEqual({ id: 'panel' });
-            expect(projectionOf(evaluator, { target: document }).value).toEqual({ id: null });
+            expect(projectionOf(evaluator, scrollAt(undefined)).value).toEqual({ id: null });
+            expect(projectionOf(evaluator, scrollAt(panel)).value).toEqual({ id: 'panel' });
+            expect(projectionOf(evaluator, scrollAt(document)).value).toEqual({ id: null });
+        });
+
+        it('fails an event that carries less than its type declares, as a native event without the members DOMQL reads for it carries no composed path', () => {
+            const evaluator = evaluatorOf('Domql.document.on("scroll") { id = it.target?.attribute["id"] }');
+
+            expect(projectionOf(evaluator, new window.Event('scroll')).error).toMatchObject({ kind: 'evaluation', code: 'NEXO5015' });
         });
     });
 
@@ -1528,8 +1537,8 @@ describe('QueryEvaluator projection', () => {
         it('reads what it captured, and the document as it is', () => {
             const evaluator = evaluatorOf('Domql.document.on("scroll") { id = it.target?.attribute["id"] }');
 
-            expect(projectionOf(evaluator, { target: panel }).value).toEqual({ id: 'panel' });
-            expect(projectionOf(evaluator, { target: document }).value).toEqual({ id: null });
+            expect(projectionOf(evaluator, scrollAt(panel)).value).toEqual({ id: 'panel' });
+            expect(projectionOf(evaluator, scrollAt(document)).value).toEqual({ id: null });
         });
 
         it('fails its projection where a member fails, without throwing', () => {

@@ -42,8 +42,11 @@ const RANGE_MISSES = 'the page\'s code moving a range other than the selection\'
 
 const SELECTOR_PARAMETERS = [valueParameter('selector', 'String')];
 
-/** The modifier keys an event of a pointer, a touch, the wheel or a drag carries, each whether it was held as the event was dispatched. */
+/** The modifier keys an event of a pointer, a touch, the wheel, a drag or the keyboard carries, each whether it was held as the event was dispatched. */
 const MODIFIERS = { ctrlKey: 'Boolean', metaKey: 'Boolean', altKey: 'Boolean', shiftKey: 'Boolean' };
+
+/** What every event carries: when it was dispatched, whether a listener before the subscription's cancelled it, and the elements it passes through. */
+const EVENT = { timeStamp: 'Number', defaultPrevented: 'Boolean', composedPath: 'List<Element>' };
 
 /** The tolerance of a measurement of layout in CSS pixels: a twentieth of a pixel, more than a unit of the browser's layout and less than a device pixel. */
 const LAYOUT_TOLERANCE = 0.05;
@@ -93,6 +96,9 @@ const referenceType = (name, isInstance, members, rest = {}) => ({ name, kind: '
 
 /** A structured type, its data shape the properties given by name and type. */
 const structuredType = (name, properties) => ({ name, kind: 'structured', members: Object.entries(properties).map(([propertyName, result]) => property(propertyName, result)) });
+
+/** An event type, a structured type holding the members given and those every event carries. */
+const eventType = (name, properties) => structuredType(name, { ...properties, ...EVENT });
 
 export class BrowserVocabularyDeclarations {
     /** The name of DOMQL's module, which every query imports. */
@@ -317,24 +323,25 @@ export class BrowserVocabularyDeclarations {
                 // How an event source listens: in the capture phase, or at the target and as the event bubbles.
                 structuredType('Listening', { capture: 'Boolean' }),
                 // An event such as scroll or resize can target the document or the window, which is no element.
-                structuredType('DomEvent', { target: 'Element?' }),
+                eventType('DomEvent', { target: 'Element?' }),
                 // Focus leaving one element for another, each null where it is no element of this window.
-                structuredType('FocusEvent', { target: 'Element?', relatedTarget: 'Element?' }),
+                eventType('FocusEvent', { target: 'Element?', relatedTarget: 'Element?' }),
                 // An edit, its kind empty and composing false for an input event that says neither, as one at a select or a checkbox.
-                structuredType('InputEvent', { target: 'Element?', inputType: 'String', data: 'String?', isComposing: 'Boolean' }),
-                structuredType('ClipboardEvent', { target: 'Element', types: 'List<String>' }),
-                structuredType('CompositionEvent', { target: 'Element', data: 'String' }),
-                structuredType('ToggleEvent', { target: 'Element', oldState: 'String', newState: 'String' }),
-                structuredType('AnimationEvent', { target: 'Element', animationName: 'String' }),
+                eventType('InputEvent', { target: 'Element?', inputType: 'String', data: 'String?', isComposing: 'Boolean' }),
+                eventType('ClipboardEvent', { target: 'Element', types: 'List<String>' }),
+                eventType('CompositionEvent', { target: 'Element', data: 'String' }),
+                eventType('ToggleEvent', { target: 'Element', oldState: 'String', newState: 'String' }),
+                eventType('AnimationEvent', { target: 'Element', animationName: 'String' }),
                 // A click the keyboard caused, a dblclick, which is a mouse event, and a click a browser dispatches as one carry no pointer, so no pointer id or type.
-                structuredType('PointerEvent', { target: 'Element', button: 'Number', buttons: 'Number', clientX: 'Number', clientY: 'Number', pointerType: 'String?', pointerId: 'Number?', detail: 'Number', timeStamp: 'Number', ...MODIFIERS }),
+                eventType('PointerEvent', { target: 'Element', button: 'Number', buttons: 'Number', clientX: 'Number', clientY: 'Number', pointerType: 'String?', pointerId: 'Number?', detail: 'Number', ...MODIFIERS }),
                 // A touch event, and each point touching the surface as it is dispatched.
-                structuredType('TouchEvent', { target: 'Element', touches: 'List<Touch>', timeStamp: 'Number', ...MODIFIERS }),
+                eventType('TouchEvent', { target: 'Element', touches: 'List<Touch>', ...MODIFIERS }),
                 structuredType('Touch', { identifier: 'Number', clientX: 'Number', clientY: 'Number' }),
-                structuredType('WheelEvent', { target: 'Element', deltaX: 'Number', deltaY: 'Number', deltaMode: 'Number', timeStamp: 'Number', ...MODIFIERS }),
-                structuredType('KeyboardEvent', { target: 'Element', key: 'String', code: 'String' }),
+                eventType('WheelEvent', { target: 'Element', deltaX: 'Number', deltaY: 'Number', deltaMode: 'Number', ...MODIFIERS }),
+                // A key, whether it repeats as it is held, whether it is part of a composition, and the keys held with it, AltGr among them.
+                eventType('KeyboardEvent', { target: 'Element', key: 'String', code: 'String', repeat: 'Boolean', isComposing: 'Boolean', ...MODIFIERS, altGraphKey: 'Boolean' }),
                 // A drag's formats, as its data transfer lists them, the data itself held back by the browser until the drop.
-                structuredType('DragEvent', { target: 'Element', clientX: 'Number', clientY: 'Number', types: 'List<String>', timeStamp: 'Number', ...MODIFIERS }),
+                eventType('DragEvent', { target: 'Element', clientX: 'Number', clientY: 'Number', types: 'List<String>', ...MODIFIERS }),
             ],
 
             // The event types `on` listens to, each a key of the type selector `event` mapping to the type its events are captured as.

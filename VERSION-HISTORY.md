@@ -6,6 +6,21 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-291"></a>
+
+## `1.0.0-alpha.291`
+
+*November 1, 2026 · Nexo language `1.0.0-beta.15` · definition format 38*
+
+DOMQL delivers a key's repeat, composition and modifiers, and every event's time, cancellation and path.
+
+**Events**
+
+- [`KeyboardEvent`](spec/events.md#event-types) adds `repeat`, `isComposing`, the modifiers `ctrlKey`, `metaKey`, `altKey` and `shiftKey`, and `altGraphKey`, whether AltGr was held, which DOMQL reads through `getModifierState("AltGraph")`, as [D33](docs/decisions.md#d33) records.
+- Every event type holds `timeStamp`, `defaultPrevented` and `composedPath`, the elements the event passes through from its target outwards, shadow roots, the document and the window left out. A module's own event type declares those it reads.
+
+**Breaking:** a module's host call that supplies a value of one of DOMQL's event types, as an execution answering a `Domql.DomEvent`, supplies `timeStamp`, `defaultPrevented` and `composedPath` as well.
+
 <a id="v1-0-0-alpha-290"></a>
 
 ## `1.0.0-alpha.290`
