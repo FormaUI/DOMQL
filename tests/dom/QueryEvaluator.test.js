@@ -12,6 +12,11 @@ const lay = (element, { left = 0, top = 0, width = 0, height = 0 }) => {
     element.getClientRects = () => [element.getBoundingClientRect()];
 };
 
+/** Gives the element a scroll position, a scrolling area, a scrollport and borders, as a browser lays them out. */
+const scrollTo = (element, { scrollLeft = 0, scrollTop = 0, scrollWidth = 0, scrollHeight = 0, clientWidth = 0, clientHeight = 0, clientLeft = 0, clientTop = 0 }) => {
+    Object.entries({ scrollLeft, scrollTop, scrollWidth, scrollHeight, clientWidth, clientHeight, clientLeft, clientTop }).forEach(([name, value]) => Object.defineProperty(element, name, { value, configurable: true }));
+};
+
 /** Takes the element's layout box away, as `display: none` does. */
 const unlay = element => {
     element.getClientRects = () => [];
@@ -561,6 +566,70 @@ describe('QueryEvaluator', () => {
         });
     });
 
+    describe('scrolling', () => {
+        it('reads how far an element is scrolled along each axis of its writing mode, its offset without the sign RTL gives it', () => {
+            scrollTo(panel, { scrollLeft: -30, scrollTop: 12.5, scrollWidth: 900, scrollHeight: 1200, clientWidth: 640, clientHeight: 480 });
+
+            expect(read('panel.scroll', { panel })).toEqual({ inline: { offset: 30, extent: 900, viewport: 640 }, block: { offset: 12.5, extent: 1200, viewport: 480 } });
+            expect(read('panel.scroll { room = it.inline.extent - it.inline.viewport }', { panel })).toEqual({ room: 260 });
+
+            panel.style.writingMode = 'vertical-rl';
+
+            expect(read('panel.scroll', { panel })).toEqual({ inline: { offset: 12.5, extent: 1200, viewport: 480 }, block: { offset: 30, extent: 900, viewport: 640 } });
+        });
+
+        it('answers null for an element without a layout box', () => {
+            const detached = document.createElement('div');
+
+            unlay(items[0]);
+
+            expect(read('detached.scroll', { detached })).toBeNull();
+            expect(read('item.scroll', { item: items[0] })).toBeNull();
+            expect(read('detached.clientRect', { detached })).toBeNull();
+            expect(read('item.clientRect', { item: items[0] })).toBeNull();
+        });
+
+        it('reads the window\'s scroll, its viewport the window\'s size', () => {
+            const scroll = read('Domql.window.scroll');
+
+            expect(scroll.inline).toEqual({ offset: 0, extent: document.documentElement.scrollWidth, viewport: read('Domql.window.size.width') });
+            expect(scroll.block.viewport).toBe(read('Domql.window.size.height'));
+        });
+
+        it('reads the padding box without scrollbars, moved in by the borders from the border box', () => {
+            lay(panel, { left: 10, top: 20, width: 660, height: 500 });
+            scrollTo(panel, { clientWidth: 640, clientHeight: 480, clientLeft: 4, clientTop: 2 });
+
+            expect(read('panel.clientRect', { panel })).toEqual({ left: 14, top: 22, right: 654, bottom: 502, width: 640, height: 480 });
+        });
+
+        it('finds the nearest ancestor the user can scroll, along an axis or either, and none above the root element', () => {
+            document.body.innerHTML = `
+                <div id="outer" style="overflow-x: scroll">
+                    <div id="clipped" style="overflow-y: hidden">
+                        <div id="middle" style="overflow-y: auto"><span id="inner"></span></div>
+                    </div>
+                </div>`;
+
+            const named = text => read(`${text}?["id"]`, { inner: document.getElementById('inner'), middle: document.getElementById('middle'), outer: document.getElementById('outer') });
+
+            expect(named('inner.scrollContainer()')).toBe('middle');
+            expect(named('inner.scrollContainer({ axis = "block" })')).toBe('middle');
+            expect(named('inner.scrollContainer({ axis = "inline" })')).toBe('outer');
+            expect(named('inner.scrollContainer({ axis = null })')).toBe('middle');
+            expect(named('middle.scrollContainer()')).toBe('outer');
+            expect(named('outer.scrollContainer()')).toBeNull();
+            expect(read('Domql.document.first("html")?.scrollContainer() == null')).toBe(true);
+        });
+
+        it('refuses an axis it does not name, where the call stands', () => {
+            const error = failure('{ container = panel.scrollContainer({ axis = "x" })?["id"] }', { panel });
+
+            expect(error).toMatchObject({ code: 'NEXO5007', location: { pointer: '/expression/objectFields/0/value/chain/receiver', line: 1, column: 15 } });
+            expect(error.message).toContain('"x" is no axis');
+        });
+    });
+
     describe('the window', () => {
         it('reads the window and its media queries', () => {
             expect(read('Domql.window.size.width')).toBeTypeOf('number');
@@ -932,6 +1001,35 @@ describe('QueryEvaluator evaluation', () => {
             await new Promise(resolve => setTimeout(resolve));
 
             expect(changes).toBe(1);
+        });
+
+        it('observe each child of the receiver where a member names its children, following the child list', async () => {
+            const marked = elementModule('marked', [{
+                name: 'marked', kind: 'property', result: 'Number', updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'children', attributes: ['data-on'] }] },
+                impl: ({ receiver }) => receiver.querySelectorAll(':scope > [data-on]').length,
+            }]);
+            const evaluation = evaluate('import Marked\npanel:marked', { panel }, [marked], true);
+
+            expect(evaluation.value).toBe(0);
+            expect(evaluation.dependencies[0].observations.map(request => `${request.type} of ${request.target === panel ? 'panel' : `row ${rows.indexOf(request.target)}`}`)).toEqual(['mutation of panel', 'mutation of row 0', 'mutation of row 1', 'mutation of row 2']);
+            expect(observations.runningCount).toBe(4);
+
+            rows[1].setAttribute('data-on', '');
+            await new Promise(resolve => setTimeout(resolve));
+
+            expect(changes).toBe(1);
+
+            panel.append(document.createElement('i'));
+            await new Promise(resolve => setTimeout(resolve));
+
+            expect(changes).toBe(2);
+        });
+
+        it('observe no child of a receiver that holds none, and of a window none', () => {
+            const empty = document.createElement('div');
+            const evaluation = evaluate('empty.scroll', { empty }, [], true);
+
+            expect(evaluation.dependencies[0].observations.map(request => request.type)).toEqual(['event', 'resize', 'mutation']);
         });
 
         it('are held once for every call that observes the same while a pending answer waits', async () => {

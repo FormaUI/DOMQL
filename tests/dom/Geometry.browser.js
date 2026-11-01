@@ -142,6 +142,123 @@ describe('Geometry in a browser', () => {
         });
     });
 
+    describe('scrolling', () => {
+        /** A scroll container 100 pixels square, borders of 5 and padding of 10, holding content of the size given. */
+        const scroller = (style = '', content = 'width: 400px; height: 300px') => {
+            const container = add(`width: 100px; height: 100px; padding: 10px; border: 5px solid; overflow: scroll; scrollbar-width: none; ${style}`);
+
+            add(content, container);
+
+            return container;
+        };
+
+        it('reads how far an element is scrolled along each axis, the extent of what it scrolls and its scrollport', () => {
+            const container = scroller();
+
+            container.scrollTo(30, 45);
+
+            expect(read('box.scroll', { box: container })).toEqual({ inline: { offset: 30, extent: 420, viewport: 120 }, block: { offset: 45, extent: 320, viewport: 120 } });
+        });
+
+        it('reads the inline offset from the start under RTL, where the browser answers a negative scrollLeft', () => {
+            const container = scroller('direction: rtl');
+
+            container.scrollLeft = -30;
+
+            expect(container.scrollLeft).toBe(-30);
+            expect(read('box.scroll?.inline', { box: container })).toEqual({ offset: 30, extent: 420, viewport: 120 });
+        });
+
+        it('takes its inline axis to be vertical in a vertical writing mode', () => {
+            const container = scroller('writing-mode: vertical-rl');
+
+            container.scrollTop = 20;
+            container.scrollLeft = -40;
+
+            expect(read('box.scroll', { box: container })).toEqual({ inline: { offset: 20, extent: 320, viewport: 120 }, block: { offset: 40, extent: 420, viewport: 120 } });
+        });
+
+        it('reads an offset of 0 for an element that is no scroll container, and null for one without a layout box', () => {
+            const plain = add('width: 50px; height: 20px');
+            const none = add('display: none');
+
+            expect(read('box.scroll?.block', { box: plain })).toEqual({ offset: 0, extent: 20, viewport: 20 });
+            expect(read('box.scroll', { box: none })).toBeNull();
+        });
+
+        it('reads the window\'s scroll, its viewport the window\'s size', () => {
+            add('height: 5000px');
+            window.scrollTo(0, 120);
+
+            try {
+                const scroll = read('Domql.window.scroll');
+
+                expect(scroll.block).toEqual({ offset: 120, extent: document.documentElement.scrollHeight, viewport: document.documentElement.clientHeight });
+                expect(scroll.inline.offset).toBe(0);
+            } finally {
+                window.scrollTo(0, 0);
+            }
+        });
+
+        it('reads the padding box without scrollbars, moved in by the borders', () => {
+            const container = scroller('position: absolute; left: 20px; top: 30px; scrollbar-width: auto');
+            const scrollbar = 120 - container.clientWidth;
+
+            expect(read('box.clientRect', { box: container })).toEqual({ left: 25, top: 35, right: 25 + 120 - scrollbar, bottom: 35 + container.clientHeight, width: 120 - scrollbar, height: container.clientHeight });
+        });
+
+        it('finds the nearest ancestor the user can scroll, crossing shadow roots and slots, passing over hidden overflow and the body the viewport takes its overflow from', () => {
+            document.body.style.overflow = 'auto';
+            document.body.innerHTML = '<div id="outer" style="overflow-x: auto; overflow-y: hidden"><div id="clipped" style="overflow: hidden"><div id="host"><b id="slotted"></b></div></div></div>';
+
+            try {
+                const host = document.getElementById('host');
+                const shadowRoot = host.attachShadow({ mode: 'open' });
+
+                shadowRoot.innerHTML = '<div id="pane" style="overflow-x: hidden; overflow-y: auto"><slot></slot></div><p id="deep"></p>';
+
+                const named = (text, bindings) => read(`${text}?["id"]`, bindings);
+
+                expect(named('e.scrollContainer()', { e: document.getElementById('slotted') })).toBe('pane');
+                expect(named('e.scrollContainer({ axis = "inline" })', { e: document.getElementById('slotted') })).toBe('outer');
+                expect(named('e.scrollContainer()', { e: shadowRoot.getElementById('deep') })).toBe('outer');
+                expect(named('e.scrollContainer({ axis = "block" })', { e: shadowRoot.getElementById('deep') })).toBeNull();
+                expect(named('e.scrollContainer()', { e: document.getElementById('outer') })).toBeNull();
+            } finally {
+                document.body.style.overflow = '';
+            }
+        });
+
+        it('follows a scroll, its content growing and a child added, missing a descendant overflowing a child of a fixed size until another change', async () => {
+            const container = scroller('position: relative', 'width: 100px; height: 100px');
+            const snapshots = [];
+            const frame = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve))));
+            const watch = domql.query('box.scroll?.block { offset = it.offset, extent = it.extent }', { box: container }).watch({ acceptPartialObservation: true });
+
+            watch.subscribe('change', (_sender, args) => snapshots.push(args.value));
+
+            try {
+                await frame();
+                container.firstElementChild.style.height = '300px';
+                await frame();
+                container.scrollTop = 50;
+                await frame();
+                add('height: 100px', container);
+                await frame();
+                add('position: absolute; width: 10px; height: 600px', container.firstElementChild);
+                await frame();
+
+                expect(snapshots).toEqual([{ offset: 0, extent: 120 }, { offset: 0, extent: 320 }, { offset: 50, extent: 320 }, { offset: 50, extent: 420 }]);
+
+                await watch.refreshAsync();
+
+                expect(snapshots.at(-1).extent).toBeGreaterThan(420);
+            } finally {
+                watch.dispose();
+            }
+        });
+    });
+
     describe('computed styles and grids', () => {
         it('read a custom property and a computed value, and answer null for one that is not set', () => {
             const box = add('--tier: medium; width: 120px');

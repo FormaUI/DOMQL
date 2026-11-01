@@ -103,3 +103,68 @@ Each entry is one of three kinds:
 - **Decision:** What a host call on a receiver of unknown type requests is read from the candidates Nexo answers for it, through DOMQL's dispatch table. A watch is checked against Nexo's candidate declarations, every declaration a member of a value of `Any` could select.
 - **Why:** DOMQL's own index of host calls by name counted calls a query could not reach, and its watch check missed members a value of `Any` selects. Nexo already decides both.
 - **Declined:** Repeating Nexo's lookup in DOMQL, which drifts from the language's rules.
+
+<a id="d8"></a>
+
+## D8 — Measurements of layout compare within a twentieth of a pixel
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** Every member that measures layout in CSS pixels declares a tolerance of 0.05: `rect`, `clientRect`, `rectRelativeTo`, `size`, `clientSize`, `scroll` and `grid` of an element, and `size` and `scroll` of the window.
+- **Why:**
+  - It is more than a unit of the browser's layout, 1/64 of a pixel in Chromium and WebKit and 1/60 in Firefox, so a box settling by one, and the rounding of `left` plus `width`, report nothing.
+  - It is less than a device pixel at any ratio a screen has, so a move anyone can see is reported. A watch compares with the measurement it last reported, so small steps are reported once they add up.
+  - Nexo takes a tolerance on a structured result and applies it to every number it holds, the parts of a nested one included, so `scroll` declares one tolerance for `Scroll { inline, block }`, and a part a query reads alone, as `it.scroll?.block.offset`, keeps it. A watch test settles it.
+  - Every measurement of layout takes it, `rectRelativeTo`, `clientRect`, `grid` and the window's members among them, so one concept has one contract.
+- **Declined:**
+  - Half a pixel, which absorbs the jitter of rounding but loses a move a screen of ratio 2 shows.
+  - A tolerance on the members the plan named alone, which would compare one measurement two ways.
+  - A tolerance on values read from computed style, which a stylesheet decides and layout never moves.
+
+<a id="d9"></a>
+
+## D9 — `scroll` is logical, its offset measured from its scroll origin
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `scroll` answers `Scroll { inline, block }`, each a `ScrollAxis { offset, extent, viewport }`, along the axes of the box's writing mode. `offset` is the browser's scroll position without its sign, so it is measured from the scroll origin, the start of the content. `extent` is the scrolling area's size and `viewport` the scrollport's, its padding box without scrollbars.
+- **Why:**
+  - Under RTL, and in a vertical writing mode whose lines run right to left, browsers answer a scroll position from 0 down to the negative of its range. The offset from the origin is the same number in every direction, so a query asks `it.inline.offset > 0` whatever the direction.
+  - The inline axis is the one a list of chips or tabs scrolls along, whatever the writing mode, so a query names the axis it means.
+  - `viewport` keeps the plan's name: the scrollport is the viewport of its scroll container in CSS's own terms.
+- **Declined:**
+  - Physical `x` and `y`, which make every query that handles RTL or a vertical writing mode compute the offset itself.
+  - An offset from the inline start where the browser places the scroll origin at the end, as in a reversed flex container: the browser's own origin is the start of the content there, and computing another needs the box's alignment, which no API answers.
+
+<a id="d10"></a>
+
+## D10 — `scrollContainer` finds what the user can scroll
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `scrollContainer({ axis })` answers the nearest flat-tree ancestor whose computed overflow along the axis is `auto` or `scroll`, either axis where `axis` is omitted or null, and null where none is. The root element, and the body while the root's overflow is `visible`, give their overflow to the viewport and are never answered.
+- **Why:**
+  - Its uses are dragging that scrolls a list and a virtualized list measuring its scrollport, which need the box the user scrolls. A box that hides its overflow is a scroll container in CSS's terms, but no user scrolls it.
+  - A slotted element is laid out in its slot's box, so the walk follows the flat tree, as `inert` does for `textEditable`.
+  - A box whose overflow is not `visible` along one axis computes `visible` as `auto` along the other, so the axis matters where the other is `hidden`, as in a vertical list with `overflow-x: hidden`. A browser test settles it.
+- **Declined:**
+  - Following the containing block, so a fixed-position element answers none: no API answers which box scrolls a positioned element, and a consumer that positions one knows it.
+  - `hidden` counted as scrollable, which would let a drag scroll a box its author clipped.
+
+<a id="d11"></a>
+
+## D11 — The `children` target follows its child list itself
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** DOMQL declares the observation target `children`, each child element of the receiver, and observes the receiver's child list wherever a member observes it, as it observes each root's structure for `roots`. A `resize` of a document observes the document's root element.
+- **Why:**
+  - A member that observes each child needs the children that come and go observed too. Doing it for every such member, as `roots` does, keeps an extension module's declaration from having to repeat it.
+  - The window's scrolling area grows as the document's root element does, and a document has no box of its own, so its size is its root element's.
+- **Declined:**
+  - Declaring the child list beside `children` in every member, which an extension module could leave out and miss every child added.
+  - A target for the document's root element, a sixth target for one member.

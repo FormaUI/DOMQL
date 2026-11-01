@@ -85,6 +85,7 @@ const DOCUMENTS = {
     ],
     'spec/vocabulary.md': [
         { about: 'a member of each kind', each: true, context: COMPARED },
+        { about: 'scrolling', each: true, context: COMPARED },
     ],
     'spec/evaluation.md': [],
     'spec/watches.md': [],
@@ -120,6 +121,7 @@ const DOCUMENTS = {
         { about: 'arithmetic' },
         { about: 'interpolated text', results: { 0: { summary: '3 items, 12 unread' } } },
         { about: 'a shadow tree', results: { 0: 1 } },
+        { about: 'measuring scrolling', results: { 0: { scrolled: false, atEnd: true } } },
     ],
     'docs/domql-design.md': [],
     'docs/features-status.md': [],

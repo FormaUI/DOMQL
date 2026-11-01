@@ -17,6 +17,12 @@ const POPOVERS = { type: 'event', of: 'root', types: ['toggle'], capture: true }
 const ATTRIBUTES = { type: 'mutation', of: 'receiver', attributes: true };
 const CHILDREN = { type: 'mutation', of: 'receiver', childList: true };
 const STRUCTURE = { type: 'mutation', of: 'root', attributes: true, childList: true, subtree: true };
+// The padding box changes where its border box or its content box does, which the client box observes both of.
+const CLIENT_RESIZE = { type: 'resize', of: 'receiver', box: 'client' };
+// An element's scroll: its own scroll events, its scrollport, and its extent, which its children's boxes decide.
+const ELEMENT_SCROLL = [{ type: 'event', of: 'receiver', types: ['scroll'] }, CLIENT_RESIZE, { type: 'resize', of: 'children' }];
+// The style along the flat-tree ancestry: the attributes and structure of every tree it passes through.
+const ANCESTRY_STYLE = { type: 'mutation', of: 'roots', attributes: true, childList: true, subtree: true };
 const TEXT_SELECTION = [
     { type: 'event', of: 'receiver', types: ['select', 'input'] },
     { type: 'event', of: 'document', types: ['selectionchange'] },
@@ -24,12 +30,16 @@ const TEXT_SELECTION = [
 
 const SELECTOR_PARAMETERS = [valueParameter('selector', 'String')];
 
+/** The tolerance of a measurement of layout in CSS pixels: a twentieth of a pixel, more than a unit of the browser's layout and less than a device pixel. */
+const LAYOUT_TOLERANCE = 0.05;
+
 /** The updates of a declaration, observable unless they say otherwise and read fresh, with the observations that cover its changes. */
 const updatesOf = ({ changes = 'observable', reads = 'fresh', ...rest } = {}) => ({ changes, reads, ...rest });
 
 const MATCHING = { changes: 'partly-observable', misses: 'pointer state such as :hover and control state such as :checked' };
 const GEOMETRY = { changes: 'partly-observable', misses: 'a move its own size, the scrolling of its scroll containers, the window\'s size and the structure of its trees do not cause, as a sibling before it growing or a margin or padding around it changing, and transforms and animations' };
 const STYLE = { changes: 'partly-observable', misses: 'rules matching from elsewhere' };
+const MEASURED = { tolerance: LAYOUT_TOLERANCE };
 
 /**
  * The kind of node a value is, by the type its `nodeType` names, or null where it is no element, document or fragment. A node holds functions, which data never does, so data that names a `nodeType` is never taken for one;
@@ -109,10 +119,19 @@ export class BrowserVocabularyDeclarations {
                         }),
                     }),
 
-                    implementing('rect', property('rect', 'Rectangle?', { updates: updatesOf({ ...GEOMETRY, observations: [RESIZE, SCROLLING, WINDOW_RESIZE] }) })),
-                    implementing('size', property('size', 'Size?', { updates: updatesOf({ observations: [RESIZE] }) })),
-                    implementing('clientSize', property('clientSize', 'Size?', { updates: updatesOf({ changes: 'partly-observable', misses: 'a change that leaves its border box and its content box as they were, as its border and padding changing by the same amount', observations: [{ type: 'resize', of: 'receiver', box: 'client' }] }) })),
-                    implementing('grid', property('grid', 'Grid?', { updates: updatesOf({ ...STYLE, observations: [RESIZE, ATTRIBUTES] }) })),
+                    implementing('rect', property('rect', 'Rectangle?', { updates: updatesOf({ ...GEOMETRY, ...MEASURED, observations: [RESIZE, SCROLLING, WINDOW_RESIZE] }) })),
+                    implementing('clientRect', property('clientRect', 'Rectangle?', { updates: updatesOf({ ...GEOMETRY, ...MEASURED, observations: [CLIENT_RESIZE, SCROLLING, WINDOW_RESIZE] }) })),
+                    implementing('size', property('size', 'Size?', { updates: updatesOf({ ...MEASURED, observations: [RESIZE] }) })),
+                    implementing('clientSize', property('clientSize', 'Size?', { updates: updatesOf({ changes: 'partly-observable', misses: 'a change that leaves its border box and its content box as they were, as its border and padding changing by the same amount', ...MEASURED, observations: [CLIENT_RESIZE] }) })),
+                    implementing('scroll', property('scroll', 'Scroll?', {
+                        updates: updatesOf({
+                            changes: 'partly-observable',
+                            misses: 'its extent changing where no child\'s border box does, as a descendant overflowing a child of a fixed size or a child\'s margin changing, and its writing mode changing',
+                            ...MEASURED,
+                            observations: ELEMENT_SCROLL,
+                        }),
+                    })),
+                    implementing('grid', property('grid', 'Grid?', { updates: updatesOf({ ...STYLE, ...MEASURED, observations: [RESIZE, ATTRIBUTES] }) })),
                     implementing('selection', property('selection', 'Selection?', { updates: updatesOf({ changes: 'partly-observable', misses: 'selections the page\'s code sets', observations: TEXT_SELECTION }) })),
                     implementing('shadow', property('shadow', 'Shadow', { updates: updatesOf({ changes: 'constant' }) })),
                     implementing('aria', property('aria', 'Aria', { updates: updatesOf({ changes: 'constant' }) })),
@@ -131,8 +150,13 @@ export class BrowserVocabularyDeclarations {
                     })),
                     implementing('overlaps', func('overlaps', 'Boolean?', { arguments: 'options', parameters: [valueParameter('other', 'Element'), valueParameter('margin', 'Number', { default: 0 })], updates: updatesOf({ ...GEOMETRY, observations: [RESIZE, { type: 'resize', of: { argument: 'other' } }, SCROLLING, WINDOW_RESIZE] }) })),
                     implementing('matches', func('matches', 'Boolean', { parameters: SELECTOR_PARAMETERS, updates: updatesOf({ ...MATCHING, observations: [STRUCTURE, FOCUS, POPOVERS] }) })),
-                    implementing('rect', func('rectRelativeTo', 'Rectangle?', { parameters: [valueParameter('relativeTo', 'Element')], updates: updatesOf({ ...GEOMETRY, observations: [RESIZE, { type: 'resize', of: { argument: 'relativeTo' } }, SCROLLING, WINDOW_RESIZE] }) })),
+                    implementing('rect', func('rectRelativeTo', 'Rectangle?', { parameters: [valueParameter('relativeTo', 'Element')], updates: updatesOf({ ...GEOMETRY, ...MEASURED, observations: [RESIZE, { type: 'resize', of: { argument: 'relativeTo' } }, SCROLLING, WINDOW_RESIZE] }) })),
                     implementing('closest', func('closest', 'Element?', { parameters: SELECTOR_PARAMETERS, updates: updatesOf({ ...MATCHING, observations: [STRUCTURE, FOCUS, POPOVERS] }) })),
+                    implementing('scrollContainer', func('scrollContainer', 'Element?', {
+                        arguments: 'options',
+                        parameters: [valueParameter('axis', 'String?', { default: null, nulls: 'accept', omitted: 'either axis' })],
+                        updates: updatesOf({ changes: 'partly-observable', misses: 'a stylesheet changing which rules apply', observations: [ANCESTRY_STYLE] }),
+                    })),
                     on,
                 ], { supertype: 'Node' }),
 
@@ -147,7 +171,15 @@ export class BrowserVocabularyDeclarations {
                 referenceType('ShadowRoot', value => nodeKindOf(value) === 'ShadowRoot', [], { supertype: 'Node' }),
 
                 referenceType('Window', isWindow, [
-                    implementing('windowSize', property('size', 'Size', { updates: updatesOf({ observations: [WINDOW_RESIZE] }) })),
+                    implementing('windowSize', property('size', 'Size', { updates: updatesOf({ ...MEASURED, observations: [WINDOW_RESIZE] }) })),
+                    implementing('windowScroll', property('scroll', 'Scroll', {
+                        updates: updatesOf({
+                            changes: 'partly-observable',
+                            misses: 'the document\'s extent changing where its root element\'s border box does not, as content positioned outside it, and its writing mode changing',
+                            ...MEASURED,
+                            observations: [{ type: 'event', of: 'window', types: ['scroll'] }, WINDOW_RESIZE, { type: 'resize', of: 'document' }],
+                        }),
+                    })),
                     implementing('devicePixelRatio', property('devicePixelRatio', 'Number', { updates: updatesOf({ observations: [{ type: 'pixelRatio', of: 'window' }] }) })),
                     implementing('media', indexer('media', 'Boolean', { parameters: [valueParameter('query', 'String')], updates: updatesOf({ observations: [{ type: 'media', of: 'window', query: { argument: 'query' } }] }) })),
 
@@ -177,6 +209,9 @@ export class BrowserVocabularyDeclarations {
                 structuredType('Rectangle', { left: 'Number', top: 'Number', right: 'Number', bottom: 'Number', width: 'Number', height: 'Number' }),
                 structuredType('Selection', { start: 'Number', end: 'Number' }),
                 structuredType('Grid', { columns: 'List<Number>' }),
+                // How far a box is scrolled along each of its logical axes, and along one of them.
+                structuredType('Scroll', { inline: 'ScrollAxis', block: 'ScrollAxis' }),
+                structuredType('ScrollAxis', { offset: 'Number', extent: 'Number', viewport: 'Number' }),
                 // An event such as scroll or resize can target the document or the window, which is no element.
                 structuredType('DomEvent', { target: 'Element?' }),
                 // A browser that dispatches a click as a mouse event gives it no pointer type.
@@ -212,8 +247,9 @@ export class BrowserVocabularyDeclarations {
                 observationType('visibility', 'invalidation', 'observeVisibility'),
             ],
 
-            // The targets the observations observe besides the receiver and an argument: the window and the document, and the receiver's root, the root of the tree it is in, and its roots, every root of its flat-tree ancestry through slots and shadow hosts.
-            observationTargets: [{ name: 'window' }, { name: 'document' }, { name: 'root', from: 'receiver' }, { name: 'roots', from: 'receiver', count: 'many' }],
+            // The targets the observations observe besides the receiver and an argument: the window and the document; the receiver's root, the root of the tree it is in, and its roots, every root of its flat-tree ancestry through slots and shadow hosts;
+            // and its children, each child element it holds.
+            observationTargets: [{ name: 'window' }, { name: 'document' }, { name: 'root', from: 'receiver' }, { name: 'roots', from: 'receiver', count: 'many' }, { name: 'children', from: 'receiver', count: 'many' }],
 
             members: [
                 // The document the query runs against and its window, read through DOMQL's namespace from the environment its evaluator is given.

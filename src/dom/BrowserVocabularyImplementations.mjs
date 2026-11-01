@@ -11,6 +11,12 @@ const TEXT_INPUT_TYPES = new Set(['text', 'search', 'url', 'tel', 'email', 'pass
 /** The values of `contenteditable` that make content editable. */
 const EDITABLE_VALUES = new Set(['', 'true', 'plaintext-only']);
 
+/** The values of `overflow` along an axis that let the user scroll it. */
+const USER_SCROLLABLE = new Set(['auto', 'scroll']);
+
+/** The axes `scrollContainer` takes, by name. */
+const AXES = new Set(['inline', 'block']);
+
 export class BrowserVocabularyImplementations {
     /**
      * Each implementation reads, from one object by name, the receiver, the arguments by parameter name and the environment the request is read in; a maintained member also its samples, and a source the function it delivers each event to, answering what stops it.
@@ -34,6 +40,15 @@ export class BrowserVocabularyImplementations {
                 return rect === null ? null : { width: rect.width, height: rect.height };
             },
             clientSize: ({ receiver: element }) => BrowserVocabularyImplementations.#hasBox(element) ? { width: element.clientWidth, height: element.clientHeight } : null,
+            clientRect: ({ receiver: element }) => BrowserVocabularyImplementations.#clientRect(element),
+            scroll: ({ receiver: element }) => BrowserVocabularyImplementations.#hasBox(element) ? BrowserVocabularyImplementations.#scroll(element, element, element) : null,
+            windowScroll: ({ receiver: window }) => {
+                const root = window.document.documentElement;
+                const area = window.document.scrollingElement ?? root;
+
+                return BrowserVocabularyImplementations.#scroll(root, { scrollLeft: window.scrollX, scrollTop: window.scrollY, scrollWidth: area.scrollWidth, scrollHeight: area.scrollHeight }, root);
+            },
+            scrollContainer: ({ receiver: element, args: { axis } }) => BrowserVocabularyImplementations.#scrollContainer(element, axis),
             grid: ({ receiver: element }) => BrowserVocabularyImplementations.#hasBox(element) ? { columns: BrowserVocabularyImplementations.#columns(element) } : null,
             selection: ({ receiver: element }) => BrowserVocabularyImplementations.#selection(element),
             children: ({ receiver: node }) => [...node.children],
@@ -125,6 +140,90 @@ export class BrowserVocabularyImplementations {
         }
 
         return rects.length === 1 ? rects[0] : element.getBoundingClientRect();
+    }
+
+    /** Its padding box without scrollbars, relative to the layout viewport: its border box moved in by its left and top borders, as `clientLeft` and `clientTop` give them, and of its client size. */
+    static #clientRect(element) {
+        const box = BrowserVocabularyImplementations.#box(element);
+
+        if (box === null) {
+            return null;
+        }
+
+        const left = box.left + element.clientLeft;
+        const top = box.top + element.clientTop;
+        const { clientWidth: width, clientHeight: height } = element;
+
+        return { left, top, right: left + width, bottom: top + height, width, height };
+    }
+
+    /** Whether the element's writing mode lays its lines out vertically, which makes its inline axis vertical and its block axis horizontal. */
+    static #isVertical(element) {
+        return /^(vertical|sideways)/.test(element.ownerDocument.defaultView.getComputedStyle(element).writingMode);
+    }
+
+    /**
+     * How far a box is scrolled along each logical axis of the element's writing mode: each offset its scroll position without its sign, which the browser gives below 0 where its scroll origin lies at the right or the
+     * bottom, as under RTL; its extent, of the scrolling area; and its viewport, of the scrollport.
+     * @param {Element} element Whose writing mode names the axes.
+     * @param {{ scrollLeft: number, scrollTop: number, scrollWidth: number, scrollHeight: number }} position The scroll position and the scrolling area.
+     * @param {{ clientWidth: number, clientHeight: number }} port The scrollport.
+     */
+    static #scroll(element, position, port) {
+        const horizontal = { offset: Math.abs(position.scrollLeft), extent: position.scrollWidth, viewport: port.clientWidth };
+        const vertical = { offset: Math.abs(position.scrollTop), extent: position.scrollHeight, viewport: port.clientHeight };
+
+        return BrowserVocabularyImplementations.#isVertical(element) ? { inline: vertical, block: horizontal } : { inline: horizontal, block: vertical };
+    }
+
+    /**
+     * The nearest of the element's flat-tree ancestors the user can scroll along the axis, of the element's writing mode, or either axis; null where none is.
+     * The root element and, while the root's overflow is visible, the body, give their overflow to the viewport, so neither is answered.
+     */
+    static #scrollContainer(element, axis) {
+        if (axis !== null && !AXES.has(axis)) {
+            throw new Error(`${JSON.stringify(axis)} is no axis: an axis is "inline" or "block", and either is taken where it is omitted or null`);
+        }
+
+        const window = element.ownerDocument.defaultView;
+        const { documentElement, body } = element.ownerDocument;
+        const physical = axis === null ? null : (axis === 'inline') !== BrowserVocabularyImplementations.#isVertical(element) ? 'overflowX' : 'overflowY';
+        const isScrollable = style => (physical === null ? USER_SCROLLABLE.has(style.overflowX) || USER_SCROLLABLE.has(style.overflowY) : USER_SCROLLABLE.has(style[physical]));
+
+        for (let current = BrowserVocabularyImplementations.#flatParentOf(element); current !== null; current = BrowserVocabularyImplementations.#flatParentOf(current)) {
+            if (current === documentElement) {
+                return null;
+            }
+
+            if (current === body && BrowserVocabularyImplementations.#propagatesOverflow(window, documentElement)) {
+                continue;
+            }
+
+            if (isScrollable(window.getComputedStyle(current))) {
+                return current;
+            }
+        }
+
+        return null;
+    }
+
+    /** Whether the root element's overflow is visible on both axes, which gives the body's overflow to the viewport. */
+    static #propagatesOverflow(window, documentElement) {
+        const style = window.getComputedStyle(documentElement);
+
+        return style.overflowX === 'visible' && style.overflowY === 'visible';
+    }
+
+    /** The element's parent in the flat tree: the slot it is assigned to, or the host of the shadow root it stands in, or its parent element; null at the top. */
+    static #flatParentOf(element) {
+        const parent = element.assignedSlot ?? element.parentNode;
+
+        // A shadow root is a document fragment with a host, where the flat tree continues.
+        if (parent?.nodeType === 11 && parent.host !== undefined) {
+            return parent.host;
+        }
+
+        return parent?.nodeType === 1 ? parent : null;
     }
 
     static #rect(element, relativeTo) {
@@ -220,15 +319,10 @@ export class BrowserVocabularyImplementations {
      * A slot in a closed shadow root hides its assignment, so an inert ancestor past it is found only from an element inside that root.
      */
     static #isUnderInert(element) {
-        for (let current = element; current !== null;) {
-            if (current.nodeType === 1 && current.hasAttribute('inert')) {
+        for (let current = element; current !== null; current = BrowserVocabularyImplementations.#flatParentOf(current)) {
+            if (current.hasAttribute('inert')) {
                 return true;
             }
-
-            const parent = current.assignedSlot ?? current.parentNode;
-
-            // A shadow root is a document fragment with a host, where the flat tree continues.
-            current = parent?.nodeType === 11 && parent.host !== undefined ? parent.host : (parent?.nodeType === 1 ? parent : null);
         }
 
         return false;

@@ -65,7 +65,7 @@ export class Observations {
 
     /**
      * Resolves an observation against a call at the target given, as `resolve` does at the target the observation names; null where the target is null.
-     * A scope of several targets, `roots`, resolves to one request at each of them.
+     * A scope of several targets, `roots` or `children`, resolves to one request at each of them.
      * @param {object} observationDeclaration The observation a declaration names.
      * @param {{ args: Record<string, unknown> }} call The call's arguments by parameter name.
      * @param {object | null | undefined} target What the request observes.
@@ -214,7 +214,7 @@ export class Observations {
     }
 
     /**
-     * What the observation observes for the call: its receiver, its receiver's root, the window, the document, or an argument; a scope of several targets, `roots`, has none of its own.
+     * What the observation observes for the call: its receiver, its receiver's root, the window, the document, or an argument; a scope of several targets, `roots` or `children`, has none of its own.
      * @param {object} observationDeclaration The observation a declaration names.
      * @param {unknown} receiver The call's receiver.
      * @param {Record<string, unknown>} args The call's arguments by parameter name.

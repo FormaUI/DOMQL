@@ -2,11 +2,11 @@
 
 ## Current state
 
-**DOMQL's vocabulary, queries, watches, events and executions are implemented on Nexo's language `1.0.0-beta.8`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.279`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next is [the C# half](#the-c-half).**
+**DOMQL's vocabulary, queries, watches, events and executions are implemented on Nexo's language `1.0.0-beta.8`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.280`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next is [the C# half](#the-c-half).**
 
 | Version | Implementation | Specification |
 | --- | --- | --- |
-| DOMQL specification | `1.0.0-alpha.279` | `1.0.0-alpha.279` |
+| DOMQL specification | `1.0.0-alpha.280` | `1.0.0-alpha.280` |
 | Nexo language | `1.0.0-beta.8` | `1.0.0-beta.8` |
 | Definition format | 38 | 38 |
 
@@ -52,6 +52,9 @@ Each feature, the contract that states it, its state in the implementation, and 
 | Extension modules: their types, extensions read with `:`, observations, event sources and executions | [Extension modules](../spec/vocabulary.md#extension-modules) | Implemented | [`alpha.278`](../VERSION-HISTORY.md#v1-0-0-alpha-278) |
 | The DOM declared as DOMQL's own reference types, and the cast from `Aria` to `Element` | [Nodes](../spec/nodes-and-shadow-trees.md#nodes), [types](../spec/vocabulary.md#vocabulary-types) | Implemented | [`alpha.278`](../VERSION-HISTORY.md#v1-0-0-alpha-278) |
 | Diagnostic codes of DOMQL's own | [Errors](../spec/errors.md) | Implemented | [`alpha.278`](../VERSION-HISTORY.md#v1-0-0-alpha-278) |
+| Scrolling: `scroll` of an element and of the window, `scrollContainer`, and the padding box, `clientRect` | [Element `scroll`](../spec/vocabulary.md#property-element-scroll), [`scrollContainer`](../spec/vocabulary.md#function-element-scrollcontainer), [`clientRect`](../spec/vocabulary.md#property-element-clientrect) | Implemented | [`alpha.280`](../VERSION-HISTORY.md#v1-0-0-alpha-280) |
+| Measurements of layout compared within a tolerance | [Tolerance](../spec/vocabulary.md#vocabulary-tolerance) | Implemented | [`alpha.280`](../VERSION-HISTORY.md#v1-0-0-alpha-280) |
+| The observation target `children`, and a document's size | [Observation targets](../spec/vocabulary.md#observations-targets) | Implemented | [`alpha.280`](../VERSION-HISTORY.md#v1-0-0-alpha-280) |
 
 ### The host
 
@@ -114,10 +117,10 @@ The language's part is Nexo's already, adopted with the [migration](#migration-t
 
 **The order of the work:**
 
-1. **The host side.** The C# half (A1), change sets against an acknowledged result and a refresh that delivers (A2, A3), modules loaded on request (A4); occurrences a behavior offers and its owner (C1, C4); DOMQL's observations for module code (C5); `scroll` with its `children` target (V1, O1); and the first executions, focus and scrolling (X1, X2).
+1. **The host side.** The C# half (A1), change sets against an acknowledged result and a refresh that delivers (A2, A3), modules loaded on request (A4); occurrences a behavior offers and its owner (C1, C4); DOMQL's observations for module code (C5); and the first executions, focus and scrolling (X1, X2).
 2. **Input.** Module state per document (C8), synchronous handling stated (C10), ordered delivery (A5), capture-phase observing (E1), and pointer, wheel and keyboard members (E2, E3, E9).
 3. **Presentation.** The top-layer executions (X3), commands to a running behavior (C3), the focused element and direction (V3, V4), focus events (E5), owned writes and their ownership (X5, A10), nullable options (C11) and the frame promise (T2).
-4. **Virtualization.** State a behavior offers and history per holder (C2, C9), the scroll container, the padding box and tolerance (V2, V11, V13), and siblings (V9).
+4. **Virtualization.** State a behavior offers and history per holder (C2, C9), and siblings (V9).
 5. **Gestures and files.** Pointer and drag events (E2, E4), pointer capture (X4), files (V14, X10), dispatch (X8) and continuous measurement (O3).
 6. **Dialogs and frames.** Presentation events (E7), `displayed()` and `focusable()` (V5), size limits (V12) and ordered executions (T3).
 7. **The remaining facilities.** Browser facilities and form controls (X6, X7), reactions in the browser (A7), and value, playback and autofill (V6, V15, V16, O4, E8).
@@ -129,8 +132,6 @@ The language's part is Nexo's already, adopted with the [migration](#migration-t
 
 | | Addition |
 | --- | --- |
-| V1 | `Element.scroll` → `Scroll? { inline { offset, extent, viewport }, block { offset, extent, viewport } }`, the offset logical from the start under RTL, `extent` the scroll extent and `viewport` the client extent; partly observable through `scroll` events on the receiver, `resize { box: client }` and its children's boxes and child list ([O1](#planned-observation)). `Domql.window.scroll` gives the window's |
-| V2 | `Element.scrollContainer({ axis })` → `Element?`, the nearest scroll container, crossing shadow roots to the host |
 | V3 | `Document.activeElement` → `Element?`, the focused element, through shadow roots; observable through `focusin` and `focusout` on the document |
 | V4 | `Element.direction` → `String`, `"ltr"` or `"rtl"`, observing `dir` along its ancestors and the document element; `it.style["direction"]` misses an ancestor's change, as a change to `<html dir>` is |
 | V5 | Boolean functions `displayed()`, `checkVisibility({ visibilityProperty: true })`, and `focusable()`, decided natively |
@@ -139,9 +140,7 @@ The language's part is Nexo's already, adopted with the [migration](#migration-t
 | V8 | The document selection, `Domql.document.selection` → `DocumentSelection? { type, collapsed, rangeCount, anchorElement, focusElement, range }`, and a `Range` type, `{ rect, collapsed, text, startElement, endElement, commonAncestor, intersects(node), all(selector), offsetsIn(element) }`; observable through `selectionchange`. `Element.selection` extended to an editing host. The Selection API fires `selectionchange` for script-made selections too, so these may be observable rather than partly observable, which `hasSelection`'s contract denies today; a browser test settles it |
 | V9 | `Node.contains(other)` → `Boolean`; element siblings or `Element.index`; optionally `Element.follows(other)` |
 | V10 | `Element.localName`, `Element.classList` → `List<String>`, `Element.inlineStyle[property]` (the declared value) |
-| V11 | `Element.clientRect` → `Rectangle?`, the padding box |
 | V12 | `Element.sizeLimits { minWidth, minHeight, maxWidth, maxHeight }`, or a conversion of a `px` length: `style["min-width"]` answers `"120px"`, which the String-to-Number conversion refuses |
-| V13 | A `tolerance` declared on `rect`, `size`, `clientSize` and `scroll`, so a watch compares within it; the language takes one on a member of a number or a structured result already |
 | V14 | `Element.files` → `List<File>?`, `File { name, size, type, lastModified }` |
 | V15 | Boolean function `autofilled()`, with the autofill observation ([O4](#planned-observation)) |
 | V16 | `media.playback { paused, muted, ended, currentTime, duration, volume }`, observed through media events |
@@ -172,7 +171,6 @@ Page-wide module state needs nothing new: it is a member of a module's extension
 
 | | Addition |
 | --- | --- |
-| O1 | An observation target `children`, each child element of the receiver, so `Element.scroll` follows its content's sizes |
 | O2 | `all` and `first` observed on the receiver's subtree, rather than attributes and children across its whole root; today a watch reading them evaluates again on any attribute change in the document, a behavior's own `tabindex` writes included |
 | O3 | Opt-in continuous measurement each frame while a module holds it, so a subscriber follows content moving under a still pointer |
 | O4 | An `autofill` observation, through the stylesheet animation adapter; media events for `playback`; `dir` along the ancestry for `direction` |

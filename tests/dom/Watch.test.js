@@ -275,6 +275,42 @@ describe('Watch', () => {
         });
     });
 
+    describe('a measurement of layout', () => {
+        /** Scrolls the panel to the block offset, its box laid out, and lets it report the scroll. */
+        const scrollPanel = scrollTop => {
+            panel.getClientRects = () => [{ left: 0, top: 0, width: 100, height: 50 }];
+            Object.entries({ scrollTop, scrollHeight: 400, clientHeight: 50 }).forEach(([name, value]) => Object.defineProperty(panel, name, { value, configurable: true }));
+            panel.dispatchEvent(new Event('scroll'));
+
+            return settle();
+        };
+
+        it('reports a scroll only where a number it holds moves by more than the tolerance of layout since the last it reported, a part of it read alone included', async () => {
+            await scrollPanel(10);
+            watch('panel.scroll?.block', { panel }, { acceptPartialObservation: true });
+            watch('panel.scroll?.block.offset', { panel }, { acceptPartialObservation: true });
+            await settle();
+
+            await scrollPanel(10.03);
+            await scrollPanel(10.04);
+            await scrollPanel(10.09);
+            await scrollPanel(10.12);
+            await scrollPanel(10.2);
+
+            expect(snapshots).toEqual([{ offset: 10, extent: 400, viewport: 50 }, 10, { offset: 10.09, extent: 400, viewport: 50 }, 10.09, { offset: 10.2, extent: 400, viewport: 50 }, 10.2]);
+        });
+
+        it('reports a computed number exactly, which carries no tolerance', async () => {
+            await scrollPanel(10);
+            watch('panel.scroll { end = it.block.extent - it.block.offset }', { panel }, { acceptPartialObservation: true });
+            await settle();
+
+            await scrollPanel(10.01);
+
+            expect(snapshots).toEqual([{ end: 390 }, { end: 389.99 }]);
+        });
+    });
+
     describe('a Boolean function', () => {
         it.each([
             ['called', 'panel:lit()'],

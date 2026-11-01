@@ -679,6 +679,19 @@ host.shadow.root?.all("p").count
 
 `shadow.root` is null when there is no open shadow root. `element.root.host` accesses the host of the shadow tree containing an element. `slot.shadow.elements` reads the elements a slot displays and returns null when the receiver is not a slot.
 
+### Measure layout and scrolling
+
+`rect`, `size` and `clientSize` measure a box in CSS pixels, `clientRect` its padding box, and `scroll` how far it is scrolled along each axis of its writing mode, from the start of its content even under RTL:
+
+```domql
+panel.scroll {
+    scrolled = it.block.offset > 0,
+    atEnd = it.block.offset + it.block.viewport >= it.block.extent - 1
+}
+```
+
+`scrollContainer()` finds the nearest ancestor the user can scroll, across shadow roots and slots, and is null where the window scrolls the element. A watch compares each measurement within a twentieth of a pixel, so a box settling by less reports no change.
+
 ### Choose a property by name
 
 Use `.[…]`, brackets after a dot, when the property name comes from a string:

@@ -72,6 +72,16 @@ describe('Observations in a browser', () => {
             expect(await reports(watching, () => window.dispatchEvent(new Event('resize')))).toBe(true);
         });
 
+        it('reports a document\'s root element being resized, as its content grows', async () => {
+            const box = add('height: 10px');
+            const watching = watch({ type: 'resize', of: 'document' }, null);
+
+            await settled();
+
+            expect(await reports(watching, () => { box.style.height = '3000px'; })).toBe(true);
+            expect(await reports(watching, () => { box.style.color = 'red'; })).toBe(false);
+        });
+
         it('reports an element named by an argument, and nothing for one that is null', async () => {
             const other = add('width: 10px; height: 10px');
             const observation = { type: 'resize', of: { argument: 'other' } };

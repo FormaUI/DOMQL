@@ -30,11 +30,15 @@ import { QueryEvaluation } from './QueryEvaluation.mjs';
  * @property {WeakMap<object, object[]>} rootsOf The roots of each node's flat-tree ancestry found so far.
  * @property {WeakSet<object>} followedRoots The roots whose structure the evaluation already follows.
  * @property {WeakSet<object>} followedAttachments The receivers whose attachment the evaluation already follows.
+ * @property {WeakSet<object>} followedChildren The receivers whose child list the evaluation already follows.
  * @property {boolean} isPending Whether a maintained member it read is still waiting for its first sample.
  */
 
 /** The observation of whether an element is attached, which a member that answered null for a detached element depends on. */
 const ATTACHMENT_OBSERVATION = Object.freeze({ type: 'attachment', of: 'receiver' });
+
+/** What follows a receiver's children: its child list. */
+const CHILD_LIST_OBSERVATION = Object.freeze({ type: 'mutation', of: 'receiver', childList: true });
 
 /** What follows a receiver's flat-tree ancestry at each of its roots: the structure of the root's tree, and the slots its elements are assigned to. */
 const ANCESTRY_OBSERVATIONS = Object.freeze([
@@ -148,7 +152,7 @@ export class QueryEvaluator {
         sessionCache.beginEvaluation();
 
         const owner = {};
-        const observationContext = { observations, onChange, holdsAllObservations, replaces, dependencies: recordsDependencies ? [] : null, sessions: [], owner, consumer, sessionCache, deferredRequests: [], rootOf: new WeakMap(), rootsOf: new WeakMap(), followedRoots: new WeakSet(), followedAttachments: new WeakSet(), isPending: false };
+        const observationContext = { observations, onChange, holdsAllObservations, replaces, dependencies: recordsDependencies ? [] : null, sessions: [], owner, consumer, sessionCache, deferredRequests: [], rootOf: new WeakMap(), rootsOf: new WeakMap(), followedRoots: new WeakSet(), followedAttachments: new WeakSet(), followedChildren: new WeakSet(), isPending: false };
         let value;
         let metadata = null;
         let error = null;
@@ -193,12 +197,19 @@ export class QueryEvaluator {
         for (let place = 0; place < observationDeclarations.length; place++) {
             const observationDeclaration = observationDeclarations[place];
 
-            // An observation of the receiver's roots is one request at each of them.
-            if (observationDeclaration.of === 'roots') {
-                roots ??= this.#rootsOf(receiver);
+            // An observation of the receiver's roots, or of its children, is one request at each of them; its children are followed as their list changes.
+            if (observationDeclaration.of === 'roots' || observationDeclaration.of === 'children') {
+                let targets;
 
-                for (let index = 0; index < roots.length; index++) {
-                    const cachedSession = this.#holdAt(observationDeclaration, args, roots[index]);
+                if (observationDeclaration.of === 'roots') {
+                    targets = roots ??= this.#rootsOf(receiver);
+                } else {
+                    targets = QueryEvaluator.#childrenOf(receiver);
+                    this.#followChildren(receiver, requests);
+                }
+
+                for (let index = 0; index < targets.length; index++) {
+                    const cachedSession = this.#holdAt(observationDeclaration, args, targets[index]);
 
                     if (cachedSession !== null) {
                         requests?.push(cachedSession.request);
@@ -294,6 +305,25 @@ export class QueryEvaluator {
         });
 
         this.#followAttachment(receiver, roots.at(-1) ?? null, requests);
+    }
+
+    /** Follows the receiver's child list, once an evaluation, so a child added is observed from the evaluation its addition causes and a child removed is let go of. */
+    #followChildren(receiver, requests) {
+        const { followedChildren } = this.#observationContext;
+
+        if (followedChildren.has(receiver) || this.#moduleRegistry.getObservationType(CHILD_LIST_OBSERVATION.type) === undefined) {
+            return;
+        }
+
+        followedChildren.add(receiver);
+        const cachedSession = this.#holdAt(CHILD_LIST_OBSERVATION, NO_ARGUMENTS, receiver);
+
+        requests?.push(cachedSession.request);
+    }
+
+    /** The child elements of a node, in document order; none for anything else. */
+    static #childrenOf(receiver) {
+        return receiver?.children === undefined || typeof receiver.getRootNode !== 'function' ? NO_OBSERVATIONS : [...receiver.children];
     }
 
     /** Follows whether the receiver is attached, once an evaluation, where the outermost root of its ancestry is the top of a detached tree, which moves without a change inside any root. */

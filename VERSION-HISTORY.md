@@ -6,6 +6,25 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-280"></a>
+
+## `1.0.0-alpha.280`
+
+*November 1, 2026 · Nexo language `1.0.0-beta.8` · definition format 38*
+
+DOMQL reads how far a box is scrolled, the box that scrolls it and its padding box, and compares its measurements of layout within a twentieth of a pixel.
+
+**Vocabulary**
+
+- [`scroll`](spec/vocabulary.md#property-element-scroll), of an element and [of the window](spec/vocabulary.md#property-window-scroll), answers how far it is scrolled along each axis of its writing mode: a `Scroll { inline, block }`, each a `ScrollAxis { offset, extent, viewport }`, its offset from the start of its content under RTL too.
+- [`scrollContainer({ axis })`](spec/vocabulary.md#function-element-scrollcontainer) answers the nearest flat-tree ancestor the user can scroll, along an axis or either.
+- [`clientRect`](spec/vocabulary.md#property-element-clientrect) answers an element's padding box without scrollbars, relative to the layout viewport.
+- [Tolerance](spec/vocabulary.md#vocabulary-tolerance): every member that measures layout in CSS pixels declares a tolerance of 0.05, `rect`, `rectRelativeTo`, `size`, `clientSize` and `grid` among them, as [D8](docs/decisions.md#d8) records.
+- [Observation targets](spec/vocabulary.md#observations-targets): `children`, each child element of the receiver, whose child list DOMQL observes beside them. A `resize` of a document observes its root element.
+- `readonly`, `textEditable` and `selection` name the input type `number` as HTML does; the specification wrote `Number`.
+
+**Breaking:** a watch no longer reports a measurement of layout that moved by 0.05 of a pixel or less since the one it last reported. A query that needs every change compares a number it computes, as `it.rect?.top + 0`, which carries no tolerance.
+
 <a id="v1-0-0-alpha-279"></a>
 
 ## `1.0.0-alpha.279`

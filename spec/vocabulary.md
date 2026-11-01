@@ -64,6 +64,8 @@ DOMQL's module declares each of its types with its members, as Nexo's [declaring
 | `Rectangle` | A box's edges and size | `left`, `top`, `right`, `bottom`, `width`, `height`: `Number` |
 | `Selection` | A text selection's range | `start`, `end`: `Number` |
 | `Grid` | A grid's column tracks | `columns`: `List<Number>` |
+| `Scroll` | How far a box is scrolled along each of its logical axes | `inline`, `block`: `ScrollAxis` |
+| `ScrollAxis` | How far a box is scrolled along one axis | `offset`, `extent`, `viewport`: `Number` |
 
 `on`, an event source, is one declaration DOMQL's module gives each of `Element`, `Document` and `Window`, the receivers it listens on.
 
@@ -78,6 +80,21 @@ Measurements use CSS pixels unless stated otherwise. An element is a value wheth
 
 An element with a layout box whose dimensions are zero has actual measurements of zero, and one hidden visually that keeps its box measures as it is. Its attributes and structure still read, and `attached` says whether it is attached, whatever its layout. A watch that read null of a detached element follows it back into the document, as [elements that leave the document](watches.md#elements-that-leave-the-document) sets out.
 
+<a id="vocabulary-tolerance"></a>
+
+**Tolerance.** A member that measures layout in CSS pixels declares a [tolerance](https://github.com/FormaUI/Nexo/blob/65d247bc6f6b0dde1b701bbfd41f19a40838174c/spec/runtime/members.md#what-a-member-declares-numeric-tolerance) of 0.05, a twentieth of a pixel, for every number it answers, so a watch reports a measurement only once it moves by more than that from the one it last reported, as [comparing snapshots](results.md#comparing-snapshots) sets out:
+
+- **What it absorbs.** A box settling by a unit of the browser's layout, 1/64 of a pixel in Chromium and WebKit and 1/60 in Firefox, and the rounding of the arithmetic that answers a measurement, as `right` is `left` and `width` added.
+- **What it reports.** Any move a device pixel shows, which is a quarter of a pixel at a device pixel ratio of 4. A move made in steps smaller than the tolerance is reported once the steps add up to more, since each is compared with the measurement last reported.
+- **Who declares it.** `rect`, `clientRect`, `rectRelativeTo`, `size`, `clientSize`, `scroll` and `grid` of an element, and `size` and `scroll` of the window. A number computed from one, as `it.rect?.width / 2`, compares exactly, as Nexo's [arithmetic](https://github.com/FormaUI/Nexo/blob/65d247bc6f6b0dde1b701bbfd41f19a40838174c/spec/language/expressions.md#arithmetic-watching) sets out, and an evaluation once is never rounded.
+
+Scrolling reads the same way, along the axes of a box's writing mode:
+
+```domql
+(panel.scroll?.block.offset ?? 0) > 0                // Whether it is scrolled from the start of its content.
+item.scrollContainer({ axis = "block" })?.clientRect // The padding box of the box that scrolls it.
+```
+
 <a id="properties"></a>
 
 ## Properties
@@ -87,10 +104,13 @@ A property exposes a value, read by property access, and takes no argument. Each
 | Receiver | Property | Type |
 | --- | --- | --- |
 | Window | [`size`](#property-window-size) | `Size` |
+| Window | [`scroll`](#property-window-scroll) | `Scroll` |
 | Window | [`devicePixelRatio`](#property-window-devicepixelratio) | `Number` |
 | Element | [`rect`](#property-element-rect) | `Rectangle?` |
+| Element | [`clientRect`](#property-element-clientrect) | `Rectangle?` |
 | Element | [`size`](#property-element-size) | `Size?` |
 | Element | [`clientSize`](#property-element-clientsize) | `Size?` |
+| Element | [`scroll`](#property-element-scroll) | `Scroll?` |
 | Element | [`grid`](#property-element-grid) | `Grid?` |
 | Element | [`selection`](#property-element-selection) | `Selection?` |
 | Node | [`children`](#property-node-children) | `List<Element>` |
@@ -111,11 +131,21 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 ### Window: size
 
-**Type:** `Size`   **Reads:** Fresh
+**Type:** `Size`   **Reads:** Fresh   **Tolerance:** [0.05](#vocabulary-tolerance)
 
 **Result.** The layout viewport's `width` and `height`, excluding scrollbars
 
 **Changes.** Observable, a viewport scrollbar appearing or going included: the window's `resize` and its visual viewport's `resize` are observed
+
+<a id="property-window-scroll"></a>
+
+### Window: scroll
+
+**Type:** `Scroll`   **Reads:** Fresh   **Tolerance:** [0.05](#vocabulary-tolerance)
+
+**Result.** How far the layout viewport is scrolled, as an element's [`scroll`](#property-element-scroll) answers, along the axes of the writing mode of the document's root element: each axis's `offset` from `scrollX` or `scrollY` without its sign, its `extent` the size of the document's scrolling area, and its `viewport` the window's [`size`](#property-window-size) along it
+
+**Changes.** Partly observable: the window's `scroll` events, the window's size and the border box of the document's root element are observed; the document's extent changing where its root element's border box does not, as content positioned outside it, and its writing mode changing, are not
 
 <a id="property-window-devicepixelratio"></a>
 
@@ -135,11 +165,21 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 ### Element: rect
 
-**Type:** `Rectangle?`   **Reads:** Fresh
+**Type:** `Rectangle?`   **Reads:** Fresh   **Tolerance:** [0.05](#vocabulary-tolerance)
 
 **Result.** Its border box's `left`, `top`, `right`, `bottom`, `width` and `height`, relative to the layout viewport
 
 **Changes.** Partly observable: its own size, the scrolling of its scroll containers, the window's size and the structure of the trees it is in are observed; a move none of them causes, as a sibling before it growing or a margin or padding around it changing, and transforms and animations, are not
+
+<a id="property-element-clientrect"></a>
+
+### Element: clientRect
+
+**Type:** `Rectangle?`   **Reads:** Fresh   **Tolerance:** [0.05](#vocabulary-tolerance)
+
+**Result.** Its padding box without scrollbars, relative to the layout viewport: the border box `rect` answers, moved in by its left and top borders, `clientLeft` and `clientTop`, which hold a scrollbar placed at the left too, and of the size [`clientSize`](#property-element-clientsize) answers
+
+**Changes.** Partly observable, as `rect`, its padding box observed as `clientSize` observes it
 
 <a id="property-element-size"></a>
 
@@ -147,7 +187,7 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 ### Element: size
 
-**Type:** `Size?`   **Reads:** Fresh
+**Type:** `Size?`   **Reads:** Fresh   **Tolerance:** [0.05](#vocabulary-tolerance)
 
 **Result.** Its border box's `width` and `height`
 
@@ -159,11 +199,27 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 ### Element: clientSize
 
-**Type:** `Size?`   **Reads:** Fresh
+**Type:** `Size?`   **Reads:** Fresh   **Tolerance:** [0.05](#vocabulary-tolerance)
 
 **Result.** Its padding box's `width` and `height`, without scrollbars
 
 **Changes.** Partly observable: its border box and its content box are observed, so a scrollbar appearing or going and a border changing are; a border and padding changing so that one grows by as much as the other shrinks, which leaves both boxes as they were, is not
+
+<a id="property-element-scroll"></a>
+
+### Element: scroll
+
+**Type:** `Scroll?`   **Reads:** Fresh   **Tolerance:** [0.05](#vocabulary-tolerance)
+
+**Result.** How far it is scrolled along each axis of its writing mode, `inline` and `block`, the inline axis vertical in a vertical writing mode. Along each:
+
+- `offset`, how far it is scrolled from its scroll origin, which is never negative: under RTL, where the scroll origin lies at the right, the browser answers a `scrollLeft` of 0 down to the negative of its range, and `offset` is its distance from 0, so 0 shows the start of its content in every direction.
+- `extent`, the size of its scrolling area, as `scrollWidth` or `scrollHeight`.
+- `viewport`, the size of its scrollport, its padding box without scrollbars, as `clientWidth` or `clientHeight`.
+
+An element that is no scroll container is scrolled by 0. Null while it has no layout box.
+
+**Changes.** Partly observable: its `scroll` events, its padding box, its child list and its children's border boxes, through the [observation target](#observations-targets) `children`, are observed; its extent changing where no child's border box does, as a descendant overflowing a child of a fixed size or a child's margin changing, and its writing mode changing, are not
 
 <a id="property-element-grid"></a>
 
@@ -171,7 +227,7 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 ### Element: grid
 
-**Type:** `Grid?`   **Reads:** Fresh
+**Type:** `Grid?`   **Reads:** Fresh   **Tolerance:** [0.05](#vocabulary-tolerance)
 
 **Result.** Its grid's `columns`, the sizes of its column tracks, an empty list for an element that is no grid, and null while it has no layout box
 
@@ -185,7 +241,7 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 **Type:** `Selection?`   **Reads:** Fresh
 
-**Result.** Its selection's `start` and `end`, null for an element whose selection the browser does not expose: one that is no text input or text area, and an input of a type the selection API excludes, as `Number`, `email` and `date` are
+**Result.** Its selection's `start` and `end`, null for an element whose selection the browser does not expose: one that is no text input or text area, and an input of a type the selection API excludes, as `number`, `email` and `date` are
 
 **Changes.** Partly observable: input and selection events are observed, a selection the page's code sets is not
 
@@ -349,6 +405,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 | Element | [`matches(selector)`](#function-element-matches) |
 | Element | [`rectRelativeTo(relativeTo)`](#function-element-rectrelativeto) |
 | Element | [`closest(selector)`](#function-element-closest) |
+| Element | [`scrollContainer({ axis })`](#function-element-scrollcontainer) |
 | Node | [`first(selector)`, `all(selector)`](#function-node-first-all) |
 
 <a id="function-window-media"></a>
@@ -454,7 +511,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 ### Element: rectRelativeTo
 
-**Syntax:** `rectRelativeTo(relativeTo)`   **Signature:** `relativeTo`: `Element` → `Rectangle?`   **Reads:** Fresh   **Fixed arguments:** None
+**Syntax:** `rectRelativeTo(relativeTo)`   **Signature:** `relativeTo`: `Element` → `Rectangle?`   **Reads:** Fresh   **Fixed arguments:** None   **Tolerance:** [0.05](#vocabulary-tolerance)
 
 **Result.** Its border box's `left`, `top`, `right`, `bottom`, `width` and `height`, relative to `relativeTo`'s border box, null where either has no layout box, and, as `relativeTo` propagates null, where `relativeTo` is null
 
@@ -471,6 +528,18 @@ Each function states what it answers, how its result changes, how it reads, and 
 **Result.** The nearest matching ancestor, itself included
 
 **Changes.** Partly observable, as `matches`
+
+<a id="function-element-scrollcontainer"></a>
+
+### Element: scrollContainer
+
+**Syntax:** `scrollContainer({ axis })`   **Signature:** optional `axis`: `String?`, `"inline"` or `"block"`, either axis when omitted or null → `Element?`   **Reads:** Fresh   **Fixed arguments:** None
+
+**Result.** The nearest of its [flat-tree ancestors](nodes-and-shadow-trees.md#trees-and-slots) the user can scroll along the axis of its writing mode: one whose computed `overflow` along that axis is `auto` or `scroll`, so a scroll container that hides its overflow there, or clips it, is passed over; null where none is, as where the window scrolls it. The document's root element, and its body while the root's `overflow` is `visible`, give their overflow to the viewport, and are never answered. An axis other than these fails the evaluation.
+
+A box whose overflow is not `visible` along one axis computes `visible` as `auto` along the other, so `overflow-y: auto` alone makes a box the user can scroll along both, and `overflow-x: hidden` beside it limits it to one.
+
+**Changes.** Partly observable: the attributes and the structure of every tree its flat-tree ancestry passes through are observed; a stylesheet changing which rules apply is not
 
 <a id="function-node-first-all"></a>
 
@@ -573,7 +642,7 @@ The built-in vocabulary declares these Boolean functions, each with its native s
 
 **Syntax:** `readonly()`   **Reads:** Fresh
 
-**True when.** Native `readonly` applies to the control and is set: a text area, or an input whose type is `text`, `search`, `url`, `tel`, `email`, `password`, `date`, `month`, `week`, `time`, `datetime-local` or `Number`; any other element answers false, whatever its attributes
+**True when.** Native `readonly` applies to the control and is set: a text area, or an input whose type is `text`, `search`, `url`, `tel`, `email`, `password`, `date`, `month`, `week`, `time`, `datetime-local` or `number`; any other element answers false, whatever its attributes
 
 **Changes.** Observable: its `readonly` and `type` attributes
 
@@ -587,7 +656,7 @@ The built-in vocabulary declares these Boolean functions, each with its native s
 
 **Syntax:** `textEditable()`   **Reads:** Fresh
 
-**True when.** The element supports text editing and its current state permits it: a text area, or an input whose type is `text`, `search`, `url`, `tel`, `email`, `password` or `Number`, that is neither disabled nor read-only; or an element whose content is editable, as the nearest `contenteditable` of a state, its own or an ancestor's, decides: `true`, the empty value and `plaintext-only` make it editable and `false` does not, while an invalid value, `inherit` among them, inherits, as the attribute does natively; where none decides, the document's design mode does.
+**True when.** The element supports text editing and its current state permits it: a text area, or an input whose type is `text`, `search`, `url`, `tel`, `email`, `password` or `number`, that is neither disabled nor read-only; or an element whose content is editable, as the nearest `contenteditable` of a state, its own or an ancestor's, decides: `true`, the empty value and `plaintext-only` make it editable and `false` does not, while an invalid value, `inherit` among them, inherits, as the attribute does natively; where none decides, the document's design mode does.
 
 An element with the `inert` attribute, itself or on an ancestor in the flat tree, which goes from each node to the slot it is assigned to, or otherwise to its parent, and from a shadow root to its host, is not text editable: this is the attribute's inertness, so the inertness a modal dialog gives the rest of the document does not count, and a slot in a closed shadow root hides an inert ancestor past it unless the element is inside that root
 
@@ -793,7 +862,7 @@ A query converts with the four conversions [Nexo's own module](https://github.co
 
 ## Observations
 
-A member names the [observations](https://github.com/FormaUI/Nexo/blob/65d247bc6f6b0dde1b701bbfd41f19a40838174c/spec/runtime/observations.md#observations) that cover its changes, each by its type and its target, and DOMQL starts each one that a watch, a waiting evaluation or an event's object expression needs, and stops it once nothing needs it. DOMQL's module declares the browser's observations as eight observation types, which the members of any module can name, and four observation targets.
+A member names the [observations](https://github.com/FormaUI/Nexo/blob/65d247bc6f6b0dde1b701bbfd41f19a40838174c/spec/runtime/observations.md#observations) that cover its changes, each by its type and its target, and DOMQL starts each one that a watch, a waiting evaluation or an event's object expression needs, and stops it once nothing needs it. DOMQL's module declares the browser's observations as eight observation types, which the members of any module can name, and five observation targets.
 
 <a id="observations-types"></a>
 
@@ -803,7 +872,7 @@ Each type is shared by equivalent requests, those of the same target and the sam
 
 | Type | Contract | Observes | Arguments | Identity |
 | --- | --- | --- | --- | --- |
-| `resize` | Invalidation | The size of an element's box, or of the window's layout viewport, a viewport scrollbar appearing or going included | `box`: the box `ResizeObserver` observes, `border-box` when omitted, or `client`, the border box and the content box both | `box` |
+| `resize` | Invalidation | The size of an element's box, of a document's root element's, or of the window's layout viewport, a viewport scrollbar appearing or going included | `box`: the box `ResizeObserver` observes, `border-box` when omitted, or `client`, the border box and the content box both | `box` |
 | `mutation` | Invalidation | A node's attributes, its children or its text, and its descendants' where `subtree` says so | `attributes`: `true`, or a list of attribute names; `childList`, `subtree` and `characterData`, Booleans, false when omitted; at least one of attributes, children and text is observed | All four |
 | `attachment` | Invalidation | Whether a node is attached to its document, through every shadow root between them, a node another document owns inserted into the window's document included | None | None |
 | `intersection` | Maintained | Whether the browser reports an element intersecting a root, or the window where the root is null, grown by a margin in CSS pixels; pending until its first report | `root`, an element or null, null when omitted; `margin`, a number, 0 when omitted | `root`, `margin` |
@@ -824,8 +893,9 @@ An observation observes its member's receiver, an argument, `{ argument }`, or a
 | `document` | No | The document the query runs against |
 | `root` | Yes, one target | The receiver's [root](nodes-and-shadow-trees.md#trees-and-slots) |
 | `roots` | Yes, several targets | The receiver's [roots](nodes-and-shadow-trees.md#trees-and-slots), which no maintained observation observes, since it gives its member one sample |
+| `children` | Yes, several targets | Each child element of the receiver, in document order, none for a receiver that holds none or is no node; no maintained observation observes them either |
 
-DOMQL resolves each target as it starts an observation, and each evaluation that reaches the member finds `root` and `roots` again, so a watch observes the trees its receiver is in as the receiver moves, as [trees and slots a watch follows](watches.md#trees-and-slots-a-watch-follows) set out.
+DOMQL resolves each target as it starts an observation, and each evaluation that reaches the member finds `root`, `roots` and `children` again, so a watch observes the trees its receiver is in as the receiver moves, as [trees and slots a watch follows](watches.md#trees-and-slots-a-watch-follows) set out, and the children it holds as they come and go. Where a member observes `children`, DOMQL observes the receiver's child list too, as it observes the structure of each of its roots where a member observes `roots`, so a child added is observed from the evaluation its addition causes and a child removed is let go of.
 
 <a id="extension-modules"></a>
 

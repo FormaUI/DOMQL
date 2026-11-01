@@ -50,13 +50,15 @@ describe('BrowserVocabularyDeclarations', () => {
     it('declares the DOM\'s reference types, the views of an element and the structured types of its measurements and events', () => {
         expect(module.types.map(type => `${type.kind} ${type.name}${type.supertype === undefined ? '' : ` : ${type.supertype}`}${type.abstract ? ', abstract' : ''}`)).toEqual([
             'reference Node, abstract', 'reference Element : Node', 'reference Document : Node', 'reference DocumentFragment : Node', 'reference ShadowRoot : Node', 'reference Window', 'reference Shadow', 'reference Aria',
-            'structured Size', 'structured Rectangle', 'structured Selection', 'structured Grid', 'structured DomEvent', 'structured PointerEvent', 'structured KeyboardEvent', 'structured DragEvent',
+            'structured Size', 'structured Rectangle', 'structured Selection', 'structured Grid', 'structured Scroll', 'structured ScrollAxis', 'structured DomEvent', 'structured PointerEvent', 'structured KeyboardEvent', 'structured DragEvent',
         ]);
         expect(module.types.filter(type => type.kind === 'structured').map(type => `${type.name} { ${type.members.map(member => `${member.name}: ${member.result}`).join(', ')} }`)).toEqual([
             'Size { width: Number, height: Number }',
             'Rectangle { left: Number, top: Number, right: Number, bottom: Number, width: Number, height: Number }',
             'Selection { start: Number, end: Number }',
             'Grid { columns: List<Number> }',
+            'Scroll { inline: ScrollAxis, block: ScrollAxis }',
+            'ScrollAxis { offset: Number, extent: Number, viewport: Number }',
             'DomEvent { target: Element? }',
             'PointerEvent { target: Element, button: Number, buttons: Number, clientX: Number, clientY: Number, pointerType: String? }',
             'KeyboardEvent { target: Element, key: String, code: String }',
@@ -69,10 +71,10 @@ describe('BrowserVocabularyDeclarations', () => {
         expect(typeMembers.map(({ type, member }) => nameOf(type, member)).sort()).toEqual([
             'Node.children', 'Node.parent', 'Node.root', 'Node.host', 'Node.first', 'Node.all',
             'Element.disabled', 'Element.readonly', 'Element.textEditable', 'Element.focus', 'Element.focusWithin', 'Element.hover', 'Element.popoverOpen', 'Element.checked',
-            'Element.rect', 'Element.size', 'Element.clientSize', 'Element.grid', 'Element.selection', 'Element.shadow', 'Element.aria', 'Element.attached', 'Element.hasChildren', 'Element.hasSelection',
-            'Element[]', 'Element.attribute', 'Element.class', 'Element.style', 'Element.intersects', 'Element.overlaps', 'Element.matches', 'Element.rectRelativeTo', 'Element.closest', 'Element.on',
+            'Element.rect', 'Element.clientRect', 'Element.size', 'Element.clientSize', 'Element.scroll', 'Element.grid', 'Element.selection', 'Element.shadow', 'Element.aria', 'Element.attached', 'Element.hasChildren', 'Element.hasSelection',
+            'Element[]', 'Element.attribute', 'Element.class', 'Element.style', 'Element.intersects', 'Element.overlaps', 'Element.matches', 'Element.rectRelativeTo', 'Element.closest', 'Element.scrollContainer', 'Element.on',
             'Document.visible', 'Document.focus', 'Document.on',
-            'Window.size', 'Window.devicePixelRatio', 'Window.media', 'Window.share', 'Window.clipboard', 'Window.on',
+            'Window.size', 'Window.scroll', 'Window.devicePixelRatio', 'Window.media', 'Window.share', 'Window.clipboard', 'Window.on',
             'Shadow.root', 'Shadow.elements',
             'Aria.checked', 'Aria.disabled', 'Aria[]', 'Aria.attribute', 'Aria as Element',
         ].sort());
@@ -104,6 +106,15 @@ describe('BrowserVocabularyDeclarations', () => {
         const nexoUses = resolution.usedDeclarations.filter(use => registry.getDeclaringModuleName(use.declaration) === 'Nexo').map(use => use.qualifiedName);
 
         expect(nexoUses).toEqual(['List.count', 'List.first', 'List.last', 'List[]', 'List.max', 'List.min', 'List.sum', 'List.where', 'List.count']);
+    });
+
+    it('declares the tolerance of layout on each member that measures it in CSS pixels, and on no other', () => {
+        const measured = typeMembers.filter(({ member }) => member.updates?.tolerance !== undefined).map(({ type, member }) => `${nameOf(type, member)} within ${member.updates.tolerance}`);
+
+        expect(measured).toEqual([
+            'Element.rect within 0.05', 'Element.clientRect within 0.05', 'Element.size within 0.05', 'Element.clientSize within 0.05', 'Element.scroll within 0.05', 'Element.grid within 0.05', 'Element.rectRelativeTo within 0.05',
+            'Window.size within 0.05', 'Window.scroll within 0.05',
+        ]);
     });
 
     it('gives every member the evaluator invokes observation coverage and, where partial, what it misses', () => {
@@ -284,10 +295,10 @@ describe('BrowserVocabularyDeclarations', () => {
             expect([...new Set(named)].sort()).toEqual([...types].sort());
         });
 
-        it('observe the window, the document, and the receiver\'s root and roots, the targets the module declares', () => {
+        it('observe the window, the document, and the receiver\'s root, roots and children, the targets the module declares', () => {
             const named = evaluated.flatMap(declaration => declaration.updates.observations.map(observation => observation.of)).filter(of => typeof of === 'string' && of !== 'receiver');
 
-            expect(module.observationTargets).toEqual([{ name: 'window' }, { name: 'document' }, { name: 'root', from: 'receiver' }, { name: 'roots', from: 'receiver', count: 'many' }]);
+            expect(module.observationTargets).toEqual([{ name: 'window' }, { name: 'document' }, { name: 'root', from: 'receiver' }, { name: 'roots', from: 'receiver', count: 'many' }, { name: 'children', from: 'receiver', count: 'many' }]);
             expect([...new Set(named)].sort()).toEqual(module.observationTargets.map(target => target.name).sort());
         });
 
