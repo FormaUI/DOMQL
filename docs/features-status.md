@@ -167,6 +167,8 @@ None remains: V1 to V18 are implemented, as [the features](#the-doms-vocabulary)
 
 Page-wide module state needs nothing new: it is a member of a module's extension of `Document`, observing its receiver, and the document owns it, as [C8](#planned-extension-contract)'s state per document has it.
 
+O1, O2, O4 and O6 are implemented, as [the features](#the-doms-vocabulary) show: O2 observes what a selector reads rather than the receiver's subtree ([D26](decisions.md#d26)), O4's autofill observation is declined, since it would write a stylesheet into the page ([D17](decisions.md#d17)), and O6 is a body's local reading what a member misses ([D19](decisions.md#d19)).
+
 | | Addition |
 | --- | --- |
 | O3 | Opt-in continuous measurement each frame while a module holds it, so a subscriber follows content moving under a still pointer |
