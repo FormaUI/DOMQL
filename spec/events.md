@@ -34,9 +34,17 @@ An event source is subscribed to, and never read or watched: DOMQL starts it as 
 
 | Available on | Source | Delivers | Fixed |
 | --- | --- | --- | --- |
-| Element, document, window | `on(type)`, `type`: `String`, selecting through the type selector `event` | The native events of that type as they reach it, each with the members its event type offers, such as a pointer event's `button`, `clientX` and `clientY`; a type the selector maps no type to is a validation error | `type` |
+| Element, document, window | `on(type, options?)`, `type`: `String`, selecting through the type selector `event`; optional `options`: `Listening?`, `{ capture }`, at the target and as it bubbles when omitted or null | The native events of that type as they reach it, each with the members its event type offers, such as a pointer event's `button`, `clientX` and `clientY`; a type the selector maps no type to is a validation error | `type` |
 
-`on` listens passively, so it never delays or prevents what the page does with an event.
+`on` listens passively, so it never delays or prevents what the page does with an event. It hears an event as it reaches its receiver at its target and as it bubbles, and, given `{ capture = true }`, as it is captured on its way to its target, before any listener nearer the target runs, so a listener there that stops the event hides nothing from it:
+
+```domql
+Domql.document.on("click", { capture = true }) {
+    key = it.target.closest("[data-key]")?["data-key"]
+}
+```
+
+A subscription listening in the capture phase observes alone, as every subscription does: it never stops or cancels what it hears.
 
 <a id="event-types"></a>
 

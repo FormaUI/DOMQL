@@ -300,7 +300,7 @@ activations.dispose();
 
 Each record is plain data read as the event was dispatched, holding no event object and no element, so it can go straight into application state, a log or a message to a worker, and a handler that runs later still sees the state of that moment. The query is checked when you subscribe, so a misspelled member fails then rather than at the first click.
 
-The object expression reads event fields such as `target`, `button` and `clientX`, and anything else the bindings reach. The subscription does not change the event's propagation or default behavior.
+The object expression reads event fields such as `target`, `button` and `clientX`, and anything else the bindings reach. The subscription does not change the event's propagation or default behavior. To hear an event before any listener nearer its target can stop it, listen in the capture phase, `Domql.document.on("click", { capture = true })`.
 
 Listening starts during `subscribe()` and ends with `dispose()`. A failed projection reaches the handler with `status: 'failed'`; a handler failure goes to the window's error reporting. The subscription continues in either case.
 

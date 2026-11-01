@@ -394,3 +394,20 @@ Each entry is one of three kinds:
 - **Declined:**
   - The receiver's subtree, for the reasons above.
   - A full parse of selectors, which the scan doesn't need: what it reads is the same.
+
+<a id="d27"></a>
+
+## D27 — `on` listens in the capture phase through a `Listening` option
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `on(type, options?)` takes a second, optional positional argument, a `Listening { capture }`, so `on("click", { capture = true })` listens as the event is captured on its way to its target, and `on("click")` as before, at the target and as it bubbles. It listens passively either way, for observing alone, as [D2](#d2) has it.
+- **Why:**
+  - A member's argument form is positional or options, never both, and `on("click")` keeps its form, so the option is a structured value its parameter constructs from the object expression written there, as Nexo's [constructing a structure](https://github.com/FormaUI/Nexo/blob/2cb596ea0d1a1fc624552783b30139379124bb67/spec/language/types.md#types-constructing-a-structure) sets out.
+  - A structure leaves room for another listening option without changing the argument form, which would break every subscription.
+  - Listening in the capture phase at an ancestor observes an event before any listener nearer its target runs, so a listener there that stops it hides nothing.
+- **Declined:**
+  - `on` in the options form, `on({ type = "click", capture = true })`, which breaks every subscription written.
+  - A positional Boolean, `on("click", true)`, which says nothing where it is read.
+  - A source of its own, `onCapture(type)`, a second name for one source differing in an option.

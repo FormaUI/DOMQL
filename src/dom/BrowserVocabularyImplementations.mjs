@@ -109,11 +109,13 @@ export class BrowserVocabularyImplementations {
             closest: ({ receiver: element, args: { selector } }) => element.closest(selector),
             firstMatching: ({ receiver: node, args: { selector } }) => node.querySelector(selector),
             all: ({ receiver: node, args: { selector } }) => [...node.querySelectorAll(selector)],
-            on: ({ receiver: target, args: { type }, deliver }) => {
-                // Listening observes each event as it reaches the target, and a passive listener leaves its course to the page.
-                target.addEventListener(type, deliver, { passive: true });
+            on: ({ receiver: target, args: { type, options }, deliver }) => {
+                // Listening observes each event as it reaches the target, in the capture phase where its option says so, and a passive listener leaves its course to the page.
+                const capture = options?.capture === true;
 
-                return { stop: () => target.removeEventListener(type, deliver) };
+                target.addEventListener(type, deliver, { passive: true, capture });
+
+                return { stop: () => target.removeEventListener(type, deliver, { capture }) };
             },
 
             attached: ({ receiver: element }) => element.isConnected,

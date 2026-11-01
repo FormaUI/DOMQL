@@ -105,8 +105,17 @@ export class BrowserVocabularyDeclarations {
         const observationType = (name, contract, key, rest = {}) => implementing(key, { name, contract, ...rest });
         const test = (key, name, { updates }) => implementing(key, func(name, 'Boolean', { updates }));
 
-        // The event source, a host call its subscription listens to, delivering each event of the type its fixed argument selects: one declaration, standing in each type it listens on.
-        const on = implementing('on', { ...func('on', '@selected', { invokedBy: 'host', parameters: [valueParameter('type', 'String', { fixed: true, selects: 'type', selector: 'event' })] }), requestKind: 'subscription' });
+        // The event source, a host call its subscription listens to, delivering each event of the type its fixed argument selects, in the capture phase where its option says so: one declaration, standing in each type it listens on.
+        const on = implementing('on', {
+            ...func('on', '@selected', {
+                invokedBy: 'host',
+                parameters: [
+                    valueParameter('type', 'String', { fixed: true, selects: 'type', selector: 'event' }),
+                    valueParameter('options', 'Listening?', { default: null, nulls: 'accept', omitted: 'at the target and as it bubbles' }),
+                ],
+            }),
+            requestKind: 'subscription',
+        });
 
         return DispatchTable.createModule(BrowserVocabularyDeclarations.moduleName, {
             // A bound value's type: the kind of node it is, or the window. A text or a comment node is none, and is refused as a binding.
@@ -302,6 +311,8 @@ export class BrowserVocabularyDeclarations {
                 structuredType('SizeLimits', { minWidth: 'Number?', minHeight: 'Number?', maxWidth: 'Number?', maxHeight: 'Number?' }),
                 // A file a user chose, without its content.
                 structuredType('File', { name: 'String', bytes: 'Number', type: 'String', lastModified: 'Number' }),
+                // How an event source listens: in the capture phase, or at the target and as the event bubbles.
+                structuredType('Listening', { capture: 'Boolean' }),
                 // An event such as scroll or resize can target the document or the window, which is no element.
                 structuredType('DomEvent', { target: 'Element?' }),
                 // A browser that dispatches a click as a mouse event gives it no pointer type.

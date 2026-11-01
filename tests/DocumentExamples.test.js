@@ -93,6 +93,7 @@ const DOCUMENTS = {
     ],
     'spec/results.md': [],
     'spec/events.md': [
+        { about: 'a subscription listening in the capture phase' },
         { about: 'a subscription reading a maintained member' },
     ],
     'spec/executions.md': [],

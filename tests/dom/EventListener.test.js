@@ -141,6 +141,42 @@ describe('EventListener', () => {
             expect(results).toEqual([{ button: 2, x: 12, kind: 'pen' }]);
         });
 
+        it('listens in the capture phase where its option says so, hearing an event before a listener nearer its target stops it', () => {
+            const [first] = panel.children;
+            const heard = [];
+            const hear = phase => (sender, args) => {
+                heard.push(phase);
+                record(sender, args);
+            };
+
+            first.addEventListener('input', event => {
+                heard.push('target');
+                event.stopPropagation();
+            });
+            subscribe('panel.on("input", { capture = true }) { id = it.target?["id"] }', { panel }, hear('capture'));
+            subscribe('panel.on("input", { capture = false }) { id = it.target?["id"] }', { panel }, hear('bubble'));
+            subscribe('panel.on("input") { id = it.target?["id"] }', { panel }, hear('bubble'));
+
+            input(first);
+
+            expect(heard).toEqual(['capture', 'target']);
+            expect(results).toEqual([{ id: 'a' }]);
+
+            input(panel);
+
+            expect(heard).toEqual(['capture', 'target', 'capture', 'bubble', 'bubble']);
+        });
+
+        it('stops listening in the phase it listened in', () => {
+            const listener = subscribe('panel.on("input", { capture = true }) { id = it.target?["id"] }', { panel });
+
+            input(panel.children[0]);
+            listener.dispose();
+            input(panel.children[0]);
+
+            expect(results).toEqual([{ id: 'a' }]);
+        });
+
         it('takes a subscription made from its definition, and calls the handler with the event listener', () => {
             const { definition } = isolated.query('panel.on("input") { id = it.target?["id"] }');
             const senders = [];

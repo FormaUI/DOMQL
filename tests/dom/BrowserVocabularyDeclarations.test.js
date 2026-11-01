@@ -50,7 +50,7 @@ describe('BrowserVocabularyDeclarations', () => {
     it('declares the DOM\'s reference types, the views of an element and the structured types of its measurements and events', () => {
         expect(module.types.map(type => `${type.kind} ${type.name}${type.supertype === undefined ? '' : ` : ${type.supertype}`}${type.abstract ? ', abstract' : ''}`)).toEqual([
             'reference Node, abstract', 'reference Element : Node', 'reference Document : Node', 'reference DocumentFragment : Node', 'reference ShadowRoot : Node', 'reference Window', 'reference Shadow', 'reference Aria', 'reference Range',
-            'structured Size', 'structured Rectangle', 'structured Selection', 'structured DocumentSelection', 'structured Grid', 'structured Scroll', 'structured ScrollAxis', 'structured Playback', 'structured Location', 'structured SizeLimits', 'structured File', 'structured DomEvent', 'structured PointerEvent', 'structured KeyboardEvent', 'structured DragEvent',
+            'structured Size', 'structured Rectangle', 'structured Selection', 'structured DocumentSelection', 'structured Grid', 'structured Scroll', 'structured ScrollAxis', 'structured Playback', 'structured Location', 'structured SizeLimits', 'structured File', 'structured Listening', 'structured DomEvent', 'structured PointerEvent', 'structured KeyboardEvent', 'structured DragEvent',
         ]);
         expect(module.types.filter(type => type.kind === 'structured').map(type => `${type.name} { ${type.members.map(member => `${member.name}: ${member.result}`).join(', ')} }`)).toEqual([
             'Size { width: Number, height: Number }',
@@ -64,6 +64,7 @@ describe('BrowserVocabularyDeclarations', () => {
             'Location { href: String, pathname: String, search: String, hash: String }',
             'SizeLimits { minWidth: Number?, minHeight: Number?, maxWidth: Number?, maxHeight: Number? }',
             'File { name: String, bytes: Number, type: String, lastModified: Number }',
+            'Listening { capture: Boolean }',
             'DomEvent { target: Element? }',
             'PointerEvent { target: Element, button: Number, buttons: Number, clientX: Number, clientY: Number, pointerType: String? }',
             'KeyboardEvent { target: Element, key: String, code: String }',
@@ -261,13 +262,19 @@ describe('BrowserVocabularyDeclarations', () => {
         expect(resolution.usedDeclarations.map(use => extended.getDeclaringModuleName(use.declaration))).toEqual(['Charts', 'Charts']);
     });
 
-    it('declares on as the event source of elements, the document and the window, once in each, a host call making a subscription, whose fixed type selects through the type selector event', () => {
+    it('declares on as the event source of elements, the document and the window, once in each, a host call making a subscription, whose fixed type selects through the type selector event and whose option says how it listens', () => {
         const sources = typeMembers.filter(({ member }) => member.name === 'on');
 
         expect(sources.map(({ type }) => type.name)).toEqual(['Element', 'Document', 'Window']);
 
         for (const { type, member } of sources) {
-            expect(member).toMatchObject({ kind: 'function', invokedBy: 'host', result: '@selected', parameters: [{ name: 'type', fixed: true, selects: 'type', selector: 'event' }] });
+            expect(member).toMatchObject({
+                kind: 'function',
+                invokedBy: 'host',
+                arguments: 'positional',
+                result: '@selected',
+                parameters: [{ name: 'type', type: 'String', fixed: true, selects: 'type', selector: 'event' }, { name: 'options', type: 'Listening?', required: false, default: null, nulls: 'accept' }],
+            });
             expect(DispatchTable.get(member)).toEqual({ requestKind: 'subscription', executionMode: null, implementation: undefined, type: type.name });
         }
 

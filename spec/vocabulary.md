@@ -72,8 +72,9 @@ DOMQL's module declares each of its types with its members, as Nexo's [declaring
 | `Location` | The parts of a URL a page navigates by | `href`, `pathname`, `search`, `hash`: `String` |
 | `SizeLimits` | The limits a box's size is kept within | `minWidth`, `minHeight`, `maxWidth`, `maxHeight`: `Number?` |
 | `File` | A file a user chose, without its content | `name`, `type`: `String`; `bytes`, `lastModified`: `Number` |
+| `Listening` | How an event source listens: in the capture phase, or at the target and as it bubbles | `capture`: `Boolean` |
 
-`on`, an event source, is one declaration DOMQL's module gives each of `Element`, `Document` and `Window`, the receivers it listens on.
+`on`, an event source, is one declaration DOMQL's module gives each of `Element`, `Document` and `Window`, the receivers it listens on, and `Listening` its option, as [event sources](events.md#event-sources) set out.
 
 A property of a structured value's data shape, such as a rectangle's `width`, is data the value holds, read by property access, and is constant for that value. A structured value that holds a reference, as a `DocumentSelection` holds its `range`, is read through an object expression, as an event is, since no result holds a reference. Facts that must describe one measurement are members of one structured value, which is captured once and read by each of its members, as a rectangle's edges are. The types of event data are set out in [events](events.md#event-types).
 
