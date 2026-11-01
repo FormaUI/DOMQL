@@ -625,6 +625,24 @@ describe('QueryEvaluator', () => {
         });
     });
 
+    describe('size limits and files', () => {
+        it('reads the limits of a box\'s size in pixels, each null where it is no length in pixels, and none for a detached element', () => {
+            panel.style.cssText = 'min-width: 120px; min-height: 2.5px; max-width: 50%; max-height: none';
+
+            expect(read('panel.sizeLimits', { panel })).toEqual({ minWidth: 120, minHeight: 2.5, maxWidth: null, maxHeight: null });
+            expect(read('detached.sizeLimits', { detached: document.createElement('div') })).toBeNull();
+        });
+
+        it('reads the files a file input holds, none for one that holds none, and null for any other element', () => {
+            const picker = document.createElement('input');
+            const field = document.createElement('input');
+
+            picker.type = 'file';
+
+            expect(read('{ picker = picker.files, field = field.files, panel = panel.files }', { picker, field, panel })).toEqual({ picker: [], field: null, panel: null });
+        });
+    });
+
     describe('siblings and containment', () => {
         it('reads an element\'s siblings and its place among them, and null for each where it has no parent', () => {
             const detached = document.createElement('div');

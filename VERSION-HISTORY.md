@@ -6,6 +6,19 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-285"></a>
+
+## `1.0.0-alpha.285`
+
+*November 1, 2026 · Nexo language `1.0.0-beta.8` · definition format 38*
+
+DOMQL reads the limits of a box's size in pixels and the files a file input holds.
+
+**Vocabulary**
+
+- [`sizeLimits`](spec/vocabulary.md#property-element-sizelimits) answers a `SizeLimits { minWidth, minHeight, maxWidth, maxHeight }` in CSS pixels, each null where the computed limit is no length, as [D24](docs/decisions.md#d24) records.
+- [`files`](spec/vocabulary.md#property-element-files) answers a file input's `List<File>`, each `File { name, bytes, type, lastModified }`, as [D25](docs/decisions.md#d25) records.
+
 <a id="v1-0-0-alpha-284"></a>
 
 ## `1.0.0-alpha.284`

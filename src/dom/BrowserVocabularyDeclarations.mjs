@@ -169,6 +169,8 @@ export class BrowserVocabularyDeclarations {
                     implementing('classes', property('classes', 'List<String>', { updates: updatesOf({ observations: [{ type: 'mutation', of: 'receiver', attributes: ['class'] }] }) })),
                     implementing('text', property('text', 'String', { updates: updatesOf({ observations: [{ type: 'mutation', of: 'receiver', childList: true, characterData: true, subtree: true }] }) })),
                     implementing('html', property('html', 'String', { updates: updatesOf({ changes: 'partly-observable', misses: 'a change inside the content of a template it holds', observations: [{ type: 'mutation', of: 'receiver', attributes: true, childList: true, characterData: true, subtree: true }] }) })),
+                    implementing('files', property('files', 'List<File>?', { updates: updatesOf({ changes: 'partly-observable', misses: 'the page\'s code assigning its files, which fires no event', observations: [USER_INPUT, { type: 'mutation', of: 'receiver', attributes: ['type'] }] }) })),
+                    implementing('sizeLimits', property('sizeLimits', 'SizeLimits?', { updates: updatesOf({ ...STYLE, observations: [RESIZE, ATTRIBUTES] }) })),
                     implementing('value', property('value', 'String?', {
                         updates: updatesOf({
                             changes: 'partly-observable',
@@ -295,6 +297,10 @@ export class BrowserVocabularyDeclarations {
                 structuredType('Playback', { paused: 'Boolean', muted: 'Boolean', ended: 'Boolean', currentTime: 'Number', duration: 'Number?', volume: 'Number' }),
                 // The parts of the window's URL a page navigates by.
                 structuredType('Location', { href: 'String', pathname: 'String', search: 'String', hash: 'String' }),
+                // The limits a box's size is kept within, each null where it is no length in pixels.
+                structuredType('SizeLimits', { minWidth: 'Number?', minHeight: 'Number?', maxWidth: 'Number?', maxHeight: 'Number?' }),
+                // A file a user chose, without its content.
+                structuredType('File', { name: 'String', bytes: 'Number', type: 'String', lastModified: 'Number' }),
                 // An event such as scroll or resize can target the document or the window, which is no element.
                 structuredType('DomEvent', { target: 'Element?' }),
                 // A browser that dispatches a click as a mouse event gives it no pointer type.

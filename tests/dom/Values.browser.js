@@ -120,6 +120,28 @@ describe('Values and text in a browser', () => {
         });
     });
 
+    describe('files', () => {
+        it('follows the files a user chooses, and misses files the page\'s code assigns', async () => {
+            const { picker } = page('<input id="picker" type="file" multiple>');
+            const files = await watching('e.files { name = it.name, bytes = it.bytes, type = it.type }', { e: picker });
+            const chosen = new File(['abc'], 'a.txt', { type: 'text/plain', lastModified: 1000 });
+
+            expect(files.watched).toEqual([]);
+
+            // The file reaches the page through the browser's own upload, which gives it the size its transfer gave it.
+            const uploaded = await files.after(() => userEvent.upload(picker, chosen));
+
+            expect(uploaded.watched).toEqual(uploaded.decided);
+            expect(uploaded.watched).toEqual([{ name: 'a.txt', bytes: picker.files[0].size, type: 'text/plain' }]);
+
+            const transfer = new DataTransfer();
+
+            transfer.items.add(new File(['wxyz'], 'b.bin'));
+
+            expect(await files.after(() => { picker.files = transfer.files; })).toEqual({ watched: uploaded.watched, decided: [{ name: 'b.bin', bytes: 4, type: '' }] });
+        });
+    });
+
     describe('playback', () => {
         it('follows a media element muted and its volume changed, and answers null for its duration until its metadata loads', async () => {
             const { player } = page('<video id="player"></video>');

@@ -302,6 +302,7 @@ Each entry is one of three kinds:
   - The same test found the one change that fires none: the nodes holding the selection removed, which collapses it. So `selection` and `hasSelection` observe their own subtree as well, and the document's `selection` the document's structure, which leaves only a removal inside a shadow tree unobserved.
   - The facts of one selection belong together, so they are one structured value, captured once, as a rectangle's edges are. Its range stays a reference, since what it holds is read on demand, and a structure holding a reference is read through an object expression, as an event is.
   - A `Range`'s members observe the selection and the document, so a range the page's code moves, other than the selection's, is missed, and they are partly observable.
+  - A range's `rect`, `text`, `collapsed` and `all` answer the types an element's members of those names answer, so a receiver of unknown type reads them as one. `selection` answers a `Selection?` of an element and a `DocumentSelection?` of the document, two questions the plan named alike, so a query reads it of a receiver whose type it knows.
 - **Declined:**
   - `DocumentSelection` as a reference type read fresh member by member, which could answer a type of one selection and a range of the next.
   - Keeping `selection` and `hasSelection` partly observable, which the browser no longer justifies.
@@ -349,3 +350,31 @@ Each entry is one of three kinds:
   - A `platform` naming the operating system, which every query would map to the modifier itself.
   - `origin` beside the four parts, constant for a document.
   - `documentElement`, for the reason above.
+
+<a id="d24"></a>
+
+## D24 — `sizeLimits` answers lengths in pixels, and no conversion of `px`
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `sizeLimits` answers `SizeLimits { minWidth, minHeight, maxWidth, maxHeight }` from the computed style, each a number of CSS pixels where the computed value is a length, and null where it is `auto`, `none`, a percentage or a keyword. It is null for a detached element, and partly observable as `style` is.
+- **Why:**
+  - The plan's alternative, a conversion from `"120px"` to a number, would be a conversion between Nexo's own types, `String` and `Number`, which a module that owns neither declares none of, and Nexo's own refuses `"12px"` by its contract.
+  - A computed percentage stays a percentage, and resolving it needs the containing block, which no API answers, so null says the limit is no length rather than guessing one.
+  - The four limits describe one box, so they are one structure, read once.
+- **Declined:** resolving `auto` to 0, which is true for a block box and false for a flex or a grid item, whose automatic minimum is its content's.
+
+<a id="d25"></a>
+
+## D25 — `files` answers what a file input holds, without content
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `files` answers a `List<File>` for a file input, each `File { name, bytes, type, lastModified }`, the empty list where it holds none, and null for any other element. It observes the user's input and changes and the input's `type`, and is partly observable, since the page's code assigning files fires no event.
+- **Why:**
+  - A result is data, and a file's content is no fact a query reads; what an application shows of a chosen file, its name, size and type, is.
+  - The type `File` is DOMQL's own, named as the platform names it, and holds only the data its members name.
+  - A file's size is `bytes`, where the platform says `size`, since DOMQL's `size` is a box's width and height: a `size` of `Number` beside them would leave a member read through a receiver of unknown type, as `panel?.size`, no result its declarations share, which Nexo's resolution of such a receiver needs. A test of DOMQL's resolution caught it.
+- **Declined:** a file's content or an object URL for it, which a module's execution owns ([X10](features-status.md#planned-executions)), since an object URL must be revoked.

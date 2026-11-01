@@ -23,6 +23,9 @@ const FOCUSABLE_ELEMENTS = new Set(['button', 'select', 'textarea', 'iframe']);
 /** The elements whose value the user edits. */
 const VALUE_ELEMENTS = new Set(['input', 'textarea', 'select']);
 
+/** A computed length in CSS pixels, as `120px` or `-0.5px`. */
+const PIXELS = /^-?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?px$/i;
+
 /** The media elements. */
 const MEDIA_ELEMENTS = new Set(['audio', 'video']);
 
@@ -139,6 +142,8 @@ export class BrowserVocabularyImplementations {
             html: ({ receiver: element }) => element.innerHTML,
             value: ({ receiver: element }) => (VALUE_ELEMENTS.has(element.localName) ? element.value : null),
             playback: ({ receiver: element }) => BrowserVocabularyImplementations.#playback(element),
+            files: ({ receiver: element }) => (element.localName === 'input' && element.type === 'file' && element.files !== null ? [...element.files].map(({ name, size, type, lastModified }) => ({ name, bytes: size, type, lastModified })) : null),
+            sizeLimits: ({ receiver: element }) => BrowserVocabularyImplementations.#sizeLimits(element),
             inlineStyle: ({ receiver: element, args: { property } }) => element.style.getPropertyValue(property) || null,
             focusable: ({ receiver: element }) => BrowserVocabularyImplementations.#isFocusable(element),
             direction: ({ receiver: element }) => (element.matches(':dir(rtl)') ? 'rtl' : 'ltr'),
@@ -498,6 +503,18 @@ export class BrowserVocabularyImplementations {
         } catch {
             return element.matches(':-webkit-autofill');
         }
+    }
+
+    /** The limits of the element's size as its computed style holds them, each in pixels or null where it is none, as `auto`, `none`, a percentage or a keyword; null where it is detached. */
+    static #sizeLimits(element) {
+        if (!element.isConnected) {
+            return null;
+        }
+
+        const style = element.ownerDocument.defaultView.getComputedStyle(element);
+        const pixelsOf = value => (PIXELS.test(value) ? Number.parseFloat(value) : null);
+
+        return { minWidth: pixelsOf(style.minWidth), minHeight: pixelsOf(style.minHeight), maxWidth: pixelsOf(style.maxWidth), maxHeight: pixelsOf(style.maxHeight) };
     }
 
     /** The playback of a media element, or null for any other element: its duration null until it is known, and for a stream without an end. */

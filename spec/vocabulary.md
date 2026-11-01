@@ -70,6 +70,8 @@ DOMQL's module declares each of its types with its members, as Nexo's [declaring
 | `ScrollAxis` | How far a box is scrolled along one axis | `offset`, `extent`, `viewport`: `Number` |
 | `Playback` | A media element's playback | `paused`, `muted`, `ended`: `Boolean`; `currentTime`, `volume`: `Number`; `duration`: `Number?` |
 | `Location` | The parts of a URL a page navigates by | `href`, `pathname`, `search`, `hash`: `String` |
+| `SizeLimits` | The limits a box's size is kept within | `minWidth`, `minHeight`, `maxWidth`, `maxHeight`: `Number?` |
+| `File` | A file a user chose, without its content | `name`, `type`: `String`; `bytes`, `lastModified`: `Number` |
 
 `on`, an event source, is one declaration DOMQL's module gives each of `Element`, `Document` and `Window`, the receivers it listens on.
 
@@ -132,6 +134,8 @@ A property exposes a value, read by property access, and takes no argument. Each
 | Element | [`html`](#property-element-html) | `String` |
 | Element | [`value`](#property-element-value) | `String?` |
 | Element | [`playback`](#property-element-playback) | `Playback?` |
+| Element | [`files`](#property-element-files) | `List<File>?` |
+| Element | [`sizeLimits`](#property-element-sizelimits) | `SizeLimits?` |
 | Document | [`activeElement`](#property-document-activeelement) | `Element?` |
 | Shadow view | [`root`](#property-shadow-view-root) | `ShadowRoot?` |
 | Shadow view | [`elements`](#property-shadow-view-elements) | `List<Element>?` |
@@ -417,6 +421,26 @@ An element that is no scroll container is scrolled by 0. Null while it has no la
 **Result.** The value of an `input`, a `textarea` or a `select`, as its `value` answers it, the empty string where nothing is entered or selected, and null for any other element
 
 **Changes.** Partly observable: the user's input, changes and a form's reset in its tree, its `value`, `selected` and `type` attributes, and the structure and text of its subtree, which a text area's default and a select's options decide, are observed; the page's code setting its value, or a select's `selectedIndex`, fires no event and is not
+
+<a id="property-element-files"></a>
+
+### Element: files
+
+**Type:** `List<File>?`   **Reads:** Fresh
+
+**Result.** The files a file input holds, in the order chosen, each its `name`, its size in `bytes`, its `type`, the media type the browser gives it or the empty string, and its `lastModified`, in milliseconds since 1970 began; the empty list where it holds none, and null for any other element. A file's content is not read
+
+**Changes.** Partly observable: the user's input and changes in its tree, a form's reset among them, and its `type` attribute are observed; the page's code assigning its files fires no event and is not
+
+<a id="property-element-sizelimits"></a>
+
+### Element: sizeLimits
+
+**Type:** `SizeLimits?`   **Reads:** Fresh
+
+**Result.** The limits its computed style keeps its size within, `min-width`, `min-height`, `max-width` and `max-height`, each in CSS pixels where the computed value is a length, a length in `em` resolved, and null where it is none: `auto`, `none`, a percentage, which the browser leaves unresolved, and a keyword, as `min-content`; null where it is detached
+
+**Changes.** Partly observable, as `style`
 
 <a id="property-element-playback"></a>
 

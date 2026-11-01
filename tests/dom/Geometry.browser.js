@@ -268,6 +268,15 @@ describe('Geometry in a browser', () => {
             expect(read('box.style["--none"]', { box })).toBeNull();
         });
 
+        it('read the limits of a box\'s size in pixels, an em resolved, and null for a percentage, none and auto', () => {
+            const box = add('font-size: 10px; min-width: 12em; min-height: 33.5px; max-width: 50%; max-height: none');
+            const flexItem = add('display: flex');
+            const item = add('', flexItem);
+
+            expect(read('box.sizeLimits', { box })).toEqual({ minWidth: 120, minHeight: 33.5, maxWidth: null, maxHeight: null });
+            expect(read('item.sizeLimits { minWidth = it.minWidth }', { item })).toEqual({ minWidth: null });
+        });
+
         it('read the sizes of the column tracks of a grid, and none for an element that is no grid', () => {
             const grid = add('display: grid; grid-template-columns: 100px 200px 50px');
             const block = add('');

@@ -700,7 +700,7 @@ panel.scroll {
 }
 ```
 
-`scrollContainer()` finds the nearest ancestor the user can scroll, across shadow roots and slots, and is null where the window scrolls the element. A watch compares each measurement within a twentieth of a pixel, so a box settling by less reports no change.
+`scrollContainer()` finds the nearest ancestor the user can scroll, across shadow roots and slots, and is null where the window scrolls the element. `sizeLimits` reads the `min-width`, `max-width`, `min-height` and `max-height` a box is kept within, in pixels, each null where it is no length. A watch compares each measurement within a twentieth of a pixel, so a box settling by less reports no change.
 
 ### Read values and text
 
@@ -714,7 +714,7 @@ panel {
 }
 ```
 
-A value the page's code sets fires no event, so a watch of `value` needs `acceptPartialObservation`, as the specification's members say of each.
+`files` reads the files a file input holds, each its `name`, `bytes`, `type` and `lastModified`. A value the page's code sets fires no event, so a watch of `value` or `files` needs `acceptPartialObservation`, as the specification's members say of each.
 
 ### Read the selection
 
