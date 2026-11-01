@@ -821,6 +821,15 @@ describe('QueryEvaluator evaluation', () => {
             expect(attachments).toEqual([{ type: 'attachment', target: detached, arguments: {} }]);
         });
 
+        it('include the attachment of a detached element once an evaluation, however many of its members answered null, and that of each such element', () => {
+            const [first, second] = [document.createElement('div'), document.createElement('div')];
+            const evaluation = evaluate('{ a = first.rect, b = first.size, c = second.rect, d = first.style["color"] }', { first, second });
+            const attachments = evaluation.dependencies.flatMap(dependency => dependency.observations).filter(observation => observation.type === 'attachment');
+
+            expect(evaluation.value).toEqual({ a: null, b: null, c: null, d: null });
+            expect(attachments).toEqual([{ type: 'attachment', target: first, arguments: {} }, { type: 'attachment', target: second, arguments: {} }]);
+        });
+
         it('leave the attachment out for an element that is attached', () => {
             const evaluation = evaluate('element.attribute["id"]', { element: panel });
 

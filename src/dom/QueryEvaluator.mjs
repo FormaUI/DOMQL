@@ -26,10 +26,10 @@ import { QueryEvaluation } from './QueryEvaluation.mjs';
  * @property {object | null} consumer Whose evaluations the sessions serve, which an observation of a type that is not shared is kept for.
  * @property {SessionCache} sessionCache The sessions of the watch's evaluations, which this one takes from and adds to.
  * @property {object[]} deferredRequests The requests it leaves unheld, acquired only where the evaluation turns out pending.
- * @property {WeakMap<object, object>} rootOf The root of each node found so far.
- * @property {WeakMap<object, object[]>} rootsOf The roots of each node's flat-tree ancestry found so far.
- * @property {WeakSet<object>} followedRoots The roots whose structure the evaluation already follows.
- * @property {WeakSet<object>} followedAttachments The receivers whose attachment the evaluation already follows.
+ * @property {WeakMap<object, object> | null} rootOf The root of each node found so far, or null before the first.
+ * @property {WeakMap<object, object[]> | null} rootsOf The roots of each node's flat-tree ancestry found so far, or null before the first.
+ * @property {WeakSet<object> | null} followedRoots The roots whose structure the evaluation already follows, or null before the first.
+ * @property {WeakSet<object> | null} followedAttachments The receivers whose attachment the evaluation already follows, or null before the first.
  * @property {boolean} isPending Whether a maintained member it read is still waiting for its first sample.
  */
 
@@ -164,7 +164,7 @@ export class QueryEvaluator {
         sessionCache.beginEvaluation();
 
         const owner = {};
-        const observationContext = { observations, onChange, holdsAllObservations, replaces, dependencies: recordsDependencies ? [] : null, sessions: [], owner, consumer, sessionCache, deferredRequests: [], rootOf: new WeakMap(), rootsOf: new WeakMap(), followedRoots: new WeakSet(), followedAttachments: new WeakSet(), isPending: false };
+        const observationContext = { observations, onChange, holdsAllObservations, replaces, dependencies: recordsDependencies ? [] : null, sessions: [], owner, consumer, sessionCache, deferredRequests: [], rootOf: null, rootsOf: null, followedRoots: null, followedAttachments: null, isPending: false };
         let value;
         let metadata = null;
         let error = null;
@@ -235,7 +235,7 @@ export class QueryEvaluator {
             }
 
             const isOfRoot = observationDeclaration.of === 'root';
-            const target = !isOfRoot ? observations.targetOf(observationDeclaration, receiver, args) : root === undefined ? (root = Observations.rootOf(receiver, this.#observationContext.rootOf)) : root;
+            const target = !isOfRoot ? observations.targetOf(observationDeclaration, receiver, args) : root === undefined ? (root = this.#rootOf(receiver)) : root;
             const cachedSession = this.#holdAt(observationDeclaration, args, target);
 
             if (cachedSession !== null) {
@@ -293,7 +293,7 @@ export class QueryEvaluator {
             }
 
             // A maintained observation observes one target, so never the roots of a receiver's ancestry.
-            const target = observationDeclaration.of === 'root' ? Observations.rootOf(receiver, this.#observationContext.rootOf) : observations.targetOf(observationDeclaration, receiver, args);
+            const target = observationDeclaration.of === 'root' ? this.#rootOf(receiver) : observations.targetOf(observationDeclaration, receiver, args);
             const cachedSession = this.#holdAt(observationDeclaration, args, target);
 
             if (cachedSession !== null) {
@@ -315,11 +315,11 @@ export class QueryEvaluator {
 
     /** A member that answered null for an element that is detached depends on whether the element is attached, so it is read again when the element returns. */
     #followDetachedReceiver({ declaration, receiver, pointer }, value) {
-        if (value !== null || receiver?.nodeType !== 1 || receiver.isConnected || this.#moduleRegistry.getObservationType('attachment') === undefined || this.#observationContext.followedAttachments.has(receiver)) {
+        if (value !== null || receiver?.nodeType !== 1 || receiver.isConnected || this.#moduleRegistry.getObservationType('attachment') === undefined || this.#observationContext.followedAttachments?.has(receiver) === true) {
             return;
         }
 
-        this.#observationContext.followedAttachments.add(receiver);
+        (this.#observationContext.followedAttachments ??= new WeakSet()).add(receiver);
 
         const cachedSession = this.#holdAt(ATTACHMENT_OBSERVATION, NO_ARGUMENTS, receiver);
 
@@ -333,7 +333,7 @@ export class QueryEvaluator {
      * @param {object[] | null} requests The requests the call records, which these join, or null where the evaluation records none.
      */
     #followAncestry(receiver, roots, requests) {
-        const { followedRoots } = this.#observationContext;
+        const followedRoots = (this.#observationContext.followedRoots ??= new WeakSet());
 
         // Every receiver leaving a root changes the root's own structure, so each root is followed once an evaluation, whichever receiver is in it.
         for (let index = 0; index < roots.length; index++) {
@@ -359,13 +359,11 @@ export class QueryEvaluator {
 
     /** Follows whether the receiver is attached, once an evaluation, where the outermost root of its ancestry is the top of a detached tree, which moves without a change inside any root. */
     #followAttachment(receiver, outermostRoot, requests) {
-        const { followedAttachments } = this.#observationContext;
-
-        if (outermostRoot === null || outermostRoot.nodeType === 9 || (outermostRoot.nodeType === 11 && outermostRoot.host !== undefined) || followedAttachments.has(receiver) || this.#moduleRegistry.getObservationType(ATTACHMENT_OBSERVATION.type) === undefined) {
+        if (outermostRoot === null || outermostRoot.nodeType === 9 || (outermostRoot.nodeType === 11 && outermostRoot.host !== undefined) || this.#observationContext.followedAttachments?.has(receiver) === true || this.#moduleRegistry.getObservationType(ATTACHMENT_OBSERVATION.type) === undefined) {
             return;
         }
 
-        followedAttachments.add(receiver);
+        (this.#observationContext.followedAttachments ??= new WeakSet()).add(receiver);
         const cachedSession = this.#holdAt(ATTACHMENT_OBSERVATION, NO_ARGUMENTS, receiver);
 
         requests?.push(cachedSession.request);
@@ -376,9 +374,14 @@ export class QueryEvaluator {
         return observationDeclaration.type === 'mutation' && observationDeclaration.childList === true && observationDeclaration.subtree === true;
     }
 
+    /** The root of the tree the receiver is in, each node's found once an evaluation, so receivers of one tree walk it once. */
+    #rootOf(receiver) {
+        return Observations.rootOf(receiver, (this.#observationContext.rootOf ??= new WeakMap()));
+    }
+
     /** The roots of the receiver's flat-tree ancestry, each node's found once an evaluation, so receivers that share an ancestry walk it once. */
     #rootsOf(receiver) {
-        return Observations.rootsOf(receiver, this.#observationContext.rootsOf);
+        return Observations.rootsOf(receiver, (this.#observationContext.rootsOf ??= new WeakMap()));
     }
 
     /**
