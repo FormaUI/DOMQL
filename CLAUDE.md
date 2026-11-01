@@ -13,6 +13,7 @@ Read the documents that govern the affected contract:
 | [Nexo design](https://github.com/FormaUI/Nexo/blob/65d247bc6f6b0dde1b701bbfd41f19a40838174c/docs/nexo-design.md) | How Nexo is built: its stages, modules, evaluation and tooling |
 | [DOMQL design](docs/domql-design.md) | How DOMQL is built: its architecture, resolution, sessions, watching, comparing and patching, the C# half, and the decisions not taken |
 | [Status](docs/features-status.md) | What is implemented, the migration to Nexo, the planned capabilities, open decisions and deferred work |
+| [Decisions](docs/decisions.md) | Each decision taken without stopping to ask, with why and what was declined, for review |
 | [Version history](VERSION-HISTORY.md) | Each DOMQL version, newest first, with the features it added, what it changed and what it breaks |
 | [Library guide](nuget/README.md) | Using DOMQL by example; it ships in the package, so it links absolutely |
 | `.editorconfig` | Code style; read it before writing C# |
@@ -32,7 +33,7 @@ Use these sources rather than inventing scope, status or style rules.
 | `tests/` | Tests mirroring the source folders |
 | `scripts/` | Bundling scripts |
 | `spec/` | The specification, one document per subject, indexed by `spec/README.md` |
-| `docs/` | The design and the status overview |
+| `docs/` | The design, the status overview and the decisions |
 | `VERSION-HISTORY.md` | Each DOMQL version and what it changed |
 | `nuget/` | The package project, which distributes the bundle, and the library guide |
 | `.local/` | Personal experiments, spikes, notes and benchmark baselines; ignored by Git |

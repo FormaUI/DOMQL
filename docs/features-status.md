@@ -78,7 +78,7 @@ Each feature, the contract that states it, its state in the implementation, and 
 DOMQL moved from Lexica at `0e98b3e`, language `1.0.0-alpha.33`, to Nexo's language `1.0.0-beta.3`, the language Lexica became, at `559334c`, and has followed Nexo's commits since. Nexo's checklist for the move, of every change DOMQL adopted and where DOMQL used what changed, is [DOMQL's migration](https://github.com/FormaUI/Nexo/blob/c9db3adc838ab8d16a6aa1626ce6df5a61b50f79/docs/features-status.md#domqls-migration), as Nexo kept it until the move was done. DOMQL's [version `1.0.0-alpha.278`](../VERSION-HISTORY.md#v1-0-0-alpha-278) records what changed for its callers.
 
 - **One pin.** The migration was planned in checkpoints, each on a Nexo commit pinned as Nexo's work landed. Nexo reached its beta first, and its checklists describe the beta, so DOMQL moved to the beta at one pin, its checkpoints the order of the work, and passed its gate once on the beta: pinning a commit for each checkpoint would have meant writing against interfaces Nexo had already changed again.
-- **Imports.** DOMQL supplies its own module, `Domql`, as every query's import, and a query writes its other imports. An application configures no imports of its own, so a query's text means the same whatever was configured, and [the open decisions](#open-decisions) keep that question.
+- **Imports.** DOMQL supplies its own module, `Domql`, as every query's import, and a query writes its other imports. An application configures no imports of its own, so a query's text means the same whatever was configured, as [D4](decisions.md#d4) records.
 - **Errors.** DOMQL's own conditions take `DOMQL` codes, catalogued in [errors](../spec/errors.md), bounded to the conditions it reports today; an error of Nexo's passing through DOMQL keeps its own code.
 - **Module errors.** A module error of DOMQL's own, as its dispatch table's refusals are, is built with `NexoError.module`, which Nexo declared for its hosts in language `1.0.0-beta.2` for DOMQL's migration, as its [decisions](https://github.com/FormaUI/Nexo/blob/main/docs/decisions.md#d29) record.
 - **Host calls on a receiver of unknown type.** What such a call requests is read from the candidates Nexo answers for it, every declaration that takes the call as it is written, which Nexo answers from language `1.0.0-beta.3` for DOMQL, as its [decisions](https://github.com/FormaUI/Nexo/blob/main/docs/decisions.md#d30) record. DOMQL read them from an index of its own before, which counted host calls a query could not reach.
@@ -154,7 +154,7 @@ The language's part is Nexo's already, adopted with the [migration](#migration-t
 
 | | Addition |
 | --- | --- |
-| E1 | Listening in the capture phase, `on(type, { capture = true })`, for observing alone ([D2](#open-decisions)); the `event` observation type takes `capture` already |
+| E1 | Listening in the capture phase, `on(type, { capture = true })`, for observing alone ([D2](decisions.md#d2)); the `event` observation type takes `capture` already |
 | E2 | Pointer: `pointermove`, `pointercancel`, `lostpointercapture`, `dblclick`, `touchmove`; members `pointerId`, `detail`, `timeStamp` and the modifiers `ctrlKey`, `metaKey`, `altKey`, `shiftKey` |
 | E3 | `wheel` as `WheelEvent { target, deltaX, deltaY, deltaMode, timeStamp }` with the modifiers |
 | E4 | Drag: `dragenter`, `dragover`, `dragleave`, `dragstart`, `dragend`; `DragEvent.types` → `List<String>` |
@@ -205,7 +205,7 @@ A behavior's occurrences, state, commands and owner (C1 to C4), and reactions in
 
 | | Addition |
 | --- | --- |
-| C1 | **Occurrences a behavior offers:** an event source bound to the owner's running continuous execution on the receiver, which delivers in the order the behavior calls `deliver`, never coalesced, and outlives the execution's replacement and release ([open decision](#open-decisions)). It reopens the design's [event sources a continuous execution offers](domql-design.md#decisions-not-taken) |
+| C1 | **Occurrences a behavior offers:** an event source bound to the owner's running continuous execution on the receiver, which delivers in the order the behavior calls `deliver`, never coalesced, and outlives the execution's replacement and release ([D3](decisions.md#d3)). It reopens the design's [event sources a continuous execution offers](domql-design.md#decisions-not-taken) |
 | C2 | **State a behavior offers:** a module member backed by the running instance, which a watch reads and follows |
 | C3 | **Commands to a running behavior:** one instance per receiver that the module's once executions and sources find, so commands such as `fit`, `measure`, `raise`, `open`, `close` and an editor's `execute` reach it; today a module keeps its own `WeakMap` of running instances |
 | C4 | **The owner's identity** in what an implementation receives, so "this owner's behavior on this element" needs no token passed by hand in every query |
@@ -295,19 +295,13 @@ This work is separate from the plan above. No order is assigned here.
 | --- | --- | --- |
 | Editor tooling | Planned | Nexo's, through its syntax tree, in its [tooling](https://github.com/FormaUI/Nexo/blob/main/docs/features-status.md#tooling) |
 
-**Verification outside the gate.** `Domql.window.size` following a scrollbar that appears or goes is shown only by an experiment outside the gate, since the gate's Chromium hides scrollbars; a browser test with a launch of its own would bring it in without changing the other tests' geometry. Performance is measured outside the gate too, by `npm run bench` and `npm run scale` from `tests/`.
+**Verification outside the gate.** Performance is measured outside the gate, by `npm run bench` and `npm run scale` from `tests/`. `Domql.window.size` following a scrollbar that appears or goes runs in the gate, as a browser test with a launch of its own.
 
 <a id="open-decisions"></a>
 
 ## Open decisions
 
-| Decision | State |
-| --- | --- |
-| Imports an application configures | Every query imports `Domql` alone, which DOMQL supplies, and writes its other imports, so a query's text means the same in every application. Imports an application configures wait for a consumer that needs them. |
-| A flat-tree parent | A parent across slots, beside the tree's own `parent` and `root`, waits until its uses and its meaning are clear. |
-| Which changes are built in | Proposed: generic web-platform changes are DOMQL's built-in executions, and an application's algorithms its own modules. A change is built in where it is one platform call with a platform result, as focusing, scrolling, showing a popover, capturing a pointer and writing the clipboard are, and a module's where it carries a policy, as stepping, placement, gestures and roving focus do. DOMQL stays independent of its consumers, and every consumer needs the generic half. |
-| `on` stays passive | Proposed: `on` never cancels. Cancelling an event, consuming a key, claiming a click and capturing a pointer stay synchronous inside a module's own listeners, and `on` gains the capture phase for observing alone ([E1](#planned-events)). A cancelling subscription would have to decide synchronously, before any caller sees the event. |
-| A behavior's occurrences | Proposed: a behavior's occurrences are event sources of the module that declares the behavior, bound to the running continuous execution of the same owner on the same receiver, and outliving its replacement and release ([C1](#planned-extension-contract)). Every behavior that reports needs it. |
+None. The [decisions](decisions.md) record each one taken without stopping to ask, for review: what is built in ([D1](decisions.md#d1)), a passive `on` ([D2](decisions.md#d2)), a behavior's occurrences ([D3](decisions.md#d3)), imports a query writes ([D4](decisions.md#d4)) and no flat-tree parent ([D5](decisions.md#d5)).
 
 <a id="deferred"></a>
 
