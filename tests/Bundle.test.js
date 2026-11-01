@@ -5,8 +5,8 @@ import { beforeAll, describe, it, expect } from 'vitest';
 import { bundle } from '../scripts/bundle.mjs';
 import { Versions } from '#domql/Versions.mjs';
 
-/** The bundle's one export statement, which names domql and LexicaError, in either order. */
-const EXPORT = /export\{([\w$]+) as (domql|LexicaError),([\w$]+) as (domql|LexicaError)\};?\s*$/;
+/** The bundle's one export statement, which names domql and NexoError, in either order. */
+const EXPORT = /export\{([\w$]+) as (domql|NexoError),([\w$]+) as (domql|NexoError)\};?\s*$/;
 
 describe('Bundle', () => {
     let text;
@@ -15,22 +15,23 @@ describe('Bundle', () => {
     beforeAll(async () => {
         text = await bundle();
         bundled = new Function(text.replace(EXPORT, 'return { $2: $1, $4: $3 };'))();
-    });
+        // Bundling DOMQL's and Nexo's sources takes seconds while the other test files run beside it.
+    }, 30_000);
 
     it('is one file that imports nothing', () => {
-        // An import begins a statement, or calls import(); a string naming the word, as a declaration's import field does, is neither.
-        expect(text).not.toMatch(/(?:^|[;{}])\s*import\s*[{"'*\w]|\bimport\s*\(/m);
+        // An import begins a statement, or calls import(); a string naming the word, as a declaration's import key does, and a name that begins with it, as imports does, are neither.
+        expect(text).not.toMatch(/(?:^|[;{}])\s*import\b\s*[{"'*\w]|\bimport\s*\(/m);
     });
 
-    it('exports domql and LexicaError alone', () => {
+    it('exports domql and NexoError alone', () => {
         expect(text).toMatch(EXPORT);
         expect(text.match(/\bexport\b/g)).toHaveLength(1);
-        expect(Object.keys(bundled).sort()).toEqual(['LexicaError', 'domql']);
+        expect(Object.keys(bundled).sort()).toEqual(['NexoError', 'domql']);
     });
 
-    it('is less than half the size of the sources it bundles, DOMQL\'s and Lexica\'s', async () => {
+    it('is less than half the size of the sources it bundles, DOMQL\'s and Nexo\'s', async () => {
         const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-        const folders = [resolve(root, 'src'), resolve(root, 'node_modules', '@formaui', 'lexica', 'src')];
+        const folders = [resolve(root, 'src'), resolve(root, 'node_modules', '@formaui-net', 'nexo', 'src')];
         const files = (await Promise.all(folders.map(folder => readdir(folder, { recursive: true, withFileTypes: true })))).flat().filter(entry => entry.isFile()).map(entry => join(entry.parentPath, entry.name));
         const size = (await Promise.all(files.map(file => readFile(file, 'utf8')))).reduce((total, source) => total + source.length, 0);
 
@@ -40,7 +41,7 @@ describe('Bundle', () => {
     it('makes query objects from text and from a definition as the sources do', () => {
         const query = bundled.domql.query('panel { size = it.size, hasFocus = it.matches(":focus-within") }', { panel: 1 });
 
-        expect(query.definition.expression.fields.map(field => field.name)).toEqual(['size', 'hasFocus']);
+        expect(query.definition.expression.objectFields.map(field => field.name)).toEqual(['size', 'hasFocus']);
         expect(bundled.domql.query(query.definition, { panel: 2 }).definition).toEqual(query.definition);
         expect(query.with({ panel: 3 }).definition).toBe(query.definition);
         expect(bundled.domql.info.versions.specification).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?$/);
@@ -54,8 +55,8 @@ describe('Bundle', () => {
         expect(Object.isFrozen(bundled.domql.info.versions)).toBe(true);
     });
 
-    it('keeps the errors the sources raise, as LexicaError', () => {
-        expect(() => bundled.domql.query('panel {')).toThrow(bundled.LexicaError);
-        expect(() => bundled.domql.query('panel {')).toThrow(/A field is written with its name/);
+    it('keeps the errors the sources raise, as NexoError', () => {
+        expect(() => bundled.domql.query('panel {')).toThrow(bundled.NexoError);
+        expect(() => bundled.domql.query('panel {')).toThrow(/An object field is written with its name/);
     });
 });

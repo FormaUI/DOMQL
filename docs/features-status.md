@@ -2,16 +2,16 @@
 
 ## Current state
 
-**DOMQL's vocabulary, queries, watches, events and executions are implemented on Lexica's language `1.0.0-alpha.33`, definition version 33. The specification describes DOMQL's `1.0.0-alpha.277`, which declares the DOM as DOMQL's own types; the implementation follows `1.0.0-alpha.276`, with `1.0.0-alpha.277`'s indexer forms and type names. Next is the [migration to Nexo](#migration-to-nexo), the language Lexica became.**
+**DOMQL's vocabulary, queries, watches, events and executions are implemented on Nexo's language `1.0.0-beta.3`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.278`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next is [the C# half](#the-c-half).**
 
 | Version | Implementation | Specification |
 | --- | --- | --- |
-| DOMQL specification | `1.0.0-alpha.276` | `1.0.0-alpha.277` |
-| Lexica language | `1.0.0-alpha.33` | `1.0.0-alpha.33` |
-| Definition format | 33 | 33 |
+| DOMQL specification | `1.0.0-alpha.278` | `1.0.0-alpha.278` |
+| Nexo language | `1.0.0-beta.3` | `1.0.0-beta.3` |
+| Definition format | 38 | 38 |
 
-- **The language DOMQL runs on.** DOMQL builds against Lexica at the commit `lexica.commit` pins, `0e98b3e`. Lexica has since been renamed Nexo, its repository [FormaUI/Nexo](https://github.com/FormaUI/Nexo), which keeps that commit; DOMQL's documents link to [Lexica's documents at it](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/README.md), and call the language Nexo once the migration's fourth checkpoint adopts it.
-- **Packages.** The bundle and type declarations are built, with Lexica bundled inside `domql.js`. npm and NuGet packages are packed locally but unpublished.
+- **The language DOMQL runs on.** DOMQL builds against Nexo at the commit `nexo.commit` pins, `559334c`, Nexo's `1.0.0-beta.3`, and its documents link to [Nexo's documents at it](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/README.md). The language was called Lexica before the [migration](#migration-to-nexo).
+- **Packages.** The bundle and type declarations are built, with Nexo bundled inside `domql.js`. npm and NuGet packages are packed locally but unpublished.
 - **The C# half** is designed and not started.
 
 The [specification](../spec/README.md) defines the contract, and the [design](domql-design.md) explains the architecture. The [version history](../VERSION-HISTORY.md) records what each version changed. This file tracks DOMQL's implementation and its remaining work. "Implemented" means built and tested in the gate for the current implementation version; it does not imply that later specification changes are implemented.
@@ -22,10 +22,9 @@ The [specification](../spec/README.md) defines the contract, and the [design](do
 
 | Work | State |
 | --- | --- |
-| [Migration to Nexo](#migration-to-nexo) | Four checkpoints, the first next |
-| [The C# half](#the-c-half) | After the migration |
+| [The C# half](#the-c-half) | Next |
 | [Planned capabilities](#planned-capabilities) | Planned, in the order they are listed |
-| [Release](#release) | After the migration, on Nexo's published packages |
+| [Release](#release) | On Nexo's published packages |
 
 - **Breaking changes are made directly,** without compatibility layers, migration notes or deprecations, until the beta.
 - **Documents move with their change.** The READMEs, the library guide, the specification, the type declarations, the version history and this file change in the commit that changes what they describe.
@@ -41,129 +40,50 @@ Each feature, the contract that states it, its state in the implementation, and 
 
 | Feature | Contract | State | Since |
 | --- | --- | --- | --- |
-| Nodes and shadow trees, crossed explicitly | [Nodes and shadow trees](../spec/nodes-and-shadow-trees.md) | Implemented in part: the node types are built into Lexica until the [first checkpoint](#checkpoint-1--declarations-and-the-runtime) declares them as DOMQL's own reference types | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
+| Nodes and shadow trees, crossed explicitly | [Nodes and shadow trees](../spec/nodes-and-shadow-trees.md) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
 | Properties, functions and indexers of the DOM | [Built-in vocabulary](../spec/vocabulary.md) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
-| Lexica's indexer forms and type names in PascalCase | [Types](../spec/vocabulary.md#vocabulary-types) | Implemented | [`alpha.277`](../VERSION-HISTORY.md#v1-0-0-alpha-277) |
-| `domql.document` and `domql.window` | [Module members](../spec/vocabulary.md#module-members) | Implemented | [`alpha.276`](../VERSION-HISTORY.md#v1-0-0-alpha-276) |
+| Nexo's indexer forms and type names in PascalCase | [Types](../spec/vocabulary.md#vocabulary-types) | Implemented | [`alpha.277`](../VERSION-HISTORY.md#v1-0-0-alpha-277) |
+| `Domql.document` and `Domql.window` | [Module members](../spec/vocabulary.md#module-members) | Implemented | [`alpha.278`](../VERSION-HISTORY.md#v1-0-0-alpha-278) |
 | Boolean functions | [Boolean functions](../spec/vocabulary.md#boolean-functions) | Implemented | [`alpha.276`](../VERSION-HISTORY.md#v1-0-0-alpha-276) |
-| Conversions, Lexica's, which DOMQL's queries use | [Built-in conversions](../spec/vocabulary.md#built-in-conversions) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
+| Conversions, Nexo's, which DOMQL's queries use | [Built-in conversions](../spec/vocabulary.md#built-in-conversions) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
 | Observation types, shared in sessions | [Observation types](../spec/vocabulary.md#observations-types) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
 | Observation targets DOMQL declares and resolves | [Observation targets](../spec/vocabulary.md#observations-targets) | Implemented | [`alpha.276`](../VERSION-HISTORY.md#v1-0-0-alpha-276) |
 | Event sources and event types | [Events](../spec/events.md#event-sources) | Implemented | [`alpha.276`](../VERSION-HISTORY.md#v1-0-0-alpha-276) |
-| Extension modules: their types, members, observations, event sources and executions | [Extension modules](../spec/vocabulary.md#extension-modules) | Implemented in part: declared in Lexica's flat shape until the [first checkpoint](#checkpoint-1--declarations-and-the-runtime) | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
-| The DOM declared as DOMQL's own reference types, and the cast from `Aria` to `Element` | [Nodes](../spec/nodes-and-shadow-trees.md#nodes), [types](../spec/vocabulary.md#vocabulary-types) | Planned: the [first checkpoint](#checkpoint-1--declarations-and-the-runtime) | — |
-| Diagnostic codes of DOMQL's own | [The API](../spec/api.md#api-errors) | Planned: the [first checkpoint](#checkpoint-1--declarations-and-the-runtime) | — |
+| Extension modules: their types, extensions read with `:`, observations, event sources and executions | [Extension modules](../spec/vocabulary.md#extension-modules) | Implemented | [`alpha.278`](../VERSION-HISTORY.md#v1-0-0-alpha-278) |
+| The DOM declared as DOMQL's own reference types, and the cast from `Aria` to `Element` | [Nodes](../spec/nodes-and-shadow-trees.md#nodes), [types](../spec/vocabulary.md#vocabulary-types) | Implemented | [`alpha.278`](../VERSION-HISTORY.md#v1-0-0-alpha-278) |
+| Diagnostic codes of DOMQL's own | [Errors](../spec/errors.md) | Implemented | [`alpha.278`](../VERSION-HISTORY.md#v1-0-0-alpha-278) |
 
 ### The host
 
 | Feature | Contract | State | Since |
 | --- | --- | --- | --- |
 | Queries from text or a definition, `with`, `select` and `resolve` | [Queries](../spec/queries.md) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
+| Imports, `Domql` supplied to every query | [Its imports](../spec/queries.md#making-a-query-imports) | Implemented | [`alpha.278`](../VERSION-HISTORY.md#v1-0-0-alpha-278) |
 | Evaluating once, and waiting for maintained members | [Evaluation](../spec/evaluation.md) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
 | Watches, their dependencies and partial observation | [Watches](../spec/watches.md) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
-| Snapshots, live state and change sets | [Results](../spec/results.md) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
+| Snapshots, live state and change sets | [Results](../spec/results.md) | Implemented; a selection takes a dictionary or a pair whole | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
+| Items matched by provenance, and dictionaries and pairs in results | [Change sets](../spec/results.md#results-change-sets), [dictionaries and pairs](../spec/results.md#results-collections) | Implemented | [`alpha.278`](../VERSION-HISTORY.md#v1-0-0-alpha-278) |
 | Subscriptions to event sources | [Events](../spec/events.md#subscribing) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
-| Executions, once and continuous, carried out over Lexica's host calls | [Executions](../spec/executions.md), [host calls DOMQL carries out](../spec/vocabulary.md#extension-modules-host-calls) | Implemented | [`alpha.276`](../VERSION-HISTORY.md#v1-0-0-alpha-276) |
+| Executions, once and continuous, carried out over Nexo's host calls | [Executions](../spec/executions.md), [host calls DOMQL carries out](../spec/vocabulary.md#extension-modules-host-calls) | Implemented | [`alpha.276`](../VERSION-HISTORY.md#v1-0-0-alpha-276) |
 | Handles: their events, lifetimes and errors | [The API](../spec/api.md) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
 | `domql.info.versions` | [The API](../spec/api.md#api-entry-points-and-operations) | Implemented | [`alpha.275`](../VERSION-HISTORY.md#v1-0-0-alpha-275) |
 | The JavaScript bundle and its TypeScript declarations | [README](../README.md#build-and-try-it) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
-| The C# half | [Design](domql-design.md#the-c-half) | Planned: [after the migration](#the-c-half) | — |
+| The C# half | [Design](domql-design.md#the-c-half) | Planned: [next](#the-c-half) | — |
 
 <a id="migration-to-nexo"></a>
 <a id="implementation-plan"></a>
 
 ## Migration to Nexo
 
-DOMQL moves from Lexica at `0e98b3e` to Nexo in four checkpoints, in order, each on a Nexo commit `lexica.commit` pins as it lands. Nexo keeps a checklist for each, of every change DOMQL adopts and where DOMQL uses what changed: [DOMQL's migration](https://github.com/FormaUI/Nexo/blob/main/docs/features-status.md#domqls-migration). This section holds what DOMQL decides at each.
+DOMQL moved from Lexica at `0e98b3e`, language `1.0.0-alpha.33`, to Nexo's language `1.0.0-beta.3`, the language Lexica became, at the commit `nexo.commit` pins, `559334c`. Nexo's checklist for the move, of every change DOMQL adopted and where DOMQL used what changed, is [DOMQL's migration](https://github.com/FormaUI/Nexo/blob/c9db3adc838ab8d16a6aa1626ce6df5a61b50f79/docs/features-status.md#domqls-migration), as Nexo kept it until the move was done. DOMQL's [version `1.0.0-alpha.278`](../VERSION-HISTORY.md#v1-0-0-alpha-278) records what changed for its callers.
 
-- **Each checkpoint is whole.** It moves every aspect it touches to its final form, and passes DOMQL's gate, browser tests included, on the Nexo commit it pins.
-- **Nexo's later versions.** Nexo's checklists reach its language `1.0.0-alpha.39`. Its later versions are adopted at the fourth checkpoint, as Nexo's [language history](https://github.com/FormaUI/Nexo/blob/main/LANGUAGE-HISTORY.md) sets out: an extension member is read with `:`, never `.`, and an extension access's names are read by the declarations they name, in definition format 38. DOMQL's own members stay `.`, and those other modules declare in extensions of DOMQL's types are read with `:`.
+- **One pin.** The migration was planned in checkpoints, each on a Nexo commit pinned as Nexo's work landed. Nexo reached its beta first, and its checklists describe the beta, so DOMQL moved to the beta at one pin, its checkpoints the order of the work, and passed its gate once on the beta: pinning a commit for each checkpoint would have meant writing against interfaces Nexo had already changed again.
+- **Imports.** DOMQL supplies its own module, `Domql`, as every query's import, and a query writes its other imports. An application configures no imports of its own, so a query's text means the same whatever was configured, and [the open decisions](#open-decisions) keep that question.
+- **Errors.** DOMQL's own conditions take `DOMQL` codes, catalogued in [errors](../spec/errors.md), bounded to the conditions it reports today; an error of Nexo's passing through DOMQL keeps its own code.
+- **Module errors.** A module error of DOMQL's own, as its dispatch table's refusals are, is built with `NexoError.module`, which Nexo declared for its hosts in language `1.0.0-beta.2` for DOMQL's migration, as its [decisions](https://github.com/FormaUI/Nexo/blob/main/docs/decisions.md#d29) record.
+- **Host calls on a receiver of unknown type.** What such a call requests is read from the candidates Nexo answers for it, every declaration that takes the call as it is written, which Nexo answers from language `1.0.0-beta.3` for DOMQL, as its [decisions](https://github.com/FormaUI/Nexo/blob/main/docs/decisions.md#d30) record. DOMQL read them from an index of its own before, which counted host calls a query could not reach.
 
-| Checkpoint | Work | State |
-| --- | --- | --- |
-| 1 | [Declarations and the runtime](#checkpoint-1--declarations-and-the-runtime) | Next |
-| 2 | [Scripts and imports](#checkpoint-2--scripts-and-imports) | Planned |
-| 3 | [Collections in results](#checkpoint-3--collections-in-results) | Planned |
-| 4 | [Host additions and the rename](#checkpoint-4--host-additions-and-the-rename) | Planned |
-
-<a id="checkpoint-1--declarations-and-the-runtime"></a>
-
-### Checkpoint 1 — Declarations and the runtime
-
-DOMQL's vocabulary and its use of the runtime move once.
-
-- **Its vocabulary, rewritten once:**
-  - Each type with its members, its structured types' stored properties among them, its indexers as the `indexer` kind, with a `name` for a named indexer and without one for a type's unnamed indexer, and `impl`.
-  - `on` declared once in each of `Element`, `Document` and `Window`, the receivers it listens on, reusing one JavaScript declaration.
-  - `Node`, abstract, with `Element`, `Document`, `DocumentFragment` and `ShadowRoot` beneath it, `Window`, and the views `Shadow` and `Aria`, given by an element's `shadow` and `aria` alone. DOMQL's `typeOf` recognizes a bound node as its kind and the window as `Window`, each type's `isInstance` checks membership, and text and comment nodes are refused as bindings.
-  - The cast from `Aria` to `Element`, without an `impl`, so `(panel.aria as Element).aria` reads the element's view again; an `Element` still can't be cast to either view.
-  - The module named `Domql`, so its queries read `Domql.document`, `Domql.window` and `panel as Domql.Element`; the package, its file `domql.js` and the product keep their names.
-- **Diagnostic codes.** DOMQL's own conditions take `DOMQL` codes, with a catalog in its specification, bounded to the conditions it reports today; an error of the language passing through DOMQL keeps its own code and takes no second, DOMQL one.
-- **Its catalog of host calls** reading types' and extensions' members and `impl`, a JavaScript declaration reused across types mapping each declaration the runtime makes of it.
-- **Binding through DOMQL's registry** when a query is made, keeping the bindings that query captured. Binding and repeated evaluation are measured with DOMQL's scale workloads before the runtime caches any membership answer.
-- **Ownership and visibility.** Members other modules declare on DOMQL's types are extensions: competing extensions both register and are refused only where a query uses them ambiguously, and from the fourth checkpoint they are read with `:`, apart from DOMQL's own. DOMQL follows the language's visibility rules, and nothing of its own changes for them.
-- **Deferred selection.** Admission and observation stay two mechanisms:
-
-  | Mechanism | Purpose |
-  | --- | --- |
-  | The used declarations, and the candidate declarations of each deferred access | Decide, before a watch starts, whether the query satisfies the watch's observation policy |
-  | `beforeInvoke` | Establish observations for the receivers and arguments evaluation actually reaches |
-
-  A watch checks the combined declarations under the existing rules: an unobserved member is refused, a partly observable one requires `acceptPartialObservation`, and constant, observable and derived members follow their contracts. It starts no observation for a candidate, and its dependencies remain what each evaluation reads, refreshed on each one. Candidates are an overestimate, so a watch can be refused for a declaration its values never select; that refusal names the deferred access and the candidates at fault, and says to make the receiver's type known or to name its extension. Refusals stay findable before a watch starts. `resolve` reports the deferred accesses, and a host call on a receiver whose type is known only during evaluation is refused before anything is invoked.
-- **Projection sources.** `SnapshotComparer` and `SnapshotPatcher` match a list's items by source identity only where both lists give a unique, non-null source that the runtime classifies as a reference for every item, and by position otherwise, checked against reordered and duplicate references, repeated equal data values and null inputs. DOMQL reads the classification the runtime reports, never inferring it from `typeof`, JavaScript identity, a DOM check or another recognition.
-- **Tests:** every test module in the final shape and named in PascalCase, conversions declared as operators, and the registration's refusal of competing extensions replaced by ambiguity where a query uses them.
-- **Documents:** the watches document's admission by candidate declarations; the specification's extension shape and `impl`; its heading for `is`, `has` and `supports` named apart from the language's `Any`; the results document and the design no longer saying sources come from elements; and the library guide's module examples and their fixtures.
-
-**Completion:** DOMQL's vocabulary in the final shape, bound and typed by its registry, passes the gate, browser tests included.
-
-Contracts: [Nodes and shadow trees](../spec/nodes-and-shadow-trees.md), [Types](../spec/vocabulary.md#vocabulary-types), [Extension modules](../spec/vocabulary.md#extension-modules), [Results](../spec/results.md).
-
-<a id="checkpoint-2--scripts-and-imports"></a>
-<a id="checkpoint-2--script-text-and-imports"></a>
-
-### Checkpoint 2 — Scripts and imports
-
-DOMQL's queries move to Nexo's script text once.
-
-- **Imports.** DOMQL supplies `Domql` as every query's import. An application configures further imports once, which apply to every query, and a query may write its own, an identical import counting once. The same effective imports apply to parsing, resolution and caching, and formatting writes a definition's imports but those a caller names as supplied by the destination. Registering a module adds nothing to an existing query's imports and makes no lookup of it ambiguous.
-- **Definitions.** DOMQL's definitions, tests and type declarations record imports and the definition version the checkpoint's Nexo commit reads.
-- **Versions:** the language row and the definition format follow that commit.
-- **Documents:** the queries and API documents describe imports and the effective imports DOMQL supplies.
-
-**Completion:** DOMQL's queries in Nexo's script text pass the gate, browser tests included.
-
-Contracts: [Queries](../spec/queries.md), [the API](../spec/api.md).
-
-<a id="checkpoint-3--collections-in-results"></a>
-
-### Checkpoint 3 — Collections in results
-
-DOMQL's handling of results moves once to Nexo's collections.
-
-- **Comparing and patching:** `SnapshotComparer`, `SnapshotPatcher` and live state compare and apply dictionaries, in their exported form `{ entries: [{ key, value }, …] }` and in their order, and pairs, `{ key, value }`, every change set reproducing the next result from its baseline.
-- **Addressing:** result paths and selections address the exported forms, a numeric dictionary key never taken for a list index, and say whether a selection follows a position or a key.
-- **Matching:** items matched by the sources and the lineage the runtime reports, as the [first checkpoint](#checkpoint-1--declarations-and-the-runtime) matches by sources, DOMQL deciding the policy and the runtime promising no unique correspondence.
-- **Documents:** the results document and the API describe dictionaries and pairs in results.
-
-**Completion:** DOMQL's results holding lists and dictionaries pass the gate, browser tests included.
-
-Contracts: [Results](../spec/results.md).
-
-<a id="checkpoint-4--host-additions-and-the-rename"></a>
-
-### Checkpoint 4 — Host additions and the rename
-
-DOMQL adopts the language's additions for hosts, its later versions, and its name.
-
-- **Resolutions kept while current.** A resolution is kept while the runtime says it is current, rather than while the registry's revision stands, and an integration test shows a watch and a subscription running when a module registers keep evaluating and delivering.
-- **The rename.** The language is called Nexo throughout DOMQL's documents and messages; DOMQL imports `nexo` and `NexoError`, depends on `@formaui/nexo`, and builds from a checkout of [FormaUI/Nexo](https://github.com/FormaUI/Nexo) named `formaui-net.Nexo`, in its build and in CI. Its links into the language's specification move to Nexo's documents, `spec/language/` and `spec/runtime/`, at the commit it pins.
-- **The verbs.** `is`, `has` and `supports` leave DOMQL's documents, which describe them as another way to call a Boolean function; its queries call none.
-- **Nexo's later versions:** extension members read with `:`, an extension access's names read by their declarations, and definition format 38, in DOMQL's extension modules, examples, tests and type declarations.
-- **Versions:** the language row and the definition format follow the commit it pins.
-
-**Completion:** DOMQL on Nexo, named so, passes the gate, browser tests included.
-
-Contracts: the [version history](../VERSION-HISTORY.md) entry the checkpoint adds, and Nexo's [language history](https://github.com/FormaUI/Nexo/blob/main/LANGUAGE-HISTORY.md).
+Contracts: [Queries](../spec/queries.md), [types](../spec/vocabulary.md#vocabulary-types), [extension modules](../spec/vocabulary.md#extension-modules), [results](../spec/results.md), [errors](../spec/errors.md).
 
 <a id="the-c-half"></a>
 <a id="part-4--the-c-half"></a>
@@ -174,7 +94,7 @@ The C# half follows the migration, so its API is built on the final query text, 
 
 - **Its API,** as [the design](domql-design.md#the-c-half) sets out: `Domql.Query` and `Domql.Query<T>` from text or a definition, binding its parameters; `Domql.TryQuery`, answering false with a diagnostic for a syntax or structure failure; and `query.Definition`. A `DomqlQuery<T>` maps a result onto `T` by its declared contract, and a `DomqlQuery` answers a `DomqlSnapshot`.
 - **Results:** lists, dictionaries and pairs mapped onto `T` and read through a `DomqlSnapshot` by their exported forms.
-- **Imports:** the effective imports the [second checkpoint](#checkpoint-2--scripts-and-imports) sets, `Domql` and those the application configures among them, applied as the JavaScript half applies them.
+- **Imports:** `Domql`, which DOMQL supplies to every query, applied as the JavaScript half applies it.
 - **Its adapter's synchronization:** live state with its baseline from the first ready event, one update at a time, no partial state, obsolete watches rejected, recovery from uncertainty, and handler failures reported, not retried.
 - **One way of applying:** its application of change sets passes the conformance corpus the JavaScript patcher passes too.
 - **Diagnostics:** an error of the language it reports keeps its code.
@@ -208,14 +128,14 @@ The language's part is Nexo's already, adopted with the [migration](#migration-t
 
 | | Addition |
 | --- | --- |
-| V1 | `Element.scroll` → `Scroll? { inline { offset, extent, viewport }, block { offset, extent, viewport } }`, the offset logical from the start under RTL, `extent` the scroll extent and `viewport` the client extent; partly observable through `scroll` events on the receiver, `resize { box: client }` and its children's boxes and child list ([O1](#planned-observation)). `domql.window.scroll` gives the window's |
+| V1 | `Element.scroll` → `Scroll? { inline { offset, extent, viewport }, block { offset, extent, viewport } }`, the offset logical from the start under RTL, `extent` the scroll extent and `viewport` the client extent; partly observable through `scroll` events on the receiver, `resize { box: client }` and its children's boxes and child list ([O1](#planned-observation)). `Domql.window.scroll` gives the window's |
 | V2 | `Element.scrollContainer({ axis })` → `Element?`, the nearest scroll container, crossing shadow roots to the host |
 | V3 | `Document.activeElement` → `Element?`, the focused element, through shadow roots; observable through `focusin` and `focusout` on the document |
 | V4 | `Element.direction` → `String`, `"ltr"` or `"rtl"`, observing `dir` along its ancestors and the document element; `it.style["direction"]` misses an ancestor's change, as a change to `<html dir>` is |
 | V5 | Boolean functions `displayed()`, `checkVisibility({ visibilityProperty: true })`, and `focusable()`, decided natively |
 | V6 | `Element.value` → `String?`, observable through `input` and `change`, partly observable; Boolean function `indeterminate()` |
 | V7 | `Element.text` (`textContent`) and `Element.html` (`innerHTML`), observable through subtree mutation with `characterData`; or the Boolean `Element.hasText` |
-| V8 | The document selection, `domql.document.selection` → `DocumentSelection? { type, collapsed, rangeCount, anchorElement, focusElement, range }`, and a `Range` type, `{ rect, collapsed, text, startElement, endElement, commonAncestor, intersects(node), all(selector), offsetsIn(element) }`; observable through `selectionchange`. `Element.selection` extended to an editing host. The Selection API fires `selectionchange` for script-made selections too, so these may be observable rather than partly observable, which `hasSelection`'s contract denies today; a browser test settles it |
+| V8 | The document selection, `Domql.document.selection` → `DocumentSelection? { type, collapsed, rangeCount, anchorElement, focusElement, range }`, and a `Range` type, `{ rect, collapsed, text, startElement, endElement, commonAncestor, intersects(node), all(selector), offsetsIn(element) }`; observable through `selectionchange`. `Element.selection` extended to an editing host. The Selection API fires `selectionchange` for script-made selections too, so these may be observable rather than partly observable, which `hasSelection`'s contract denies today; a browser test settles it |
 | V9 | `Node.contains(other)` → `Boolean`; element siblings or `Element.index`; optionally `Element.follows(other)` |
 | V10 | `Element.localName`, `Element.classList` → `List<String>`, `Element.inlineStyle[property]` (the declared value) |
 | V11 | `Element.clientRect` → `Rectangle?`, the padding box |
@@ -271,9 +191,9 @@ DOMQL's first built-in executions. Three names below would collide with DOMQL's 
 | X4 | `capturePointer({ pointerId })`, `releasePointer({ pointerId })` → `Boolean` |
 | X5 | Engine-owned writes, each declaring its ownership and released on dispose: a class, an inline style property, `hidden`, `tabIndex`, and, continuous, attributes kept against a host's patch, `element.attributes({ lang, dir })` |
 | X6 | Form controls: `writeIndeterminate(Boolean)`, `writeValue(String)` → `String?`, the value replaced, dispatching no event, and `writeSelection({ start, end })` → `Boolean` |
-| X7 | Browser facilities: `domql.window.writeClipboard(text)` → `"written"`, `"refused"` or `"failed"`; `readClipboardText()` and `readClipboard({ types })`; `download({ name, content, type })`; `print()`; `requestShare({ title, url, text })` → `"shared"`, `"canceled"`, `"refused"` or `"invalid"`; `media.play()` → `"playing"`, `"blocked"`, `"aborted"` or `"unsupported"`, `pause()`, `writeMuted(Boolean)`; at low priority, `domql.document.writeCookie({ … })` |
+| X7 | Browser facilities: `Domql.window.writeClipboard(text)` → `"written"`, `"refused"` or `"failed"`; `readClipboardText()` and `readClipboard({ types })`; `download({ name, content, type })`; `print()`; `requestShare({ title, url, text })` → `"shared"`, `"canceled"`, `"refused"` or `"invalid"`; `media.play()` → `"playing"`, `"blocked"`, `"aborted"` or `"unsupported"`, `pause()`, `writeMuted(Boolean)`; at low priority, `Domql.document.writeCookie({ … })` |
 | X8 | `dispatch({ type, bubbles, detail })`, answering whether it was cancelled |
-| X9 | Selection placement: `domql.document.selection.select({ node })`, `selectContents({ node, collapse })`, `collapse({ node, offset })` |
+| X9 | Selection placement: `Domql.document.selection.select({ node })`, `selectContents({ node, collapse })`, `collapse({ node, offset })` |
 | X10 | Image sources from selected files, their object URLs owned and revoked by the execution: built in, or a module's |
 
 <a id="planned-extension-contract"></a>
@@ -307,7 +227,7 @@ A behavior's occurrences, state, commands and owner (C1 to C4), and reactions in
 | A1 | **The C# half,** as [planned](#the-c-half): typed queries mapped onto records, watches, once and continuous executions and subscriptions, with failures reported, never discarded. Its acknowledgement follows the application of an update, never the application's handlers |
 | A2 | **Change sets against an acknowledged result,** `watch.changesSince(snapshot)` or composition of pending change sets, so one delivery in flight carries everything since the receiver's last acknowledged state while list items stay matched by their sources; a host can't compute it, since item identity lives in metadata a result never holds |
 | A3 | **A refresh that delivers an equal result,** `refreshAsync({ rebaseline: true })`; today a refresh raises nothing when the result is unchanged, while a reconnection and a sentinel refreshed after a load each need it delivered |
-| A4 | **Modules loaded on request,** a loader by module, or the imports a definition names, which the [second checkpoint](#checkpoint-2--scripts-and-imports) brings, so a module is registered before the query that names it is resolved; `run` starts synchronously, so its implementation must be loaded first |
+| A4 | **Modules loaded on request,** a loader by module, or the imports a definition names, so a module is registered before the query that names it is resolved; `run` starts synchronously, so its implementation must be loaded first |
 | A5 | **Ordered occurrence delivery to C#,** bounded, never coalesced, failing explicitly on overflow, and updates to several handles kept in their invocation order, since the order of activations can decide which handle takes precedence |
 | A6 | **An execution's lifetime anchored to its element,** `run({ anchor })`, disposing it once the element has left the document a frame later; a host can build it from a watch of `it.attached` |
 | A7 | **Reactions run in the browser:** a once execution DOMQL runs when a route or an event source delivers, with no round trip, so transient activation holds for the clipboard, sharing, playback and select-on-focus; and several executions in one crossing |
@@ -330,18 +250,19 @@ A behavior's occurrences, state, commands and owner (C1 to C4), and reactions in
 
 ## Release
 
-Complete the migration before publishing packages.
+Consume a released Nexo before publishing packages.
 
 <a id="consuming-lexica"></a>
+<a id="consuming-nexo"></a>
 
 ### Consuming the language
 
-**Current:** DOMQL depends on `@formaui/lexica` through `file:.lexica`, which the build fills with Lexica at the commit `lexica.commit` pins, `0e98b3e`, taken from a checkout beside this one named `formaui-net.Lexica`, or links to the checkout `LEXICA_SOURCE` names; CI checks Lexica out at the same commit. It imports the language's entry point alone, and bundles it into `domql.js`. The language's tests that run through DOMQL's entry point are DOMQL's integration tests.
+**Current:** DOMQL depends on `@formaui-net/nexo` through `file:.nexo`, which the build fills with Nexo at the commit `nexo.commit` pins, `559334c`, taken from a checkout beside this one named `formaui-net.Nexo`, or links to the checkout `NEXO_SOURCE` names; CI checks Nexo out at the same commit. It imports the language's entry point alone, and bundles it into `domql.js`. The language's tests that run through DOMQL's entry point are DOMQL's integration tests.
 
 **Remaining:**
 
-1. Depend on Nexo's released packages, `@formaui/nexo` and `formaui-net.Nexo`, each of an exact version.
-2. Write the NuGet bundle with `../nexo/nexo.js` as an import, and the npm bundle with `@formaui/nexo`, rather than carrying the language inside.
+1. Depend on Nexo's released packages, `@formaui-net/nexo` and `formaui-net.Nexo`, each of an exact version.
+2. Write the NuGet bundle with `../nexo/nexo.js` as an import, and the npm bundle with `@formaui-net/nexo`, rather than carrying the language inside.
 3. Have the gate check that DOMQL's packages depend on Nexo's and Nexo's on nothing of DOMQL's, and run DOMQL's tests against the packaged Nexo.
 
 Needs Nexo's packages, which its [release](https://github.com/FormaUI/Nexo/blob/main/docs/features-status.md#release) publishes.
@@ -373,7 +294,7 @@ This work is separate from the plan above. No order is assigned here.
 | --- | --- | --- |
 | Editor tooling | Planned | Nexo's, through its syntax tree, in its [tooling](https://github.com/FormaUI/Nexo/blob/main/docs/features-status.md#tooling) |
 
-**Verification outside the gate.** `domql.window.size` following a scrollbar that appears or goes is shown only by an experiment outside the gate, since the gate's Chromium hides scrollbars; a browser test with a launch of its own would bring it in without changing the other tests' geometry. Performance is measured outside the gate too, by `npm run bench` and `npm run scale` from `tests/`.
+**Verification outside the gate.** `Domql.window.size` following a scrollbar that appears or goes is shown only by an experiment outside the gate, since the gate's Chromium hides scrollbars; a browser test with a launch of its own would bring it in without changing the other tests' geometry. Performance is measured outside the gate too, by `npm run bench` and `npm run scale` from `tests/`.
 
 <a id="open-decisions"></a>
 
@@ -381,6 +302,7 @@ This work is separate from the plan above. No order is assigned here.
 
 | Decision | State |
 | --- | --- |
+| Imports an application configures | Every query imports `Domql` alone, which DOMQL supplies, and writes its other imports, so a query's text means the same in every application. Imports an application configures wait for a consumer that needs them. |
 | A flat-tree parent | A parent across slots, beside the tree's own `parent` and `root`, waits until its uses and its meaning are clear. |
 | Which changes are built in | Proposed: generic web-platform changes are DOMQL's built-in executions, and an application's algorithms its own modules. A change is built in where it is one platform call with a platform result, as focusing, scrolling, showing a popover, capturing a pointer and writing the clipboard are, and a module's where it carries a policy, as stepping, placement, gestures and roving focus do. DOMQL stays independent of its consumers, and every consumer needs the generic half. |
 | `on` stays passive | Proposed: `on` never cancels. Cancelling an event, consuming a key, claiming a click and capturing a pointer stay synchronous inside a module's own listeners, and `on` gains the capture phase for observing alone ([E1](#planned-events)). A cancelling subscription would have to decide synchronously, before any caller sees the event. |

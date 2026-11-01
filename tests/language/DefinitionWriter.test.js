@@ -1,8 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
 import { domql } from '#domql/domql.js';
-import { DefinitionWriter } from '#lexica/language/DefinitionWriter.mjs';
+import { nexo } from '@formaui-net/nexo';
 
 const panel = document.createElement('div');
+
+/** The compact text Nexo writes for a query's definition, as a diagnostic quotes it, leaving out the import of DOMQL's module, which DOMQL supplies. */
+const quote = definition => nexo.quote(definition, { imports: ['Domql'] });
 
 describe('DefinitionWriter', () => {
     it.each([
@@ -26,7 +29,7 @@ describe('DefinitionWriter', () => {
         '(first or second) { size = it.size }',
         'panel.children.count',
         'panel.hasChildren',
-        'domql.window { ratio = it.devicePixelRatio, visible = domql.document.visible() }',
+        'Domql.window { ratio = it.devicePixelRatio, visible = Domql.document.visible() }',
         'panel.closest(".row")?.attribute["data-key"]',
         '(panel.attribute["role"]).length',
         'panel.attribute["role"] == null',
@@ -160,11 +163,11 @@ describe('DefinitionWriter', () => {
     ])('writes text that parses back to the same definition: %s', text => {
         const { definition } = domql.query(text, { panel });
 
-        expect(domql.query(DefinitionWriter.write(definition.expression), { panel }).definition).toEqual(definition);
+        expect(domql.query(quote(definition), { panel }).definition).toEqual(definition);
     });
 
     it('writes the parentheses a grouping needs, and none it does not', () => {
-        const write = text => DefinitionWriter.write(domql.query(text, { panel }).definition.expression);
+        const write = text => quote(domql.query(text, { panel }).definition);
 
         expect(write('(first or second) and third')).toBe('(first or second) and third');
         expect(write('(first and second) or third')).toBe('first and second or third');
@@ -194,7 +197,7 @@ describe('DefinitionWriter', () => {
     it('writes an options object as the fields it is written with', () => {
         const { definition } = domql.query('panel.intersects({ root = panel, margin = 5 })', { panel });
 
-        expect(DefinitionWriter.write(definition.expression)).toBe('panel.intersects({ root = panel, margin = 5 })');
+        expect(quote(definition)).toBe('panel.intersects({ root = panel, margin = 5 })');
     });
 
     describe('format', () => {
@@ -206,8 +209,8 @@ describe('DefinitionWriter', () => {
             ['an object expression of one field whose value takes lines', 'panel { box = { width = it.size?.width, height = it.size?.height } }', 'panel {\n    box = {\n        width = it.size?.width,\n        height = it.size?.height\n    }\n}'],
             ['an object expression of one field and a local', 'panel { let s = it.size, width = s.width }', 'panel {\n    let s = it.size,\n    width = s.width\n}'],
             ['a conditional with no elseif, on one line', 'if a then 1 else 2 end', 'if a then 1 else 2 end'],
-            ['a conditional with an elseif, a line for each clause', 'panel { state = if it.disabled() then "locked" elseif it.readonly() then "read" else "open" end }', 'panel {\n    state = if it.disabled() then "locked"\n    elseif it.readonly() then "read"\n    else "open"\n    end\n}'],
-            ['a conditional binding with an elseif, a line for each clause', 'panel { v = if let a = it["a"] then a elseif let b = it["b"] then b else "none" end }', 'panel {\n    v = if let a = it["a"] then a\n    elseif let b = it["b"] then b\n    else "none"\n    end\n}'],
+            ['a conditional with an elseif in block form, a line for each clause and each branch', 'panel { state = if it.disabled() then "locked" elseif it.readonly() then "read" else "open" end }', 'panel {\n    state = if it.disabled() then\n        "locked"\n    elseif it.readonly() then\n        "read"\n    else\n        "open"\n    end\n}'],
+            ['a conditional binding with an elseif in block form, a line for each clause and each branch', 'panel { v = if let a = it["a"] then a elseif let b = it["b"] then b else "none" end }', 'panel {\n    v = if let a = it["a"] then\n        a\n    elseif let b = it["b"] then\n        b\n    else\n        "none"\n    end\n}'],
             ['one space around and and or', 'a   and(b or   c)', 'a and (b or c)'],
             ['one space around to and ==, and none in a call', 'panel . matches ( ".x" )   to String   ==   null', 'panel.matches(".x") to String == null'],
             ['no space around an indexer', 'panel  .  attribute  [ "role" ]   ==   null', 'panel.attribute["role"] == null'],
@@ -246,7 +249,7 @@ describe('DefinitionWriter', () => {
             const literalOf = text => domql.query(text).definition.expression.argument.value;
 
             expect(format('panel[-0]')).toBe('panel[-0]');
-            expect(DefinitionWriter.write(domql.query('panel[-0]').definition.expression)).toBe('panel[-0]');
+            expect(quote(domql.query('panel[-0]').definition)).toBe('panel[-0]');
             expect(Object.is(literalOf(format('panel[-0]')), -0)).toBe(true);
             expect(Object.is(literalOf(format('panel[0]')), 0)).toBe(true);
         });
@@ -261,7 +264,14 @@ describe('DefinitionWriter', () => {
 
         it('needs no bindings and resolves nothing, so a query of unbound parameters and an unknown vocabulary is formatted', () => {
             expect(format('nobody.nothing{x = it.whatever(other)}')).toBe('nobody.nothing { x = it.whatever(other) }');
-            expect(() => domql.query('nobody.nothing').resolve()).toThrow(expect.objectContaining({ kind: 'validation' }));
+            expect(() => domql.query('nobody.nothing').resolve()).toThrow(expect.objectContaining({ kind: 'validation', code: 'NEXO3009' }));
+        });
+
+        it('leaves out the import of DOMQL\'s module, which DOMQL supplies, and writes every other import its definition records', () => {
+            expect(format('import Domql\nDomql.window.size')).toBe('Domql.window.size');
+            expect(domql.query('Domql.window.size').definition.imports).toEqual([{ module: 'Domql' }]);
+            expect(format('import Level\npanel:level')).toBe('import Level\n\npanel:level');
+            expect(domql.format({ version: 38, imports: [{ module: 'Domql' }, { module: 'Level' }], expression: { kind: 'scriptParameter', name: 'panel' } })).toBe('import Level\n\npanel');
         });
 
         it('refuses text that does not parse, a definition that is not one, and a query object another instance made', async () => {
@@ -269,9 +279,9 @@ describe('DefinitionWriter', () => {
 
             const { domql: other } = await import('#domql/domql.js');
 
-            expect(() => format('panel {')).toThrow(expect.objectContaining({ kind: 'syntax' }));
-            expect(() => domql.format({ version: 33, expression: { kind: 'nonsense' } })).toThrow(expect.objectContaining({ kind: 'structure' }));
-            expect(() => domql.format(other.query('panel'))).toThrow(expect.objectContaining({ kind: 'structure', message: expect.stringContaining('query.definition') }));
+            expect(() => format('panel {')).toThrow(expect.objectContaining({ kind: 'syntax', code: 'NEXO1051' }));
+            expect(() => domql.format({ version: 38, imports: [], expression: { kind: 'nonsense' } })).toThrow(expect.objectContaining({ kind: 'structure', code: 'NEXO2000' }));
+            expect(() => domql.format(other.query('panel'))).toThrow(expect.objectContaining({ kind: 'structure', code: 'DOMQL2002', message: expect.stringContaining('query.definition') }));
         });
     });
 });

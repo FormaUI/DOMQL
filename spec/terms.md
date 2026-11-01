@@ -2,7 +2,7 @@
 
 <a id="terms"></a>
 
-Each term this specification uses, what it means, and where its authoritative explanation is. A term here defines nothing its linked document does not, and a term of the language, as a script, a binding, a member or a request kind, is [Lexica's](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/terms.md).
+Each term this specification uses, what it means, and where its authoritative explanation is. A term here defines nothing its linked document does not, and a term of the language, as a script, a binding, a member, an import, a module or a host call, is [the language's](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/language/terms.md), and one of the runtime, as a registry, a resolution or a module key, is [the runtime's](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/runtime/terms.md), each Nexo's.
 
 In this document:
 
@@ -17,10 +17,10 @@ In this document:
 
 | Term | Meaning | Reference |
 | --- | --- | --- |
-| Query | A Lexica script DOMQL carries out against a document | [Queries](queries.md#queries) |
+| Query | A Nexo script DOMQL carries out against a document | [Queries](queries.md#queries) |
 | Query object | What `domql.query` answers: a query's definition and its bindings, through which every operation on it is carried out | [Making a query](queries.md#making-a-query) |
 | Caller | The application that makes queries and carries them out, and does what it chooses with each result | [The API](api.md#api) |
-| Resolution | Resolving a request against the vocabulary registered when it is first carried out, as Lexica resolves a script | [Resolution](queries.md#queries-resolution) |
+| Resolution | Resolving a request against the vocabulary its imports make available, as Nexo resolves a script | [Resolution](queries.md#queries-resolution) |
 | Operation | What a caller carries a request out with: `evaluate`, `evaluateAsync`, `watch`, `select`, `subscribe`, `executeAsync` or `run`, as its request kind takes | [Request kinds and their operations](queries.md#operations-and-request-kinds) |
 | Selection | A part of a query's result, which belongs to the query and whose every operation starts work of its own | [Selecting a result](queries.md#selecting-a-result) |
 | Handle | What an operation that keeps running answers, through which its caller follows it and ends it: a watch, an event listener or an execution handle | [The API](api.md#api-objects) |
@@ -32,7 +32,7 @@ In this document:
 
 | Term | Meaning | Reference |
 | --- | --- | --- |
-| Built-in vocabulary | What DOMQL's module, `domql`, declares | [Built-in vocabulary](vocabulary.md#built-in-vocabulary) |
+| Built-in vocabulary | What DOMQL's module, `Domql`, declares | [Built-in vocabulary](vocabulary.md#built-in-vocabulary) |
 | Node | A value of the DOM tree, of a kind of node: an element, a document, a document fragment or a shadow root | [Nodes](nodes-and-shadow-trees.md#nodes) |
 | Shadow view | An element's `shadow`, whose members answer its shadow relationships | [The view](nodes-and-shadow-trees.md#shadow-trees-the-view) |
 | ARIA view | An element's `aria`, whose Boolean functions and unnamed indexer read its own ARIA attributes | [Boolean functions](vocabulary.md#boolean-functions) |
@@ -67,7 +67,7 @@ In this document:
 
 | Term | Meaning | Reference |
 | --- | --- | --- |
-| Host call | Lexica's call of a function the host invokes, which ends a query; DOMQL carries each out as an event source or an execution | [Host calls](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/members.md#members-host-calls) |
+| Host call | Nexo's call of a function the host invokes, which ends a query; DOMQL carries each out as an event source or an execution | [Host calls](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/language/members.md#members-host-calls) |
 | Event source | A host call that delivers things that happened, as `on(type)` does | [Event sources](events.md#event-sources) |
 | Event type | A key of DOMQL's type selector `event`, which names the type its events are captured as | [Event types](events.md#event-types) |
 | Subscription | A query whose chain ends in an event source, which shapes each event into data | [Events](events.md#events) |

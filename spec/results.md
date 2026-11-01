@@ -33,7 +33,8 @@ In this document:
 2. [Change sets](#results-change-sets)
 3. [Live state](#live-state)
 4. [Comparing snapshots](#comparing-snapshots)
-5. [Keeping a copy of a result](#results-keeping-a-copy)
+5. [Dictionaries and pairs](#results-collections)
+6. [Keeping a copy of a result](#results-keeping-a-copy)
 
 <a id="results-snapshots"></a>
 
@@ -46,8 +47,9 @@ A snapshot never changes once delivered. A new snapshot reuses every immutable b
 ## Change sets
 
 - **What a change set is.** A change set is a [JSON Patch](https://www.rfc-editor.org/rfc/rfc6902) document limited to `replace`, `add`, `remove` and `move`, whose paths are JSON Pointers into the result; applying it to the result it was computed against gives the new result. A field the change set leaves out is unchanged, and a field that became null is replaced with null. An object expression's fields are fixed, so `add` and `remove` apply to list items alone.
-- **Lists.** A list whose items come from elements changes by element: an element entering is added, one leaving is removed, one changing position is moved, and one whose result changed is changed inside its item. Any other list changes by position.
-- **Identity.** A list projected from elements is matched by element, and two elements can project to the same data, so the identity of each item cannot be read back from a snapshot. Each item is matched by the element it came from, which Lexica's [result metadata](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/runtime.md#runtime-results) records as its source beside the result, and which neither a result nor a change set ever holds. A list that was not projected from elements, one with a null item, and one in which an element stands twice are matched by position.
+- **Lists.** A list whose items descend from elements changes by element: an element entering is added, one leaving is removed, one changing position is moved, and one whose result changed is changed inside its item. Any other list changes by position.
+- **Identity.** Two elements can project to the same data, so the identity of each item cannot be read back from a snapshot. Each item is matched by the reference it descends from, its provenance, which Nexo's [result metadata](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/runtime/evaluation.md#runtime-results-provenance) records beside the result and which neither a result nor a change set ever holds: the source the earliest projection the item descends from read, which Nexo classifies as a reference or as data. A list projected from elements is matched by element, and so are a projection of its items and a list filtered, sliced or ordered from it, each by the element its item first came from.
+- **Matched by position.** A list no projection built, one an item of which descends from data or from null, and one in which an element stands twice, are matched by position. DOMQL reads the classification Nexo reports, never inferring a reference from the value.
 - **What a change set reproduces.** A change set takes the result it was computed against to the reconciled snapshot, the one the watch reports, with every comparison and tolerance applied; it never describes a different, raw evaluation.
 
 Evaluating only what changed and delivering only what changed are separate: a watch that evaluates its whole query still hands live state only the changes in its result.
@@ -73,6 +75,16 @@ A watch keeps its result as live state when its caller chooses it as its update 
 A watch reports a snapshot that differs from the last one it reported, compared field by field and item by item. Strings, Booleans and null compare exactly; a number compares within the tolerance its member declares, and exactly where it declares none; a number arithmetic computed compares exactly, whatever tolerance a member it reads declares.
 
 A number a conditional gave compares within the tolerance of the member its branch read where the number last reported came from the same branch, and exactly where it came from another, which is a different reading whose difference no tolerance absorbs. A number a coalescing operator gave compares the same way, by the side it came from, its value or its fallback, one an `and` or an `or` gave by the operand it answered, and one a computed property access gave by the property its name selected. A conditional can select a different branch at each place in the result, as for each item of a list, and each place is compared by the branch selected there.
+
+<a id="results-collections"></a>
+
+## Dictionaries and pairs
+
+A result holds a dictionary or a pair as data, in the form Nexo [exports](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/runtime/evaluation.md#runtime-host-forms) them: a dictionary as `{ entries: [{ key, value }, …] }`, its entries in their order, and a pair as `{ key, value }`.
+
+- **Compared and changed as data.** A watch compares them as it compares any object and list, and a change set addresses them in that form: an entry's value is changed at `/counts/entries/0/value`, and an entry entering or leaving is added or removed at its position in `entries`.
+- **A key is data.** A numeric key is an entry's `key`, never a list index, and a change set reaches an entry by its position in `entries`, never by its key. A [selection](queries.md#selecting-a-result) takes a dictionary or a pair whole.
+- **Every change set reproduces the next result** from the one it was computed against, the dictionary's entries in the order the next result holds them.
 
 <a id="results-keeping-a-copy"></a>
 <a id="domql-and-its-host"></a>

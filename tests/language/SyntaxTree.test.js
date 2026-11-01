@@ -1,12 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import { domql } from '#domql/domql.js';
-import { Lowering } from '#lexica/language/Lowering.mjs';
-import { ParsedTexts } from '#lexica/language/ParsedTexts.mjs';
-import { Parser } from '#lexica/language/Parser.mjs';
-import { NODE_KINDS, SyntaxTree } from '#lexica/language/SyntaxTree.mjs';
-import { TOKEN_TYPES, Tokenizer } from '#lexica/language/Tokenizer.mjs';
+import { Lowering } from '#nexo/language/Lowering.mjs';
+import { ParsedTexts } from '#nexo/language/ParsedTexts.mjs';
+import { Parser } from '#nexo/language/Parser.mjs';
+import { SYNTAX_NODE_KINDS, SyntaxTree } from '#nexo/language/SyntaxTree.mjs';
+import { TOKEN_TYPES, Tokenizer } from '#nexo/language/Tokenizer.mjs';
 
-const treeOf = (text, moduleNames = new Set()) => new Parser(text, moduleNames).parse();
+/** The import DOMQL supplies to every query text, as a definition records it. */
+const DOMQL_IMPORTS = [{ module: 'Domql' }];
+
+/** The text's syntax tree, read with the imports a host supplies, which decide the names that begin namespaces; none where it supplies none. */
+const treeOf = (text, suppliedImports = []) => new Parser(text, suppliedImports).parse();
 
 /** The node kinds of the tree, outermost first, tokens left out. */
 const kindsOf = node => (SyntaxTree.isToken(node) ? [] : [node.kind, ...node.children.flatMap(kindsOf)]);
@@ -46,8 +50,8 @@ describe('SyntaxTree', () => {
         const tokens = [...SyntaxTree.tokensOf(treeOf(text))];
 
         expect(tokens.map(token => text.slice(token.start, token.end))).toEqual(['a', '.', 'b', '']);
-        expect(tokens.map(token => text.slice(token.leading, token.start))).toEqual([' /* a */ ', ' ', ' ', ' // c\n']);
-        expect(tokens.every((token, index) => index === 0 ? token.leading === 0 : token.leading === tokens[index - 1].end)).toBe(true);
+        expect(tokens.map(token => text.slice(token.triviaStart, token.start))).toEqual([' /* a */ ', ' ', ' ', ' // c\n']);
+        expect(tokens.every((token, index) => index === 0 ? token.triviaStart === 0 : token.triviaStart === tokens[index - 1].end)).toBe(true);
     });
 
     it('splits a token\'s trivia into whitespace, line comments and block comments', () => {
@@ -70,8 +74,10 @@ describe('SyntaxTree', () => {
         expect(kindsOf(treeOf('(?a.b) ?? (c as Node)'))).toEqual(['script', 'coalescing', 'optional-enclosed-access', 'member-chain', 'dot-property-access', 'parenthesized-expression', 'cast']);
         expect(kindsOf(treeOf('if let v = a then v else 0 end'))).toEqual(['script', 'conditional-expression', 'conditional-binding']);
         expect(kindsOf(treeOf('panel.[name]?.attribute["id"]'))).toEqual(['script', 'chain', 'computed-property-access', 'dot-property-access', 'indexer']);
-        expect(kindsOf(treeOf('node as domql.element'))).toEqual(['script', 'cast', 'type-name']);
-        expect(kindsOf(treeOf('domql.window.size', new Set(['domql'])))).toEqual(['script', 'chain', 'namespace-access', 'dot-property-access']);
+        expect(kindsOf(treeOf('node as Domql.Element'))).toEqual(['script', 'cast', 'type-name']);
+        expect(kindsOf(treeOf('Domql.window.size', DOMQL_IMPORTS))).toEqual(['script', 'chain', 'namespace-access', 'dot-property-access']);
+        expect(kindsOf(treeOf('import Domql\nDomql.window.size'))).toEqual(['script', 'import-declaration', 'chain', 'namespace-access', 'dot-property-access']);
+        expect(kindsOf(treeOf('panel:level'))).toEqual(['script', 'chain', 'extension-access']);
     });
 
     it('starts and ends a node at its first and last tokens, its trivia left out', () => {
@@ -85,20 +91,21 @@ describe('SyntaxTree', () => {
         const texts = [
             'if let v = a then v elseif not b then 1 else 2 end',
             'a == b and c != d or (try e to Number ?? 0)',
-            '(?(panel.parent as domql.element).rect.width) ?? panel.closest(".row")?.rect { top = it.top }',
+            '(?(panel.parent as Domql.Element).rect.width) ?? panel.closest(".row")?.rect { top = it.top }',
             'panel { let rows = it.all("i"), first = rows[0]?["data-key"], name = it.[name], open = it.matches(".x") }',
             '-a * 2 + b % 3 - c / d',
             '0 < a <= 1 and b > c >= d',
             '$"a {b}"',
             'let f = function(x, y) x end\nreturn f(1, 2)',
-            'let a = 1\nreturn do let b = a return b end',
+            'let a = 1\nreturn do\n    let b = a\n    return b\nend',
             'let g = (x, y) => x\nreturn f(z => z, g)',
+            'import Domql\n{ items = [1, 2], prices = ["tea" = 2], last = items[^1], middle = items[1..^1], level = panel:level ?? panel?:mark("x") }',
         ];
-        const kinds = new Set([...texts.flatMap(text => kindsOf(treeOf(text))), ...kindsOf(treeOf('domql.window.size', new Set(['domql'])))]);
+        const kinds = new Set([...texts.flatMap(text => kindsOf(treeOf(text))), ...kindsOf(treeOf('Domql.window.size', DOMQL_IMPORTS))]);
         const types = new Set(texts.flatMap(text => Tokenizer.scan(text).map(token => token.type)).concat(Tokenizer.scan('a = 1').map(token => token.type)));
 
-        expect([...kinds].filter(kind => !NODE_KINDS.includes(kind))).toEqual([]);
-        expect(NODE_KINDS.filter(kind => !kinds.has(kind))).toEqual([]);
+        expect([...kinds].filter(kind => !SYNTAX_NODE_KINDS.includes(kind))).toEqual([]);
+        expect(SYNTAX_NODE_KINDS.filter(kind => !kinds.has(kind))).toEqual([]);
         expect([...types].filter(type => !TOKEN_TYPES.includes(type))).toEqual([]);
     });
 
@@ -117,7 +124,7 @@ describe('SyntaxTree', () => {
 
         expect(text.slice(invalid.start, invalid.end)).toBe(invalidText);
         expect(invalid.diagnostic.message).toContain(message);
-        expect(tokens.map(token => text.slice(token.leading, token.end)).join('')).toBe(text);
+        expect(tokens.map(token => text.slice(token.triviaStart, token.end)).join('')).toBe(text);
         expect(tokens.at(-1).type).toBe('end');
         expect(() => new Tokenizer(text).tokenize()).toThrow(message);
     });
@@ -126,16 +133,16 @@ describe('SyntaxTree', () => {
         const text = 'panel {\n    // its size\n    size = it.size\n}';
         const query = domql.query(text);
 
-        expect(SyntaxTree.textOf(treeOf(ParsedTexts.textOf(query.definition)))).toBe(text);
+        expect(SyntaxTree.textOf(treeOf(ParsedTexts.textOf(query.definition), DOMQL_IMPORTS))).toBe(text);
         expect(ParsedTexts.textOf(domql.query(query.definition).definition)).toBe(text);
         expect(ParsedTexts.textOf(domql.query(JSON.parse(JSON.stringify(query.definition))).definition)).toBeNull();
     });
 
     it('lowers into the definition a query of the text holds, which keeps nothing of the tree', () => {
         const text = 'panel { let rows = it.all("i"), first = rows[0]?["data-key"] }';
-        const { definition } = Lowering.lower(treeOf(text));
+        const { definition } = Lowering.lower(treeOf(text, DOMQL_IMPORTS), DOMQL_IMPORTS);
 
         expect(definition).toEqual(domql.query(text).definition);
-        expect(JSON.stringify(definition)).not.toMatch(/children|leading|spaced/);
+        expect(JSON.stringify(definition)).not.toMatch(/children|triviaStart|spaced/);
     });
 });

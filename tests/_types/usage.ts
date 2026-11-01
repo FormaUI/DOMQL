@@ -1,6 +1,6 @@
 // How a TypeScript caller uses DOMQL, which the declarations must accept; the test compiles this file.
-import { domql, LexicaError } from '../../src/domql.js';
-import type { DomqlChangeOperation, DomqlConversionImplementationInput, DomqlDefinition, DomqlDefinitionNode, DomqlEvaluateAsyncOptions, DomqlEventListener, DomqlExecutionHandle, DomqlLiveStateWatch, DomqlLiveStateWatchOptions, DomqlMemberDeclaration, DomqlModule, DomqlModuleContents, DomqlOperationOptions, DomqlQuery, DomqlReadOnly, DomqlResolvedDefinition, DomqlResultArgs, DomqlSelectedView, DomqlSelection, DomqlWatch, DomqlWatchOptions } from '../../src/domql.js';
+import { domql, NexoError } from '../../src/domql.js';
+import type { DomqlChangeOperation, DomqlOperatorImplementationInput, DomqlTypeDeclaration, DomqlDefinition, DomqlDefinitionNode, DomqlEvaluateAsyncOptions, DomqlEventListener, DomqlExecutionHandle, DomqlLiveStateWatch, DomqlLiveStateWatchOptions, DomqlMemberDeclaration, DomqlModule, DomqlModuleContents, DomqlOperationOptions, DomqlQuery, DomqlReadOnly, DomqlResolvedDefinition, DomqlResultArgs, DomqlSelectedView, DomqlSelection, DomqlWatch, DomqlWatchOptions } from '../../src/domql.js';
 
 const panel = document.createElement('div');
 const controller = new AbortController();
@@ -28,7 +28,7 @@ const kind: 'value' | 'subscription' | 'execution' = resolved.kind;
 const executionMode: 'once' | 'continuous' | null = resolved.executionMode;
 const typeText: string | null = resolved.type;
 const countType: string = resolved.typeAt(['count']);
-const usedNames: readonly string[] = resolved.usedDeclarations.map(used => used.name);
+const usedNames: readonly string[] = resolved.usedDeclarations.map(used => used.qualifiedName);
 
 // A query is evaluated once, synchronously or waiting for its maintained members.
 const answer = query.evaluate();
@@ -176,11 +176,10 @@ const source: DomqlMemberDeclaration = {
     kind: 'function',
     invokedBy: 'host',
     requestKind: 'subscription',
-    target: 'Element',
     arguments: 'positional',
     parameters: [{ name: 'type', kind: 'value', type: 'String', required: true, fixed: true, selects: 'type', selector: 'event', nulls: 'propagate' }],
     result: '@selected',
-    implementation: ({ receiver, deliver }) => {
+    impl: ({ receiver, deliver }) => {
         const element = receiver as Element;
         const timer = setInterval(() => deliver?.({ n: element.childElementCount }), 1000);
 
@@ -189,9 +188,9 @@ const source: DomqlMemberDeclaration = {
 };
 
 // A once execution is carried out and promises its result; a continuous execution runs until its handle is disposed.
-const moved: Promise<boolean> = domql.query<boolean>('panel.step("forward")', { panel }).executeAsync({ window, signal });
-const stepped: Promise<boolean> = domql.query<boolean>('panel.step("back")', { panel }).executeAsync();
-const trap: DomqlExecutionHandle = domql.query('dialog.focusTrap()', { dialog: panel }).run({ window, signal });
+const moved: Promise<boolean> = domql.query<boolean>('import Steps\npanel:step("forward")', { panel }).executeAsync({ window, signal });
+const stepped: Promise<boolean> = domql.query<boolean>('import Steps\npanel:step("back")', { panel }).executeAsync();
+const trap: DomqlExecutionHandle = domql.query('import Traps\ndialog:focusTrap()', { dialog: panel }).run({ window, signal });
 const trapping: 'ready' | 'disposed' = trap.status;
 const reported: DomqlEventListener = trap.subscribe('error', (sender, args) => {
     const execution: DomqlExecutionHandle = sender;
@@ -206,8 +205,7 @@ const focusTrap: DomqlMemberDeclaration = {
     invokedBy: 'host',
     requestKind: 'execution',
     executionMode: 'continuous',
-    target: 'Element',
-    implementation: ({ receiver, reportError }) => ({ update: () => {}, dispose: () => reportError?.(receiver) }),
+    impl: ({ receiver, reportError }) => ({ update: () => {}, dispose: () => reportError?.(receiver) }),
 };
 
 // @ts-expect-error An execution runs once or continuously.
@@ -217,7 +215,7 @@ trap.update({ dialog: panel });
 trap.dispose();
 
 // @ts-expect-error An execution's handle is updated with bindings.
-trap.update('dialog.focusTrap()');
+trap.update('import Traps\ndialog:focusTrap()');
 
 // @ts-expect-error A query is bound again with bindings.
 query.with('panel.children.count');
@@ -225,82 +223,103 @@ query.with('panel.children.count');
 // @ts-expect-error An execution's handle raises error events alone.
 trap.subscribe('change', () => {});
 
-// A module declares its vocabulary as data, each declaration that runs code carrying its implementation.
+// A module declares its vocabulary as data, each declaration that runs code carrying its implementation: its own types, and extensions of DOMQL's, whose members a query reads with `:`.
 const contents: DomqlModuleContents = {
-    types: [{ name: 'ChildMetrics', fields: { childCount: 'Number' } }],
-    members: [{
-        name: 'metrics',
-        kind: 'property',
-        target: 'Element',
-        result: 'ChildMetrics',
-        updates: { changes: 'unobserved', reads: 'fresh', tolerance: 0.5 },
-        implementation: ({ receiver }) => ({ childCount: (receiver as Element).children.length }),
+    types: [{
+        name: 'ChildMetrics',
+        kind: 'structured',
+        members: [{ name: 'childCount', kind: 'property', result: 'Number' }, {
+            // A test of its receiver is a function whose result is a Boolean, called as `it:metrics.charted()`.
+            name: 'charted',
+            kind: 'function',
+            result: 'Boolean',
+            updates: { changes: 'constant', reads: 'fresh' },
+            impl: ({ receiver }) => (receiver as { childCount: number }).childCount > 0,
+        }],
     }, {
-        // A test of its receiver is a function whose result is a Boolean, called as `it.metrics.charted()` or given to a verb, as `it.metrics.has(metrics.charted)`.
-        name: 'charted',
-        kind: 'function',
-        target: 'ChildMetrics',
-        result: 'Boolean',
-        updates: { changes: 'constant', reads: 'fresh' },
-        implementation: ({ receiver }) => (receiver as { childCount: number }).childCount > 0,
+        name: 'MetricElements',
+        kind: 'extension',
+        target: 'Domql.Element',
+        members: [{
+            name: 'metrics',
+            kind: 'property',
+            result: 'ChildMetrics',
+            updates: { changes: 'unobserved', reads: 'fresh', tolerance: 0.5 },
+            impl: ({ receiver }) => ({ childCount: (receiver as Element).children.length }),
+        }, source, focusTrap],
+    }, {
+        // An operator's implementation takes the value and the reject that stops it.
+        name: 'MetricStrings',
+        kind: 'extension',
+        target: 'String',
+        members: [{ kind: 'operator', name: 'convert', result: 'ChildMetrics', impl: ({ value, reject }) => (typeof value === 'string' && /^[0-9]+$/.test(value) ? { childCount: Number(value) } : reject(`${String(value)} is no count`)) }],
     }],
-    selectableTypes: [{ name: 'chart-selected', selector: 'event', type: 'Number' }],
-    observationTypes: [{ name: 'chartsChanged', contract: 'maintained', identity: ['root'], shared: true, implementation: ({ notify }) => ({ stop: () => notify(), sample: () => ({ pending: true }) }) }],
-    // A conversion's implementation takes the value and the reject that stops it.
-    conversions: [{ from: 'String', to: 'ChildMetrics', implementation: ({ value, reject }) => (typeof value === 'string' && /^[0-9]+$/.test(value) ? { childCount: Number(value) } : reject(`${String(value)} is no count`)) }],
+    mappings: [{ selector: 'event', key: 'chart-selected', type: 'Number' }],
+    observationTypes: [{ name: 'chartsChanged', contract: 'maintained', identity: ['root'], shared: true, impl: ({ notify }) => ({ stop: () => notify(), sample: () => ({ pending: true }) }) }],
 };
-const module: DomqlModule = domql.createModule('metrics', contents);
+const module: DomqlModule = domql.createModule('Metrics', contents);
+const declaredType: DomqlTypeDeclaration = module.types[0];
 
 domql.registerModule(module);
 
+// A reference type of a module's own recognizes its values, as its module's typeOf does.
+const lamps: DomqlModuleContents = {
+    typeOf: value => (value instanceof HTMLButtonElement ? 'Lamp' : null),
+    types: [{ name: 'Lamp', kind: 'reference', isInstance: value => value instanceof HTMLButtonElement, members: [] }],
+};
+
 // @ts-expect-error A module declares its tests as members, functions whose result is a Boolean, and no predicates.
-domql.createModule('tests', { predicates: [] });
+domql.createModule('Tests', { predicates: [] });
 
 // @ts-expect-error A module is created from its contents alone, each declaration carrying its implementation.
-domql.createModule('metrics', contents, {});
+domql.createModule('Metrics', contents, {});
 
-// @ts-expect-error A conversion names the type it converts to.
-domql.createModule('partial', { conversions: [{ from: 'String', implementation: () => 0 }] });
+// @ts-expect-error A reference type says whether a value belongs to it.
+domql.createModule('Partial', { types: [{ name: 'Lamp', kind: 'reference' }] });
+
+// @ts-expect-error A member stands within a type or an extension, which gives it its receiver, so it names no target.
+domql.createModule('Targeted', { members: [{ name: 'lit', kind: 'property', target: 'Element', result: 'Boolean' }] });
 
 // A conversion is a node of a definition, which names the type it converts to and what it converts.
-const converted: DomqlDefinitionNode = { kind: 'conversion', type: 'Number', target: { kind: 'parameter', name: 'count' } };
-const attempted: DomqlDefinitionNode = { kind: 'try', target: { kind: 'conversion', type: 'Number', target: { kind: 'parameter', name: 'count' } } };
-const probed: DomqlDefinitionNode = { kind: 'try', target: { kind: 'cast', type: 'Element', target: { kind: 'parameter', name: 'node' } } };
+const converted: DomqlDefinitionNode = { kind: 'conversion', type: 'Number', operand: { kind: 'scriptParameter', name: 'count' } };
+const attempted: DomqlDefinitionNode = { kind: 'try', operand: { kind: 'conversion', type: 'Number', operand: { kind: 'scriptParameter', name: 'count' } } };
+const probed: DomqlDefinitionNode = { kind: 'try', operand: { kind: 'cast', type: 'Element', operand: { kind: 'scriptParameter', name: 'node' } } };
 const binding: DomqlDefinitionNode = { kind: 'conditional', binding: { name: 'n', value: attempted }, consequent: { kind: 'local', name: 'n' }, alternative: { kind: 'literal', value: 0 } };
 
-// A named indexer is a syntax a member declares, and an indexer node of the member access its name is written in, which holds its key; an indexer node names nothing itself.
-const keyed: DomqlDefinitionNode = { kind: 'indexer', target: { kind: 'member', target: { kind: 'parameter', name: 'panel' }, name: 'attribute' }, argument: { kind: 'literal', value: 'id' } };
-// @ts-expect-error An indexer node has no name.
-const namedIndexer: DomqlDefinitionNode = { kind: 'indexer', target: { kind: 'parameter', name: 'panel' }, name: 'attribute', argument: { kind: 'literal', value: 'id' } };
+// A named indexer is a member of its own kind, and an indexer access of the member access its name is written in, which holds its key; an indexer access names nothing itself.
+const keyed: DomqlDefinitionNode = { kind: 'indexerAccess', receiver: { kind: 'memberAccess', receiver: { kind: 'scriptParameter', name: 'panel' }, name: 'style' }, argument: { kind: 'literal', value: 'color' } };
+// @ts-expect-error An indexer access has no name.
+const namedIndexer: DomqlDefinitionNode = { kind: 'indexerAccess', receiver: { kind: 'scriptParameter', name: 'panel' }, name: 'style', argument: { kind: 'literal', value: 'color' } };
 const booleanFunctions: DomqlModuleContents = {
-    members: [{ name: 'lit', kind: 'function', target: 'Element', result: 'Boolean', updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: ['data-lit'] }] } }],
+    types: [{ name: 'LitElements', kind: 'extension', target: 'Domql.Element', members: [{ name: 'lit', kind: 'function', result: 'Boolean', updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: ['data-lit'] }] } }] }],
 };
 
 const indexers: DomqlModuleContents = {
-    members: [{ name: 'token', kind: 'function', syntax: 'indexer', target: 'Element', parameters: [{ name: 'name', kind: 'value', type: 'String', required: true, nulls: 'propagate' }], result: 'String?', updates: { changes: 'constant', reads: 'fresh' } }],
+    types: [{ name: 'TokenElements', kind: 'extension', target: 'Domql.Element', members: [{ name: 'token', kind: 'indexer', parameters: [{ name: 'name', kind: 'value', type: 'String', required: true, nulls: 'propagate' }], result: 'String?', updates: { changes: 'constant', reads: 'fresh' } }] }],
 };
 
 // A rejection never returns, so nothing follows it.
-const rejected: never = ({} as DomqlConversionImplementationInput).reject('no count');
+const rejected: never = ({} as DomqlOperatorImplementationInput).reject('no count');
 
 // @ts-expect-error A member is one of the kinds the language has.
-domql.createModule('bad', { members: [{ name: 'bad', kind: 'method', target: 'Element', result: 'Number', updates: { changes: 'constant', reads: 'fresh' } }] });
+domql.createModule('Bad', { members: [{ name: 'bad', kind: 'method', result: 'Number', updates: { changes: 'constant', reads: 'fresh' } }] });
 
-// A failure is a LexicaError, which the package exports as a class.
+// A failure is a NexoError, which the package exports as a class.
 try {
     domql.query('panel.nonsense', { panel }).evaluate();
 } catch (error) {
-    if (error instanceof LexicaError) {
+    if (error instanceof NexoError) {
         const failureKind: 'syntax' | 'structure' | 'validation' | 'module' | 'evaluation' = error.kind;
+        const code: string = error.code;
         const line: number | undefined = error.location.line;
-        const name: 'LexicaError' = error.name;
+        const name: 'NexoError' = error.name;
 
-        console.error(failureKind, line, name);
+        console.error(failureKind, code, line, name);
     }
 }
 
 // @ts-expect-error DOMQL makes its errors, so a caller constructs none.
-new LexicaError();
+new NexoError();
 
 // @ts-expect-error A query is made from text or a definition.
 domql.query(42);
@@ -318,15 +337,20 @@ if (tested.kind === 'or') {
     }
 }
 
-// @ts-expect-error A predicate is no node: a test is a member that answers a Boolean, called or given to a verb.
-const misread: DomqlDefinitionNode = { kind: 'predicate', verb: 'is', target: { kind: 'it' }, name: { kind: 'literal', value: null } };
+// @ts-expect-error A predicate is no node: a test is a member that answers a Boolean, read or called as any member is.
+const misread: DomqlDefinitionNode = { kind: 'predicate', verb: 'is', receiver: { kind: 'it' }, name: { kind: 'literal', value: null } };
 
-const named: DomqlDefinitionNode = { kind: 'object', target: { kind: 'parameter', name: 'panel' }, locals: [{ name: 'size', value: { kind: 'member', target: { kind: 'it' }, name: 'size' } }], fields: [{ name: 'width', value: { kind: 'optionalChain', target: { kind: 'member', target: { kind: 'local', name: 'size' }, name: 'width', optional: true } } }] };
+const named: DomqlDefinitionNode = { kind: 'object', context: { kind: 'scriptParameter', name: 'panel' }, locals: [{ name: 'size', value: { kind: 'memberAccess', receiver: { kind: 'it' }, name: 'size' } }], objectFields: [{ name: 'width', value: { kind: 'optionalChain', chain: { kind: 'memberAccess', receiver: { kind: 'local', name: 'size' }, name: 'width', optional: true } } }] };
 
 // @ts-expect-error An infixCall is no node: a function is a call or an indexer.
-const infixCall: DomqlDefinitionNode = { kind: 'infixCall', target: { kind: 'it' }, name: 'matches' };
+const infixCall: DomqlDefinitionNode = { kind: 'infixCall', receiver: { kind: 'it' }, name: 'matches' };
 
-// @ts-expect-error A local is named, as a field is.
-const unnamed: DomqlDefinitionNode = { kind: 'object', locals: [{ value: { kind: 'it' } }], fields: [] };
+// @ts-expect-error A local is named, as an object field is.
+const unnamed: DomqlDefinitionNode = { kind: 'object', locals: [{ value: { kind: 'it' } }], objectFields: [] };
+
+// A collection expression writes a list or a dictionary, and a position counts from a list's end.
+const listed: DomqlDefinitionNode = { kind: 'list', items: [{ kind: 'literal', value: 1 }] };
+const last: DomqlDefinitionNode = { kind: 'indexerAccess', receiver: { kind: 'local', name: 'rows' }, argument: { kind: 'fromEndIndex', offset: { kind: 'literal', value: 1 } } };
+const imported: DomqlDefinition = { version: 38, imports: [{ module: 'Domql' }], expression: { kind: 'memberAccess', receiver: { kind: 'namespace', name: 'Domql' }, name: 'document' } };
 
 export { bound, version, specificationVersion, languageVersion, formatted, formattedText, kind, typeText, count, anything, waited, shorthand, selected, selectedAsync, selectedWatch, key, listening, status, snapshot, failure, ready, refreshed, viewed, viewStatus, viewReady, smaller, held, livingSnapshot, livingReady, livingRefreshed, watchedAgain, keptAgain, clicking, source, moved, stepped, trapping, reported };

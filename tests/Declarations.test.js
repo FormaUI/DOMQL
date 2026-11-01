@@ -18,10 +18,10 @@ describe('the declarations', () => {
         expect(declared).toEqual(runtime);
     });
 
-    it('declare the package\'s exports, domql and LexicaError, and only those', () => {
+    it('declare the package\'s exports, domql and NexoError, and only those', () => {
         const exported = [...declarations.matchAll(/^export declare (?:const|class) (\w+)/gm)].map(match => match[1]).sort();
 
-        expect(exported).toEqual(['LexicaError', 'domql']);
+        expect(exported).toEqual(['NexoError', 'domql']);
     });
 
     it('accept how a TypeScript caller uses the library, and refuse its misuse', () => {
@@ -37,5 +37,6 @@ describe('the declarations', () => {
         const messages = ts.getPreEmitDiagnostics(program).map(diagnostic => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'));
 
         expect(messages).toEqual([]);
-    });
+        // Compiling a program with the DOM's library takes seconds while the other test files run beside it.
+    }, 30_000);
 });

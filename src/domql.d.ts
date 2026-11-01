@@ -12,7 +12,7 @@ export interface DomqlResolveOptions {
 
 /** How a query is evaluated once. */
 export interface DomqlEvaluateOptions {
-    /** The window `domql.window` stands for, and whose document `domql.document` stands for; by default the environment's. */
+    /** The window `Domql.window` stands for, and whose document `Domql.document` stands for; by default the environment's. */
     window?: Window;
 }
 
@@ -32,7 +32,7 @@ export interface DomqlWatchOptions {
     acceptPartialObservation?: boolean;
     /** Disposes the watch when it aborts; one already aborted answers a watch that is disposed and starts nothing. */
     signal?: AbortSignal;
-    /** The window `domql.window` stands for, and whose document `domql.document` stands for; by default the environment's. */
+    /** The window `Domql.window` stands for, and whose document `Domql.document` stands for; by default the environment's. */
     window?: Window;
 }
 
@@ -44,7 +44,7 @@ export interface DomqlLiveStateWatchOptions extends Omit<DomqlWatchOptions, 'upd
 
 /** How a subscription is listened to, or an execution carried out once or run. */
 export interface DomqlOperationOptions {
-    /** The window `domql.window` stands for, and whose document `domql.document` stands for; by default the environment's. */
+    /** The window `Domql.window` stands for, and whose document `Domql.document` stands for; by default the environment's. */
     window?: Window;
     /** Ends what the operation started when it aborts; one already aborted starts nothing. */
     signal?: AbortSignal;
@@ -155,39 +155,67 @@ export interface DomqlSelectedView<T = unknown> {
     readyAsync(options?: DomqlListenOptions): Promise<T>;
 }
 
-/** A DOMQL definition: the JSON document that records a query's meaning, without the values its parameters are bound to. */
+/** A DOMQL definition: the JSON document that records a query's meaning, its expression tree with the version of its format and its imports, `Domql` among them, without the values its parameters are bound to. */
 export interface DomqlDefinition {
     readonly version: number;
+    /** The query's imports, those its text writes and `Domql`, which DOMQL supplies, each once, in order of the local name it gives. */
+    readonly imports: readonly DomqlImport[];
     readonly expression: DomqlDefinitionNode;
+}
+
+/** An import, as a definition records it: its registered module, the local name of the one type it imports where it imports one, and its alias where it gives a local name other than its own. */
+export interface DomqlImport {
+    readonly module: string;
+    readonly type?: string;
+    readonly alias?: string;
+}
+
+/**
+ * A property access, the member a call names, or a named indexer's name: its receiver, its name or a computed property access's expression, and whether it is optional; an extension access's first name holds
+ * `extension`, and each later name `continues`.
+ */
+export interface DomqlDefinitionMemberAccess {
+    readonly kind: 'memberAccess';
+    readonly receiver: DomqlDefinitionNode;
+    readonly name: string | DomqlDefinitionNode;
+    readonly optional?: true;
+    readonly extension?: true;
+    readonly continues?: true;
 }
 
 /** A node of a definition. */
 export type DomqlDefinitionNode =
     | { readonly kind: 'literal'; readonly value: string | number | boolean | null }
-    | { readonly kind: 'parameter'; readonly name: string }
+    | { readonly kind: 'scriptParameter'; readonly name: string }
     | { readonly kind: 'it' }
     | { readonly kind: 'root' }
-    /** A module's namespace, the target of a member read or a call through it alone, as `domql.window` reads DOMQL's window. */
+    /** A module's namespace, by the local name the query's imports give it, the receiver of a member read or called through it alone, as `Domql.window` reads DOMQL's window. */
     | { readonly kind: 'namespace'; readonly name: string }
     | { readonly kind: 'local'; readonly name: string }
-    | { readonly kind: 'member'; readonly target: DomqlDefinitionNode; readonly name: string | DomqlDefinitionNode; readonly optional?: true }
-    | { readonly kind: 'call'; readonly target: DomqlDefinitionNode; readonly name: string; readonly optional?: true; readonly arguments: readonly DomqlDefinitionNode[] }
-    | { readonly kind: 'indexer'; readonly target: DomqlDefinitionNode; readonly argument: DomqlDefinitionNode; readonly optional?: true }
-    | { readonly kind: 'object'; readonly target?: DomqlDefinitionNode; readonly locals?: readonly DomqlDefinitionLocal[]; readonly fields: readonly DomqlDefinitionField[] }
-    | { readonly kind: 'optionalChain'; readonly target: DomqlDefinitionNode }
+    | DomqlDefinitionMemberAccess
+    /** A call: of the member its callee names, or of the function the local its callee names holds. */
+    | { readonly kind: 'call'; readonly callee: DomqlDefinitionMemberAccess | { readonly kind: 'local'; readonly name: string }; readonly arguments: readonly DomqlDefinitionNode[] }
+    | { readonly kind: 'indexerAccess'; readonly receiver: DomqlDefinitionNode; readonly argument: DomqlDefinitionNode; readonly optional?: true }
+    | { readonly kind: 'object'; readonly context?: DomqlDefinitionNode; readonly locals?: readonly DomqlDefinitionLocal[]; readonly objectFields: readonly DomqlDefinitionObjectField[] }
+    /** A list a collection expression writes: its items in order. */
+    | { readonly kind: 'list'; readonly items: readonly DomqlDefinitionNode[] }
+    /** A dictionary a collection expression writes: its entries in the order written, each its key's string and its value. */
+    | { readonly kind: 'dictionary'; readonly entries: readonly { readonly key: string; readonly value: DomqlDefinitionNode }[] }
+    | { readonly kind: 'optionalChain'; readonly chain: DomqlDefinitionNode }
     | { readonly kind: 'coalescing'; readonly value: DomqlDefinitionNode; readonly fallback: DomqlDefinitionNode }
     | { readonly kind: 'not'; readonly operand: DomqlDefinitionNode }
     | { readonly kind: 'function'; readonly parameters: readonly string[]; readonly body: DomqlDefinitionNode; readonly arrow?: true }
-    | { readonly kind: 'functionCall'; readonly name: string; readonly arguments: readonly DomqlDefinitionNode[] }
     | { readonly kind: 'body'; readonly locals: readonly DomqlDefinitionLocal[]; readonly result: DomqlDefinitionNode }
     | { readonly kind: 'do'; readonly body: DomqlDefinitionNode }
     | { readonly kind: 'interpolatedString'; readonly parts: readonly ({ readonly kind: 'text'; readonly value: string } | { readonly kind: 'expression'; readonly expression: DomqlDefinitionNode })[] }
     | { readonly kind: 'comparison'; readonly operands: readonly DomqlDefinitionNode[]; readonly operators: readonly ('<' | '<=' | '>' | '>=')[] }
     | { readonly kind: 'arithmetic'; readonly operator: '+' | '-' | '*' | '/' | '%'; readonly left: DomqlDefinitionNode; readonly right: DomqlDefinitionNode }
-    | { readonly kind: 'negate'; readonly operand: DomqlDefinitionNode }
-    | { readonly kind: 'cast'; readonly type: string; readonly target: DomqlDefinitionNode }
-    | { readonly kind: 'conversion'; readonly type: string; readonly target: DomqlDefinitionNode }
-    | { readonly kind: 'try'; readonly target: DomqlDefinitionNode }
+    | { readonly kind: 'arithmeticNegation'; readonly operand: DomqlDefinitionNode }
+    | { readonly kind: 'fromEndIndex'; readonly offset: DomqlDefinitionNode }
+    | { readonly kind: 'range'; readonly start?: DomqlDefinitionNode; readonly end?: DomqlDefinitionNode }
+    | { readonly kind: 'cast'; readonly type: string; readonly operand: DomqlDefinitionNode }
+    | { readonly kind: 'conversion'; readonly type: string; readonly operand: DomqlDefinitionNode }
+    | { readonly kind: 'try'; readonly operand: DomqlDefinitionNode }
     | { readonly kind: 'equality'; readonly left: DomqlDefinitionNode; readonly right: DomqlDefinitionNode }
     | { readonly kind: 'conditional'; readonly condition?: DomqlDefinitionNode; readonly binding?: { readonly name: string; readonly value: DomqlDefinitionNode }; readonly consequent: DomqlDefinitionNode; readonly alternative: DomqlDefinitionNode }
     | { readonly kind: 'and' | 'or'; readonly operands: readonly DomqlDefinitionNode[] };
@@ -198,8 +226,8 @@ export interface DomqlDefinitionLocal {
     readonly value: DomqlDefinitionNode;
 }
 
-/** A field of an object expression: its name, always written, and its value. */
-export interface DomqlDefinitionField {
+/** An object field of an object expression: its name, always written, and its value. */
+export interface DomqlDefinitionObjectField {
     readonly name: string;
     readonly value: DomqlDefinitionNode;
 }
@@ -262,34 +290,41 @@ export interface DomqlResolvedDefinition {
     readonly executionMode: 'once' | 'continuous' | null;
     /** The type of the request's result, in type notation, such as `Number?` or `List<Element>`; null for an execution that answers none. */
     readonly type: string | null;
-    /** The declarations the request uses, with the name a message gives each and where each is used. */
-    readonly usedDeclarations: readonly { readonly declaration: object; readonly name: string; readonly pointer: string }[];
+    /** The declarations the request uses, operators among them, each with its declared name, null for an unnamed indexer, the name a message gives it, and where it is used. */
+    readonly usedDeclarations: readonly { readonly declaration: object; readonly name: string | null; readonly qualifiedName: string; readonly pointer: string }[];
     /** The type a result path reaches, in type notation, refusing a path the type does not hold. */
     typeAt(path: readonly (string | number)[]): string;
     /** Where a JSON Pointer stands in the text the definition was read from. */
-    locate(pointer: string): LexicaErrorLocation;
+    getLocation(pointer: string): NexoLocation;
 }
 
-/** Where a failure is. */
-export interface LexicaErrorLocation {
-    /** The failing node's JSON Pointer into the definition. */
+/**
+ * Where something stands, by one group of attributes: in a query, `pointer`, a JSON Pointer into its definition, with `offset`, `line` and `column` where the definition was read from text; in a module, `module`, with `type`
+ * where it concerns a declaration within a type, `declaration`, and `declarationKey`, the key it concerns; or in the bindings, `binding`. A failure that stands nowhere holds none.
+ */
+export interface NexoLocation {
+    /** The node's JSON Pointer into the definition. */
     pointer?: string;
     offset?: number;
     line?: number;
     column?: number;
     binding?: string;
     module?: string;
+    /** The type a declaration stands within. */
+    type?: string;
     declaration?: string;
-    /** The field of the declaration a module error is about, as `updates.misses`. */
-    field?: string;
+    /** The key of the declaration, or of the module, it concerns, as `updates.misses`. */
+    declarationKey?: string;
 }
 
-/** A failure of Lexica or of DOMQL, in the stage it happened in, and where. Its `name` is `LexicaError`. */
-export declare class LexicaError extends Error {
+/** A failure of Nexo or of DOMQL, in the stage it happened in, and where. Its `name` is `NexoError`. */
+export declare class NexoError extends Error {
     private constructor();
-    readonly name: 'LexicaError';
+    readonly name: 'NexoError';
+    /** The code of the condition that failed: `NEXO` and four digits for Nexo's own, and `DOMQL` and four digits for DOMQL's. */
+    readonly code: string;
     readonly kind: 'syntax' | 'structure' | 'validation' | 'module' | 'evaluation';
-    readonly location: LexicaErrorLocation;
+    readonly location: NexoLocation;
 }
 
 /** How a member changes. */
@@ -309,16 +344,16 @@ export interface DomqlPrefixedArgumentReference extends DomqlArgumentReference {
     prefix: string;
 }
 
-/** A value an observation gives: a literal, a list of values, or an argument of the member, which can carry a prefix. */
-export type DomqlObservationValue = string | number | boolean | null | DomqlArgumentReference | DomqlPrefixedArgumentReference | DomqlObservationValue[];
+/** An argument an observation gives its observation type: a literal, a list of them, or an argument of the member, which can carry a prefix. */
+export type DomqlObservationArgument = string | number | boolean | null | DomqlArgumentReference | DomqlPrefixedArgumentReference | DomqlObservationArgument[];
 
 /** An observation that covers a member's changes: its type, what it observes, and the arguments its type takes. */
 export interface DomqlObservationDeclaration {
     /** The name of the type of observation, which a module declares. */
     type: string;
-    /** What it observes: the receiver; a target the module declaring its type declares, by its name, as DOMQL's `window`, `document`, `root` and `roots` are; or the argument of the member that names it. A member without a target has no receiver, and observes neither it nor a target found from it. */
+    /** What it observes: the receiver; a target the module declaring its type declares, by its name, as DOMQL's `window`, `document`, `root` and `roots` are; or the argument of the member that names it. A module member has no receiver, and observes neither it nor a target found from it. */
     of: string | DomqlArgumentReference;
-    [argument: string]: DomqlObservationValue | undefined;
+    [argument: string]: DomqlObservationArgument | undefined;
 }
 
 /** How a member changes and reads, the changes it misses, the tolerance it is compared within and the observations that cover its changes. */
@@ -350,37 +385,27 @@ export interface DomqlObservationTypeDeclaration {
     /** Whether equivalent requests share one observation; one that is not shared is kept for each of its host's evaluations alone. */
     shared?: boolean;
     /** Starts an observation, and answers an object whose `stop` ends it and, for a maintained one, whose `sample` answers its latest sample as `{ pending, value }`, pending until the first arrives. */
-    implementation?: (input: DomqlObservationImplementationInput) => { stop(): void; sample?(): { pending: boolean; value?: unknown } };
+    impl?: (input: DomqlObservationImplementationInput) => { stop(): void; sample?(): { pending: boolean; value?: unknown } };
 }
 
 /** A target a module's observation types observe besides the receiver and an argument of the member, which DOMQL's own module alone declares. */
 export interface DomqlObservationTargetDeclaration {
     /** Its name, which an observation's `of` gives, and never `receiver`. */
     name: string;
-    /** Whether it is found from the receiver, so a member without a target observes none of it, or independent of it, the default. */
+    /** Whether it is found from the receiver, so a module member observes none of it, or independent of it, the default. */
     from?: 'receiver';
     /** Whether it is several targets, each observed alike, which a maintained observation never observes, or one, the default. */
     count?: 'many';
 }
 
-/** What an implementation of a conversion receives: the value, never null, and `reject`. */
-export interface DomqlConversionImplementationInput {
+/** What an implementation of an operator receives: the value, never null, and `reject`. */
+export interface DomqlOperatorImplementationInput {
     readonly value: unknown;
     /**
-     * Rejects the value, which has no conversion, with a reason that is a diagnostic string. It throws a signal private to Domql and to this attempt at the conversion,
-     * so it never returns and the implementation stops where it calls it, unlike a promise's `reject`. Any other exception it throws, and a value not of the type it converts to, is a fault.
+     * Rejects the value, which the operator does not cast or convert, with a reason that is a diagnostic string. It throws a signal private to Nexo and to this attempt at the operator,
+     * so it never returns and the implementation stops where it calls it, unlike a promise's `reject`. Any other exception it throws, and a value not of its destination, is a fault.
      */
     reject(reason: string): never;
-}
-
-/** A conversion from one type of data to another, which `to` asks for: a value already of a type converts to itself, so none is declared from a type to itself. */
-export interface DomqlConversionDeclaration {
-    /** The type it converts from: `Number`, `String`, `Boolean` or a structured type. */
-    from: string;
-    /** The type it converts to: `Number`, `String`, `Boolean` or a structured type. */
-    to: string;
-    /** Converts the value, reading nothing else, and answers the converted value, of the type it converts to, or calls `reject` where the value has none. */
-    implementation?: (input: DomqlConversionImplementationInput) => unknown;
 }
 
 /** A parameter of a member. */
@@ -394,7 +419,7 @@ export interface DomqlParameterDeclaration {
     /** The parameter's type, in DOMQL's notation; a predicate's is `Boolean`, what the implementation receives, and a function parameter's the type of its function's result. */
     type: string;
     /** The types its function is called with, in order, in DOMQL's notation; only a function parameter declares them. */
-    parameters?: string[];
+    parameterTypes?: string[];
     required: boolean;
     default?: unknown;
     /** Whether the argument names something the vocabulary resolves before any evaluation; a fixed parameter is a value parameter of type `String`. */
@@ -412,7 +437,7 @@ export interface DomqlParameterDeclaration {
 }
 
 /** What a member's implementation receives, by name: its receiver, which a module member has none of, its arguments by parameter name, the environment, and what its kind adds. */
-export interface DomqlImplementationInput {
+export interface DomqlMemberImplementationInput {
     readonly receiver?: unknown;
     readonly args: Readonly<Record<string, unknown>>;
     readonly env: unknown;
@@ -427,28 +452,24 @@ export interface DomqlImplementationInput {
 }
 
 /**
- * A property or a function a module adds, each taking the fields it needs alone; a member without a target is a module member, read through its module's namespace.
- * A property answers a value, and a function the evaluator invokes its result. A function the host invokes is a host call DOMQL carries out by its request kind: an event source answers an object whose `stop` ends the listening;
- * a once execution its result or a promise of it; and a continuous execution an object whose `update(receiver, args)` applies new arguments and whose `dispose` ends it.
+ * A property, a function, an indexer or an operator a module declares, each taking the keys it needs alone: within a type, whose receiver the type is, within an extension, whose receiver its target is, or among the module's
+ * `members`, a module member, which takes no receiver and is read through its module's namespace. A property answers a value, and a function the evaluator invokes its result. A function the host invokes is a host call DOMQL
+ * carries out by its request kind: an event source answers an object whose `stop` ends the listening; a once execution its result or a promise of it; and a continuous execution an object whose `update(receiver, args)` applies
+ * new arguments and whose `dispose` ends it.
  */
 export interface DomqlMemberDeclaration {
-    /** The DOMQL name. */
-    name: string;
-    kind: 'property' | 'function';
+    /** Its name, and the type parameters it declares in angle brackets after it; left out for an unnamed indexer, which brackets after its receiver invoke. */
+    name?: string;
+    /** A property, read by its name; a function, called; or an indexer, given its one key in brackets, after its name, `it.style["color"]`, or, unnamed, after its receiver, `it["data-key"]`. */
+    kind: 'property' | 'function' | 'indexer';
     /** Who invokes a function: the evaluator, the default, or DOMQL as the host, a host call that takes value parameters alone and no updates. */
     invokedBy?: 'evaluator' | 'host';
     /** The request a host call makes: a subscription to an event source, or an execution. */
     requestKind?: 'subscription' | 'execution';
     /** How an execution runs: once, answering its result, or continuously, until it is updated or disposed. */
     executionMode?: 'once' | 'continuous';
-    /** The types it applies to, in DOMQL's notation, or none for a module member. */
-    target?: string | string[];
-    /** How a member that is no property is written: a function call, `it.device("lamp")`, the default, or a named indexer, `it.setting["mode"]`, a function whose one required value parameter is its key. A property takes none. */
-    syntax?: 'function-call' | 'indexer';
-    /** The form its arguments take where it has parameters, an optional one included: one for each parameter, in order, the required ones before the optional ones, or one options object whose fields supply them; an indexer's is positional. */
+    /** The form its arguments take where it has parameters, an optional one included: one for each parameter, in order, the required ones before the optional ones, or one options object whose fields supply them; a function alone takes it. */
     arguments?: 'positional' | 'options';
-    /** Whether an indexer is the default of its receivers, which `[…]` invokes, as `item` is a list's; a module designates one at most for a receiver type. */
-    default?: boolean;
     /** Its parameters; a property takes none. */
     parameters?: DomqlParameterDeclaration[];
     /** The type of its result, in DOMQL's notation: an event source's the type of each event it delivers, `@selected` where its type is selected; a once execution's the type of its result; and a continuous execution declares none. */
@@ -456,34 +477,95 @@ export interface DomqlMemberDeclaration {
     /** How it changes and reads; a property and a function the evaluator invokes take it, and a host call refuses it. */
     updates?: DomqlUpdates;
     /** What carries it out, given one object it reads by name; a member without one is resolved against and never invoked. */
-    implementation?: (input: DomqlImplementationInput) => unknown;
+    impl?: (input: DomqlMemberImplementationInput) => unknown;
+    /** Whether it is available within its declaring module alone, `false` where left out. */
+    internal?: boolean;
+}
+
+/** An operator a type or an extension declares: a cast, which `as` invokes, or a conversion, which `to` invokes, to its result from a value of its receiver's type. */
+export interface DomqlOperatorDeclaration {
+    kind: 'operator';
+    name: 'cast' | 'convert';
+    /** Its destination, in DOMQL's notation. */
+    result: string;
+    /** Casts or converts the value, reading nothing else, or rejects it; a cast without one answers its value. */
+    impl?: (input: DomqlOperatorImplementationInput) => unknown;
+    /** Whether it is available within its declaring module alone, `false` where left out. */
+    internal?: boolean;
+}
+
+/** A reference type a module declares: its name, its supertype, whether it is abstract, the membership a value of it passes, and its own members. */
+export interface DomqlReferenceTypeDeclaration {
+    name: string;
+    kind: 'reference';
+    /** Whether the value belongs to the type, answered synchronously, changing nothing. */
+    isInstance(value: unknown): boolean;
+    supertype?: string;
+    abstract?: boolean;
+    import?: string[];
+    members?: (DomqlMemberDeclaration | DomqlOperatorDeclaration)[];
+    internal?: boolean;
+}
+
+/** A structured type a module declares, a type of immutable data: its data shape is the properties it declares without `updates`, each naming its value's type as its `result`. */
+export interface DomqlStructuredTypeDeclaration {
+    name: string;
+    kind: 'structured';
+    import?: string[];
+    members?: (DomqlMemberDeclaration | DomqlOperatorDeclaration)[];
+    internal?: boolean;
+}
+
+/** An extension a module declares among its types: the members it adds to its one target, as `Domql.Element`, a type another module owns, which its members take as their receiver and a query reads with `:`. */
+export interface DomqlExtensionDeclaration {
+    /** Its local name, and the type parameters its target and its members share. */
+    name: string;
+    kind: 'extension';
+    /** The type its members extend, never `Any` or nullable: a foreign type qualified, one of Nexo's own, or a parameter it declares. */
+    target: string;
+    members?: (DomqlMemberDeclaration | DomqlOperatorDeclaration)[];
+    internal?: boolean;
+}
+
+/** A type a module declares, of the kind it says, or an extension it declares among its types. */
+export type DomqlTypeDeclaration = DomqlReferenceTypeDeclaration | DomqlStructuredTypeDeclaration | DomqlExtensionDeclaration;
+
+/** A mapping of one key of a type selector to the type it maps to, as an event type is a key of DOMQL's selector `event`. */
+export interface DomqlMappingDeclaration {
+    /** The type selector the key belongs to. */
+    selector: string;
+    /** The key, any string, as a fixed argument gives it. */
+    key: string;
+    /** The type the key maps to, in DOMQL's notation. */
+    type: string;
 }
 
 /** What a module declares. */
 export interface DomqlModuleContents {
-    /** The structured types it declares, each with its fields' types. */
-    types?: { name: string; fields: Record<string, string> }[];
+    /** Its recognition of a host's value: the name of the most specific of its own reference types the value is of, or null. */
+    typeOf?(value: unknown): string | null;
+    /** The reference types and the structured types it declares, and its extensions. */
+    types?: DomqlTypeDeclaration[];
+    /** Its module members, read through its namespace, which take no receiver. */
     members?: DomqlMemberDeclaration[];
     /** The type selectors it declares, each by its name alone. */
     typeSelectors?: { name: string }[];
-    /** The keys it declares for type selectors, its own or a module's registered before it, as an event type is a key of DOMQL's selector `event`, each mapping to a type. */
-    selectableTypes?: { name: string; selector: string; type: string }[];
+    /** The keys it maps for type selectors, its own or a module's registered before it, each once in its selector. */
+    mappings?: DomqlMappingDeclaration[];
     /** The types of observation it declares. */
     observationTypes?: DomqlObservationTypeDeclaration[];
-    /** The conversions it declares, each to or from one of its own types, and one for each source and target. */
-    conversions?: DomqlConversionDeclaration[];
 }
 
 /** A vocabulary's declarations as data, each that runs code carrying its implementation. */
 export interface DomqlModule {
     readonly name: string;
-    readonly types: readonly { readonly name: string; readonly fields: Readonly<Record<string, string>> }[];
+    readonly typeOf: ((value: unknown) => string | null) | undefined;
+    readonly types: readonly Readonly<DomqlTypeDeclaration>[];
     readonly members: readonly DomqlMemberDeclaration[];
     readonly typeSelectors: readonly { readonly name: string }[];
-    readonly selectableTypes: readonly { readonly name: string; readonly selector: string; readonly type: string }[];
+    readonly mappings: readonly DomqlMappingDeclaration[];
     readonly observationTypes: readonly DomqlObservationTypeDeclaration[];
     readonly observationTargets: readonly DomqlObservationTargetDeclaration[];
-    readonly conversions: readonly DomqlConversionDeclaration[];
 }
 
 /** The versions DOMQL reports, which change apart. */
@@ -492,7 +574,7 @@ export interface DomqlVersions {
     readonly runtime: string;
     /** The DOMQL specification version the implementation follows. */
     readonly specification: string;
-    /** The language specification version the Lexica runtime DOMQL runs on follows, its `lexica.info.versions.language`. */
+    /** The language specification version the Nexo runtime DOMQL runs on follows, its `nexo.info.versions.language`. */
     readonly language: string;
 }
 
@@ -509,7 +591,7 @@ export interface Domql {
     query<T = unknown>(text: string, bindings?: DomqlBindings): DomqlQuery<T>;
     /** Makes a query object from a request's definition, binding its parameters. */
     query<T = unknown>(definition: DomqlDefinition, bindings?: DomqlBindings): DomqlQuery<T>;
-    /** The canonical text of a request, given as its text, its definition or a query object: it parses and checks the structure, writes with the names of the registered modules, needs no bindings, and formatting what it gives gives that again. */
+    /** The canonical text of a request, given as its text, its definition or a query object: it parses and checks the structure, writes every import the definition records but `Domql`, which DOMQL supplies, needs no bindings, and formatting what it gives gives that again. */
     format(source: string | DomqlDefinition | DomqlQuery): string;
     /** Creates a module from the vocabulary it declares, each declaration that runs code carrying its implementation. */
     createModule(name: string, contents: DomqlModuleContents): DomqlModule;

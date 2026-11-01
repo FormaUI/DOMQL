@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { nexo } from '@formaui-net/nexo';
 import { SnapshotPatcher } from '#domql/snapshots/SnapshotPatcher.mjs';
+import { BrowserModule } from '#domql/dom/BrowserModule.mjs';
 
 /** Immutable data, as a snapshot is. */
 const freeze = value => (Array.isArray(value)
@@ -9,8 +11,41 @@ const freeze = value => (Array.isArray(value)
 /** Elements that stand for themselves, by which a projected list is matched. */
 const elements = (...names) => names.map(name => ({ nodeType: 1, name }));
 
-/** The metadata of an outermost object whose field `rows` was projected from the elements. */
-const rowsOf = rowElements => ({ fields: { rows: { sources: rowElements, items: rowElements.map(() => null) } } });
+/** What an item projected from the element came from: the element, a reference, or null for a null item. */
+const sourceOf = element => (element === null ? { kind: 'null' } : { kind: 'reference', value: element });
+
+/** The metadata of an outermost object whose field `rows` was projected from the elements, each item's source its provenance as well, as a projection of a list that carries none records them. */
+const rowsOf = rowElements => ({ objectFields: { rows: { items: rowElements.map(() => null), sources: rowElements.map(sourceOf), provenance: rowElements.map(sourceOf) } } });
+
+/** DOMQL's module, against which a query is evaluated as a watch evaluates it. */
+const registry = nexo.createRegistry([BrowserModule.create()]);
+
+/** The result Nexo answers for the query: its value and the metadata that describes it. */
+const resultOf = (text, bindings) => registry.resolve(text, bindings, { imports: ['Domql'] }).createEvaluator(bindings, { window, document }).evaluate();
+
+/** An element with the attributes given, and the children given within it. */
+const elementOf = (attributes = {}, children = []) => {
+    const element = document.createElement('div');
+
+    Object.entries(attributes).forEach(([name, value]) => element.setAttribute(name, value));
+    children.forEach(child => element.append(child));
+
+    return element;
+};
+
+/** A copy that is mutable throughout, as live state is. */
+const thaw = value => JSON.parse(JSON.stringify(value));
+
+/** The change set between two results Nexo answered, checked to take a mutable copy of the first to the second. */
+const changeSetOf = (previous, next) => {
+    const operations = SnapshotPatcher.changeSetBetween(previous.value, previous.metadata, next.value, next.metadata);
+    const state = thaw(previous.value);
+
+    SnapshotPatcher.applyInPlace(state, operations);
+    expect(state).toEqual(next.value);
+
+    return operations;
+};
 
 describe('SnapshotPatcher', () => {
     describe('changeSetBetween', () => {
@@ -120,8 +155,93 @@ describe('SnapshotPatcher', () => {
         });
     });
 
-    /** A copy that is mutable throughout, as live state is. */
-    const thaw = value => JSON.parse(JSON.stringify(value));
+    describe('changeSetBetween, of the results Nexo answers', () => {
+        /** Three elements in a panel, each with its key and a number. */
+        const panelOf = () => {
+            const [a, b, c] = [elementOf({ key: 'a', n: '1' }), elementOf({ key: 'b', n: '2' }), elementOf({ key: 'c', n: '3' })];
+
+            return { a, b, c, panel: elementOf({}, [a, b, c]) };
+        };
+
+        it('moves and updates the items of a projection of a projection\'s items by the elements the first projection read', () => {
+            const { a, c, panel } = panelOf();
+            const text = 'panel.children { key = it.attribute["key"], n = it.attribute["n"] } { key = it.key, n = it.n }';
+            const previous = resultOf(text, { panel });
+
+            panel.prepend(c);
+            a.setAttribute('n', '9');
+
+            expect(changeSetOf(previous, resultOf(text, { panel }))).toEqual([
+                { op: 'move', from: '/2', path: '/0' },
+                { op: 'replace', path: '/1/n', value: '9' },
+            ]);
+        });
+
+        it('removes and moves the items a where keeps of a projected list by the elements they came from', () => {
+            const { b, c, panel } = panelOf();
+            const text = 'panel.children { key = it.attribute["key"], n = it.attribute["n"] }.where(it.n != "0")';
+            const previous = resultOf(text, { panel });
+
+            panel.prepend(c);
+            b.setAttribute('n', '0');
+
+            expect(changeSetOf(previous, resultOf(text, { panel }))).toEqual([
+                { op: 'remove', path: '/1' },
+                { op: 'move', from: '/1', path: '/0' },
+            ]);
+        });
+
+        it.each([
+            ['data', 'rows { key = it.key }', () => [[{ key: 'a' }, { key: 'b' }, { key: 'c' }], [{ key: 'c' }, { key: 'b' }, { key: 'a' }]]],
+            ['null', 'rows { key = it.attribute["key"] }', () => {
+                const { a, b, c } = panelOf();
+
+                return [[a, b, null, c], [c, b, null, a]];
+            }],
+            ['one element twice', 'rows { key = it.attribute["key"] }', () => {
+                const { a, b, c } = panelOf();
+
+                return [[a, b, a, c], [c, b, a, a]];
+            }],
+        ])('changes by position a projected list whose provenance holds %s', (_, text, rowsOfList) => {
+            const [previousRows, nextRows] = rowsOfList();
+            const operations = changeSetOf(resultOf(text, { rows: previousRows }), resultOf(text, { rows: nextRows }));
+            const lastPath = `/${previousRows.length - 1}/key`;
+
+            expect(operations).toEqual([{ op: 'replace', path: '/0/key', value: 'c' }, { op: 'replace', path: lastPath, value: 'a' }]);
+        });
+
+        it('changes a dictionary and a pair as data, the dictionary\'s entries by position', () => {
+            const text = '{ prices = prices, coffee = prices.entry["coffee"] }';
+            const previous = resultOf(text, { prices: new Map([['tea', 2], ['coffee', 3]]) });
+
+            expect(previous.value).toEqual({ prices: { entries: [{ key: 'tea', value: 2 }, { key: 'coffee', value: 3 }] }, coffee: { key: 'coffee', value: 3 } });
+            expect(changeSetOf(previous, resultOf(text, { prices: new Map([['tea', 2], ['coffee', 4], ['cocoa', 5]]) }))).toEqual([
+                { op: 'replace', path: '/prices/entries/1/value', value: 4 },
+                { op: 'add', path: '/prices/entries/2', value: { key: 'cocoa', value: 5 } },
+                { op: 'replace', path: '/coffee/value', value: 4 },
+            ]);
+            expect(changeSetOf(previous, resultOf(text, { prices: new Map([['tea', 2]]) }))).toEqual([
+                { op: 'remove', path: '/prices/entries/1' },
+                { op: 'replace', path: '/coffee', value: null },
+            ]);
+        });
+
+        it('changes a dictionary of numeric keys through its entries by position, never taking a key for an index', () => {
+            const previous = resultOf('names', { names: new Map([[0, 'a'], [1, 'b'], [2, 'c']]) });
+
+            expect(changeSetOf(previous, resultOf('names', { names: new Map([[0, 'a'], [1, 'x'], [2, 'c']]) }))).toEqual([
+                { op: 'replace', path: '/entries/1/value', value: 'x' },
+            ]);
+            expect(changeSetOf(previous, resultOf('names', { names: new Map([[2, 'c'], [0, 'a']]) }))).toEqual([
+                { op: 'replace', path: '/entries/0/key', value: 2 },
+                { op: 'replace', path: '/entries/0/value', value: 'c' },
+                { op: 'replace', path: '/entries/1/key', value: 0 },
+                { op: 'replace', path: '/entries/1/value', value: 'a' },
+                { op: 'remove', path: '/entries/2' },
+            ]);
+        });
+    });
 
     const roundTrips = [
         ['fields, nulls and positional lists', freeze({ a: 1, b: { c: [1, 2] }, d: null }), null, freeze({ a: 2, b: { c: [2] }, d: { e: 'x' } }), null],

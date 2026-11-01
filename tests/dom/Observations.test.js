@@ -1,9 +1,6 @@
 import { beforeEach, describe, it, expect } from 'vitest';
+import { nexo, NexoError } from '@formaui-net/nexo';
 import { Observations } from '#domql/dom/Observations.mjs';
-import { LexicaError } from '#lexica/language/LexicaError.mjs';
-import { LexicaModule } from '#lexica/language/vocabulary/LexicaModule.mjs';
-import { LexicaRegistry } from '#lexica/language/vocabulary/LexicaRegistry.mjs';
-import { Vocabulary } from '#lexica/language/vocabulary/Vocabulary.mjs';
 import { BrowserVocabularyDeclarations } from '#domql/dom/BrowserVocabularyDeclarations.mjs';
 
 /** A module of observation types that start nothing in a browser, and the record of what they did. */
@@ -20,13 +17,13 @@ const createObservationTypes = () => {
             sample: () => record.samples[index] ?? { pending: true, value: null },
         };
     };
-    const module = new LexicaModule('fake', {
+    const module = nexo.createModule('Fake', {
         observationTypes: [
-            { name: 'ticks', contract: 'invalidation', identity: ['step'], implementation: start('ticks') },
-            { name: 'sampled', contract: 'maintained', implementation: start('sampled') },
-            { name: 'solo', contract: 'invalidation', shared: false, implementation: start('solo') },
-            { name: 'broken', contract: 'invalidation', implementation: () => { throw new Error('no clock'); } },
-            { name: 'mute', contract: 'invalidation', implementation: () => ({}) },
+            { name: 'ticks', contract: 'invalidation', identity: ['step'], impl: start('ticks') },
+            { name: 'sampled', contract: 'maintained', impl: start('sampled') },
+            { name: 'solo', contract: 'invalidation', shared: false, impl: start('solo') },
+            { name: 'broken', contract: 'invalidation', impl: () => { throw new Error('no clock'); } },
+            { name: 'mute', contract: 'invalidation', impl: () => ({}) },
         ],
     });
 
@@ -45,7 +42,7 @@ describe('Observations', () => {
         record = fake.record;
         reported = [];
         target = document.createElement('div');
-        observations = new Observations(new LexicaRegistry([Vocabulary.module, BrowserVocabularyDeclarations.module, fake.module]), { window, document }, { reportError: error => reported.push(error) });
+        observations = new Observations(nexo.createRegistry([BrowserVocabularyDeclarations.module, fake.module]), { window, document }, { reportError: error => reported.push(error) });
     });
 
     const request = (type, args = {}, on = target) => ({ type, target: on, arguments: args });
@@ -123,8 +120,8 @@ describe('Observations', () => {
         });
 
         it('report a failure to stop and are still disposed', () => {
-            const broken = new Observations(new LexicaRegistry([Vocabulary.module, BrowserVocabularyDeclarations.module, new LexicaModule('stuck', {
-                observationTypes: [{ name: 'stuck', contract: 'invalidation', implementation: () => ({ stop: () => { throw new Error('stuck'); } }) }],
+            const broken = new Observations(nexo.createRegistry([BrowserVocabularyDeclarations.module, nexo.createModule('Stuck', {
+                observationTypes: [{ name: 'stuck', contract: 'invalidation', impl: () => ({ stop: () => { throw new Error('stuck'); } }) }],
             })]), { window, document }, { reportError: error => reported.push(error) });
 
             broken.acquire(request('stuck'), () => {}).dispose();
@@ -172,7 +169,7 @@ describe('Observations', () => {
         it('reach the other sessions when reporting a failure fails too', () => {
             const calls = [];
             const types = createObservationTypes();
-            const observing = new Observations(new LexicaRegistry([Vocabulary.module, BrowserVocabularyDeclarations.module, types.module]), { window, document }, { reportError: () => { throw new Error('nowhere to report'); } });
+            const observing = new Observations(nexo.createRegistry([BrowserVocabularyDeclarations.module, types.module]), { window, document }, { reportError: () => { throw new Error('nowhere to report'); } });
 
             observing.acquire(request('ticks'), () => { throw new Error('first fails'); });
             observing.acquire(request('ticks'), () => calls.push('second'));
@@ -182,8 +179,8 @@ describe('Observations', () => {
         });
 
         it('are disposed when the observation fails to stop and reporting the failure fails too', () => {
-            const stuck = new Observations(new LexicaRegistry([Vocabulary.module, BrowserVocabularyDeclarations.module, new LexicaModule('stuck', {
-                observationTypes: [{ name: 'stuck', contract: 'invalidation', implementation: () => ({ stop: () => { throw new Error('stuck'); } }) }],
+            const stuck = new Observations(nexo.createRegistry([BrowserVocabularyDeclarations.module, nexo.createModule('Stuck', {
+                observationTypes: [{ name: 'stuck', contract: 'invalidation', impl: () => ({ stop: () => { throw new Error('stuck'); } }) }],
             })]), { window, document }, { reportError: () => { throw new Error('nowhere to report'); } });
 
             expect(() => stuck.acquire(request('stuck'), () => {}).dispose()).not.toThrow();
@@ -244,7 +241,7 @@ describe('Observations', () => {
             try {
                 action();
             } catch (error) {
-                expect(error).toBeInstanceOf(LexicaError);
+                expect(error).toBeInstanceOf(NexoError);
                 expect(error.kind).toBe('evaluation');
 
                 return error;
@@ -256,6 +253,7 @@ describe('Observations', () => {
         it('leave nothing running when an observation fails to start, and start again at the next request', () => {
             const error = failure(() => observations.acquire(request('broken'), () => {}));
 
+            expect(error.code).toBe('DOMQL5011');
             expect(error.message).toContain('no clock');
             expect(error.cause).toBeInstanceOf(Error);
             expect(observations.runningCount).toBe(0);
@@ -263,18 +261,18 @@ describe('Observations', () => {
         });
 
         it('refuse an observation type that starts one it cannot stop', () => {
-            expect(failure(() => observations.acquire(request('mute'), () => {})).message).toContain('no stop');
+            expect(failure(() => observations.acquire(request('mute'), () => {}))).toMatchObject({ code: 'DOMQL5012', message: expect.stringContaining('no stop') });
             expect(observations.runningCount).toBe(0);
         });
 
         it('refuse a kind no module declares', () => {
-            expect(failure(() => observations.acquire(request('nothing'), () => {})).message).toContain('declared by no module');
+            expect(failure(() => observations.acquire(request('nothing'), () => {}))).toMatchObject({ code: 'DOMQL5009', message: expect.stringContaining('declared by no module') });
         });
 
         it('refuse a kind whose module gives it no implementation', () => {
-            const empty = new LexicaRegistry([new LexicaModule('empty', { observationTypes: [{ name: 'empty', contract: 'invalidation' }] })]);
+            const empty = nexo.createRegistry([nexo.createModule('Empty', { observationTypes: [{ name: 'empty', contract: 'invalidation' }] })]);
 
-            expect(failure(() => new Observations(empty, { window, document }).acquire(request('empty'), () => {})).message).toContain("The module 'empty' gives the observation type 'empty' no implementation");
+            expect(failure(() => new Observations(empty, { window, document }).acquire(request('empty'), () => {}))).toMatchObject({ code: 'DOMQL5010', message: expect.stringContaining("The module 'Empty' gives the observation type 'empty' no implementation") });
         });
     });
 
@@ -327,7 +325,7 @@ describe('Observations', () => {
         });
 
         it('resolve the observations a built-in member names', () => {
-            const [declaration] = new LexicaRegistry([Vocabulary.module, BrowserVocabularyDeclarations.module]).getMembers('attribute');
+            const declaration = BrowserVocabularyDeclarations.module.types.find(type => type.name === 'Element').members.find(member => member.name === 'attribute');
             const requests = declaration.updates.observations.map(observation => observations.resolve(observation, { receiver: target, args: { name: 'id' } }));
 
             expect(requests).toEqual([{ type: 'mutation', target, arguments: { attributes: ['id'] } }]);

@@ -18,7 +18,7 @@ concurrency:
 env:
   PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright
 
-# DOMQL builds against Lexica at the commit lexica.commit pins, taken from a checkout beside its own, formaui-net.Lexica beside formaui-net.DOMQL, until a Lexica package is released, so each job checks out both, Lexica at that commit.
+# DOMQL builds against Nexo at the commit nexo.commit pins, taken from a checkout beside its own, formaui-net.Nexo beside formaui-net.DOMQL, until it consumes a released Nexo package, so each job checks out both, Nexo at that commit.
 defaults:
   run:
     working-directory: formaui-net.DOMQL
@@ -35,16 +35,16 @@ jobs:
           fetch-depth: 0
           path: formaui-net.DOMQL
 
-      # The Lexica commit DOMQL builds against, which lexica.commit pins.
-      - name: Read the pinned Lexica commit
-        id: lexica
-        run: echo "commit=$(tr -d '[:space:]' < lexica.commit)" >> "$GITHUB_OUTPUT"
+      # The Nexo commit DOMQL builds against, which nexo.commit pins.
+      - name: Read the pinned Nexo commit
+        id: nexo
+        run: echo "commit=$(tr -d '[:space:]' < nexo.commit)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: FormaUI/Lexica
-          ref: ${{ steps.lexica.outputs.commit }}
-          path: formaui-net.Lexica
+          repository: FormaUI/Nexo
+          ref: ${{ steps.nexo.outputs.commit }}
+          path: formaui-net.Nexo
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -86,16 +86,16 @@ jobs:
           fetch-depth: 0
           path: formaui-net.DOMQL
 
-      # The Lexica commit DOMQL builds against, which lexica.commit pins.
-      - name: Read the pinned Lexica commit
-        id: lexica
-        run: echo "commit=$(tr -d '[:space:]' < lexica.commit)" >> "$GITHUB_OUTPUT"
+      # The Nexo commit DOMQL builds against, which nexo.commit pins.
+      - name: Read the pinned Nexo commit
+        id: nexo
+        run: echo "commit=$(tr -d '[:space:]' < nexo.commit)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: FormaUI/Lexica
-          ref: ${{ steps.lexica.outputs.commit }}
-          path: formaui-net.Lexica
+          repository: FormaUI/Nexo
+          ref: ${{ steps.nexo.outputs.commit }}
+          path: formaui-net.Nexo
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:

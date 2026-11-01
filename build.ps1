@@ -9,7 +9,7 @@ Removes every build output first, so the build starts from nothing.
 Also runs the tests that need a real browser's layout, in headless Chromium, which is installed first if it is not.
 
 .NOTES
-DOMQL builds against Lexica at the commit lexica.commit pins, which it extracts into .lexica from the checkout beside this one, formaui-net.Lexica. Set LEXICA_SOURCE to a Lexica checkout to build against that checkout's working tree instead, for a change made in both repositories.
+DOMQL builds against Nexo at the commit nexo.commit pins, which it extracts into .nexo from the checkout beside this one, formaui-net.Nexo. Set NEXO_SOURCE to a Nexo checkout to build against that checkout's working tree instead, for a change made in both repositories.
 
 .EXAMPLE
 ./build.ps1 -Clean
@@ -31,13 +31,13 @@ $nuget = Join-Path $root 'nuget'
 $solution = 'Forma.DOMQL.slnx'
 $tests = Join-Path $root 'tests'
 $artifacts = Join-Path $root 'artifacts'
-$lexica = Join-Path $root '.lexica'
-$lexicaCheckout = Join-Path (Split-Path $root -Parent) 'formaui-net.Lexica'
-$lexicaCommit = (Get-Content (Join-Path $root 'lexica.commit') -Raw).Trim()
+$nexo = Join-Path $root '.nexo'
+$nexoCheckout = Join-Path (Split-Path $root -Parent) 'formaui-net.Nexo'
+$nexoCommit = (Get-Content (Join-Path $root 'nexo.commit') -Raw).Trim()
 
-# Removes .lexica, a link alone where it is one, so the checkout it points to is never touched.
-function Remove-Lexica {
-    $item = Get-Item -LiteralPath $lexica -Force -ErrorAction SilentlyContinue
+# Removes .nexo, a link alone where it is one, so the checkout it points to is never touched.
+function Remove-Nexo {
+    $item = Get-Item -LiteralPath $nexo -Force -ErrorAction SilentlyContinue
     if ($null -eq $item) {
         return
     }
@@ -46,64 +46,64 @@ function Remove-Lexica {
         $item.Delete()
     }
     else {
-        Remove-Item -LiteralPath $lexica -Recurse -Force
+        Remove-Item -LiteralPath $nexo -Recurse -Force
     }
 }
 
-# Makes .lexica the Lexica DOMQL builds against: a link to LEXICA_SOURCE where it is set, and otherwise the tree of the pinned commit.
-function Initialize-Lexica {
-    $item = Get-Item -LiteralPath $lexica -Force -ErrorAction SilentlyContinue
+# Makes .nexo the Nexo DOMQL builds against: a link to NEXO_SOURCE where it is set, and otherwise the tree of the pinned commit.
+function Initialize-Nexo {
+    $item = Get-Item -LiteralPath $nexo -Force -ErrorAction SilentlyContinue
 
-    if ($env:LEXICA_SOURCE) {
-        $source = (Resolve-Path -LiteralPath $env:LEXICA_SOURCE).Path
+    if ($env:NEXO_SOURCE) {
+        $source = (Resolve-Path -LiteralPath $env:NEXO_SOURCE).Path
         if ($item -and $item.LinkType -and ($item.Target -eq $source)) {
             return
         }
 
-        Remove-Lexica
+        Remove-Nexo
         $linkType = if ($IsWindows) { 'Junction' } else { 'SymbolicLink' }
-        New-Item -ItemType $linkType -Path $lexica -Target $source | Out-Null
-        Write-Host "Linking Lexica at $source"
+        New-Item -ItemType $linkType -Path $nexo -Target $source | Out-Null
+        Write-Host "Linking Nexo at $source"
         return
     }
 
-    $stamp = Join-Path $lexica '.commit'
-    if ($item -and -not $item.LinkType -and (Test-Path $stamp) -and ((Get-Content $stamp -Raw).Trim() -eq $lexicaCommit)) {
+    $stamp = Join-Path $nexo '.commit'
+    if ($item -and -not $item.LinkType -and (Test-Path $stamp) -and ((Get-Content $stamp -Raw).Trim() -eq $nexoCommit)) {
         return
     }
 
-    if (-not (Test-Path (Join-Path $lexicaCheckout '.git'))) {
-        throw "DOMQL builds against Lexica's commit $lexicaCommit, taken from a checkout at $lexicaCheckout; clone Lexica there, or set LEXICA_SOURCE to a checkout."
+    if (-not (Test-Path (Join-Path $nexoCheckout '.git'))) {
+        throw "DOMQL builds against Nexo's commit $nexoCommit, taken from a checkout at $nexoCheckout; clone Nexo there, or set NEXO_SOURCE to a checkout."
     }
 
-    git -C $lexicaCheckout cat-file -e "$lexicaCommit^{commit}" 2>$null
+    git -C $nexoCheckout cat-file -e "$nexoCommit^{commit}" 2>$null
     if ($LASTEXITCODE -ne 0) {
-        git -C $lexicaCheckout fetch origin $lexicaCommit
+        git -C $nexoCheckout fetch origin $nexoCommit
         if ($LASTEXITCODE -ne 0) {
-            throw "Lexica's checkout does not have the commit $lexicaCommit, and fetching it failed."
+            throw "Nexo's checkout does not have the commit $nexoCommit, and fetching it failed."
         }
     }
 
-    Write-Host "Extracting Lexica at $lexicaCommit"
-    Remove-Lexica
-    New-Item -ItemType Directory -Path $lexica | Out-Null
-    $archive = Join-Path ([System.IO.Path]::GetTempPath()) "lexica-$lexicaCommit.tar"
+    Write-Host "Extracting Nexo at $nexoCommit"
+    Remove-Nexo
+    New-Item -ItemType Directory -Path $nexo | Out-Null
+    $archive = Join-Path ([System.IO.Path]::GetTempPath()) "nexo-$nexoCommit.tar"
     try {
-        git -C $lexicaCheckout archive --format=tar -o $archive $lexicaCommit
+        git -C $nexoCheckout archive --format=tar -o $archive $nexoCommit
         if ($LASTEXITCODE -ne 0) {
-            throw "Archiving Lexica's commit $lexicaCommit failed."
+            throw "Archiving Nexo's commit $nexoCommit failed."
         }
 
-        tar -xf $archive -C $lexica
+        tar -xf $archive -C $nexo
         if ($LASTEXITCODE -ne 0) {
-            throw "Extracting Lexica's commit $lexicaCommit failed."
+            throw "Extracting Nexo's commit $nexoCommit failed."
         }
     }
     finally {
         Remove-Item -LiteralPath $archive -Force -ErrorAction SilentlyContinue
     }
 
-    Set-Content -LiteralPath $stamp -Value $lexicaCommit -NoNewline
+    Set-Content -LiteralPath $stamp -Value $nexoCommit -NoNewline
 }
 
 if ($Clean) {
@@ -115,13 +115,13 @@ if ($Clean) {
     }
 }
 
-Initialize-Lexica
+Initialize-Nexo
 
-# The root's link to Lexica must lead to .lexica; one made before the pin leads to the checkout itself.
-$linked = Get-Item -LiteralPath (Join-Path $root 'node_modules/@formaui/lexica') -Force -ErrorAction SilentlyContinue
+# The root's link to Nexo must lead to .nexo; one made before the pin leads to the checkout itself.
+$linked = Get-Item -LiteralPath (Join-Path $root 'node_modules/@formaui-net/nexo') -Force -ErrorAction SilentlyContinue
 # npm links with a relative target on Linux and macOS and an absolute one on Windows, so a target resolves against the link's own folder.
-$linkedToLexica = $linked -and $linked.LinkType -and ([System.IO.Path]::GetFullPath($linked.Target, (Split-Path $linked.FullName -Parent)) -eq [System.IO.Path]::GetFullPath($lexica))
-if (-not $linkedToLexica -and (Test-Path (Join-Path $root 'node_modules'))) {
+$linkedToNexo = $linked -and $linked.LinkType -and ([System.IO.Path]::GetFullPath($linked.Target, (Split-Path $linked.FullName -Parent)) -eq [System.IO.Path]::GetFullPath($nexo))
+if (-not $linkedToNexo -and (Test-Path (Join-Path $root 'node_modules'))) {
     # The link alone first, so removing node_modules never reaches into the checkout it leads to.
     if ($linked -and $linked.LinkType) {
         $linked.Delete()

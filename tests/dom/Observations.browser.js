@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, it, expect } from 'vitest';
+import { nexo } from '@formaui-net/nexo';
 import { BrowserModule } from '#domql/dom/BrowserModule.mjs';
 import { Observations } from '#domql/dom/Observations.mjs';
-import { LexicaRegistry } from '#lexica/language/vocabulary/LexicaRegistry.mjs';
 import { BrowserVocabularyDeclarations } from '#domql/dom/BrowserVocabularyDeclarations.mjs';
 
 /** The observation types of the DOM vocabulary, started in the browser they observe. */
@@ -12,7 +12,7 @@ describe('Observations in a browser', () => {
 
     beforeEach(() => {
         document.body.style.margin = '0';
-        registry = new LexicaRegistry([BrowserModule.create()]);
+        registry = nexo.createRegistry([BrowserModule.create()]);
         observations = new Observations(registry, { window, document });
         sessions = [];
     });
@@ -297,13 +297,15 @@ describe('Observations in a browser', () => {
         it('starts and ends every observation it names, against a real receiver', async () => {
             const element = add('width: 40px; height: 40px');
             const other = add('width: 10px; height: 10px');
-            const declarations = BrowserVocabularyDeclarations.module.members.filter(declaration => (declaration.updates?.observations ?? []).length > 0);
+            // Each member within a type, with its type's name, the module members, the document and the window, observing nothing.
+            const { module } = BrowserVocabularyDeclarations;
+            const declarations = [...module.members.map(declaration => ({ type: null, declaration })), ...module.types.flatMap(type => type.members.map(declaration => ({ type: type.name, declaration })))]
+                .filter(({ declaration }) => (declaration.updates?.observations ?? []).length > 0);
 
             expect(declarations.length).toBeGreaterThan(15);
 
-            for (const declaration of declarations) {
-                const first = [declaration.target].flat()[0];
-                const receiver = first === 'Window' ? window : first === 'Document' ? document : element;
+            for (const { type, declaration } of declarations) {
+                const receiver = type === 'Window' ? window : type === 'Document' ? document : element;
                 const args = Object.fromEntries((declaration.parameters ?? []).map(parameter => [parameter.name, argumentFor(parameter, other)]));
 
                 for (const observation of declaration.updates.observations) {

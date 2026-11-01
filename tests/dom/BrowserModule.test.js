@@ -5,31 +5,41 @@ import { BrowserVocabularyDeclarations } from '#domql/dom/BrowserVocabularyDecla
 import { DispatchTable } from '#domql/dom/DispatchTable.mjs';
 import { BrowserVocabularyImplementations } from '#domql/dom/BrowserVocabularyImplementations.mjs';
 
-/** The declarations of a module that run code: its members, observation types and conversions. */
-const declarationsOf = module => [...module.members, ...module.observationTypes, ...module.conversions];
+/**
+ * The declarations of a module that run code: its module members, the members and operators within its reference types, and its observation types. A structured type's data shape runs none, since Nexo reads it from the data.
+ */
+const declarationsOf = module => [...module.members, ...module.types.filter(type => type.kind === 'reference').flatMap(type => type.members), ...module.observationTypes];
 
 /** What carries the declaration out: its own implementation, or a host call's, which DOMQL's dispatch table keeps. */
-const implementationOf = declaration => declaration.implementation ?? DispatchTable.get(declaration)?.implementation;
+const implementationOf = declaration => declaration.impl ?? DispatchTable.get(declaration)?.implementation;
+
+/** Whether the declaration is a cast, which, without an implementation, answers its value as it is. */
+const isCast = declaration => declaration.kind === 'operator' && declaration.name === 'cast';
 
 describe('BrowserModule', () => {
     const module = BrowserModule.create();
     const keys = Object.keys({ ...BrowserVocabularyImplementations.implementations, ...BrowserObservationImplementations.implementations });
 
     it('is the DOM vocabulary', () => {
-        expect(module.name).toBe('domql');
+        const shapeOf = declared => declared.types.map(type => [type.name, type.members.map(member => member.name ?? `${type.name}[]`)]);
+
+        expect(module.name).toBe('Domql');
         expect(module.members.map(member => member.name)).toEqual(BrowserVocabularyDeclarations.module.members.map(member => member.name));
+        expect(shapeOf(module)).toEqual(shapeOf(BrowserVocabularyDeclarations.module));
     });
 
-    it('carries out every member and conversion and starts every observation type the vocabulary declares', () => {
-        for (const declaration of declarationsOf(module)) {
-            expect(implementationOf(declaration), declaration.name ?? `${declaration.from} to ${declaration.to}`).toBeTypeOf('function');
+    it('carries out every member and starts every observation type the vocabulary declares, the cast of an ARIA view alone answering its value as it is', () => {
+        for (const declaration of declarationsOf(module).filter(candidate => !isCast(candidate))) {
+            expect(implementationOf(declaration), declaration.name).toBeTypeOf('function');
         }
+
+        expect(declarationsOf(module).filter(isCast).map(declaration => [declaration.result, implementationOf(declaration)])).toEqual([['Element', undefined]]);
     });
 
     it('supplies no implementation that no declaration takes', () => {
         // Each key's stand-in answers the key, so the stand-ins the declarations carry name the keys they take.
         const standIns = Object.fromEntries(keys.map(key => [key, () => key]));
-        const taken = declarationsOf(BrowserVocabularyDeclarations.createModule(standIns)).map(declaration => implementationOf(declaration)?.());
+        const taken = declarationsOf(BrowserVocabularyDeclarations.createModule(standIns)).filter(declaration => !isCast(declaration)).map(declaration => implementationOf(declaration)?.());
 
         expect([...new Set(taken)].sort()).toEqual([...keys].sort());
     });

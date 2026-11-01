@@ -1,6 +1,6 @@
 # Working on DOMQL
 
-DOMQL is a query language and JavaScript library for the DOM: reading information from the document, keeping it current, responding to events and updating the page's content or state. Its queries are written in Lexica, and DOMQL defines the DOM as Lexica's domain. A query only reads; the document changes only through an execution, a host call a module supplies, which DOMQL carries out once or keeps running. Source ES modules live in `src/`; the build produces one minified bundle, distributed by the `formaui-net.DOMQL` NuGet package.
+DOMQL is a query language and JavaScript library for the DOM: reading information from the document, keeping it current, responding to events and updating the page's content or state. Its queries are written in Nexo, and DOMQL defines the DOM as Nexo's domain. A query only reads; the document changes only through an execution, a host call a module supplies, which DOMQL carries out once or keeps running. Source ES modules live in `src/`; the build produces one minified bundle, distributed by the `formaui-net.DOMQL` NuGet package.
 
 ## Before making a change
 
@@ -8,16 +8,16 @@ Read the documents that govern the affected contract:
 
 | Document | Authority |
 | --- | --- |
-| [Lexica specification](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/README.md) | The language, Lexica's, at the commit DOMQL builds against: syntax, resolution, values, requests, vocabulary contracts, definitions and diagnostics |
+| [Nexo specification](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/README.md) | Nexo's two contracts, at the commit DOMQL builds against: the language's, what a query means, and the runtime's, how DOMQL as its host binds, resolves, evaluates and registers modules |
 | [DOMQL specification](spec/README.md) | DOMQL's module and DOMQL as host: queries, nodes and shadow trees, the built-in vocabulary, evaluation, watching, results, events, executions, and the public API, one document per subject |
-| [Lexica design](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/docs/lexica-design.md) | How Lexica is built: its stages, registries, evaluation and tooling |
+| [Nexo design](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/docs/nexo-design.md) | How Nexo is built: its stages, modules, evaluation and tooling |
 | [DOMQL design](docs/domql-design.md) | How DOMQL is built: its architecture, resolution, sessions, watching, comparing and patching, the C# half, and the decisions not taken |
 | [Status](docs/features-status.md) | What is implemented, the migration to Nexo, the planned capabilities, open decisions and deferred work |
 | [Version history](VERSION-HISTORY.md) | Each DOMQL version, newest first, with the features it added, what it changed and what it breaks |
 | [Library guide](nuget/README.md) | Using DOMQL by example; it ships in the package, so it links absolutely |
 | `.editorconfig` | Code style; read it before writing C# |
 
-Update the specification before changing a contract, the vocabulary, the API or what an operation does, and the design before changing how DOMQL is built. Advance the specification version whenever DOMQL's contract changes, and add the version's entry to the [version history](VERSION-HISTORY.md) in the same commit. Each subject has one home: state a rule where it belongs and link to it elsewhere; a rule of the language is Lexica's. Record a gap between the design and the code in the status overview until it closes, and update a row's status as soon as its work lands.
+Update the specification before changing a contract, the vocabulary, the API or what an operation does, and the design before changing how DOMQL is built. Advance the specification version whenever DOMQL's contract changes, and add the version's entry to the [version history](VERSION-HISTORY.md) in the same commit. Each subject has one home: state a rule where it belongs and link to it elsewhere; a rule of the language or its runtime is Nexo's. Record a gap between the design and the code in the status overview until it closes, and update a row's status as soon as its work lands.
 
 Use these sources rather than inventing scope, status or style rules.
 
@@ -26,7 +26,7 @@ Use these sources rather than inventing scope, status or style rules.
 | Path | Responsibility |
 | --- | --- |
 | `src/domql.js` | Entry point that composes the library's modules |
-| `src/Versions.mjs` | The versions DOMQL reports: its runtime release, the specification it follows, and the language its Lexica runtime follows |
+| `src/Versions.mjs` | The versions DOMQL reports: its runtime release, the specification it follows, and the language its Nexo runtime follows |
 | `src/dom/` | Evaluation, watches, events, executions, observations, sessions and built-in implementations |
 | `src/snapshots/` | Computing, comparing, dispatching and applying snapshot updates using identity metadata; no DOM access |
 | `tests/` | Tests mirroring the source folders |
@@ -39,10 +39,10 @@ Use these sources rather than inventing scope, status or style rules.
 
 Add a folder when a new responsibility needs one. Keep dependencies in this direction:
 
-- `dom/` may depend on Lexica and `snapshots/`.
-- `snapshots/` may depend on Lexica.
+- `dom/` may depend on Nexo and `snapshots/`.
+- `snapshots/` may depend on Nexo.
 
-The language is Lexica, the package `@formaui/lexica`, which DOMQL imports by its name and depends on through `file:.lexica`, until a package of the language is released. Lexica has since been renamed Nexo, its repository [FormaUI/Nexo](https://github.com/FormaUI/Nexo), which keeps the commit DOMQL pins; DOMQL calls it Lexica until its [migration](docs/features-status.md#migration-to-nexo) adopts the new name. `build.ps1` fills `.lexica` with the commit `lexica.commit` pins, taken from a checkout of that repository beside this one, named `formaui-net.Lexica`, so a commit reaches DOMQL only when `lexica.commit` moves to it; with `LEXICA_SOURCE` naming a checkout, `.lexica` links to that checkout's working tree instead. A change to the language is made there, and a change DOMQL needs of it in both repositories together, with `LEXICA_SOURCE` set, moving `lexica.commit` once the language's commit exists.
+The language is Nexo, the package `@formaui-net/nexo`, which DOMQL imports by its name and depends on through `file:.nexo`, until it consumes a released package. `build.ps1` fills `.nexo` with the commit `nexo.commit` pins, taken from a checkout of [FormaUI/Nexo](https://github.com/FormaUI/Nexo) beside this one, named `formaui-net.Nexo`, so a commit reaches DOMQL only when `nexo.commit` moves to it; with `NEXO_SOURCE` naming a checkout, `.nexo` links to that checkout's working tree instead. A change to the language is made there, and a change DOMQL needs of it in both repositories together, with `NEXO_SOURCE` set, moving `nexo.commit` once the language's commit exists.
 
 Pass the window and document into DOM code; do not read globals there. Importing the language layer and resolving a query must work without a DOM.
 
@@ -53,7 +53,7 @@ Pass the window and document into DOM code; do not read globals there. Importing
 - Keep a module's registration separate from the instances it creates, as defined in the design.
 - Use native modern browser APIs in `src/`, with no external runtime libraries or polyfills. Scripts are ES modules.
 - Keep DOMQL independent of its consumers. Source code and documentation must not describe it as serving Forma, a component framework, Blazor or a consumer's watcher or engine. Mention FormaUI as publisher and Forma as a companion product only in package metadata and README introductions.
-- Report failures at their origin as a `LexicaError` with a location. Never swallow a rejection.
+- Report failures at their origin as a `NexoError` with its code and a location: a condition of DOMQL's own takes a `DOMQL` code, catalogued in [errors](spec/errors.md). Never swallow a rejection.
 - State each cache's validity and release conditions. Measure the work it saves.
 
 ### Names and types
@@ -68,7 +68,7 @@ Use names that explain their role in context. Short names are fine when their me
 | Promise-returning operations end in `Async` | `evaluate` and `evaluateAsync`; no suffix on the synchronous form |
 | Optional settings use `options` | Each setting has a default and the whole object may be omitted |
 | Required inputs are separate parameters | For example, the handler passed to `subscribe` |
-| Exported declaration names start with `Domql` | Lexica's own keep Lexica's names, as `LexicaError` does. Declare a class only when the bundle exports that class; otherwise use an interface for returned objects |
+| Exported declaration names start with `Domql` | Nexo's own keep Nexo's names, as `NexoError` does. Declare a class only when the bundle exports that class; otherwise use an interface for returned objects |
 | Product and API names are consistent | `DOMQL` in prose, `Domql` in type names, `domql` for the exported object |
 | Capability modules use a consistent suffix | `{Capability}DomqlModule` |
 
@@ -105,7 +105,7 @@ Use these version rules:
 - Each version is a literal in `src/Versions.mjs`, its one source, declared and never computed; the numbers may coincide, and neither determines another.
 - Runtime version: `Versions.runtime`, `1.0.0-alpha.N`, N chosen from the commit count when the release is numbered. The package project reads it, the bundle carries it, and `domql.info.versions.runtime` reports it, from the sources as from any build. Packing rejects a bundle of another version.
 - Specification version: `Versions.specification`, DOMQL's own, `1.0.0-alpha.N`, advanced as DOMQL's contract changes, never following the runtime version. The specification and design titles name the version the specification describes; `domql.info.versions.specification` reports, and the status names, the version the implementation follows, which may trail the titles while the specification moves ahead.
-- Language version: `Versions.language`, which `domql.info.versions.language` reports, is the language specification version the Lexica runtime DOMQL runs on follows, read from `lexica.info.versions.language`, never maintained here.
+- Language version: `Versions.language`, which `domql.info.versions.language` reports, is the language specification version the Nexo runtime DOMQL runs on follows, read from `nexo.info.versions.language`, never maintained here.
 - Preserve the version-alignment test, which checks these relationships without requiring the versions to match.
 
 ## Review and Git

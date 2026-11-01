@@ -208,8 +208,11 @@ describe('domql evaluateAsync in a browser', () => {
             // Each box reports through a ResizeObserver callback of its own, and each callback reaches a microtask of its own.
             let evaluations = 0;
 
-            domql.registerModule(domql.createModule('clientEvaluations', {
-                members: [{ name: 'clientEvaluations', kind: 'property', target: 'Element', result: 'Number', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => ++evaluations }],
+            domql.registerModule(domql.createModule('ClientEvaluations', {
+                types: [{
+                    name: 'ClientEvaluationElements', kind: 'extension', target: 'Domql.Element',
+                    members: [{ name: 'clientEvaluations', kind: 'property', result: 'Number', updates: { changes: 'constant', reads: 'fresh' }, impl: () => ++evaluations }],
+                }],
             }));
 
             const box = document.createElement('div');
@@ -217,7 +220,7 @@ describe('domql evaluateAsync in a browser', () => {
             box.style.cssText = 'width: 200px; height: 100px; padding: 10px';
             document.body.append(box);
 
-            const watch = domql.query('box { width = it.clientSize?.width, evaluations = it.clientEvaluations }', { box }).watch({ schedule: 'immediate', acceptPartialObservation: true });
+            const watch = domql.query('import ClientEvaluations\nbox { width = it.clientSize?.width, evaluations = it:clientEvaluations }', { box }).watch({ schedule: 'immediate', acceptPartialObservation: true });
 
             watches.push(watch);
             await watch.readyAsync();

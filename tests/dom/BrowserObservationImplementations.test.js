@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
+import { nexo } from '@formaui-net/nexo';
 import { BrowserModule } from '#domql/dom/BrowserModule.mjs';
 import { BrowserObservationImplementations } from '#domql/dom/BrowserObservationImplementations.mjs';
 import { Observations } from '#domql/dom/Observations.mjs';
-import { LexicaRegistry } from '#lexica/language/vocabulary/LexicaRegistry.mjs';
 
 /** A window whose pixel ratio and media queries the test controls, since a browser's cannot be changed from inside it. */
 const createWindow = devicePixelRatio => {
@@ -33,7 +33,7 @@ const createWindow = devicePixelRatio => {
 describe('BrowserObservationImplementations', () => {
     describe('pixelRatio', () => {
         const watch = fake => {
-            const observations = new Observations(new LexicaRegistry([BrowserModule.create()]), { window: fake, document });
+            const observations = new Observations(nexo.createRegistry([BrowserModule.create()]), { window: fake, document });
             const changes = [];
             const session = observations.acquire(observations.resolve({ type: 'pixelRatio', of: 'window' }, { receiver: fake, args: {} }), () => changes.push(fake.devicePixelRatio));
 

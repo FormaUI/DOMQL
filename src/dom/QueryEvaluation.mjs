@@ -3,8 +3,8 @@
  */
 
 /**
- * What one call of a member depended on: the member, where it stands in the query, and the observations that cover its changes, each resolved against the call.
- * @typedef {{ member: string, pointer: string, observations: { type: string, target: object, arguments: Record<string, any> }[] }} Dependency
+ * What one call of a member depended on: the member's name, null for an unnamed indexer, where it stands in the query, and the observations that cover its changes, each resolved against the call.
+ * @typedef {{ member: string | null, pointer: string, observations: { type: string, target: object, arguments: Record<string, any> }[] }} Dependency
  */
 
 export class QueryEvaluation {
@@ -18,7 +18,7 @@ export class QueryEvaluation {
     /**
      * @param {object} outcome What the evaluation produced.
      * @param {unknown} outcome.value The detached result, in which a member still waiting for its first sample answers null, or undefined where the evaluation produced none.
-     * @param {object | null} outcome.metadata The metadata Lexica gave the result: its origins, tolerances and the references its projected lists came from.
+     * @param {object | null} outcome.metadata The metadata Nexo gave the result: its origins, tolerances and the references its projected lists came from.
      * @param {boolean} outcome.isPending Whether a maintained member the result reads is still waiting for its first sample.
      * @param {Dependency[] | null} outcome.dependencies What the evaluation read, including what it read before it failed, or null where its caller asked for no record.
      * @param {import('./SessionCache.mjs').CachedSession[]} outcome.sessions The sessions that hold the dependencies' observations, each of which it owns until a later evaluation takes it.

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
-import { lexica } from '@formaui/lexica';
+import { nexo } from '@formaui-net/nexo';
 import { domql } from '#domql/domql.js';
 import { Versions } from '#domql/Versions.mjs';
 
@@ -23,20 +23,20 @@ describe('Alignment', () => {
         expect(specification).toContain(`describes DOMQL's version \`${described}\``);
     });
 
-    it('follows the specification version its status table names, on the language version of the Lexica runtime it runs on, which the table names too', () => {
+    it('follows the specification version its status table names, on the language version of the Nexo runtime it runs on, which the table names too', () => {
         const [, specification] = status.match(/^\| DOMQL specification \| `([^`]+)` \|/m);
-        const [, language] = status.match(/^\| Lexica language \| `([^`]+)` \|/m);
+        const [, language] = status.match(/^\| Nexo language \| `([^`]+)` \|/m);
 
         expect(specification).toBe(domql.info.versions.specification);
         expect(language).toBe(domql.info.versions.language);
-        expect(domql.info.versions.language).toBe(lexica.info.versions.language);
+        expect(domql.info.versions.language).toBe(nexo.info.versions.language);
     });
 
     it('has a version history whose newest entry is the version the specification describes, on the language and definition format it names', () => {
         const history = read('VERSION-HISTORY.md');
-        const [, newest, language, format] = history.match(/^## `([^`]+)`\r?\n\r?\n\*[^·*]+· Lexica language `([^`]+)` · definition format (\d+)/m);
+        const [, newest, language, format] = history.match(/^## `([^`]+)`\r?\n\r?\n\*[^·*]+· Nexo language `([^`]+)` · definition format (\d+)/m);
         const [, described] = specification.match(/^# DOMQL Specification v(\S+)$/m);
-        const [, describedLanguage, describedFormat] = specification.match(/on Lexica's language version `([^`]+)`, of \[definition version (\d+)\]/);
+        const [, describedLanguage, describedFormat] = specification.match(/on Nexo's language version `([^`]+)`, of \[definition version (\d+)\]/);
 
         expect(newest).toBe(described);
         expect(language).toBe(describedLanguage);
@@ -51,9 +51,8 @@ describe('Alignment', () => {
 
     it('has a specification whose complete query writes the fields of the result it shows', () => {
         const [, text, result] = read('spec/examples.md').match(/## A complete query[\s\S]*?The query reads it:\s*```domql\n([\s\S]*?)```[\s\S]*?```json\n([\s\S]*?)```/);
-        // The query is of version 32, which the specification targets, so its fields are read from its definition until the runtime resolves version 32.
         const { expression } = domql.query(text).definition;
 
-        expect(expression.fields.map(field => field.name)).toEqual(Object.keys(JSON.parse(result)));
+        expect(expression.objectFields.map(field => field.name)).toEqual(Object.keys(JSON.parse(result)));
     });
 });

@@ -1,53 +1,63 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import { nexo } from '@formaui-net/nexo';
 import { SnapshotComparer } from '#domql/snapshots/SnapshotComparer.mjs';
 import { BrowserModule } from '#domql/dom/BrowserModule.mjs';
-import { Evaluator } from '#lexica/language/Evaluator.mjs';
-import { LanguageResolver } from '#lexica/language/LanguageResolver.mjs';
-import { ParameterBindings } from '#lexica/language/ParameterBindings.mjs';
-import { ParsedTexts } from '#lexica/language/ParsedTexts.mjs';
-import { LexicaModule } from '#lexica/language/vocabulary/LexicaModule.mjs';
-import { LexicaRegistry } from '#lexica/language/vocabulary/LexicaRegistry.mjs';
-import { Vocabulary } from '#lexica/language/vocabulary/Vocabulary.mjs';
 
-/** What the test modules' members answer at the next evaluation, which a test sets as the page would change. */
+/** What the probes answer at the next evaluation, which a test sets as the page would change. */
 let state;
 
-/** A property of an element the test module of its name declares, answering what the state holds under its name. */
-const property = (name, result, tolerance) => new LexicaModule(name, {
-    members: [{ name, kind: 'property', target: 'Element', result, updates: { changes: 'constant', reads: 'fresh', tolerance }, implementation: () => state[name] }],
+/** A probe of the name, answering what the state holds under its name, within the tolerance given where one is. */
+const probe = (name, result, tolerance) => ({
+    name, kind: 'property', result, updates: { changes: 'constant', reads: 'fresh', ...(tolerance === undefined ? {} : { tolerance }) }, impl: () => state[name],
 });
 
-/** A module of a meter, whose default indexer reads a level, and one of a reading, an indexer of an element, each answering the state's `r` within a tolerance of 2. */
-const indexerModules = () => {
-    const key = [{ name: 'key', kind: 'value', type: 'String', required: true, nulls: 'propagate' }];
-    const level = { kind: 'function', syntax: 'indexer', arguments: 'positional', parameters: key, result: 'Number', updates: { changes: 'constant', reads: 'fresh', tolerance: 2 }, implementation: () => state.r };
-
-    return [
-        new LexicaModule('meter', {
-            types: [{ name: 'Meter', fields: { name: 'String' } }],
-            members: [
-                { name: 'meter', kind: 'property', target: 'Element', result: 'Meter', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => ({ name: 'm' }) },
-                { ...level, name: 'level', target: 'Meter', default: true },
-            ],
-        }),
-        new LexicaModule('reading', { members: [{ ...level, name: 'reading', target: 'Element' }] }),
-    ];
-};
+/** An indexer, named, or unnamed where its name is null, answering the state's `r` within a tolerance of 2. */
+const reading = name => ({
+    ...(name === null ? {} : { name }),
+    kind: 'indexer',
+    parameters: [nexo.declarations.createValueParameterDeclaration('key', 'String')],
+    result: 'Number',
+    updates: { changes: 'constant', reads: 'fresh', tolerance: 2 },
+    impl: () => state.r,
+});
 
 /**
- * A query as a watch evaluates it: each snapshot evaluates it against the page and the state as they are, answering its value and the metadata Lexica gives it,
- * and `reconcile` compares two snapshots as the watch's comparer does. `wobble` answers a size within the tolerance given, `maybe` a size that can be null within it, `girth` a size and `steady` a number with none.
+ * The probes the queries read, an extension of DOMQL's elements: `it:wobble` answers a size within the tolerance given, `it:maybe` a size that can be null within it, `it:girth` a size and `it:steady` a number with none;
+ * `it:reading["x"]` is a named indexer and `it:meter["x"]` a meter's unnamed indexer; and `it:gauge` is a view of the element, whose own `wobble` and `girth` a computed property access reads, since it reaches no extension.
+ */
+const probesModule = tolerance => nexo.createModule('Probes', {
+    types: [
+        { name: 'Meter', kind: 'structured', members: [{ name: 'name', kind: 'property', result: 'String' }, reading(null)] },
+        { name: 'Gauge', kind: 'reference', isInstance: value => value?.nodeType === 1, members: [probe('wobble', 'Domql.Size', tolerance), probe('girth', 'Domql.Size')] },
+        {
+            name: 'ProbeElements',
+            kind: 'extension',
+            target: 'Domql.Element',
+            members: [
+                probe('wobble', 'Domql.Size', tolerance),
+                probe('maybe', 'Domql.Size?', tolerance),
+                probe('girth', 'Domql.Size'),
+                probe('steady', 'Number?'),
+                reading('reading'),
+                { name: 'meter', kind: 'property', result: 'Meter', updates: { changes: 'constant', reads: 'fresh' }, impl: () => ({ name: 'm' }) },
+                { name: 'gauge', kind: 'property', result: 'Gauge', updates: { changes: 'constant', reads: 'fresh' }, impl: ({ receiver }) => receiver },
+            ],
+        },
+    ],
+});
+
+/**
+ * A query as a watch evaluates it: each snapshot evaluates it against the page and the state as they are, answering its value and the metadata Nexo gives it,
+ * and `reconcile` compares two snapshots as the watch's comparer does. Its text is read with DOMQL's module and the probes supplied as its imports.
  */
 const watchOf = (text, bindings, { tolerance = 0.5 } = {}) => {
-    const registry = new LexicaRegistry([Vocabulary.module, BrowserModule.create(), property('wobble', 'domql.Size', tolerance), property('maybe', 'domql.Size?', tolerance), property('girth', 'domql.Size'), property('steady', 'Number?'), ...indexerModules()]);
-    const definition = ParsedTexts.parse(text);
-    const locations = ParsedTexts.locationsOf(definition);
+    const registry = nexo.createRegistry([BrowserModule.create(), probesModule(tolerance)]);
     const comparer = new SnapshotComparer();
     // A resolution serves the bindings of its resolution key alone, as a watch's cache keeps one for each.
     const resolutionsByKey = new Map();
     const resolutionOf = parameterBindings => {
         if (!resolutionsByKey.has(parameterBindings.resolutionKey)) {
-            resolutionsByKey.set(parameterBindings.resolutionKey, new LanguageResolver(registry, parameterBindings, locations, {}).resolveDefinition(definition));
+            resolutionsByKey.set(parameterBindings.resolutionKey, registry.resolve(text, parameterBindings, { imports: ['Domql', 'Probes'] }));
         }
 
         return resolutionsByKey.get(parameterBindings.resolutionKey);
@@ -55,9 +65,9 @@ const watchOf = (text, bindings, { tolerance = 0.5 } = {}) => {
 
     return {
         snapshot: (values = bindings) => {
-            const parameterBindings = new ParameterBindings(values);
+            const parameterBindings = registry.createBindings(values);
 
-            return new Evaluator(registry, resolutionOf(parameterBindings), parameterBindings, { window, document }, locations).evaluate();
+            return resolutionOf(parameterBindings).createEvaluator(parameterBindings, { window, document }).evaluate();
         },
         reconcile: (previous, next) => comparer.reconcile(previous.value, previous.metadata, next.value, next.metadata),
     };
@@ -106,7 +116,7 @@ describe('SnapshotComparer', () => {
 
         it('builds an object anew from the first field that changed, sharing the fields before and after it that did not', () => {
             const element = elementOf({ key: 'a' });
-            const watch = watchOf('element { size = it.wobble, key = it.attribute["key"], box = it.girth }', { element });
+            const watch = watchOf('element { size = it:wobble, key = it.attribute["key"], box = it:girth }', { element });
 
             state.wobble = { width: 10, height: 20 };
             state.girth = { width: 30, height: 40 };
@@ -166,15 +176,10 @@ describe('SnapshotComparer', () => {
             expect(Object.getOwnPropertyDescriptor(changed, '__proto__').value).toBe(Object.getOwnPropertyDescriptor(previous.value, '__proto__').value);
         });
 
-        it('compares a list by position where its items came from no reference, and gives a new one where its length changed', () => {
-            const second = elementOf({ key: 'b' });
-            const element = elementOf({}, [elementOf({ key: 'a' }), second]);
-            const watch = watchOf('element { keys = it.children { key = it.attribute["key"] }.where(it.key != null) }', { element });
+        it('compares a list by position where its items came from data, and gives a new one where its length changed', () => {
+            const watch = watchOf('{ keys = rows { key = it.key } }', { rows: [{ key: 'a' }, { key: 'b' }] });
             const previous = watch.snapshot();
-
-            second.remove();
-
-            const next = watch.reconcile(previous, watch.snapshot());
+            const next = watch.reconcile(previous, watch.snapshot({ rows: [{ key: 'a' }] }));
 
             expect(next.keys).toEqual([{ key: 'a' }]);
             expect(next.keys).not.toBe(previous.value.keys);
@@ -197,7 +202,7 @@ describe('SnapshotComparer', () => {
         });
 
         it('compares a number exactly where its member declares no tolerance', () => {
-            const watch = watchOf('element { n = it.steady }', { element: elementOf() });
+            const watch = watchOf('element { n = it:steady }', { element: elementOf() });
             const previous = watch.snapshot();
 
             state.steady = 10.001;
@@ -208,7 +213,7 @@ describe('SnapshotComparer', () => {
         });
 
         it('compares a computed number exactly, whatever the tolerance of the members its operands read', () => {
-            const watch = watchOf('element { w = it.wobble.width * 10, v = it.wobble.width + 0 }', { element: elementOf() }, { tolerance: 2 });
+            const watch = watchOf('element { w = it:wobble.width * 10, v = it:wobble.width + 0 }', { element: elementOf() }, { tolerance: 2 });
             const previous = watch.snapshot();
 
             state.wobble = { width: 100.1, height: 40 };
@@ -220,9 +225,9 @@ describe('SnapshotComparer', () => {
         });
 
         it.each([
-            ['a named indexer', 'element { r = it.reading["x"] }'],
-            ['an unnamed indexer', 'element { r = it.meter["x"] }'],
-            ['an optional indexer', 'element { r = it?.reading["x"] }'],
+            ['a named indexer', 'element { r = it:reading["x"] }'],
+            ['an unnamed indexer', 'element { r = it:meter["x"] }'],
+            ['an optional indexer', 'element { r = it?:reading["x"] }'],
         ])('compares a number %s answered within its tolerance, as a call or a property is', (_, text) => {
             const watch = watchOf(text, { element: elementOf() });
             const previous = watch.snapshot();
@@ -234,7 +239,7 @@ describe('SnapshotComparer', () => {
         });
 
         it('treats a difference exactly at the tolerance as unchanged, and one beyond it as a change', () => {
-            const watch = watchOf('element { r = it.reading["x"] }', { element: elementOf() });
+            const watch = watchOf('element { r = it:reading["x"] }', { element: elementOf() });
             const previous = watch.snapshot();
             const at = r => ((state.r = r), watch.reconcile(previous, watch.snapshot()));
 
@@ -245,7 +250,7 @@ describe('SnapshotComparer', () => {
         });
 
         it('measures each change from the snapshot it keeps, so small steps that add up beyond the tolerance report the value they reach', () => {
-            const watch = watchOf('element { r = it.reading["x"] }', { element: elementOf() });
+            const watch = watchOf('element { r = it:reading["x"] }', { element: elementOf() });
             let kept = watch.snapshot();
             const reported = [];
 
@@ -265,7 +270,7 @@ describe('SnapshotComparer', () => {
         });
 
         it('compares a number within the tolerance of the member that produced it', () => {
-            const watch = watchOf('element { size = it.wobble }', { element: elementOf() });
+            const watch = watchOf('element { size = it:wobble }', { element: elementOf() });
             const previous = watch.snapshot();
 
             state.wobble = { width: 100.4, height: 39.6 };
@@ -280,7 +285,7 @@ describe('SnapshotComparer', () => {
         });
 
         it('shares the tolerance of a member with the fields of its value', () => {
-            const watch = watchOf('element { width = it.wobble.width }', { element: elementOf() }, { tolerance: 2 });
+            const watch = watchOf('element { width = it:wobble.width }', { element: elementOf() }, { tolerance: 2 });
             const previous = watch.snapshot();
 
             state.wobble = { width: 101.5, height: 40 };
@@ -293,7 +298,7 @@ describe('SnapshotComparer', () => {
         describe('under a conditional', () => {
             it('compares a number within the tolerance of the member the branch both values came from declares', () => {
                 const element = elementOf();
-                const watch = watchOf('if wide then element.wobble.width else element.steady end', { element, wide: true }, { tolerance: 2 });
+                const watch = watchOf('if wide then element:wobble.width else element:steady end', { element, wide: true }, { tolerance: 2 });
                 const previous = watch.snapshot();
 
                 state.wobble = { width: 101.5, height: 40 };
@@ -308,7 +313,7 @@ describe('SnapshotComparer', () => {
             });
 
             it('compares what a conditional binding gives as the value it binds, within the tolerance of its member, where both values came from its consequent', () => {
-                const watch = watchOf('if let width = element.maybe?.width then { a = width, b = width } else null end', { element: elementOf() }, { tolerance: 2 });
+                const watch = watchOf('if let width = element:maybe?.width then { a = width, b = width } else null end', { element: elementOf() }, { tolerance: 2 });
                 const previous = watch.snapshot();
 
                 state.maybe = { width: 101.5, height: 40 };
@@ -319,7 +324,7 @@ describe('SnapshotComparer', () => {
             });
 
             it('compares what an and or an or gave as the operand it gave, within that operand\'s tolerance, and exactly where the operand has none', () => {
-                const watch = watchOf('element.steady or element.wobble.width', { element: elementOf() }, { tolerance: 2 });
+                const watch = watchOf('element:steady or element:wobble.width', { element: elementOf() }, { tolerance: 2 });
 
                 state.steady = null;
 
@@ -341,7 +346,7 @@ describe('SnapshotComparer', () => {
 
             it('compares a number exactly where the two values came from different branches', () => {
                 const element = elementOf();
-                const watch = watchOf('if wide then element.wobble.width else other.wobble.width end', { element, other: element, wide: true }, { tolerance: 2 });
+                const watch = watchOf('if wide then element:wobble.width else other:wobble.width end', { element, other: element, wide: true }, { tolerance: 2 });
                 const previous = watch.snapshot();
 
                 state.wobble = { width: 101.5, height: 40 };
@@ -350,7 +355,7 @@ describe('SnapshotComparer', () => {
 
             it('compares the fields of a branch that is an object expression by their own members', () => {
                 const element = elementOf();
-                const watch = watchOf('element { s = if wide then element { w = it.wobble.width, n = it.steady } else null end }', { element, wide: true }, { tolerance: 2 });
+                const watch = watchOf('element { s = if wide then element { w = it:wobble.width, n = it:steady } else null end }', { element, wide: true }, { tolerance: 2 });
 
                 state.steady = 5;
 
@@ -365,7 +370,7 @@ describe('SnapshotComparer', () => {
             });
 
             it('follows a branch through the field of its value a chain reads from the local holding it', () => {
-                const watch = watchOf('let size = if wide then element.wobble else element.girth end\nreturn size.width', { element: elementOf(), wide: true }, { tolerance: 2 });
+                const watch = watchOf('let size = if wide then element:wobble else element:girth end\nreturn size.width', { element: elementOf(), wide: true }, { tolerance: 2 });
                 const previous = watch.snapshot();
 
                 state.wobble = { width: 101.5, height: 40 };
@@ -376,7 +381,7 @@ describe('SnapshotComparer', () => {
         describe('under a computed property access', () => {
             it('compares a number within the tolerance of the property both values came from, and exactly where they came from different ones', () => {
                 const element = elementOf();
-                const watch = watchOf('element.[if wide then "wobble" else "girth" end]?.width', { element, wide: true }, { tolerance: 2 });
+                const watch = watchOf('element:gauge.[if wide then "wobble" else "girth" end]?.width', { element, wide: true }, { tolerance: 2 });
                 const wide = watch.snapshot();
 
                 state.wobble = { width: 101.5, height: 40 };
@@ -392,7 +397,7 @@ describe('SnapshotComparer', () => {
 
         describe('under a coalescing operator', () => {
             it('compares a number within the tolerance of the side both values came from, and exactly where they came from different sides', () => {
-                const watch = watchOf('element.maybe?.width ?? element.steady', { element: elementOf() }, { tolerance: 2 });
+                const watch = watchOf('element:maybe?.width ?? element:steady', { element: elementOf() }, { tolerance: 2 });
                 const fromValue = watch.snapshot();
 
                 state.maybe = { width: 101.5, height: 40 };
@@ -413,7 +418,7 @@ describe('SnapshotComparer', () => {
 
         it('compares what an optional chain gives as the chain it holds, within the tolerance of its member', () => {
             const element = elementOf();
-            const watch = watchOf('element { width = (it.parent as Element)?.wobble.width, box = (it.parent as Element)?.wobble { w = it.width } }', { element }, { tolerance: 2 });
+            const watch = watchOf('element { width = (it.parent as Element)?:wobble.width, box = (it.parent as Element)?:wobble { w = it.width } }', { element }, { tolerance: 2 });
 
             elementOf({}, [element]);
             state.wobble = { width: 10, height: 40 };
@@ -428,7 +433,7 @@ describe('SnapshotComparer', () => {
         });
 
         it('compares what a local gives as the expression it names, within the tolerance of its member', () => {
-            const watch = watchOf('element { let width = it.wobble.width, a = width, b = width }', { element: elementOf() }, { tolerance: 2 });
+            const watch = watchOf('element { let width = it:wobble.width, a = width, b = width }', { element: elementOf() }, { tolerance: 2 });
             const previous = watch.snapshot();
 
             state.wobble = { width: 101.5, height: 40 };
@@ -436,7 +441,8 @@ describe('SnapshotComparer', () => {
         });
 
         it('compares what a do block and a call of a local function give as the expression their body gives, within the tolerance of its member', () => {
-            const watch = watchOf('element { let read = function(e) e.wobble.width end, a = do let w = it.wobble.width return w end, b = read(it) }', { element: elementOf() }, { tolerance: 2 });
+            const text = 'element {\n    let read = function(e) e:wobble.width end,\n    a = do\n        let w = it:wobble.width\n        return w\n    end,\n    b = read(it)\n}';
+            const watch = watchOf(text, { element: elementOf() }, { tolerance: 2 });
             const previous = watch.snapshot();
 
             state.wobble = { width: 101.5, height: 40 };
@@ -448,7 +454,7 @@ describe('SnapshotComparer', () => {
 
         it('compares what a call of one of several functions gives as the body of the one both values came from, and exactly where they came from different ones', () => {
             const element = elementOf();
-            const watch = watchOf('let a = () => element.wobble.width\nlet b = () => element.steady\nlet pick = if wide then a else b end\nreturn pick()', { element, wide: true }, { tolerance: 2 });
+            const watch = watchOf('let a = () => element:wobble.width\nlet b = () => element:steady\nlet pick = if wide then a else b end\nreturn pick()', { element, wide: true }, { tolerance: 2 });
             const first = watch.snapshot();
 
             state.wobble = { width: 101.5, height: 40 };
@@ -464,7 +470,7 @@ describe('SnapshotComparer', () => {
         });
 
         it('compares a field read through root as the field it reads, within the tolerance of its member', () => {
-            const watch = watchOf('element { width = it.wobble.width, again = root.width, named = root.[name] }', { element: elementOf(), name: 'width' }, { tolerance: 2 });
+            const watch = watchOf('element { width = it:wobble.width, again = root.width, named = root.[name] }', { element: elementOf(), name: 'width' }, { tolerance: 2 });
             const previous = watch.snapshot();
 
             state.wobble = { width: 101.5, height: 40 };
@@ -472,7 +478,7 @@ describe('SnapshotComparer', () => {
         });
 
         it('keeps a number that moved within the tolerance at the one last reported, so the drift cannot add up', () => {
-            const watch = watchOf('element.wobble.width', { element: elementOf() }, { tolerance: 1 });
+            const watch = watchOf('element:wobble.width', { element: elementOf() }, { tolerance: 1 });
             let reported = watch.snapshot();
 
             for (const width of [100.6, 101.2, 100.9]) {
@@ -503,6 +509,64 @@ describe('SnapshotComparer', () => {
             expect(next[1]).not.toBe(previous.value[0]);
         });
 
+        it('matches the items of a projection of a projection\'s items by the elements the first projection read', () => {
+            const [a, b, c] = [elementOf({ key: 'a', n: '1' }), elementOf({ key: 'b', n: '2' }), elementOf({ key: 'c', n: '3' })];
+            const element = elementOf({}, [a, b, c]);
+            const watch = watchOf('element.children { key = it.attribute["key"], n = it.attribute["n"] } { key = it.key, n = it.n }', { element });
+            const previous = watch.snapshot();
+
+            element.prepend(c);
+            a.setAttribute('n', '9');
+
+            const next = watch.reconcile(previous, watch.snapshot());
+
+            expect(next).toEqual([{ key: 'c', n: '3' }, { key: 'a', n: '9' }, { key: 'b', n: '2' }]);
+            expect(next[0]).toBe(previous.value[2]);
+            expect(next[2]).toBe(previous.value[1]);
+            expect(next[1]).not.toBe(previous.value[0]);
+        });
+
+        it('matches the items a where keeps of a projected list by the elements they came from', () => {
+            const [a, b, c] = [elementOf({ key: 'a', n: '1' }), elementOf({ key: 'b', n: '2' }), elementOf({ key: 'c', n: '3' })];
+            const element = elementOf({}, [a, b, c]);
+            const watch = watchOf('element.children { key = it.attribute["key"], n = it.attribute["n"] }.where(it.n != "0")', { element });
+            const previous = watch.snapshot();
+
+            element.prepend(c);
+            b.setAttribute('n', '0');
+
+            const next = watch.reconcile(previous, watch.snapshot());
+
+            expect(next).toEqual([{ key: 'c', n: '3' }, { key: 'a', n: '1' }]);
+            expect(next[0]).toBe(previous.value[2]);
+            expect(next[1]).toBe(previous.value[0]);
+        });
+
+        it.each([
+            ['data', 'rows { key = it.key }', () => [[{ key: 'a' }, { key: 'b' }, { key: 'c' }], [{ key: 'c' }, { key: 'b' }, { key: 'a' }]]],
+            ['null', 'rows { key = it.attribute["key"] }', () => {
+                const [a, b, c] = [elementOf({ key: 'a' }), elementOf({ key: 'b' }), elementOf({ key: 'c' })];
+
+                return [[a, b, null, c], [c, b, null, a]];
+            }],
+            ['one element twice', 'rows { key = it.attribute["key"] }', () => {
+                const [a, b, c] = [elementOf({ key: 'a' }), elementOf({ key: 'b' }), elementOf({ key: 'c' })];
+
+                return [[a, b, a, c], [c, b, a, a]];
+            }],
+        ])('matches by position a projected list whose provenance holds %s, so an item that moved is compared with the one that stood at its place', (_, text, rowsOf) => {
+            const [previousRows, nextRows] = rowsOf();
+            const watch = watchOf(text, { rows: previousRows });
+            const previous = watch.snapshot();
+            const nextSnapshot = watch.snapshot({ rows: nextRows });
+            const next = watch.reconcile(previous, nextSnapshot);
+
+            expect(next).toEqual(nextSnapshot.value);
+            expect(next[0]).toEqual(previous.value.at(-1));
+            expect(next[0]).not.toBe(previous.value.at(-1));
+            expect(next[1]).toBe(previous.value[1]);
+        });
+
         it('matches by element a list a conditional chose, following the metadata of the value it gave', () => {
             const [a, b] = [elementOf({ key: 'a' }), elementOf({ key: 'b' })];
             const element = elementOf({}, [a, b]);
@@ -524,6 +588,34 @@ describe('SnapshotComparer', () => {
             const previous = { value: Object.freeze([Object.freeze({ key: 'a' }), null]), metadata };
 
             expect(watch.reconcile(previous, { value: Object.freeze([Object.freeze({ key: 'a' }), null]), metadata })).toBe(previous.value);
+        });
+
+        it('compares a dictionary and a pair as data, sharing each entry that did not change', () => {
+            const prices = (coffee = 3) => new Map([['tea', 2], ['coffee', coffee]]);
+            const watch = watchOf('{ prices = prices, coffee = prices.entry["coffee"], tea = prices.entry["tea"] }', { prices: prices() });
+            const previous = watch.snapshot();
+
+            expect(previous.value).toEqual({ prices: { entries: [{ key: 'tea', value: 2 }, { key: 'coffee', value: 3 }] }, coffee: { key: 'coffee', value: 3 }, tea: { key: 'tea', value: 2 } });
+            expect(watch.reconcile(previous, watch.snapshot({ prices: prices() }))).toBe(previous.value);
+
+            const next = watch.reconcile(previous, watch.snapshot({ prices: prices(4) }));
+
+            expect(next).toEqual({ prices: { entries: [{ key: 'tea', value: 2 }, { key: 'coffee', value: 4 }] }, coffee: { key: 'coffee', value: 4 }, tea: { key: 'tea', value: 2 } });
+            expect(next.prices.entries[0]).toBe(previous.value.prices.entries[0]);
+            expect(next.prices.entries[1]).not.toBe(previous.value.prices.entries[1]);
+            expect(next.coffee).not.toBe(previous.value.coffee);
+            expect(next.tea).toBe(previous.value.tea);
+        });
+
+        it('compares a dictionary of numeric keys entry by entry in its order, each key a value of its entry and never a position', () => {
+            const watch = watchOf('{ names = names }', { names: new Map([[0, 'a'], [1, 'b']]) });
+            const previous = watch.snapshot();
+            const changed = watch.reconcile(previous, watch.snapshot({ names: new Map([[0, 'a'], [1, 'c']]) }));
+            const reordered = watch.reconcile(previous, watch.snapshot({ names: new Map([[1, 'b'], [0, 'a']]) }));
+
+            expect(changed).toEqual({ names: { entries: [{ key: 0, value: 'a' }, { key: 1, value: 'c' }] } });
+            expect(changed.names.entries[0]).toBe(previous.value.names.entries[0]);
+            expect(reordered).toEqual({ names: { entries: [{ key: 1, value: 'b' }, { key: 0, value: 'a' }] } });
         });
     });
 });

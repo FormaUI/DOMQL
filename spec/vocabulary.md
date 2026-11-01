@@ -3,19 +3,19 @@
 <a id="built-in-vocabulary"></a>
 <a id="vocabulary"></a>
 
-The **built-in vocabulary** is what DOMQL's module, `domql`, declares: the DOM's types, and the module members, properties, functions, Boolean functions among them, event sources and observations a query reads them through. Everything a query can ask about is a member a module contributes, DOMQL's own module and every extension by one contract, so adding a member leaves the grammar unchanged.
+The **built-in vocabulary** is what DOMQL's module, `Domql`, declares: the DOM's types, and the module members, properties, functions, Boolean functions among them, event sources and observations a query reads them through. Everything a query can ask about is a member a module contributes, DOMQL's own module and every extension by one contract, so adding a member leaves the grammar unchanged.
 
 ```domql
-panel.size?.width                        // A property of an element, then a field of the size it answers.
+panel.size?.width                        // A property of an element, then a property of the size it answers.
 panel["data-key"]                        // An attribute, through the unnamed indexer.
 panel.closest(".row")                    // A function, given its selector.
 panel.disabled()                         // A Boolean function, which tests the element.
-domql.window.media["(min-width: 40em)"]  // A named indexer of the window, a module member.
+Domql.window.media["(min-width: 40em)"]  // A named indexer of the window, a module member.
 ```
 
 Properties and functions are named in camelCase, and names are case-sensitive. Built-in members expose state or event sources; executions come from extensions. A property is read by property access, and a function is written as a call or as a named indexer, as its declaration says; the tables write each as it is written, with a receiver left out. A member available on a node is available on each of its kinds, one available on an element on elements alone, and one available on a shadow view on an element's `shadow`.
 
-Lexica's own module declares the members of lists, `count`, `first`, `last`, `item`, `max`, `min`, `sum` and `where`, and the verbs `is`, `has` and `supports`; the entries below for them point to Lexica's specification, which defines them. DOMQL's event sources and event types are set out in [events](events.md).
+Nexo's own module declares the members of lists, among them `count`, `first`, `last`, `max`, `min`, `sum`, `where` and the unnamed indexer `[index]`, and those of numbers and strings; the entries below for the members of lists a query of the DOM reads most point to Nexo's specification, which defines them all. DOMQL's event sources and event types are set out in [events](events.md).
 
 In this document:
 
@@ -33,32 +33,32 @@ In this document:
 
 ## Module members
 
-DOMQL's module, `domql`, declares two [module members](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/modules.md#namespaces-module-members), read through its namespace, each with no receiver:
+DOMQL's module, `Domql`, declares two [module members](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/language/modules.md#namespaces-module-members), read through its namespace, each with no receiver:
 
 | Member | Type | Reads | Changes |
 | --- | --- | --- | --- |
-| `domql.document` | `Document` | The document the query runs against, from the environment DOMQL gives its evaluator | Constant for an evaluator |
-| `domql.window` | `Window` | That document's window, which is also the layout viewport | Constant for an evaluator |
+| `Domql.document` | `Document` | The document the query runs against, from the environment DOMQL gives its evaluator | Constant for an evaluator |
+| `Domql.window` | `Window` | That document's window, which is also the layout viewport | Constant for an evaluator |
 
-Neither needs a binding, and a caller's binding named `domql` is read as `~domql`.
+Neither needs a binding, and a caller's binding named `Domql` is read as `~Domql`, since every query imports DOMQL's module under that name.
 
 <a id="vocabulary-types"></a>
 
 ## Types
 
-DOMQL's module declares each of its types with its members, as Lexica's [declaring a type](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/modules.md#modules-declaring-a-type) sets out: its reference types, which a query reads through and a result never holds, and its structured types, which hold data. Its `typeOf` recognizes the values a host binds, and each reference type's `isInstance` checks membership:
+DOMQL's module declares each of its types with its members, as Nexo's [declaring a type](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/runtime/modules.md#modules-declaring-a-type) sets out: its reference types, which a query reads through and a result never holds, and its structured types, which hold data. Its `typeOf` recognizes the values a host binds, and each reference type's `isInstance` checks membership:
 
 | Reference type | Supertype | What it is | Where a value has the type |
 | --- | --- | --- | --- |
 | `Node` | None, abstract | A [node](nodes-and-shadow-trees.md#nodes) of the DOM tree | A member's result, as `parent`'s and `root`'s, or a declared binding; never `typeOf`, since it is abstract |
 | `Element`, `Document`, `DocumentFragment`, `ShadowRoot` | `Node` | The kinds of node | DOMQL's `typeOf`, a member's result, as the items of `children` are, or a declared binding |
-| `Window` | None | The window a query runs in | DOMQL's `typeOf`, `domql.window`'s result, or a declared binding |
+| `Window` | None | The window a query runs in | DOMQL's `typeOf`, `Domql.window`'s result, or a declared binding |
 | `Shadow` | None | An element's [shadow view](nodes-and-shadow-trees.md#shadow-trees-the-view) | An element's `shadow`, or a declared binding |
 | `Aria` | None | An element's [ARIA view](#conditions) | An element's `aria`, or a declared binding |
 
 `Shadow` and `Aria` are views: an element's `shadow` and `aria` answer the element itself, of the view's type, whose `isInstance` accepts every element, and no wrapper is made or kept. DOMQL's `typeOf` never answers a view, and an `Element` can't be cast to either view: their memberships accepting every element doesn't make the types related. `Aria` declares a cast to `Element`, without an `impl`, so `(panel.aria as Element).aria` reads the element's view again. Each node type, `Window` and each view has no data form, so no result holds one.
 
-| Structured type | What it is | Fields |
+| Structured type | What it is | Properties |
 | --- | --- | --- |
 | `Size` | A width and a height | `width`, `height`: `Number` |
 | `Rectangle` | A box's edges and size | `left`, `top`, `right`, `bottom`, `width`, `height`: `Number` |
@@ -67,7 +67,7 @@ DOMQL's module declares each of its types with its members, as Lexica's [declari
 
 `on`, an event source, is one declaration DOMQL's module gives each of `Element`, `Document` and `Window`, the receivers it listens on.
 
-A field of a structured value, such as a rectangle's `width`, is data the value holds, read by property access, and is constant for that value. Facts that must describe one measurement are members of one structured value, which is captured once and read by each of its members, as a rectangle's edges are. The types of event data are set out in [events](events.md#event-types).
+A property of a structured value's data shape, such as a rectangle's `width`, is data the value holds, read by property access, and is constant for that value. Facts that must describe one measurement are members of one structured value, which is captured once and read by each of its members, as a rectangle's edges are. The types of event data are set out in [events](events.md#event-types).
 
 <a id="vocabulary-measurements-and-layout"></a>
 <a id="elements-without-a-layout-box"></a>
@@ -327,7 +327,7 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 ### List: count, first, last
 
-`count`, `first` and `last` are properties [Lexica's own module](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/vocabulary.md#vocabulary-list-members) declares, which owns lists, and Lexica's specification defines.
+`count`, `first` and `last` are properties [Nexo's own module](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/language/collections.md#collections-list-members) declares, which owns lists, and Nexo's specification defines.
 
 <a id="functions"></a>
 
@@ -399,13 +399,6 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 **Changes.** Observable: its `class` attribute
 
-<a id="function-any-is-has-supports"></a>
-
-<a id="functions-any-is-has-supports"></a>
-
-### Any: is, has, supports
-
-`is`, `has` and `supports` are [Lexica's verbs](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/vocabulary.md#vocabulary-verbs), each given a test of its receiver as a function: one of DOMQL's [Boolean functions](#boolean-functions) by reference, `it.is(domql.checked)`, an arrow function, or an implicit body, `panel.is(it.disabled() or it.readonly())`.
 
 <a id="function-element-style"></a>
 
@@ -497,7 +490,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 ### List: item
 
-The unnamed indexer, `[index]`, is a function [Lexica's own module](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/vocabulary.md#vocabulary-list-members) declares, which owns lists, and Lexica's specification defines.
+The unnamed indexer, `[index]`, is an indexer [Nexo's own module](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/language/collections.md#collections-list-members) declares, which owns lists, and Nexo's specification defines.
 
 <a id="function-list-max-min-sum"></a>
 
@@ -505,7 +498,7 @@ The unnamed indexer, `[index]`, is a function [Lexica's own module](https://gith
 
 ### List: max, min, sum
 
-`max`, `min` and `sum` are functions [Lexica's own module](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/vocabulary.md#vocabulary-list-members) declares, which owns lists, and Lexica's specification defines.
+`max`, `min` and `sum` are functions [Nexo's own module](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/language/collections.md#collections-list-members) declares, which owns lists, and Nexo's specification defines.
 
 <a id="function-list-where"></a>
 
@@ -513,7 +506,7 @@ The unnamed indexer, `[index]`, is a function [Lexica's own module](https://gith
 
 ### List: where
 
-`where` is a function [Lexica's own module](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/vocabulary.md#vocabulary-list-members) declares, which owns lists, and Lexica's specification defines.
+`where` is a function [Nexo's own module](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/language/collections.md#collections-list-members) declares, which owns lists, and Nexo's specification defines.
 
 <a id="boolean-functions"></a>
 
@@ -523,7 +516,7 @@ The unnamed indexer, `[index]`, is a function [Lexica's own module](https://gith
 
 ## Boolean functions
 
-DOMQL tests the DOM with [Boolean functions](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/vocabulary.md#vocabulary-boolean-functions), functions whose result is a Boolean: of a state the user, the browser or the page sets and clears over time, as `it.checked()` is; of a presence, as `it.focus()` is; and of a capability, as `domql.window.share()` is. A query calls one on its receiver, calls it through its module, `domql.checked(it)`, or gives it by reference to one of [Lexica's verbs](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/vocabulary.md#vocabulary-verbs), `it.is(domql.checked)`, and each way reaches the one declaration, whose observations follow it.
+DOMQL tests the DOM with [Boolean functions](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/language/vocabulary.md#vocabulary-boolean-functions), functions whose result is a Boolean: of a state the user, the browser or the page sets and clears over time, as `it.checked()` is; of a presence, as `it.focus()` is; and of a capability, as `Domql.window.share()` is. A query calls one on its receiver, `it.checked()`, or through its module, `Domql.checked(it)`, and each way reaches the one declaration, whose observations follow it.
 
 Each applies to the receivers it declares, takes no argument, and answers a Boolean or fails the evaluation. A Boolean that follows from the receiver's structure, or from another member's value, is a property of it, as `attached`, `hasChildren` and `hasSelection` are. Boolean functions compose as Booleans do: `it.class["open"] and it.focusWithin()`.
 
@@ -765,7 +758,7 @@ Each reads the element's own attribute under a contract of its own, falling back
 
 So `it.checked() or it.aria.checked()` is whether either says checked, and `it.aria["checked"] == "mixed"` tells a mixed state, which the ARIA view's `checked` answers false for, from the others. The ARIA view's unnamed indexer reads the attribute written on the element, as `it["aria-checked"]` does, and never the element's effective accessibility state.
 
-No other ARIA attribute has a Boolean function until one is declared, each with a contract of its own, since not every ARIA attribute is a Boolean; an extension declares one on the ARIA view, a type it does not own, as the [rules for extensions](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/modules.md#extensions) let any module do.
+No other ARIA attribute has a Boolean function until one is declared, each with a contract of its own, since not every ARIA attribute is a Boolean; an extension declares one on the ARIA view, a type it does not own, as the [rules for extensions](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/language/extensions.md#extensions) let any module do.
 
 <a id="conditions-related-questions"></a>
 
@@ -787,7 +780,7 @@ No other ARIA attribute has a Boolean function until one is declared, each with 
 
 ## Built-in conversions
 
-A query converts with the four conversions [Lexica's own module](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/vocabulary.md#vocabulary-conversions) declares between the language's types of data, which DOMQL's module, owning none of those types, declares none of; each rejects a value it cannot convert:
+A query converts with the four conversions [Nexo's own module](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/runtime/modules.md#vocabulary-conversions) declares between the language's types of data, which DOMQL's module, owning none of those types, declares none of; each rejects a value it cannot convert:
 
 | From | To | Converts |
 | --- | --- | --- |
@@ -800,7 +793,7 @@ A query converts with the four conversions [Lexica's own module](https://github.
 
 ## Observations
 
-A member names the [observations](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/vocabulary.md#observations) that cover its changes, each by its type and its target, and DOMQL starts each one that a watch, a waiting evaluation or an event's object expression needs, and stops it once nothing needs it. DOMQL's module declares the browser's observations as eight observation types, which the members of any module can name, and four observation targets.
+A member names the [observations](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/runtime/observations.md#observations) that cover its changes, each by its type and its target, and DOMQL starts each one that a watch, a waiting evaluation or an event's object expression needs, and stops it once nothing needs it. DOMQL's module declares the browser's observations as eight observation types, which the members of any module can name, and four observation targets.
 
 <a id="observations-types"></a>
 
@@ -823,7 +816,7 @@ Each type is shared by equivalent requests, those of the same target and the sam
 
 ### Observation targets
 
-An observation observes its member's receiver, an argument, `{ argument }`, or a target DOMQL's module declares, as Lexica's [observation targets](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/vocabulary.md#observations-targets) set out:
+An observation observes its member's receiver, an argument, `{ argument }`, or a target DOMQL's module declares, as Nexo's [observation targets](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/runtime/observations.md#observations-targets) set out:
 
 | Target | Found from the receiver | Observes |
 | --- | --- | --- |
@@ -838,18 +831,49 @@ DOMQL resolves each target as it starts an observation, and each evaluation that
 
 ## Extension modules
 
-A module extends the built-in vocabulary as Lexica's [modules](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/modules.md#modules) set out: it declares types of its own, each with its members and operators, Boolean functions among them, and event types, executions and observation types, and adds members to DOMQL's types in its [extensions](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/modules.md#extensions), as `{ type: 'domql.Aria', members: [/* description */] }` adds one to the ARIA view, a foreign type named qualified. `domql.createModule(name, contents)` creates one from its declarations, each that runs code carrying its implementation, and `domql.registerModule(module)` registers it in the instance's registry, which holds DOMQL's module and every module registered with it. A request is resolved against the vocabulary registered when it is first carried out, so a module a query names is registered beforehand, once, rather than for every evaluation.
+A module extends the built-in vocabulary as Nexo's [modules](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/runtime/modules.md#modules) set out: it declares types of its own, each with its members and operators, Boolean functions among them, and event types, executions and observation types, and adds members to DOMQL's types in its [extensions](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/language/extensions.md#extensions), each naming the one type it extends qualified, as `{ name: 'ChartElements', kind: 'extension', target: 'Domql.Element', members: [/* … */] }` adds members to elements. `domql.createModule(name, contents)` creates one from its declarations, each that runs code carrying its implementation as its `impl`, and `domql.registerModule(module)` registers it in the instance's registry, which holds DOMQL's module and every module registered with it. A request is resolved against the modules it imports, registered by then, so a module a query imports is registered beforehand, once, rather than for every evaluation.
 
-- **What an implementation receives.** Every implementation receives the one object Lexica's [implementations](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/members.md#members-what-an-implementation-receives) receive, whose `env` holds the `window` and the `document` the query runs against.
-- **Reading.** A member's implementation is synchronous and reads alone, as Lexica requires of every vocabulary, so evaluating, watching and subscribing change nothing; a change to the page is an [execution](executions.md).
-- **Event types.** A module adds event types of its own as keys of DOMQL's type selector `event`, each a selectable type naming the type its events are captured as, so `on` listens to them as it listens to the built-in ones.
+```js
+domql.registerModule(domql.createModule("Charts", {
+    types: [{
+        name: "ChartElements",
+        kind: "extension",
+        target: "Domql.Element",
+        members: [{
+            name: "palette",
+            kind: "property",
+            result: "String?",
+            updates: { changes: "observable", reads: "fresh", observations: [{ type: "mutation", of: "receiver", attributes: ["data-palette"] }] },
+            impl: ({ receiver: element }) => element.getAttribute("data-palette")
+        }]
+    }]
+}));
+
+domql.query("import Charts\npanel:palette", { panel }).evaluate();
+```
+
+- **A query imports it, and reads its extensions with `:`.** A query that uses a module's vocabulary imports the module, `import Charts`, as [its imports](queries.md#making-a-query-imports) set out, and reads a member an extension adds with `:`, never `.`: `panel:palette`, or `panel:ChartElements.palette` where two of its extensions declare one name, as Nexo's [extension access](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/language/extensions.md#extensions-access) sets out. DOMQL's own members stand within its types, so a query reads them with `.`.
+- **DOMQL's members win on its types.** A name DOMQL's type declares is read with `.` as DOMQL's, and an extension's member of that name is read with `:` alone. Two modules' extensions declaring one name both register, and a query that reads the name where neither is more specific is refused where it does so (NEXO3024), naming the extensions to write.
+- **What an implementation receives.** Every implementation receives the one object Nexo's [implementations](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/runtime/members.md#members-what-an-implementation-receives) receive, whose `env` holds the `window` and the `document` the query runs against.
+- **Reading.** A member's implementation is synchronous and reads alone, as Nexo requires of every vocabulary, so evaluating, watching and subscribing change nothing; a change to the page is an [execution](executions.md).
+- **Event types.** A module adds event types of its own as keys of DOMQL's type selector `event`, each a mapping, `{ selector: 'event', key, type }`, naming the type its events are captured as, so `on` listens to them as it listens to the built-in ones.
 - **Observations.** A member of any module names DOMQL's observation types and targets as DOMQL's own members do. DOMQL resolves the targets its own module declares alone, so a module declaring observation targets of its own is refused when it is registered, and an observation type a module declares, which owns no target, observes the receiver or an argument. An observation type a module declares is started by its implementation, which receives `request`, the observation's `type`, its `target` and its `arguments`, each argument the member names resolved to its value; `notify`, which it calls when what it observes may have changed; and `env`. It answers an object whose `stop()` ends the observation and, for a maintained observation, whose `sample()` answers its latest sample, `{ pending, value }`.
+
+<a id="extension-modules-registering"></a>
+
+### Registering a module while requests run
+
+A query's imports decide what it resolves against, so a module registered later changes no resolution's meaning: a running watch, subscription or continuous execution keeps the resolution it has, and goes on evaluating and delivering, as Nexo keeps a resolution [current](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/runtime/resolution.md#runtime-reuse).
+
+- **A module that recognizes values.** A module declaring a `typeOf` may recognize values a resolution captures, so it makes stale the resolutions that may meet such a value, as Nexo's [reusing a resolution](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/runtime/resolution.md#runtime-reuse) sets out: one whose host call supplies `DomEvent`, whose `target` is a nullable reference, among them. An operation started after it resolves its request again.
+- **A running watch or a waiting evaluation made stale** resolves its request again at its next evaluation, which evaluates the whole query anew, as each of its evaluations does, so it goes on as before. A watch compares that evaluation's result exactly, since a value's tolerance applies between values of one origin, and a resolution's origins are its own. Resolving again checks what starting the watch checked, and its refusal is that evaluation's failure.
+- **A subscription or a once execution made stale** prepares its request again where a value its host call supplies is next projected: at the next event, or as the execution's result arrives. Where that preparation reaches the declaration it was carried out through, the value is projected through it, its locals and the object expression evaluated as that preparation finds them, and a subscription goes on listening with the receiver and the arguments its event source started with. Where it reaches none, or another, the subscription hands its handler the failure `DOMQL5015` and ends, and the once execution rejects with it, its effect standing. Where preparing it again fails, the subscription hands its handler that failure and ends, and the once execution rejects with it.
 
 <a id="extension-modules-host-calls"></a>
 
 ### Host calls DOMQL carries out
 
-A module declares an event source or an execution as a [host call](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/members.md#members-host-calls), a function with `invokedBy: 'host'`, and gives DOMQL what Lexica leaves to its host: the `requestKind` the call makes, `subscription` for an event source or `execution`; an execution's `executionMode`, `once` or `continuous`; and the `implementation` that carries it out. `domql.createModule` keeps these in DOMQL's own catalog, and gives Lexica the declaration without them, so Lexica resolves and prepares the call and DOMQL alone invokes it.
+A module declares an event source or an execution as a [host call](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/language/members.md#members-host-calls), a function with `invokedBy: 'host'`, within a type, within an extension, or among its module members, and gives DOMQL what Nexo leaves to its host: the `requestKind` the call makes, `subscription` for an event source or `execution`; an execution's `executionMode`, `once` or `continuous`; and the `impl` that carries it out. `domql.createModule` keeps these in DOMQL's own catalog, and gives Nexo the declaration without them, so Nexo resolves and prepares the call and DOMQL alone invokes it. One declaration standing within several types, as DOMQL's `on` does within `Element`, `Document` and `Window`, is kept for each.
 
 | Host call | `requestKind` | `executionMode` | Its `result` | Its implementation receives | It answers |
 | --- | --- | --- | --- | --- | --- |
@@ -857,6 +881,6 @@ A module declares an event source or an execution as a [host call](https://githu
 | Once execution | `execution` | `once` | The type of its result | `receiver`, `args`, `env` and `signal`, which aborts it | Its result, or a promise of it |
 | Continuous execution | `execution` | `continuous` | None; one declared is refused | `receiver`, `args`, `env` and `reportError`, which a failure while it runs is reported through | An object whose `update(receiver, args)` applies new arguments and whose `dispose()` ends it, started before it returns |
 
-`domql.createModule` refuses, with a module error naming the declaration and the field, a host call whose `requestKind` is missing or neither `subscription` nor `execution`; an execution whose `executionMode` is missing or neither `once` nor `continuous`; an event source given an `executionMode`, or declaring no result, since each event it delivers is the value its subscription projects; a function the evaluator invokes given either field; and a continuous execution that declares a result. `domql.registerModule` refuses a module declaring a host call its catalog holds nothing of, as a module `domql.createModule` did not make. So an execution whose mode was left out is refused as an execution missing its mode.
+`domql.createModule` refuses, with a module error naming the declaration, the type it stands within and the key, of the code [errors](errors.md#errors-module) give, a host call whose `requestKind` is missing or neither `subscription` nor `execution`; an execution whose `executionMode` is missing or neither `once` nor `continuous`; an event source given an `executionMode`, or declaring no result, since each event it delivers is the value its subscription projects; a member the evaluator invokes given either key, an unnamed indexer named `[]`, as Nexo names it; and a continuous execution that declares a result. `domql.registerModule` refuses a module declaring a host call its catalog holds nothing of, as a module `domql.createModule` did not make. So an execution whose mode was left out is refused as an execution missing its mode.
 
-On a receiver of unknown type, a host call has no declaration yet, so the host calls of its name that DOMQL's modules declare say what the request does, as Lexica's declarations of the name say who invokes it; where they disagree, the request is refused as ambiguous with a validation error.
+On a receiver of unknown type, a host call has no declaration yet, so its [candidates](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/runtime/host-calls.md#runtime-host-calls), every declaration that takes the call as it is written, say what it does, as they say who invokes it. Where they disagree on what they request, the request is refused as ambiguous with a validation error, located at the call.

@@ -3,14 +3,14 @@
 <a id="executions"></a>
 <a id="actions-and-behaviors"></a>
 
-An **execution** is a [host call](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/members.md#members-host-calls) DOMQL carries out to change the page. A **once execution** changes it once and answers its result; a **continuous execution** starts something that runs on the page until it is updated or disposed, and has no result. DOMQL's module declares neither: an [extension module](vocabulary.md#extension-modules) declares each, with its execution mode and the implementation that carries it out. `executeAsync` carries out a once execution and `run` a continuous one, and no other operation carries out either, as [request kinds and their operations](queries.md#operations-and-request-kinds) set out.
+An **execution** is a [host call](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/language/members.md#members-host-calls) DOMQL carries out to change the page. A **once execution** changes it once and answers its result; a **continuous execution** starts something that runs on the page until it is updated or disposed, and has no result. DOMQL's module declares neither: an [extension module](vocabulary.md#extension-modules) declares each, with its execution mode and the implementation that carries it out. `executeAsync` carries out a once execution and `run` a continuous one, and no other operation carries out either, as [request kinds and their operations](queries.md#operations-and-request-kinds) set out.
 
 ```js
 // A once execution a module declares, carried out each time it is executed.
-const changed = await domql.query('panel.mark("reviewed")', { panel }).executeAsync();
+const changed = await domql.query('import Marks\npanel:mark("reviewed")', { panel }).executeAsync();
 
 // A continuous execution a module declares, running until it is disposed.
-const trap = domql.query(`dialog.focusTrap()`, { dialog }).run({ signal });
+const trap = domql.query('import FocusTraps\ndialog:focusTrap()', { dialog }).run({ signal });
 
 trap.subscribe("error", (sender, args) => reportError(args.error));
 trap.update({ dialog: otherDialog });
@@ -29,8 +29,8 @@ In this document:
 
 `query.executeAsync(options?)` carries out a once execution and answers a promise of its result; its options are `window` and `signal`. Each call executes it again.
 
-- **Preparation first.** Its receiver and its arguments are prepared first, synchronously, as [Lexica's preparation](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/runtime.md#runtime-host-calls) evaluates them; a failure there rejects the promise and executes nothing. A skipped preparation, where the receiver or an argument is null, executes nothing, and the promise resolves to null, as a member's null is.
-- **The result.** The execution's implementation receives the receiver, the arguments, the environment and the signal, and may answer its result or a promise of it. The result must be of the type the execution declares, as Lexica [captures a supplied value](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/runtime.md#runtime-host-calls-capturing), and data alone; a result of another type rejects the promise with an evaluation error naming the execution, and an execution that declares no result resolves to null. An object expression that follows the execution is evaluated against the result once it arrives, as `evaluate` evaluates a query, so a member maintained by an observation fails it, and the promise answers detached, immutable data.
+- **Preparation first.** Its receiver and its arguments are prepared first, synchronously, as [Nexo's preparation](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/runtime/host-calls.md#runtime-host-calls) evaluates them; a failure there rejects the promise and executes nothing. A skipped preparation, where the receiver or an argument is null, executes nothing, and the promise resolves to null, as a member's null is.
+- **The result.** The execution's implementation receives the receiver, the arguments, the environment and the signal, and may answer its result or a promise of it. The result must be of the type the execution declares, as Nexo [captures a supplied value](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/runtime/host-calls.md#runtime-host-calls-capturing), and data alone; a result of another type rejects the promise with an evaluation error naming the execution, and an execution that declares no result resolves to null. An object expression that follows the execution is evaluated against the result once it arrives, as `evaluate` evaluates a query, so a member maintained by an observation fails it, and the promise answers detached, immutable data.
 - **Failure.** A failure of the execution, whatever it throws, rejects the promise with an evaluation error naming the execution, whose cause is what was thrown; nothing goes to the error reporting while the caller holds the promise.
 - **Cancellation.** A signal already aborted rejects with its reason and executes nothing. A signal that aborts while the execution runs rejects the promise with its reason at once, and the execution learns of it through the signal it was given; what it does after that is its own, its result is discarded, and a failure it reports afterwards goes to the window's error reporting, since no caller waits for it.
 - **No rollback.** An execution can change the document before it fails or is canceled, and DOMQL never undoes what it did; an execution that can be undone offers that as an execution of its own.

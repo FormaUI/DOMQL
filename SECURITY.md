@@ -21,7 +21,7 @@ DOMQL queries read DOM state and return detached data. Please report cases where
 
 - A read query changes the document, executes script or accesses data outside its intended access.
 - A result exposes a live DOM reference instead of detached data.
-- Crafted query text or a definition causes a hang, unbounded resource use or an unexpected failure outside DOMQL's `LexicaError` handling.
+- Crafted query text or a definition causes a hang, unbounded resource use or an unexpected failure outside DOMQL's `NexoError` handling.
 
 Executions, once and continuous, are separate members that can intentionally change the page. Extension modules run with the authority of the application that registers them; DOMQL does not sandbox their JavaScript. A registered module's own behavior is the host application's responsibility.
 

@@ -61,7 +61,7 @@ const examples = [
     {
         file: '20-errors.js',
         observed: 'logged',
-        answers: [['validation'], ["The argument 'name' of 'attribute' expects String and finds Number", '(line 1, column 7, at /expression/argument)']],
+        answers: [['NEXO3042'], ['validation'], ["The argument 'name' of '[…]' expects String and finds Number", '(line 1, column 7, at /expression/argument)']],
     },
     { file: '21-module.js', observed: 'reads', answers: [['{ childCount: 3 }']] },
     { file: '22-execute-once.js', observed: 'reads', answers: [['true']] },
@@ -187,12 +187,13 @@ describe('the package README', () => {
             const { reads, logged, printed, inspected } = results[index];
 
             if (example.observed === 'logged') {
-                const [kind, message] = example.answers;
+                const [code, kind, message] = example.answers;
 
                 expect(reads).toEqual([]);
                 expect(logged).toHaveLength(1);
-                expect(logged[0][0]).toBe(kind[0]);
-                expect(logged[0][1]).toBe(message.join(' '));
+                expect(logged[0][0]).toBe(code[0]);
+                expect(logged[0][1]).toBe(kind[0]);
+                expect(logged[0][2]).toBe(message.join(' '));
             } else {
                 // An example whose handler reports a failure on the console shows no answer it gives.
                 expect(logged).toEqual([]);

@@ -37,7 +37,7 @@ describe('Geometry in a browser', () => {
         });
 
         it('are the viewport size for the window', () => {
-            const size = read('domql.window.size');
+            const size = read('Domql.window.size');
 
             expect(size).toEqual({ width: document.documentElement.clientWidth, height: document.documentElement.clientHeight });
             expect(size.width).toBeGreaterThan(0);
@@ -216,7 +216,7 @@ describe('Geometry in a browser', () => {
 
             panel.setAttribute('data-query', `(min-width: ${width}px)`);
 
-            const watch = domql.query('domql.window.media[panel["data-query"] ?? "all"]', { panel }).watch({ schedule: 'immediate' });
+            const watch = domql.query('Domql.window.media[panel["data-query"] ?? "all"]', { panel }).watch({ schedule: 'immediate' });
 
             watch.subscribe('change', (_sender, args) => snapshots.push(args.value));
 
@@ -237,10 +237,10 @@ describe('Geometry in a browser', () => {
         });
 
         it('answers the window around the document', () => {
-            expect(read('domql.window.devicePixelRatio')).toBeGreaterThan(0);
-            expect(read('domql.window.media["(min-width: 1px)"]')).toBe(true);
-            expect(read('domql.window.media["(max-width: 0px)"]')).toBe(false);
-            expect(read('domql.document.visible()')).toBe(true);
+            expect(read('Domql.window.devicePixelRatio')).toBeGreaterThan(0);
+            expect(read('Domql.window.media["(min-width: 1px)"]')).toBe(true);
+            expect(read('Domql.window.media["(max-width: 0px)"]')).toBe(false);
+            expect(read('Domql.document.visible()')).toBe(true);
         });
     });
 });

@@ -8,8 +8,11 @@ const ITEMS = 1000;
 const elements = Array.from({ length: ITEMS }, () => document.createElement('tr'));
 const items = elements.map((_element, index) => Object.freeze({ key: `r${index}` }));
 
-/** A list in the order the indices give, with the identities of its items. */
-const listOf = order => [Object.freeze(order.map(index => items[index])), { elements: order.map(index => elements[index]), items: order.map(() => null) }];
+/** What each item was projected from: its element, a reference. */
+const sources = elements.map(element => ({ kind: 'reference', value: element }));
+
+/** A list in the order the indices give, with the metadata Nexo gives a list projected from elements: each item's source, its provenance as well. */
+const listOf = order => [Object.freeze(order.map(index => items[index])), { items: order.map(() => null), sources: order.map(index => sources[index]), provenance: order.map(index => sources[index]) }];
 
 /** The indices in their order. */
 const ordered = Array.from({ length: ITEMS }, (_item, index) => index);

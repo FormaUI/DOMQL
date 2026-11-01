@@ -20,15 +20,22 @@ describe('ExecutionHandle', () => {
     let reported;
     let breaks;
 
-    /** A module of a continuous execution: its one member, named for it, on an element, taking a color. */
-    const execution = (name, start) => isolated.createModule(name, {
-        members: [{
-            name, kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'continuous', target: 'Element',
-            arguments: 'positional',
-            parameters: [{ name: 'color', kind: 'value', type: 'String', required: true, nulls: 'propagate' }],
-            implementation: start,
-        }],
-    });
+    /** A module of a continuous execution, named for it in PascalCase: its one member, an extension member of elements, taking a color. */
+    const execution = (name, start) => {
+        const moduleName = name[0].toUpperCase() + name.slice(1);
+
+        return isolated.createModule(moduleName, {
+            types: [{
+                name: `${moduleName}Elements`, kind: 'extension', target: 'Domql.Element',
+                members: [{
+                    name, kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'continuous',
+                    arguments: 'positional',
+                    parameters: [{ name: 'color', kind: 'value', type: 'String', required: true, nulls: 'propagate' }],
+                    impl: start,
+                }],
+            }],
+        });
+    };
 
     /** Runs the continuous execution the text requests, bound to the bindings. */
     const run = (text, bindings = {}) => isolated.query(text, bindings).run();
@@ -81,7 +88,7 @@ describe('ExecutionHandle', () => {
 
     describe('running', () => {
         it('starts the execution in the call, with its receiver, arguments, environment and reporter', () => {
-            const highlight = run('panel.highlight(color)', { panel, color: 'gold' });
+            const highlight = run('import Highlight\npanel:highlight(color)', { panel, color: 'gold' });
 
             expect(highlight.status).toBe('ready');
             expect(panel.dataset.highlight).toBe('gold');
@@ -89,7 +96,7 @@ describe('ExecutionHandle', () => {
         });
 
         it('takes a request of a continuous execution made from its definition', () => {
-            const { definition } = isolated.query('panel.highlight("teal")');
+            const { definition } = isolated.query('import Highlight\npanel:highlight("teal")');
 
             isolated.query(definition, { panel }).run();
 
@@ -97,7 +104,7 @@ describe('ExecutionHandle', () => {
         });
 
         it('raises a failure the execution reports while it runs as an error event, which reaches the window\'s error reporting where no listener takes it', () => {
-            const highlight = run('panel.highlight("gold")', { panel });
+            const highlight = run('import Highlight\npanel:highlight("gold")', { panel });
             const received = [];
 
             calls[0].reportError(new Error('unheard'));
@@ -109,7 +116,7 @@ describe('ExecutionHandle', () => {
         });
 
         it('starts nothing where its receiver is null, until an update supplies one', () => {
-            const highlight = run('item?.highlight("gold")', { item: null });
+            const highlight = run('import Highlight\nitem?:highlight("gold")', { item: null });
 
             expect(calls).toEqual([]);
 
@@ -130,24 +137,27 @@ describe('ExecutionHandle', () => {
             isolated.registerModule(execution('broken', () => { throw new Error('closed'); }));
             isolated.registerModule(execution('partial', () => ({ dispose: () => disposed++ })));
 
-            const thrown = getError(() => run('panel.broken("gold")', { panel }));
+            const thrown = getError(() => run('import Broken\npanel:broken("gold")', { panel }));
+            const partial = getError(() => run('import Partial\npanel:partial("gold")', { panel }));
 
-            expect(thrown).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The execution 'broken' failed to start") });
+            expect(thrown).toMatchObject({ kind: 'evaluation', code: 'DOMQL5007', message: expect.stringContaining("The execution 'broken' failed to start") });
+            expect(thrown.location).toEqual({ pointer: '/expression', offset: 14, line: 2, column: 1 });
             expect(thrown.cause.message).toBe('closed');
-            expect(getError(() => run('panel.partial("gold")', { panel }))).toMatchObject({ kind: 'evaluation', message: expect.stringContaining('answered no update and dispose') });
+            expect(partial).toMatchObject({ kind: 'evaluation', code: 'DOMQL5008', message: expect.stringContaining('answered no update and dispose') });
+            expect(partial.location).toEqual({ pointer: '/expression', offset: 15, line: 2, column: 1 });
             expect(disposed).toBe(1);
         });
 
         it('is refused for a request of another kind, and a request of a continuous execution is refused by the other calls', () => {
-            expect(getError(() => run('panel.children.count', { panel }))).toMatchObject({ kind: 'validation', message: expect.stringContaining("Cannot run 'panel.children.count': it produces a value.\nUse evaluate(), evaluateAsync() or watch().") });
-            expect(getError(() => isolated.query('panel.highlight("gold")', { panel }).evaluate())).toMatchObject({ kind: 'validation', message: expect.stringContaining("Cannot evaluate 'panel.highlight(\"gold\")': it keeps an effect running.\nUse run().") });
+            expect(getError(() => run('panel.children.count', { panel }))).toMatchObject({ kind: 'validation', code: 'DOMQL3004', message: expect.stringContaining("Cannot run 'panel.children.count': it produces a value.\nUse evaluate(), evaluateAsync() or watch().") });
+            expect(getError(() => isolated.query('import Highlight\npanel:highlight("gold")', { panel }).evaluate())).toMatchObject({ kind: 'validation', code: 'DOMQL3004', message: expect.stringContaining("Cannot evaluate 'import Highlight\npanel:highlight(\"gold\")': it keeps an effect running.\nUse run().") });
             expect(calls).toEqual([]);
         });
     });
 
     describe('updating', () => {
         it('replaces the bindings whole, handing the execution its new receiver and arguments', () => {
-            const highlight = run('target.highlight(color)', { target: panel, color: 'gold' });
+            const highlight = run('import Highlight\ntarget:highlight(color)', { target: panel, color: 'gold' });
 
             highlight.update({ target: other, color: 'teal' });
 
@@ -157,30 +167,31 @@ describe('ExecutionHandle', () => {
         });
 
         it('validates the bindings before anything changes, leaving the execution as it was', () => {
-            const highlight = run('target.highlight(color)', { target: panel, color: 'gold' });
+            const highlight = run('import Highlight\ntarget:highlight(color)', { target: panel, color: 'gold' });
 
-            expect(getError(() => highlight.update({ target: other }))).toMatchObject({ kind: 'validation', message: expect.stringContaining("No local in scope or script parameter is named 'color'") });
-            expect(getError(() => highlight.update({ target: other, color: 7 }))).toMatchObject({ kind: 'validation' });
-            expect(getError(() => highlight.update(null))).toMatchObject({ kind: 'structure' });
+            expect(getError(() => highlight.update({ target: other }))).toMatchObject({ kind: 'validation', code: 'NEXO3009', message: expect.stringContaining("No local in scope or script parameter is named 'color'") });
+            expect(getError(() => highlight.update({ target: other, color: 7 }))).toMatchObject({ kind: 'validation', code: 'NEXO3042' });
+            expect(getError(() => highlight.update(null))).toMatchObject({ kind: 'structure', code: 'NEXO2020' });
             expect(panel.dataset.highlight).toBe('gold');
             expect(calls.map(call => call.call)).toEqual(['start']);
         });
 
         it('throws a failure of the execution\'s own update, which keeps what it last accepted', () => {
-            const highlight = run('target.highlight(color)', { target: panel, color: 'gold' });
+            const highlight = run('import Highlight\ntarget:highlight(color)', { target: panel, color: 'gold' });
 
             breaks.add('update');
 
             const error = getError(() => highlight.update({ target: other, color: 'teal' }));
 
-            expect(error).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The execution 'highlight' failed to update") });
+            expect(error).toMatchObject({ kind: 'evaluation', code: 'DOMQL5006', message: expect.stringContaining("The execution 'highlight' failed to update") });
+            expect(error.location).toEqual({ pointer: '/expression', offset: 17, line: 2, column: 1 });
             expect(error.cause.message).toBe('stuck');
             expect(panel.dataset.highlight).toBe('gold');
             expect(highlight.status).toBe('ready');
         });
 
         it('updates the same execution after another module was registered', () => {
-            const highlight = run('panel.highlight(color)', { panel, color: 'gold' });
+            const highlight = run('import Highlight\npanel:highlight(color)', { panel, color: 'gold' });
 
             isolated.registerModule(execution('glow', () => ({ update: () => {}, dispose: () => {} })));
             highlight.update({ panel, color: 'teal' });
@@ -189,17 +200,17 @@ describe('ExecutionHandle', () => {
         });
 
         it('throws once the execution is disposed', () => {
-            const highlight = run('panel.highlight("gold")', { panel });
+            const highlight = run('import Highlight\npanel:highlight("gold")', { panel });
 
             highlight.dispose();
 
-            expect(getError(() => highlight.update({ panel }))).toMatchObject({ kind: 'evaluation', message: 'A disposed execution cannot be updated' });
+            expect(getError(() => highlight.update({ panel }))).toMatchObject({ kind: 'evaluation', code: 'DOMQL5005', message: 'A disposed execution cannot be updated' });
         });
     });
 
     describe('disposing', () => {
         it('ends the execution once, however often it is disposed', () => {
-            const highlight = run('panel.highlight("gold")', { panel });
+            const highlight = run('import Highlight\npanel:highlight("gold")', { panel });
 
             highlight.dispose();
             highlight.dispose();
@@ -210,7 +221,7 @@ describe('ExecutionHandle', () => {
         });
 
         it('reports a failure of the execution\'s own dispose, and ends the execution all the same', () => {
-            const highlight = run('panel.highlight("gold")', { panel });
+            const highlight = run('import Highlight\npanel:highlight("gold")', { panel });
 
             breaks.add('dispose');
             highlight.dispose();
@@ -220,8 +231,8 @@ describe('ExecutionHandle', () => {
         });
 
         it('leaves the execution\'s module registered, so it runs again', () => {
-            run('panel.highlight("gold")', { panel }).dispose();
-            run('panel.highlight("teal")', { panel });
+            run('import Highlight\npanel:highlight("gold")', { panel }).dispose();
+            run('import Highlight\npanel:highlight("teal")', { panel });
 
             expect(panel.dataset.highlight).toBe('teal');
         });

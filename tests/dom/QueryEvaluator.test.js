@@ -1,11 +1,10 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { BrowserModule } from '#domql/dom/BrowserModule.mjs';
-import { DomqlQuery } from '#domql/dom/DomqlQuery.mjs';
 import { DispatchTable } from '#domql/dom/DispatchTable.mjs';
 import { Observations } from '#domql/dom/Observations.mjs';
 import { QueryEvaluator } from '#domql/dom/QueryEvaluator.mjs';
 import { domql } from '#domql/domql.js';
-import { lexica, LexicaError } from '@formaui/lexica';
+import { nexo, NexoError } from '@formaui-net/nexo';
 
 /** Gives the element a border box, since the test environment lays nothing out. */
 const lay = (element, { left = 0, top = 0, width = 0, height = 0 }) => {
@@ -20,26 +19,33 @@ const unlay = element => {
 
 const read = (text, bindings = {}) => domql.query(text, bindings).evaluate();
 
-/** A module of one number property named for itself, answered by the function. */
-const propertyModule = (name, implementation) => lexica.createModule(name, {
-    members: [{ name, kind: 'property', target: 'Element', result: 'Number', updates: { changes: 'constant', reads: 'fresh' }, implementation }],
+/** The name of a test's module, its member's name with a capital. */
+const moduleNameOf = name => `${name[0].toUpperCase()}${name.slice(1)}`;
+
+/** A module, named for its member, whose one extension adds the members given to DOMQL's elements, and the module's other contents. */
+const elementModule = (name, members, contents = {}) => nexo.createModule(moduleNameOf(name), {
+    ...contents,
+    types: [...(contents.types ?? []), { name: `${moduleNameOf(name)}Elements`, kind: 'extension', target: 'Domql.Element', members }],
 });
 
-/** Reads a query against a registry of its own holding Lexica's module, DOMQL's with its implementations, and the module, or the modules. */
-const readWith = (modules, text, bindings) => {
-    const registry = lexica.createRegistry([BrowserModule.create(), ...[modules].flat()]);
-    const query = domql.query(text, bindings);
-    const resolved = registry.resolve(query.definition, DomqlQuery.bindingsOf(query));
+/** A module of one number property of elements named for itself, answered by the function, and declared without an implementation where none is given; a query imports it and reads the property with `:`. */
+const propertyModule = (name, impl) => elementModule(name, [{ name, kind: 'property', result: 'Number', updates: { changes: 'constant', reads: 'fresh' }, ...(impl === undefined ? {} : { impl }) }]);
 
-    return new QueryEvaluator(registry, resolved.createEvaluator(DomqlQuery.bindingsOf(query), { window, document })).evaluateOnce();
+/** Creates the evaluator of a query against the registry, binding its values there, with DOMQL's module supplied as its import. */
+const evaluatorWith = (registry, text, bindings = {}) => {
+    const values = registry.createBindings(bindings);
+    const resolved = registry.resolve(text, values, { imports: ['Domql'] });
+
+    return new QueryEvaluator(registry, resolved.createEvaluator(values, { window, document }));
 };
+
+/** Reads a query against a registry of its own holding Nexo's module, DOMQL's with its implementations, and the module, or the modules. */
+const readWith = (modules, text, bindings) => evaluatorWith(nexo.createRegistry([BrowserModule.create(), ...[modules].flat()]), text, bindings).evaluateOnce();
 
 /** Two modules, each a Boolean member named for itself that answers what its name says and counts how often it is read. */
 const probes = () => {
     const record = { yes: 0, no: 0 };
-    const probe = (name, answer) => lexica.createModule(name, {
-        members: [{ name, kind: 'property', target: 'Element', result: 'Boolean', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => { record[name]++; return answer; } }],
-    });
+    const probe = (name, answer) => elementModule(name, [{ name, kind: 'property', result: 'Boolean', updates: { changes: 'constant', reads: 'fresh' }, impl: () => { record[name]++; return answer; } }]);
 
     return { module: [probe('yes', true), probe('no', false)], record };
 };
@@ -48,7 +54,7 @@ const failureWith = (module, text, bindings) => {
     try {
         readWith(module, text, bindings);
     } catch (error) {
-        expect(error).toBeInstanceOf(LexicaError);
+        expect(error).toBeInstanceOf(NexoError);
         expect(error.kind).toBe('evaluation');
 
         return error;
@@ -61,7 +67,7 @@ const failure = (text, bindings = {}) => {
     try {
         read(text, bindings);
     } catch (error) {
-        expect(error).toBeInstanceOf(LexicaError);
+        expect(error).toBeInstanceOf(NexoError);
         expect(error.kind).toBe('evaluation');
 
         return error;
@@ -146,7 +152,7 @@ describe('QueryEvaluator', () => {
         it('casts a node to its kind, failing for one of another kind, which an attempted cast answers null for', () => {
             const { inner } = shadowHost();
 
-            expect(() => read('(inner.parent as Element)?.attribute["id"]', { inner })).toThrow(expect.objectContaining({ kind: 'evaluation', message: expect.stringContaining('The cast to Element rejected its value: it is a shadow root') }));
+            expect(() => read('(inner.parent as Element)?.attribute["id"]', { inner })).toThrow(expect.objectContaining({ kind: 'evaluation', code: 'NEXO5001', message: expect.stringContaining("The cast to Element rejected its value: it is a Node that isn't an Element") }));
             expect(read('(try inner.parent as Element)?.attribute["id"]', { inner })).toBeNull();
             expect(read('(item.parent as Element)?.attribute["id"]', { item: items[0] })).toBe('panel');
             expect(read('(item.root as Document)?.children.count', { item: items[0] })).toBe(1);
@@ -175,13 +181,8 @@ describe('QueryEvaluator', () => {
 
         it('skips the rest of an optional chain where a receiver is null, reading it where the receiver is present', () => {
             const reads = [];
-            const registry = lexica.createRegistry([BrowserModule.create(), propertyModule('probe', ({ receiver }) => (reads.push(receiver), 1))]);
-            const readProbe = item => {
-                const query = domql.query('(item.parent as Element)?.probe', { item });
-                const resolved = registry.resolve(query.definition, DomqlQuery.bindingsOf(query));
-
-                return new QueryEvaluator(registry, resolved.createEvaluator(DomqlQuery.bindingsOf(query), { window, document })).evaluateOnce();
-            };
+            const registry = nexo.createRegistry([BrowserModule.create(), propertyModule('probe', ({ receiver }) => (reads.push(receiver), 1))]);
+            const readProbe = item => evaluatorWith(registry, 'import Probe\n(item.parent as Element)?:probe', { item }).evaluateOnce();
 
             expect(readProbe(document.createElement('div'))).toBeNull();
             expect(reads).toEqual([]);
@@ -196,17 +197,12 @@ describe('QueryEvaluator', () => {
 
         it('answers a coalescing operator\'s value where it is not null, and only otherwise evaluates its fallback', () => {
             const reads = [];
-            const registry = lexica.createRegistry([BrowserModule.create(), propertyModule('probe', ({ receiver }) => (reads.push(receiver), 7))]);
-            const readProbe = text => {
-                const query = domql.query(text, { item: items[0] });
-                const resolved = registry.resolve(query.definition, DomqlQuery.bindingsOf(query));
+            const registry = nexo.createRegistry([BrowserModule.create(), propertyModule('probe', ({ receiver }) => (reads.push(receiver), 7))]);
+            const readProbe = text => evaluatorWith(registry, `import Probe\n${text}`, { item: items[0] }).evaluateOnce();
 
-                return new QueryEvaluator(registry, resolved.createEvaluator(DomqlQuery.bindingsOf(query), { window, document })).evaluateOnce();
-            };
-
-            expect(readProbe('1 ?? item.probe')).toBe(1);
+            expect(readProbe('1 ?? item:probe')).toBe(1);
             expect(reads).toEqual([]);
-            expect(readProbe('null ?? item.probe')).toBe(7);
+            expect(readProbe('null ?? item:probe')).toBe(7);
             expect(reads).toEqual([items[0]]);
             expect(read('item.attribute["missing"] ?? "first" ?? "second"', { item: items[0] })).toBe('first');
         });
@@ -324,17 +320,15 @@ describe('QueryEvaluator', () => {
         });
 
         it('answers the document\'s conditions', () => {
-            expect(read('domql.document.visible()')).toBeTypeOf('boolean');
-            expect(read('domql.document.focus()')).toBeTypeOf('boolean');
+            expect(read('Domql.document.visible()')).toBeTypeOf('boolean');
+            expect(read('Domql.document.focus()')).toBeTypeOf('boolean');
         });
 
         it('gives a member the document and the window it is read in where an argument names a root', () => {
-            const module = lexica.createModule('inside', {
-                members: [{ name: 'inside', kind: 'function', target: 'Element', arguments: 'positional', parameters: [{ name: 'of', kind: 'value', type: 'Document', required: true, nulls: 'propagate' }], result: 'Boolean', updates: { changes: 'unobserved', reads: 'fresh' }, implementation: ({ receiver: element, args: { of } }) => element.ownerDocument === of && of === document }],
-            });
+            const module = elementModule('inside', [{ name: 'inside', kind: 'function', arguments: 'positional', parameters: [{ name: 'of', kind: 'value', type: 'Domql.Document', required: true, nulls: 'propagate' }], result: 'Boolean', updates: { changes: 'unobserved', reads: 'fresh' }, impl: ({ receiver: element, args: { of } }) => element.ownerDocument === of && of === document }]);
             const panel = document.body.appendChild(document.createElement('div'));
 
-            expect(readWith(module, 'panel.inside(domql.document)', { panel })).toBe(true);
+            expect(readWith(module, 'import Inside\npanel:inside(Domql.document)', { panel })).toBe(true);
         });
 
         it('answers a selection of a text control', () => {
@@ -377,11 +371,11 @@ describe('QueryEvaluator', () => {
         it('read no operand once the result is decided', () => {
             const { module, record } = probes();
 
-            expect(readWith(module, 'panel.no and panel.yes', { panel })).toBe(false);
+            expect(readWith(module, 'import No\nimport Yes\npanel:no and panel:yes', { panel })).toBe(false);
             expect(record).toEqual({ yes: 0, no: 1 });
-            expect(readWith(module, 'panel.yes or panel.no', { panel })).toBe(true);
+            expect(readWith(module, 'import No\nimport Yes\npanel:yes or panel:no', { panel })).toBe(true);
             expect(record).toEqual({ yes: 1, no: 1 });
-            expect(readWith(module, '(nothing ?? false) or panel.yes', { panel, nothing: null })).toBe(true);
+            expect(readWith(module, 'import Yes\n(nothing ?? false) or panel:yes', { panel, nothing: null })).toBe(true);
             expect(record).toEqual({ yes: 2, no: 1 });
         });
 
@@ -395,7 +389,8 @@ describe('QueryEvaluator', () => {
         });
 
         it('read a test by reference, and a member by the name the bindings hold', () => {
-            expect(read('panel.has(domql.focus) or panel.[other]', { panel, other: 'attached' })).toBe(true);
+            // A reference to a module's function takes its receiver first; Domql.focus alone names Element's and Document's, so it would be ambiguous.
+            expect(read('let isFocused = Domql.focusWithin\nreturn isFocused(panel) or panel.[other]', { panel, other: 'attached' })).toBe(true);
         });
 
         it('answer whether a subject is null with is null, never null itself', () => {
@@ -451,7 +446,7 @@ describe('QueryEvaluator', () => {
         it('evaluate only the branch the condition selects', () => {
             const { module, record } = probes();
 
-            expect(readWith(module, 'if panel.yes then panel.yes else panel.no end', { panel })).toBe(true);
+            expect(readWith(module, 'import No\nimport Yes\nif panel:yes then panel:yes else panel:no end', { panel })).toBe(true);
             expect(record).toEqual({ yes: 2, no: 0 });
         });
 
@@ -475,7 +470,7 @@ describe('QueryEvaluator', () => {
 
         it('evaluate a local once for each application of its object expression, giving every use there its value', () => {
             const { module, record } = counting();
-            const result = readWith(module, 'rows { let n = it.counted, a = n, b = n }', { rows: items });
+            const result = readWith(module, 'import Counted\nrows { let n = it:counted, a = n, b = n }', { rows: items });
 
             expect(record.reads).toBe(3);
             expect(result).toEqual([{ a: 1, b: 1 }, { a: 2, b: 2 }, { a: 3, b: 3 }]);
@@ -484,23 +479,23 @@ describe('QueryEvaluator', () => {
         it('evaluate a local no evaluated expression uses never', () => {
             const { module, record } = counting();
 
-            expect(readWith(module, 'panel { let n = it.counted, a = 1 }', { panel })).toEqual({ a: 1 });
-            expect(readWith(module, 'panel { let n = it.counted, a = if on then n else 0 end }', { panel, on: false })).toEqual({ a: 0 });
+            expect(readWith(module, 'import Counted\npanel { let n = it:counted, a = 1 }', { panel })).toEqual({ a: 1 });
+            expect(readWith(module, 'import Counted\npanel { let n = it:counted, a = if on then n else 0 end }', { panel, on: false })).toEqual({ a: 0 });
             expect(record.reads).toBe(0);
         });
 
         it('evaluate a local at its first use, wherever that is', () => {
             const { module, record } = counting();
 
-            expect(readWith(module, 'panel { let n = it.counted, a = if on then n else 0 end, b = n }', { panel, on: false })).toEqual({ a: 0, b: 1 });
+            expect(readWith(module, 'import Counted\npanel { let n = it:counted, a = if on then n else 0 end, b = n }', { panel, on: false })).toEqual({ a: 0, b: 1 });
             expect(record.reads).toBe(1);
         });
 
         it('give a later evaluation fresh locals', () => {
             const { module } = counting();
 
-            expect(readWith(module, 'panel { let n = it.counted, a = n }', { panel })).toEqual({ a: 1 });
-            expect(readWith(module, 'panel { let n = it.counted, a = n }', { panel })).toEqual({ a: 2 });
+            expect(readWith(module, 'import Counted\npanel { let n = it:counted, a = n }', { panel })).toEqual({ a: 1 });
+            expect(readWith(module, 'import Counted\npanel { let n = it:counted, a = n }', { panel })).toEqual({ a: 2 });
         });
 
         it('keep the context of where a local is written, used inside a nested projection', () => {
@@ -568,14 +563,14 @@ describe('QueryEvaluator', () => {
 
     describe('the window', () => {
         it('reads the window and its media queries', () => {
-            expect(read('domql.window.size.width')).toBeTypeOf('number');
-            expect(read('domql.window.devicePixelRatio')).toBeTypeOf('number');
-            expect(read('domql.window.media["(min-width: 0px)"]')).toBe(true);
-            expect(read('domql.window { share = it.share() }').share).toBeTypeOf('boolean');
+            expect(read('Domql.window.size.width')).toBeTypeOf('number');
+            expect(read('Domql.window.devicePixelRatio')).toBeTypeOf('number');
+            expect(read('Domql.window.media["(min-width: 0px)"]')).toBe(true);
+            expect(read('Domql.window { share = it.share() }').share).toBeTypeOf('boolean');
         });
 
         it('reads the window it is given', () => {
-            const query = domql.query('domql.window.devicePixelRatio');
+            const query = domql.query('Domql.window.devicePixelRatio');
 
             expect(query.evaluate({ window: { document, devicePixelRatio: 3, get window() { return this; } } })).toBe(3);
         });
@@ -618,6 +613,7 @@ describe('QueryEvaluator', () => {
         it('fail where a member fails, naming it and where', () => {
             const error = failure('panel.matches("[")', { panel });
 
+            expect(error.code).toBe('NEXO5007');
             expect(error.message).toContain("The member 'matches' failed");
             expect(error.location.line).toBe(1);
             expect(error.cause).toBeInstanceOf(Error);
@@ -626,43 +622,44 @@ describe('QueryEvaluator', () => {
         it('fail where a member throws what is no error, keeping it as the cause', () => {
             const error = failureWith(propertyModule('nothing', () => {
                 throw null;
-            }), 'panel.nothing', { panel });
+            }), 'import Nothing\npanel:nothing', { panel });
 
+            expect(error.code).toBe('NEXO5007');
             expect(error.message).toContain("The member 'nothing' failed: null");
             expect(error.cause).toBeNull();
         });
 
         it('refuse a member maintained by an observation', () => {
-            expect(failure('item.intersects()', { item: items[0] }).message).toContain("The member 'intersects' is maintained by an observation");
+            expect(failure('item.intersects()', { item: items[0] })).toMatchObject({ code: 'NEXO5011', message: expect.stringContaining("The member 'intersects' is maintained by an observation") });
         });
 
         it('refuse a request that is not valid before reading anything', () => {
-            expect(() => read('panel.nonsense', { panel })).toThrow(expect.objectContaining({ kind: 'validation' }));
+            expect(() => read('panel.nonsense', { panel })).toThrow(expect.objectContaining({ kind: 'validation', code: 'NEXO3001' }));
         });
 
         it('report a module that answers a type other than the one it declares', () => {
-            const error = failureWith(propertyModule('broken', () => 'seven'), 'panel.broken', { panel });
+            const error = failureWith(propertyModule('broken', () => 'seven'), 'import Broken\npanel:broken', { panel });
 
+            expect(error.code).toBe('NEXO5006');
             expect(error.message).toContain('answered "seven", and it declares Number');
         });
 
         it('report a module that answers a list with a hole, which holds no value there', () => {
-            const gappy = lexica.createModule('gappy', {
-                members: [{ name: 'gappy', kind: 'property', target: 'Element', result: 'List<Number?>', updates: { changes: 'constant', reads: 'fresh' }, implementation: () => [1, , 2] }],
-            });
+            const gappy = elementModule('gappy', [{ name: 'gappy', kind: 'property', result: 'List<Number?>', updates: { changes: 'constant', reads: 'fresh' }, impl: () => [1, , 2] }]);
 
-            expect(failureWith(gappy, 'panel.gappy', { panel }).message).toContain('answered a list with a hole at index 1, and it declares List<Number?>');
+            expect(failureWith(gappy, 'import Gappy\npanel:gappy', { panel })).toMatchObject({ code: 'NEXO5006', message: expect.stringContaining('answered a list with a hole at index 1, and it declares List<Number?>') });
         });
 
         it('name an element a module answers where a number is declared', () => {
-            expect(failureWith(propertyModule('leaking', ({ receiver }) => receiver), 'panel.leaking', { panel }).message).toContain('answered an element, and it declares Number');
+            expect(failureWith(propertyModule('leaking', ({ receiver }) => receiver), 'import Leaking\npanel:leaking', { panel })).toMatchObject({ code: 'NEXO5006', message: expect.stringContaining('answered an instance of HTMLDivElement, and it declares Number') });
         });
 
         it('report a module that declares and does not implement', () => {
-            expect(() => readWith(propertyModule('declared'), 'panel.declared', { panel })).toThrow(expect.objectContaining({
+            expect(() => readWith(propertyModule('declared'), 'import Declared\npanel:declared', { panel })).toThrow(expect.objectContaining({
                 kind: 'module',
+                code: 'NEXO4001',
                 message: expect.stringContaining("'Element.declared' has no implementation"),
-                location: { module: 'declared', declaration: 'declared', field: 'implementation' },
+                location: { module: 'Declared', type: 'DeclaredElements', declaration: 'declared', declarationKey: 'impl' },
             }));
         });
     });
@@ -690,10 +687,8 @@ describe('QueryEvaluator evaluation', () => {
 
     /** Evaluates the query against the registry, holding its observations in `observations`, and records each call it depends on unless asked not to. */
     const evaluate = (text, bindings = {}, modules = [], holdsAllObservations = false, recordsDependencies = true) => {
-        const registry = lexica.createRegistry([BrowserModule.create(), ...modules]);
-        const query = domql.query(text, bindings);
-        const resolved = registry.resolve(query.definition, DomqlQuery.bindingsOf(query));
-        const evaluator = new QueryEvaluator(registry, resolved.createEvaluator(DomqlQuery.bindingsOf(query), { window, document }));
+        const registry = nexo.createRegistry([BrowserModule.create(), ...modules]);
+        const evaluator = evaluatorWith(registry, text, bindings);
 
         observations = new Observations(registry, { window, document });
 
@@ -709,10 +704,8 @@ describe('QueryEvaluator evaluation', () => {
     describe('metadata', () => {
         /** Evaluates the query again each time it is called, with one evaluator, as a watch does, so its values' origins compare across the evaluations. */
         const watching = (text, bindings = {}) => {
-            const registry = lexica.createRegistry([BrowserModule.create()]);
-            const query = domql.query(text, bindings);
-            const resolved = registry.resolve(query.definition, DomqlQuery.bindingsOf(query));
-            const evaluator = new QueryEvaluator(registry, resolved.createEvaluator(DomqlQuery.bindingsOf(query), { window, document }));
+            const registry = nexo.createRegistry([BrowserModule.create()]);
+            const evaluator = evaluatorWith(registry, text, bindings);
 
             observations = new Observations(registry, { window, document });
 
@@ -727,13 +720,13 @@ describe('QueryEvaluator evaluation', () => {
 
         it('gives a value the origin of the branch its conditional selected, the same each evaluation and another for the other branch', () => {
             const next = watching('panel { pick = if (panel.attribute["data-on"]) == null then 1 else 2 end }', { panel });
-            const off = next().metadata.fields.pick.origin;
+            const off = next().metadata.objectFields.pick.origin;
 
-            expect(next().metadata.fields.pick.origin).toBe(off);
+            expect(next().metadata.objectFields.pick.origin).toBe(off);
 
             panel.setAttribute('data-on', '');
 
-            expect(next().metadata.fields.pick.origin).not.toBe(off);
+            expect(next().metadata.objectFields.pick.origin).not.toBe(off);
         });
 
         it('gives a value the origin of the operand an and or an or gave', () => {
@@ -750,15 +743,15 @@ describe('QueryEvaluator evaluation', () => {
 
             const { metadata } = watching('panel.children { pick = if (it.attribute["data-on"]) == null then 2 else 1 end }', { panel })();
 
-            expect(metadata.sources).toEqual(rows);
-            expect(metadata.items[0].fields.pick.origin).toBe(metadata.items[2].fields.pick.origin);
-            expect(metadata.items[1].fields.pick.origin).not.toBe(metadata.items[0].fields.pick.origin);
+            expect(metadata.sources).toEqual(rows.map(row => ({ kind: 'reference', value: row })));
+            expect(metadata.items[0].objectFields.pick.origin).toBe(metadata.items[2].objectFields.pick.origin);
+            expect(metadata.items[1].objectFields.pick.origin).not.toBe(metadata.items[0].objectFields.pick.origin);
         });
 
         it('gives every place a local is used the origin of the expression it holds', () => {
-            const { fields } = watching('panel { let w = if (panel.attribute["data-on"]) == null then panel.size?.width else 0 end, a = w, b = w }', { panel })().metadata;
+            const { objectFields } = watching('panel { let w = if (panel.attribute["data-on"]) == null then panel.size?.width else 0 end, a = w, b = w }', { panel })().metadata;
 
-            expect(fields.a.origin).toBe(fields.b.origin);
+            expect(objectFields.a.origin).toBe(objectFields.b.origin);
         });
     });
 
@@ -787,13 +780,15 @@ describe('QueryEvaluator evaluation', () => {
             const evaluation = evaluate('panel.all("i") { h = it.rect?.height, on = it.attached or it.focus() }', { panel });
 
             expect(evaluation.dependencies.map(dependency => [dependency.member, dependency.pointer])).toEqual([
-                ['all', '/expression/target'],
-                ...rows.flatMap(() => [['rect', '/expression/fields/0/value/target/target'], ['attached', '/expression/fields/1/value/operands/0']]),
+                ['all', '/expression/context'],
+                ...rows.flatMap(() => [['rect', '/expression/objectFields/0/value/chain/receiver'], ['attached', '/expression/objectFields/1/value/operands/0']]),
             ]);
         });
 
         it('stand where each operand of an equality is written, both evaluated', () => {
             expect(membersOf(evaluate('panel.attribute["id"] == panel.first("i")?.attribute["id"]', { panel }))).toEqual(['attribute', 'first', 'attribute']);
+            // An unnamed indexer has no name, which its dependency says as null.
+            expect(membersOf(evaluate('panel["id"] == panel.aria["label"]', { panel }))).toEqual([null, 'aria', null]);
         });
 
         it('stop where an optional chain meets null, and reach as far as its receivers are present', () => {
@@ -850,9 +845,10 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are kept with the failure of an evaluation that recorded them before it failed', () => {
-            const evaluation = evaluate('{ id = panel.attribute["id"], boom = panel.boom }', { panel }, [propertyModule('boom', () => { throw new Error('no'); })]);
+            const evaluation = evaluate('import Boom\n{ id = panel.attribute["id"], boom = panel:boom }', { panel }, [propertyModule('boom', () => { throw new Error('no'); })]);
 
-            expect(evaluation.error).toBeInstanceOf(LexicaError);
+            expect(evaluation.error).toBeInstanceOf(NexoError);
+            expect(evaluation.error.code).toBe('NEXO5007');
             expect(evaluation.error.message).toContain("The member 'boom' failed");
             expect(evaluation.value).toBeUndefined();
             expect(membersOf(evaluation)).toEqual(['attribute', 'boom']);
@@ -860,13 +856,12 @@ describe('QueryEvaluator evaluation', () => {
     });
 
     /** A member kept by an observation that never samples, so an evaluation that reads it stays pending. */
-    const waitingModule = () => lexica.createModule('level', {
-        observationTypes: [{ name: 'level', contract: 'maintained', implementation: () => ({ stop: () => {}, sample: () => ({ pending: true, value: null }) }) }],
-        members: [{
-            name: 'level', kind: 'property', target: 'Element', result: 'Number?',
-            updates: { changes: 'observable', reads: 'maintained', observations: [{ type: 'level', of: 'receiver' }] },
-            implementation: ({ samples: [sample] }) => sample,
-        }],
+    const waitingModule = () => elementModule('level', [{
+        name: 'level', kind: 'property', result: 'Number?',
+        updates: { changes: 'observable', reads: 'maintained', observations: [{ type: 'level', of: 'receiver' }] },
+        impl: ({ samples: [sample] }) => sample,
+    }], {
+        observationTypes: [{ name: 'level', contract: 'maintained', impl: () => ({ stop: () => {}, sample: () => ({ pending: true, value: null }) }) }],
     });
 
     describe('observations', () => {
@@ -879,7 +874,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are all held for a pending answer, which waits on any of them changing', () => {
-            const evaluation = evaluate('{ id = panel.attribute["id"], level = panel.level }', { panel }, [waitingModule()]);
+            const evaluation = evaluate('import Level\n{ id = panel.attribute["id"], level = panel:level }', { panel }, [waitingModule()]);
 
             expect(evaluation.isPending).toBe(true);
             expect(evaluation.value).toEqual({ id: 'panel', level: null });
@@ -940,7 +935,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are held once for every call that observes the same while a pending answer waits', async () => {
-            const evaluation = evaluate('panel.children { on = it.matches("[data-on]"), level = it.level }', { panel }, [waitingModule()]);
+            const evaluation = evaluate('import Level\npanel.children { on = it.matches("[data-on]"), level = it:level }', { panel }, [waitingModule()]);
 
             expect(evaluation.isPending).toBe(true);
 
@@ -962,30 +957,27 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         /** A member observed through a probe of its receiver, shared or not, whose identity is the names its argument gives, none by default. */
-        const probeModule = (shared = true) => lexica.createModule('probe', {
+        const probeModule = (shared = true) => elementModule('probe', [{
+            name: 'probe', kind: 'function', result: 'Number',
+            arguments: 'positional',
+            parameters: [{ name: 'names', kind: 'value', type: 'List<String>', required: false, default: [], fixed: false, nulls: 'propagate' }],
+            updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'probe', of: 'receiver', names: { argument: 'names' } }] },
+            impl: () => 1,
+        }], {
             observationTypes: [{
                 name: 'probe', contract: 'invalidation', identity: ['names'], shared,
-                implementation: () => {
+                impl: () => {
                     started++;
 
                     return { stop: () => stopped++ };
                 },
             }],
-            members: [{
-                name: 'probe', kind: 'function', target: 'Element', result: 'Number',
-                arguments: 'positional',
-                parameters: [{ name: 'names', kind: 'value', type: 'List<String>', required: false, default: [], fixed: false, nulls: 'propagate' }],
-                updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'probe', of: 'receiver', names: { argument: 'names' } }] },
-                implementation: () => 1,
-            }],
         });
 
         /** Evaluates the query again and again in one window, as a watch does, counting what each evaluation acquires. */
         const evaluationsOf = (text, bindings, modules) => {
-            const registry = lexica.createRegistry([BrowserModule.create(), ...modules]);
-            const query = domql.query(text, bindings);
-            const resolved = registry.resolve(query.definition, DomqlQuery.bindingsOf(query));
-            const evaluator = new QueryEvaluator(registry, resolved.createEvaluator(DomqlQuery.bindingsOf(query), { window, document }));
+            const registry = nexo.createRegistry([BrowserModule.create(), ...modules]);
+            const evaluator = evaluatorWith(registry, text, bindings);
             const shared = new Observations(registry, { window, document });
             const acquire = vi.spyOn(shared, 'acquire');
 
@@ -1004,7 +996,7 @@ describe('QueryEvaluator evaluation', () => {
         };
 
         it('are taken over by every evaluation in turn, each from the one it replaces, so a run of them acquires nothing after the first', () => {
-            const run = evaluationsOf('panel.children { p = it.probe(), w = it.rect?.width }', { panel }, [probeModule()]);
+            const run = evaluationsOf('import Probe\npanel.children { p = it:probe(), w = it.rect?.width }', { panel }, [probeModule()]);
             let last = run.evaluate([]);
             const acquired = run.acquired();
 
@@ -1020,7 +1012,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are taken over where the evaluation observes the same again, so nothing is acquired or stopped', () => {
-            const run = evaluationsOf('panel.children { p = it.probe() }', { panel }, [probeModule()]);
+            const run = evaluationsOf('import Probe\npanel.children { p = it:probe() }', { panel }, [probeModule()]);
             const first = run.evaluate([]);
             const acquired = run.acquired();
             const second = run.evaluate([first]);
@@ -1038,7 +1030,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are taken from every evaluation replaced, so one only an earlier of them still holds is not started again', () => {
-            const run = evaluationsOf('panel.children { p = it.probe() }', { panel }, [probeModule()]);
+            const run = evaluationsOf('import Probe\npanel.children { p = it:probe() }', { panel }, [probeModule()]);
             const first = run.evaluate([]);
             const last = rows[2];
 
@@ -1062,7 +1054,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are acquired again where an argument changed, and the old one is let go', () => {
-            const run = evaluationsOf('panel.probe(if (panel.attribute["data-two"]) == null then one else two end)', { panel, one: ['a'], two: ['a', 'b'] }, [probeModule()]);
+            const run = evaluationsOf('import Probe\npanel:probe(if (panel.attribute["data-two"]) == null then one else two end)', { panel, one: ['a'], two: ['a', 'b'] }, [probeModule()]);
             const first = run.evaluate([]);
 
             panel.setAttribute('data-two', '');
@@ -1081,7 +1073,7 @@ describe('QueryEvaluator evaluation', () => {
 
         it('stay where a bound list was changed in place, since the bindings hold a copy of it', () => {
             const names = ['a'];
-            const run = evaluationsOf('panel.probe(names)', { panel, names }, [probeModule()]);
+            const run = evaluationsOf('import Probe\npanel:probe(names)', { panel, names }, [probeModule()]);
             const first = run.evaluate([]);
 
             names.push('b');
@@ -1095,7 +1087,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are held once, and taken over once, where the evaluation observes the same twice', () => {
-            const run = evaluationsOf('items { p = it.probe() }', { items: [rows[0], rows[0]] }, [probeModule()]);
+            const run = evaluationsOf('import Probe\nitems { p = it:probe() }', { items: [rows[0], rows[0]] }, [probeModule()]);
             const first = run.evaluate([]);
 
             expect(run.acquired()).toBe(1);
@@ -1113,7 +1105,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('leave an unshared observation to start afresh each evaluation', () => {
-            const run = evaluationsOf('panel.probe()', { panel }, [probeModule(false)]);
+            const run = evaluationsOf('import Probe\npanel:probe()', { panel }, [probeModule(false)]);
             const first = run.evaluate([]);
             const second = run.evaluate([first]);
 
@@ -1127,7 +1119,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are acquired again where the window\'s observations ended those the replaced evaluation held', () => {
-            const run = evaluationsOf('panel.probe()', { panel }, [probeModule()]);
+            const run = evaluationsOf('import Probe\npanel:probe()', { panel }, [probeModule()]);
             const first = run.evaluate([]);
 
             observations.dispose();
@@ -1140,7 +1132,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('are neither taken over nor kept for one where the evaluation replaces none', () => {
-            const run = evaluationsOf('panel.probe()', { panel }, [probeModule()]);
+            const run = evaluationsOf('import Probe\npanel:probe()', { panel }, [probeModule()]);
             const first = run.evaluate(null);
 
             run.evaluate([first]);
@@ -1168,27 +1160,29 @@ describe('QueryEvaluator projection', () => {
     });
 
     /** A module whose source `ticks` delivers events of the type its key maps to in the type selector `event`, and records each start. */
-    const ticks = type => DispatchTable.createModule('ticks', {
-        types: [{ name: 'Tick', fields: { at: 'Number', label: 'String?' } }],
-        selectableTypes: [{ name: 'tick', selector: 'event', type }],
-        members: [{
-            name: 'ticks', kind: 'function', invokedBy: 'host', requestKind: 'subscription', target: 'Element', arguments: 'positional', parameters: [{ name: 'type', kind: 'value', type: 'String', required: true, fixed: true, selects: 'type', selector: 'event', nulls: 'propagate' }], result: '@selected',
-            implementation: () => {
-                started.push(true);
+    const ticks = type => DispatchTable.createModule('Ticks', {
+        types: [
+            { name: 'Tick', kind: 'structured', members: [{ name: 'at', kind: 'property', result: 'Number' }, { name: 'label', kind: 'property', result: 'String?' }] },
+            {
+                name: 'TickElements', kind: 'extension', target: 'Domql.Element', members: [{
+                    name: 'ticks', kind: 'function', invokedBy: 'host', requestKind: 'subscription', arguments: 'positional', parameters: [{ name: 'type', kind: 'value', type: 'String', required: true, fixed: true, selects: 'type', selector: 'event', nulls: 'propagate' }], result: '@selected',
+                    impl: () => {
+                        started.push(true);
 
-                return { stop: () => {} };
+                        return { stop: () => {} };
+                    },
+                }],
             },
-        }],
+        ],
+        mappings: [{ selector: 'event', key: 'tick', type }],
     });
 
     const evaluatorOf = (text, bindings = {}, modules = []) => {
-        const registry = lexica.createRegistry([BrowserModule.create(), ...modules]);
-        const query = domql.query(text, bindings);
-        const resolved = registry.resolve(query.definition, DomqlQuery.bindingsOf(query));
+        const registry = nexo.createRegistry([BrowserModule.create(), ...modules]);
 
         observations = new Observations(registry, { window, document });
 
-        return new QueryEvaluator(registry, resolved.createEvaluator(DomqlQuery.bindingsOf(query), { window, document }));
+        return evaluatorWith(registry, text, bindings);
     };
 
     const failureOf = call => {
@@ -1202,11 +1196,11 @@ describe('QueryEvaluator projection', () => {
     };
 
     /** Captures the event as its type declares and projects it, through the subscription's host call prepared for it. */
-    const projectionOf = (evaluator, event) => evaluator.project(evaluator.prepareCall(), event, { observations });
+    const projectionOf = (evaluator, event) => evaluator.project(evaluator.prepareHostCall(), event, { observations });
 
     describe('the host call', () => {
         it('is prepared into what starts it: its declaration, the receiver and the arguments prepared now, its implementation in DOMQL\'s dispatch table, and nothing started', () => {
-            const call = evaluatorOf('panel.ticks("tick") { at = it.at }', { panel }, [ticks('Tick')]).prepareCall();
+            const call = evaluatorOf('import Ticks\npanel:ticks("tick") { at = it.at }', { panel }, [ticks('Tick')]).prepareHostCall();
 
             expect(call).toMatchObject({ kind: 'prepared', declaration: { name: 'ticks' }, receiver: panel, args: { type: 'tick' } });
             expect(typeof DispatchTable.get(call.declaration).implementation).toBe('function');
@@ -1214,39 +1208,39 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('is skipped where its receiver is null, since there is nothing to listen to', () => {
-            expect(evaluatorOf('panel.first(".none")?.ticks("tick") { at = it.at }', { panel }, [ticks('Tick')]).prepareCall()).toMatchObject({ kind: 'skipped' });
+            expect(evaluatorOf('import Ticks\npanel.first(".none")?:ticks("tick") { at = it.at }', { panel }, [ticks('Tick')]).prepareHostCall()).toMatchObject({ kind: 'skipped' });
         });
 
         it('is refused for a request that ends in no host call', () => {
-            expect(failureOf(() => evaluatorOf('panel.children.count', { panel }).prepareCall())).toMatchObject({ kind: 'evaluation', message: expect.stringContaining('The script gives a value and ends in no host call, so there is nothing to prepare') });
+            expect(failureOf(() => evaluatorOf('panel.children.count', { panel }).prepareHostCall())).toMatchObject({ kind: 'evaluation', code: 'NEXO5014', message: expect.stringContaining('The script gives a value and ends in no host call, so there is nothing to prepare') });
         });
     });
 
     describe('capturing an event', () => {
         it('keeps the fields its type declares, a nullable one it does not carry as null', () => {
-            const evaluator = evaluatorOf('panel.ticks("tick") { at = it.at, label = it.label }', { panel }, [ticks('Tick')]);
+            const evaluator = evaluatorOf('import Ticks\npanel:ticks("tick") { at = it.at, label = it.label }', { panel }, [ticks('Tick')]);
 
             expect(projectionOf(evaluator, { at: 1, label: 'first', extra: true }).value).toEqual({ at: 1, label: 'first' });
             expect(projectionOf(evaluator, { at: 1 }).value).toEqual({ at: 1, label: null });
         });
 
         it('fails where the event carries mistyped data, whether its field is nullable or not', () => {
-            const evaluator = evaluatorOf('panel.ticks("tick") { at = it.at }', { panel }, [ticks('Tick')]);
+            const evaluator = evaluatorOf('import Ticks\npanel:ticks("tick") { at = it.at }', { panel }, [ticks('Tick')]);
 
-            expect(projectionOf(evaluator, { at: 'soon' }).error).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The host call 'ticks' supplied a value whose 'at' is \"soon\", and 'at' is declared Number") });
-            expect(projectionOf(evaluator, { at: 1, label: 7 }).error).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("whose 'label' is 7, and 'label' is declared String?") });
-            expect(projectionOf(evaluator, null).error).toMatchObject({ kind: 'evaluation' });
+            expect(projectionOf(evaluator, { at: 'soon' }).error).toMatchObject({ kind: 'evaluation', code: 'NEXO5015', message: expect.stringContaining("The host call 'ticks' supplied a value whose 'at' is \"soon\", and 'at' is declared Number") });
+            expect(projectionOf(evaluator, { at: 1, label: 7 }).error).toMatchObject({ kind: 'evaluation', code: 'NEXO5015', message: expect.stringContaining("whose 'label' is 7, and 'label' is declared String?") });
+            expect(projectionOf(evaluator, null).error).toMatchObject({ kind: 'evaluation', code: 'NEXO5015' });
         });
 
         it('takes an event whole where its type declares no fields, and fails one that is not of its type', () => {
-            const evaluator = evaluatorOf('panel.ticks("tick")', { panel }, [ticks('Number')]);
+            const evaluator = evaluatorOf('import Ticks\npanel:ticks("tick")', { panel }, [ticks('Number')]);
 
             expect(projectionOf(evaluator, 5).value).toBe(5);
-            expect(projectionOf(evaluator, 'five').error).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The host call 'ticks' supplied \"five\", and it declares Number") });
+            expect(projectionOf(evaluator, 'five').error).toMatchObject({ kind: 'evaluation', code: 'NEXO5015', message: expect.stringContaining("The host call 'ticks' supplied \"five\", and it declares Number") });
         });
 
         it('keeps a native event\'s target, and null for a target that is no element, a reference of another type', () => {
-            const evaluator = evaluatorOf('domql.document.on("scroll") { id = it.target?.attribute["id"] }');
+            const evaluator = evaluatorOf('Domql.document.on("scroll") { id = it.target?.attribute["id"] }');
 
             expect(projectionOf(evaluator, new window.Event('scroll')).value).toEqual({ id: null });
             expect(projectionOf(evaluator, { target: panel }).value).toEqual({ id: 'panel' });
@@ -1256,7 +1250,7 @@ describe('QueryEvaluator projection', () => {
 
     describe('an event', () => {
         it('is projected through the object expression that follows its source, as detached, immutable data', () => {
-            const evaluator = evaluatorOf('panel.ticks("tick") { at = it.at, label = it.label, count = panel.children.count }', { panel }, [ticks('Tick')]);
+            const evaluator = evaluatorOf('import Ticks\npanel:ticks("tick") { at = it.at, label = it.label, count = panel.children.count }', { panel }, [ticks('Tick')]);
             const projection = projectionOf(evaluator, { at: 3, label: 'third' });
 
             expect(projection.error).toBeNull();
@@ -1265,22 +1259,22 @@ describe('QueryEvaluator projection', () => {
         });
 
         it('reads what it captured, and the document as it is', () => {
-            const evaluator = evaluatorOf('domql.document.on("scroll") { id = it.target?.attribute["id"] }');
+            const evaluator = evaluatorOf('Domql.document.on("scroll") { id = it.target?.attribute["id"] }');
 
             expect(projectionOf(evaluator, { target: panel }).value).toEqual({ id: 'panel' });
             expect(projectionOf(evaluator, { target: document }).value).toEqual({ id: null });
         });
 
         it('fails its projection where a member fails, without throwing', () => {
-            const evaluator = evaluatorOf('panel.ticks("tick") { match = panel.matches("[") }', { panel }, [ticks('Tick')]);
+            const evaluator = evaluatorOf('import Ticks\npanel:ticks("tick") { match = panel.matches("[") }', { panel }, [ticks('Tick')]);
             const projection = projectionOf(evaluator, { at: 1 });
 
             expect(projection.value).toBeUndefined();
-            expect(projection.error).toMatchObject({ kind: 'evaluation', message: expect.stringContaining("The member 'matches' failed") });
+            expect(projection.error).toMatchObject({ kind: 'evaluation', code: 'NEXO5007', message: expect.stringContaining("The member 'matches' failed") });
         });
 
         it('stands for its source, which the projection never starts or reads', () => {
-            const evaluator = evaluatorOf('panel.ticks("tick") { at = it.at }', { panel }, [ticks('Tick')]);
+            const evaluator = evaluatorOf('import Ticks\npanel:ticks("tick") { at = it.at }', { panel }, [ticks('Tick')]);
 
             projectionOf(evaluator, { at: 1 });
             projectionOf(evaluator, { at: 2 });

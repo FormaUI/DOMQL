@@ -2,7 +2,7 @@
  * ExecutionHandle — one continuous execution run: it starts the instance its implementation creates, replaces the bindings it runs with when updated, raises the failures it reports while it runs, and disposes it
  */
 
-import { LexicaError } from '@formaui/lexica';
+import { NexoError } from '@formaui-net/nexo';
 import { EventDispatcher } from './EventDispatcher.mjs';
 
 /**
@@ -73,14 +73,14 @@ export class ExecutionHandle {
      */
     update(bindings) {
         if (this.#status === 'disposed') {
-            throw LexicaError.evaluation('A disposed execution cannot be updated', {});
+            throw NexoError.evaluation('DOMQL5005', 'A disposed execution cannot be updated', {});
         }
 
         const execution = this.#prepare(bindings);
 
         // A receiver of unknown type selects no declaration, so an execution that has none yet takes the one its bindings select, and keeps it.
         if (execution.declaration !== null && this.#declaration !== null && execution.declaration !== this.#declaration) {
-            throw LexicaError.validation(`These bindings select the execution '${execution.name}', which is another execution; run it as one of its own`, execution.location);
+            throw NexoError.validation('DOMQL3006', `These bindings select the execution '${execution.name}', which is another execution; run it as one of its own`, execution.location);
         }
 
         this.#declaration = execution.declaration ?? this.#declaration;
@@ -101,7 +101,7 @@ export class ExecutionHandle {
         try {
             this.#instance.update(execution.receiver, execution.args);
         } catch (error) {
-            throw LexicaError.evaluation(`The execution '${execution.name}' failed to update`, execution.location, { cause: error });
+            throw NexoError.evaluation('DOMQL5006', `The execution '${execution.name}' failed to update`, execution.location, { cause: error });
         }
     }
 
@@ -124,7 +124,7 @@ export class ExecutionHandle {
         try {
             instance = start({ receiver, args, env: environment, reportError: error => this.#eventDispatcher.raiseError(error) });
         } catch (error) {
-            throw LexicaError.evaluation(`The execution '${name}' failed to start`, location, { cause: error });
+            throw NexoError.evaluation('DOMQL5007', `The execution '${name}' failed to start`, location, { cause: error });
         }
 
         if (typeof instance?.update !== 'function' || typeof instance?.dispose !== 'function') {
@@ -135,7 +135,7 @@ export class ExecutionHandle {
                 this.#eventDispatcher.reportError(error);
             }
 
-            throw LexicaError.evaluation(`The execution '${name}' started and answered no update and dispose`, location);
+            throw NexoError.evaluation('DOMQL5008', `The execution '${name}' started and answered no update and dispose`, location);
         }
 
         return instance;

@@ -2,9 +2,9 @@
 
 **A declarative approach to managing the DOM.**
 
-DOMQL is a JavaScript library for querying the DOM, allowing you to read information from a document once or observe it as it changes. This guide takes you from your first query to watching results, handling events and extending the library. Its queries are written in [Lexica](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/README.md), the language now named [Nexo](https://github.com/FormaUI/Nexo).
+DOMQL is a JavaScript library for querying the DOM, allowing you to read information from a document once or observe it as it changes. This guide takes you from your first query to watching results, handling events and extending the library. Its queries are written in [Nexo](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/README.md).
 
-> **Alpha:** `formaui-net.DOMQL` is not yet published to NuGet. [Build the package locally](#install-and-load) to try it. The package distributes a JavaScript ES module; the API in this guide runs in JavaScript. Every example here runs on this alpha, on Lexica's language `1.0.0-alpha.33`, definition version 33. [The status overview](https://github.com/FormaUI/DOMQL/blob/main/docs/features-status.md) says what is implemented and what is being built.
+> **Alpha:** `formaui-net.DOMQL` is not yet published to NuGet. [Build the package locally](#install-and-load) to try it. The package distributes a JavaScript ES module; the API in this guide runs in JavaScript. Every example here runs on this alpha, on Nexo's language `1.0.0-beta.3`, definition version 38. [The status overview](https://github.com/FormaUI/DOMQL/blob/main/docs/features-status.md) says what is implemented and what is being built.
 
 ## In this guide
 
@@ -336,12 +336,12 @@ A named indexer reads a value of its receiver by a key, written after its name i
 panel.attribute["data-key"]
 panel.style["display"]
 panel.class["open"]
-domql.window.media["(min-width: 40em)"]
+Domql.window.media["(min-width: 40em)"]
 ```
 
 The key can be any expression of the type the indexer takes, such as a binding, `panel.attribute[name]`. An element's unnamed indexer reads an attribute as well, so `panel["data-key"]` reads the attribute too, and a list's reads an item, so `panel.children[0]` is its first child. Use `?[` when the receiver can be null: `panel.first(".row")?["data-key"]` is null when there is no row, and its key is not evaluated.
 
-All DOMQL names are case-sensitive and use names such as `clientSize`, `rectRelativeTo` and `devicePixelRatio`. Any word names a field, a local, a function, a parameter or a member, a keyword, `true`, `null`, `it`, `root` and DOMQL's module name, `domql`, among them, as `{ end = selection.end }` and `record.then` do. Where a value stands, such a word keeps its own meaning, so a local or a field it names is read as `@end`, and a caller's binding it names as `~end`. Strings passed to browser APIs, including selectors and attribute names, follow the browser's rules. A string escapes `\"`, `\\`, `\n`, `\r`, `\t` and `\e`, the escape character, and names any character by its code point with `\u{…}`, as `"\u{A0}"` writes a no-break space, which is hard to tell from a space when written as itself. A raw string, in single quotes, keeps its backslashes as text, as `'C:\Users\Eyal\'` and `'\d{3}-\d{2}'` do, and doubles its quote to hold one, `'It''s ready'`; `$'…'` interpolates one as `$"…"` does a string. An inline string stands on one line; for text on lines of its own, write a block, three or more quotes and a line break opening it and as many closing it first on a later line, whose indentation is removed from every line: `"""`, `'''`, `$"""` or `$'''`.
+All DOMQL names are case-sensitive and use names such as `clientSize`, `rectRelativeTo` and `devicePixelRatio`. Any word names a field, a local, a function, a parameter or a member, a keyword, `true`, `null`, `it`, `root` and DOMQL's module name, `Domql`, among them, as `{ end = selection.end }` and `record.then` do. Where a value stands, such a word keeps its own meaning, so a local or a field it names is read as `@end`, and a caller's binding it names as `~end`. Strings passed to browser APIs, including selectors and attribute names, follow the browser's rules. A string escapes `\"`, `\\`, `\n`, `\r`, `\t` and `\e`, the escape character, and names any character by its code point with `\u{…}`, as `"\u{A0}"` writes a no-break space, which is hard to tell from a space when written as itself. A raw string, in single quotes, keeps its backslashes as text, as `'C:\Users\Eyal\'` and `'\d{3}-\d{2}'` do, and doubles its quote to hold one, `'It''s ready'`; `$'…'` interpolates one as `$"…"` does a string. An inline string stands on one line; for text on lines of its own, write a block, three or more quotes and a line break opening it and as many closing it first on a later line, whose indentation is removed from every line: `"""`, `'''`, `$"""` or `$'''`.
 
 Calls take their arguments by position, separated by commas, as many as the member's signature declares. When a member takes options, pass one object whose fields supply its parameters; like any object expression, its fields are evaluated once each, in the order written, and a later one reads an earlier one by its name. This query checks for an intersection with a margin around the panel and needs `evaluateAsync()`:
 
@@ -459,7 +459,7 @@ return {
 }
 ```
 
-`do … end` writes a body wherever an expression stands, as `doubled = do let half = width / 2 return half * 4 end` does in a field, and each branch of a conditional, `if … then … else … end`, is one too: within one conditional, every branch gives its result with `return` or none does. A body's locals run once each, in order, whether or not anything uses them, while an object expression's locals run only where a field reads them. `return` completes its own body, so a `do` block's `return` gives that block's value, never the query's.
+`do … end` writes a body wherever an expression stands, as `doubled = do width / 2 * 4 end` does in a field, its locals and its `return` each on a line of its own where it has them, and each branch of a conditional, `if … then … else … end`, is one too: within one conditional, every branch gives its result with `return` or none does. A body's locals run once each, in order, whether or not anything uses them, while an object expression's locals run only where a field reads them. `return` completes its own body, so a `do` block's `return` gives that block's value, never the query's.
 
 An argument, an indexer's key, a computed property access and an interpolation each hold a simple expression, and an argument may be an arrow function instead: values, operators, calls and member reads, and a conditional of one `if` branch and one `else` branch of those, as `calculate(if compact then 10 else 20 end)` is. A `do` block, a conditional that binds a value, has `elseif` or gives its branches with `return`, and an object expression with locals, are bound to a local first, and the local is passed. A function called there may use any of them in its own body.
 
@@ -525,7 +525,7 @@ control { checked = it.checked(), ariaChecked = it.aria.checked() }
 
 `.checked()` is true for a checked checkbox or radio button, or a selected option, as `:checked` matches. `.aria.checked()` is true only where `aria-checked` is `"true"`; read `it.aria["checked"]`, the attribute's own text as `it["aria-checked"]` reads it, or null where it is absent, to tell `"mixed"` from `"false"`. The two never stand in for each other, so write `it.checked() or it.aria.checked()` where either counts. Elements answer `disabled()`, `readonly()`, `textEditable()`, `hover()`, `popoverOpen()`, `checked()`, `focus()` and `focusWithin()`; the document `visible()` and `focus()`; and the window `share()` and `clipboard()`, whether the browser offers each API.
 
-`.is`, `.has` and `.supports` take a test as a function and answer what it does, so a condition can be asked in its question's words: `it.has(domql.focus)` is `it.focus()`, and `it.is(it.disabled() or it.readonly())` asks either.
+A Boolean function can be called through DOMQL's module as well, its receiver its first argument: `Domql.checked(it)` is `it.checked()`.
 
 ### Compare and combine conditions
 
@@ -560,13 +560,17 @@ Mixing `??` with `==`, `!=`, `not`, `and` or `or` requires parentheses around on
 
 ### Choose a result with a conditional
 
-Use `if`, `then` and `else` to choose between values. Add `elseif` for another condition:
+Use `if`, `then` and `else` to choose between values. Add `elseif` for another condition. A conditional that spans lines is laid out in block form, each `then` and `else` ending its line and `end` on a line of its own:
 
 ```domql
 input {
-    state = if it.disabled() then "locked"
-           elseif it.readonly() then "read"
-           else "open" end
+    state = if it.disabled() then
+        "locked"
+    elseif it.readonly() then
+        "read"
+    else
+        "open"
+    end
 }
 ```
 
@@ -575,9 +579,11 @@ Conditions are tested in order, and only the selected branch is evaluated; the o
 Use `if let` to name a value and choose by whether it is truthy. The name is available in the `then` branch alone, where it cannot be null:
 
 ```domql
-if let row = cell.closest(".row")
-then { key = row["data-key"], top = row.rect?.top }
-else null end
+if let row = cell.closest(".row") then
+    { key = row["data-key"], top = row.rect?.top }
+else
+    null
+end
 ```
 
 `if let` tests truthiness as `if` does, so `0`, empty text and an empty list take the `then` branch, and `false` takes `else`. It pairs with `try`: `if let count = try panel["data-count"] to Number then … else … end` converts once and uses the number in its branch.
@@ -620,9 +626,13 @@ A conversion never answers null for text it accepts, so where text is present, a
 ```domql
 panel {
     let count = it["data-count"],
-    count = if let n = try count to Number then { status = "valid", value = n }
-    elseif count == null then { status = "missing", value = null }
-    else { status = "malformed", value = null } end
+    count = if let n = try count to Number then
+        { status = "valid", value = n }
+    elseif count == null then
+        { status = "missing", value = null }
+    else
+        { status = "malformed", value = null }
+    end
 }
 ```
 
@@ -721,7 +731,7 @@ Keep independent results in a top-level object, as above. If you instead write `
 | `domql.format(source)` | Return canonical query text from text, a definition or a query object; no bindings or registered vocabulary are needed. |
 | `domql.createModule(name, contents)` | Create an extension module. |
 | `domql.registerModule(module)` | Register a module for query resolution. |
-| `domql.info` | Read the build's `versions`: its `runtime`, the DOMQL `specification` it follows, and the Lexica `language` it runs on. |
+| `domql.info` | Read the build's `versions`: its `runtime`, the DOMQL `specification` it follows, and the Nexo `language` it runs on. |
 
 A watch handle exposes `status`, `snapshot`, `error`, `readyAsync()`, `refreshAsync()`, `subscribe(eventName, handler)` and `dispose()`. Snapshot watches support `select(...path)`; live-state watches expose `liveState`. See [Watch a query](#watch-a-query) for examples.
 
@@ -746,12 +756,12 @@ resolved.type; // 'Number?'
 
 ### Handle errors
 
-DOMQL reports failures as a `LexicaError` with `kind`, `message` and a structured `location`. The location identifies a text position, a definition node by JSON Pointer, or the relevant binding or declaration. Use these structured fields rather than matching message text.
+DOMQL reports failures as a `NexoError` with a `code`, a `kind`, a `message` and a structured `location`. The code names the condition: `NEXO` and four digits for Nexo's, its language's and its runtime's, `DOMQL` and four digits for DOMQL's own, as [the specification's errors](https://github.com/FormaUI/DOMQL/blob/main/spec/errors.md) list them. The location identifies a text position, a definition node by JSON Pointer, or the relevant binding or declaration. Use these structured fields rather than matching message text.
 
 | Kind | Failure |
 | --- | --- |
 | `syntax` | Invalid query text |
-| `structure` | Invalid definition structure or binding |
+| `structure` | Invalid definition structure, binding or use of the API |
 | `validation` | Unknown members, incompatible types, invalid arguments or unsupported request usage |
 | `module` | Invalid module declarations |
 | `evaluation` | A failure while evaluating the query |
@@ -760,13 +770,14 @@ DOMQL reports failures as a `LexicaError` with `kind`, `message` and a structure
 try {
     domql.query('panel[200]', { panel }).evaluate();
 } catch (error) {
-    if (error?.name !== 'LexicaError') {
+    if (error?.name !== 'NexoError') {
         throw error;
     }
 
-    console.error(error.kind, error.message, error.location);
+    console.error(error.code, error.kind, error.message, error.location);
+    // NEXO3042
     // validation
-    // The argument 'name' of 'attribute' expects String and finds Number
+    // The argument 'name' of '[…]' expects String and finds Number
     // (line 1, column 7, at /expression/argument)
 }
 ```
@@ -775,39 +786,45 @@ A misspelled member is an error; a selector with no match returns null. Raw elem
 
 ## Environments
 
-In a browser, DOMQL uses the default window and document. Queries read them as `domql.window` and `domql.document`, members of DOMQL's module.
+In a browser, DOMQL uses the default window and document. Queries read them as `Domql.window` and `Domql.document`, members of DOMQL's module, `Domql`, which every query imports.
 
-To use another supported DOM environment, pass its window to `query.evaluate({ window: suppliedWindow })`. `domql.window` and `domql.document` then refer to that environment.
+To use another supported DOM environment, pass its window to `query.evaluate({ window: suppliedWindow })`. `Domql.window` and `Domql.document` then refer to that environment.
 
 Node.js can create and resolve queries without a DOM. Evaluation requires a supplied DOM environment; without one, it fails with an `evaluation` error. DOM emulators do not provide full browser layout behavior.
 
 ## Extend the vocabulary
 
-Modules add capabilities to DOMQL without changing its syntax. Each module supplies declarations describing its types and members, and each declaration that runs code carries the JavaScript function that implements it as its `implementation`. A declaration names its own module's types and the language's, as `Number` and `Element`, by their names, and another module's qualified by that module's name, as `domql.Rectangle`.
+Modules add capabilities to DOMQL without changing its syntax. Each module supplies declarations describing its types and members, and each declaration that runs code carries the JavaScript function that implements it as its `impl`. A declaration names its own module's types and the language's, as `Number`, by their names, and another module's qualified by that module's name, as `Domql.Element`.
+
+A module adds members to DOMQL's types in an extension, `{ name, kind: 'extension', target: 'Domql.Element', members }`. A query imports the module, `import Metrics` on its first line, and reads an extension's member with a colon, `panel:metrics`, where DOMQL's own members are read with a dot.
 
 An implementation receives one object that holds what it is given by name: a member's `receiver`, its `args` by parameter name and the `env` it reads in, the window and the document. Implementations used for synchronous query evaluation must be synchronous and read-only.
 
 This example adds a `metrics` member to elements, exposing a child count:
 
 ```js
-const metricsModule = domql.createModule('metrics', {
+const metricsModule = domql.createModule('Metrics', {
     types: [{
         name: 'ChildMetrics',
-        fields: { childCount: 'Number' }
-    }],
-    members: [{
-        name: 'metrics',
-        kind: 'property',
-        target: 'Element',
-        result: 'ChildMetrics',
-        updates: { changes: 'unobserved', reads: 'fresh' },
-        implementation: ({ receiver: element }) => ({ childCount: element.children.length })
+        kind: 'structured',
+        members: [{ name: 'childCount', kind: 'property', result: 'Number' }]
+    }, {
+        name: 'MetricElements',
+        kind: 'extension',
+        target: 'Domql.Element',
+        members: [{
+            name: 'metrics',
+            kind: 'property',
+            result: 'ChildMetrics',
+            updates: { changes: 'unobserved', reads: 'fresh' },
+            impl: ({ receiver: element }) => ({ childCount: element.children.length })
+        }]
     }]
 });
 
 domql.registerModule(metricsModule);
 
-domql.query('panel.metrics { childCount = it.childCount }', { panel }).evaluate();
+domql.query('import Metrics\npanel:metrics { childCount = it.childCount }', { panel }).evaluate();
 // { childCount: 3 }
 ```
 
@@ -815,11 +832,11 @@ A member's `updates` declare how its value changes and how it is read. `reads: '
 
 Register modules once during setup, rather than on every evaluation.
 
-Modules can also declare Boolean members, properties and functions whose result is a `Boolean`, and conversions to and from their own types, each naming the type it converts from, the type it converts to and the implementation that converts a value. That implementation receives `{ value, reject }`, and calls `reject(reason)` for a value it cannot convert, which stops it at once; any other exception it throws is reported as a fault. A query calls a Boolean function, `it.checked()`, or gives it to a verb by reference, `it.is(domql.checked)`, and its `updates` name its own observations either way.
+Modules can also declare Boolean members, properties and functions whose result is a `Boolean`, and conversions from their own types and to them, each an operator, `{ kind: 'operator', name: 'convert', result }`, within the type or the extension it converts from. Its implementation receives `{ value, reject }`, and calls `reject(reason)` for a value it cannot convert, which stops it at once; any other exception it throws is reported as a fault.
 
-A member the host invokes, `invokedBy: 'host'`, is a host call that DOMQL carries out: an event source, `requestKind: 'subscription'`, or an execution, `requestKind: 'execution'`, which runs `once` or `continuous` as its `executionMode` says. An event source's implementation receives the receiver, arguments, environment and an event-delivery callback, as `{ receiver, args, env, deliver }`, and returns an object with a `stop` method to end listening. Each event is captured as the type its declaration's result names, and a module adds event types of its own as keys of DOMQL's type selector `event`, each naming the type its events are captured as.
+A member the host invokes, `invokedBy: 'host'`, is a host call that DOMQL carries out: an event source, `requestKind: 'subscription'`, or an execution, `requestKind: 'execution'`, which runs `once` or `continuous` as its `executionMode` says. An event source's implementation receives the receiver, arguments, environment and an event-delivery callback, as `{ receiver, args, env, deliver }`, and returns an object with a `stop` method to end listening. Each event is captured as the type its declaration's result names, and a module adds event types of its own as mappings of DOMQL's type selector `event`, `{ selector: 'event', key, type }`, each naming the type its events are captured as.
 
-[Lexica's modules](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/modules.md#modules) specify the full extension contracts. The next section shows execution modules.
+[Nexo's modules](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/runtime/modules.md#modules) specify the full extension contracts. The next section shows execution modules.
 
 ## Execute once and run continuously
 
@@ -830,28 +847,32 @@ A once execution is a module-defined host call that can change the page. `execut
 This example registers a once execution that sets a data attribute and reports whether the value changed:
 
 ```js
-domql.registerModule(domql.createModule('mark', {
-    members: [{
-        name: 'mark',
-        kind: 'function',
-        invokedBy: 'host',
-        requestKind: 'execution',
-        executionMode: 'once',
-        target: 'Element',
-        arguments: 'positional',
-        parameters: [{ name: 'label', kind: 'value', type: 'String', required: true, nulls: 'propagate' }],
-        result: 'Boolean',
-        implementation: ({ receiver: element, args: { label } }) => {
-            const changed = element.dataset.mark !== label;
+domql.registerModule(domql.createModule('Marks', {
+    types: [{
+        name: 'MarkElements',
+        kind: 'extension',
+        target: 'Domql.Element',
+        members: [{
+            name: 'mark',
+            kind: 'function',
+            invokedBy: 'host',
+            requestKind: 'execution',
+            executionMode: 'once',
+            arguments: 'positional',
+            parameters: [{ name: 'label', kind: 'value', type: 'String', required: true, nulls: 'propagate' }],
+            result: 'Boolean',
+            impl: ({ receiver: element, args: { label } }) => {
+                const changed = element.dataset.mark !== label;
 
-            element.dataset.mark = label;
+                element.dataset.mark = label;
 
-            return changed;
-        }
+                return changed;
+            }
+        }]
     }]
 }));
 
-await domql.query('panel.mark("reviewed")', { panel }).executeAsync();
+await domql.query('import Marks\npanel:mark("reviewed")', { panel }).executeAsync();
 // true
 ```
 
@@ -866,34 +887,38 @@ A continuous execution stays active until disposed. `run()` starts it before ret
 This example maintains a data attribute while the execution runs:
 
 ```js
-domql.registerModule(domql.createModule('highlight', {
-    members: [{
-        name: 'highlight',
-        kind: 'function',
-        invokedBy: 'host',
-        requestKind: 'execution',
-        executionMode: 'continuous',
-        target: 'Element',
-        arguments: 'positional',
-        parameters: [{ name: 'color', kind: 'value', type: 'String', required: true, nulls: 'propagate' }],
-        implementation: ({ receiver: element, args: { color } }) => {
-            let current = element;
+domql.registerModule(domql.createModule('Highlights', {
+    types: [{
+        name: 'HighlightElements',
+        kind: 'extension',
+        target: 'Domql.Element',
+        members: [{
+            name: 'highlight',
+            kind: 'function',
+            invokedBy: 'host',
+            requestKind: 'execution',
+            executionMode: 'continuous',
+            arguments: 'positional',
+            parameters: [{ name: 'color', kind: 'value', type: 'String', required: true, nulls: 'propagate' }],
+            impl: ({ receiver: element, args: { color } }) => {
+                let current = element;
 
-            current.dataset.highlight = color;
+                current.dataset.highlight = color;
 
-            return {
-                update: (target, { color: next }) => {
-                    delete current.dataset.highlight;
-                    current = target;
-                    current.dataset.highlight = next;
-                },
-                dispose: () => delete current.dataset.highlight
-            };
-        }
+                return {
+                    update: (target, { color: next }) => {
+                        delete current.dataset.highlight;
+                        current = target;
+                        current.dataset.highlight = next;
+                    },
+                    dispose: () => delete current.dataset.highlight
+                };
+            }
+        }]
     }]
 }));
 
-const highlight = domql.query('panel.highlight(color)', { panel, color: 'gold' }).run();
+const highlight = domql.query('import Highlights\npanel:highlight(color)', { panel, color: 'gold' }).run();
 console.log(panel.dataset.highlight);
 // 'gold'
 
@@ -911,8 +936,8 @@ console.log(panel.dataset.highlight);
 ## Learn more
 
 - [Repository README](https://github.com/FormaUI/DOMQL): what DOMQL is for, what is built, and how to build and test it.
-- [Lexica specification](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/README.md): the language DOMQL is written in, its syntax, types, null semantics and vocabulary contracts.
+- [Nexo specification](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/README.md): the language DOMQL is written in, its syntax, types, null semantics, imports and extensions, and the runtime contracts of its modules.
 - [DOMQL specification](https://github.com/FormaUI/DOMQL/blob/main/spec/README.md): queries, the DOM's vocabulary, evaluating and watching a query, its results, events, executions, and the API.
-- [DOMQL design](https://github.com/FormaUI/DOMQL/blob/main/docs/domql-design.md): how DOMQL is built, and the decisions it did not take, and the [Lexica design](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/docs/lexica-design.md): how the language and its runtime are built.
+- [DOMQL design](https://github.com/FormaUI/DOMQL/blob/main/docs/domql-design.md): how DOMQL is built, and the decisions it did not take, and the [Nexo design](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/docs/nexo-design.md): how the language and its runtime are built.
 
 - [Status](https://github.com/FormaUI/DOMQL/blob/main/docs/features-status.md): what is implemented, what is being built, and what remains.

@@ -5,11 +5,14 @@ import { domql } from '#domql/domql.js';
 let evaluations = 0;
 
 // A member read afresh at each evaluation, observing any attribute in the tree its receiver is in, so each evaluation is a snapshot of its own.
-domql.registerModule(domql.createModule('evaluations', {
-    members: [{
-        name: 'evaluations', kind: 'property', target: 'Element', result: 'Number',
-        updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'root', attributes: true, subtree: true }] },
-        implementation: () => ++evaluations,
+domql.registerModule(domql.createModule('Evaluations', {
+    types: [{
+        name: 'EvaluationElements', kind: 'extension', target: 'Domql.Element',
+        members: [{
+            name: 'evaluations', kind: 'property', result: 'Number',
+            updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'root', attributes: true, subtree: true }] },
+            impl: () => ++evaluations,
+        }],
     }],
 }));
 
@@ -101,7 +104,7 @@ describe('Watches in shadow trees', () => {
 
         first.root.append(item);
 
-        const watched = watch('item.evaluations', { item });
+        const watched = watch('import Evaluations\nitem:evaluations', { item });
 
         await settle();
 
@@ -124,7 +127,7 @@ describe('Watches in shadow trees', () => {
         const item = document.createElement('span');
 
         tree.append(item);
-        watch('item.evaluations', { item });
+        watch('import Evaluations\nitem:evaluations', { item });
         await settle();
 
         expect(await reports(() => document.body.append(tree))).toBe(1);

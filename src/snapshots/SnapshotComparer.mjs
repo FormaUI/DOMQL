@@ -3,6 +3,7 @@
  */
 
 import { ObjectUtils } from '../common/ObjectUtils.mjs';
+import { Provenance } from './Provenance.mjs';
 
 export class SnapshotComparer {
     /**
@@ -10,9 +11,9 @@ export class SnapshotComparer {
      * Strings, Booleans and null compare exactly, and a number compares within the tolerance its metadata gives where the previous and the next value have one origin, and exactly where their origins differ or it has none.
      * An item of a list projected from references is compared with the previous item of the same reference, wherever it stood, so a reordered list shares the items that did not change.
      * @param {unknown} previous The snapshot last reported.
-     * @param {object | null} previousMetadata The metadata Lexica gave the previous snapshot.
+     * @param {object | null} previousMetadata The metadata Nexo gave the previous snapshot.
      * @param {unknown} next The snapshot to compare, which is frozen.
-     * @param {object | null} nextMetadata The metadata Lexica gave the next snapshot, which it follows.
+     * @param {object | null} nextMetadata The metadata Nexo gave the next snapshot, which it follows.
      */
     reconcile(previous, previousMetadata, next, nextMetadata) {
         return SnapshotComparer.#reconcilePart(previous, previousMetadata, next, nextMetadata);
@@ -24,7 +25,7 @@ export class SnapshotComparer {
             return SnapshotComparer.#reconcileItems(previous, previousMetadata, next, nextMetadata);
         }
 
-        if (nextMetadata?.fields !== undefined && ObjectUtils.isNonArrayObject(next)) {
+        if (nextMetadata?.objectFields !== undefined && ObjectUtils.isNonArrayObject(next)) {
             return SnapshotComparer.#reconcileFields(previous, previousMetadata, next, nextMetadata);
         }
 
@@ -60,7 +61,7 @@ export class SnapshotComparer {
     /** An object an object expression built, its fields compared in the order written, each by its own record. */
     static #reconcileFields(previous, previousMetadata, next, nextMetadata) {
         const previousRecord = ObjectUtils.isNonArrayObject(previous) ? previous : undefined;
-        const names = Object.keys(nextMetadata.fields);
+        const names = Object.keys(nextMetadata.objectFields);
         const isSameShape = previousRecord !== undefined && SnapshotComparer.#hasFieldCount(previousRecord, names.length);
 
         // The fields are gathered only from the first that is not the previous object's, until which they are the previous object's own.
@@ -68,7 +69,7 @@ export class SnapshotComparer {
 
         for (let index = 0; index < names.length; index++) {
             const name = names[index];
-            const value = SnapshotComparer.#reconcilePart(previousRecord?.[name], previousMetadata?.fields?.[name] ?? null, next[name], nextMetadata.fields[name]);
+            const value = SnapshotComparer.#reconcilePart(previousRecord?.[name], previousMetadata?.objectFields?.[name] ?? null, next[name], nextMetadata.objectFields[name]);
 
             if (fields === null && isSameShape && Object.hasOwn(previousRecord, name) && value === previousRecord[name]) {
                 continue;
@@ -101,19 +102,18 @@ export class SnapshotComparer {
         return found === count;
     }
 
-    /** For each next item, the index of the previous item projected from its reference, or -1 for a reference that entered; null where either list is matched by position. */
+    /** For each next item, the index of the previous item that descends from its reference, or -1 for a reference that entered; null where either list is matched by position. */
     static #matchBySource(previousMetadata, previousLength, nextMetadata, nextLength) {
-        const previousSources = previousMetadata?.sources ?? null;
-        const nextSources = nextMetadata?.sources ?? null;
-        const canMatchBySource = (sources, length) => sources !== null && sources.length === length && !sources.includes(null) && new Set(sources).size === length;
+        const previousReferences = Provenance.referencesOf(previousMetadata, previousLength);
+        const nextReferences = Provenance.referencesOf(nextMetadata, nextLength);
 
-        if (!canMatchBySource(previousSources, previousLength) || !canMatchBySource(nextSources, nextLength)) {
+        if (previousReferences === null || nextReferences === null) {
             return null;
         }
 
-        const previousIndexBySource = new Map(previousSources.map((source, previousIndex) => [source, previousIndex]));
+        const previousIndexByReference = new Map(previousReferences.map((reference, previousIndex) => [reference, previousIndex]));
 
-        return nextSources.map(source => previousIndexBySource.get(source) ?? -1);
+        return nextReferences.map(reference => previousIndexByReference.get(reference) ?? -1);
     }
 
     /** The previous value where the next equals it, and the next otherwise, with the branches that are equal shared, the tolerance applied to every number within, and the items of a projected list matched by reference. */
@@ -138,7 +138,7 @@ export class SnapshotComparer {
         }
 
         if (ObjectUtils.isNonArrayObject(previous) && ObjectUtils.isNonArrayObject(next)) {
-            const fields = Object.fromEntries(Object.entries(next).map(([name, field]) => [name, Object.hasOwn(previous, name) ? SnapshotComparer.#reconcileValue(previous[name], previousMetadata?.fields?.[name] ?? null, field, nextMetadata?.fields?.[name] ?? null, tolerance) : field]));
+            const fields = Object.fromEntries(Object.entries(next).map(([name, field]) => [name, Object.hasOwn(previous, name) ? SnapshotComparer.#reconcileValue(previous[name], previousMetadata?.objectFields?.[name] ?? null, field, nextMetadata?.objectFields?.[name] ?? null, tolerance) : field]));
 
             return SnapshotComparer.#sameFields(previous, fields) ? previous : Object.freeze(fields);
         }

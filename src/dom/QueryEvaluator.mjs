@@ -1,5 +1,5 @@
 /**
- * QueryEvaluator — DOMQL's observing host over Lexica's evaluator: evaluates a resolved request once, or recording what it depends on and holding the observations that cover it, so a watch, a wait and an event listener learn when to evaluate again
+ * QueryEvaluator — DOMQL's observing host over Nexo's evaluator: evaluates a resolved request once, or recording what it depends on and holding the observations that cover it, so a watch, a wait and an event listener learn when to evaluate again
  */
 
 import { SessionCache } from './SessionCache.mjs';
@@ -7,6 +7,11 @@ import { Observations } from './Observations.mjs';
 import { QueryEvaluation } from './QueryEvaluation.mjs';
 
 /** @typedef {{ window: Window, document: Document }} Environment */
+
+/**
+ * What resolves a request again where a registration made its resolution stale: the resolution an evaluator is of, the request resolved again, and an evaluator of a resolution, with the request's bindings and environment.
+ * @typedef {{ resolution: import('@formaui-net/nexo').NexoResolution, resolveAgain: () => import('@formaui-net/nexo').NexoResolution, createEvaluator: (resolution: import('@formaui-net/nexo').NexoResolution) => import('@formaui-net/nexo').NexoEvaluator }} Renewal
+ */
 
 /**
  * What an evaluation that observes holds while it runs: where its dependencies are observed, the sessions it acquires and those it leaves for later, and what it has found of the trees its receivers are in.
@@ -50,10 +55,13 @@ const NO_OBSERVATIONS = Object.freeze([]);
 const PENDING = Object.freeze({ pending: true });
 
 export class QueryEvaluator {
-    /** Lexica's evaluator of the request, which this host observes. @type {import('@formaui/lexica').LexicaEvaluator} */
+    /** Nexo's evaluator of the request, which this host observes, replaced where a registration made its resolution stale. @type {import('@formaui-net/nexo').NexoEvaluator} */
     #evaluator;
 
     #moduleRegistry;
+
+    /** What resolves the request again where its resolution is stale, and the resolution the evaluator is of, or null where nothing does. @type {Renewal | null} */
+    #renewal;
 
     /** What the evaluation in progress records, or null where none does. @type {ObservationContext | null} */
     #observationContext = null;
@@ -65,17 +73,19 @@ export class QueryEvaluator {
     });
 
     /**
-     * @param {import('@formaui/lexica').LexicaRegistry} moduleRegistry The registry the request was resolved against, whose observation types the host looks up.
-     * @param {import('@formaui/lexica').LexicaEvaluator} evaluator The evaluator Lexica created from the request's resolution, with its bindings and the window and the document it reads.
+     * @param {import('@formaui-net/nexo').NexoRegistry} moduleRegistry The registry the request was resolved against, whose observation types the host looks up.
+     * @param {import('@formaui-net/nexo').NexoEvaluator} evaluator The evaluator Nexo created from the request's resolution, with its bindings and the window and the document it reads.
+     * @param {Renewal | null} [renewal] What resolves the request again, so an evaluation or a preparation after a registration made the resolution stale is made through a current one; without it, Nexo refuses one then.
      */
-    constructor(moduleRegistry, evaluator) {
+    constructor(moduleRegistry, evaluator, renewal = null) {
         this.#moduleRegistry = moduleRegistry;
         this.#evaluator = evaluator;
+        this.#renewal = renewal;
     }
 
     /** The result of evaluating the query once: immutable data holding no reference to the document. A member maintained by an observation fails it, since its first sample cannot arrive during a synchronous evaluation. */
     evaluateOnce() {
-        return this.#evaluator.evaluate().value;
+        return this.#currentEvaluator().evaluate().value;
     }
 
     /**
@@ -92,16 +102,32 @@ export class QueryEvaluator {
      * @param {boolean} [observationContext.recordsDependencies] Whether the evaluation answers a record of each call it depended on, which nothing it holds needs, since its sessions keep what it depends on observed; without one, its dependencies are null.
      */
     evaluate({ observations, onChange, holdsAllObservations = false, replaces = null, consumer = null, recordsDependencies = false }) {
-        return this.#evaluateWithObservations({ observations, onChange, holdsAllObservations, replaces, consumer, recordsDependencies, waits: true }, host => this.#evaluator.evaluate(host));
+        // Resolving again stands within the evaluation, so a refusal fails it as any failure does, never thrown to the caller.
+        return this.#evaluateWithObservations({ observations, onChange, holdsAllObservations, replaces, consumer, recordsDependencies, waits: true }, host => this.#currentEvaluator().evaluate(host));
     }
 
-    /** Prepares the host call the request ends in, as Lexica's evaluator prepares it: the call to invoke, or a skipped call where there is nothing to invoke. */
-    prepareCall() {
-        return this.#evaluator.prepareCall();
+    /** Prepares the host call the request ends in, as Nexo's evaluator prepares it: the call to invoke, or a skipped call where there is nothing to invoke. */
+    prepareHostCall() {
+        return this.#currentEvaluator().prepareHostCall();
     }
 
     /**
-     * Projects one value a host call supplied through the prepared call, as Lexica captures and projects it, and records the observations its maintained members read.
+     * The evaluator of a current resolution: the one it has, or, where a registration made its resolution stale, one of the request resolved again. Resolving again checks what the operation checks, so its refusal is
+     * the evaluation's failure.
+     */
+    #currentEvaluator() {
+        if (this.#renewal !== null && !this.#renewal.resolution.isCurrent) {
+            const resolution = this.#renewal.resolveAgain();
+
+            this.#renewal = { ...this.#renewal, resolution };
+            this.#evaluator = this.#renewal.createEvaluator(resolution);
+        }
+
+        return this.#evaluator;
+    }
+
+    /**
+     * Projects one value a host call supplied through the prepared call, as Nexo captures and projects it, and records the observations its maintained members read.
      * A maintained member answers its latest sample, or null while the sample is pending, and is never waited for; the evaluation holds the sessions that keep its samples, so the caller keeps them for the next value and disposes the
      * evaluation once it has the next one. A failure, of capturing the value or of its projection, ends the evaluation without throwing.
      * @param {{ project: (value: unknown, host?: object) => object }} call The prepared call.
@@ -218,7 +244,7 @@ export class QueryEvaluator {
             this.#followAncestry(receiver, roots, requests);
         }
 
-        dependencies?.push({ member: declaration.name, pointer, observations: requests });
+        dependencies?.push({ member: declaration.name ?? null, pointer, observations: requests });
 
         if (isPending) {
             this.#observationContext.isPending = true;
@@ -239,7 +265,7 @@ export class QueryEvaluator {
 
         const cachedSession = this.#holdAt(ATTACHMENT_OBSERVATION, NO_ARGUMENTS, receiver);
 
-        this.#observationContext.dependencies?.push({ member: declaration.name, pointer, observations: [cachedSession.request] });
+        this.#observationContext.dependencies?.push({ member: declaration.name ?? null, pointer, observations: [cachedSession.request] });
     }
 
     /**

@@ -14,25 +14,25 @@ In this document:
 
 ## Nodes
 
-A node is a value of the DOM tree. DOMQL's module declares the nodes as [reference types](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/types.md#reference-types): `Node`, abstract, and beneath it its kinds, `Element`, `Document`, `DocumentFragment`, a document fragment that is no shadow root, and `ShadowRoot`. DOMQL's `typeOf` recognizes a bound node as the kind it is, never as `Node` itself, and each type's `isInstance` checks membership, so a host may still bind a node declared as a `Node`. `Window` is a reference type of a hierarchy of its own, no node. Text and comment nodes are none of these kinds, and are refused as bindings.
+A node is a value of the DOM tree. DOMQL's module declares the nodes as [reference types](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/language/types.md#reference-types): `Node`, abstract, and beneath it its kinds, `Element`, `Document`, `DocumentFragment`, a document fragment that is no shadow root, and `ShadowRoot`. DOMQL's `typeOf` recognizes a bound node as the kind it is, never as `Node` itself, and each type's `isInstance` checks membership, so a host may still bind a node declared as a `Node`. `Window` is a reference type of a hierarchy of its own, no node. Text and comment nodes are none of these kinds, and are refused as bindings.
 
 <a id="nodes-kinds-fit-where-a-node-does"></a>
 
 ### Kinds fit where a node does
 
-As Lexica's reference types set out, a value of a kind fits where a `Node` is expected, and a `Node` fits where a kind is expected only through a cast, so a kind's own members, such as an element's `rect`, are read of a `Node` through one: `(panel.parent as Element)?.rect`.
+As Nexo's reference types set out, a value of a kind fits where a `Node` is expected, and a `Node` fits where a kind is expected only through a cast, so a kind's own members, such as an element's `rect`, are read of a `Node` through one: `(panel.parent as Element)?.rect`.
 
 <a id="nodes-of-two-kinds"></a>
 
 ### Of two kinds
 
-Values of two different kinds, a conditional's branches, a coalescing operator's sides or the items of a bound list, are of the type `Node`, the nearest supertype they share, so `if wide then panel else domql.document end` is a `Node`.
+Values of two different kinds, a conditional's branches, a coalescing operator's sides or the items of a bound list, are of the type `Node`, the nearest supertype they share, so `if wide then panel else Domql.document end` is a `Node`.
 
 <a id="nodes-declaring-on-a-node"></a>
 
 ### Declaring on a node
 
-A member declared on `Node` is a member of every kind, and DOMQL's module declares no member of the same name on a kind, which Lexica refuses within one module, so no declaration overrides another.
+A member declared on `Node` is a member of every kind, and DOMQL's module declares no member of the same name on a kind, so no declaration overrides another.
 
 <a id="shadow-trees"></a>
 

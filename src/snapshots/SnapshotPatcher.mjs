@@ -3,6 +3,7 @@
  */
 
 import { ObjectUtils } from '../common/ObjectUtils.mjs';
+import { Provenance } from './Provenance.mjs';
 
 /**
  * One operation of a change set: a JSON Patch operation limited to replace, add, remove and move, whose paths are JSON Pointers into the result.
@@ -14,9 +15,9 @@ export class SnapshotPatcher {
      * The operations that take the previous result to the next. A list projected from elements changes by element: an element entering is added, one leaving is removed, one changing position is moved, and one whose projection changed is changed inside its item. Any other list changes by position.
      * A branch the next result shares with the previous one is unchanged, so a change the comparer kept within a tolerance sends nothing.
      * @param {unknown} previous The result the change set is computed against.
-     * @param {object | null} previousMetadata The metadata Lexica gave the previous result, whose projected lists tell the references their items came from.
+     * @param {object | null} previousMetadata The metadata Nexo gave the previous result, whose projected lists tell the references their items came from.
      * @param {unknown} next The result the change set gives.
-     * @param {object | null} nextMetadata The metadata Lexica gave the next result.
+     * @param {object | null} nextMetadata The metadata Nexo gave the next result.
      * @returns {ChangeOperation[]}
      */
     static changeSetBetween(previous, previousMetadata, next, nextMetadata) {
@@ -168,7 +169,7 @@ export class SnapshotPatcher {
 
         if (ObjectUtils.isNonArrayObject(previous) && ObjectUtils.isNonArrayObject(next) && SnapshotPatcher.#sameNames(previous, next)) {
             for (const name of Object.keys(next)) {
-                SnapshotPatcher.#compare(previous[name], previousMetadata?.fields?.[name] ?? null, next[name], nextMetadata?.fields?.[name] ?? null, `${path}/${SnapshotPatcher.#escape(name)}`, operations);
+                SnapshotPatcher.#compare(previous[name], previousMetadata?.objectFields?.[name] ?? null, next[name], nextMetadata?.objectFields?.[name] ?? null, `${path}/${SnapshotPatcher.#escape(name)}`, operations);
             }
 
             return;
@@ -178,8 +179,8 @@ export class SnapshotPatcher {
     }
 
     static #compareLists(previous, previousMetadata, next, nextMetadata, path, operations) {
-        const previousElements = SnapshotPatcher.#elementsOf(previousMetadata, previous.length);
-        const nextElements = SnapshotPatcher.#elementsOf(nextMetadata, next.length);
+        const previousElements = Provenance.referencesOf(previousMetadata, previous.length);
+        const nextElements = Provenance.referencesOf(nextMetadata, next.length);
         const itemMetadataOf = (metadata, index) => metadata?.items?.[index] ?? null;
 
         if (previousElements === null || nextElements === null) {
@@ -238,17 +239,6 @@ export class SnapshotPatcher {
                 SnapshotPatcher.#compare(previous[previousIndex], itemMetadataOf(previousMetadata, previousIndex), next[index], itemMetadataOf(nextMetadata, index), `${path}/${index}`, operations);
             }
         });
-    }
-
-    /** The reference each item of a projected list came from, or null where the list is matched by position: it was projected from no references, an item came from none, or one reference stands in it twice. */
-    static #elementsOf(metadata, length) {
-        const elements = metadata?.sources ?? null;
-
-        if (elements === null || elements.length !== length || elements.some(element => element === null) || new Set(elements).size !== elements.length) {
-            return null;
-        }
-
-        return elements;
     }
 
     static #valueAt(node, path) {

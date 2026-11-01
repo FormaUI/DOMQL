@@ -1,16 +1,58 @@
 # Version history
 
-Each version of DOMQL, newest first, with the features it added and what it changed. A version names DOMQL's contract, its [specification](spec/README.md): the DOM's vocabulary, the module that declares it, and DOMQL as the host that carries queries out. The language is Lexica's, so each entry also names the Lexica language version and definition format it describes.
+Each version of DOMQL, newest first, with the features it added and what it changed. A version names DOMQL's contract, its [specification](spec/README.md): the DOM's vocabulary, the module that declares it, and DOMQL as the host that carries queries out. The language is Nexo's, called Lexica before `1.0.0-alpha.278`, so each entry also names the language version and definition format it describes.
 
 - Each version is dated by the day the specification first described it.
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-278"></a>
+
+## `1.0.0-alpha.278`
+
+*November 1, 2026 · Nexo language `1.0.0-beta.3` · definition format 38*
+
+DOMQL moves from Lexica's language `1.0.0-alpha.33` to Nexo's beta, the language Lexica became, and implements `1.0.0-alpha.277` with it.
+
+**Queries**
+
+- [Imports](spec/queries.md#making-a-query-imports): every query imports DOMQL's module, `Domql`, which DOMQL supplies, so its text writes no import of it. A query that uses another module imports it, `import Charts`, and a definition records its imports.
+- [Module members](spec/vocabulary.md#module-members): DOMQL's module is named `Domql`, so a query reads `Domql.document` and `Domql.window`.
+- [Extension modules](spec/vocabulary.md#extension-modules): a member another module adds to DOMQL's types stands in an extension, `{ name, kind: 'extension', target: 'Domql.Element', members }`, and a query reads it with `:`, as `panel:palette`. DOMQL's own members are read with `.`.
+- [Resolution](spec/queries.md#queries-resolution): a resolution is kept while Nexo says it is current, so registering a module leaves running requests as they were, and a running request a module declaring a `typeOf` makes stale is [resolved or prepared again](spec/vocabulary.md#extension-modules-registering) where it next evaluates or projects.
+- [Host calls on a receiver of unknown type](spec/vocabulary.md#extension-modules-host-calls): what such a call requests is what Nexo's candidates for it request, every declaration that takes it as it is written, and a call whose candidates disagree is refused where it stands.
+- [Watches](spec/watches.md#how-a-member-changes): a watch is checked against every declaration a member of a value of `Any` could select, as Nexo's candidate declarations name them.
+
+**Vocabulary**
+
+- [Types](spec/vocabulary.md#vocabulary-types): DOMQL declares the DOM as reference types of its own, its members within them, as `1.0.0-alpha.277` specified. Text and comment nodes are refused as bindings.
+- [Extension modules](spec/vocabulary.md#extension-modules): a declaration carries its implementation as `impl`; a host call stands within a type, an extension or among the module members; event types are mappings of the type selector `event`; conversions are operators.
+
+**Results**
+
+- [Identity](spec/results.md#results-change-sets): a list's items are matched by the references they descend from, so a projection of a projection's items, and a list filtered or ordered from one, keep their identity.
+- [Dictionaries and pairs](spec/results.md#results-collections) are compared and changed as data, in the form a result exports them.
+
+**Errors**
+
+- [Errors](spec/errors.md): every failure is a `NexoError` with a `code`. DOMQL's own conditions take `DOMQL` codes, catalogued.
+
+**Breaking:**
+
+- The package exports `NexoError` where it exported `LexicaError`, and an error's module location names `declarationKey` where it named `field`.
+- `domql.document` and `domql.window` are `Domql.document` and `Domql.window`, and a type is named `Domql.Element` where it was `domql.Element`.
+- A member another module adds to DOMQL's types is declared in an extension and read with `:`, and its query imports its module. A flat member with a `target` is refused.
+- A declaration's `implementation` is its `impl`; `selectableTypes` are `mappings`, `{ selector, key, type }`; a module's `conversions` are operators of its types; a structured type is `{ name, kind: 'structured', members }`.
+- `query.resolve()` answers `getLocation(pointer)` where it answered `locate(pointer)`, and each used declaration's `qualifiedName` beside its declared `name`.
+- A definition is of format 38: `{ version, imports, expression }`, with Nexo's node names.
+- The verbs `is`, `has` and `supports` are gone; a query calls a Boolean function, `it.checked()` or `Domql.checked(it)`.
+- A query's text follows Nexo's line structure, a body that uses `return` laid out a local to a line.
+
 <a id="v1-0-0-alpha-277"></a>
 
 ## `1.0.0-alpha.277`
 
-*October 22, 2026 · Lexica language `1.0.0-alpha.33` · definition format 33 · implemented in part*
+*October 22, 2026 · Lexica language `1.0.0-alpha.33` · definition format 33 · implemented in `1.0.0-alpha.278`*
 
 **Vocabulary**
 
@@ -22,7 +64,7 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 
 - [Queries](spec/queries.md#a-query-at-a-glance): queries write Lexica's indexer forms. A named indexer is `panel.attribute["id"]`, a type's unnamed indexer `panel["data-key"]`, and a property read by a computed name `panel.[name]`.
 
-**Implemented so far:** the PascalCase type names and the indexer forms. The declared node types arrive with the [migration's first checkpoint](docs/features-status.md#migration-to-nexo).
+**Implemented in two steps:** the PascalCase type names and the indexer forms here, and the declared node types with the [migration to Nexo](docs/features-status.md#migration-to-nexo), in `1.0.0-alpha.278`.
 
 **Breaking:**
 

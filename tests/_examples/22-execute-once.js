@@ -1,23 +1,27 @@
-domql.registerModule(domql.createModule('mark', {
-    members: [{
-        name: 'mark',
-        kind: 'function',
-        invokedBy: 'host',
-        requestKind: 'execution',
-        executionMode: 'once',
-        target: 'Element',
-        arguments: 'positional',
-        parameters: [{ name: 'label', kind: 'value', type: 'String', required: true, nulls: 'propagate' }],
-        result: 'Boolean',
-        implementation: ({ receiver: element, args: { label } }) => {
-            const changed = element.dataset.mark !== label;
+domql.registerModule(domql.createModule('Marks', {
+    types: [{
+        name: 'MarkElements',
+        kind: 'extension',
+        target: 'Domql.Element',
+        members: [{
+            name: 'mark',
+            kind: 'function',
+            invokedBy: 'host',
+            requestKind: 'execution',
+            executionMode: 'once',
+            arguments: 'positional',
+            parameters: [{ name: 'label', kind: 'value', type: 'String', required: true, nulls: 'propagate' }],
+            result: 'Boolean',
+            impl: ({ receiver: element, args: { label } }) => {
+                const changed = element.dataset.mark !== label;
 
-            element.dataset.mark = label;
+                element.dataset.mark = label;
 
-            return changed;
-        }
+                return changed;
+            }
+        }]
     }]
 }));
 
-await domql.query('panel.mark("reviewed")', { panel }).executeAsync();
+await domql.query('import Marks\npanel:mark("reviewed")', { panel }).executeAsync();
 // true

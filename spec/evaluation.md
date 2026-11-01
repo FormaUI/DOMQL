@@ -3,7 +3,7 @@
 <a id="evaluation"></a>
 <a id="evaluation-and-watching"></a>
 
-**Evaluating** a query reads the document once and answers its result. DOMQL evaluates a query as Lexica's [runtime](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/runtime.md#runtime-evaluation) evaluates a script, synchronously, against the document it runs against, and each member declares how it reads. A caller evaluates with `evaluate`, which answers at once, or with `evaluateAsync`, which also waits for the browser's first report of what a maintained member reads.
+**Evaluating** a query reads the document once and answers its result. DOMQL evaluates a query as Nexo's [runtime](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/runtime/evaluation.md#runtime-evaluation) evaluates a script, synchronously, against the document it runs against, and each member declares how it reads. A caller evaluates with `evaluate`, which answers at once, or with `evaluateAsync`, which also waits for the browser's first report of what a maintained member reads.
 
 ```js
 const query = domql.query('{ size = panel.size, nearEnd = sentinel.intersects({ root = panel }) }', { panel, sentinel });
@@ -12,7 +12,7 @@ query.evaluate();            // Throws an evaluation error: intersects is mainta
 await query.evaluateAsync(); // { size: { width: 640, height: 480 }, nearEnd: false }
 ```
 
-Evaluating a query is read-only, as [Lexica requires](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/members.md#how-a-member-reads) of every vocabulary. A measurement that needs the document changed first, such as measuring columns at their intrinsic widths under a temporary class, is an [execution](executions.md) of its own.
+Evaluating a query is read-only, as [Nexo requires](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/runtime/members.md#how-a-member-reads) of every vocabulary. A measurement that needs the document changed first, such as measuring columns at their intrinsic widths under a temporary class, is an [execution](executions.md) of its own.
 
 In this document:
 
@@ -27,8 +27,8 @@ In this document:
 
 `query.evaluate(options?)` resolves the query, then evaluates it once against the document in a single synchronous pass, following the resolution rather than looking names up again. What an evaluation reads is always the document as it is. Its option is `window`.
 
-- **The result** is a detached copy, frozen, that holds nothing of the document. A structure a member answers is taken by its declared fields alone, each read as the value offers it, a getter's included, so a field beside them never reaches a result and an instance of a class answers as the fields it declares.
-- **A member that breaks its contract.** A member whose function answers a type other than the one it declares has broken its contract, and the evaluation fails with an evaluation error naming the member and where it stands in the query; so does a member whose function throws, with the thrown error as its cause. A request that uses a member a module declares and does not implement is refused before anything is evaluated, with a module error naming the declaration, as Lexica's [declarations without an implementation](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/modules.md#modules-declarations-without-an-implementation) set out.
+- **The result** is a detached copy, frozen, that holds nothing of the document. A structure a member answers is taken by its data shape alone, the properties its type declares, each read as the value offers it, a getter's included, so a property beside them never reaches a result and an instance of a class answers as the properties its type declares.
+- **A member that breaks its contract.** A member whose function answers a type other than the one it declares has broken its contract, and the evaluation fails with an evaluation error naming the member and where it stands in the query; so does a member whose function throws, with the thrown error as its cause. A request that uses a member a module declares and does not implement is refused before anything is evaluated, with a module error naming the declaration, as Nexo's [declarations without an implementation](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/runtime/modules.md#modules-declarations-without-an-implementation) set out.
 - **A maintained member** cannot be read in a single synchronous pass and fails `evaluate`, with an evaluation error naming the member; `evaluateAsync` waits for it.
 - **A request of another kind** is refused, as [request kinds and their operations](queries.md#operations-and-request-kinds) set out.
 
@@ -36,7 +36,7 @@ In this document:
 
 ## How DOMQL's members read
 
-Each member declares how it reads by [Lexica's contract](https://github.com/FormaUI/Nexo/blob/0e98b3e118d1dc448a8040c4a6f236088b108a7b/spec/members.md#how-a-member-reads): DOMQL's members read fresh from the document, as an attribute or a box is, maintained by a browser observation, as `intersects` is, captured, as an event's data is, or derived, as a list's `count` is.
+Each member declares how it reads by [Nexo's contract](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/runtime/members.md#how-a-member-reads): DOMQL's members read fresh from the document, as an attribute or a box is, maintained by a browser observation, as `intersects` is, captured, as an event's data is, or derived, as a list's `count` is.
 
 A member whose result depends on what happened before, as well as on the document as it is, is captured: it keeps that history while a watch or an event listener holds it, and documents what an evaluation once reports without it.
 
@@ -44,7 +44,7 @@ A member whose result depends on what happened before, as well as on the documen
 
 ## Waiting for maintained members
 
-A maintained member is **pending** until its first sample arrives, as Lexica sets out, and DOMQL keeps pending apart from unavailable. `evaluate` fails on a maintained member, since reading it waits for the first sample, which a synchronous evaluation cannot.
+A maintained member is **pending** until its first sample arrives, as Nexo sets out, and DOMQL keeps pending apart from unavailable. `evaluate` fails on a maintained member, since reading it waits for the first sample, which a synchronous evaluation cannot.
 
 - **`evaluateAsync`, and a watch's first snapshot,** wait for the first sample of every pending member they read, evaluating again as samples arrive and as what they depend on changes, until an evaluation reads no pending member; only that result is delivered. The caller can cancel the wait, and a member that can produce no sample reports itself unavailable. The wait completes at the first evaluation that reads no pending member; dependencies that keep introducing pending members can keep it waiting until the caller cancels it.
 - **A maintained member a watch first reads after its first snapshot** is pending in the snapshot the watch reports, and the watch evaluates again when its first sample arrives.
@@ -57,6 +57,6 @@ A maintained member is **pending** until its first sample arrives, as Lexica set
 
 ## The window an evaluation needs
 
-Evaluating needs a browser window, the one an operation's `window` option gives or, where it gives none, the one the environment holds, and fails with an evaluation error where there is none. That window is `domql.window`, and its document is `domql.document`, the document the query runs against. Making and resolving a query need no window, so a query is made and resolved in Node.js without a DOM.
+Evaluating needs a browser window, the one an operation's `window` option gives or, where it gives none, the one the environment holds, and fails with an evaluation error where there is none. That window is `Domql.window`, and its document is `Domql.document`, the document the query runs against. Making and resolving a query need no window, so a query is made and resolved in Node.js without a DOM.
 
 Every operation that carries a request out, `evaluate`, `evaluateAsync`, `watch`, `subscribe`, `executeAsync` and `run`, takes the `window` option.

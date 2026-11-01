@@ -55,8 +55,8 @@ The query reads it:
     current = ~panel.first("[aria-selected=true]")?["data-key"],
 
     // The window around it.
-    window = domql.window { size = it.size, dark = it.media["(prefers-color-scheme: dark)"] },
-    visible = domql.document.visible(),
+    window = Domql.window { size = it.size, dark = it.media["(prefers-color-scheme: dark)"] },
+    visible = Domql.document.visible(),
     kind = "list"
 }
 ```
@@ -101,7 +101,7 @@ Watching the query requires accepting partial observation, since `all`, `style`,
 | Each column's key and width | `table.all("[data-column]") { key = it["data-column"], width = it.rect?.width }` |
 | A panel's size, and whether focus is within it | `panel { size = it.size, hasFocus = it.focusWithin() }` |
 | A text field's selection | `field.selection { start = it.start, finish = it.end }` |
-| Whether sharing is available | `domql.window.share()` |
+| Whether sharing is available | `Domql.window.share()` |
 | The ids of the text-editable elements in a panel | `panel.all("*").where(it.textEditable()) { id = it["id"] }` |
 | An element's states and what it holds | `target { attached = it.attached, disabled = it.disabled(), hasChildren = it.hasChildren, hasSelection = it.hasSelection }` |
 | Whether a control cannot take text | `input.disabled() or input.readonly()` |
