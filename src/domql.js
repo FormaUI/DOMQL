@@ -191,21 +191,7 @@ class Domql {
 
         Domql.#checkPath(resolution, path);
 
-        // A query evaluated once again in the same window, through the same resolution, reuses the evaluator it was last evaluated with. The query keeps none while one evaluates, so an evaluation it runs that evaluates the
-        // query again creates its own, and one that fails leaves none kept.
-        let kept = DomqlQuery.onceEvaluationOf(query);
-
-        if (kept === null || kept.resolution !== resolution || kept.window !== window) {
-            kept = { resolution, window, evaluator: Domql.#createEvaluator(query, resolution, window) };
-        } else {
-            DomqlQuery.keepOnceEvaluation(query, null);
-        }
-
-        const value = kept.evaluator.evaluateOnce();
-
-        DomqlQuery.keepOnceEvaluation(query, kept);
-
-        return nexo.paths.valueAt(value, path);
+        return nexo.paths.valueAt(Domql.#createEvaluator(query, resolution, window).evaluateOnce(), path);
     }
 
     /**
