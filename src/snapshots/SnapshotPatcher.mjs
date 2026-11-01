@@ -179,8 +179,10 @@ export class SnapshotPatcher {
     }
 
     static #compareLists(previous, previousMetadata, next, nextMetadata, path, operations) {
-        const previousElements = Provenance.referencesOf(previousMetadata, previous.length);
-        const nextElements = Provenance.referencesOf(nextMetadata, next.length);
+        // Items that kept their places change by element as they do by position.
+        const keepsPlaces = Provenance.keepsPlaces(previousMetadata, previous.length, nextMetadata, next.length);
+        const previousElements = keepsPlaces ? null : Provenance.referencesOf(previousMetadata, previous.length);
+        const nextElements = keepsPlaces ? null : Provenance.referencesOf(nextMetadata, next.length);
         const itemMetadataOf = (metadata, index) => metadata?.items?.[index] ?? null;
 
         if (previousElements === null || nextElements === null) {

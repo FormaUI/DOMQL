@@ -104,6 +104,11 @@ export class SnapshotComparer {
 
     /** For each next item, the index of the previous item that descends from its reference, or -1 for a reference that entered; null where either list is matched by position. */
     static #matchBySource(previousMetadata, previousLength, nextMetadata, nextLength) {
+        // Items that kept their places match by reference as they do by position.
+        if (Provenance.keepsPlaces(previousMetadata, previousLength, nextMetadata, nextLength)) {
+            return null;
+        }
+
         const previousReferences = Provenance.referencesOf(previousMetadata, previousLength);
         const nextReferences = Provenance.referencesOf(nextMetadata, nextLength);
 

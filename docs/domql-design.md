@@ -58,6 +58,8 @@ The comparer reads what Nexo's [result metadata](https://github.com/FormaUI/Nexo
 
 The patcher computes the change set that takes one reconciled snapshot to the next, and applies change sets in place to live state.
 
+A list whose items descend, place by place, from the same sources in both snapshots, as a list that kept its order does, is matched by position: matching it by reference would pair each item with the one at its own place, so the comparer and the patcher compare the sources place by place and list no references. Measured in five paired rounds against the commit before it, on 1,000 and 10,000 shaped rows, reconciling took 24 to 36% less time and allocated 52 to 61% less; the change set of one changed row took 83 to 86% less and allocated 94% less; and a watch's refresh of 1,000 unchanged rows allocated 6% less.
+
 ## Host calls and their operations
 
 Nexo resolves and evaluates the queries DOMQL gives it; DOMQL decides when those evaluations occur and what the browser does with the inputs a host call prepares. Subscribing, executing once and running continuously are DOMQL's contracts with its callers, so Nexo knows none of them: it knows only that a function is one its host invokes, resolves and prepares the call, and projects the values DOMQL hands back.

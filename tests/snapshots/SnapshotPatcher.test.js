@@ -135,6 +135,21 @@ describe('SnapshotPatcher', () => {
             ]);
         });
 
+        it('changes inside the items of a projected list whose elements kept their places, an element standing twice among them, each at its place', () => {
+            const [a, b, c] = elements('a', 'b', 'c');
+
+            expect(SnapshotPatcher.changeSetBetween(
+                freeze({ rows: [{ key: 'a', height: 1 }, { key: 'b', height: 2 }, { key: 'c', height: 3 }] }), rowsOf([a, b, c]),
+                freeze({ rows: [{ key: 'a', height: 10 }, { key: 'b', height: 2 }, { key: 'c', height: 30 }] }), rowsOf([a, b, c]),
+            )).toEqual([
+                { op: 'replace', path: '/rows/0/height', value: 10 },
+                { op: 'replace', path: '/rows/2/height', value: 30 },
+            ]);
+            expect(SnapshotPatcher.changeSetBetween(freeze({ rows: [{ k: 1 }, { k: 1 }] }), rowsOf([a, a]), freeze({ rows: [{ k: 1 }, { k: 2 }] }), rowsOf([a, a]))).toEqual([
+                { op: 'replace', path: '/rows/1/k', value: 2 },
+            ]);
+        });
+
         it('matches by position a projected list in which an element stands twice or an item is null', () => {
             const [a, b] = elements('a', 'b');
 
