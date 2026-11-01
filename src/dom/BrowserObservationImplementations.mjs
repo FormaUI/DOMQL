@@ -2,6 +2,8 @@
  * BrowserObservationImplementations — the functions that start the DOM vocabulary's types of observation in a browser
  */
 
+import { Selectors } from './Selectors.mjs';
+
 /**
  * A request to observe: the observation type, the target, and the arguments the observation gave, with each argument it names resolved to its value.
  * @typedef {{ type: string, target: any, arguments: Record<string, any> }} ObservationRequest
@@ -28,6 +30,7 @@ export class BrowserObservationImplementations {
             observeEvents: BrowserObservationImplementations.#observeEvents,
             observeVisibility: BrowserObservationImplementations.#observeVisibility,
             observeNavigation: BrowserObservationImplementations.#observeNavigation,
+            observeSelector: BrowserObservationImplementations.#observeSelector,
         };
     }
 
@@ -201,6 +204,42 @@ export class BrowserObservationImplementations {
     /** Whether the document is visible. */
     static #observeVisibility({ request: { target }, notify }) {
         return BrowserObservationImplementations.#listen(target, ['visibilitychange'], false, notify);
+    }
+
+    /**
+     * What a selector reads within a tree: the tree's structure and the attributes the selector tests, every attribute where it holds a pseudo-class whose reads are unknown; focus moving where it tests focus, as the
+     * document hears it; and a popover's toggle, captured at the root since it does not bubble, where it tests `:popover-open`.
+     */
+    static #observeSelector({ request: { target, arguments: { selector } }, notify, env: { window } }) {
+        const { attributes, focus, popovers } = Selectors.readsOf(selector);
+        const options = { childList: true, subtree: true };
+
+        if (attributes === null) {
+            options.attributes = true;
+        } else if (attributes.length > 0) {
+            options.attributes = true;
+            options.attributeFilter = attributes;
+        }
+
+        const observer = new window.MutationObserver(() => notify());
+        const listeners = [];
+
+        observer.observe(target, options);
+
+        if (focus) {
+            listeners.push(BrowserObservationImplementations.#listen(target.ownerDocument ?? target, ['focusin', 'focusout'], false, notify));
+        }
+
+        if (popovers) {
+            listeners.push(BrowserObservationImplementations.#listen(target, ['toggle'], true, notify));
+        }
+
+        return {
+            stop: () => {
+                observer.disconnect();
+                listeners.forEach(listener => listener.stop());
+            },
+        };
     }
 
     /**

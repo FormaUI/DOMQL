@@ -311,6 +311,42 @@ describe('Watch', () => {
         });
     });
 
+    describe('a selector', () => {
+        it('evaluates again for the attributes its selector reads and the structure of its tree, and for no other attribute, as a tabindex written in it', async () => {
+            const selecting = vi.spyOn(panel, 'querySelectorAll');
+            const [first, second] = panel.children;
+
+            watch('panel.all("[data-on]").count', { panel }, { acceptPartialObservation: true });
+            await settle();
+
+            first.setAttribute('tabindex', '-1');
+            second.setAttribute('tabindex', '0');
+            await settle();
+
+            expect(selecting).toHaveBeenCalledTimes(1);
+
+            first.setAttribute('data-on', '');
+            await settle();
+            panel.append(document.createElement('i'));
+            await settle();
+
+            expect(selecting).toHaveBeenCalledTimes(3);
+            expect(snapshots).toEqual([0, 1]);
+        });
+
+        it('reads an ancestor\'s attribute its selector tests outside the receiver, which its tree holds', async () => {
+            const [first] = panel.children;
+
+            watch('first.matches(".open > i")', { first }, { acceptPartialObservation: true });
+            await settle();
+
+            panel.classList.add('open');
+            await settle();
+
+            expect(snapshots).toEqual([false, true]);
+        });
+    });
+
     describe('structure and the window', () => {
         it('follows an element\'s siblings and its place among them as its parent\'s children change', async () => {
             const [first, second] = panel.children;

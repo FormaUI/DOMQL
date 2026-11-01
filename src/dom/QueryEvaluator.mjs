@@ -340,9 +340,9 @@ export class QueryEvaluator {
         requests?.push(cachedSession.request);
     }
 
-    /** Whether the observation of a receiver's root sees the receiver leave it: a mutation of the root's children through its subtree. */
+    /** Whether the observation of a receiver's root sees the receiver leave it: a mutation of the root's children through its subtree, or what a selector reads, which holds them. */
     static #followsItsRoot(observationDeclaration) {
-        return observationDeclaration.type === 'mutation' && observationDeclaration.childList === true && observationDeclaration.subtree === true;
+        return observationDeclaration.type === 'selector' || (observationDeclaration.type === 'mutation' && observationDeclaration.childList === true && observationDeclaration.subtree === true);
     }
 
     /** The roots of the receiver's flat-tree ancestry, each node's found once an evaluation, so receivers that share an ancestry walk it once. */

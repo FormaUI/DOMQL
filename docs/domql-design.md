@@ -1,6 +1,6 @@
-# DOMQL Design v1.0.0-alpha.285
+# DOMQL Design v1.0.0-alpha.286
 
-The [DOMQL specification](../spec/README.md) is the contract: DOMQL's module, which declares the DOM as Nexo's domain, and the host that carries queries out against a document. This design sets out how this implementation is built to meet it, and the reasons behind the choices that shape it. It describes DOMQL's version `1.0.0-alpha.285` on Nexo's definition version 38, as the specification does, and the C# half, which is designed and not yet built; [the status overview](features-status.md) says where the implementation still differs. [Nexo's design](https://github.com/FormaUI/Nexo/blob/65d247bc6f6b0dde1b701bbfd41f19a40838174c/docs/nexo-design.md), at the commit DOMQL builds against, sets out how the language and its runtime are built.
+The [DOMQL specification](../spec/README.md) is the contract: DOMQL's module, which declares the DOM as Nexo's domain, and the host that carries queries out against a document. This design sets out how this implementation is built to meet it, and the reasons behind the choices that shape it. It describes DOMQL's version `1.0.0-alpha.286` on Nexo's definition version 38, as the specification does, and the C# half, which is designed and not yet built; [the status overview](features-status.md) says where the implementation still differs. [Nexo's design](https://github.com/FormaUI/Nexo/blob/65d247bc6f6b0dde1b701bbfd41f19a40838174c/docs/nexo-design.md), at the commit DOMQL builds against, sets out how the language and its runtime are built.
 
 In this document:
 
@@ -21,7 +21,7 @@ DOMQL is Nexo's host. It registers its module in a Nexo registry beside the modu
 | --- | --- | --- |
 | Entry point | Makes query objects from text or a definition, keeps their resolutions, registers modules, and composes the parts below into the public API | `domql.js` |
 | Query objects | A request's definition and bindings, through which every operation on it is carried out | `DomqlQuery` |
-| The module | DOMQL's declarations, its types with their members within them, its recognition of the DOM's values, the implementations of its members, and the functions that start its observations | `BrowserVocabularyDeclarations`, `BrowserVocabularyImplementations`, `BrowserObservationImplementations`, `BrowserModule` |
+| The module | DOMQL's declarations, its types with their members within them, its recognition of the DOM's values, the implementations of its members, and the functions that start its observations, with what a selector reads | `BrowserVocabularyDeclarations`, `BrowserVocabularyImplementations`, `BrowserObservationImplementations`, `Selectors`, `BrowserModule` |
 | Evaluation | Nexo's evaluator under hooks that record what an evaluation reads and hold the sessions that keep it observed | `QueryEvaluator`, `QueryEvaluation` |
 | Observations | Sessions on shared observations, each observation started on its first session and stopped with its last | `Observations`, `ObservationSession`, `SessionCache` |
 | Watches | Keeping a result current: scheduling evaluations and delivering each result that differs | `Watch` |
@@ -51,6 +51,8 @@ Every observation a query starts is reached through a session, which the query d
 ## Watching
 
 A watch evaluates its whole query each time, and its dependencies are what that evaluation read, recorded by the hooks Nexo's evaluator calls around each member's implementation: a branch not taken records nothing, so what a watch observes follows the branches its evaluations take. Evaluating only what changed would save little for the changes lists most often see, as [the status overview](features-status.md#deferred) records.
+
+A selector is read for what it tests by `Selectors`, a scan of its text that needs no parse of the grammar: a class for each `.`, an id for each `#`, the name each attribute selector opens with, and what each pseudo-class reads, from a table of the pseudo-classes it knows, any other taken to read every attribute. Strings and escapes are passed over, so a `.` inside `[title=".a"]` reads nothing. The `selector` observation filters its mutation observer by those attributes, so an attribute no selector of the watch tests, as a behavior's own `tabindex`, evaluates nothing again.
 
 ## Comparing and patching
 

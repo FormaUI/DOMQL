@@ -94,6 +94,28 @@ describe('Observations in a browser', () => {
         });
     });
 
+    describe('selector', () => {
+        const SELECTOR = { type: 'selector', of: { argument: 'root' }, selector: { argument: 'selector' } };
+
+        it('reports what its selector reads in a shadow tree, focus moving and a popover shown, and no attribute it doesn\'t read', async () => {
+            const host = add('');
+            const shadowRoot = host.attachShadow({ mode: 'open' });
+
+            shadowRoot.innerHTML = '<input id="field"><div id="tip" popover>t</div><div id="row"></div>';
+
+            const focused = watch(SELECTOR, null, { root: shadowRoot, selector: 'input:focus' });
+            const open = watch(SELECTOR, null, { root: shadowRoot, selector: ':popover-open' });
+            const keyed = watch(SELECTOR, null, { root: shadowRoot, selector: '[data-key]' });
+
+            await settled();
+
+            expect(await reports(focused, () => shadowRoot.getElementById('field').focus())).toBe(true);
+            expect(await reports(open, () => shadowRoot.getElementById('tip').showPopover())).toBe(true);
+            expect(await reports(keyed, () => shadowRoot.getElementById('row').setAttribute('tabindex', '0'))).toBe(false);
+            expect(await reports(keyed, () => shadowRoot.getElementById('row').setAttribute('data-key', 'a'))).toBe(true);
+        });
+    });
+
     describe('mutation', () => {
         it('reports the attributes it is told to filter on, and no other', async () => {
             const box = add('');

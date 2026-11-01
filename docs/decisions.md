@@ -378,3 +378,19 @@ Each entry is one of three kinds:
   - The type `File` is DOMQL's own, named as the platform names it, and holds only the data its members name.
   - A file's size is `bytes`, where the platform says `size`, since DOMQL's `size` is a box's width and height: a `size` of `Number` beside them would leave a member read through a receiver of unknown type, as `panel?.size`, no result its declarations share, which Nexo's resolution of such a receiver needs. A test of DOMQL's resolution caught it.
 - **Declined:** a file's content or an object URL for it, which a module's execution owns ([X10](features-status.md#planned-executions)), since an object URL must be revoked.
+
+<a id="d26"></a>
+
+## D26 — A selector is observed for what it reads, across its tree
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `all`, `first`, `matches` and `closest`, and a range's `all`, observe a tenth observation type, `selector`, of the receiver's root: the tree's structure and the attributes their selector tests, focus moving only where it tests a focus pseudo-class, and popovers only where it tests `:popover-open`. A pseudo-class whose reads DOMQL doesn't know reads every attribute. They stay partly observable, missing pointer state, control state, state no attribute holds and a shadow host's state that `:host()` tests.
+- **Why:**
+  - The plan scoped them to the receiver's subtree, which misses an ancestor's class in `.open .row`, since a selector matches in the whole tree, and still evaluates a watch again for every write landing inside the receiver, a behavior's own `tabindex` writes and layer stamps among them. What a selector reads, not where, decides what changes its answer.
+  - A selector names what it tests in its own text, so a scan of it, which passes over strings and escapes, finds its attributes without parsing its grammar. A watch test shows a `tabindex` written in the tree evaluating nothing again, where it evaluated the watch before.
+  - Listening for focus only where a selector tests it keeps every focus move in the document from evaluating each watch of `all` again.
+- **Declined:**
+  - The receiver's subtree, for the reasons above.
+  - A full parse of selectors, which the scan doesn't need: what it reads is the same.

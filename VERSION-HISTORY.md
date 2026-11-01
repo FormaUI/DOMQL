@@ -6,6 +6,19 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-286"></a>
+
+## `1.0.0-alpha.286`
+
+*November 1, 2026 · Nexo language `1.0.0-beta.8` · definition format 38*
+
+DOMQL observes a selector for what it reads, so a watch of `all`, `first`, `matches` or `closest` evaluates again only where its selector could match differently.
+
+**Vocabulary**
+
+- [Observation types](spec/vocabulary.md#observations-types): `selector`, what a selector reads in a tree: its structure and the attributes the selector tests, focus where it tests focus and popovers where it tests `:popover-open`, as [D26](docs/decisions.md#d26) records.
+- [`matches`](spec/vocabulary.md#function-element-matches), [`closest`](spec/vocabulary.md#function-element-closest), [`first` and `all`](spec/vocabulary.md#function-node-first-all), and a range's [`all`](spec/vocabulary.md#function-range-all), observe it. They observed every attribute of their tree, and focus and popovers whatever their selector; an attribute their selector never tests, as a `tabindex` written in the tree, no longer evaluates a watch again.
+
 <a id="v1-0-0-alpha-285"></a>
 
 ## `1.0.0-alpha.285`

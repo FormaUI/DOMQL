@@ -145,4 +145,66 @@ describe('BrowserObservationImplementations', () => {
             expect(fake.observers.map(observer => observer.isDisconnected)).toEqual([true, true]);
         });
     });
+
+    describe('selector', () => {
+        /** Starts the observation of what the selector reads in the document, and answers how often it has reported. */
+        const observe = selector => {
+            const record = { changes: 0 };
+
+            record.observation = BrowserObservationImplementations.implementations.observeSelector({ request: { type: 'selector', target: document, arguments: { selector } }, notify: () => record.changes++, env: { window } });
+
+            return record;
+        };
+
+        const settled = () => new Promise(resolve => setTimeout(resolve));
+
+        it('reports the structure of the tree and the attributes the selector reads, and no other attribute', async () => {
+            document.body.innerHTML = '<ul><li class="row">a</li></ul>';
+
+            const record = observe('.row[data-on]');
+            const row = document.querySelector('li');
+
+            row.setAttribute('tabindex', '-1');
+            await settled();
+            expect(record.changes).toBe(0);
+
+            row.setAttribute('data-on', '');
+            await settled();
+            row.classList.add('lit');
+            await settled();
+            row.after(document.createElement('li'));
+            await settled();
+            expect(record.changes).toBe(3);
+
+            record.observation.stop();
+            row.setAttribute('data-on', 'x');
+            await settled();
+            expect(record.changes).toBe(3);
+            document.body.innerHTML = '';
+        });
+
+        it('reports every attribute for a pseudo-class whose reads are unknown', async () => {
+            document.body.innerHTML = '<p></p>';
+
+            const record = observe('p:something-new');
+
+            document.querySelector('p').setAttribute('tabindex', '0');
+            await settled();
+            expect(record.changes).toBe(1);
+            record.observation.stop();
+            document.body.innerHTML = '';
+        });
+
+        it('reports focus moving only where the selector tests focus, and a popover toggling only where it tests :popover-open', () => {
+            const focused = observe(':focus');
+            const popover = observe(':popover-open');
+            const plain = observe('div');
+
+            document.dispatchEvent(new Event('focusin'));
+            document.body.dispatchEvent(new Event('toggle'));
+
+            expect([focused.changes, popover.changes, plain.changes]).toEqual([1, 1, 0]);
+            [focused, popover, plain].forEach(record => record.observation.stop());
+        });
+    });
 });

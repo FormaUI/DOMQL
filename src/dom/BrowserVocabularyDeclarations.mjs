@@ -16,7 +16,8 @@ const FOCUS = { type: 'event', of: 'document', types: ['focusin', 'focusout'] };
 const POPOVERS = { type: 'event', of: 'root', types: ['toggle'], capture: true };
 const ATTRIBUTES = { type: 'mutation', of: 'receiver', attributes: true };
 const CHILDREN = { type: 'mutation', of: 'receiver', childList: true };
-const STRUCTURE = { type: 'mutation', of: 'root', attributes: true, childList: true, subtree: true };
+// What a selector reads within the receiver's tree: its structure, the attributes the selector tests, and focus and popovers where it tests them.
+const SELECTOR = { type: 'selector', of: 'root', selector: { argument: 'selector' } };
 // The padding box changes where its border box or its content box does, which the client box observes both of.
 const CLIENT_RESIZE = { type: 'resize', of: 'receiver', box: 'client' };
 // An element's scroll: its own scroll events, its scrollport, and its extent, which its children's boxes decide.
@@ -47,7 +48,7 @@ const LAYOUT_TOLERANCE = 0.05;
 /** The updates of a declaration, observable unless they say otherwise and read fresh, with the observations that cover its changes. */
 const updatesOf = ({ changes = 'observable', reads = 'fresh', ...rest } = {}) => ({ changes, reads, ...rest });
 
-const MATCHING = { changes: 'partly-observable', misses: 'pointer state such as :hover and control state such as :checked' };
+const MATCHING = { changes: 'partly-observable', misses: 'pointer state such as :hover, control state such as :checked, state no attribute holds, as :target, and a shadow host\'s state that :host() tests' };
 const GEOMETRY = { changes: 'partly-observable', misses: 'a move its own size, the scrolling of its scroll containers, the window\'s size and the structure of its trees do not cause, as a sibling before it growing or a margin or padding around it changing, and transforms and animations' };
 const STYLE = { changes: 'partly-observable', misses: 'rules matching from elsewhere' };
 // Whether a box is rendered, which its own size and the attributes and structure along its flat-tree ancestry decide, and a stylesheet beside them.
@@ -117,8 +118,8 @@ export class BrowserVocabularyDeclarations {
                     implementing('parent', property('parent', 'Node?', { updates: updatesOf({ changes: 'partly-observable', misses: 'a detached tree inserted into another detached tree or into a shadow root', observations: [{ type: 'mutation', of: 'root', childList: true, subtree: true }] }) })),
                     implementing('root', property('root', 'Node', { updates: updatesOf({ changes: 'partly-observable', misses: 'a detached tree inserted into another detached tree or into a shadow root', observations: [{ type: 'mutation', of: 'root', childList: true, subtree: true }, { type: 'attachment', of: 'receiver' }] }) })),
                     implementing('host', property('host', 'Element?', { updates: updatesOf({ changes: 'constant' }) })),
-                    implementing('firstMatching', func('first', 'Element?', { parameters: SELECTOR_PARAMETERS, updates: updatesOf({ ...MATCHING, observations: [STRUCTURE, FOCUS, POPOVERS] }) })),
-                    implementing('all', func('all', 'List<Element>', { parameters: SELECTOR_PARAMETERS, updates: updatesOf({ ...MATCHING, observations: [STRUCTURE, FOCUS, POPOVERS] }) })),
+                    implementing('firstMatching', func('first', 'Element?', { parameters: SELECTOR_PARAMETERS, updates: updatesOf({ ...MATCHING, observations: [SELECTOR] }) })),
+                    implementing('all', func('all', 'List<Element>', { parameters: SELECTOR_PARAMETERS, updates: updatesOf({ ...MATCHING, observations: [SELECTOR] }) })),
                     implementing('contains', func('contains', 'Boolean', { parameters: [valueParameter('other', 'Node')], updates: updatesOf({ observations: [{ type: 'mutation', of: 'receiver', childList: true, subtree: true }] }) })),
                 ], { abstract: true }),
 
@@ -202,9 +203,9 @@ export class BrowserVocabularyDeclarations {
                         updates: updatesOf({ reads: 'maintained', observations: [{ type: 'intersection', of: 'receiver', root: { argument: 'root' }, margin: { argument: 'margin' } }] }),
                     })),
                     implementing('overlaps', func('overlaps', 'Boolean?', { arguments: 'options', parameters: [valueParameter('other', 'Element'), valueParameter('margin', 'Number', { default: 0 })], updates: updatesOf({ ...GEOMETRY, observations: [RESIZE, { type: 'resize', of: { argument: 'other' } }, SCROLLING, WINDOW_RESIZE] }) })),
-                    implementing('matches', func('matches', 'Boolean', { parameters: SELECTOR_PARAMETERS, updates: updatesOf({ ...MATCHING, observations: [STRUCTURE, FOCUS, POPOVERS] }) })),
+                    implementing('matches', func('matches', 'Boolean', { parameters: SELECTOR_PARAMETERS, updates: updatesOf({ ...MATCHING, observations: [SELECTOR] }) })),
                     implementing('rect', func('rectRelativeTo', 'Rectangle?', { parameters: [valueParameter('relativeTo', 'Element')], updates: updatesOf({ ...GEOMETRY, ...MEASURED, observations: [RESIZE, { type: 'resize', of: { argument: 'relativeTo' } }, SCROLLING, WINDOW_RESIZE] }) })),
-                    implementing('closest', func('closest', 'Element?', { parameters: SELECTOR_PARAMETERS, updates: updatesOf({ ...MATCHING, observations: [STRUCTURE, FOCUS, POPOVERS] }) })),
+                    implementing('closest', func('closest', 'Element?', { parameters: SELECTOR_PARAMETERS, updates: updatesOf({ ...MATCHING, observations: [SELECTOR] }) })),
                     implementing('scrollContainer', func('scrollContainer', 'Element?', {
                         arguments: 'options',
                         parameters: [valueParameter('axis', 'String?', { default: null, nulls: 'accept', omitted: 'either axis' })],
@@ -279,7 +280,7 @@ export class BrowserVocabularyDeclarations {
                     implementing('rangeIntersects', func('intersects', 'Boolean', { parameters: [valueParameter('node', 'Node')], updates: updatesOf({ changes: 'partly-observable', misses: RANGE_MISSES, observations: RANGE_CHANGES }) })),
                     implementing('rangeAll', func('all', 'List<Element>', {
                         parameters: SELECTOR_PARAMETERS,
-                        updates: updatesOf({ changes: 'partly-observable', misses: `${RANGE_MISSES}, ${MATCHING.misses}`, observations: [SELECTION_CHANGE, { type: 'mutation', of: 'document', attributes: true, childList: true, characterData: true, subtree: true }, FOCUS] }),
+                        updates: updatesOf({ changes: 'partly-observable', misses: `${RANGE_MISSES}, ${MATCHING.misses}`, observations: [...RANGE_CHANGES, { ...SELECTOR, of: 'document' }] }),
                     })),
                     implementing('offsetsIn', func('offsetsIn', 'Selection?', { parameters: [valueParameter('element', 'Element')], updates: updatesOf({ changes: 'partly-observable', misses: RANGE_MISSES, observations: RANGE_CHANGES }) })),
                 ]),
@@ -335,6 +336,7 @@ export class BrowserVocabularyDeclarations {
                 observationType('event', 'invalidation', 'observeEvents', { identity: ['types', 'capture'] }),
                 observationType('visibility', 'invalidation', 'observeVisibility'),
                 observationType('navigation', 'invalidation', 'observeNavigation'),
+                observationType('selector', 'invalidation', 'observeSelector', { identity: ['selector'] }),
             ],
 
             // The targets the observations observe besides the receiver and an argument: the window and the document; the receiver's root, the root of the tree it is in, and its roots, every root of its flat-tree ancestry through slots and shadow hosts;

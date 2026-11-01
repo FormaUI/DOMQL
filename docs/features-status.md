@@ -2,11 +2,11 @@
 
 ## Current state
 
-**DOMQL's vocabulary, queries, watches, events and executions are implemented on Nexo's language `1.0.0-beta.8`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.285`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next is [the C# half](#the-c-half).**
+**DOMQL's vocabulary, queries, watches, events and executions are implemented on Nexo's language `1.0.0-beta.8`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.286`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next is [the C# half](#the-c-half).**
 
 | Version | Implementation | Specification |
 | --- | --- | --- |
-| DOMQL specification | `1.0.0-alpha.285` | `1.0.0-alpha.285` |
+| DOMQL specification | `1.0.0-alpha.286` | `1.0.0-alpha.286` |
 | Nexo language | `1.0.0-beta.8` | `1.0.0-beta.8` |
 | Definition format | 38 | 38 |
 
@@ -64,6 +64,7 @@ Each feature, the contract that states it, its state in the implementation, and 
 | The document selection, `Domql.document.selection`, its `Range`, and an editable element's `selection` | [Document `selection`](../spec/vocabulary.md#property-document-selection), [`Range`](../spec/vocabulary.md#property-range-rect), [Element `selection`](../spec/vocabulary.md#property-element-selection) | Implemented; an element's `selection` and `hasSelection` observable, as [D20](decisions.md#d20) records | [`alpha.283`](../VERSION-HISTORY.md#v1-0-0-alpha-283) |
 | Siblings, an element's `index` and `contains(other)`; `follows(other)` declined, as [D22](decisions.md#d22) records | [Siblings](../spec/vocabulary.md#property-element-siblings), [`index`](../spec/vocabulary.md#property-element-index), [`contains`](../spec/vocabulary.md#function-node-contains) | Implemented | [`alpha.284`](../VERSION-HISTORY.md#v1-0-0-alpha-284) |
 | The window's `location`, followed through the Navigation API, and its `shortcutModifier`; `Document.documentElement` declined, as [D23](decisions.md#d23) records | [`location`](../spec/vocabulary.md#property-window-location), [`shortcutModifier`](../spec/vocabulary.md#property-window-shortcutmodifier) | Implemented | [`alpha.284`](../VERSION-HISTORY.md#v1-0-0-alpha-284) |
+| `all`, `first`, `matches` and `closest` observing what their selector reads, the `selector` observation | [`matches`](../spec/vocabulary.md#function-element-matches), [observation types](../spec/vocabulary.md#observations-types) | Implemented | [`alpha.286`](../VERSION-HISTORY.md#v1-0-0-alpha-286) |
 | An element's `sizeLimits` in pixels, and a file input's `files` | [`sizeLimits`](../spec/vocabulary.md#property-element-sizelimits), [`files`](../spec/vocabulary.md#property-element-files) | Implemented | [`alpha.285`](../VERSION-HISTORY.md#v1-0-0-alpha-285) |
 | `hasPointerCapture(pointerId)` | [`hasPointerCapture`](../spec/vocabulary.md#function-element-haspointercapture) | Implemented | [`alpha.284`](../VERSION-HISTORY.md#v1-0-0-alpha-284) |
 | Following a change a member misses through a body's local | [Following a change a member misses](../spec/watches.md#dependencies-following-what-a-member-misses) | Implemented | [`alpha.282`](../VERSION-HISTORY.md#v1-0-0-alpha-282) |
@@ -136,7 +137,7 @@ The language's part is Nexo's already, adopted with the [migration](#migration-t
 5. **Gestures and files.** Pointer and drag events (E2, E4), pointer capture (X4), files (X10), dispatch (X8) and continuous measurement (O3).
 6. **Dialogs and frames.** Presentation events (E7) and ordered executions (T3).
 7. **The remaining facilities.** Browser facilities and form controls (X6, X7), reactions in the browser (A7), and animation, loading and media events (E8).
-8. **Editing and data views.** Editing events and selection placement (E6, X9, A8), and transient measurement with subtree-scoped `all` (C7, O2, T1).
+8. **Editing and data views.** Editing events and selection placement (E6, X9, A8), and transient measurement (C7, T1).
 
 <a id="planned-vocabulary"></a>
 
@@ -168,7 +169,6 @@ Page-wide module state needs nothing new: it is a member of a module's extension
 
 | | Addition |
 | --- | --- |
-| O2 | `all` and `first` observed on the receiver's subtree, rather than attributes and children across its whole root; today a watch reading them evaluates again on any attribute change in the document, a behavior's own `tabindex` writes included |
 | O3 | Opt-in continuous measurement each frame while a module holds it, so a subscriber follows content moving under a still pointer |
 
 <a id="planned-executions"></a>

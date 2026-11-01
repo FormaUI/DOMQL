@@ -734,7 +734,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 **Result.** Whether it matches the selector
 
-**Changes.** Partly observable: attributes, structure, focus and popovers opening and closing, `:popover-open`, are observed; pointer state such as `:hover` and control state such as `:checked` are not
+**Changes.** Partly observable: what its selector reads in the tree it is in, through the [`selector`](#observations-types) observation: the tree's structure and the attributes the selector tests, focus moving where it tests focus, and popovers opening and closing where it tests `:popover-open`; pointer state such as `:hover`, control state such as `:checked`, state no attribute holds, as `:target`, and a shadow host's state that `:host()` tests are not. An attribute the selector never tests, as a `tabindex` written in the tree is for `.row`, evaluates no watch again
 
 <a id="function-element-rectrelativeto"></a>
 
@@ -822,7 +822,7 @@ A box whose overflow is not `visible` along one axis computes `visible` as `auto
 
 **Result.** The elements matching the selector that it intersects, in document order: those among the ancestors of what it holds, its common ancestor included, then those within its common ancestor that it holds a part of, so `range.all("a[href]")` holds a link that holds the whole range and every link it crosses
 
-**Changes.** Partly observable: as `collapsed`, the document's attributes and focus moving, and as [`matches`](#function-element-matches) misses, pointer state and control state are not observed
+**Changes.** Partly observable: as `collapsed`, and what its selector reads in the document, as [`matches`](#function-element-matches) observes it in its tree, which misses what `matches` misses
 
 <a id="function-range-offsetsin"></a>
 
@@ -1193,7 +1193,7 @@ A query converts with the four conversions [Nexo's own module](https://github.co
 
 ## Observations
 
-A member names the [observations](https://github.com/FormaUI/Nexo/blob/65d247bc6f6b0dde1b701bbfd41f19a40838174c/spec/runtime/observations.md#observations) that cover its changes, each by its type and its target, and DOMQL starts each one that a watch, a waiting evaluation or an event's object expression needs, and stops it once nothing needs it. DOMQL's module declares the browser's observations as nine observation types, which the members of any module can name, and five observation targets.
+A member names the [observations](https://github.com/FormaUI/Nexo/blob/65d247bc6f6b0dde1b701bbfd41f19a40838174c/spec/runtime/observations.md#observations) that cover its changes, each by its type and its target, and DOMQL starts each one that a watch, a waiting evaluation or an event's object expression needs, and stops it once nothing needs it. DOMQL's module declares the browser's observations as ten observation types, which the members of any module can name, and five observation targets.
 
 <a id="observations-types"></a>
 
@@ -1212,6 +1212,7 @@ Each type is shared by equivalent requests, those of the same target and the sam
 | `event` | Invalidation | Events of the given types reaching the target, or reaching it in the capture phase | `types`, a list of event types; `capture`, a Boolean, false when omitted | `types`, `capture` |
 | `visibility` | Invalidation | Whether the document is visible | None | None |
 | `navigation` | Invalidation | The window's URL: the Navigation API's current entry changing, which every navigation within the document and the history API change, or, in a browser without it, the window's `popstate` and `hashchange` | None | None |
+| `selector` | Invalidation | What a selector reads in a tree: its structure and the attributes the selector tests, a class for `.`, an id for `#`, each attribute an attribute selector names and what each pseudo-class reads, as `disabled` for `:disabled`, every attribute for a pseudo-class whose reads DOMQL doesn't know; focus moving, where it tests `:focus`, `:focus-within` or `:focus-visible`; and popovers opening and closing, where it tests `:popover-open` | `selector`, the selector | `selector` |
 
 <a id="observations-targets"></a>
 
