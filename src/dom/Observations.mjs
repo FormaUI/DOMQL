@@ -77,10 +77,8 @@ export class Observations {
 
         const resolved = {};
 
-        for (const [name, value] of Object.entries(observationDeclaration)) {
-            if (!OBSERVATION_PROPERTIES.has(name)) {
-                resolved[name] = Observations.#resolveValue(value, args);
-            }
+        for (const name of Observations.#argumentNamesOf(observationDeclaration)) {
+            resolved[name] = Observations.#resolveValue(observationDeclaration[name], args);
         }
 
         return { type: observationDeclaration.type, target, arguments: resolved };
@@ -92,9 +90,10 @@ export class Observations {
      */
     static valuesOf(request) {
         const values = {};
+        const { arguments: resolved } = request;
 
-        for (const [name, value] of Object.entries(request.arguments)) {
-            values[name] = Observations.#copy(value);
+        for (const name of Object.keys(resolved)) {
+            values[name] = Observations.#copy(resolved[name]);
         }
 
         return { type: request.type, target: request.target, arguments: values };
