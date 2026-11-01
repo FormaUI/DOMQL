@@ -72,6 +72,10 @@ describe('a small object', () => {
     bench('read from its text and bindings', () => {
         domql.query('panel { key = it.attribute["data-key"], open = it.matches(".open"), count = it.children.count }', { panel }).evaluate();
     });
+
+    bench('waited for', async () => {
+        await small.evaluateAsync();
+    });
 });
 
 for (const rows of SIZES) {
