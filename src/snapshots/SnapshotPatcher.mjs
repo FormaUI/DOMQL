@@ -169,7 +169,13 @@ export class SnapshotPatcher {
 
         if (ObjectUtils.isNonArrayObject(previous) && ObjectUtils.isNonArrayObject(next) && SnapshotPatcher.#sameNames(previous, next)) {
             for (const name of Object.keys(next)) {
-                SnapshotPatcher.#compare(previous[name], previousMetadata?.objectFields?.[name] ?? null, next[name], nextMetadata?.objectFields?.[name] ?? null, `${path}/${SnapshotPatcher.#escape(name)}`, operations);
+                const before = previous[name];
+                const after = next[name];
+
+                // A part the next result shares with the previous one is unchanged, so the path of a part is written only where it differs.
+                if (!Object.is(before, after)) {
+                    SnapshotPatcher.#compare(before, previousMetadata?.objectFields?.[name] ?? null, after, nextMetadata?.objectFields?.[name] ?? null, `${path}/${SnapshotPatcher.#escape(name)}`, operations);
+                }
             }
 
             return;
@@ -189,7 +195,9 @@ export class SnapshotPatcher {
             const commonLength = Math.min(previous.length, next.length);
 
             for (let index = 0; index < commonLength; index++) {
-                SnapshotPatcher.#compare(previous[index], itemMetadataOf(previousMetadata, index), next[index], itemMetadataOf(nextMetadata, index), `${path}/${index}`, operations);
+                if (!Object.is(previous[index], next[index])) {
+                    SnapshotPatcher.#compare(previous[index], itemMetadataOf(previousMetadata, index), next[index], itemMetadataOf(nextMetadata, index), `${path}/${index}`, operations);
+                }
             }
 
             for (let index = commonLength; index < next.length; index++) {
@@ -237,7 +245,7 @@ export class SnapshotPatcher {
         nextElements.forEach((element, index) => {
             const previousIndex = previousIndexByElement.get(element);
 
-            if (previousIndex !== undefined) {
+            if (previousIndex !== undefined && !Object.is(previous[previousIndex], next[index])) {
                 SnapshotPatcher.#compare(previous[previousIndex], itemMetadataOf(previousMetadata, previousIndex), next[index], itemMetadataOf(nextMetadata, index), `${path}/${index}`, operations);
             }
         });

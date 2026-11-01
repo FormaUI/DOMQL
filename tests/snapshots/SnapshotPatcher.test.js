@@ -167,6 +167,12 @@ describe('SnapshotPatcher', () => {
                 { op: 'replace', path: '/a~1b', value: 2 },
                 { op: 'replace', path: '/~0c', value: 2 },
             ]);
+
+            const shared = freeze({ 'x/y': 1 });
+
+            expect(SnapshotPatcher.changeSetBetween(freeze({ 'p~q': { s: shared, '~t': [1, 2] } }), null, freeze({ 'p~q': { s: shared, '~t': [1, 3] } }), null)).toEqual([
+                { op: 'replace', path: '/p~0q/~0t/1', value: 3 },
+            ]);
         });
     });
 
