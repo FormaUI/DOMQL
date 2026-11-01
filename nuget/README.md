@@ -527,6 +527,16 @@ control { checked = it.checked(), ariaChecked = it.aria.checked() }
 
 A Boolean function can be called through DOMQL's module as well, its receiver its first argument: `Domql.checked(it)` is `it.checked()`.
 
+`displayed()` asks whether the browser renders a box for an element, and `focusable()` whether it can take focus. With the document's `activeElement`, the focused element through open shadow roots, a query finds where focus can go and where it is:
+
+```domql
+panel {
+    stops = it.all("*").where(it.focusable()).count,
+    focused = Domql.document.activeElement?["id"],
+    rtl = it.direction == "rtl"
+}
+```
+
 ### Compare and combine conditions
 
 Use `==` and `!=` to compare values. Nodes are compared by identity. The result is always a non-null Boolean, including when testing for null:

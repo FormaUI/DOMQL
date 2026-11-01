@@ -110,6 +110,7 @@ const DOCUMENTS = {
         { about: 'a function and its calls' },
         { about: 'an optional enclosed access' },
         { about: 'a native condition and an ARIA one', results: { 0: { checked: false, ariaChecked: false } } },
+        { about: 'focus and direction', results: { 0: { stops: 1, focused: null, rtl: false } } },
         { about: 'an equality with null' },
         { about: 'logical expressions' },
         { about: 'values that and and or choose', each: true, results: { 0: 'untitled', 1: { width: 0 } } },

@@ -168,3 +168,52 @@ Each entry is one of three kinds:
 - **Declined:**
   - Declaring the child list beside `children` in every member, which an extension module could leave out and miss every child added.
   - A target for the document's root element, a sixth target for one member.
+
+<a id="d12"></a>
+
+## D12 — `activeElement` is the focused element, through open shadow roots
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `Domql.document.activeElement` answers the element that has focus, descending through each open shadow root a focused host holds, and null where the document reports none, its body or its root element.
+- **Why:**
+  - The document reports its body while no element has focus, so a query that asks which element has focus would otherwise test for the body itself.
+  - Focus restored or kept within a surface needs the element inside a component, not the host the document retargets it to.
+  - `focusin` and `focusout` are composed, so focus moving inside a shadow tree reaches the document, and Chromium fires them as a focused element is removed. A browser test settles it, so the member is observable.
+- **Declined:**
+  - Answering the body as the document does, which makes every query tell "nothing" from a focused body.
+  - Stopping at the host, which a query would have to step into by hand, root by root.
+
+<a id="d13"></a>
+
+## D13 — `direction` is what `dir` decides
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `direction` answers `"ltr"` or `"rtl"` as `:dir()` matches, the directionality HTML gives through `dir` along the ancestry, past a shadow host. It observes the `dir` attributes and the structure of the trees its flat-tree ancestry passes through, and misses the text that decides `dir="auto"`, so it is partly observable.
+- **Why:**
+  - `dir` is how a page sets its direction, the document element's included, and the browser decides `:dir()` without layout, so a detached element answers too.
+  - A stylesheet's `direction` stays readable through `style["direction"]`, which is a different question.
+  - Following the text under every `dir="auto"` would evaluate a watch again at every keystroke in the document.
+- **Declined:**
+  - The computed `direction`, which misses an ancestor's `dir` changing since no observation of its own attributes sees it, and answers nothing for a detached element.
+  - Observing text under the ancestry, for the rare `dir="auto"`.
+
+<a id="d14"></a>
+
+## D14 — `displayed()` and `focusable()`, and no visibility function
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** An element has the Boolean functions `displayed()`, whether the browser renders a box for it as `checkVisibility()` decides, and `focusable()`, whether it can take focus as HTML's focusable areas decide. No Boolean function answers `checkVisibility({ visibilityProperty: true })`.
+- **Why:**
+  - A Boolean function takes no argument, so the plan's `checkVisibility({ visibilityProperty: true })` can't be one, and `displayed()` serves the queries that filter what a surface shows.
+  - No API answers whether an element can take focus, so `focusable()` follows HTML's list: displayed and visible, neither disabled nor inert, and given a `tabindex` or focusable by default. A browser test checks it against what `focus()` focuses.
+  - Both observe the attributes and structure along the flat-tree ancestry and the element's own size, so a box a stylesheet hides is observed wherever its size changes.
+- **Declined:**
+  - An element's `visible()`, beside the document's, for a question no query needs apart from `focusable()`.
+  - Deciding focusability by trying `focus()`, which changes the page.
+  - A `tabbable()`, which a query answers as `it.focusable() and (it["tabindex"] ?? "0") != "-1"` where it needs one.

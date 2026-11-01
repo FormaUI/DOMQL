@@ -39,6 +39,9 @@ const updatesOf = ({ changes = 'observable', reads = 'fresh', ...rest } = {}) =>
 const MATCHING = { changes: 'partly-observable', misses: 'pointer state such as :hover and control state such as :checked' };
 const GEOMETRY = { changes: 'partly-observable', misses: 'a move its own size, the scrolling of its scroll containers, the window\'s size and the structure of its trees do not cause, as a sibling before it growing or a margin or padding around it changing, and transforms and animations' };
 const STYLE = { changes: 'partly-observable', misses: 'rules matching from elsewhere' };
+// Whether a box is rendered, which its own size and the attributes and structure along its flat-tree ancestry decide, and a stylesheet beside them.
+const RENDERING = [ANCESTRY_STYLE, RESIZE];
+const RENDERING_MISSES = 'a stylesheet\'s rules hiding or showing it where its box keeps its size, as a box of no size, and content-visibility skipping it';
 const MEASURED = { tolerance: LAYOUT_TOLERANCE };
 
 /**
@@ -109,6 +112,8 @@ export class BrowserVocabularyDeclarations {
                     test('textEditable', 'textEditable', { updates: updatesOf({ changes: 'partly-observable', misses: 'the document\'s design mode', observations: [{ type: 'mutation', of: 'roots', attributes: ['disabled', 'readonly', 'type', 'contenteditable', 'inert'], childList: true, subtree: true }] }) }),
                     test('focused', 'focus', { updates: updatesOf({ observations: [FOCUS] }) }),
                     test('focusWithin', 'focusWithin', { updates: updatesOf({ observations: [FOCUS] }) }),
+                    test('displayed', 'displayed', { updates: updatesOf({ changes: 'partly-observable', misses: RENDERING_MISSES, observations: RENDERING }) }),
+                    test('focusable', 'focusable', { updates: updatesOf({ changes: 'partly-observable', misses: `${RENDERING_MISSES}, a visibility a stylesheet's rules change, the inertness a modal dialog gives the rest of the document, and the document's design mode`, observations: RENDERING }) }),
                     test('hover', 'hover', { updates: updatesOf({ changes: 'partly-observable', misses: 'an element moving under a pointer that does not move, where the browser fires no pointer event for it', observations: [{ type: 'event', of: 'document', types: ['pointerover', 'pointerout'] }] }) }),
                     test('popoverOpen', 'popoverOpen', { updates: updatesOf({ observations: [POPOVERS] }) }),
                     test('checked', 'checked', {
@@ -135,6 +140,7 @@ export class BrowserVocabularyDeclarations {
                     implementing('selection', property('selection', 'Selection?', { updates: updatesOf({ changes: 'partly-observable', misses: 'selections the page\'s code sets', observations: TEXT_SELECTION }) })),
                     implementing('shadow', property('shadow', 'Shadow', { updates: updatesOf({ changes: 'constant' }) })),
                     implementing('aria', property('aria', 'Aria', { updates: updatesOf({ changes: 'constant' }) })),
+                    implementing('direction', property('direction', 'String', { updates: updatesOf({ changes: 'partly-observable', misses: 'the text that decides an ancestor\'s dir="auto", or its own', observations: [{ type: 'mutation', of: 'roots', attributes: ['dir'], childList: true, subtree: true }] }) })),
                     implementing('attached', property('attached', 'Boolean', { updates: updatesOf({ changes: 'partly-observable', misses: 'a detached tree inserted into a shadow root in the document', observations: [{ type: 'attachment', of: 'receiver' }] }) })),
                     implementing('hasChildren', property('hasChildren', 'Boolean', { updates: updatesOf({ observations: [CHILDREN] }) })),
                     implementing('hasSelection', property('hasSelection', 'Boolean', { updates: updatesOf({ changes: 'partly-observable', misses: 'selections the page\'s code sets', observations: TEXT_SELECTION }) })),
@@ -164,6 +170,7 @@ export class BrowserVocabularyDeclarations {
                     // The document's own state, each a Boolean function as the browser decides it.
                     test('visible', 'visible', { updates: updatesOf({ observations: [{ type: 'visibility', of: 'receiver' }] }) }),
                     test('hasFocus', 'focus', { updates: updatesOf({ observations: [{ type: 'event', of: 'window', types: ['focus', 'blur'] }] }) }),
+                    implementing('activeElement', property('activeElement', 'Element?', { updates: updatesOf({ observations: [FOCUS] }) })),
                     on,
                 ], { supertype: 'Node' }),
 

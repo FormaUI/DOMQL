@@ -119,6 +119,8 @@ A property exposes a value, read by property access, and takes no argument. Each
 | Node | [`host`](#property-node-host) | `Element?` |
 | Element | [`shadow`](#property-element-shadow) | `Shadow` |
 | Element | [`aria`](#property-element-aria) | `Aria` |
+| Element | [`direction`](#property-element-direction) | `String` |
+| Document | [`activeElement`](#property-document-activeelement) | `Element?` |
 | Shadow view | [`root`](#property-shadow-view-root) | `ShadowRoot?` |
 | Shadow view | [`elements`](#property-shadow-view-elements) | `List<Element>?` |
 | Element | [`attached`](#property-element-attached) | `Boolean` |
@@ -316,6 +318,26 @@ An element that is no scroll container is scrolled by 0. Null while it has no la
 **Result.** Its view of its ARIA states, which its [Boolean functions](#boolean-functions) test and its unnamed indexer reads as its ARIA attributes
 
 **Changes.** Constant
+
+<a id="property-element-direction"></a>
+
+### Element: direction
+
+**Type:** `String`   **Reads:** Fresh
+
+**Result.** Its directionality, `"ltr"` or `"rtl"`, as `:dir()` matches it: the `dir` of the element or of its nearest ancestor that gives one, past the host of the shadow root it stands in, or the text that decides a `dir="auto"`, and `"ltr"` where none decides. It is what `dir` decides, never a stylesheet's `direction`, which `it.style["direction"]` reads
+
+**Changes.** Partly observable: the `dir` attributes and the structure of every tree its flat-tree ancestry passes through are observed, the document element's among them; the text that decides an ancestor's `dir="auto"`, or its own, is not
+
+<a id="property-document-activeelement"></a>
+
+### Document: activeElement
+
+**Type:** `Element?`   **Reads:** Fresh
+
+**Result.** The focused element: the document's `activeElement`, and, where that is a host whose open shadow root holds the focus, the element focused there, through every such root; null where the document reports none, its body or its root element, as it does while no element has focus. A closed shadow root hides what is focused inside it, so its host is answered
+
+**Changes.** Observable: focus moving, and the focused element removed, which moves focus away
 
 <a id="property-shadow-view-root"></a>
 
@@ -610,6 +632,8 @@ The built-in vocabulary declares these Boolean functions, each with its native s
 | Element | [`textEditable`](#boolean-function-element-texteditable) |
 | Element | [`focus`](#boolean-function-element-focus) |
 | Element | [`focusWithin`](#boolean-function-element-focuswithin) |
+| Element | [`displayed`](#boolean-function-element-displayed) |
+| Element | [`focusable`](#boolean-function-element-focusable) |
 | Element | [`hover`](#boolean-function-element-hover) |
 | Element | [`popoverOpen`](#boolean-function-element-popoveropen) |
 | Element | [`checked`](#boolean-function-element-checked) |
@@ -689,6 +713,32 @@ An element with the `inert` attribute, itself or on an ancestor in the flat tree
 **True when.** It matches `:focus-within`: it or an element within it is focused, across the shadow trees it hosts
 
 **Changes.** Observable, as `focus` is
+
+<a id="boolean-function-element-displayed"></a>
+
+### Element: displayed
+
+**Syntax:** `displayed()`   **Reads:** Fresh
+
+**True when.** The browser renders a box for it, as `checkVisibility()` decides: it is attached, neither it nor an ancestor is `display: none`, it is not `display: contents`, and no ancestor's `content-visibility` skips its content. A box hidden by `visibility` or by its opacity, and one of no size, is displayed
+
+**Changes.** Partly observable: its size, and the attributes and the structure of every tree its flat-tree ancestry passes through, are observed; a stylesheet's rules hiding or showing it where its box keeps its size, as a box of no size, and `content-visibility` skipping it, are not
+
+<a id="boolean-function-element-focusable"></a>
+
+### Element: focusable
+
+**Syntax:** `focusable()`   **Reads:** Fresh
+
+**True when.** It can take focus, as HTML's focusable areas decide, since no API of the browser answers it:
+
+- It is displayed and visible, as `checkVisibility({ visibilityProperty: true })` decides.
+- It is neither disabled, as `disabled()` decides, nor inert, as `textEditable` reads the `inert` attribute along its flat tree.
+- It has a `tabindex` HTML reads as an integer, a negative one included, or is focusable by default: an `a` or an `area` with an `href`, a `button`, a `select`, a `textarea`, an `iframe`, an `input` of any type but `hidden`, its `details`'s first `summary`, an `audio` or a `video` with `controls`, or an editing host, an element whose content is editable while its parent's is not.
+
+Whether the Tab key reaches it, which a negative `tabindex` prevents, is another question, which its `tabindex` answers
+
+**Changes.** Partly observable: as `displayed`; a visibility a stylesheet's rules change, the inertness a modal dialog gives the rest of the document and the document's design mode are not observed either
 
 <a id="boolean-function-element-hover"></a>
 
@@ -833,7 +883,7 @@ No other ARIA attribute has a Boolean function until one is declared, each with 
 
 ### Related questions
 
-`it.focus()` asks whether the element itself is focused, `it.focusWithin()` whether focus is anywhere within it, and an extension can offer richer focus semantics, as a Boolean function of elements under its module's own name or of its own types; they are separate questions with separate names.
+`it.focus()` asks whether the element itself is focused, `it.focusWithin()` whether focus is anywhere within it, `it.focusable()` whether it can take focus, and `Domql.document.activeElement` which element has it; an extension can offer richer focus semantics, as a Boolean function of elements under its module's own name or of its own types; they are separate questions with separate names.
 
 `readonly` and `textEditable` are separate questions too, and neither is the other's opposite:
 

@@ -6,6 +6,20 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-281"></a>
+
+## `1.0.0-alpha.281`
+
+*November 1, 2026 · Nexo language `1.0.0-beta.8` · definition format 38*
+
+DOMQL reads the focused element, an element's direction, and whether an element is displayed and can take focus.
+
+**Vocabulary**
+
+- [`Domql.document.activeElement`](spec/vocabulary.md#property-document-activeelement) answers the focused element through open shadow roots, and null while no element has focus, as [D12](docs/decisions.md#d12) records.
+- [`direction`](spec/vocabulary.md#property-element-direction) answers `"ltr"` or `"rtl"` as `dir` decides it along an element's ancestry, the document element's included, as [D13](docs/decisions.md#d13) records.
+- [`displayed()`](spec/vocabulary.md#boolean-function-element-displayed) answers whether the browser renders a box for an element, and [`focusable()`](spec/vocabulary.md#boolean-function-element-focusable) whether it can take focus, as [D14](docs/decisions.md#d14) records.
+
 <a id="v1-0-0-alpha-280"></a>
 
 ## `1.0.0-alpha.280`

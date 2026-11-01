@@ -324,6 +324,29 @@ describe('QueryEvaluator', () => {
             expect(read('button.focus()', { button })).toBe(true);
         });
 
+        it('reads the document\'s focused element, null where its body has focus', () => {
+            const button = document.createElement('button');
+
+            button.id = 'button';
+            document.body.append(button);
+            button.blur();
+
+            expect(read('Domql.document.activeElement == null')).toBe(true);
+
+            button.focus();
+
+            expect(read('Domql.document.activeElement?["id"]')).toBe('button');
+        });
+
+        it('answers whether an element is focusable, by its kind, its tabindex and its state', () => {
+            document.body.innerHTML = '<button id="b"></button><button id="off" disabled></button><div id="d"></div><div id="t" tabindex="-1"></div><a id="a"></a><a id="h" href="#"></a><input id="i" type="hidden">';
+
+            const focusable = id => read('e.focusable()', { e: document.getElementById(id) });
+
+            expect(['b', 'off', 'd', 't', 'a', 'h', 'i'].map(focusable)).toEqual([true, false, false, true, false, true, false]);
+            expect(read('e.focusable()', { e: document.createElement('button') })).toBe(false);
+        });
+
         it('answers the document\'s conditions', () => {
             expect(read('Domql.document.visible()')).toBeTypeOf('boolean');
             expect(read('Domql.document.focus()')).toBeTypeOf('boolean');

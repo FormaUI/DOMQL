@@ -32,10 +32,12 @@ describe('Boolean functions in a browser', () => {
     };
 
     /** Watches the element's Boolean function, or its ARIA view's where asked, and answers what the watch last reported and what the browser decides now. */
-    const watching = async (element, name, isAria = false) => {
-        const text = isAria ? `e.aria.${name}()` : `e.${name}()`;
+    const watching = (element, name, isAria = false) => watchingQuery(isAria ? `e.aria.${name}()` : `e.${name}()`, { e: element });
+
+    /** Watches the query, and answers what the watch last reported and what the browser decides now. */
+    const watchingQuery = async (text, bindings) => {
         const snapshots = [];
-        const watch = domql.query(text, { e: element }).watch({ schedule: 'immediate', acceptPartialObservation: true });
+        const watch = domql.query(text, bindings).watch({ schedule: 'immediate', acceptPartialObservation: true });
 
         watch.subscribe('change', (sender, args) => snapshots.push(args.status === 'failed' ? args.error : args.value));
         watches.push(watch);
@@ -47,7 +49,7 @@ describe('Boolean functions in a browser', () => {
                 await cause();
                 await settle();
 
-                return { watched: snapshots.at(-1), decided: domql.query(text, { e: element }).evaluate() };
+                return { watched: snapshots.at(-1), decided: domql.query(text, bindings).evaluate() };
             },
             get watched() {
                 return snapshots.at(-1);
@@ -188,6 +190,142 @@ describe('Boolean functions in a browser', () => {
             expect(await aria.after(() => userEvent.click(box))).toEqual({ watched: false, decided: false });
             expect(native.watched).toBe(true);
             expect(await native.after(() => box.setAttribute('aria-checked', 'false'))).toEqual({ watched: true, decided: true });
+        });
+    });
+
+    describe('displayed, as checkVisibility decides', () => {
+        it('follows a box hidden and shown by its attributes, its ancestor\'s and its own moves', async () => {
+            const { outer, box } = page('<div id="outer"><div id="box" style="height: 10px">x</div></div>');
+            const displayed = await watching(box, 'displayed');
+
+            expect(displayed.watched).toBe(true);
+            expect(await displayed.after(() => { box.hidden = true; })).toEqual({ watched: false, decided: false });
+            expect(await displayed.after(() => { box.hidden = false; })).toEqual({ watched: true, decided: true });
+            expect(await displayed.after(() => { outer.style.display = 'none'; })).toEqual({ watched: false, decided: false });
+            expect(await displayed.after(() => { outer.style.display = ''; box.remove(); })).toEqual({ watched: false, decided: false });
+            expect(await displayed.after(() => document.body.append(box))).toEqual({ watched: true, decided: true });
+            expect(await displayed.after(() => { box.style.visibility = 'hidden'; })).toEqual({ watched: true, decided: true });
+        });
+
+        it('follows a stylesheet\'s rule hiding a box of a size, through its size, and misses one of no size', async () => {
+            const { sized, empty } = page('<div id="sized" style="height: 10px">x</div><div id="empty" style="width: 0"></div>');
+            const style = document.head.appendChild(document.createElement('style'));
+
+            try {
+                const sizedDisplayed = await watching(sized, 'displayed');
+                const emptyDisplayed = await watching(empty, 'displayed');
+
+                expect(await sizedDisplayed.after(() => style.sheet.insertRule('#sized { display: none }'))).toEqual({ watched: false, decided: false });
+                expect(await emptyDisplayed.after(() => style.sheet.insertRule('#empty { display: none }'))).toEqual({ watched: true, decided: false });
+            } finally {
+                style.remove();
+            }
+        });
+    });
+
+    describe('focusable, as HTML\'s focusable areas decide', () => {
+        it('answers for the elements focusable by default, those a tabindex makes so, and the disabled, inert, hidden and invisible', () => {
+            const markup = {
+                button: '<button>b</button>', disabledButton: '<button disabled>b</button>', link: '<a href="#">a</a>', anchor: '<a>a</a>', input: '<input>', hiddenInput: '<input type="hidden">',
+                select: '<select></select>', textarea: '<textarea></textarea>', div: '<div>d</div>', tabbable: '<div tabindex="0">d</div>', scripted: '<div tabindex="-1">d</div>', badIndex: '<div tabindex="x">d</div>',
+                host: '<div contenteditable>e<b>f</b></div>', summary: '<details><summary>s</summary></details>', video: '<video controls></video>', silentVideo: '<video></video>',
+                inert: '<div inert><button>b</button></div>', invisible: '<button style="visibility: hidden">b</button>', undisplayed: '<button style="display: none">b</button>',
+            };
+
+            document.body.innerHTML = Object.entries(markup).map(([id, html]) => `<div id="${id}">${html}</div>`).join('');
+
+            const focusable = element => domql.query('e.focusable()', { e: element }).evaluate();
+            const answers = Object.fromEntries(Object.keys(markup).map(id => {
+                const container = document.getElementById(id);
+
+                return [id, focusable(container.querySelector('summary, #inert button') ?? container.firstElementChild)];
+            }));
+
+            expect(answers).toEqual({
+                button: true, disabledButton: false, link: true, anchor: false, input: true, hiddenInput: false, select: true, textarea: true, div: false, tabbable: true, scripted: true, badIndex: false,
+                host: true, summary: true, video: true, silentVideo: false, inert: false, invisible: false, undisplayed: false,
+            });
+            expect(focusable(document.querySelector('#host b'))).toBe(false);
+            expect(focusable(document.createElement('button'))).toBe(false);
+        });
+
+        it('agrees with the browser, which focuses what it answers true for and nothing else', () => {
+            document.body.innerHTML = '<button id="a">a</button><div id="b">b</div><div id="c" tabindex="-1">c</div><a id="d">d</a><span contenteditable id="e"><b id="f">f</b></span><input id="g" disabled>';
+
+            for (const id of ['a', 'b', 'c', 'd', 'e', 'f', 'g']) {
+                const element = document.getElementById(id);
+
+                element.focus();
+
+                expect(domql.query('e.focusable()', { e: element }).evaluate(), id).toBe(document.activeElement === element);
+
+                element.blur();
+            }
+        });
+
+        it('follows a tabindex given and taken, and a control disabled', async () => {
+            const { box, control } = page('<div id="box">x</div><button id="control">b</button>');
+            const boxFocusable = await watching(box, 'focusable');
+            const controlFocusable = await watching(control, 'focusable');
+
+            expect(await boxFocusable.after(() => box.setAttribute('tabindex', '-1'))).toEqual({ watched: true, decided: true });
+            expect(await boxFocusable.after(() => box.removeAttribute('tabindex'))).toEqual({ watched: false, decided: false });
+            expect(await controlFocusable.after(() => { control.disabled = true; })).toEqual({ watched: false, decided: false });
+        });
+    });
+
+    describe('direction, as :dir() matches', () => {
+        it('reads the direction dir gives along its ancestry, a shadow host\'s included', () => {
+            const { outer, inner, host } = page('<div id="outer" dir="rtl"><p id="inner"></p></div><div id="host" dir="rtl"></div>');
+            const shadowRoot = host.attachShadow({ mode: 'open' });
+
+            shadowRoot.innerHTML = '<p></p>';
+
+            expect(domql.query('{ outer = outer.direction, inner = inner.direction, shadowed = shadowed.direction, body = Domql.document.first("body")?.direction }', { outer, inner, shadowed: shadowRoot.firstElementChild }).evaluate()).toEqual({ outer: 'rtl', inner: 'rtl', shadowed: 'rtl', body: 'ltr' });
+        });
+
+        it('follows dir changing on the document element and on an ancestor, and misses the text that decides dir="auto"', async () => {
+            const { inner, auto, word } = page('<div id="outer"><p id="inner"></p></div><div dir="auto" id="auto"><span id="word">abc</span></div>');
+            const direction = await watchingQuery('e.direction', { e: inner });
+            const autoDirection = await watchingQuery('e.direction', { e: auto });
+
+            try {
+                expect(await direction.after(() => document.documentElement.setAttribute('dir', 'rtl'))).toEqual({ watched: 'rtl', decided: 'rtl' });
+                expect(await direction.after(() => document.getElementById('outer').setAttribute('dir', 'ltr'))).toEqual({ watched: 'ltr', decided: 'ltr' });
+                expect(await autoDirection.after(() => { word.firstChild.data = 'שלום'; })).toEqual({ watched: 'ltr', decided: 'rtl' });
+            } finally {
+                document.documentElement.removeAttribute('dir');
+            }
+        });
+    });
+
+    describe('activeElement, the document\'s focused element', () => {
+        it('reads the focused element through open shadow roots, and null where the body has focus', () => {
+            const { host, field } = page('<input id="field"><div id="host"></div>');
+            const shadowRoot = host.attachShadow({ mode: 'open' });
+
+            shadowRoot.innerHTML = '<input id="inner">';
+
+            const active = () => domql.query('Domql.document.activeElement?["id"]').evaluate();
+
+            expect(active()).toBeNull();
+
+            field.focus();
+
+            expect(active()).toBe('field');
+
+            shadowRoot.getElementById('inner').focus();
+
+            expect(active()).toBe('inner');
+        });
+
+        it('follows focus moving, and the focused element removed', async () => {
+            const { field, other } = page('<input id="field"><input id="other">');
+            const active = await watchingQuery('Domql.document.activeElement?["id"]', {});
+
+            expect(await active.after(() => field.focus())).toEqual({ watched: 'field', decided: 'field' });
+            expect(await active.after(() => userEvent.click(other))).toEqual({ watched: 'other', decided: 'other' });
+            expect(await active.after(() => other.remove())).toEqual({ watched: null, decided: null });
         });
     });
 

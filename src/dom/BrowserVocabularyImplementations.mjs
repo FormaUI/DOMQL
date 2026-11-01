@@ -17,6 +17,12 @@ const USER_SCROLLABLE = new Set(['auto', 'scroll']);
 /** The axes `scrollContainer` takes, by name. */
 const AXES = new Set(['inline', 'block']);
 
+/** The elements focusable by default where they are enabled, as HTML's focusable areas name them, beside those with a condition of their own: a link, a summary, a media element and an editing host. */
+const FOCUSABLE_ELEMENTS = new Set(['button', 'select', 'textarea', 'iframe']);
+
+/** A `tabindex` that HTML's rules for parsing integers read as an integer. */
+const TAB_INDEX = /^[\t\n\f\r ]*[-+]?[0-9]/;
+
 export class BrowserVocabularyImplementations {
     /**
      * Each implementation reads, from one object by name, the receiver, the arguments by parameter name and the environment the request is read in; a maintained member also its samples, and a source the function it delivers each event to, answering what stops it.
@@ -104,6 +110,10 @@ export class BrowserVocabularyImplementations {
             textEditable: ({ receiver: element }) => BrowserVocabularyImplementations.#isTextEditable(element),
             focused: ({ receiver: element }) => element.getRootNode().activeElement === element,
             focusWithin: ({ receiver: element }) => element.matches(':focus-within'),
+            displayed: ({ receiver: element }) => element.isConnected && element.checkVisibility(),
+            focusable: ({ receiver: element }) => BrowserVocabularyImplementations.#isFocusable(element),
+            direction: ({ receiver: element }) => (element.matches(':dir(rtl)') ? 'rtl' : 'ltr'),
+            activeElement: ({ receiver: document }) => BrowserVocabularyImplementations.#activeElement(document),
             hover: ({ receiver: element }) => element.matches(':hover'),
             popoverOpen: ({ receiver: element }) => element.matches(':popover-open'),
             checked: ({ receiver: element }) => element.matches(':checked'),
@@ -346,6 +356,50 @@ export class BrowserVocabularyImplementations {
         }
 
         return element.ownerDocument.designMode === 'on';
+    }
+
+    /** The focused element of the document, through each open shadow root a focused host holds, or null where the document reports none, its body or its root element. */
+    static #activeElement(document) {
+        let active = document.activeElement;
+
+        if (active === null || active === document.body || active === document.documentElement) {
+            return null;
+        }
+
+        while (active.shadowRoot?.activeElement) {
+            active = active.shadowRoot.activeElement;
+        }
+
+        return active;
+    }
+
+    /**
+     * Whether the element is focusable, as HTML's focusable areas decide it: rendered and visible, neither disabled nor inert, and either given a `tabindex` HTML reads as an integer or focusable by default, as a link with
+     * an `href`, an enabled control, an `iframe`, its `details`'s first `summary`, a media element with `controls` and an editing host are.
+     */
+    static #isFocusable(element) {
+        if (!element.isConnected || !element.checkVisibility({ visibilityProperty: true }) || element.matches(':disabled') || BrowserVocabularyImplementations.#isUnderInert(element)) {
+            return false;
+        }
+
+        if (TAB_INDEX.test(element.getAttribute('tabindex') ?? '')) {
+            return true;
+        }
+
+        switch (element.localName) {
+            case 'a':
+            case 'area':
+                return element.hasAttribute('href');
+            case 'input':
+                return element.type !== 'hidden';
+            case 'summary':
+                return element.parentElement?.localName === 'details' && element.parentElement.querySelector(':scope > summary') === element;
+            case 'audio':
+            case 'video':
+                return element.hasAttribute('controls');
+            default:
+                return FOCUSABLE_ELEMENTS.has(element.localName) || (element.isContentEditable && element.parentElement?.isContentEditable !== true);
+        }
     }
 
     static #hasSelection(element) {

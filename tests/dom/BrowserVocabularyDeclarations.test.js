@@ -70,10 +70,10 @@ describe('BrowserVocabularyDeclarations', () => {
     it('declares each member the specification lists within the type it reads', () => {
         expect(typeMembers.map(({ type, member }) => nameOf(type, member)).sort()).toEqual([
             'Node.children', 'Node.parent', 'Node.root', 'Node.host', 'Node.first', 'Node.all',
-            'Element.disabled', 'Element.readonly', 'Element.textEditable', 'Element.focus', 'Element.focusWithin', 'Element.hover', 'Element.popoverOpen', 'Element.checked',
-            'Element.rect', 'Element.clientRect', 'Element.size', 'Element.clientSize', 'Element.scroll', 'Element.grid', 'Element.selection', 'Element.shadow', 'Element.aria', 'Element.attached', 'Element.hasChildren', 'Element.hasSelection',
+            'Element.disabled', 'Element.readonly', 'Element.textEditable', 'Element.focus', 'Element.focusWithin', 'Element.displayed', 'Element.focusable', 'Element.hover', 'Element.popoverOpen', 'Element.checked',
+            'Element.rect', 'Element.clientRect', 'Element.size', 'Element.clientSize', 'Element.scroll', 'Element.grid', 'Element.selection', 'Element.shadow', 'Element.aria', 'Element.direction', 'Element.attached', 'Element.hasChildren', 'Element.hasSelection',
             'Element[]', 'Element.attribute', 'Element.class', 'Element.style', 'Element.intersects', 'Element.overlaps', 'Element.matches', 'Element.rectRelativeTo', 'Element.closest', 'Element.scrollContainer', 'Element.on',
-            'Document.visible', 'Document.focus', 'Document.on',
+            'Document.visible', 'Document.focus', 'Document.activeElement', 'Document.on',
             'Window.size', 'Window.scroll', 'Window.devicePixelRatio', 'Window.media', 'Window.share', 'Window.clipboard', 'Window.on',
             'Shadow.root', 'Shadow.elements',
             'Aria.checked', 'Aria.disabled', 'Aria[]', 'Aria.attribute', 'Aria as Element',
@@ -142,7 +142,7 @@ describe('BrowserVocabularyDeclarations', () => {
         const tests = typeMembers.filter(({ member }) => member.kind === 'function' && member.result === 'Boolean' && member.parameters.length === 0).map(({ type, member }) => `${nameOf(type, member)}()`);
 
         expect(tests).toEqual([
-            'Element.disabled()', 'Element.readonly()', 'Element.textEditable()', 'Element.focus()', 'Element.focusWithin()', 'Element.hover()', 'Element.popoverOpen()', 'Element.checked()',
+            'Element.disabled()', 'Element.readonly()', 'Element.textEditable()', 'Element.focus()', 'Element.focusWithin()', 'Element.displayed()', 'Element.focusable()', 'Element.hover()', 'Element.popoverOpen()', 'Element.checked()',
             'Document.visible()', 'Document.focus()', 'Window.share()', 'Window.clipboard()', 'Aria.checked()', 'Aria.disabled()',
         ]);
     });
