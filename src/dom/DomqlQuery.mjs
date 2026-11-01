@@ -22,6 +22,9 @@ export class DomqlQuery {
     #bindings;
     #operations;
 
+    /** What evaluating it once keeps for its next such evaluation, or null before its first. */
+    #onceEvaluation = null;
+
     /**
      * @param {object} definition The request's validated, frozen definition.
      * @param {object} bindings The values its parameters are bound to, as the registry it is resolved against binds them.
@@ -41,6 +44,16 @@ export class DomqlQuery {
     /** The values a query's parameters are bound to, which DOMQL prepares and evaluates it with; no part of a query object's API, which binds anew through `with`. */
     static bindingsOf(query) {
         return query.#bindings;
+    }
+
+    /** What evaluating the query once kept for its next such evaluation, or null before its first; no part of a query object's API. */
+    static onceEvaluationOf(query) {
+        return query.#onceEvaluation;
+    }
+
+    /** Keeps what evaluating the query once needs again, for its next such evaluation. */
+    static keepOnceEvaluation(query, onceEvaluation) {
+        query.#onceEvaluation = onceEvaluation;
     }
 
     /** A new query object with the same definition, bound to these bindings, which replace the old ones whole; this one, and every operation running from it, are unaffected. */
