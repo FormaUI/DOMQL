@@ -189,7 +189,7 @@ class Domql {
     static #evaluate(query, path, { window = globalThis.window }) {
         const resolution = Domql.#resolveFor('evaluate', query);
 
-        resolution.typeAt(path);
+        Domql.#checkPath(resolution, path);
 
         // A query evaluated once again in the same window, through the same resolution, reuses the evaluator it was last evaluated with. The query keeps none while one evaluates, so an evaluation it runs that evaluates the
         // query again creates its own, and one that fails leaves none kept.
@@ -217,7 +217,7 @@ class Domql {
 
         const resolution = Domql.#resolveFor('evaluateAsync', query);
 
-        resolution.typeAt(path);
+        Domql.#checkPath(resolution, path);
 
         const evaluator = Domql.#createEvaluator(query, resolution, window, () => Domql.#resolveFor('evaluateAsync', query));
         const observations = Domql.#getObservations(window);
@@ -300,7 +300,7 @@ class Domql {
             throw NexoError.validation('DOMQL3001', `Live state keeps one object current, so its result is an object or a list that is never null, and this one is ${resolution.type}; put it in a top-level object expression`, Domql.#locationOf(query));
         }
 
-        resolution.typeAt(path);
+        Domql.#checkPath(resolution, path);
 
         const evaluator = Domql.#createEvaluator(query, resolution, window, () => Domql.#resolveFor('watch', query, { watch: true, acceptPartialObservation: acceptPartialObservation === true }));
 
@@ -570,6 +570,13 @@ class Domql {
         }
 
         return implementation;
+    }
+
+    /** Refuses a path that does not fit the result of a request that gives a value; the empty path reaches the whole result, which every such request has, so only a part's path is checked. */
+    static #checkPath(resolution, path) {
+        if (path.length > 0) {
+            resolution.typeAt(path);
+        }
     }
 
     /** Where the request stands, for a failure that belongs to the whole of it. */
