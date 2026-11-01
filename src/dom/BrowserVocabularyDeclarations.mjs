@@ -318,6 +318,14 @@ export class BrowserVocabularyDeclarations {
                 structuredType('Listening', { capture: 'Boolean' }),
                 // An event such as scroll or resize can target the document or the window, which is no element.
                 structuredType('DomEvent', { target: 'Element?' }),
+                // Focus leaving one element for another, each null where it is no element of this window.
+                structuredType('FocusEvent', { target: 'Element?', relatedTarget: 'Element?' }),
+                // An edit, its kind empty and composing false for an input event that says neither, as one at a select or a checkbox.
+                structuredType('InputEvent', { target: 'Element?', inputType: 'String', data: 'String?', isComposing: 'Boolean' }),
+                structuredType('ClipboardEvent', { target: 'Element', types: 'List<String>' }),
+                structuredType('CompositionEvent', { target: 'Element', data: 'String' }),
+                structuredType('ToggleEvent', { target: 'Element', oldState: 'String', newState: 'String' }),
+                structuredType('AnimationEvent', { target: 'Element', animationName: 'String' }),
                 // A click the keyboard caused, a dblclick, which is a mouse event, and a click a browser dispatches as one carry no pointer, so no pointer id or type.
                 structuredType('PointerEvent', { target: 'Element', button: 'Number', buttons: 'Number', clientX: 'Number', clientY: 'Number', pointerType: 'String?', pointerId: 'Number?', detail: 'Number', timeStamp: 'Number', ...MODIFIERS }),
                 // A touch event, and each point touching the surface as it is dispatched.
@@ -338,11 +346,13 @@ export class BrowserVocabularyDeclarations {
                 { selector: 'event', key: 'keydown', type: 'KeyboardEvent' },
                 { selector: 'event', key: 'keyup', type: 'KeyboardEvent' },
                 ...['dragstart', 'dragenter', 'dragover', 'dragleave', 'dragend', 'drop'].map(key => ({ selector: 'event', key, type: 'DragEvent' })),
-                { selector: 'event', key: 'focus', type: 'DomEvent' },
-                { selector: 'event', key: 'blur', type: 'DomEvent' },
-                { selector: 'event', key: 'input', type: 'DomEvent' },
-                { selector: 'event', key: 'scroll', type: 'DomEvent' },
-                { selector: 'event', key: 'resize', type: 'DomEvent' },
+                ...['focus', 'blur', 'focusin', 'focusout'].map(key => ({ selector: 'event', key, type: 'FocusEvent' })),
+                ...['beforeinput', 'input'].map(key => ({ selector: 'event', key, type: 'InputEvent' })),
+                ...['paste', 'copy', 'cut'].map(key => ({ selector: 'event', key, type: 'ClipboardEvent' })),
+                ...['compositionstart', 'compositionend'].map(key => ({ selector: 'event', key, type: 'CompositionEvent' })),
+                ...['beforetoggle', 'toggle'].map(key => ({ selector: 'event', key, type: 'ToggleEvent' })),
+                ...['animationstart', 'animationend', 'animationcancel'].map(key => ({ selector: 'event', key, type: 'AnimationEvent' })),
+                ...['scroll', 'resize', 'selectionchange', 'close', 'cancel', 'load', 'error', 'play', 'pause', 'volumechange', 'ended'].map(key => ({ selector: 'event', key, type: 'DomEvent' })),
             ],
 
             observationTypes: [

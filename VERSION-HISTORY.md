@@ -6,6 +6,20 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-290"></a>
+
+## `1.0.0-alpha.290`
+
+*November 1, 2026 · Nexo language `1.0.0-beta.15` · definition format 38*
+
+DOMQL delivers the events of focus, editing, the clipboard, composition, presentation, animation, loading and media.
+
+**Events**
+
+- [Event types](spec/events.md#event-types): `focusin` and `focusout`, beside `focus` and `blur`, are each a `FocusEvent { target, relatedTarget }`, the element focus leaves or moves to, as [D30](docs/decisions.md#d30) records; `focus` and `blur` were a `DomEvent`.
+- `beforeinput` and `input` are an `InputEvent { target, inputType, data, isComposing }`, its kind `""` for an input event that names none, as a select fires; `paste`, `copy` and `cut` a `ClipboardEvent { target, types }`; `compositionstart` and `compositionend` a `CompositionEvent { target, data }`; and `selectionchange` a `DomEvent`, as [D31](docs/decisions.md#d31) records. `input` was a `DomEvent`.
+- `beforetoggle` and `toggle` are a `ToggleEvent { target, oldState, newState }`; `animationstart`, `animationend` and `animationcancel` an `AnimationEvent { target, animationName }`; and `close`, `cancel`, `load`, `error`, `play`, `pause`, `volumechange` and `ended` a `DomEvent`, as [D32](docs/decisions.md#d32) records.
+
 <a id="v1-0-0-alpha-289"></a>
 
 ## `1.0.0-alpha.289`

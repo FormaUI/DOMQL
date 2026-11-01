@@ -59,19 +59,36 @@ DOMQL's module declares the [type selector](https://github.com/FormaUI/Nexo/blob
 | `wheel` | `WheelEvent` | `target`: `Element`, `deltaX`: `Number`, `deltaY`: `Number`, `deltaMode`: `Number`, `timeStamp`: `Number`, and the modifiers |
 | `keydown`, `keyup` | `KeyboardEvent` | `target`: `Element`, `key`: `String`, `code`: `String` |
 | `dragstart`, `dragenter`, `dragover`, `dragleave`, `dragend`, `drop` | `DragEvent` | `target`: `Element`, `clientX`: `Number`, `clientY`: `Number`, `types`: `List<String>`, `timeStamp`: `Number`, and the modifiers |
-| `focus`, `blur`, `input`, `scroll`, `resize` | `DomEvent` | `target`: `Element?` |
+| `focus`, `blur`, `focusin`, `focusout` | `FocusEvent` | `target`: `Element?`, `relatedTarget`: `Element?` |
+| `beforeinput`, `input` | `InputEvent` | `target`: `Element?`, `inputType`: `String`, `data`: `String?`, `isComposing`: `Boolean` |
+| `paste`, `copy`, `cut` | `ClipboardEvent` | `target`: `Element`, `types`: `List<String>` |
+| `compositionstart`, `compositionend` | `CompositionEvent` | `target`: `Element`, `data`: `String` |
+| `beforetoggle`, `toggle` | `ToggleEvent` | `target`: `Element`, `oldState`: `String`, `newState`: `String` |
+| `animationstart`, `animationend`, `animationcancel` | `AnimationEvent` | `target`: `Element`, `animationName`: `String` |
+| `scroll`, `resize`, `selectionchange`, `close`, `cancel`, `load`, `error`, `play`, `pause`, `volumechange`, `ended` | `DomEvent` | `target`: `Element?` |
 
 The **modifiers** are `ctrlKey`, `metaKey`, `altKey` and `shiftKey`, each a `Boolean`, whether that key was held as the event was dispatched. A `Touch` is one point touching the surface, `{ identifier, clientX, clientY }`, each a `Number`.
 
-An event is captured when it is dispatched. Each member is the event's own property of its name, as the browser answers it, a `detail` the count of clicks a click or a `dblclick` makes, a `timeStamp` the time it was dispatched in milliseconds from the document's time origin, and a `deltaMode` the unit of a wheel's deltas, `0` for pixels, `1` for lines and `2` for pages, but for these, which DOMQL reads for the event since no property of it answers them as data:
+An event is captured when it is dispatched. Each member is the event's own property of its name, as the browser answers it:
+
+- **A pointer's and a wheel's.** A `detail` is the count of clicks a click or a `dblclick` makes, a `timeStamp` the time it was dispatched in milliseconds from the document's time origin, and a `deltaMode` the unit of a wheel's deltas, `0` for pixels, `1` for lines and `2` for pages.
+- **Focus.** A `relatedTarget` is the element focus leaves, for a `focus` or a `focusin`, or moves to, for a `blur` or a `focusout`; `focusin` and `focusout` bubble, where `focus` and `blur` don't.
+- **Editing.** An `inputType` is the kind of edit, as `insertText` or `deleteContentBackward`, and its `data` the text it inserts, null where it inserts none; a composition's `data` is the text it composes; and `selectionchange` reaches the document, or a text control whose selection moves.
+- **Presentation and animation.** A toggle's `oldState` and `newState` are `"open"` or `"closed"`, as a popover, a `details` element and a dialog report them, and an animation's `animationName` the name of its keyframes.
+
+DOMQL reads these members for the event, since no property of it answers them as data:
 
 - **`pointerId` and `pointerType`** are null where the event carries no pointer: a click the keyboard caused, which the browser gives the pointer `-1` and the type `""`, a `dblclick`, which is a mouse event, and a click a browser dispatches as a mouse event.
 - **`touches`** holds the points touching the surface, in the order the event's touch list holds them, and none where it carries no touch list.
-- **`types`** holds the formats a drag carries, as its data transfer lists them, `"Files"` while it carries files, and none where it carries no data transfer. The data itself is no member, since the browser holds it back until the drop.
+- **`types`** holds the formats a drag carries, as its data transfer lists them, `"Files"` while it carries files, or a clipboard event's, as its clipboard data lists them, and none where it carries neither. The data itself is no member, since the browser holds a drag's back until the drop and a clipboard event's is the page's to read.
+- **`inputType`** is `""`, and **`isComposing`** false, for an input event that says neither, as HTML fires at a select, a checkbox or a radio button.
 
 DOMQL reads these members so for every event `on` delivers, of a module's event type as of its own.
 
-A member the event carries no value of its type for is null where its type is nullable, as Nexo sets out, so `DomEvent`'s `target` is null for a scroll or a resize that targets the document or the window.
+A member the event carries no value of its type for is null where its type is nullable, as Nexo sets out:
+
+- **`DomEvent`'s `target`,** for a scroll or a resize that targets the document or the window, and a `selectionchange` at the document.
+- **`FocusEvent`'s `target`,** for the window gaining or losing focus, and its **`relatedTarget`**, where focus comes from or goes to no element of the window.
 
 <a id="subscribing"></a>
 

@@ -444,3 +444,45 @@ Each entry is one of three kinds:
 - **Declined:**
   - `touchend`, `touchcancel` and a touch event's `changedTouches`, which pointer events answer.
   - A drag's data before the drop, which the browser doesn't expose.
+
+<a id="d30"></a>
+
+## D30 — The focus events are each a `FocusEvent`
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `focus`, `blur`, `focusin` and `focusout` each map to `FocusEvent { target, relatedTarget }`, `relatedTarget` the element focus leaves or moves to, null where it is none of the window's.
+- **Why:**
+  - The four are one event, which the browser dispatches as a `FocusEvent`, and differ only in whether they bubble, so one type keeps one contract; `focus` and `blur` keep every member they had and gain the related element.
+  - `focusin` and `focusout` bubble, so a subscription on a container hears focus moving within it, and its related element tells whether focus left the container, as `it.relatedTarget == null or not panel.contains(it.relatedTarget)` asks. A browser test settles what Chromium reports.
+- **Declined:** keeping `focus` and `blur` a `DomEvent`, which would answer two types for one event.
+
+<a id="d31"></a>
+
+## D31 — Editing events, an edit's kind empty where an input event names none
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `beforeinput` and `input` map to `InputEvent { target, inputType, data, isComposing }`, its `inputType` `""` and its `isComposing` false where the input event says neither; `paste`, `copy` and `cut` to `ClipboardEvent { target, types }`, its formats read as a drag's are; `compositionstart` and `compositionend` to `CompositionEvent { target, data }`; and `selectionchange` to `DomEvent`.
+- **Why:**
+  - HTML fires a plain `input` event, no `InputEvent`, at a select, a checkbox and a radio button, as a browser test shows, so a member the event lacks would fail every projection of an input event a form fires. An empty kind and no composition are what such an edit is.
+  - A clipboard event's formats tell what a paste holds before the page reads it, and its data is the page's own listener's to read, inside the dispatch.
+  - `input` keeps the members it had, a `target` that may be null among them, and gains the edit's.
+- **Declined:**
+  - An `inputType` of `String?`, which every query of an input event would test for null to tell a select's edit from a text field's.
+  - A clipboard event's data, which a passive subscription delivers after its listener could have used it.
+
+<a id="d32"></a>
+
+## D32 — Presentation, animation, loading and media events
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `beforetoggle` and `toggle` map to `ToggleEvent { target, oldState, newState }`, each state a `String`; `animationstart`, `animationend` and `animationcancel` to `AnimationEvent { target, animationName }`; and `close`, `cancel`, `load`, `error`, `play`, `pause`, `volumechange` and `ended` to `DomEvent`.
+- **Why:**
+  - A browser test settled it: Chromium dispatches a `ToggleEvent` for a popover, a `details` element and a dialog alike, so the states are never missing, and a toggle a page dispatches as a plain event fails its projection, as any event of the wrong kind does.
+  - A dialog's `close` and `cancel`, an image's `load` and `error` and a media element's events carry nothing a query reads beyond what happened and where, so they are `DomEvent`s, as `scroll` is.
+- **Declined:** an animation's `elapsedTime` and `pseudoElement`, which no query needs yet.

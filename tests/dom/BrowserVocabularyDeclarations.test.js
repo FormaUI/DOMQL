@@ -50,7 +50,7 @@ describe('BrowserVocabularyDeclarations', () => {
     it('declares the DOM\'s reference types, the views of an element and the structured types of its measurements and events', () => {
         expect(module.types.map(type => `${type.kind} ${type.name}${type.supertype === undefined ? '' : ` : ${type.supertype}`}${type.abstract ? ', abstract' : ''}`)).toEqual([
             'reference Node, abstract', 'reference Element : Node', 'reference Document : Node', 'reference DocumentFragment : Node', 'reference ShadowRoot : Node', 'reference Window', 'reference Shadow', 'reference Aria', 'reference Range',
-            'structured Size', 'structured Rectangle', 'structured Selection', 'structured DocumentSelection', 'structured Grid', 'structured Scroll', 'structured ScrollAxis', 'structured Playback', 'structured Location', 'structured SizeLimits', 'structured File', 'structured Listening', 'structured DomEvent', 'structured PointerEvent', 'structured TouchEvent', 'structured Touch', 'structured WheelEvent', 'structured KeyboardEvent', 'structured DragEvent',
+            'structured Size', 'structured Rectangle', 'structured Selection', 'structured DocumentSelection', 'structured Grid', 'structured Scroll', 'structured ScrollAxis', 'structured Playback', 'structured Location', 'structured SizeLimits', 'structured File', 'structured Listening', 'structured DomEvent', 'structured FocusEvent', 'structured InputEvent', 'structured ClipboardEvent', 'structured CompositionEvent', 'structured ToggleEvent', 'structured AnimationEvent', 'structured PointerEvent', 'structured TouchEvent', 'structured Touch', 'structured WheelEvent', 'structured KeyboardEvent', 'structured DragEvent',
         ]);
         expect(module.types.filter(type => type.kind === 'structured').map(type => `${type.name} { ${type.members.map(member => `${member.name}: ${member.result}`).join(', ')} }`)).toEqual([
             'Size { width: Number, height: Number }',
@@ -66,6 +66,12 @@ describe('BrowserVocabularyDeclarations', () => {
             'File { name: String, bytes: Number, type: String, lastModified: Number }',
             'Listening { capture: Boolean }',
             'DomEvent { target: Element? }',
+            'FocusEvent { target: Element?, relatedTarget: Element? }',
+            'InputEvent { target: Element?, inputType: String, data: String?, isComposing: Boolean }',
+            'ClipboardEvent { target: Element, types: List<String> }',
+            'CompositionEvent { target: Element, data: String }',
+            'ToggleEvent { target: Element, oldState: String, newState: String }',
+            'AnimationEvent { target: Element, animationName: String }',
             'PointerEvent { target: Element, button: Number, buttons: Number, clientX: Number, clientY: Number, pointerType: String?, pointerId: Number?, detail: Number, timeStamp: Number, ctrlKey: Boolean, metaKey: Boolean, altKey: Boolean, shiftKey: Boolean }',
             'TouchEvent { target: Element, touches: List<Touch>, timeStamp: Number, ctrlKey: Boolean, metaKey: Boolean, altKey: Boolean, shiftKey: Boolean }',
             'Touch { identifier: Number, clientX: Number, clientY: Number }',
@@ -287,7 +293,10 @@ describe('BrowserVocabularyDeclarations', () => {
             'click: PointerEvent', 'dblclick: PointerEvent', 'pointerdown: PointerEvent', 'pointerup: PointerEvent', 'pointermove: PointerEvent', 'pointercancel: PointerEvent', 'lostpointercapture: PointerEvent',
             'touchstart: TouchEvent', 'touchmove: TouchEvent', 'wheel: WheelEvent', 'keydown: KeyboardEvent', 'keyup: KeyboardEvent',
             'dragstart: DragEvent', 'dragenter: DragEvent', 'dragover: DragEvent', 'dragleave: DragEvent', 'dragend: DragEvent', 'drop: DragEvent',
-            'focus: DomEvent', 'blur: DomEvent', 'input: DomEvent', 'scroll: DomEvent', 'resize: DomEvent',
+            'focus: FocusEvent', 'blur: FocusEvent', 'focusin: FocusEvent', 'focusout: FocusEvent', 'beforeinput: InputEvent', 'input: InputEvent',
+            'paste: ClipboardEvent', 'copy: ClipboardEvent', 'cut: ClipboardEvent', 'compositionstart: CompositionEvent', 'compositionend: CompositionEvent',
+            'beforetoggle: ToggleEvent', 'toggle: ToggleEvent', 'animationstart: AnimationEvent', 'animationend: AnimationEvent', 'animationcancel: AnimationEvent',
+            'scroll: DomEvent', 'resize: DomEvent', 'selectionchange: DomEvent', 'close: DomEvent', 'cancel: DomEvent', 'load: DomEvent', 'error: DomEvent', 'play: DomEvent', 'pause: DomEvent', 'volumechange: DomEvent', 'ended: DomEvent',
         ]);
     });
 

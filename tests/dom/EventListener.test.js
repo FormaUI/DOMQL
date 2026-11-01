@@ -379,6 +379,98 @@ describe('EventListener', () => {
             ]);
         });
 
+        it('captures the element focus leaves or moves to, and none for the window or where focus comes from no element', () => {
+            const [first, second] = panel.children;
+
+            ['focus', 'blur', 'focusin', 'focusout'].forEach(kind => subscribe(`panel.on("${kind}", { capture = true }) { kind = "${kind}", target = it.target?["id"], related = it.relatedTarget?["id"] }`, { panel }));
+            subscribe('Domql.window.on("focus") { target = it.target?["id"], related = it.relatedTarget?["id"] }');
+
+            first.dispatchEvent(new window.FocusEvent('focusout', { bubbles: true, relatedTarget: second }));
+            second.dispatchEvent(new window.FocusEvent('focusin', { bubbles: true, relatedTarget: first }));
+            first.dispatchEvent(new window.FocusEvent('blur', { relatedTarget: second }));
+            second.dispatchEvent(new window.FocusEvent('focus', { relatedTarget: null }));
+            window.dispatchEvent(new window.FocusEvent('focus'));
+
+            expect(results).toEqual([
+                { kind: 'focusout', target: 'a', related: 'b' },
+                { kind: 'focusin', target: 'b', related: 'a' },
+                { kind: 'blur', target: 'a', related: 'b' },
+                { kind: 'focus', target: 'b', related: null },
+                { target: null, related: null },
+            ]);
+        });
+
+        it('captures an edit\'s kind, its text and whether it is composed, and no kind for an input event that names none, as one a select fires', () => {
+            subscribe('panel.on("beforeinput") { kind = it.inputType, data = it.data, composing = it.isComposing }', { panel });
+            subscribe('panel.on("input") { kind = it.inputType, data = it.data, composing = it.isComposing }', { panel });
+
+            panel.dispatchEvent(new window.InputEvent('beforeinput', { bubbles: true, inputType: 'insertText', data: 'x', isComposing: true }));
+            // A deletion inserts no text, which a browser gives as null; the simulated document gives the empty string, so its data is set.
+            panel.dispatchEvent(Object.assign(new window.InputEvent('input', { bubbles: true, inputType: 'deleteContentBackward' }), { data: null }));
+            input(panel);
+
+            expect(results).toEqual([
+                { kind: 'insertText', data: 'x', composing: true },
+                { kind: 'deleteContentBackward', data: null, composing: false },
+                { kind: '', data: null, composing: false },
+            ]);
+        });
+
+        it('captures the formats a clipboard event carries, and a composition\'s text', () => {
+            ['paste', 'copy', 'cut'].forEach(kind => subscribe(`panel.on("${kind}") { kind = "${kind}", types = it.types }`, { panel }));
+            ['compositionstart', 'compositionend'].forEach(kind => subscribe(`panel.on("${kind}") { kind = "${kind}", data = it.data }`, { panel }));
+
+            panel.dispatchEvent(new window.ClipboardEvent('paste', { bubbles: true, clipboardData: { types: ['text/plain', 'text/html'] } }));
+            panel.dispatchEvent(new window.ClipboardEvent('copy', { bubbles: true }));
+            panel.dispatchEvent(new window.ClipboardEvent('cut', { bubbles: true }));
+            // The simulated document has no composition event, whose data a plain event is given here.
+            panel.dispatchEvent(Object.assign(new window.Event('compositionstart', { bubbles: true }), { data: '' }));
+            panel.dispatchEvent(Object.assign(new window.Event('compositionend', { bubbles: true }), { data: 'ka' }));
+
+            expect(results).toEqual([
+                { kind: 'paste', types: ['text/plain', 'text/html'] },
+                { kind: 'copy', types: [] },
+                { kind: 'cut', types: [] },
+                { kind: 'compositionstart', data: '' },
+                { kind: 'compositionend', data: 'ka' },
+            ]);
+        });
+
+        it('captures a toggle\'s states and an animation\'s name, and fails a toggle dispatched without its states, as an event of the wrong kind', () => {
+            const [first] = panel.children;
+
+            ['beforetoggle', 'toggle'].forEach(kind => subscribe(`first.on("${kind}") { kind = "${kind}", from = it.oldState, to = it.newState }`, { first }));
+            ['animationstart', 'animationend', 'animationcancel'].forEach(kind => subscribe(`panel.on("${kind}") { kind = "${kind}", name = it.animationName }`, { panel }));
+
+            // The simulated document has no toggle event, whose states a plain event is given here.
+            first.dispatchEvent(Object.assign(new window.Event('beforetoggle'), { oldState: 'closed', newState: 'open' }));
+            first.dispatchEvent(Object.assign(new window.Event('toggle'), { oldState: 'closed', newState: 'open' }));
+            first.dispatchEvent(new window.Event('toggle'));
+            ['animationstart', 'animationend', 'animationcancel'].forEach(kind => first.dispatchEvent(new window.AnimationEvent(kind, { bubbles: true, animationName: 'fade' })));
+
+            expect(results).toEqual([
+                { kind: 'beforetoggle', from: 'closed', to: 'open' },
+                { kind: 'toggle', from: 'closed', to: 'open' },
+                { kind: 'animationstart', name: 'fade' },
+                { kind: 'animationend', name: 'fade' },
+                { kind: 'animationcancel', name: 'fade' },
+            ]);
+            expect(failures).toHaveLength(1);
+            expect(failures[0]).toMatchObject({ kind: 'evaluation', code: 'NEXO5015' });
+        });
+
+        it('captures the target of a dialog\'s, a loading element\'s and a media element\'s events, and of a selection moving, null at the document', () => {
+            const kinds = ['close', 'cancel', 'load', 'error', 'play', 'pause', 'volumechange', 'ended'];
+
+            kinds.forEach(kind => subscribe(`panel.on("${kind}") { kind = "${kind}", target = it.target?["id"] }`, { panel }));
+            subscribe('Domql.document.on("selectionchange") { target = it.target?["id"] }');
+
+            kinds.forEach(kind => panel.dispatchEvent(new window.Event(kind)));
+            document.dispatchEvent(new window.Event('selectionchange'));
+
+            expect(results).toEqual([...kinds.map(kind => ({ kind, target: 'panel' })), { target: null }]);
+        });
+
         it('reads the members DOMQL reads for an event of a module\'s event type too, and every other member as the event\'s own', () => {
             isolated.registerModule(isolated.createModule('Swipes', {
                 types: [{ name: 'Swipe', kind: 'structured', members: [{ name: 'pointerId', kind: 'property', result: 'Number?' }, { name: 'distance', kind: 'property', result: 'Number' }] }],

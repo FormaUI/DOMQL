@@ -104,4 +104,115 @@ describe('Events in a browser', () => {
             expect(passes[0]).toEqual({ types: ['text/plain'] });
         });
     });
+
+    describe('focus, editing, presentation, animation, loading and media events', () => {
+        /** Waits for the next event of the type at the target. */
+        const next = (target, type) => new Promise(resolve => target.addEventListener(type, resolve, { once: true }));
+
+        it('capture focus moving within a container, which focusin and focusout bubble to, with the element it leaves and the one it moves to', async () => {
+            document.body.innerHTML = '<div id="panel"><input id="first"><input id="second"></div><button id="outside">Out</button>';
+
+            const panel = document.getElementById('panel');
+            const moves = subscribe('panel.on("focusout") { from = it.target?["id"], to = it.relatedTarget?["id"] }', { panel });
+            const arrivals = subscribe('panel.on("focusin") { to = it.target?["id"], from = it.relatedTarget?["id"] }', { panel });
+
+            await userEvent.click(document.getElementById('first'));
+            await userEvent.click(document.getElementById('second'));
+            await userEvent.click(document.getElementById('outside'));
+
+            expect(arrivals).toEqual([{ to: 'first', from: null }, { to: 'second', from: 'first' }]);
+            expect(moves).toEqual([{ from: 'first', to: 'second' }, { from: 'second', to: 'outside' }]);
+        });
+
+        it('capture an edit the user types, and an input event a select fires, which names no kind', async () => {
+            document.body.innerHTML = '<input id="field"><select id="list"><option>1</option><option>2</option></select>';
+
+            const field = document.getElementById('field');
+            const list = document.getElementById('list');
+            const typed = subscribe('field.on("beforeinput") { kind = it.inputType, data = it.data, composing = it.isComposing }', { field });
+            const chosen = subscribe('list.on("input") { kind = it.inputType, data = it.data, composing = it.isComposing }', { list });
+
+            await userEvent.type(field, 'a');
+            await userEvent.selectOptions(list, '2');
+
+            expect(typed).toEqual([{ kind: 'insertText', data: 'a', composing: false }]);
+            expect(chosen).toEqual([{ kind: '', data: null, composing: false }]);
+        });
+
+        it('capture the formats a paste carries from its clipboard data, and a composition\'s text', () => {
+            document.body.innerHTML = '<div id="editor" contenteditable="true"></div>';
+
+            const editor = document.getElementById('editor');
+            const pastes = subscribe('editor.on("paste") { types = it.types }', { editor });
+            const compositions = subscribe('editor.on("compositionend") { data = it.data }', { editor });
+            const clipboardData = new DataTransfer();
+
+            clipboardData.setData('text/plain', 'pasted');
+            editor.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, clipboardData }));
+            editor.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, data: 'か' }));
+
+            expect(pastes).toEqual([{ types: ['text/plain'] }]);
+            expect(compositions).toEqual([{ data: 'か' }]);
+        });
+
+        it('capture a popover, a details element and a dialog toggling, and a dialog closing', async () => {
+            document.body.innerHTML = '<div id="tip" popover>Tip</div><details id="more"><summary>More</summary>Text</details><dialog id="dialog">Dialog</dialog>';
+
+            const tip = document.getElementById('tip');
+            const more = document.getElementById('more');
+            const dialog = document.getElementById('dialog');
+            const toggles = subscribe('tip.on("beforetoggle") { from = it.oldState, to = it.newState }', { tip });
+            const shown = subscribe('more.on("toggle") { from = it.oldState, to = it.newState }', { more });
+            const dialogs = subscribe('dialog.on("toggle") { from = it.oldState, to = it.newState }', { dialog });
+            const closes = subscribe('dialog.on("close") { target = it.target?["id"] }', { dialog });
+
+            tip.showPopover();
+            more.open = true;
+            await next(more, 'toggle');
+            dialog.showModal();
+            await next(dialog, 'toggle');
+            dialog.close();
+            await next(dialog, 'close');
+
+            // A modal dialog opening hides the popover.
+            expect(toggles).toEqual([{ from: 'closed', to: 'open' }, { from: 'open', to: 'closed' }]);
+            expect(shown).toEqual([{ from: 'closed', to: 'open' }]);
+            expect(dialogs[0]).toEqual({ from: 'closed', to: 'open' });
+            expect(closes).toEqual([{ target: 'dialog' }]);
+        });
+
+        it('capture an animation starting and ending, by the name of its keyframes', async () => {
+            document.body.innerHTML = '<style>@keyframes fade { from { opacity: 0 } to { opacity: 1 } }</style><div id="box"></div>';
+
+            const box = document.getElementById('box');
+            const animations = subscribe('box.on("animationstart") { name = it.animationName }', { box });
+            const ended = subscribe('box.on("animationend") { name = it.animationName }', { box });
+            const done = next(box, 'animationend');
+
+            box.style.animation = 'fade 10ms';
+            await done;
+
+            expect(animations).toEqual([{ name: 'fade' }]);
+            expect(ended).toEqual([{ name: 'fade' }]);
+        });
+
+        it('capture an image loading and failing, and a media element\'s volume changing', async () => {
+            document.body.innerHTML = '<img id="good"><img id="bad"><video id="video"></video>';
+
+            const [good, bad, video] = ['good', 'bad', 'video'].map(id => document.getElementById(id));
+            const loads = subscribe('good.on("load") { target = it.target?["id"] }', { good });
+            const errors = subscribe('bad.on("error") { target = it.target?["id"] }', { bad });
+            const volumes = subscribe('video.on("volumechange") { target = it.target?["id"] }', { video });
+            const loaded = next(good, 'load');
+            const failed = next(bad, 'error');
+            const changed = next(video, 'volumechange');
+
+            good.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+            bad.src = 'data:image/png;base64,broken';
+            video.volume = 0.5;
+            await Promise.all([loaded, failed, changed]);
+
+            expect([loads, errors, volumes]).toEqual([[{ target: 'good' }], [{ target: 'bad' }], [{ target: 'video' }]]);
+        });
+    });
 });

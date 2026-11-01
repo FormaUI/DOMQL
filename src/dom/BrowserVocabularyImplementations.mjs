@@ -37,14 +37,17 @@ const TAB_INDEX = /^[\t\n\f\r ]*[-+]?[0-9]/;
 
 /**
  * The members DOMQL reads for an event, by name, where no property of the event answers them as data: a pointer the event carries none of, which a click the keyboard caused gives as `-1` and `""` and a mouse event
- * lacks; the points a touch list holds; and the formats a drag's data transfer lists, each none where the event carries none. Every other member is the event's own property.
+ * lacks; the points a touch list holds; the formats a drag's data transfer or a clipboard event's data lists, each none where the event carries none; and an edit's kind and whether it is composed, empty and false
+ * for an input event that says neither, as HTML fires at a select or a checkbox. Every other member is the event's own property.
  * @type {Map<string, (event: Event) => unknown>}
  */
 const EVENT_MEMBERS = new Map([
     ['pointerId', event => (typeof event.pointerId === 'number' && event.pointerId !== -1 ? event.pointerId : null)],
     ['pointerType', event => (typeof event.pointerType === 'string' && event.pointerType !== '' ? event.pointerType : null)],
     ['touches', event => Array.from(event.touches ?? [])],
-    ['types', event => Array.from(event.dataTransfer?.types ?? [])],
+    ['types', event => Array.from((event.dataTransfer ?? event.clipboardData)?.types ?? [])],
+    ['inputType', event => event.inputType ?? ''],
+    ['isComposing', event => event.isComposing === true],
 ]);
 
 /** What reads an event as DOMQL delivers it: a member DOMQL reads for it, and otherwise the event's own property, read from the event itself. */
