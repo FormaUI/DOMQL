@@ -6,6 +6,26 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-279"></a>
+
+## `1.0.0-alpha.279`
+
+*November 1, 2026 · Nexo language `1.0.0-beta.8` · definition format 38*
+
+DOMQL moves to Nexo's language `1.0.0-beta.8`, which fixes what DOMQL's migration found in it.
+
+**Queries**
+
+- [Registering a module](spec/vocabulary.md#extension-modules-registering): a watch or a waiting evaluation made stale by a module recognizing values compares its next result within each value's tolerance, as Nexo keeps a definition's origins across its resolutions. It compared that result exactly.
+- [Watches](spec/watches.md#how-a-member-changes): a member read through a value of `Any` is compared within the tolerance it declares, as Nexo now records it. Its value was compared exactly.
+- A host call on a value of `Any`, where every declaration of its name is a host call, is refused as Nexo resolves it (NEXO3092). DOMQL refused it as a value to evaluate, and evaluating it failed.
+
+**API**
+
+- `NexoError`'s factories, `structure`, `validation`, `module` and `evaluation`, are declared, so a module written in TypeScript builds a failure of its own.
+
+**Breaking:** a query ending in a host call on a value of `Any` fails to resolve with NEXO3092; every operation refused it before. Cast its receiver, or name the extension the call is declared in.
+
 <a id="v1-0-0-alpha-278"></a>
 
 ## `1.0.0-alpha.278`

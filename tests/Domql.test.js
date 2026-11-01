@@ -1722,6 +1722,48 @@ describe('domql modules', () => {
         expect(getError(() => isolated.query('panel:zoom', { panel: document.createElement('div') }).resolve())).toMatchObject({ kind: 'validation', code: 'NEXO3005' });
     });
 
+    it('compare a watch made stale within each value\'s tolerance, as before, since Nexo keeps the origins of one definition across its resolutions', async () => {
+        const panel = document.createElement('div');
+        const changes = [];
+        let gauge = 10;
+
+        isolated.registerModule(
+            isolated.createModule('Gauges', {
+                types: [
+                    elementExtension('GaugeElements', [
+                        { name: 'bag', kind: 'property', result: 'Any', updates: { changes: 'constant', reads: 'fresh' }, impl: ({ receiver }) => receiver },
+                        { name: 'gauge', kind: 'property', result: 'Number', updates: { changes: 'constant', reads: 'fresh', tolerance: 0.5 }, impl: () => gauge },
+                    ]),
+                ],
+            }),
+        );
+
+        const watch = isolated.query('import Gauges\npanel:bag:gauge', { panel }).watch();
+
+        watch.subscribe('change', (_sender, args) => changes.push(args.value));
+        await watch.readyAsync();
+        gauge = 10.3;
+        // A module recognizing values makes the watch's resolution stale, so its next evaluation resolves the query again.
+        isolated.registerModule(isolated.createModule('Recognizer', { typeOf: () => null }));
+        await watch.refreshAsync();
+        gauge = 11;
+        await watch.refreshAsync();
+        watch.dispose();
+
+        expect(changes).toEqual([10, 11]);
+    });
+
+    it('refuse a host call on a value of Any as Nexo resolves it, where every declaration of its name is a host call', () => {
+        const later = { name: 'later', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', parameters: [], result: 'Boolean', impl: () => true };
+
+        isolated.registerModule(isolated.createModule('Later', { types: [elementExtension('LaterElements', [{ name: 'bag', kind: 'property', result: 'Any', updates: { changes: 'constant', reads: 'fresh' }, impl: ({ receiver }) => receiver }, later])] }));
+
+        const error = getError(() => isolated.query('import Later\npanel:bag:later()', { panel: document.createElement('div') }).resolve());
+
+        expect(error).toMatchObject({ kind: 'validation', code: 'NEXO3092', message: expect.stringContaining("'later' is a host call wherever it applies") });
+        expect(error.location).toMatchObject({ pointer: '/expression', line: 2, column: 1 });
+    });
+
     it('keep the resolutions made before them while they are current, and replace one a module recognizing values may change', () => {
         const panel = document.createElement('div');
         const query = isolated.query('panel.children.count', { panel });

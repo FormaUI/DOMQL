@@ -318,8 +318,14 @@ try {
     }
 }
 
-// @ts-expect-error DOMQL makes its errors, so a caller constructs none.
+// @ts-expect-error A caller constructs no NexoError directly.
 new NexoError();
+
+// A module's implementation builds a failure of its own through the factory of its kind.
+const chartRefusal: NexoError = NexoError.module('CHARTS4001', 'A chart declares its axes', { module: 'Charts', declaration: 'chart' });
+const chartFailure: NexoError = NexoError.evaluation('CHARTS5001', 'The chart could not be measured', {}, { cause: chartRefusal });
+
+console.error(chartRefusal.kind, chartFailure.code);
 
 // @ts-expect-error A query is made from text or a definition.
 domql.query(42);

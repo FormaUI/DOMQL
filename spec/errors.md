@@ -2,9 +2,9 @@
 
 <a id="errors"></a>
 
-Every failure DOMQL reports is a `NexoError`, with its `code`, its `kind`, its `message` and the `location` it concerns, as Nexo's [errors](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/runtime/errors.md#diagnostics-codes) set out. A caller reads the code, the kind and the location, never the message.
+Every failure DOMQL reports is a `NexoError`, with its `code`, its `kind`, its `message` and the `location` it concerns, as Nexo's [errors](https://github.com/FormaUI/Nexo/blob/65d247bc6f6b0dde1b701bbfd41f19a40838174c/spec/runtime/errors.md#diagnostics-codes) set out. A caller reads the code, the kind and the location, never the message.
 
-- **Nexo's conditions** keep their codes, `NEXO` and four digits, as Nexo's catalogs give them: [the language's](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/language/errors.md) for what a query may express, and [the runtime's](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/runtime/errors.md) for definitions, bindings, declarations and the API. A Nexo error passing through DOMQL keeps its code and takes no second one.
+- **Nexo's conditions** keep their codes, `NEXO` and four digits, as Nexo's catalogs give them: [the language's](https://github.com/FormaUI/Nexo/blob/65d247bc6f6b0dde1b701bbfd41f19a40838174c/spec/language/errors.md) for what a query may express, and [the runtime's](https://github.com/FormaUI/Nexo/blob/65d247bc6f6b0dde1b701bbfd41f19a40838174c/spec/runtime/errors.md) for definitions, bindings, declarations and the API. A Nexo error passing through DOMQL keeps its code and takes no second one.
 - **DOMQL's own conditions** take codes of DOMQL's prefix, `DOMQL` and four digits, in the ranges Nexo's kinds use, as the tables below give them.
 - **A code is stable.** It names its condition, never its wording. A new condition takes a new code, and a retired code is never reused.
 

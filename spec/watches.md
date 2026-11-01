@@ -46,7 +46,7 @@ In this document:
 
 ## How a member changes
 
-Every member declares how its result changes, by the categories [Nexo defines](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/runtime/members.md#how-a-member-changes), and a watch decides by each what it may follow:
+Every member declares how its result changes, by the categories [Nexo defines](https://github.com/FormaUI/Nexo/blob/65d247bc6f6b0dde1b701bbfd41f19a40838174c/spec/runtime/members.md#how-a-member-changes), and a watch decides by each what it may follow:
 
 | Category | As in DOMQL | In a watch |
 | --- | --- | --- |
@@ -55,7 +55,7 @@ Every member declares how its result changes, by the categories [Nexo defines](h
 | Partly observable | A computed style, which a rule outside the element can change unobserved | Allowed when the caller accepts partial observation for that watch; a change the observations miss reaches the watch at its next evaluation, which `refreshAsync` or another observed change causes. |
 | Unobserved | A member that names no observations | A validation error. |
 
-A watch is checked against every member its query may read. A member of a value of `Any` is selected as the query is evaluated, so the watch is checked against every declaration of its name Nexo could select, as Nexo's [candidate declarations](https://github.com/FormaUI/Nexo/blob/559334c83aa5704fe2423fc9fcac11695d3901cf/spec/runtime/resolution.md) overestimate them: a watch over `panel:bag.rect`, where a module's extension member `bag` answers `Any`, takes `acceptPartialObservation`, as one over `panel.rect` does.
+A watch is checked against every member its query may read. A member of a value of `Any` is selected as the query is evaluated, so the watch is checked against every declaration of its name Nexo could select, as Nexo's [candidate declarations](https://github.com/FormaUI/Nexo/blob/65d247bc6f6b0dde1b701bbfd41f19a40838174c/spec/runtime/resolution.md) overestimate them: a watch over `panel:bag.rect`, where a module's extension member `bag` answers `Any`, takes `acceptPartialObservation`, as one over `panel.rect` does.
 | Derived | A list's `first` or `where` | Allowed wherever what it derives from is. |
 
 A literal is constant, so a watched object expression can carry one: `viewport { kind = "viewport", width = it.size?.width }`.

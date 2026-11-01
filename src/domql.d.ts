@@ -325,6 +325,14 @@ export declare class NexoError extends Error {
     readonly code: string;
     readonly kind: 'syntax' | 'structure' | 'validation' | 'module' | 'evaluation';
     readonly location: NexoLocation;
+    /** A failure of what a caller gave: bindings, a definition's structure or a use of the API. */
+    static structure(code: string, message: string, location: NexoLocation): NexoError;
+    /** A query resolution finds does not fit its vocabulary or its types, before anything is evaluated. */
+    static validation(code: string, message: string, location: NexoLocation): NexoError;
+    /** A declaration breaking its contract, as a module refuses a declaration whose keys of its own break its rules. */
+    static module(code: string, message: string, location: NexoLocation): NexoError;
+    /** A failure while evaluating, with what caused it. */
+    static evaluation(code: string, message: string, location: NexoLocation, options?: { cause?: unknown }): NexoError;
 }
 
 /** How a member changes. */
