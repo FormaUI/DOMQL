@@ -2,11 +2,11 @@
 
 ## Current state
 
-**DOMQL's vocabulary, queries, watches, events, executions and behaviors are implemented on Nexo's language `1.0.0-beta.20`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.314`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next are the [planned capabilities](#planned-capabilities) of the API and host; the C# half waits for its design.**
+**DOMQL's vocabulary, queries, watches, events, executions and behaviors are implemented on Nexo's language `1.0.0-beta.20`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.315`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next are the [planned capabilities](#planned-capabilities) of the API and host; the C# half waits for its design.**
 
 | Version | Implementation | Specification |
 | --- | --- | --- |
-| DOMQL specification | `1.0.0-alpha.314` | `1.0.0-alpha.314` |
+| DOMQL specification | `1.0.0-alpha.315` | `1.0.0-alpha.315` |
 | Nexo language | `1.0.0-beta.20` | `1.0.0-beta.20` |
 | Definition format | 38 | 38 |
 
@@ -72,6 +72,7 @@ Each feature, the contract that states it, its state in the implementation, and 
 | `all`, `first`, `matches` and `closest` observing what their selector reads, the `selector` observation | [`matches`](../spec/vocabulary.md#function-element-matches), [observation types](../spec/vocabulary.md#observations-types) | Implemented | [`alpha.286`](../VERSION-HISTORY.md#v1-0-0-alpha-286) |
 | An element's `sizeLimits` in pixels, and a file input's `files` | [`sizeLimits`](../spec/vocabulary.md#property-element-sizelimits), [`files`](../spec/vocabulary.md#property-element-files) | Implemented | [`alpha.285`](../VERSION-HISTORY.md#v1-0-0-alpha-285) |
 | `hasPointerCapture(pointerId)` | [`hasPointerCapture`](../spec/vocabulary.md#function-element-haspointercapture) | Implemented | [`alpha.284`](../VERSION-HISTORY.md#v1-0-0-alpha-284) |
+| Owned writes beside a framework: an element's text, `ownText`, written into the node it holds, and a kept value that yields to a writer keeping its own | [Owned writes](../spec/vocabulary.md#execution-element-owned-writes), [beside a framework](../spec/vocabulary.md#execution-element-owned-writes-framework) | Implemented, as [D70](decisions.md#d70) records | [`alpha.315`](../VERSION-HISTORY.md#v1-0-0-alpha-315) |
 | A chosen file shown as an element's source, `ownFileSource`, its object URL owned and revoked | [`ownFileSource`](../spec/vocabulary.md#execution-element-ownfilesource) | Implemented, as [D44](decisions.md#d44) records | [`alpha.300`](../VERSION-HISTORY.md#v1-0-0-alpha-300) |
 | Placing the document's selection, `select`, `selectContents` and `collapse` of `Domql.document.selection` | [Selection placement](../spec/vocabulary.md#execution-document-selection-placement) | Implemented, as [D43](decisions.md#d43) records | [`alpha.299`](../VERSION-HISTORY.md#v1-0-0-alpha-299) |
 | `dispatch`, a custom event of the page's own, of an element, the document and the window | [`dispatch`](../spec/vocabulary.md#execution-dispatch) | Implemented, as [D42](decisions.md#d42) records | [`alpha.298`](../VERSION-HISTORY.md#v1-0-0-alpha-298) |
@@ -168,10 +169,9 @@ The language's part is Nexo's already, adopted with the [migration](#migration-t
 
 **The order of the work:**
 
-1. **Presentation.** Ownership of written styles and classes against a framework (A10).
-2. **The remaining facilities.** Reactions in the browser (A7).
-3. **Editing and data views.** Source elements for a local consumer (A8).
-4. **The C# half's queue** of ordered delivery (A5), with the C# half (A1), once it is designed.
+1. **The remaining facilities.** Reactions in the browser (A7).
+2. **Editing and data views.** Source elements for a local consumer (A8).
+3. **The C# half's queue** of ordered delivery (A5), with the C# half (A1), once it is designed.
 
 <a id="planned-vocabulary"></a>
 
@@ -235,7 +235,7 @@ None remains: C1 to C14 are implemented, as [the features](#the-host) show, each
 
 ### API and host
 
-A2 to A4 are implemented, as [the features](#the-host) show: change sets compose by concatenation, so a host coalesces them itself ([D65](decisions.md#d65)); a refresh takes new samples where it is asked to, while delivering an equal result needs nothing new ([D66](decisions.md#d66)); and a module is loaded on request through a loader by its name, before the query importing it is carried out ([D68](decisions.md#d68)). A5's JavaScript side is implemented: what DOMQL delivers reaches its handlers in the order it happens, across handles and owners, and calls to several handles take effect in the order they are made ([D69](decisions.md#d69)).
+A2 to A4 are implemented, as [the features](#the-host) show: change sets compose by concatenation, so a host coalesces them itself ([D65](decisions.md#d65)); a refresh takes new samples where it is asked to, while delivering an equal result needs nothing new ([D66](decisions.md#d66)); and a module is loaded on request through a loader by its name, before the query importing it is carried out ([D68](decisions.md#d68)). A5's JavaScript side is implemented: what DOMQL delivers reaches its handlers in the order it happens, across handles and owners, and calls to several handles take effect in the order they are made ([D69](decisions.md#d69)). A10 is implemented: each target of a rendered element is the framework's or an owned write's, an owned write keeps its value against a patch and yields to a writer keeping its own, and a rendered node's text is written in place ([D70](decisions.md#d70)).
 
 | | Addition |
 | --- | --- |
@@ -245,7 +245,6 @@ A2 to A4 are implemented, as [the features](#the-host) show: change sets compose
 | A7 | **Reactions run in the browser:** a once execution DOMQL runs when a route or an event source delivers, with no round trip, so transient activation holds for the clipboard, sharing, playback and select-on-focus; and several executions in one crossing |
 | A8 | **Source elements for a local consumer:** a watch in the browser whose result items carry the elements they came from, so a JavaScript handler can write to them |
 | A9 | **Delivery options:** a throttle on a subscription; a delayed schedule beside `frame` and `immediate`; reporting when a subset of fields changes while delivering all of them. A subscription delivered by frame reopens the design's [decision not taken](domql-design.md#decisions-not-taken) |
-| A10 | **Ownership of written styles and classes** against a framework that renders the same elements: an exclusive owner, or an isolated layer per component |
 
 <a id="planned-timing"></a>
 

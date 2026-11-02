@@ -6,6 +6,22 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-315"></a>
+
+## `1.0.0-alpha.315`
+
+*November 2, 2026 · Nexo language `1.0.0-beta.20` · definition format 38*
+
+Owned writes hold what DOMQL and module code write beside a framework that renders the same elements: an element's text among them, kept against the framework's patches without fighting a writer that keeps its own value.
+
+**Executions**
+
+- [`ownText({ value, restore, keep })`](spec/vocabulary.md#execution-element-owned-writes): an owned write of an element's text, written into the one text node it holds, in place, so a framework that rendered the node keeps it; an element that holds none gets one, and one holding other nodes fails the start or the update.
+- [Another holder](spec/vocabulary.md#execution-element-owned-writes-yielding): a holder that keeps its value yields to a writer that writes its own value again in answer, within the two frames after DOMQL wrote it again, where two such writers alternated once a frame; it keeps its value again from its next update.
+- [Beside a framework](spec/vocabulary.md#execution-element-owned-writes-framework): each target of a rendered element is the framework's or an owned write's, a rendered attribute kept with `keep`, a committed position held with `restore = false` until the framework applied the commit, and module code holding what it writes through owned writes it runs with `env.domql`, as [D70](docs/decisions.md#d70) records.
+
+**Breaking:** a holder that keeps its value no longer writes it again against a writer that writes its own again in answer.
+
 <a id="v1-0-0-alpha-314"></a>
 
 ## `1.0.0-alpha.314`

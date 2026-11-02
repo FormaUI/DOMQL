@@ -1042,3 +1042,22 @@ Each entry is one of three kinds:
   - One press can dismiss one owner's scope and act on another's, and the host must hear the dismissal first, since the order of activations decides which scope takes precedence. DOMQL already delivered synchronously ([D51](#d51)), so the order holds; the specification now promises it across handles, and tests prove it for two owners, a slow handler among them, a watch's change after the occurrences of its task, and updates to several handles.
   - A caller that forwards across a boundary keeps the order by sending in the order its handlers are called, through one queue of its own; its bounds and transport are the caller's, as keeping a copy of a result has them.
 - **Declined:** A queue of DOMQL's own in JavaScript, which would delay every handler for a guarantee the synchronous delivery already gives.
+
+<a id="d70"></a>
+
+## D70 — Each target of a rendered element is the framework's or an owned write's, and a kept value yields to another holder
+
+*November 2, 2026*
+
+- **Kind:** Contract.
+- **Decision:** Ownership against a framework that renders the same elements ([A10](features-status.md#planned-api-and-host)) is exclusive by target: each attribute, class, inline style property and text holds one value, the framework's or the latest owned write's. Owned writes gain `ownText({ value, restore, keep })`, which writes the data of the element's one text node in place. A holder that keeps its value writes it again against a patch, and yields to a writer that writes its own again in answer, within the two frames after, until an update writes the holder's again. Geometry a gesture commits is held with `restore = false` and ended once the framework has applied the commit. Module code holds what it writes through owned writes it runs with `env.domql`.
+- **Why:**
+  - A framework writes a whole `class` or `style` attribute as it renders, dropping a class or a property it doesn't know, but writes it once, when its own render changes; keeping the value against that patch, before paint, as [D63](#d63) has it, is no fight. A writer that keeps a value of its own, as module code holding the document's `lang` during a navigation does, writes again in answer to every write, and two such writers would alternate once a frame without end, so the holder yields: the consumer's correction asked that keeping never fight another holder. Tests prove both, in the simulated document and in Chromium, with an answer in a microtask and one in a frame of another instance's own.
+  - A framework holds the text nodes it rendered and edits them later by reference; writing an element's `textContent` replaces its node and breaks that bookkeeping, so the text is written into the node the element holds, and an element holding other nodes is refused rather than cleared.
+  - A committed position must stand as the gesture's holding ends and until the framework renders it, which `restore = false` and the occurrence's [acknowledgment](#d50) already give; keeping it during the commit undoes a render of the old position that comes before the commit is applied.
+  - Module code writes natively, so it reaches the same holders by running an owned write through `env.domql`, as any caller does, rather than through a second API that would split one target's holders between two.
+- **Declined:**
+  - An isolated layer per component, as a stylesheet rule each, which a framework's inline style overrides anyway, and which CSS can't compose for one property; a class per component already isolates what each writes, and holders already hand a target back as each ends.
+  - Refusing a second holder of a target, an exclusive owner enforced, which would break a replacement that starts before it disposes, as [D48](#d48) found for behaviors.
+  - Telling a holder from a patch by the value it writes, which a class's presence can't tell; the time of the answer does, for every kind of target.
+  - An owned-write tool of the environment's own for module code, which `env.domql` already reaches.

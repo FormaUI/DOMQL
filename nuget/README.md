@@ -961,7 +961,7 @@ DOMQL makes a few changes itself, each one browser call that answers what it did
 list.scrollTo({ block = 0, behavior = "smooth" })
 ```
 
-`dispatch({ type, bubbles, detail })` dispatches an event of the page's own and answers whether a listener cancelled it. `takeFocus()` focuses an element and answers whether focus landed on it, and `showPopover()`, `hidePopover()`, `showModal()` and `close()` show and hide popovers and dialogs, each answering whether it changed them; `capturePointer({ pointerId })` and `releasePointer({ pointerId })` capture a pointer while it is pressed; `Domql.document.selection?.select({ node })`, `selectContents` and `collapse` place the document's selection; and `writeValue`, `writeIndeterminate` and `writeSelection` write a control's state as the page's code does, firing no event. `Domql.window.writeClipboard(text)`, `readClipboard()`, `download({ … })`, `print()` and `requestShare({ … })`, and a media element's `play()`, answer how the browser took the request, as `"refused"` where it wants the user's activation, which a subscription's handler has while the event that called it lasts. `scrollTo` and `scrollBy` scroll an element or `Domql.window` along the axes of its writing mode, from the start of its content even under RTL, and answer whether it moved once the scroll has ended; `scrollIntoView` answers whether the element is in view then. `ownAttribute`, `ownClass`, `ownStyle` and `ownFileSource`, which shows a chosen file as an image's source, are continuous: `run()` holds an attribute, a class or an inline style property at its value until the handle is disposed, which writes back the value it found unless `restore = false`, and `keep = true` writes it again where another writer changes it. The specification lists every [built-in execution](https://github.com/FormaUI/DOMQL/blob/main/spec/vocabulary.md#built-in-executions) and what each needs of the user.
+`dispatch({ type, bubbles, detail })` dispatches an event of the page's own and answers whether a listener cancelled it. `takeFocus()` focuses an element and answers whether focus landed on it, and `showPopover()`, `hidePopover()`, `showModal()` and `close()` show and hide popovers and dialogs, each answering whether it changed them; `capturePointer({ pointerId })` and `releasePointer({ pointerId })` capture a pointer while it is pressed; `Domql.document.selection?.select({ node })`, `selectContents` and `collapse` place the document's selection; and `writeValue`, `writeIndeterminate` and `writeSelection` write a control's state as the page's code does, firing no event. `Domql.window.writeClipboard(text)`, `readClipboard()`, `download({ … })`, `print()` and `requestShare({ … })`, and a media element's `play()`, answer how the browser took the request, as `"refused"` where it wants the user's activation, which a subscription's handler has while the event that called it lasts. `scrollTo` and `scrollBy` scroll an element or `Domql.window` along the axes of its writing mode, from the start of its content even under RTL, and answer whether it moved once the scroll has ended; `scrollIntoView` answers whether the element is in view then. `ownAttribute`, `ownClass`, `ownStyle`, `ownText` and `ownFileSource`, which shows a chosen file as an image's source, are continuous: `run()` holds an attribute, a class, an inline style property or the element's text at its value until the handle is disposed, which writes back the value it found unless `restore = false`, and `keep = true` writes it again before paint where another writer, as a framework re-rendering the element, changes it, yielding to a writer that writes its own value again in answer. `ownText` writes into the text node the element holds, in place, so a framework that rendered the node keeps it. The specification lists every [built-in execution](https://github.com/FormaUI/DOMQL/blob/main/spec/vocabulary.md#built-in-executions) and what each needs of the user.
 
 ### Execute once
 
@@ -1055,6 +1055,28 @@ console.log(panel.dataset.highlight);
 ```
 
 `update()` replaces the complete bindings object and validates it before applying a change. A validation failure leaves the current execution running. Disposing the handle ends the execution; its module remains registered.
+
+### Write beside a framework
+
+A framework that renders an element writes its whole `class` and `style` attributes again as it renders, dropping a class or a property it doesn't know, and holds the text nodes it rendered. Hold what you write with an owned write instead of writing it directly:
+
+```js
+const dragging = domql.query('panel.ownClass({ name = "dragging", keep = true })', { panel }).run();
+const status = domql.query('item.ownText({ value = text })', { item: panel.children[0], text: '2 unread' }).run();
+
+// For this example only: a framework renders the panel's class attribute again, dropping a class it doesn't know.
+panel.className = 'rendered';
+await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+console.log(panel.className);
+// 'rendered dragging'
+console.log(panel.children[0].textContent);
+// '2 unread'
+
+dragging.dispose();
+status.dispose();
+```
+
+`keep = true` writes the value again before the browser paints, wherever another writer changed it; a writer that writes its own value again in answer, as code holding the same attribute does, is yielded to rather than fought. `ownText` writes into the text node the element holds, so the framework keeps the node it rendered. A position a gesture commits to the framework is held with `restore = false`, so it stands once the holding ends, until the framework renders it. Module code holds what it writes the same way, running an owned write with `env.domql`.
 
 ### Reach a running behavior
 

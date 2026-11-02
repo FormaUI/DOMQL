@@ -1211,7 +1211,7 @@ Each states its syntax and signature, as a function's does, what it does and ans
 | Element | [`writeValue(value)`](#execution-element-writevalue) | Once |
 | Element | [`writeSelection({ start, end })`](#execution-element-writeselection) | Once |
 | Document selection | [`select({ node })`, `selectContents({ node, collapse })`, `collapse({ node, offset })`](#execution-document-selection-placement) | Once |
-| Element | [`ownAttribute({ name, value, restore, keep })`, `ownClass({ name, present, restore, keep })`, `ownStyle({ property, value, restore, keep })`](#execution-element-owned-writes) | Continuous |
+| Element | [`ownAttribute({ name, value, restore, keep })`, `ownClass({ name, present, restore, keep })`, `ownStyle({ property, value, restore, keep })`, `ownText({ value, restore, keep })`](#execution-element-owned-writes) | Continuous |
 | Element | [`ownFileSource({ input, index, restore })`](#execution-element-ownfilesource) | Continuous |
 
 <a id="execution-dispatch"></a>
@@ -1386,17 +1386,34 @@ A scroll is **instant** where its `behavior` is `"instant"`, or `"auto"` where t
 
 <a id="execution-element-owned-writes"></a>
 
-### Element: ownAttribute, ownClass, ownStyle
+### Element: ownAttribute, ownClass, ownStyle, ownText
 
-**Syntax:** `ownAttribute({ name, value, restore, keep })`, `ownClass({ name, present, restore, keep })`, `ownStyle({ property, value, restore, keep })`   **Signature:** `name`, `property`: `String`; `value`: `String?`, none where it is null; `present`: `Boolean`, true when omitted; optional `restore`: `Boolean`, true when omitted; optional `keep`: `Boolean`, false when omitted   **Mode:** Continuous   **Activation:** None
+**Syntax:** `ownAttribute({ name, value, restore, keep })`, `ownClass({ name, present, restore, keep })`, `ownStyle({ property, value, restore, keep })`, `ownText({ value, restore, keep })`   **Signature:** `name`, `property`: `String`; `value`: `String?`, none where it is null; `present`: `Boolean`, true when omitted; optional `restore`: `Boolean`, true when omitted; optional `keep`: `Boolean`, false when omitted   **Mode:** Continuous   **Activation:** None
 
-**Does.** Holds one **target** of the element at its value while it runs, an **owned write**: an attribute by its `name`, absent where `value` is null, as `hidden` and `tabindex` are attributes; a class of its class list by its `name`, there where `present` is true; or a property of its inline style, as its `style` attribute declares it, declared none where `value` is null. It writes the value as it starts and as an update gives another, and an update that binds another element, or names another target, ends its holding of the first and holds the other.
+**Does.** Holds one **target** of the element at its value while it runs, an **owned write**: an attribute by its `name`, absent where `value` is null, as `hidden` and `tabindex` are attributes; a class of its class list by its `name`, there where `present` is true; a property of its inline style, as its `style` attribute declares it, declared none where `value` is null; or its **text**, the data of the one text node it holds, none where `value` is null. It writes the value as it starts and as an update gives another, and an update that binds another element, or names another target, ends its holding of the first and holds the other.
 
 - **Holders.** Each owned write running on a target is one of its holders, among those DOMQL's instance runs: the latest to start applies its value, and ending it gives the target back to the one before it, which writes its value again; ending one that is not the latest writes nothing.
 - **Ending the last.** Disposing the last holder of a target writes back the value the target held before the first began, where its `restore` is true, and leaves the value as it stands where it is false: a value the page keeps once it is written, as a document's `lang` and `dir`, and a position a gesture commits, are not restored.
+- **A text** is written into the text node the element holds, in place, so a framework that rendered that node goes on holding it; an element that holds none gets one, which restoring takes away. An element holding any other node, an element or a second text among them, fails the start or the update, since its text would replace what it holds.
 - **Another writer.** DOMQL writes to a target as a holding ends only where the target still holds the value DOMQL last wrote, so a value another writer wrote since, as a framework rendering the element, stands. Where the latest holder's `keep` is true, it writes its value again among the next animation frame's writes, before the watches of that frame read it, each time another writer changes it, as against a framework's patch rewriting an attribute; where it is false, the other writer's value stands until an update writes the holder's again. DOMQL never writes again against a holder of its own.
 
-**Answers.** Nothing, as every continuous execution. A name that is no class, an attribute name the browser refuses, and a failure to write, fail the start or the update, which leaves the execution holding what it held
+<a id="execution-element-owned-writes-yielding"></a>
+
+- **Another holder.** A writer that writes its own value again in answer to DOMQL's, in the microtasks after it or among the writes of the two frames after it, keeps a value of its own, as a module's code holding the document's `lang` does, where a framework's patch writes once. The holder yields to it rather than fight it: the other writer's value stands, and every writer's after it, until an update writes the holder's again and keeps it from then on.
+
+<a id="execution-element-owned-writes-framework"></a>
+
+**Beside a framework.** A target holds one value at a time, so each attribute, class, inline style property and text of an element a framework renders is either the framework's or an owned write's, never shared:
+
+| The target is | Hold it with | So that |
+| --- | --- | --- |
+| Rendered by the framework, as part of a whole `class` or `style` attribute | `keep = true` | A patch that writes the whole attribute again, wiping the class or the property, is undone before paint, and a framework rendering the same target with a value of its own is yielded to only where it writes it again in answer |
+| Committed to the framework, as a position a gesture ends with | `restore = false`, ended once the framework has applied the commit, as the [acknowledgment](behaviors.md#behaviors-acknowledgment) of the occurrence reporting it says | The value stands as the holding ends, and the framework's render of the committed value takes the target over without a frame of the old one |
+| A rendered node's text, as a count written as the reader types | `ownText` | The framework's own text node is written in place, so the nodes it holds stay the ones it rendered |
+
+Module code holds a target the same way, through an owned write it runs with [`env.domql`](#extension-modules-environment), so its holdings and every other caller's take turns as holders do.
+
+**Answers.** Nothing, as every continuous execution. A name that is no class, an attribute name the browser refuses, an element whose text would replace other nodes, and a failure to write, fail the start or the update, which leaves the execution holding what it held
 
 <a id="execution-element-ownfilesource"></a>
 

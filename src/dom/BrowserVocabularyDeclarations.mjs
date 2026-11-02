@@ -278,6 +278,7 @@ export class BrowserVocabularyDeclarations {
                     execution('ownAttribute', 'ownAttribute', undefined, { mode: 'continuous', arguments: 'options', parameters: [valueParameter('name', 'String'), valueParameter('value', 'String?', { nulls: 'accept' }), ...OWNERSHIP] }),
                     execution('ownClass', 'ownClass', undefined, { mode: 'continuous', arguments: 'options', parameters: [valueParameter('name', 'String'), valueParameter('present', 'Boolean', { default: true }), ...OWNERSHIP] }),
                     execution('ownStyle', 'ownStyle', undefined, { mode: 'continuous', arguments: 'options', parameters: [valueParameter('property', 'String'), valueParameter('value', 'String?', { nulls: 'accept' }), ...OWNERSHIP] }),
+                    execution('ownText', 'ownText', undefined, { mode: 'continuous', arguments: 'options', parameters: [valueParameter('value', 'String?', { nulls: 'accept' }), ...OWNERSHIP] }),
                     execution('ownFileSource', 'ownFileSource', undefined, { mode: 'continuous', arguments: 'options', parameters: [valueParameter('input', 'Element'), valueParameter('index', 'Number', { default: 0 }), OWNERSHIP[0]] }),
                     execution('closeDialog', 'close', 'Boolean', { arguments: 'options', parameters: [valueParameter('returnValue', 'String?', { default: null, nulls: 'accept', omitted: 'the dialog\'s return value left as it is' })] }),
                 ], { supertype: 'Node' }),

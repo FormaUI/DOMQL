@@ -185,6 +185,86 @@ describe('OwnedWrites', () => {
             expect(panel.getAttribute('dir')).toBe('auto');
         });
 
+        it('yields to another writer that writes its value again in answer, rather than fight it, until an update writes the holder\'s again', async () => {
+            const written = [];
+
+            // Another writer that keeps its own value too, writing it again as soon as it is changed, as a module's code holding the document's language does.
+            const holder = new MutationObserver(() => {
+                if (panel.getAttribute('lang') !== 'de') {
+                    panel.setAttribute('lang', 'de');
+                }
+            });
+            const handle = run('panel.ownAttribute({ name = "lang", value = value, restore = false, keep = true })', { panel, value: 'he' });
+            const recorder = new MutationObserver(records => written.push(...records.map(() => panel.getAttribute('lang'))));
+
+            recorder.observe(panel, { attributes: true, attributeFilter: ['lang'] });
+            holder.observe(panel, { attributes: true, attributeFilter: ['lang'] });
+            panel.setAttribute('lang', 'de');
+
+            for (let frame = 0; frame < 6; frame++) {
+                await nextFrame();
+            }
+
+            expect(panel.getAttribute('lang')).toBe('de');
+            expect(written.filter(value => value === 'he').length).toBeLessThanOrEqual(1);
+
+            // Having yielded, the write lets every other writer's value stand, until an update writes its own again and keeps it.
+            holder.disconnect();
+            panel.setAttribute('lang', 'en');
+            await nextFrame();
+            await nextFrame();
+
+            expect(panel.getAttribute('lang')).toBe('en');
+
+            handle.update({ panel, value: 'fr' });
+            panel.setAttribute('lang', 'en');
+            await nextFrame();
+
+            expect(panel.getAttribute('lang')).toBe('fr');
+            recorder.disconnect();
+        });
+
+        it('stops alternating with another instance\'s write that keeps its value too, writing again in a frame of its own', async () => {
+            vi.resetModules();
+
+            const { domql: another } = await import('#domql/domql.js');
+            const values = [];
+            const recorder = new MutationObserver(records => values.push(...records.map(() => panel.getAttribute('dir'))));
+
+            recorder.observe(panel, { attributes: true, attributeFilter: ['dir'] });
+            run('panel.ownAttribute({ name = "dir", value = "rtl", keep = true })', { panel });
+
+            const theirs = another.query('panel.ownAttribute({ name = "dir", value = "ltr", keep = true })', { panel }).run();
+
+            for (let frame = 0; frame < 10; frame++) {
+                await nextFrame();
+            }
+
+            const settled = values.length;
+
+            for (let frame = 0; frame < 5; frame++) {
+                await nextFrame();
+            }
+
+            expect(values.length).toBe(settled);
+            expect(settled).toBeLessThanOrEqual(5);
+            theirs.dispose();
+            recorder.disconnect();
+        });
+
+        it('goes on keeping its value against patches that don\'t answer its writes, each a frame or more apart', async () => {
+            run('panel.ownClass({ name = "dragging", keep = true })', { panel });
+
+            for (let patch = 0; patch < 3; patch++) {
+                panel.className = 'base';
+                await nextFrame();
+                await nextFrame();
+                await nextFrame();
+
+                expect(panel.classList.contains('dragging')).toBe(true);
+            }
+        });
+
         it('is the latest holder\'s alone, so a holder that keeps its value before another never fights it', async () => {
             run('panel.ownAttribute({ name = "lang", value = "fr", keep = true })', { panel });
             run('panel.ownAttribute({ name = "lang", value = "de" })', { panel });
@@ -238,6 +318,70 @@ describe('OwnedWrites', () => {
             run('panel.ownStyle({ property = "left", value = "40px", restore = false })', { panel }).dispose();
 
             expect(panel.style.getPropertyValue('left')).toBe('40px');
+        });
+    });
+
+    describe('a text', () => {
+        it('is held in the one text node the element holds, written in place so a framework that rendered the node keeps it, and written back as it was found', () => {
+            other.textContent = '0';
+
+            const node = other.firstChild;
+            const handle = run('other.ownText({ value = count })', { other, count: '12' });
+
+            expect(domql.query('other.ownText({ value = null })', { other }).resolve()).toMatchObject({ kind: 'execution', executionMode: 'continuous', type: null });
+            expect(other.firstChild).toBe(node);
+            expect(node.data).toBe('12');
+
+            handle.update({ other, count: '13' });
+
+            expect(other.firstChild).toBe(node);
+            expect(node.data).toBe('13');
+
+            handle.dispose();
+
+            expect(other.firstChild).toBe(node);
+            expect(node.data).toBe('0');
+        });
+
+        it('adds a text node to an element that holds none, and takes it away as it ends where it restores, as for a value of null', () => {
+            const handle = run('other.ownText({ value = "3 left" })', { other });
+
+            expect(other.childNodes.length).toBe(1);
+            expect(other.textContent).toBe('3 left');
+
+            handle.update({ other });
+            handle.dispose();
+
+            expect(other.childNodes.length).toBe(0);
+            expect(run('other.ownText({ value = null })', { other }) && other.childNodes.length).toBe(0);
+        });
+
+        it('fails to start for an element that holds other nodes, whose text would replace them', () => {
+            other.innerHTML = '<b>bold</b>';
+
+            const error = (() => {
+                try {
+                    run('other.ownText({ value = "x" })', { other });
+                } catch (failure) {
+                    return failure;
+                }
+
+                return null;
+            })();
+
+            expect(error).toMatchObject({ kind: 'evaluation', code: 'DOMQL5007' });
+            expect(error.cause.message).toContain('The element holds nodes beside one text');
+            expect(other.innerHTML).toBe('<b>bold</b>');
+        });
+
+        it('is kept against a framework that writes the node\'s data, where the write keeps it', async () => {
+            other.textContent = '0';
+            run('other.ownText({ value = "12", keep = true })', { other });
+
+            other.firstChild.data = '0';
+            await nextFrame();
+
+            expect(other.textContent).toBe('12');
         });
     });
 

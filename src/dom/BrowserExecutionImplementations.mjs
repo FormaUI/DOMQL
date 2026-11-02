@@ -131,6 +131,7 @@ export class BrowserExecutionImplementations {
             ownAttribute: own((element, { name }) => OwnedWrites.attribute(element, name), ({ value }) => value),
             ownClass: own((element, { name }) => OwnedWrites.class(element, name), ({ present }) => present),
             ownStyle: own((element, { property }) => OwnedWrites.style(element, property), ({ value }) => value),
+            ownText: own(element => OwnedWrites.text(element), ({ value }) => value),
             ownFileSource: ({ receiver: element, args, reportError, env }) => BrowserExecutionImplementations.#ownFileSource(writes, element, args, { reportError, frame: env.frame }),
 
             // The top layer: each answers whether it changed the element's state, and false where the element is in that state already, which the platform's calls leave as it is.

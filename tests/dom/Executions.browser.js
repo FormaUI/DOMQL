@@ -417,6 +417,69 @@ describe('Executions in a browser', () => {
         });
     });
 
+    describe('owned writes beside another writer', () => {
+        /** Waits for the frames given to run. */
+        const frames = async count => {
+            for (let frame = 0; frame < count; frame++) {
+                await new Promise(resolve => requestAnimationFrame(resolve));
+            }
+        };
+
+        it('keep a class against a framework\'s patch of the class attribute, and yield to a writer that writes its own value again in answer', async () => {
+            document.body.innerHTML = '<div id="popup" class="framework" style="left: 0px"></div>';
+
+            const popup = document.getElementById('popup');
+            const marked = domql.query('popup.ownClass({ name = "dragging", keep = true })', { popup }).run();
+            const placed = domql.query('popup.ownStyle({ property = "left", value = "40px", restore = false, keep = true })', { popup }).run();
+
+            // A framework renders the element's class and style again, which a frame later hold the owned values once more.
+            popup.className = 'framework rendered';
+            popup.setAttribute('style', 'top: 0px');
+            await frames(2);
+
+            expect(popup.className).toBe('framework rendered dragging');
+            expect(popup.style.left).toBe('40px');
+
+            // A writer that keeps its own left, answering every change, is yielded to rather than fought.
+            const lefts = [];
+            const holder = new MutationObserver(() => {
+                lefts.push(popup.style.left);
+
+                if (popup.style.left !== '10px') {
+                    popup.style.left = '10px';
+                }
+            });
+
+            holder.observe(popup, { attributes: true, attributeFilter: ['style'] });
+            popup.style.left = '10px';
+            await frames(6);
+
+            expect(popup.style.left).toBe('10px');
+            expect(lefts.filter(left => left === '40px').length).toBeLessThanOrEqual(1);
+            holder.disconnect();
+            marked.dispose();
+            placed.dispose();
+            expect(popup.className).toBe('framework rendered');
+            expect(popup.style.left).toBe('10px');
+        });
+
+        it('write a rendered text node\'s data in place, the node the framework holds', async () => {
+            document.body.innerHTML = '<output id="count">0</output>';
+
+            const count = document.getElementById('count');
+            const node = count.firstChild;
+            const text = domql.query('count.ownText({ value = value })', { count, value: '12 / 200' }).run();
+
+            expect(count.firstChild).toBe(node);
+            expect(node.data).toBe('12 / 200');
+
+            text.update({ count, value: '13 / 200' });
+            expect(node.data).toBe('13 / 200');
+            text.dispose();
+            expect(node.data).toBe('0');
+        });
+    });
+
     describe('the top layer', () => {
         it('shows and hides a popover, answering whether it changed it, and false where it is in that state already', async () => {
             document.body.innerHTML = '<div id="tip" popover>Tip</div>';

@@ -89,4 +89,4 @@ In this document:
 | State a behavior offers | What a member of a behavior's module reads through the instance running for its owner on its receiver, which a watch follows through the `behavior` observation | [State](behaviors.md#behaviors-state) |
 | Built-in execution | An execution DOMQL's module declares, one platform call answering what it did | [Executions](vocabulary.md#built-in-executions) |
 | Transient activation | The browser's leave for a page to do some things only while the user has just acted, which some built-in executions need | [Activation](vocabulary.md#built-in-executions) |
-| Owned write | A continuous execution that holds one target of an element, an attribute, a class or an inline style property, at its value while it runs, among the target's other holders | [Owned writes](vocabulary.md#execution-element-owned-writes) |
+| Owned write | A continuous execution that holds one target of an element, an attribute, a class, an inline style property or its text, at its value while it runs, among the target's other holders | [Owned writes](vocabulary.md#execution-element-owned-writes) |
