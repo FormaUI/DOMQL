@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { BrowserExecutionImplementations } from '#domql/dom/BrowserExecutionImplementations.mjs';
 import { BrowserModule } from '#domql/dom/BrowserModule.mjs';
 import { BrowserObservationImplementations } from '#domql/dom/BrowserObservationImplementations.mjs';
 import { BrowserVocabularyDeclarations } from '#domql/dom/BrowserVocabularyDeclarations.mjs';
@@ -18,7 +19,7 @@ const isCast = declaration => declaration.kind === 'operator' && declaration.nam
 
 describe('BrowserModule', () => {
     const module = BrowserModule.create();
-    const keys = Object.keys({ ...BrowserVocabularyImplementations.implementations, ...BrowserObservationImplementations.implementations });
+    const keys = Object.keys({ ...BrowserVocabularyImplementations.implementations, ...BrowserExecutionImplementations.implementations, ...BrowserObservationImplementations.implementations });
 
     it('is the DOM vocabulary', () => {
         const shapeOf = declared => declared.types.map(type => [type.name, type.members.map(member => member.name ?? `${type.name}[]`)]);

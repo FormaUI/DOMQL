@@ -74,12 +74,12 @@ export class BrowserVocabularyImplementations {
             // The property reads the rectangle against the layout viewport, and rectRelativeTo against the element it is given.
             rect: ({ receiver: element, args: { relativeTo = null } }) => BrowserVocabularyImplementations.#rect(element, relativeTo),
             size: ({ receiver: element }) => {
-                const rect = BrowserVocabularyImplementations.#box(element);
+                const rect = BrowserVocabularyImplementations.boxOf(element);
 
                 return rect === null ? null : { width: rect.width, height: rect.height };
             },
             clientSize: ({ receiver: element }) => BrowserVocabularyImplementations.#hasBox(element) ? { width: element.clientWidth, height: element.clientHeight } : null,
-            clientRect: ({ receiver: element }) => BrowserVocabularyImplementations.#clientRect(element),
+            clientRect: ({ receiver: element }) => BrowserVocabularyImplementations.clientRectOf(element),
             scroll: ({ receiver: element }) => BrowserVocabularyImplementations.#hasBox(element) ? BrowserVocabularyImplementations.#scroll(element, element, element) : null,
             windowScroll: ({ receiver: window }) => {
                 const root = window.document.documentElement;
@@ -207,7 +207,7 @@ export class BrowserVocabularyImplementations {
      * The element's border box, or null where it has no layout box. Its client rects answer both for nearly every element: none where it has no box, and one that is its bounding box
      * where it is laid out whole; an element split into several, as an inline one across lines, asks the browser for the box that bounds them.
      */
-    static #box(element) {
+    static boxOf(element) {
         if (!element.isConnected) {
             return null;
         }
@@ -222,8 +222,8 @@ export class BrowserVocabularyImplementations {
     }
 
     /** Its padding box without scrollbars, relative to the layout viewport: its border box moved in by its left and top borders, as `clientLeft` and `clientTop` give them, and of its client size. */
-    static #clientRect(element) {
-        const box = BrowserVocabularyImplementations.#box(element);
+    static clientRectOf(element) {
+        const box = BrowserVocabularyImplementations.boxOf(element);
 
         if (box === null) {
             return null;
@@ -237,7 +237,7 @@ export class BrowserVocabularyImplementations {
     }
 
     /** Whether the element's writing mode lays its lines out vertically, which makes its inline axis vertical and its block axis horizontal. */
-    static #isVertical(element) {
+    static isVertical(element) {
         return /^(vertical|sideways)/.test(element.ownerDocument.defaultView.getComputedStyle(element).writingMode);
     }
 
@@ -252,7 +252,7 @@ export class BrowserVocabularyImplementations {
         const horizontal = { offset: Math.abs(position.scrollLeft), extent: position.scrollWidth, viewport: port.clientWidth };
         const vertical = { offset: Math.abs(position.scrollTop), extent: position.scrollHeight, viewport: port.clientHeight };
 
-        return BrowserVocabularyImplementations.#isVertical(element) ? { inline: vertical, block: horizontal } : { inline: horizontal, block: vertical };
+        return BrowserVocabularyImplementations.isVertical(element) ? { inline: vertical, block: horizontal } : { inline: horizontal, block: vertical };
     }
 
     /**
@@ -266,10 +266,10 @@ export class BrowserVocabularyImplementations {
 
         const window = element.ownerDocument.defaultView;
         const { documentElement, body } = element.ownerDocument;
-        const physical = axis === null ? null : (axis === 'inline') !== BrowserVocabularyImplementations.#isVertical(element) ? 'overflowX' : 'overflowY';
+        const physical = axis === null ? null : (axis === 'inline') !== BrowserVocabularyImplementations.isVertical(element) ? 'overflowX' : 'overflowY';
         const isScrollable = style => (physical === null ? USER_SCROLLABLE.has(style.overflowX) || USER_SCROLLABLE.has(style.overflowY) : USER_SCROLLABLE.has(style[physical]));
 
-        for (let current = BrowserVocabularyImplementations.#flatParentOf(element); current !== null; current = BrowserVocabularyImplementations.#flatParentOf(current)) {
+        for (let current = BrowserVocabularyImplementations.flatParentOf(element); current !== null; current = BrowserVocabularyImplementations.flatParentOf(current)) {
             if (current === documentElement) {
                 return null;
             }
@@ -294,7 +294,7 @@ export class BrowserVocabularyImplementations {
     }
 
     /** The element's parent in the flat tree: the slot it is assigned to, or the host of the shadow root it stands in, or its parent element; null at the top. */
-    static #flatParentOf(element) {
+    static flatParentOf(element) {
         const parent = element.assignedSlot ?? element.parentNode;
 
         // A shadow root is a document fragment with a host, where the flat tree continues.
@@ -306,13 +306,13 @@ export class BrowserVocabularyImplementations {
     }
 
     static #rect(element, relativeTo) {
-        const box = BrowserVocabularyImplementations.#box(element);
+        const box = BrowserVocabularyImplementations.boxOf(element);
 
         if (box === null) {
             return null;
         }
 
-        const origin = relativeTo === null ? { left: 0, top: 0 } : BrowserVocabularyImplementations.#box(relativeTo);
+        const origin = relativeTo === null ? { left: 0, top: 0 } : BrowserVocabularyImplementations.boxOf(relativeTo);
 
         if (origin === null) {
             return null;
@@ -325,8 +325,8 @@ export class BrowserVocabularyImplementations {
     }
 
     static #overlaps(element, other, margin) {
-        const first = BrowserVocabularyImplementations.#box(element);
-        const second = BrowserVocabularyImplementations.#box(other);
+        const first = BrowserVocabularyImplementations.boxOf(element);
+        const second = BrowserVocabularyImplementations.boxOf(other);
 
         if (first === null || second === null) {
             return null;
@@ -482,7 +482,7 @@ export class BrowserVocabularyImplementations {
      * A slot in a closed shadow root hides its assignment, so an inert ancestor past it is found only from an element inside that root.
      */
     static #isUnderInert(element) {
-        for (let current = element; current !== null; current = BrowserVocabularyImplementations.#flatParentOf(current)) {
+        for (let current = element; current !== null; current = BrowserVocabularyImplementations.flatParentOf(current)) {
             if (current.hasAttribute('inert')) {
                 return true;
             }

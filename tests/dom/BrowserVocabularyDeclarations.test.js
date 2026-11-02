@@ -90,8 +90,10 @@ describe('BrowserVocabularyDeclarations', () => {
             'Element.rect', 'Element.clientRect', 'Element.size', 'Element.clientSize', 'Element.scroll', 'Element.grid', 'Element.selection', 'Element.shadow', 'Element.aria', 'Element.direction', 'Element.attached', 'Element.hasChildren', 'Element.hasSelection',
             'Element.previousSibling', 'Element.nextSibling', 'Element.index', 'Element.hasPointerCapture',
             'Element[]', 'Element.attribute', 'Element.class', 'Element.style', 'Element.intersects', 'Element.overlaps', 'Element.matches', 'Element.rectRelativeTo', 'Element.closest', 'Element.scrollContainer', 'Element.on',
+            'Element.takeFocus', 'Element.scrollTo', 'Element.scrollBy', 'Element.scrollIntoView',
             'Document.visible', 'Document.focus', 'Document.activeElement', 'Document.selection', 'Document.on',
             'Window.size', 'Window.scroll', 'Window.devicePixelRatio', 'Window.location', 'Window.shortcutModifier', 'Window.media', 'Window.share', 'Window.clipboard', 'Window.on',
+            'Window.scrollTo', 'Window.scrollBy',
             'Shadow.root', 'Shadow.elements',
             'Aria.checked', 'Aria.disabled', 'Aria[]', 'Aria.attribute', 'Aria as Element',
             'Range.rect', 'Range.collapsed', 'Range.text', 'Range.startElement', 'Range.endElement', 'Range.commonAncestor', 'Range.intersects', 'Range.all', 'Range.offsetsIn',
@@ -157,7 +159,7 @@ describe('BrowserVocabularyDeclarations', () => {
     });
 
     it('declares the tests of elements, the document, the window and ARIA views as Boolean functions, the state the browser sets rather than one that follows from structure', () => {
-        const tests = typeMembers.filter(({ member }) => member.kind === 'function' && member.result === 'Boolean' && member.parameters.length === 0).map(({ type, member }) => `${nameOf(type, member)}()`);
+        const tests = typeMembers.filter(({ member }) => member.kind === 'function' && member.invokedBy !== 'host' && member.result === 'Boolean' && member.parameters.length === 0).map(({ type, member }) => `${nameOf(type, member)}()`);
 
         expect(tests).toEqual([
             'Element.disabled()', 'Element.readonly()', 'Element.textEditable()', 'Element.focus()', 'Element.focusWithin()', 'Element.displayed()', 'Element.focusable()', 'Element.hover()', 'Element.popoverOpen()', 'Element.checked()', 'Element.indeterminate()', 'Element.autofilled()',
@@ -298,6 +300,20 @@ describe('BrowserVocabularyDeclarations', () => {
             'beforetoggle: ToggleEvent', 'toggle: ToggleEvent', 'animationstart: AnimationEvent', 'animationend: AnimationEvent', 'animationcancel: AnimationEvent',
             'scroll: DomEvent', 'resize: DomEvent', 'selectionchange: DomEvent', 'close: DomEvent', 'cancel: DomEvent', 'load: DomEvent', 'error: DomEvent', 'play: DomEvent', 'pause: DomEvent', 'volumechange: DomEvent', 'ended: DomEvent',
         ]);
+    });
+
+    it('declares its executions as host calls making an execution, each once or continuous, as the dispatch table keeps them', () => {
+        const executions = typeMembers.filter(({ member }) => member.invokedBy === 'host' && member.name !== 'on');
+
+        expect(executions.map(({ type, member }) => `${nameOf(type, member)}(${member.parameters.map(parameter => `${parameter.name}: ${parameter.type}${parameter.required ? '' : ` = ${JSON.stringify(parameter.default)}`}`).join(', ')}): ${member.result ?? 'none'}, ${DispatchTable.get(member).executionMode}`)).toEqual([
+            'Element.takeFocus(preventScroll: Boolean = false): Boolean, once',
+            'Element.scrollTo(inline: Number? = null, block: Number? = null, behavior: String = "auto"): Boolean, once',
+            'Element.scrollBy(inline: Number? = null, block: Number? = null, behavior: String = "auto"): Boolean, once',
+            'Element.scrollIntoView(block: String = "start", inline: String = "nearest", behavior: String = "auto"): Boolean, once',
+            'Window.scrollTo(inline: Number? = null, block: Number? = null, behavior: String = "auto"): Boolean, once',
+            'Window.scrollBy(inline: Number? = null, block: Number? = null, behavior: String = "auto"): Boolean, once',
+        ]);
+        expect(executions.every(({ member }) => DispatchTable.get(member).requestKind === 'execution' && member.arguments === 'options')).toBe(true);
     });
 
     it('refuses a key a module declares for the type selector event that the DOM vocabulary maps already', () => {

@@ -1,6 +1,6 @@
-# DOMQL Design v1.0.0-alpha.291
+# DOMQL Design v1.0.0-alpha.292
 
-The [DOMQL specification](../spec/README.md) is the contract: DOMQL's module, which declares the DOM as Nexo's domain, and the host that carries queries out against a document. This design sets out how this implementation is built to meet it, and the reasons behind the choices that shape it. It describes DOMQL's version `1.0.0-alpha.291` on Nexo's definition version 38, as the specification does, and the C# half, which is designed and not yet built; [the status overview](features-status.md) says where the implementation still differs. [Nexo's design](https://github.com/FormaUI/Nexo/blob/2cb596ea0d1a1fc624552783b30139379124bb67/docs/nexo-design.md), at the commit DOMQL builds against, sets out how the language and its runtime are built.
+The [DOMQL specification](../spec/README.md) is the contract: DOMQL's module, which declares the DOM as Nexo's domain, and the host that carries queries out against a document. This design sets out how this implementation is built to meet it, and the reasons behind the choices that shape it. It describes DOMQL's version `1.0.0-alpha.292` on Nexo's definition version 38, as the specification does, and the C# half, which is designed and not yet built; [the status overview](features-status.md) says where the implementation still differs. [Nexo's design](https://github.com/FormaUI/Nexo/blob/2cb596ea0d1a1fc624552783b30139379124bb67/docs/nexo-design.md), at the commit DOMQL builds against, sets out how the language and its runtime are built.
 
 In this document:
 
@@ -21,7 +21,7 @@ DOMQL is Nexo's host. It registers its module in a Nexo registry beside the modu
 | --- | --- | --- |
 | Entry point | Makes query objects from text or a definition, keeps their resolutions, registers modules, and composes the parts below into the public API | `domql.js` |
 | Query objects | A request's definition and bindings, through which every operation on it is carried out | `DomqlQuery` |
-| The module | DOMQL's declarations, its types with their members within them, its recognition of the DOM's values, the implementations of its members, and the functions that start its observations, with what a selector reads | `BrowserVocabularyDeclarations`, `BrowserVocabularyImplementations`, `BrowserObservationImplementations`, `Selectors`, `BrowserModule` |
+| The module | DOMQL's declarations, its types with their members within them, its recognition of the DOM's values, the implementations of its members and of its executions, and the functions that start its observations, with what a selector reads | `BrowserVocabularyDeclarations`, `BrowserVocabularyImplementations`, `BrowserExecutionImplementations`, `BrowserObservationImplementations`, `Selectors`, `BrowserModule` |
 | Evaluation | Nexo's evaluator under hooks that record what an evaluation reads and hold the sessions that keep it observed | `QueryEvaluator`, `QueryEvaluation` |
 | Observations | Sessions on shared observations, each observation started on its first session and stopped with its last | `Observations`, `ObservationSession`, `SessionCache` |
 | Watches | Keeping a result current: scheduling evaluations and delivering each result that differs | `Watch` |

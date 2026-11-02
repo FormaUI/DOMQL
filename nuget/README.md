@@ -905,9 +905,19 @@ A member the host invokes, `invokedBy: 'host'`, is a host call that DOMQL carrie
 
 ## Execute once and run continuously
 
+### Change the page with a built-in execution
+
+DOMQL makes a few changes itself, each one browser call that answers what it did. Carry one out with `executeAsync()`:
+
+```domql
+list.scrollTo({ block = 0, behavior = "smooth" })
+```
+
+`takeFocus()` focuses an element and answers whether focus landed on it. `scrollTo` and `scrollBy` scroll an element or `Domql.window` along the axes of its writing mode, from the start of its content even under RTL, and answer whether it moved once the scroll has ended; `scrollIntoView` answers whether the element is in view then. The specification lists every [built-in execution](https://github.com/FormaUI/DOMQL/blob/main/spec/vocabulary.md#built-in-executions) and what each needs of the user.
+
 ### Execute once
 
-A once execution is a module-defined host call that can change the page. `executeAsync()` prepares its receiver and arguments, invokes it, and returns a promise of its result. Its implementation may also return a promise.
+A module declares once executions of its own, host calls that can change the page. `executeAsync()` prepares its receiver and arguments, invokes it, and returns a promise of its result. Its implementation may also return a promise.
 
 This example registers a once execution that sets a data attribute and reports whether the value changed:
 

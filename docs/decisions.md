@@ -504,3 +504,36 @@ Each entry is one of three kinds:
 - **Declined:**
   - `getModifierState` for every key, as `CapsLock` and `NumLock`, which no query needs yet.
   - The path's shadow roots and document, which a query can't read as elements.
+
+<a id="d34"></a>
+
+## D34 — Built-in executions, and `takeFocus` answering whether focus landed
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** DOMQL's module declares its first executions, each one platform call answering what the platform did, as [D1](#d1) has it. `takeFocus({ preventScroll })` focuses an element and answers whether focus landed on it, as its `focus()` Boolean function reads it afterwards. An argument of a value an execution takes none of fails it before it changes anything.
+- **Why:**
+  - Focusing an element that can't take focus does nothing and says nothing, so only reading afterwards tells a caller whether it must try another, as one restoring focus to an element that has gone.
+  - `focus()` is the Boolean function that tests focus, so the execution is named for what it does, as the plan named it.
+  - A built-in execution's implementation lives apart from the members that read, in its own class, since it changes the page where they never do; both read the geometry the module shares.
+- **Declined:**
+  - `focusVisible`, which no query needs yet.
+  - Failing for an element that can't take focus, which the caller then tells from a failure only by its code.
+
+<a id="d35"></a>
+
+## D35 — Scrolls are logical, and answer once they have ended
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `scrollTo({ inline, block, behavior })` and `scrollBy(…)`, of an element and of the window, take offsets along the axes of the box's writing mode, measured from its scroll origin as `scroll` reads them, and `behavior` `"auto"`, `"instant"` or `"smooth"`; each answers whether the position moved. `scrollIntoView({ block, inline, behavior })` answers whether the element is in view. Each answers once the scroll has ended.
+- **Why:**
+  - A query computes where to scroll from what `scroll` reads, so writing in the same terms needs no conversion under RTL or in a vertical writing mode, where the browser counts a position down from 0. DOMQL reads the sign from the box's writing mode and direction, or from a position already below 0, as in a reversed flex container.
+  - A browser test settled that Chromium's scroll methods answer a promise that settles once the scroll ends, a smooth one included, so the answer waits for it. A browser whose methods answer none is waited for frame by frame, from the third frame, since a browser test measured a smooth scroll beginning to move a frame or two after it is asked.
+  - Whether it moved tells a scroll that did something from one already at its end, as a list paged past its last row; whether the element is in view is what a caller acts on next, as focusing what it revealed. In view is judged as `overlaps` judges boxes, against the viewport and each ancestor that clips, so a box of `overflow: clip`, which no scroll reaches, answers false.
+- **Declined:**
+  - Answering at once, which says nothing of a smooth scroll.
+  - Physical `left` and `top`, which every query that handles RTL converts.
+  - Waiting for `scrollend`, which fires nothing where nothing moves, so a caller would wait for a scroll that never began.

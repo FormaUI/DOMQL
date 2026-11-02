@@ -3,7 +3,7 @@
 <a id="built-in-vocabulary"></a>
 <a id="vocabulary"></a>
 
-The **built-in vocabulary** is what DOMQL's module, `Domql`, declares: the DOM's types, and the module members, properties, functions, Boolean functions among them, event sources and observations a query reads them through. Everything a query can ask about is a member a module contributes, DOMQL's own module and every extension by one contract, so adding a member leaves the grammar unchanged.
+The **built-in vocabulary** is what DOMQL's module, `Domql`, declares: the DOM's types, and the module members, properties, functions, Boolean functions among them, event sources, executions and observations a query reads and changes them through. Everything a query can ask about is a member a module contributes, DOMQL's own module and every extension by one contract, so adding a member leaves the grammar unchanged.
 
 ```domql
 panel.size?.width                        // A property of an element, then a property of the size it answers.
@@ -13,7 +13,7 @@ panel.disabled()                         // A Boolean function, which tests the 
 Domql.window.media["(min-width: 40em)"]  // A named indexer of the window, a module member.
 ```
 
-Properties and functions are named in camelCase, and names are case-sensitive. Built-in members expose state or event sources; executions come from extensions. A property is read by property access, and a function is written as a call or as a named indexer, as its declaration says; the tables write each as it is written, with a receiver left out. A member available on a node is available on each of its kinds, one available on an element on elements alone, and one available on a shadow view on an element's `shadow`.
+Properties and functions are named in camelCase, and names are case-sensitive. Built-in members expose state or event sources, and built-in executions change the page, each one platform call; an execution that carries a policy comes from an extension. A property is read by property access, and a function is written as a call or as a named indexer, as its declaration says; the tables write each as it is written, with a receiver left out. A member available on a node is available on each of its kinds, one available on an element on elements alone, and one available on a shadow view on an element's `shadow`.
 
 Nexo's own module declares the members of lists, among them `count`, `first`, `last`, `max`, `min`, `sum`, `where` and the unnamed indexer `[index]`, and those of numbers and strings; the entries below for the members of lists a query of the DOM reads most point to Nexo's specification, which defines them all. DOMQL's event sources and event types are set out in [events](events.md).
 
@@ -25,9 +25,10 @@ In this document:
 4. [Properties](#properties)
 5. [Functions](#functions)
 6. [Boolean functions](#boolean-functions)
-7. [Built-in conversions](#built-in-conversions)
-8. [Observations](#observations)
-9. [Extension modules](#extension-modules)
+7. [Executions](#built-in-executions)
+8. [Built-in conversions](#built-in-conversions)
+9. [Observations](#observations)
+10. [Extension modules](#extension-modules)
 
 <a id="module-members"></a>
 
@@ -1176,6 +1177,57 @@ No other ARIA attribute has a Boolean function until one is declared, each with 
 | A disabled text input without `readonly` | false | false |
 | An ordinary static element | false | false |
 | An editable content region | false | true |
+
+<a id="built-in-executions"></a>
+
+## Executions
+
+DOMQL's module declares these [executions](executions.md), each a host call DOMQL carries out: a once execution, which `executeAsync` carries out and which answers its result, and a continuous one, which `run` starts and which answers none. Each is one call of the platform's, and answers what the platform did in DOMQL's types; a change that carries a policy, as stepping focus through a list or placing a surface, is an extension's.
+
+```domql
+field.takeFocus()                              // Whether focus landed on the field.
+list.scrollTo({ block = 0, behavior = "smooth" }) // Whether the list moved, once it has.
+```
+
+Each states its syntax and signature, as a function's does, what it does and answers, and what it needs of the user. An argument of a value it takes none of, as a behavior it doesn't know, fails the execution with an evaluation error whose cause says why, before it changes anything; a failure the platform reports fails it alike, its cause the platform's error. A receiver that is null, or an argument that propagates null, skips the execution, as [executing once](executions.md#executions-executing-once) sets out.
+
+**Activation.** A browser lets a page do some things only while the user has just acted, its **transient activation**, which a click, a key press or a tap gives for a few seconds. An execution that needs it says so. A subscription's handler runs inside the event's dispatch, so an execution it carries out at once has the activation the event gives; one carried out after a round trip may find it expired.
+
+| Receiver | Execution | Mode |
+| --- | --- | --- |
+| Element | [`takeFocus({ preventScroll })`](#execution-element-takefocus) | Once |
+| Element, window | [`scrollTo({ inline, block, behavior })`, `scrollBy({ inline, block, behavior })`](#execution-scrollto-scrollby) | Once |
+| Element | [`scrollIntoView({ block, inline, behavior })`](#execution-element-scrollintoview) | Once |
+
+<a id="execution-element-takefocus"></a>
+
+### Element: takeFocus
+
+**Syntax:** `takeFocus({ preventScroll })`   **Signature:** optional `preventScroll`: `Boolean`, false when omitted → `Boolean`   **Mode:** Once   **Activation:** None
+
+**Does.** Moves focus to the element, as its `focus()` does in the page's code, scrolling it into view unless `preventScroll` is true
+
+**Answers.** Whether focus landed on it, as its [`focus()`](#boolean-function-element-focus) answers afterwards: false where it can't take focus, as one disabled, inert, hidden or no focusable area is, and focus stays where it was
+
+<a id="execution-scrollto-scrollby"></a>
+
+### Element and window: scrollTo, scrollBy
+
+**Syntax:** `scrollTo({ inline, block, behavior })`, `scrollBy({ inline, block, behavior })`   **Signature:** optional `inline`, `block`: `Number?`, the axis left as it is when omitted or null; optional `behavior`: `String`, `"auto"` when omitted → `Boolean`   **Mode:** Once   **Activation:** None
+
+**Does.** Scrolls the box along the axes of its writing mode, as its [`scroll`](#property-element-scroll) reads them, the window's along those of the document's root element, as [its `scroll`](#property-window-scroll) reads them. `scrollTo` sets each axis's offset from the scroll origin to the number given, and `scrollBy` moves it by the number given, toward the end of the content where it is positive, so `scrollTo({ inline = 0 })` shows the start of the content under RTL too, where the browser counts the position down from 0. The browser holds the offset within the box's scroll range. `behavior` is `"auto"`, as the box's `scroll-behavior` decides, `"instant"` or `"smooth"`
+
+**Answers.** Whether its position moved, once the scroll has ended: a smooth scroll is waited for, as the browser's scroll method reports its end, and, in a browser whose method reports none, until the first animation frame from the third in which the box holds still. False where it was there already, where its scroll range holds it, and where it scrolls nothing, as a box that is no scroll container
+
+<a id="execution-element-scrollintoview"></a>
+
+### Element: scrollIntoView
+
+**Syntax:** `scrollIntoView({ block, inline, behavior })`   **Signature:** optional `block`: `String`, `"start"` when omitted; optional `inline`: `String`, `"nearest"` when omitted; optional `behavior`: `String`, `"auto"` when omitted → `Boolean`   **Mode:** Once   **Activation:** None
+
+**Does.** Scrolls each box that holds the element, and the window, so it shows, aligned along each axis of its writing mode at the `"start"`, the `"center"` or the `"end"`, or at the `"nearest"` edge, which leaves an axis it shows along as it is; `behavior` as `scrollTo` takes it
+
+**Answers.** Whether it is in view once the scroll has ended, waited for as `scrollTo` waits: its border box overlaps the layout viewport and the padding box of every flat-tree ancestor that clips its overflow, compared as [`overlaps`](#function-element-overlaps) compares boxes. False where it has no layout box, and where a box that clips without scrolling, as one of `overflow: clip`, holds it outside its edges
 
 <a id="built-in-conversions"></a>
 

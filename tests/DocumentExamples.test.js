@@ -86,6 +86,7 @@ const DOCUMENTS = {
     'spec/vocabulary.md': [
         { about: 'a member of each kind', each: true, context: COMPARED },
         { about: 'scrolling', each: true, context: COMPARED },
+        { about: 'built-in executions', each: true },
     ],
     'spec/evaluation.md': [],
     'spec/watches.md': [
@@ -129,6 +130,7 @@ const DOCUMENTS = {
         { about: 'values and text', results: { 0: { name: 'div', classes: ['open'], entered: '' } } },
         { about: 'the selection' },
         { about: 'where an element stands', results: { 0: { index: 0, next: 'a2', inPanel: true } } },
+        { about: 'a built-in execution' },
     ],
     'docs/domql-design.md': [],
     'docs/features-status.md': [],

@@ -6,6 +6,20 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-292"></a>
+
+## `1.0.0-alpha.292`
+
+*November 1, 2026 · Nexo language `1.0.0-beta.15` · definition format 38*
+
+DOMQL's module declares its first executions: focusing an element and scrolling, each one browser call answering what it did.
+
+**Executions**
+
+- [Built-in executions](spec/vocabulary.md#built-in-executions): DOMQL's module declares executions of its own, beside those an extension module declares, as [executions](spec/executions.md) set out, each carried out by `executeAsync`.
+- [`takeFocus({ preventScroll })`](spec/vocabulary.md#execution-element-takefocus) focuses an element and answers whether focus landed on it, as [D34](docs/decisions.md#d34) records.
+- [`scrollTo({ inline, block, behavior })` and `scrollBy(…)`](spec/vocabulary.md#execution-scrollto-scrollby), of an element and of the window, scroll along the axes of the box's writing mode, from its scroll origin under RTL too, and answer whether it moved; [`scrollIntoView({ block, inline, behavior })`](spec/vocabulary.md#execution-element-scrollintoview) answers whether the element is in view. Each answers once the scroll has ended, as [D35](docs/decisions.md#d35) records.
+
 <a id="v1-0-0-alpha-291"></a>
 
 ## `1.0.0-alpha.291`

@@ -2,11 +2,11 @@
 
 ## Current state
 
-**DOMQL's vocabulary, queries, watches, events and executions are implemented on Nexo's language `1.0.0-beta.15`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.291`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next is [the C# half](#the-c-half).**
+**DOMQL's vocabulary, queries, watches, events and executions are implemented on Nexo's language `1.0.0-beta.15`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.292`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next is [the C# half](#the-c-half).**
 
 | Version | Implementation | Specification |
 | --- | --- | --- |
-| DOMQL specification | `1.0.0-alpha.291` | `1.0.0-alpha.291` |
+| DOMQL specification | `1.0.0-alpha.292` | `1.0.0-alpha.292` |
 | Nexo language | `1.0.0-beta.15` | `1.0.0-beta.15` |
 | Definition format | 38 | 38 |
 
@@ -71,6 +71,7 @@ Each feature, the contract that states it, its state in the implementation, and 
 | `all`, `first`, `matches` and `closest` observing what their selector reads, the `selector` observation | [`matches`](../spec/vocabulary.md#function-element-matches), [observation types](../spec/vocabulary.md#observations-types) | Implemented | [`alpha.286`](../VERSION-HISTORY.md#v1-0-0-alpha-286) |
 | An element's `sizeLimits` in pixels, and a file input's `files` | [`sizeLimits`](../spec/vocabulary.md#property-element-sizelimits), [`files`](../spec/vocabulary.md#property-element-files) | Implemented | [`alpha.285`](../VERSION-HISTORY.md#v1-0-0-alpha-285) |
 | `hasPointerCapture(pointerId)` | [`hasPointerCapture`](../spec/vocabulary.md#function-element-haspointercapture) | Implemented | [`alpha.284`](../VERSION-HISTORY.md#v1-0-0-alpha-284) |
+| Built-in executions: focusing, `takeFocus`, and scrolling, `scrollTo`, `scrollBy` and `scrollIntoView`, of an element and of the window | [Executions](../spec/vocabulary.md#built-in-executions) | Implemented, as [D34](decisions.md#d34) and [D35](decisions.md#d35) record | [`alpha.292`](../VERSION-HISTORY.md#v1-0-0-alpha-292) |
 | Following a change a member misses through a body's local | [Following a change a member misses](../spec/watches.md#dependencies-following-what-a-member-misses) | Implemented | [`alpha.282`](../VERSION-HISTORY.md#v1-0-0-alpha-282) |
 
 ### The host
@@ -134,7 +135,7 @@ The language's part is Nexo's already, adopted with the [migration](#migration-t
 
 **The order of the work:**
 
-1. **The host side.** The C# half (A1), change sets against an acknowledged result and a refresh that delivers (A2, A3), modules loaded on request (A4); occurrences a behavior offers and its owner (C1, C4); DOMQL's observations for module code (C5); and the first executions, focus and scrolling (X1, X2).
+1. **The host side.** The C# half (A1), change sets against an acknowledged result and a refresh that delivers (A2, A3), modules loaded on request (A4); occurrences a behavior offers and its owner (C1, C4); and DOMQL's observations for module code (C5).
 2. **Input.** Module state per document (C8), synchronous handling stated (C10) and ordered delivery (A5).
 3. **Presentation.** The top-layer executions (X3), commands to a running behavior (C3), owned writes and their ownership (X5, A10), nullable options (C11) and the frame promise (T2).
 4. **Virtualization.** State a behavior offers and history per holder (C2, C9).
@@ -173,10 +174,10 @@ O1, O2, O4 and O6 are implemented, as [the features](#the-doms-vocabulary) show:
 
 DOMQL's first built-in executions. Three names below would collide with DOMQL's Boolean functions `focus()`, `clipboard()` and `share()`, so they are written `takeFocus`, `writeClipboard` and `requestShare`.
 
+X1 and X2 are implemented, as [the features](#the-doms-vocabulary) show: focusing answers whether focus landed ([D34](decisions.md#d34)), and a scroll is logical and answers once it has ended ([D35](decisions.md#d35)).
+
 | | Addition |
 | --- | --- |
-| X1 | `element.takeFocus({ preventScroll })` → `Boolean`, whether focus landed |
-| X2 | `scrollTo({ inline, block, behavior })` and `scrollBy(…)` on an element and on the window, logical under RTL, answering whether they moved; `scrollIntoView({ block, inline, behavior })` |
 | X3 | `showPopover()`, `hidePopover()`, `showModal()`, `close({ returnValue })` |
 | X4 | `capturePointer({ pointerId })`, `releasePointer({ pointerId })` → `Boolean` |
 | X5 | Engine-owned writes, each declaring its ownership and released on dispose: a class, an inline style property, `hidden`, `tabIndex`, and, continuous, attributes kept against a host's patch, `element.attributes({ lang, dir })` |

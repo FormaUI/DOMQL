@@ -3,9 +3,12 @@
 <a id="executions"></a>
 <a id="actions-and-behaviors"></a>
 
-An **execution** is a [host call](https://github.com/FormaUI/Nexo/blob/2cb596ea0d1a1fc624552783b30139379124bb67/spec/language/members.md#members-host-calls) DOMQL carries out to change the page. A **once execution** changes it once and answers its result; a **continuous execution** starts something that runs on the page until it is updated or disposed, and has no result. DOMQL's module declares neither: an [extension module](vocabulary.md#extension-modules) declares each, with its execution mode and the implementation that carries it out. `executeAsync` carries out a once execution and `run` a continuous one, and no other operation carries out either, as [request kinds and their operations](queries.md#operations-and-request-kinds) set out.
+An **execution** is a [host call](https://github.com/FormaUI/Nexo/blob/2cb596ea0d1a1fc624552783b30139379124bb67/spec/language/members.md#members-host-calls) DOMQL carries out to change the page. A **once execution** changes it once and answers its result; a **continuous execution** starts something that runs on the page until it is updated or disposed, and has no result. DOMQL's module declares its [built-in executions](vocabulary.md#built-in-executions), each one platform call, and an [extension module](vocabulary.md#extension-modules) declares its own, each with its execution mode and the implementation that carries it out. `executeAsync` carries out a once execution and `run` a continuous one, and no other operation carries out either, as [request kinds and their operations](queries.md#operations-and-request-kinds) set out.
 
 ```js
+// A built-in once execution, answering whether focus landed on the field.
+const focused = await domql.query('field.takeFocus()', { field }).executeAsync();
+
 // A once execution a module declares, carried out each time it is executed.
 const changed = await domql.query('import Marks\npanel:mark("reviewed")', { panel }).executeAsync();
 

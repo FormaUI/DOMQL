@@ -42,6 +42,16 @@ const RANGE_MISSES = 'the page\'s code moving a range other than the selection\'
 
 const SELECTOR_PARAMETERS = [valueParameter('selector', 'String')];
 
+/** How a scroll moves: as the box's `scroll-behavior` decides, where it is omitted, at once, or smoothly. */
+const SCROLL_BEHAVIOR = valueParameter('behavior', 'String', { default: 'auto' });
+
+/** Where a scroll goes, or how far, along each logical axis of the box, an axis left as it is where it is omitted or null. */
+const SCROLL_PARAMETERS = [
+    valueParameter('inline', 'Number?', { default: null, nulls: 'accept', omitted: 'the axis left as it is' }),
+    valueParameter('block', 'Number?', { default: null, nulls: 'accept', omitted: 'the axis left as it is' }),
+    SCROLL_BEHAVIOR,
+];
+
 /** The modifier keys an event of a pointer, a touch, the wheel, a drag or the keyboard carries, each whether it was held as the event was dispatched. */
 const MODIFIERS = { ctrlKey: 'Boolean', metaKey: 'Boolean', altKey: 'Boolean', shiftKey: 'Boolean' };
 
@@ -113,6 +123,9 @@ export class BrowserVocabularyDeclarations {
         const implementing = (key, declaration) => (implementations[key] === undefined ? declaration : { ...declaration, impl: implementations[key] });
         const observationType = (name, contract, key, rest = {}) => implementing(key, { name, contract, ...rest });
         const test = (key, name, { updates }) => implementing(key, func(name, 'Boolean', { updates }));
+
+        // A built-in execution, a host call DOMQL carries out once, answering its result, or keeps running, as its mode says.
+        const execution = (key, name, result, { mode = 'once', ...options } = {}) => implementing(key, { ...func(name, result, { invokedBy: 'host', ...options }), requestKind: 'execution', executionMode: mode });
 
         // The event source, a host call its subscription listens to, delivering each event of the type its fixed argument selects, in the capture phase where its option says so: one declaration, standing in each type it listens on.
         const on = implementing('on', {
@@ -230,6 +243,12 @@ export class BrowserVocabularyDeclarations {
                         updates: updatesOf({ changes: 'partly-observable', misses: 'a stylesheet changing which rules apply', observations: [ANCESTRY_STYLE] }),
                     })),
                     on,
+
+                    // The changes DOMQL makes to an element, each one platform call answering what it did.
+                    execution('takeFocus', 'takeFocus', 'Boolean', { arguments: 'options', parameters: [valueParameter('preventScroll', 'Boolean', { default: false })] }),
+                    execution('scrollTo', 'scrollTo', 'Boolean', { arguments: 'options', parameters: SCROLL_PARAMETERS }),
+                    execution('scrollBy', 'scrollBy', 'Boolean', { arguments: 'options', parameters: SCROLL_PARAMETERS }),
+                    execution('scrollIntoView', 'scrollIntoView', 'Boolean', { arguments: 'options', parameters: [valueParameter('block', 'String', { default: 'start' }), valueParameter('inline', 'String', { default: 'nearest' }), SCROLL_BEHAVIOR] }),
                 ], { supertype: 'Node' }),
 
                 referenceType('Document', value => nodeKindOf(value) === 'Document', [
@@ -269,6 +288,10 @@ export class BrowserVocabularyDeclarations {
                     test('supportsShare', 'share', { updates: updatesOf({ changes: 'constant' }) }),
                     test('supportsClipboard', 'clipboard', { updates: updatesOf({ changes: 'constant' }) }),
                     on,
+
+                    // The changes DOMQL makes to the window, each one platform call answering what it did.
+                    execution('windowScrollTo', 'scrollTo', 'Boolean', { arguments: 'options', parameters: SCROLL_PARAMETERS }),
+                    execution('windowScrollBy', 'scrollBy', 'Boolean', { arguments: 'options', parameters: SCROLL_PARAMETERS }),
                 ]),
 
                 // The views of an element, each the element itself, of the view's type, so each accepts every element.
