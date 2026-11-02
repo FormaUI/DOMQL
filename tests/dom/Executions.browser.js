@@ -116,6 +116,46 @@ describe('Executions in a browser', () => {
         });
     });
 
+    describe('form controls', () => {
+        it('writes a checkbox mixed, a field\'s value and its selection, as the page\'s code writes them, which the browser shows', async () => {
+            document.body.innerHTML = '<input id="box" type="checkbox"><input id="field" value="draft">';
+
+            const box = document.getElementById('box');
+            const field = document.getElementById('field');
+
+            expect(await execute('box.writeIndeterminate(true)', { box })).toBe(true);
+            expect(box.matches(':indeterminate')).toBe(true);
+            expect(await execute('field.writeValue("final")', { field })).toBe('draft');
+            expect(await execute('field.writeSelection({ start = 1, end = 9 })', { field })).toBe(true);
+            expect(domql.query('field { value = it.value, selection = it.selection }', { field }).evaluate()).toEqual({ value: 'final', selection: { start: 1, end: 5 } });
+        });
+
+        it('answers false for a field of a type the selection API excludes, as a number field', async () => {
+            document.body.innerHTML = '<input id="field" type="number" value="12">';
+
+            expect(await execute('field.writeSelection({ start = 0, end = 1 })', { field: document.getElementById('field') })).toBe(false);
+        });
+
+        it('fails to write a file input\'s value other than the empty string, which the browser refuses', async () => {
+            document.body.innerHTML = '<input id="picker" type="file">';
+
+            const picker = document.getElementById('picker');
+
+            expect((await execute('picker.writeValue("x")', { picker }).catch(error => error)).cause.name).toBe('InvalidStateError');
+            expect(await execute('picker.writeValue("")', { picker })).toBe('');
+        });
+
+        it('places the selection at offsets in the text of an editing host\'s nested elements', async () => {
+            document.body.innerHTML = '<div id="editor" contenteditable="true"><p>one <b>two</b></p><p>three</p></div>';
+
+            const editor = document.getElementById('editor');
+
+            expect(await execute('editor.writeSelection({ start = 5, end = 9 })', { editor })).toBe(true);
+            expect(document.getSelection().getRangeAt(0).toString()).toBe('woth');
+            expect(domql.query('editor.selection', { editor }).evaluate()).toEqual({ start: 5, end: 9 });
+        });
+    });
+
     describe('pointer capture', () => {
         it('captures the pointer pressed on an element while its press is handled, and releases it, answering whether each changed it', async () => {
             document.body.innerHTML = '<div id="handle" style="width: 50px; height: 50px"></div>';

@@ -1201,6 +1201,9 @@ Each states its syntax and signature, as a function's does, what it does and ans
 | Element | [`capturePointer({ pointerId })`, `releasePointer({ pointerId })`](#execution-element-capturepointer-releasepointer) | Once |
 | Element | [`showPopover()`, `hidePopover()`](#execution-element-showpopover-hidepopover) | Once |
 | Element | [`showModal()`, `close({ returnValue })`](#execution-element-showmodal-close) | Once |
+| Element | [`writeIndeterminate(indeterminate)`](#execution-element-writeindeterminate) | Once |
+| Element | [`writeValue(value)`](#execution-element-writevalue) | Once |
+| Element | [`writeSelection({ start, end })`](#execution-element-writeselection) | Once |
 | Element | [`ownAttribute({ name, value, restore, keep })`, `ownClass({ name, present, restore, keep })`, `ownStyle({ property, value, restore, keep })`](#execution-element-owned-writes) | Continuous |
 
 <a id="execution-element-takefocus"></a>
@@ -1264,6 +1267,36 @@ Each states its syntax and signature, as a function's does, what it does and ans
 **Does.** Opens a dialog modally, in the top layer, making the rest of the document inert, or closes it, setting its `returnValue` to the one given, as the browser's own `showModal()` and `close()` do, firing its `close` event
 
 **Answers.** Whether it changed the dialog: `showModal()` answers false for a dialog open modally already, and `close` for one closed already, without calling the browser. Each fails for an element that is no dialog, and `showModal()` for a dialog open without being modal or in no document, which the browser refuses, its refusal the failure's cause
+
+<a id="execution-element-writeindeterminate"></a>
+
+### Element: writeIndeterminate
+
+**Syntax:** `writeIndeterminate(indeterminate)`   **Signature:** `indeterminate`: `Boolean` → `Boolean`   **Mode:** Once   **Activation:** None
+
+**Does.** Sets whether a checkbox shows as mixed, as its `indeterminate` property does in the page's code, which fires no event and leaves whether it is checked as it is
+
+**Answers.** Whether it changed it, as [`indeterminate()`](#boolean-function-element-indeterminate) reads it afterwards; false for an element that is no checkbox, which it leaves as it is
+
+<a id="execution-element-writevalue"></a>
+
+### Element: writeValue
+
+**Syntax:** `writeValue(value)`   **Signature:** `value`: `String` → `String?`   **Mode:** Once   **Activation:** None
+
+**Does.** Sets the value of an `input`, a `textarea` or a `select`, as its `value` property does in the page's code, which fires no event, so a watch of its [`value`](#property-element-value) misses it; a select's selects the option of that value, and none where none has it
+
+**Answers.** The value it replaced, as `value` read it before; null for any other element, which it leaves as it is. A file input given any value but the empty string fails, as the browser refuses it
+
+<a id="execution-element-writeselection"></a>
+
+### Element: writeSelection
+
+**Syntax:** `writeSelection({ start, end })`   **Signature:** `start`, `end`: `Number` → `Boolean`   **Mode:** Once   **Activation:** None
+
+**Does.** Places the selection as its [`selection`](#property-element-selection) reads it: a text input's or a text area's at those offsets, as `setSelectionRange` does, and, for an element whose content is editable, the document's selection at those offsets in its [`text`](#property-element-text); an offset past the end is held at the end, and a start after the end is moved to it. It moves no focus
+
+**Answers.** Whether it placed the selection; false for an element whose selection the browser doesn't expose, as one that is neither a text control nor editable and an input of a type the selection API excludes, as `number`, which `selection` answers null for
 
 <a id="execution-element-owned-writes"></a>
 

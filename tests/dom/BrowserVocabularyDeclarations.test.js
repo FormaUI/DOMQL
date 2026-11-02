@@ -90,7 +90,7 @@ describe('BrowserVocabularyDeclarations', () => {
             'Element.rect', 'Element.clientRect', 'Element.size', 'Element.clientSize', 'Element.scroll', 'Element.grid', 'Element.selection', 'Element.shadow', 'Element.aria', 'Element.direction', 'Element.attached', 'Element.hasChildren', 'Element.hasSelection',
             'Element.previousSibling', 'Element.nextSibling', 'Element.index', 'Element.hasPointerCapture',
             'Element[]', 'Element.attribute', 'Element.class', 'Element.style', 'Element.intersects', 'Element.overlaps', 'Element.matches', 'Element.rectRelativeTo', 'Element.closest', 'Element.scrollContainer', 'Element.on',
-            'Element.takeFocus', 'Element.scrollTo', 'Element.scrollBy', 'Element.scrollIntoView', 'Element.showPopover', 'Element.hidePopover', 'Element.showModal', 'Element.capturePointer', 'Element.releasePointer', 'Element.ownAttribute', 'Element.ownClass', 'Element.ownStyle', 'Element.close',
+            'Element.takeFocus', 'Element.scrollTo', 'Element.scrollBy', 'Element.scrollIntoView', 'Element.showPopover', 'Element.hidePopover', 'Element.showModal', 'Element.capturePointer', 'Element.releasePointer', 'Element.writeIndeterminate', 'Element.writeValue', 'Element.writeSelection', 'Element.ownAttribute', 'Element.ownClass', 'Element.ownStyle', 'Element.close',
             'Document.visible', 'Document.focus', 'Document.activeElement', 'Document.selection', 'Document.on',
             'Window.size', 'Window.scroll', 'Window.devicePixelRatio', 'Window.location', 'Window.shortcutModifier', 'Window.media', 'Window.share', 'Window.clipboard', 'Window.on',
             'Window.scrollTo', 'Window.scrollBy',
@@ -315,6 +315,9 @@ describe('BrowserVocabularyDeclarations', () => {
             'Element.showModal(): Boolean, once',
             'Element.capturePointer(pointerId: Number): Boolean, once',
             'Element.releasePointer(pointerId: Number): Boolean, once',
+            'Element.writeIndeterminate(indeterminate: Boolean): Boolean, once',
+            'Element.writeValue(value: String): String?, once',
+            'Element.writeSelection(start: Number, end: Number): Boolean, once',
             'Element.ownAttribute(name: String, value: String?, restore: Boolean = true, keep: Boolean = false): none, continuous',
             'Element.ownClass(name: String, present: Boolean = true, restore: Boolean = true, keep: Boolean = false): none, continuous',
             'Element.ownStyle(property: String, value: String?, restore: Boolean = true, keep: Boolean = false): none, continuous',
@@ -322,7 +325,8 @@ describe('BrowserVocabularyDeclarations', () => {
             'Window.scrollTo(inline: Number? = null, block: Number? = null, behavior: String = "auto"): Boolean, once',
             'Window.scrollBy(inline: Number? = null, block: Number? = null, behavior: String = "auto"): Boolean, once',
         ]);
-        expect(executions.every(({ member }) => DispatchTable.get(member).requestKind === 'execution' && (member.parameters.length === 0 || member.arguments === 'options'))).toBe(true);
+        expect(executions.filter(({ member }) => member.arguments === 'positional').map(({ type, member }) => nameOf(type, member))).toEqual(['Element.writeIndeterminate', 'Element.writeValue']);
+        expect(executions.every(({ member }) => DispatchTable.get(member).requestKind === 'execution')).toBe(true);
     });
 
     it('refuses a key a module declares for the type selector event that the DOM vocabulary maps already', () => {

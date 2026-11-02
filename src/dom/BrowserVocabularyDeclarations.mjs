@@ -257,6 +257,11 @@ export class BrowserVocabularyDeclarations {
                     execution('showModal', 'showModal', 'Boolean'),
                     execution('capturePointer', 'capturePointer', 'Boolean', { arguments: 'options', parameters: [valueParameter('pointerId', 'Number')] }),
                     execution('releasePointer', 'releasePointer', 'Boolean', { arguments: 'options', parameters: [valueParameter('pointerId', 'Number')] }),
+                    // The state of a form control, written as the page's code writes it, firing no event.
+                    execution('writeIndeterminate', 'writeIndeterminate', 'Boolean', { parameters: [valueParameter('indeterminate', 'Boolean')] }),
+                    execution('writeValue', 'writeValue', 'String?', { parameters: [valueParameter('value', 'String')] }),
+                    execution('writeSelection', 'writeSelection', 'Boolean', { arguments: 'options', parameters: [valueParameter('start', 'Number'), valueParameter('end', 'Number')] }),
+
                     // The writes DOMQL owns while they run, each holding one target of the element.
                     execution('ownAttribute', 'ownAttribute', undefined, { mode: 'continuous', arguments: 'options', parameters: [valueParameter('name', 'String'), valueParameter('value', 'String?', { nulls: 'accept' }), ...OWNERSHIP] }),
                     execution('ownClass', 'ownClass', undefined, { mode: 'continuous', arguments: 'options', parameters: [valueParameter('name', 'String'), valueParameter('present', 'Boolean', { default: true }), ...OWNERSHIP] }),

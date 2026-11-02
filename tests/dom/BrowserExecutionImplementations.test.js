@@ -166,6 +166,57 @@ describe('BrowserExecutionImplementations', () => {
         });
     });
 
+    describe('form controls', () => {
+        beforeEach(() => {
+            document.body.innerHTML = '<input id="box" type="checkbox"><input id="field" value="draft"><textarea id="notes">old</textarea><select id="list"><option>a</option><option>b</option></select><div id="plain"></div><div id="editor" contenteditable="true">one <b>two</b> three</div>';
+        });
+
+        const byId = id => document.getElementById(id);
+
+        it('make a checkbox mixed and not, answering whether it changed it, and change nothing of an element that is no checkbox', async () => {
+            const box = byId('box');
+
+            expect(await execute('box.writeIndeterminate(true)', { box })).toBe(true);
+            expect(box.indeterminate).toBe(true);
+            expect(await execute('box.writeIndeterminate(true)', { box })).toBe(false);
+            expect(await execute('box.writeIndeterminate(false)', { box })).toBe(true);
+            expect(await execute('field.writeIndeterminate(true)', { field: byId('field') })).toBe(false);
+            expect(byId('field').indeterminate).toBe(false);
+        });
+
+        it('write a control\'s value, answering the value it replaced, firing no event, and nothing for an element that is no control', async () => {
+            const fields = ['field', 'notes', 'list'].map(byId);
+            const events = [];
+
+            fields.forEach(control => ['input', 'change'].forEach(type => control.addEventListener(type, () => events.push(type))));
+
+            expect(await execute('field.writeValue("")', { field: fields[0] })).toBe('draft');
+            expect(await execute('notes.writeValue("new")', { notes: fields[1] })).toBe('old');
+            expect(await execute('list.writeValue("b")', { list: fields[2] })).toBe('a');
+            expect(fields.map(control => control.value)).toEqual(['', 'new', 'b']);
+            expect(await execute('plain.writeValue("x")', { plain: byId('plain') })).toBeNull();
+            expect(events).toEqual([]);
+        });
+
+        it('place a text control\'s selection, answering that it placed it, and none of an element that exposes none', async () => {
+            const field = byId('field');
+
+            expect(await execute('field.writeSelection({ start = 1, end = 3 })', { field })).toBe(true);
+            expect([field.selectionStart, field.selectionEnd]).toEqual([1, 3]);
+            expect(await execute('plain.writeSelection({ start = 0, end = 1 })', { plain: byId('plain') })).toBe(false);
+        });
+
+        it('place the document\'s selection at offsets in an editable element\'s text, as its selection reads them, an offset past the end held at the end', async () => {
+            const editor = byId('editor');
+
+            expect(await execute('editor.writeSelection({ start = 2, end = 6 })', { editor })).toBe(true);
+            expect(document.getSelection().toString()).toBe('e tw');
+            expect(domql.query('editor.selection', { editor }).evaluate()).toEqual({ start: 2, end: 6 });
+            expect(await execute('editor.writeSelection({ start = 8, end = 99 })', { editor })).toBe(true);
+            expect(domql.query('editor.selection', { editor }).evaluate()).toEqual({ start: 8, end: 13 });
+        });
+    });
+
     describe('pointer capture', () => {
         /** Gives the element the pointer capture a browser keeps, the pointers given active. */
         const capturing = (element, active) => {

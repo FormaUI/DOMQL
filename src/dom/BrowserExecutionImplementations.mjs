@@ -14,6 +14,9 @@ const SCROLL_ALIGNMENTS = new Set(['start', 'center', 'end', 'nearest']);
 /** The logical axes a scroll names, each with the physical axis it is along. */
 const LOGICAL_AXES = ['inline', 'block'];
 
+/** The elements whose value the user edits, and the page's code writes. */
+const VALUE_ELEMENTS = new Set(['input', 'textarea', 'select']);
+
 export class BrowserExecutionImplementations {
     /**
      * Each implementation reads, from one object by name, the receiver, the arguments by parameter name, the environment the request is carried out in, and the signal that aborts a once execution or the reporting a
@@ -41,6 +44,29 @@ export class BrowserExecutionImplementations {
             capturePointer: ({ receiver: element, args: { pointerId } }) => BrowserExecutionImplementations.#capturePointer(element, pointerId),
             releasePointer: ({ receiver: element, args: { pointerId } }) => BrowserExecutionImplementations.#toggle(element, () => element.hasPointerCapture(pointerId), false, () => element.releasePointerCapture(pointerId)),
 
+            // A form control's state, as the page's code writes it, which fires no event.
+            writeIndeterminate: ({ receiver: element, args: { indeterminate } }) => {
+                if (element.localName !== 'input' || element.type !== 'checkbox' || element.indeterminate === indeterminate) {
+                    return false;
+                }
+
+                element.indeterminate = indeterminate;
+
+                return true;
+            },
+            writeValue: ({ receiver: element, args: { value } }) => {
+                if (!VALUE_ELEMENTS.has(element.localName)) {
+                    return null;
+                }
+
+                const replaced = element.value;
+
+                element.value = value;
+
+                return replaced;
+            },
+            writeSelection: ({ receiver: element, args: { start, end } }) => BrowserExecutionImplementations.#select(element, start, end),
+
             // The writes DOMQL owns while they run, each holding its target at its value.
             ownAttribute: own((element, { name }) => OwnedWrites.attribute(element, name), ({ value }) => value),
             ownClass: own((element, { name }) => OwnedWrites.class(element, name), ({ present }) => present),
@@ -52,6 +78,68 @@ export class BrowserExecutionImplementations {
             showModal: ({ receiver: element }) => BrowserExecutionImplementations.#toggle(BrowserExecutionImplementations.#dialog(element), () => element.matches(':modal'), true, () => element.showModal()),
             closeDialog: ({ receiver: element, args: { returnValue } }) => BrowserExecutionImplementations.#toggle(BrowserExecutionImplementations.#dialog(element), () => element.open, false, () => (returnValue === null ? element.close() : element.close(returnValue))),
         };
+    }
+
+    /**
+     * Places the selection of a text control at the offsets, or the document's selection at those offsets in the text of an element whose content is editable, as `selection` reads each; an offset past the end is held
+     * at the end and a start after the end moved to it. Answers whether it placed it: not for an element whose selection the browser does not expose.
+     */
+    static #select(element, start, end) {
+        if (element.localName === 'input' || element.localName === 'textarea') {
+            try {
+                element.setSelectionRange(start, end);
+            } catch (error) {
+                // An input of a type the selection API excludes, as number or email, exposes no selection.
+                if (error?.name !== 'InvalidStateError') {
+                    throw error;
+                }
+
+                return false;
+            }
+
+            return element.selectionStart !== null;
+        }
+
+        if (!element.isContentEditable) {
+            return false;
+        }
+
+        const document = element.ownerDocument;
+        const selection = document.getSelection();
+
+        if (selection === null) {
+            return false;
+        }
+
+        const range = document.createRange();
+        const length = element.textContent.length;
+        const to = Math.max(0, Math.min(end, length));
+        const from = Math.max(0, Math.min(start, to));
+
+        range.setStart(...BrowserExecutionImplementations.#pointIn(element, from));
+        range.setEnd(...BrowserExecutionImplementations.#pointIn(element, to));
+        selection.removeAllRanges();
+        selection.addRange(range);
+
+        return true;
+    }
+
+    /** The node and offset of a point in the element's text, the offset counted in its text nodes in document order, as `text` joins them; the element's end where it holds no text. */
+    static #pointIn(element, offset) {
+        const walker = element.ownerDocument.createTreeWalker(element, 4);
+        let passed = 0;
+        let last = null;
+
+        for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+            if (offset <= passed + node.data.length) {
+                return [node, offset - passed];
+            }
+
+            passed += node.data.length;
+            last = node;
+        }
+
+        return last === null ? [element, element.childNodes.length] : [last, last.data.length];
     }
 
     /** Starts an owned write of the target its arguments name on the element, at the value they give, and answers what updates it to other arguments, on this element or another, and ends it. */

@@ -587,3 +587,19 @@ Each entry is one of three kinds:
   - Writing again against a patch by default, as the plan wrote, which fights another holder.
   - `element.attributes({ lang, dir })`, one execution of several attributes, which `ownAttribute` per attribute answers, each restored or kept as its own.
   - A style property's priority, `!important`, which no query needs yet.
+
+<a id="d39"></a>
+
+## D39 — A form control's writes answer what they changed, and nothing of other elements
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `writeIndeterminate(Boolean)` answers whether it changed a checkbox, `writeValue(String)` the value it replaced, and `writeSelection({ start, end })` whether it placed the selection. An element they don't apply to, as one that is no checkbox for the first, no control for the second and one exposing no selection for the third, answers false or null and is left as it is. `writeSelection` places an editable element's selection too, at offsets in its text.
+- **Why:**
+  - The members that read a control answer null for an element they don't apply to, as `value` and `selection` do, so the writes beside them answer in the same terms rather than failing; a refusal of the browser's own, as a file input's value, still fails.
+  - Writing a value and reading what it replaced is one step, as clearing a field and keeping what it held, and firing no event is what the page's own code does, which a caller that reacts to edits relies on.
+  - `selection` reads an editable element's selection as offsets in its text, so writing it takes the same offsets; an editor places its caret by them.
+- **Declined:**
+  - Dispatching `input` or `change` after a write, which a caller does with an execution of its own where it wants one.
+  - A selection's direction, which no query needs yet.
