@@ -1,6 +1,6 @@
-# DOMQL Design v1.0.0-alpha.307
+# DOMQL Design v1.0.0-alpha.308
 
-The [DOMQL specification](../spec/README.md) is the contract: DOMQL's module, which declares the DOM as Nexo's domain, and the host that carries queries out against a document. This design sets out how this implementation is built to meet it, and the reasons behind the choices that shape it. It describes DOMQL's version `1.0.0-alpha.307` on Nexo's definition version 38, as the specification does, and an outline of the C# half, which waits for its design; [the status overview](features-status.md) says where the implementation still differs. [Nexo's design](https://github.com/FormaUI/Nexo/blob/cf5cb6f30f3326c0be12ec6369d24540ffaba5e2/docs/nexo-design.md), at the commit DOMQL builds against, sets out how the language and its runtime are built.
+The [DOMQL specification](../spec/README.md) is the contract: DOMQL's module, which declares the DOM as Nexo's domain, and the host that carries queries out against a document. This design sets out how this implementation is built to meet it, and the reasons behind the choices that shape it. It describes DOMQL's version `1.0.0-alpha.308` on Nexo's definition version 38, as the specification does, and an outline of the C# half, which waits for its design; [the status overview](features-status.md) says where the implementation still differs. [Nexo's design](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/docs/nexo-design.md), at the commit DOMQL builds against, sets out how the language and its runtime are built.
 
 In this document:
 
@@ -58,7 +58,7 @@ A selector is read for what it tests by `Selectors`, a scan of its text that nee
 
 ## Comparing and patching
 
-The comparer reads what Nexo's [result metadata](https://github.com/FormaUI/Nexo/blob/cf5cb6f30f3326c0be12ec6369d24540ffaba5e2/spec/runtime/evaluation.md#runtime-results) records beside each value: the provenance of each item, the source the earliest projection it descends from read, by which a list is matched where Nexo classifies every item's provenance as a reference, each standing once; the origin of each value, which tells whether a number came from the same branch, operand or property as the number before it; and the tolerance it compares within. A result therefore holds data alone, and a change set never names an element.
+The comparer reads what Nexo's [result metadata](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/spec/runtime/evaluation.md#runtime-results) records beside each value: the provenance of each item, the source the earliest projection it descends from read, by which a list is matched where Nexo classifies every item's provenance as a reference, each standing once; the origin of each value, which tells whether a number came from the same branch, operand or property as the number before it; and the tolerance it compares within. A result therefore holds data alone, and a change set never names an element.
 
 The patcher computes the change set that takes one reconciled snapshot to the next, and applies change sets in place to live state.
 
@@ -96,6 +96,10 @@ What a window's operations share is made at the first that needs it and kept by 
 `FrameSchedule` asks the window for one animation frame at a time, and runs that frame's writes and then its reads; a read a write asks for joins the frame's reads, and anything else asked for while a frame runs waits for the next, so no frame runs without end. A watch scheduled by frame asks for a read, which disposing it withdraws; the frame still runs, and skips it. The `frame` observation asks for a write each frame while it is held, so a watch reading it evaluates in the same frame's reads. In Chromium, averaged over 240 frames in three runs, holding it with nothing reading it cost 0.02 to 0.03 ms a frame, and a watch reading the left edge of each of 1, 100 and 1,000 boxes through it 0.11, 0.33 to 0.34 and 2.1 to 2.2 ms a frame, a result that never changed compared each frame: a module holds it only while a gesture or a pointer needs it, and a watch reading many boxes through it costs a seventh of a frame for each thousand.
 
 `MutationObservers`, one for each instance of the library, makes every mutation observer DOMQL runs, its observations' and its owned writes', and keeps each by its window while it observes. A transient measurement takes the records each of its window's observers holds, adds the class, reads, writes the class attribute back as it was, takes their records again, leaves out the records of that element's class attribute, and hands each observer the rest in a microtask, as the browser would have. It touches each observer of the window twice, so a window running many costs a measurement that many takes.
+
+### Kept functions
+
+Nexo keeps a host call's function arguments open until the prepared call is disposed, so DOMQL disposes each prepared call as what it started ends: a handle the prepared call of the instance running, after the instance's own disposal, since that disposal may still call them, and after an update its instance accepted; an event listener the prepared call its source started with, once the source stops, a call prepared again for projecting keeping none; and a once execution its call as its implementation's answer settles. `QueryEvaluator` wraps each kept function so its calls count among the instance's evaluations, which keeps a member it reads from observing, scheduling or measuring, as any member evaluated by a query is kept.
 
 ### Events as `on` delivers them
 

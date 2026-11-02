@@ -6,6 +6,21 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-308"></a>
+
+## `1.0.0-alpha.308`
+
+*November 2, 2026 · Nexo language `1.0.0-beta.20` · definition format 38*
+
+DOMQL moves to Nexo's language `1.0.0-beta.20`, whose host calls take function arguments their host keeps, and a behavior keeps a test it is given and calls it as it hears each event.
+
+**Executions**
+
+- [Kept functions](spec/vocabulary.md#extension-modules-kept-functions): a host call's function argument reaches its implementation as a function it keeps and calls later, each call reading the page as it is then and reading alone. DOMQL ends it as the execution keeping it ends: a continuous execution's instance ending or accepting other arguments, a once execution's answer settling, a subscription ending; a call afterwards fails with Nexo's NEXO5051, as [D61](docs/decisions.md#d61) records.
+- A host call declaring an expression or a predicate parameter is refused with Nexo's NEXO4056, which refused a function parameter too.
+
+**Breaking:** nothing.
+
 <a id="v1-0-0-alpha-307"></a>
 
 ## `1.0.0-alpha.307`
@@ -302,7 +317,7 @@ DOMQL moves to Nexo's language `1.0.0-beta.15`, which settles what Nexo's status
 - **Membership compares by key equality alone.** `contains`, `indexOf`, `distinct` and `distinctBy` take numbers, strings, Booleans, references and null, so a list of elements works as before, and one of objects, lists or values of `Any` is refused (NEXO3083), where it was compared by identity.
 - **A result path is checked wherever it is given,** so `select` refuses a malformed path as it did, and steps into an object's own fields and a list's items alone.
 - **A module's declarations name Nexo's own types qualified,** as `Nexo.Number`, where the module declares a type of that name.
-- **Conditions Nexo told apart by message have codes of their own,** NEXO5043 to NEXO5050 among them, as [Nexo's language history](https://github.com/FormaUI/Nexo/blob/cf5cb6f30f3326c0be12ec6369d24540ffaba5e2/LANGUAGE-HISTORY.md) records.
+- **Conditions Nexo told apart by message have codes of their own,** NEXO5043 to NEXO5050 among them, as [Nexo's language history](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/LANGUAGE-HISTORY.md) records.
 
 **Breaking:** a query that tested membership in a list of objects, lists or values of `Any` is refused; test a key field instead, as `items.any(it.id == id)`.
 

@@ -2,15 +2,15 @@
 
 ## Current state
 
-**DOMQL's vocabulary, queries, watches, events and executions are implemented on Nexo's language `1.0.0-beta.19`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.307`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next are the [planned capabilities](#planned-capabilities) of the host side; the C# half waits for its design.**
+**DOMQL's vocabulary, queries, watches, events and executions are implemented on Nexo's language `1.0.0-beta.20`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.308`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next are the [planned capabilities](#planned-capabilities) of the host side; the C# half waits for its design.**
 
 | Version | Implementation | Specification |
 | --- | --- | --- |
-| DOMQL specification | `1.0.0-alpha.307` | `1.0.0-alpha.307` |
-| Nexo language | `1.0.0-beta.19` | `1.0.0-beta.19` |
+| DOMQL specification | `1.0.0-alpha.308` | `1.0.0-alpha.308` |
+| Nexo language | `1.0.0-beta.20` | `1.0.0-beta.20` |
 | Definition format | 38 | 38 |
 
-- **The language DOMQL runs on.** DOMQL builds against Nexo at the commit `nexo.commit` pins, `cf5cb6f`, Nexo's `1.0.0-beta.19`, and its documents link to [Nexo's documents at it](https://github.com/FormaUI/Nexo/blob/cf5cb6f30f3326c0be12ec6369d24540ffaba5e2/spec/README.md). The language was called Lexica before the [migration](#migration-to-nexo).
+- **The language DOMQL runs on.** DOMQL builds against Nexo at the commit `nexo.commit` pins, `e989dee`, Nexo's `1.0.0-beta.20`, and its documents link to [Nexo's documents at it](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/spec/README.md). The language was called Lexica before the [migration](#migration-to-nexo).
 - **Packages.** The bundle and type declarations are built, with Nexo bundled inside `domql.js`. npm and NuGet packages are packed locally but unpublished.
 - **The C# half** waits for its design, as [D46](decisions.md#d46) records.
 
@@ -108,6 +108,7 @@ Each feature, the contract that states it, its state in the implementation, and 
 | A captured member's history, kept per holder by the operation's environment | [History per holder](../spec/vocabulary.md#extension-modules-history-per-holder) | Implemented, as [D58](decisions.md#d58) records | [`alpha.306`](../VERSION-HISTORY.md#v1-0-0-alpha-306) |
 | A null argument passed as it stands where its parameter accepts null | [Arguments](../spec/vocabulary.md#extension-modules) | Implemented, as [D59](decisions.md#d59) records | [`alpha.307`](../VERSION-HISTORY.md#v1-0-0-alpha-307) |
 | Nested options holding an element, a structured option written in place | [Arguments](../spec/vocabulary.md#extension-modules) | Implemented, as [D60](decisions.md#d60) records | [`alpha.307`](../VERSION-HISTORY.md#v1-0-0-alpha-307) |
+| Kept functions, a host call's function arguments its implementation calls later, ended as the execution ends | [Kept functions](../spec/vocabulary.md#extension-modules-kept-functions) | Implemented, as [D61](decisions.md#d61) records | [`alpha.308`](../VERSION-HISTORY.md#v1-0-0-alpha-308) |
 | Handling inside the native dispatch, delivering synchronously and never throwing into the listener | [Handling inside the native dispatch](../spec/behaviors.md#behaviors-synchronous-handling) | Implemented, as [D51](decisions.md#d51) records | [`alpha.303`](../VERSION-HISTORY.md#v1-0-0-alpha-303) |
 | `domql.info.versions` | [The API](../spec/api.md#api-entry-points-and-operations) | Implemented | [`alpha.275`](../VERSION-HISTORY.md#v1-0-0-alpha-275) |
 | The JavaScript bundle and its TypeScript declarations | [README](../README.md#build-and-try-it) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
@@ -223,7 +224,7 @@ A behavior's occurrences, state, commands and owner (C1 to C4), and reactions in
 
 
 
-| C13 | **A kept function argument,** as a predicate a running behavior keeps and calls later; the language forbids a host call to keep a function today, so what a behavior keeps is data |
+
 
 <a id="planned-api-and-host"></a>
 
@@ -264,7 +265,7 @@ Consume a released Nexo before publishing packages.
 
 ### Consuming the language
 
-**Current:** DOMQL depends on `@formaui-net/nexo` through `file:.nexo`, which the build fills with Nexo at the commit `nexo.commit` pins, `cf5cb6f`, taken from a checkout beside this one named `formaui-net.Nexo`, or links to the checkout `NEXO_SOURCE` names; CI checks Nexo out at the same commit. It imports the language's entry point alone, and bundles it into `domql.js`. The language's tests that run through DOMQL's entry point are DOMQL's integration tests.
+**Current:** DOMQL depends on `@formaui-net/nexo` through `file:.nexo`, which the build fills with Nexo at the commit `nexo.commit` pins, `e989dee`, taken from a checkout beside this one named `formaui-net.Nexo`, or links to the checkout `NEXO_SOURCE` names; CI checks Nexo out at the same commit. It imports the language's entry point alone, and bundles it into `domql.js`. The language's tests that run through DOMQL's entry point are DOMQL's integration tests.
 
 **Remaining:**
 

@@ -129,9 +129,33 @@ export class QueryEvaluator {
         return this.#evaluateWithObservations({ observations, onChange, holdsAllObservations, replaces, consumer, recordsDependencies, waits: true }, () => this.#currentEvaluator().evaluate(this.#getHost()));
     }
 
-    /** Prepares the host call the request ends in, as Nexo's evaluator prepares it: the call to invoke, or a skipped call where there is nothing to invoke. */
+    /**
+     * Prepares the host call the request ends in, as Nexo's evaluator prepares it: the call to invoke, or a skipped call where there is nothing to invoke. A function argument is a function its implementation keeps, each call
+     * of which is an evaluation of this instance's, as reading alone requires, until the call is disposed.
+     */
     prepareHostCall() {
-        return QueryEvaluator.#within(() => this.#currentEvaluator().prepareHostCall());
+        const call = QueryEvaluator.#within(() => this.#currentEvaluator().prepareHostCall());
+
+        return call.kind === 'prepared' ? QueryEvaluator.#keeping(call) : call;
+    }
+
+    /** The prepared call with each function its arguments give counted, as it is called, among this instance's evaluations; a call that keeps none as it is. */
+    static #keeping(call) {
+        const kept = call.declaration.parameters.filter(parameter => parameter.kind === 'function' && typeof call.args[parameter.name] === 'function');
+
+        if (kept.length === 0) {
+            return call;
+        }
+
+        const args = { ...call.args };
+
+        for (const { name } of kept) {
+            const keptFunction = call.args[name];
+
+            args[name] = (...values) => QueryEvaluator.#within(() => keptFunction(...values));
+        }
+
+        return Object.freeze({ ...call, args });
     }
 
     /**

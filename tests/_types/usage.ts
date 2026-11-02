@@ -302,6 +302,25 @@ const following: DomqlMemberDeclaration = {
     },
 };
 
+// A behavior keeps a function argument, a test it calls as it hears each event, until it ends.
+const routing: DomqlMemberDeclaration = {
+    name: 'routing',
+    kind: 'function',
+    invokedBy: 'host',
+    requestKind: 'execution',
+    executionMode: 'continuous',
+    arguments: 'options',
+    parameters: [{ name: 'when', kind: 'function', type: 'Boolean', parameterTypes: ['Domql.Element'], required: true }],
+    impl: ({ receiver, args }) => {
+        const when = args.when as (element: Element) => boolean;
+        const route = (event: Event) => (when(event.target as Element) ? event.preventDefault() : undefined);
+
+        (receiver as Element).addEventListener('keydown', route);
+
+        return { update: () => {}, dispose: () => (receiver as Element).removeEventListener('keydown', route) };
+    },
+};
+
 // @ts-expect-error A frame runs in its write phase or its read phase.
 const painting: DomqlFrameOptions = { phase: 'paint' };
 
@@ -459,4 +478,4 @@ const listed: DomqlDefinitionNode = { kind: 'list', items: [{ kind: 'literal', v
 const last: DomqlDefinitionNode = { kind: 'indexerAccess', receiver: { kind: 'local', name: 'rows' }, argument: { kind: 'fromEndIndex', offset: { kind: 'literal', value: 1 } } };
 const imported: DomqlDefinition = { version: 38, imports: [{ module: 'Domql' }], expression: { kind: 'memberAccess', receiver: { kind: 'namespace', name: 'Domql' }, name: 'document' } };
 
-export { following, painting, styled, trapped, counting, drops, dropZone, release, owned, released, ownedCount, ownedWatch, bound, version, specificationVersion, languageVersion, formatted, formattedText, kind, typeText, count, anything, waited, shorthand, selected, selectedAsync, selectedWatch, key, listening, status, snapshot, failure, ready, refreshed, viewed, viewStatus, viewReady, smaller, held, livingSnapshot, livingReady, livingRefreshed, watchedAgain, keptAgain, clicking, source, moved, stepped, trapping, reported };
+export { routing, following, painting, styled, trapped, counting, drops, dropZone, release, owned, released, ownedCount, ownedWatch, bound, version, specificationVersion, languageVersion, formatted, formattedText, kind, typeText, count, anything, waited, shorthand, selected, selectedAsync, selectedWatch, key, listening, status, snapshot, failure, ready, refreshed, viewed, viewStatus, viewReady, smaller, held, livingSnapshot, livingReady, livingRefreshed, watchedAgain, keptAgain, clicking, source, moved, stepped, trapping, reported };

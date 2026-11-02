@@ -4450,7 +4450,6 @@ describe('domql callback contracts', () => {
 
     it.each([
         ['on a property, which takes no parameters', { name: 'p', kind: 'property', parameters: [{ name: 'f', kind: 'function', parameterTypes: [], type: 'Number', required: true }], result: 'Number', updates: { changes: 'constant', reads: 'fresh' }, impl: () => 0 }, 'NEXO4030', "A member of kind 'property' declares name, kind, result, impl, internal, updates, and 'parameters' is none of them"],
-        ['on a host call', { name: 'p', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', arguments: 'positional', parameters: [{ name: 'f', kind: 'function', parameterTypes: [], type: 'Number', required: true }], result: 'Number', impl: () => 0 }, 'NEXO4056', "A function the host invokes takes value parameters alone, each argument prepared as a value its host keeps, and 'f' is a function parameter"],
         ['with a null policy', { name: 'p', kind: 'function', arguments: 'positional', parameters: [{ name: 'f', kind: 'function', parameterTypes: [], type: 'Number', required: true, nulls: 'accept' }], result: 'Number', updates: { changes: 'constant', reads: 'fresh' }, impl: () => 0 }, 'NEXO4054', 'which a function parameter leaves out'],
         ['without the types it is called with', { name: 'p', kind: 'function', arguments: 'positional', parameters: [{ name: 'f', kind: 'function', type: 'Number', required: true }], result: 'Number', updates: { changes: 'constant', reads: 'fresh' }, impl: () => 0 }, 'NEXO4537', "The parameter 'f' is a function that declares its parameterTypes, a list of the types it is called with"],
         ['optional', { name: 'p', kind: 'function', arguments: 'positional', parameters: [{ name: 'f', kind: 'function', parameterTypes: [], type: 'Number', required: false }], result: 'Number', updates: { changes: 'constant', reads: 'fresh' }, impl: () => 0 }, 'NEXO4054', "The parameter 'f' is a function, so it is required"],
@@ -4460,6 +4459,18 @@ describe('domql callback contracts', () => {
         ['an observation is given', { name: 'p', kind: 'function', arguments: 'positional', parameters: [{ name: 'f', kind: 'function', parameterTypes: [], type: 'Number', required: true }], result: 'Number', updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'resize', of: { argument: 'f' } }] }, impl: () => 0 }, 'NEXO4055', "The observation 'resize' is given the parameter 'f', a function that lasts only while the member's invocation does"],
     ])('refuses a module declaring a function parameter %s', (_, member, code, message) => {
         expect(getError(() => isolated.createModule('P', { types: [elementExtension('PElements', [member])] }))).toMatchObject({ kind: 'module', code, message: expect.stringContaining(message), location: { module: 'P', type: 'PElements', declaration: 'p' } });
+    });
+
+    it('takes a function parameter on a host call, and refuses an expression parameter there', () => {
+        const hostCall = parameter => ({ name: 'p', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', arguments: 'positional', parameters: [parameter], result: 'Number', impl: () => 0 });
+
+        expect(() => isolated.createModule('P', { types: [elementExtension('PElements', [hostCall({ name: 'f', kind: 'function', parameterTypes: [], type: 'Number', required: true })])] })).not.toThrow();
+        expect(getError(() => isolated.createModule('Q', { types: [elementExtension('QElements', [hostCall({ name: 'f', kind: 'expression', type: 'Number', required: true, context: 'item' })])] }))).toMatchObject({
+            kind: 'module',
+            code: 'NEXO4056',
+            message: expect.stringContaining("A function the host invokes takes value and function parameters, each argument prepared as a value or a function its host keeps, and 'f' is an expression parameter"),
+            location: { module: 'Q', type: 'QElements', declaration: 'p' },
+        });
     });
 });
 
@@ -5893,5 +5904,110 @@ describe('domql host call arguments', () => {
 
     it('refuses a structured option written in place whose field is of another type, as it is resolved', () => {
         expect(getError(() => isolated.query('import Scrolls\nviewport:scrolling({ axis = "inline", buttons = { container = "viewport", step = 3 } })', { viewport }).run())).toMatchObject({ kind: 'validation' });
+    });
+});
+
+describe('domql kept functions', () => {
+    let isolated;
+    let panel;
+
+    /** The kept functions each instance of the picker, and each run of the check, was given, in order. */
+    let kept;
+
+    beforeEach(async () => {
+        vi.resetModules();
+        ({ domql: isolated } = await import('#domql/domql.js'));
+        document.body.innerHTML = '<div id="panel"><span id="first" class="pick"></span><span id="second"></span></div>';
+        panel = document.getElementById('panel');
+        kept = [];
+        isolated.registerModule(isolated.createModule('Picks', {
+            types: [elementExtension('PickElements', [
+                {
+                    name: 'picker', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'continuous', arguments: 'options',
+                    parameters: [{ name: 'when', kind: 'function', type: 'Boolean', parameterTypes: ['Domql.Element'] }],
+                    impl: ({ receiver: element, args: { when }, deliver }) => {
+                        let test = when;
+                        const pick = event => {
+                            if (test(event.target)) {
+                                deliver('picks', event.target);
+                            }
+                        };
+
+                        kept.push(when);
+                        element.addEventListener('click', pick);
+
+                        return {
+                            update: (receiver, { when: next }) => {
+                                kept.push(next);
+                                test = next;
+                            },
+                            dispose: () => element.removeEventListener('click', pick),
+                        };
+                    },
+                },
+                { name: 'picks', kind: 'function', invokedBy: 'host', requestKind: 'subscription', behavior: 'picker', result: 'Domql.Element' },
+                {
+                    name: 'check', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', arguments: 'positional',
+                    parameters: [{ name: 'test', kind: 'function', type: 'Boolean', parameterTypes: ['Domql.Element'] }],
+                    result: 'Boolean',
+                    impl: async ({ receiver: element, args: { test } }) => {
+                        kept.push(test);
+                        await Promise.resolve();
+
+                        return test(element);
+                    },
+                },
+                {
+                    name: 'scheduled', kind: 'property', result: 'Boolean',
+                    updates: { changes: 'constant', reads: 'fresh' },
+                    impl: ({ env }) => env.frame(() => {}) !== null,
+                },
+            ])],
+        }));
+    });
+
+    afterEach(() => {
+        document.body.innerHTML = '';
+    });
+
+    it('reach a behavior as functions it keeps and calls later, each call reading the page as it is then', () => {
+        const picked = [];
+
+        isolated.query('import Picks\npanel:picks() { id = it.attribute["id"] }', { panel }).subscribe((sender, args) => picked.push(args.value.id));
+        isolated.query('import Picks\npanel:picker({ when = it.matches(".pick") })', { panel }).run();
+
+        document.getElementById('first').click();
+        document.getElementById('second').click();
+        document.getElementById('second').classList.add('pick');
+        document.getElementById('second').click();
+
+        expect(picked).toEqual(['first', 'second']);
+    });
+
+    it('end as an update replaces them once the instance accepted it, and as the execution ends, a call afterwards failing with NEXO5051', () => {
+        const picker = isolated.query('import Picks\nlet selector = choice\nreturn panel:picker({ when = it.matches(selector) })', { panel, choice: '.pick' }).run();
+        const [first] = kept;
+
+        picker.update({ panel, choice: 'span' });
+
+        const [, second] = kept;
+
+        expect(getError(() => first(panel))).toMatchObject({ kind: 'evaluation', code: 'NEXO5051' });
+        expect(second(document.getElementById('second'))).toBe(true);
+
+        picker.dispose();
+
+        expect(getError(() => second(panel))).toMatchObject({ kind: 'evaluation', code: 'NEXO5051' });
+    });
+
+    it('end with a once execution as its implementation settles, after which a call fails', async () => {
+        expect(await isolated.query('import Picks\npanel:check(element => element.attribute["id"] == "panel")', { panel }).executeAsync()).toBe(true);
+        expect(getError(() => kept[0](panel))).toMatchObject({ kind: 'evaluation', code: 'NEXO5051' });
+    });
+
+    it('are evaluated as a query is, so a member they read observes, schedules and measures nothing', () => {
+        isolated.query('import Picks\npanel:picker({ when = it:scheduled })', { panel }).run();
+
+        expect(getError(() => kept[0](panel))).toMatchObject({ code: 'NEXO5007', cause: expect.objectContaining({ code: 'DOMQL5021' }) });
     });
 });

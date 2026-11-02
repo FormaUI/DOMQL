@@ -378,15 +378,24 @@ class Domql {
         }
 
         const location = resolution.getLocation(call.pointer);
-
-        const execute = Domql.#implementationOf(call);
         const { name } = call.declaration;
         const { module, behavior } = DispatchTable.get(call.declaration);
         const reached = behavior === null ? {} : { instance: Domql.#behaviors.find(module, behavior, owner, call.receiver) };
+        let execute;
 
-        if (reached.instance === null) {
-            throw NexoError.evaluation('DOMQL5016', `No '${behavior}' runs for this owner on this receiver, and the command '${name}' reaches its running instance alone`, location);
+        // The functions the call keeps last as long as its implementation runs, which one never invoked never does.
+        try {
+            execute = Domql.#implementationOf(call);
+
+            if (reached.instance === null) {
+                throw NexoError.evaluation('DOMQL5016', `No '${behavior}' runs for this owner on this receiver, and the command '${name}' reaches its running instance alone`, location);
+            }
+        } catch (error) {
+            call.dispose();
+
+            throw error;
         }
+
         const reportError = Domql.#createErrorReporter(window);
         const createExecutionError = error => NexoError.evaluation('DOMQL5001', `The execution '${name}' failed: ${error?.message ?? String(error)}`, location, { cause: error });
 
@@ -406,12 +415,16 @@ class Domql {
             try {
                 returnValue = execute({ receiver: call.receiver, args: call.args, env: environment, signal: signal ?? new AbortController().signal, ...reached });
             } catch (error) {
+                call.dispose();
                 settle(() => reject(createExecutionError(error)));
 
                 return;
             }
 
             Promise.resolve(returnValue).then(result => {
+                // The execution has ended, canceled or not, so the functions it kept end with it.
+                call.dispose();
+
                 // A result that arrives after the execution was canceled is discarded.
                 if (isSettled) {
                     return;
@@ -429,6 +442,8 @@ class Domql {
 
                 settle(() => resolve(value));
             }, error => {
+                call.dispose();
+
                 // No caller waits for a failure that arrives after the execution was canceled, so it goes to the error reporting.
                 if (isSettled) {
                     reportError(createExecutionError(error));
@@ -459,6 +474,7 @@ class Domql {
             return {
                 declaration: resolved.hostCall.declaration,
                 name: resolved.hostCall.name,
+                disposeCall: isPrepared ? call.dispose : () => {},
                 module: isPrepared ? DispatchTable.get(call.declaration).module : null,
                 sources: isPrepared ? DispatchTable.sourcesOf(call.declaration) : null,
                 start: isPrepared ? Domql.#implementationOf(call) : undefined,
@@ -631,6 +647,9 @@ class Domql {
         }
 
         const again = evaluator.prepareHostCall();
+
+        // A call prepared again projects alone, so it keeps none of the functions its arguments give.
+        again.dispose?.();
 
         if (again.kind !== 'prepared' || again.declaration !== call.declaration) {
             throw NexoError.evaluation('DOMQL5015', `A module registered since made the request of '${call.declaration.name}' stale, and preparing it again reaches ${again.kind === 'prepared' ? 'another host call' : 'no host call'}; carry it out again`, location);

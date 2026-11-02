@@ -8,9 +8,9 @@ Read the documents that govern the affected contract:
 
 | Document | Authority |
 | --- | --- |
-| [Nexo specification](https://github.com/FormaUI/Nexo/blob/cf5cb6f30f3326c0be12ec6369d24540ffaba5e2/spec/README.md) | Nexo's two contracts, at the commit DOMQL builds against: the language's, what a query means, and the runtime's, how DOMQL as its host binds, resolves, evaluates and registers modules |
+| [Nexo specification](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/spec/README.md) | Nexo's two contracts, at the commit DOMQL builds against: the language's, what a query means, and the runtime's, how DOMQL as its host binds, resolves, evaluates and registers modules |
 | [DOMQL specification](spec/README.md) | DOMQL's module and DOMQL as host: queries, nodes and shadow trees, the built-in vocabulary, evaluation, watching, results, events, executions, and the public API, one document per subject |
-| [Nexo design](https://github.com/FormaUI/Nexo/blob/cf5cb6f30f3326c0be12ec6369d24540ffaba5e2/docs/nexo-design.md) | How Nexo is built: its stages, modules, evaluation and tooling |
+| [Nexo design](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/docs/nexo-design.md) | How Nexo is built: its stages, modules, evaluation and tooling |
 | [DOMQL design](docs/domql-design.md) | How DOMQL is built: its architecture, resolution, sessions, watching, comparing and patching, the C# half, and the decisions not taken |
 | [Status](docs/features-status.md) | What is implemented, the migration to Nexo, the planned capabilities, open decisions and deferred work |
 | [Decisions](docs/decisions.md) | Each decision taken without stopping to ask, with why and what was declined, for review |

@@ -404,7 +404,7 @@ Each entry is one of three kinds:
 - **Kind:** Contract.
 - **Decision:** `on(type, options?)` takes a second, optional positional argument, a `Listening { capture }`, so `on("click", { capture = true })` listens as the event is captured on its way to its target, and `on("click")` as before, at the target and as it bubbles. It listens passively either way, for observing alone, as [D2](#d2) has it.
 - **Why:**
-  - A member's argument form is positional or options, never both, and `on("click")` keeps its form, so the option is a structured value its parameter constructs from the object expression written there, as Nexo's [constructing a structure](https://github.com/FormaUI/Nexo/blob/cf5cb6f30f3326c0be12ec6369d24540ffaba5e2/spec/language/types.md#types-constructing-a-structure) sets out.
+  - A member's argument form is positional or options, never both, and `on("click")` keeps its form, so the option is a structured value its parameter constructs from the object expression written there, as Nexo's [constructing a structure](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/spec/language/types.md#types-constructing-a-structure) sets out.
   - A structure leaves room for another listening option without changing the argument form, which would break every subscription.
   - Listening in the capture phase at an ancestor observes an event before any listener nearer its target runs, so a listener there that stops it hides nothing.
 - **Declined:**
@@ -914,3 +914,18 @@ Each entry is one of three kinds:
 - **Decision:** An option declared a structured type, written in place as an object expression, as `buttons = { container = viewport, step = 3 }`, is constructed as that type's data, its reference fields holding the elements they name, and reaches the implementation frozen ([C12](features-status.md#planned-extension-contract)). DOMQL adds nothing: Nexo constructs it, from its language `1.0.0-alpha.36`.
 - **Why:** A test settled that a structured option holding an element, written in place in a continuous execution's options and given null where its field is nullable, reaches the implementation as the structure its type declares, through `run` and through an update, and that a field of another type is refused as the request is resolved.
 - **Declined:** An options form of DOMQL's own, which would repeat Nexo's construction of structures.
+
+<a id="d61"></a>
+
+## D61 — A kept function ends as the execution that keeps it ends
+
+*November 2, 2026*
+
+- **Kind:** Contract.
+- **Decision:** A host call's function argument reaches its implementation as a kept function, which Nexo's language `1.0.0-beta.20` designed for DOMQL ([C13](features-status.md#planned-extension-contract)), as its [decisions](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/docs/decisions.md#d49) record. DOMQL ends it as the execution keeping it ends: a continuous execution's instance ending or accepting other arguments, a once execution's answer settling, a subscription ending. Each call counts as an evaluation of the instance's, so what it reads reads alone.
+- **Why:**
+  - A running behavior keeps a test of what it hears, as a route's condition, and calls it inside each event's dispatch; data alone left every such test a protocol of the module's own.
+  - DOMQL alone knows when what it started ends, so it disposes each prepared call then, and a call after that fails with Nexo's code, where it would read a page the caller has moved on from.
+  - An instance that refuses an update keeps the arguments it ran with, so its functions stay open, and the update's are ended; one that accepts them leaves the old ones nothing to serve.
+  - A cancelled once execution still runs until its answer settles, as its signal leaves it to, so its functions end then, never as the caller stops waiting.
+- **Declined:** Ending a once execution's functions as its caller stops waiting, which would fail calls the execution still makes while it winds down.

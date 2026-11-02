@@ -2,7 +2,7 @@
 
 <a id="terms"></a>
 
-Each term this specification uses, what it means, and where its authoritative explanation is. A term here defines nothing its linked document does not, and a term of the language, as a script, a binding, a member, an import, a module or a host call, is [the language's](https://github.com/FormaUI/Nexo/blob/cf5cb6f30f3326c0be12ec6369d24540ffaba5e2/spec/language/terms.md), and one of the runtime, as a registry, a resolution or a module key, is [the runtime's](https://github.com/FormaUI/Nexo/blob/cf5cb6f30f3326c0be12ec6369d24540ffaba5e2/spec/runtime/terms.md), each Nexo's.
+Each term this specification uses, what it means, and where its authoritative explanation is. A term here defines nothing its linked document does not, and a term of the language, as a script, a binding, a member, an import, a module or a host call, is [the language's](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/spec/language/terms.md), and one of the runtime, as a registry, a resolution or a module key, is [the runtime's](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/spec/runtime/terms.md), each Nexo's.
 
 In this document:
 
@@ -70,7 +70,7 @@ In this document:
 
 | Term | Meaning | Reference |
 | --- | --- | --- |
-| Host call | Nexo's call of a function the host invokes, which ends a query; DOMQL carries each out as an event source or an execution | [Host calls](https://github.com/FormaUI/Nexo/blob/cf5cb6f30f3326c0be12ec6369d24540ffaba5e2/spec/language/members.md#members-host-calls) |
+| Host call | Nexo's call of a function the host invokes, which ends a query; DOMQL carries each out as an event source or an execution | [Host calls](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/spec/language/members.md#members-host-calls) |
 | Event source | A host call that delivers things that happened, as `on(type)` does | [Event sources](events.md#event-sources) |
 | Event type | A key of DOMQL's type selector `event`, which names the type its events are captured as | [Event types](events.md#event-types) |
 | Subscription | A query whose chain ends in an event source, which shapes each event into data | [Events](events.md#events) |

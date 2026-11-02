@@ -14,6 +14,9 @@ export class EventListener {
 
     /** The host call the source was started for, through which each event is projected, prepared again where a registration made its resolution stale. @type {object | null} */
     #preparedCall = null;
+
+    /** The host call the source was started with, whose kept functions it calls until it stops, which a call prepared again for projecting never replaces. @type {object | null} */
+    #sourceCall = null;
     #observations;
     #handler;
     #reportError;
@@ -80,6 +83,8 @@ export class EventListener {
             this.#heldCallbacks = null;
             this.#release(this.#lastProjection);
             this.#lastProjection = null;
+            this.#sourceCall?.dispose?.();
+            this.#sourceCall = null;
             this.#rejectAcknowledgments();
 
             throw error;
@@ -115,6 +120,9 @@ export class EventListener {
             this.#reportError(error);
         }
 
+        // The functions the source was started with end once it has stopped.
+        this.#sourceCall?.dispose?.();
+        this.#sourceCall = null;
         this.#release(this.#lastProjection);
         this.#lastProjection = null;
         this.#rejectAcknowledgments();
@@ -127,10 +135,12 @@ export class EventListener {
         }
 
         const { declaration: { name }, pointer } = call;
-        const start = this.#sourceOf(call);
         const location = this.#getLocation(pointer);
 
+        this.#sourceCall = call;
         this.#preparedCall = call;
+
+        const start = this.#sourceOf(call);
 
         // Each event is projected during its delivery, captured as its type declares before anything else reads it, and answers its acknowledgment, which a source may leave.
         const deliver = event => this.#receive(event);
@@ -268,6 +278,9 @@ export class EventListener {
         } catch (error) {
             return error;
         }
+
+        // A call prepared again projects alone, so it keeps none of the functions its arguments give; the source keeps those it started with.
+        call.dispose?.();
 
         if (call.kind !== 'prepared' || call.declaration !== listening.declaration) {
             return NexoError.evaluation('DOMQL5015', `A module registered since made the request of '${listening.declaration.name}' stale, and preparing it again reaches ${call.kind === 'prepared' ? 'another host call' : 'no host call'}; subscribe again`, this.#getLocation(listening.pointer));

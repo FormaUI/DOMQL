@@ -427,7 +427,7 @@ export interface DomqlParameterDeclaration {
     name: string;
     /**
      * A value; an expression, a body of each item, written as an expression evaluated against it or as a function of it; a predicate, an expression of any value whose truthiness the implementation receives; or a function: an arrow function, a function a name holds, a module's function
-     * by reference or an implicit body, which the implementation calls while its own invocation lasts and only a function the evaluator invokes takes.
+     * by reference or an implicit body, which a function the evaluator invokes calls while its own invocation lasts, and a host call keeps until the execution keeping it ends.
      */
     kind: 'value' | 'expression' | 'predicate' | 'function';
     /** The parameter's type, in DOMQL's notation; a predicate's is `Boolean`, what the implementation receives, and a function parameter's the type of its function's result. */
@@ -506,7 +506,10 @@ export interface DomqlEnvironment extends DomqlObservationEnvironment {
     readonly owner: unknown;
 }
 
-/** What a member's implementation receives, by name: its receiver, which a module member has none of, its arguments by parameter name, the environment, and what its kind adds. */
+/**
+ * What a member's implementation receives, by name: its receiver, which a module member has none of, its arguments by parameter name, the environment, and what its kind adds. A host call's function argument is a function
+ * it keeps and calls later, until the execution that keeps it ends.
+ */
 export interface DomqlMemberImplementationInput {
     readonly receiver?: unknown;
     readonly args: Readonly<Record<string, unknown>>;

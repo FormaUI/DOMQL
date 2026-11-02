@@ -7,10 +7,10 @@ import { NexoError } from '@formaui-net/nexo';
 import { EventDispatcher } from './EventDispatcher.mjs';
 
 /**
- * A continuous execution prepared against one binding set: its declaration, null while a receiver of unknown type has selected none, its name, the module that declares it and the event sources its occurrences are
- * delivered to, each null with its declaration, the implementation that starts it, the receiver and arguments it is started or updated with, which are null where the preparation was skipped, the environment, and where it
- * stands.
- * @typedef {{ declaration: object | null, name: string, module: string | null, sources: ReadonlySet<string> | null, start: Function | undefined, receiver: unknown, args: Record<string, unknown> | null, environment: object, location: object }} PreparedExecution
+ * A continuous execution prepared against one binding set: its declaration, null while a receiver of unknown type has selected none, its name, what ends the functions its arguments give the implementation to keep, the
+ * module that declares it and the event sources its occurrences are delivered to, each null with its declaration, the implementation that starts it, the receiver and arguments it is started or updated with, which are null
+ * where the preparation was skipped, the environment, and where it stands.
+ * @typedef {{ declaration: object | null, name: string, disposeCall: () => void, module: string | null, sources: ReadonlySet<string> | null, start: Function | undefined, receiver: unknown, args: Record<string, unknown> | null, environment: object, location: object }} PreparedExecution
  */
 
 export class ExecutionHandle {
@@ -26,6 +26,9 @@ export class ExecutionHandle {
 
     /** The instance the execution's implementation created, or null while a skipped preparation leaves nothing to start. @type {{ update: Function, dispose: Function } | null} */
     #instance = null;
+
+    /** What ends the functions the arguments the instance runs with give it to keep, nothing while no instance runs. */
+    #disposeCall = () => {};
 
     /** `ready` from the call that ran it on, and `disposed` once ended. @type {'ready' | 'disposed'} */
     #status = 'ready';
@@ -57,7 +60,7 @@ export class ExecutionHandle {
             return;
         }
 
-        this.#instance = execution.args === null ? null : this.#start(execution);
+        this.#instance = execution.args === null ? null : this.#begin(execution);
         this.#signal = signal ?? null;
         signal?.addEventListener('abort', this.#disposeOnAbort, { once: true });
     }
@@ -104,7 +107,7 @@ export class ExecutionHandle {
         }
 
         if (this.#instance === null) {
-            this.#instance = this.#start(execution);
+            this.#instance = this.#begin(execution);
 
             return;
         }
@@ -112,8 +115,15 @@ export class ExecutionHandle {
         try {
             this.#instance.update(execution.receiver, execution.args);
         } catch (error) {
+            // The instance keeps what it last accepted, the functions it keeps among them.
+            execution.disposeCall();
+
             throw NexoError.evaluation('DOMQL5006', `The execution '${execution.name}' failed to update`, execution.location, { cause: error });
         }
+
+        // The functions the arguments it replaced gave it end, since the instance runs with the new ones.
+        this.#disposeCall();
+        this.#disposeCall = execution.disposeCall;
 
         // An update that moves the execution to another receiver moves it there for its commands and its occurrences too, and the state it offers may have changed.
         this.#behaviors.update(this.#running, execution.receiver);
@@ -129,6 +139,23 @@ export class ExecutionHandle {
         this.#signal?.removeEventListener('abort', this.#disposeOnAbort);
         this.#disposeInstance();
         this.#eventDispatcher.dispose();
+    }
+
+    /** Starts the instance, which keeps the functions its arguments give it until it ends; one that fails to start keeps none. */
+    #begin(execution) {
+        let instance;
+
+        try {
+            instance = this.#start(execution);
+        } catch (error) {
+            execution.disposeCall();
+
+            throw error;
+        }
+
+        this.#disposeCall = execution.disposeCall;
+
+        return instance;
     }
 
     /**
@@ -219,5 +246,11 @@ export class ExecutionHandle {
         } catch (error) {
             this.#eventDispatcher.reportError(error);
         }
+
+        // The functions the instance kept end once it has, its own disposal able to call them.
+        const disposeCall = this.#disposeCall;
+
+        this.#disposeCall = () => {};
+        disposeCall();
     }
 }

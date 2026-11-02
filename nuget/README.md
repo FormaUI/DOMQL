@@ -2,9 +2,9 @@
 
 **A declarative approach to managing the DOM.**
 
-DOMQL is a JavaScript library for querying the DOM, allowing you to read information from a document once or observe it as it changes. This guide takes you from your first query to watching results, handling events and extending the library. Its queries are written in [Nexo](https://github.com/FormaUI/Nexo/blob/cf5cb6f30f3326c0be12ec6369d24540ffaba5e2/spec/README.md).
+DOMQL is a JavaScript library for querying the DOM, allowing you to read information from a document once or observe it as it changes. This guide takes you from your first query to watching results, handling events and extending the library. Its queries are written in [Nexo](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/spec/README.md).
 
-> **Alpha:** `formaui-net.DOMQL` is not yet published to NuGet. [Build the package locally](#install-and-load) to try it. The package distributes a JavaScript ES module; the API in this guide runs in JavaScript. Every example here runs on this alpha, on Nexo's language `1.0.0-beta.19`, definition version 38. [The status overview](https://github.com/FormaUI/DOMQL/blob/main/docs/features-status.md) says what is implemented and what is being built.
+> **Alpha:** `formaui-net.DOMQL` is not yet published to NuGet. [Build the package locally](#install-and-load) to try it. The package distributes a JavaScript ES module; the API in this guide runs in JavaScript. Every example here runs on this alpha, on Nexo's language `1.0.0-beta.20`, definition version 38. [The status overview](https://github.com/FormaUI/DOMQL/blob/main/docs/features-status.md) says what is implemented and what is being built.
 
 ## In this guide
 
@@ -901,7 +901,7 @@ Modules can also declare Boolean members, properties and functions whose result 
 
 A member the host invokes, `invokedBy: 'host'`, is a host call that DOMQL carries out: an event source, `requestKind: 'subscription'`, or an execution, `requestKind: 'execution'`, which runs `once` or `continuous` as its `executionMode` says. An event source's implementation receives the receiver, arguments, environment and an event-delivery callback, as `{ receiver, args, env, deliver }`, and returns an object with a `stop` method to end listening. Each event is captured as the type its declaration's result names, and a module adds event types of its own as mappings of DOMQL's type selector `event`, `{ selector: 'event', key, type }`, each naming the type its events are captured as.
 
-[Nexo's modules](https://github.com/FormaUI/Nexo/blob/cf5cb6f30f3326c0be12ec6369d24540ffaba5e2/spec/runtime/modules.md#modules) specify the full extension contracts. The next section shows execution modules.
+[Nexo's modules](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/spec/runtime/modules.md#modules) specify the full extension contracts. The next section shows execution modules.
 
 ## Execute once and run continuously
 
@@ -1261,11 +1261,68 @@ domql.query('import Layers\nDomql.document:layerCount').evaluate();
 layer.dispose();
 ```
 
+### Keep a function a query gives
+
+A host call may take a function parameter, as a test of what a behavior hears: `when = it["data-unread"] != null` reaches its implementation as a function it keeps and calls later, each call reading the page as it is then. DOMQL ends it as the execution ends, or as an update gives the behavior another, after which calling it fails with `NEXO5051`.
+
+```js
+domql.registerModule(domql.createModule('Filters', {
+    types: [{
+        name: 'FilterElements',
+        kind: 'extension',
+        target: 'Domql.Element',
+        members: [{
+            name: 'clickFilter',
+            kind: 'function',
+            invokedBy: 'host',
+            requestKind: 'execution',
+            executionMode: 'continuous',
+            arguments: 'options',
+            parameters: [{ name: 'when', kind: 'function', type: 'Boolean', parameterTypes: ['Domql.Element'] }],
+            impl: ({ receiver: element, args, deliver }) => {
+                let { when } = args;
+                const filter = event => {
+                    if (when(event.target)) {
+                        deliver('filtered', event.target);
+                    }
+                };
+
+                element.addEventListener('click', filter);
+
+                return {
+                    update: (target, next) => {
+                        when = next.when;
+                    },
+                    dispose: () => element.removeEventListener('click', filter)
+                };
+            }
+        }, {
+            name: 'filtered',
+            kind: 'function',
+            invokedBy: 'host',
+            requestKind: 'subscription',
+            behavior: 'clickFilter',
+            result: 'Domql.Element'
+        }]
+    }]
+}));
+
+const filtered = domql.query('import Filters\npanel:filtered() { key = it["data-key"] }', { panel }).subscribe((sender, args) => console.log(args.value));
+const clickFilter = domql.query('import Filters\npanel:clickFilter({ when = it["data-unread"] != null })', { panel }).run();
+
+panel.querySelector('[data-key="a3"]').click();
+panel.querySelector('[data-key="a2"]').click();
+// { key: 'a2' }
+
+clickFilter.dispose();
+filtered.dispose();
+```
+
 ## Learn more
 
 - [Repository README](https://github.com/FormaUI/DOMQL): what DOMQL is for, what is built, and how to build and test it.
-- [Nexo specification](https://github.com/FormaUI/Nexo/blob/cf5cb6f30f3326c0be12ec6369d24540ffaba5e2/spec/README.md): the language DOMQL is written in, its syntax, types, null semantics, imports and extensions, and the runtime contracts of its modules.
+- [Nexo specification](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/spec/README.md): the language DOMQL is written in, its syntax, types, null semantics, imports and extensions, and the runtime contracts of its modules.
 - [DOMQL specification](https://github.com/FormaUI/DOMQL/blob/main/spec/README.md): queries, the DOM's vocabulary, evaluating and watching a query, its results, events, executions, and the API.
-- [DOMQL design](https://github.com/FormaUI/DOMQL/blob/main/docs/domql-design.md): how DOMQL is built, and the decisions it did not take, and the [Nexo design](https://github.com/FormaUI/Nexo/blob/cf5cb6f30f3326c0be12ec6369d24540ffaba5e2/docs/nexo-design.md): how the language and its runtime are built.
+- [DOMQL design](https://github.com/FormaUI/DOMQL/blob/main/docs/domql-design.md): how DOMQL is built, and the decisions it did not take, and the [Nexo design](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/docs/nexo-design.md): how the language and its runtime are built.
 
 - [Status](https://github.com/FormaUI/DOMQL/blob/main/docs/features-status.md): what is implemented, what is being built, and what remains.
