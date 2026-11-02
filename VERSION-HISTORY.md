@@ -6,6 +6,21 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-306"></a>
+
+## `1.0.0-alpha.306`
+
+*November 2, 2026 · Nexo language `1.0.0-beta.19` · definition format 38*
+
+DOMQL states where a module keeps what it holds for a document, and a member what it measured before.
+
+**The environment**
+
+- [State per document](spec/vocabulary.md#extension-modules-state-per-document): a module keeps it by `env.document` in a `WeakMap` of its own, one for each document across every instance of DOMQL that registers the module, never reset by DOMQL, which offers no hook at a document's first use or last release, as [D57](docs/decisions.md#d57) records.
+- [History per holder](spec/vocabulary.md#extension-modules-history-per-holder): the environment is one per operation, so a captured member keys its history by its environment and its receiver, each watch, wait and subscription keeping its own, as [D58](docs/decisions.md#d58) records.
+
+**Breaking:** nothing.
+
 <a id="v1-0-0-alpha-305"></a>
 
 ## `1.0.0-alpha.305`

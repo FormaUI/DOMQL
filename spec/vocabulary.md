@@ -1510,6 +1510,14 @@ An operation gives every implementation it reaches one environment, its `env`, m
 
 **Reading alone.** A member's implementation reads alone, so while a query is evaluated, a host call prepared or a value projected, `observe`, `frame` and `measureUnder` of an operation's environment are refused with `DOMQL5021`, and so are `executeAsync` and `run` of any query object of the instance, which [executions](executions.md) set out; an evaluation, once or waiting, a watch and a subscription may still be started, since they change nothing. A behavior, a once execution and an event source run outside every evaluation, and use them all.
 
+<a id="extension-modules-history-per-holder"></a>
+
+**History per holder.** The environment is one per operation, so a member that reads captured values, keeping what it measured before as Nexo's [captured reading](https://github.com/FormaUI/Nexo/blob/cf5cb6f30f3326c0be12ec6369d24540ffaba5e2/spec/runtime/members.md#how-a-member-reads) has its holder keep it, keys that history by its environment and its receiver, in a `WeakMap` of its own: each watch, wait and subscription keeps its own, from its start to its end, and lets it go with the operation, and an evaluation once, whose environment is its own, reports what it sees with none.
+
+<a id="extension-modules-state-per-document"></a>
+
+**State per document.** A module keeps what it holds for a page, as the stack of its scopes, by `env.document`, in a `WeakMap` of its own. A module's code is the same wherever it is registered, so that state is one for each document across every instance of DOMQL that registers the module, each instance with a registry of its own. The module makes it as it first meets the document, keeps it while the document lives, and lets it go with the document; DOMQL holds none of it, so it never resets it. A module that must start before any request, as one following the document from its start, starts as its own code loads, given the document.
+
 <a id="extension-modules-observation-environment"></a>
 
 **An observation's environment.** An observation type's implementation receives an environment of its window's own, the same for every observation of that window: `window`, `document`, `domql`, `observe`, `frame` and `measureUnder`, and no owner, since one observation serves every holder. Its tools are never refused, since an observation starts as a query is evaluated: an observation type may observe through DOMQL's observations, schedule a frame, and measure under a class as it starts and as it samples, the one change watching makes, since it restores the element before it returns.

@@ -5697,3 +5697,129 @@ describe('domql environment', () => {
         });
     });
 });
+
+describe('domql state a module keeps', () => {
+    const settleTasks = () => new Promise(resolve => setTimeout(resolve, 0));
+
+    describe('per document', () => {
+        /** One module's code, as a page loads it once: the scopes it keeps for each document, by the document, whichever instance of DOMQL registers it. */
+        const scopesByDocument = new WeakMap();
+        const scopesOf = document => {
+            let scopes = scopesByDocument.get(document);
+
+            if (scopes === undefined) {
+                scopes = [];
+                scopesByDocument.set(document, scopes);
+            }
+
+            return scopes;
+        };
+        const contents = {
+            types: [elementExtension('ScopeElements', [{
+                name: 'scope', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'continuous',
+                impl: ({ receiver: element, env }) => {
+                    const scopes = scopesOf(env.document);
+
+                    scopes.push(element.id);
+
+                    return { update: () => {}, dispose: () => scopes.splice(scopes.indexOf(element.id), 1) };
+                },
+            }]), {
+                name: 'ScopeDocuments', kind: 'extension', target: 'Domql.Document',
+                members: [{ name: 'scopes', kind: 'property', result: 'List<String>', updates: { changes: 'unobserved', reads: 'fresh' }, impl: ({ env }) => [...scopesOf(env.document)] }],
+            }],
+        };
+
+        it('is one for each document across every instance of DOMQL that registers the module, kept as long as the document is', async () => {
+            vi.resetModules();
+
+            const { domql: first } = await import('#domql/domql.js');
+
+            vi.resetModules();
+
+            const { domql: second } = await import('#domql/domql.js');
+
+            document.body.innerHTML = '<div id="menu"></div><div id="dialog"></div>';
+            first.registerModule(first.createModule('Scopes', contents));
+            second.registerModule(second.createModule('Scopes', contents));
+
+            const menu = first.query('import Scopes\nscope:scope()', { scope: document.getElementById('menu') }).run();
+
+            second.query('import Scopes\nscope:scope()', { scope: document.getElementById('dialog') }).run();
+
+            expect(first.query('import Scopes\nDomql.document:scopes').evaluate()).toEqual(['menu', 'dialog']);
+            expect(second.query('import Scopes\nDomql.document:scopes').evaluate()).toEqual(['menu', 'dialog']);
+
+            menu.dispose();
+
+            expect(second.query('import Scopes\nDomql.document:scopes').evaluate()).toEqual(['dialog']);
+
+            const other = document.implementation.createHTMLDocument('other');
+
+            expect(first.query('import Scopes\nDomql.document:scopes').evaluate({ window: { document: other } })).toEqual([]);
+            document.body.innerHTML = '';
+        });
+    });
+
+    describe('per holder', () => {
+        let isolated;
+        let panel;
+
+        /** The highest width each holder's member has read of each receiver, kept by its environment, which is one for each operation. */
+        const highestByEnvironment = new WeakMap();
+        const highestOf = (environment, receiver, width) => {
+            let byReceiver = highestByEnvironment.get(environment);
+
+            if (byReceiver === undefined) {
+                byReceiver = new WeakMap();
+                highestByEnvironment.set(environment, byReceiver);
+            }
+
+            const highest = Math.max(byReceiver.get(receiver) ?? width, width);
+
+            byReceiver.set(receiver, highest);
+
+            return highest;
+        };
+
+        beforeEach(async () => {
+            vi.resetModules();
+            ({ domql: isolated } = await import('#domql/domql.js'));
+            document.body.innerHTML = '<div id="panel" data-width="10"></div>';
+            panel = document.getElementById('panel');
+            isolated.registerModule(isolated.createModule('Highs', {
+                types: [elementExtension('HighElements', [{
+                    name: 'highestWidth', kind: 'property', result: 'Number',
+                    updates: { changes: 'observable', reads: 'captured', observations: [{ type: 'mutation', of: 'receiver', attributes: ['data-width'] }] },
+                    impl: ({ receiver, env }) => highestOf(env, receiver, Number(receiver.dataset.width)),
+                }])],
+            }));
+        });
+
+        afterEach(() => {
+            document.body.innerHTML = '';
+        });
+
+        it('is each watch\'s own, from its start to its end, and an evaluation once reports what it sees with none', async () => {
+            const query = isolated.query('import Highs\npanel:highestWidth', { panel });
+            const early = query.watch({ schedule: 'immediate' });
+            const earlyValues = [];
+
+            early.subscribe('change', (sender, args) => earlyValues.push(args.value));
+            await early.readyAsync();
+            panel.dataset.width = '30';
+            await settleTasks();
+            panel.dataset.width = '20';
+            await settleTasks();
+
+            const late = query.watch({ schedule: 'immediate' });
+
+            expect(await late.readyAsync()).toBe(20);
+            expect(earlyValues).toEqual([10, 30]);
+            expect(query.evaluate()).toBe(20);
+
+            early.dispose();
+            late.dispose();
+        });
+    });
+});

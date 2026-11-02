@@ -865,3 +865,30 @@ Each entry is one of three kinds:
   - An observation is what a member names and a module holds, and its sessions already end with their holders, so continuous measurement stops as the last lets it go.
   - Its cost was measured in Chromium: holding it costs about 0.03 ms a frame, and a watch reading 1,000 boxes through it about 2.2 ms, which the design records.
 - **Declined:** A watch schedule that evaluates each frame, which would measure every member a query reads each frame, where the observation measures those that name it.
+
+<a id="d57"></a>
+
+## D57 — A module's state per document is its own, one across every instance
+
+*November 2, 2026*
+
+- **Kind:** Contract.
+- **Decision:** A module keeps its state for a document by `env.document` in a `WeakMap` of its own ([C8](features-status.md#planned-extension-contract)), which is one for each document across every instance of DOMQL that registers the module. DOMQL holds no such state and offers no hook at a document's first use or last release.
+- **Why:**
+  - Each instance of DOMQL has a registry of its own, so state DOMQL kept would be one per instance, and two bundles on one page would each hold a copy; the module's code is one, wherever it is registered.
+  - State a document keeps for its life, as the culture it accepted, is started before any request and never reset, which a hook at the last release would contradict; the module makes it on first meeting the document, and starts it as its code loads where it must come first.
+  - A module that wants to stop work as its last behavior ends counts its own instances, which its start and its dispose see.
+- **Declined:** A store DOMQL keeps by module and document, with hooks at first use and last release, which would split one document's state between instances and reset what must outlive every request.
+
+<a id="d58"></a>
+
+## D58 — A member's history is its holder's, keyed by the operation's environment
+
+*November 2, 2026*
+
+- **Kind:** Contract.
+- **Decision:** An implementation's environment is one per operation ([C9](features-status.md#planned-extension-contract)), so a captured member keys the history it keeps by its environment and its receiver.
+- **Why:**
+  - Nexo has a captured member's holder keep its history, and DOMQL's holder of an evaluation is its operation: a watch, a wait or a subscription. One environment for each, the same from its start to its end, is the key that names it, and goes with it.
+  - A key a module derives from its environment needs no protocol: a `WeakMap` of its own lets it go with the operation.
+- **Declined:** An identifier of the operation in the environment, which a module would key a map by anyway and never release.

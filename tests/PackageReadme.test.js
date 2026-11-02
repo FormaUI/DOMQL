@@ -70,6 +70,7 @@ const examples = [
     { file: '25-occurrences.js', observed: 'printed', answers: [["{ key: 'a3' }"]] },
     { file: '26-state.js', observed: 'reads', answers: [['1']] },
     { file: '27-observe-and-frame.js', observed: 'printed', answers: [["'4'"]] },
+    { file: '28-state-per-document.js', observed: 'reads', answers: [['1']] },
 ];
 
 /** What an example gives: the values its comments show, those it names, or the result in the JSON block it names. */
