@@ -1185,7 +1185,7 @@ No other ARIA attribute has a Boolean function until one is declared, each with 
 DOMQL's module declares these [executions](executions.md), each a host call DOMQL carries out: a once execution, which `executeAsync` carries out and which answers its result, and a continuous one, which `run` starts and which answers none. Each is one call of the platform's, and answers what the platform did in DOMQL's types; a change that carries a policy, as stepping focus through a list or placing a surface, is an extension's.
 
 ```domql
-field.takeFocus()                              // Whether focus landed on the field.
+field.takeFocus()                                 // Whether focus landed on the field.
 list.scrollTo({ block = 0, behavior = "smooth" }) // Whether the list moved, once it has.
 ```
 

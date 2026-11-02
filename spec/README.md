@@ -1,6 +1,6 @@
 # DOMQL Specification v1.0.0-alpha.300
 
-DOMQL reads the DOM and shapes what it reads as data, keeps that data current as the document changes, delivers the page's events as data, and carries out the executions its modules declare. Its queries are scripts written in [Nexo](https://github.com/FormaUI/Nexo/blob/2cb596ea0d1a1fc624552783b30139379124bb67/spec/README.md), whose specification holds two contracts: the language's, what a script means, and the runtime's, how a host binds, resolves and evaluates a script. DOMQL declares the DOM as Nexo's domain, in a module like any other, and is the host that carries each query out against a document. It adds no language rule: a rule of the language or of its runtime is Nexo's, and this specification links to it.
+DOMQL reads the DOM and shapes what it reads as data, keeps that data current as the document changes, delivers the page's events as data, and carries out the executions its own module and its extensions declare. Its queries are scripts written in [Nexo](https://github.com/FormaUI/Nexo/blob/2cb596ea0d1a1fc624552783b30139379124bb67/spec/README.md), whose specification holds two contracts: the language's, what a script means, and the runtime's, how a host binds, resolves and evaluates a script. DOMQL declares the DOM as Nexo's domain, in a module like any other, and is the host that carries each query out against a document. It adds no language rule: a rule of the language or of its runtime is Nexo's, and this specification links to it.
 
 This specification is the authoritative contract for DOMQL. It states what DOMQL is, not how far its implementation has come: [the status overview](../docs/features-status.md) says what this repository implements, and [the design](../docs/domql-design.md) how it is built.
 
@@ -16,7 +16,7 @@ Five layers meet whenever a query runs. Nexo's specification covers the first tw
 | --- | --- | --- |
 | The language | What a query means: its imports, syntax, names and scope, values and types, expressions and functions, members, extensions, and the contracts a vocabulary keeps | [Nexo's language](https://github.com/FormaUI/Nexo/blob/2cb596ea0d1a1fc624552783b30139379124bb67/spec/README.md) |
 | The runtime | Binding, resolving and evaluating a script for a host, the modules it registers, its definitions and its results | [Nexo's runtime](https://github.com/FormaUI/Nexo/blob/2cb596ea0d1a1fc624552783b30139379124bb67/spec/runtime/hosting.md) |
-| DOMQL's module | The DOM as Nexo's domain: its nodes and shadow trees, its members, its Boolean functions among them, its event sources and event types, and the observations that follow its changes | [Nodes and shadow trees](nodes-and-shadow-trees.md), [vocabulary](vocabulary.md), [events](events.md) |
+| DOMQL's module | The DOM as Nexo's domain: its nodes and shadow trees, its members, its Boolean functions among them, its event sources and event types, its executions, and the observations that follow its changes | [Nodes and shadow trees](nodes-and-shadow-trees.md), [vocabulary](vocabulary.md), [events](events.md) |
 | DOMQL, the host | Carrying a query out against a document: evaluating it, watching it, and invoking its host calls, delivering its events and carrying out its executions, through the API a caller uses | [Queries](queries.md), [evaluation](evaluation.md), [watches](watches.md), [results](results.md), [events](events.md), [executions](executions.md), [the API](api.md), [errors](errors.md) |
 | The caller | The application around DOMQL: which queries it makes, when it carries each out, and what it does with each result | The caller's own |
 
@@ -30,7 +30,7 @@ Start with [queries](queries.md), which shows a query with its parameters and it
 
 1. [Queries](queries.md): what a query is and what it runs against, making a query and binding its parameters, resolution, request kinds and their operations, and selecting part of a result.
 2. [Nodes and shadow trees](nodes-and-shadow-trees.md): the DOM's node types, how kinds of node fit together, every crossing of a shadow boundary, and the trees and slots a node is in.
-3. [Built-in vocabulary](vocabulary.md): the `Domql` module, its types, module members, properties, functions, Boolean functions, conversions and observations, and the modules that extend it.
+3. [Built-in vocabulary](vocabulary.md): the `Domql` module, its types, module members, properties, functions, Boolean functions, executions, conversions and observations, and the modules that extend it.
 4. [Evaluation](evaluation.md): evaluating a query once, how DOMQL's members read, waiting for maintained members, and the window an evaluation needs.
 5. [Watches](watches.md): keeping a result current, what a watch follows and what it may miss, when it evaluates, how it fails, and sharing it.
 6. [Results](results.md): snapshots, live state and change sets, when a watch reports a result that differs, and keeping a copy of a result elsewhere.

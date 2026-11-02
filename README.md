@@ -16,6 +16,7 @@ DOMQL is a JavaScript library for querying the DOM, allowing you to read informa
 - Strings, interpolation, conversions and casts
 - Shadow trees crossed explicitly
 - Event subscriptions projected into data
+- Built-in executions that focus, scroll, show popovers and dialogs, write what they own and reach the browser's facilities, each answering what it did
 - Typed extension modules: members, observations, event sources and executions
 - Validation before anything is evaluated
 - Definitions as JSON
@@ -88,7 +89,7 @@ The source import above works when serving the repository; the [library guide](n
 | Reading data | JavaScript assembles the result | A query describes the result |
 | Keeping data current | Application code repeats its reads | A watch tracks declared observations |
 | Events | Handlers work with events | Subscriptions project events into data |
-| Changing the page | DOM manipulation methods | Module-defined executions, once or continuous |
+| Changing the page | DOM manipulation methods | Built-in and module-defined executions, once or continuous, each answering what it did |
 | Extension | Plugins | Typed vocabulary modules |
 
 ## Documents
