@@ -19,6 +19,21 @@ describe('Executions in a browser', () => {
         return document.getElementById('box');
     };
 
+    describe('dispatching', () => {
+        it('dispatches a custom event a listener reacts to as the page\'s own, untrusted, which runs no default action', async () => {
+            document.body.innerHTML = '<a id="link" href="#elsewhere">Link</a>';
+
+            const link = document.getElementById('link');
+            const heard = [];
+
+            link.addEventListener('click', event => heard.push({ kind: event.constructor.name, trusted: event.isTrusted, detail: event.detail }));
+
+            expect(await execute('link.dispatch({ type = "click", detail = "synthetic" })', { link })).toBe(false);
+            expect(heard).toEqual([{ kind: 'CustomEvent', trusted: false, detail: 'synthetic' }]);
+            expect(window.location.hash).toBe('');
+        });
+    });
+
     describe('focusing', () => {
         it('focuses an element that can take focus, answering that focus landed on it, and answers false for one that can\'t', async () => {
             document.body.innerHTML = '<input id="field"><div id="plain"></div><button id="hidden" hidden>Hidden</button>';

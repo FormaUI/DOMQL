@@ -6,6 +6,18 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-298"></a>
+
+## `1.0.0-alpha.298`
+
+*November 1, 2026 · Nexo language `1.0.0-beta.15` · definition format 38*
+
+DOMQL dispatches an event of the page's own.
+
+**Executions**
+
+- [`dispatch({ type, bubbles, detail })`](spec/vocabulary.md#execution-dispatch), of an element, the document and the window, dispatches a cancelable `CustomEvent` and answers whether a listener cancelled it, as [D42](docs/decisions.md#d42) records.
+
 <a id="v1-0-0-alpha-297"></a>
 
 ## `1.0.0-alpha.297`

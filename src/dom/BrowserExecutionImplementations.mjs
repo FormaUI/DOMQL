@@ -34,6 +34,13 @@ export class BrowserExecutionImplementations {
         const own = (targetOf, valueOf) => ({ receiver: element, args, reportError }) => BrowserExecutionImplementations.#own(writes, element, args, targetOf, valueOf, reportError);
 
         return {
+            // An event of the page's own, a custom event any listener may cancel, answering whether one did.
+            dispatch: ({ receiver: target, args: { type, bubbles, detail } }) => {
+                const { CustomEvent } = target.ownerDocument?.defaultView ?? target.defaultView ?? target;
+
+                return !target.dispatchEvent(new CustomEvent(type, { bubbles, cancelable: true, detail }));
+            },
+
             // Focusing answers whether focus landed on the element, as its focus() Boolean function reads it.
             takeFocus: ({ receiver: element, args: { preventScroll } }) => {
                 element.focus({ preventScroll });

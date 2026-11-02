@@ -630,3 +630,19 @@ Each entry is one of three kinds:
 - **Decision:** `Domql.document.writeCookie({ … })`, planned at low priority, is declined.
 - **Why:** No use of it is left: what a page keeps of its culture or its choices, a module that owns the policy writes, and a cookie is a server's contract, whose attributes, its path, its expiry and its `SameSite` among them, are a policy rather than one platform call answering what it did.
 - **Reopened by:** a query that needs a cookie written where no module owns its policy.
+
+<a id="d42"></a>
+
+## D42 — `dispatch` dispatches a custom event and answers whether it was cancelled
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `dispatch({ type, bubbles, detail })`, on an element, the document and the window, dispatches a `CustomEvent`: cancelable, bubbling where `bubbles` is true, false by default, not composed, its `detail` the data given. It answers whether a listener cancelled it.
+- **Why:**
+  - A component announces what it did, and a control reports a change its own code made, as a drop zone does once it assigns files, to listeners that react as they react to the user, so the event is the page's own, and a listener's cancelling is how it declines, which the answer carries back.
+  - It is always cancelable, so the answer means what it says; it bubbles only where told to, as `new CustomEvent` does, and stays within its shadow tree, as a component's own event does unless it asks to cross.
+  - A custom event of a native type reaches the listeners of that type, which is what a framework listening for `change` needs, and runs no default action, which a page's own event never does.
+- **Declined:**
+  - Constructing native event types, as a `MouseEvent` for `click`, which would make DOMQL a synthetic input source; a module that needs one owns that policy.
+  - `composed`, which no query needs yet.

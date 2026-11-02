@@ -45,6 +45,44 @@ describe('BrowserExecutionImplementations', () => {
         });
     });
 
+    describe('dispatch', () => {
+        it('dispatches a custom event of the type and the detail given, answering whether a listener cancelled it', async () => {
+            const heard = [];
+
+            panel.addEventListener('panel-opened', event => {
+                heard.push({ type: event.type, bubbles: event.bubbles, cancelable: event.cancelable, detail: event.detail });
+                event.preventDefault();
+            });
+
+            expect(await execute('panel.dispatch({ type = "panel-opened", detail = { key = "a1", rows = [1, 2] } })', { panel })).toBe(true);
+            expect(await execute('panel.dispatch({ type = "panel-closed" })', { panel })).toBe(false);
+            expect(heard).toEqual([{ type: 'panel-opened', bubbles: false, cancelable: true, detail: { key: 'a1', rows: [1, 2] } }]);
+        });
+
+        it('bubbles where it is told to, as a change a control reports', async () => {
+            const reached = [];
+
+            panel.addEventListener('change', event => reached.push({ at: 'panel', target: event.target.id, detail: event.detail }));
+
+            await execute('field.dispatch({ type = "change" })', { field });
+            await execute('field.dispatch({ type = "change", bubbles = true })', { field });
+
+            expect(reached).toEqual([{ at: 'panel', target: 'field', detail: null }]);
+        });
+
+        it('dispatches at the document and the window', async () => {
+            const reached = [];
+
+            document.addEventListener('ready', event => reached.push(`document ${event.detail}`));
+            window.addEventListener('ready', event => reached.push(`window ${event.detail}`));
+
+            await execute('Domql.document.dispatch({ type = "ready", detail = 1, bubbles = true })');
+            await execute('Domql.window.dispatch({ type = "ready", detail = 2 })');
+
+            expect(reached).toEqual(['document 1', 'window 1', 'window 2']);
+        });
+    });
+
     describe('takeFocus', () => {
         it('focuses an element that can take focus, answering that focus landed on it', async () => {
             expect(await execute('field.takeFocus()', { field })).toBe(true);

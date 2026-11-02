@@ -130,6 +130,12 @@ export class BrowserVocabularyDeclarations {
         // A built-in execution, a host call DOMQL carries out once, answering its result, or keeps running, as its mode says.
         const execution = (key, name, result, { mode = 'once', ...options } = {}) => implementing(key, { ...func(name, result, { invokedBy: 'host', ...options }), requestKind: 'execution', executionMode: mode });
 
+        // An event dispatched where it is carried out, answering whether a listener cancelled it: one declaration, standing in each type an event is dispatched at.
+        const dispatch = execution('dispatch', 'dispatch', 'Boolean', {
+            arguments: 'options',
+            parameters: [valueParameter('type', 'String'), valueParameter('bubbles', 'Boolean', { default: false }), valueParameter('detail', 'Any?', { default: null, nulls: 'accept' })],
+        });
+
         // The event source, a host call its subscription listens to, delivering each event of the type its fixed argument selects, in the capture phase where its option says so: one declaration, standing in each type it listens on.
         const on = implementing('on', {
             ...func('on', '@selected', {
@@ -248,6 +254,7 @@ export class BrowserVocabularyDeclarations {
                     on,
 
                     // The changes DOMQL makes to an element, each one platform call answering what it did.
+                    dispatch,
                     execution('takeFocus', 'takeFocus', 'Boolean', { arguments: 'options', parameters: [valueParameter('preventScroll', 'Boolean', { default: false })] }),
                     execution('scrollTo', 'scrollTo', 'Boolean', { arguments: 'options', parameters: SCROLL_PARAMETERS }),
                     execution('scrollBy', 'scrollBy', 'Boolean', { arguments: 'options', parameters: SCROLL_PARAMETERS }),
@@ -279,6 +286,7 @@ export class BrowserVocabularyDeclarations {
                     test('visible', 'visible', { updates: updatesOf({ observations: [{ type: 'visibility', of: 'receiver' }] }) }),
                     test('hasFocus', 'focus', { updates: updatesOf({ observations: [{ type: 'event', of: 'window', types: ['focus', 'blur'] }] }) }),
                     implementing('activeElement', property('activeElement', 'Element?', { updates: updatesOf({ observations: [FOCUS] }) })),
+                    dispatch,
                     implementing('documentSelection', property('selection', 'DocumentSelection?', {
                         updates: updatesOf({
                             changes: 'partly-observable',
@@ -313,6 +321,7 @@ export class BrowserVocabularyDeclarations {
                     on,
 
                     // The changes DOMQL makes to the window, each one platform call answering what it did.
+                    dispatch,
                     execution('windowScrollTo', 'scrollTo', 'Boolean', { arguments: 'options', parameters: SCROLL_PARAMETERS }),
                     execution('windowScrollBy', 'scrollBy', 'Boolean', { arguments: 'options', parameters: SCROLL_PARAMETERS }),
 

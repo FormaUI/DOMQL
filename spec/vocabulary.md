@@ -1195,6 +1195,7 @@ Each states its syntax and signature, as a function's does, what it does and ans
 
 | Receiver | Execution | Mode |
 | --- | --- | --- |
+| Element, document, window | [`dispatch({ type, bubbles, detail })`](#execution-dispatch) | Once |
 | Element | [`takeFocus({ preventScroll })`](#execution-element-takefocus) | Once |
 | Element, window | [`scrollTo({ inline, block, behavior })`, `scrollBy({ inline, block, behavior })`](#execution-scrollto-scrollby) | Once |
 | Element | [`scrollIntoView({ block, inline, behavior })`](#execution-element-scrollintoview) | Once |
@@ -1210,6 +1211,16 @@ Each states its syntax and signature, as a function's does, what it does and ans
 | Element | [`writeValue(value)`](#execution-element-writevalue) | Once |
 | Element | [`writeSelection({ start, end })`](#execution-element-writeselection) | Once |
 | Element | [`ownAttribute({ name, value, restore, keep })`, `ownClass({ name, present, restore, keep })`, `ownStyle({ property, value, restore, keep })`](#execution-element-owned-writes) | Continuous |
+
+<a id="execution-dispatch"></a>
+
+### Element, document and window: dispatch
+
+**Syntax:** `dispatch({ type, bubbles, detail })`   **Signature:** `type`: `String`; optional `bubbles`: `Boolean`, false when omitted; optional `detail`: `Any?`, null when omitted → `Boolean`   **Mode:** Once   **Activation:** None
+
+**Does.** Dispatches a `CustomEvent` of the type at the receiver, as the page's code does with `dispatchEvent`: cancelable, bubbling where `bubbles` is true, not composed, so it stays within its shadow tree, and its `detail` the data given. An event of a native type, as `change`, reaches its listeners as a custom event, whose default action, as a link's navigation, never runs, and none carries the user's activation, since the browser marks none it didn't dispatch itself as trusted
+
+**Answers.** Whether a listener cancelled it, as `preventDefault` does
 
 <a id="execution-element-takefocus"></a>
 

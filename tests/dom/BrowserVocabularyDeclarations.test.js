@@ -92,10 +92,10 @@ describe('BrowserVocabularyDeclarations', () => {
             'Element.rect', 'Element.clientRect', 'Element.size', 'Element.clientSize', 'Element.scroll', 'Element.grid', 'Element.selection', 'Element.shadow', 'Element.aria', 'Element.direction', 'Element.attached', 'Element.hasChildren', 'Element.hasSelection',
             'Element.previousSibling', 'Element.nextSibling', 'Element.index', 'Element.hasPointerCapture',
             'Element[]', 'Element.attribute', 'Element.class', 'Element.style', 'Element.intersects', 'Element.overlaps', 'Element.matches', 'Element.rectRelativeTo', 'Element.closest', 'Element.scrollContainer', 'Element.on',
-            'Element.takeFocus', 'Element.scrollTo', 'Element.scrollBy', 'Element.scrollIntoView', 'Element.showPopover', 'Element.hidePopover', 'Element.showModal', 'Element.capturePointer', 'Element.releasePointer', 'Element.play', 'Element.pause', 'Element.writeMuted', 'Element.writeIndeterminate', 'Element.writeValue', 'Element.writeSelection', 'Element.ownAttribute', 'Element.ownClass', 'Element.ownStyle', 'Element.close',
-            'Document.visible', 'Document.focus', 'Document.activeElement', 'Document.selection', 'Document.on',
+            'Element.dispatch', 'Element.takeFocus', 'Element.scrollTo', 'Element.scrollBy', 'Element.scrollIntoView', 'Element.showPopover', 'Element.hidePopover', 'Element.showModal', 'Element.capturePointer', 'Element.releasePointer', 'Element.play', 'Element.pause', 'Element.writeMuted', 'Element.writeIndeterminate', 'Element.writeValue', 'Element.writeSelection', 'Element.ownAttribute', 'Element.ownClass', 'Element.ownStyle', 'Element.close',
+            'Document.visible', 'Document.focus', 'Document.activeElement', 'Document.selection', 'Document.on', 'Document.dispatch',
             'Window.size', 'Window.scroll', 'Window.devicePixelRatio', 'Window.location', 'Window.shortcutModifier', 'Window.media', 'Window.share', 'Window.clipboard', 'Window.on',
-            'Window.scrollTo', 'Window.scrollBy', 'Window.writeClipboard', 'Window.readClipboard', 'Window.download', 'Window.print', 'Window.requestShare',
+            'Window.dispatch', 'Window.scrollTo', 'Window.scrollBy', 'Window.writeClipboard', 'Window.readClipboard', 'Window.download', 'Window.print', 'Window.requestShare',
             'Shadow.root', 'Shadow.elements',
             'Aria.checked', 'Aria.disabled', 'Aria[]', 'Aria.attribute', 'Aria as Element',
             'Range.rect', 'Range.collapsed', 'Range.text', 'Range.startElement', 'Range.endElement', 'Range.commonAncestor', 'Range.intersects', 'Range.all', 'Range.offsetsIn',
@@ -308,6 +308,7 @@ describe('BrowserVocabularyDeclarations', () => {
         const executions = typeMembers.filter(({ member }) => member.invokedBy === 'host' && member.name !== 'on');
 
         expect(executions.map(({ type, member }) => `${nameOf(type, member)}(${member.parameters.map(parameter => `${parameter.name}: ${parameter.type}${parameter.required ? '' : ` = ${JSON.stringify(parameter.default)}`}`).join(', ')}): ${member.result ?? 'none'}, ${DispatchTable.get(member).executionMode}`)).toEqual([
+            'Element.dispatch(type: String, bubbles: Boolean = false, detail: Any? = null): Boolean, once',
             'Element.takeFocus(preventScroll: Boolean = false): Boolean, once',
             'Element.scrollTo(inline: Number? = null, block: Number? = null, behavior: String = "auto"): Boolean, once',
             'Element.scrollBy(inline: Number? = null, block: Number? = null, behavior: String = "auto"): Boolean, once',
@@ -327,6 +328,8 @@ describe('BrowserVocabularyDeclarations', () => {
             'Element.ownClass(name: String, present: Boolean = true, restore: Boolean = true, keep: Boolean = false): none, continuous',
             'Element.ownStyle(property: String, value: String?, restore: Boolean = true, keep: Boolean = false): none, continuous',
             'Element.close(returnValue: String? = null): Boolean, once',
+            'Document.dispatch(type: String, bubbles: Boolean = false, detail: Any? = null): Boolean, once',
+            'Window.dispatch(type: String, bubbles: Boolean = false, detail: Any? = null): Boolean, once',
             'Window.scrollTo(inline: Number? = null, block: Number? = null, behavior: String = "auto"): Boolean, once',
             'Window.scrollBy(inline: Number? = null, block: Number? = null, behavior: String = "auto"): Boolean, once',
             'Window.writeClipboard(text: String): String, once',
