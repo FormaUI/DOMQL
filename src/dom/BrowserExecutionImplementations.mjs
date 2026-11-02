@@ -14,6 +14,12 @@ const SCROLL_ALIGNMENTS = new Set(['start', 'center', 'end', 'nearest']);
 /** The logical axes a scroll names, each with the physical axis it is along. */
 const LOGICAL_AXES = ['inline', 'block'];
 
+/** The media elements, which play. */
+const MEDIA_ELEMENTS = new Set(['audio', 'video']);
+
+/** How long a download's object URL is kept, in milliseconds, once the browser has been asked to download it. */
+const DOWNLOAD_URL_LIFETIME = 60_000;
+
 /** The elements whose value the user edits, and the page's code writes. */
 const VALUE_ELEMENTS = new Set(['input', 'textarea', 'select']);
 
@@ -43,6 +49,24 @@ export class BrowserExecutionImplementations {
             // A pointer's capture: whether the element holds it afterwards, and whether it let go of one it held.
             capturePointer: ({ receiver: element, args: { pointerId } }) => BrowserExecutionImplementations.#capturePointer(element, pointerId),
             releasePointer: ({ receiver: element, args: { pointerId } }) => BrowserExecutionImplementations.#toggle(element, () => element.hasPointerCapture(pointerId), false, () => element.releasePointerCapture(pointerId)),
+
+            // A media element's playback: how the browser took the request to play, and whether pausing or muting changed it.
+            play: ({ receiver: element }) => BrowserExecutionImplementations.#play(element),
+            pause: ({ receiver: element }) => MEDIA_ELEMENTS.has(element.localName) && BrowserExecutionImplementations.#toggle(element, () => element.paused, true, () => element.pause()),
+            writeMuted: ({ receiver: element, args: { muted } }) => MEDIA_ELEMENTS.has(element.localName) && BrowserExecutionImplementations.#toggle(element, () => element.muted, muted, () => { element.muted = muted; }),
+
+            // The browser's facilities, each answering how the browser took the request.
+            writeClipboard: ({ receiver: window, args: { text } }) => BrowserExecutionImplementations.#outcomeOf(window.navigator.clipboard?.writeText?.bind(window.navigator.clipboard), [text], 'written'),
+            readClipboard: ({ receiver: window, args: { types } }) => BrowserExecutionImplementations.#readClipboard(window.navigator.clipboard, types),
+            download: ({ receiver: window, args }) => BrowserExecutionImplementations.#download(window, args),
+            print: ({ receiver: window }) => {
+                window.print();
+            },
+            requestShare: ({ receiver: window, args }) => {
+                const data = Object.fromEntries(Object.entries(args).filter(([, value]) => value !== null));
+
+                return BrowserExecutionImplementations.#outcomeOf(window.navigator.share?.bind(window.navigator), [data], 'shared', { AbortError: 'canceled', TypeError: 'invalid', DataError: 'invalid' });
+            },
 
             // A form control's state, as the page's code writes it, which fires no event.
             writeIndeterminate: ({ receiver: element, args: { indeterminate } }) => {
@@ -140,6 +164,103 @@ export class BrowserExecutionImplementations {
         }
 
         return last === null ? [element, element.childNodes.length] : [last, last.data.length];
+    }
+
+    /**
+     * Asks the browser for a facility, and answers how it took the request: the outcome given where it does what was asked; `"refused"` where it refuses, as without the user's activation or a permission; `"unsupported"`
+     * where it offers no such facility; an outcome of its own for an error the facility names one for; and `"failed"` for any other error.
+     */
+    static async #outcomeOf(facility, args, outcome, outcomesByError = {}) {
+        if (typeof facility !== 'function') {
+            return 'unsupported';
+        }
+
+        try {
+            await facility(...args);
+        } catch (error) {
+            const name = error?.name;
+
+            return outcomesByError[name] ?? (name === 'NotAllowedError' || name === 'SecurityError' ? 'refused' : 'failed');
+        }
+
+        return outcome;
+    }
+
+    /** Reads the clipboard's content of each format asked for, as text, in the order asked, from the first of its items that holds it; where the browser reads no items, its text alone serves `text/plain`. */
+    static async #readClipboard(clipboard, types) {
+        const entries = [];
+
+        if (typeof clipboard?.read === 'function') {
+            const outcome = await BrowserExecutionImplementations.#outcomeOf(async () => {
+                const items = await clipboard.read();
+
+                for (const type of types) {
+                    const item = items.find(candidate => candidate.types.includes(type));
+
+                    if (item !== undefined) {
+                        entries.push({ type, text: await (await item.getType(type)).text() });
+                    }
+                }
+            }, [], 'read');
+
+            return { outcome, entries: outcome === 'read' ? entries : [] };
+        }
+
+        if (typeof clipboard?.readText !== 'function') {
+            return { outcome: 'unsupported', entries };
+        }
+
+        if (!types.includes('text/plain')) {
+            return { outcome: 'read', entries };
+        }
+
+        const outcome = await BrowserExecutionImplementations.#outcomeOf(async () => {
+            entries.push({ type: 'text/plain', text: await clipboard.readText() });
+        }, [], 'read');
+
+        return { outcome, entries: outcome === 'read' ? entries : [] };
+    }
+
+    /** Has the browser download the text as a file of the name and the media type given, through an object URL kept until the browser has begun the download. */
+    static #download(window, { name, content, type }) {
+        const url = window.URL.createObjectURL(new window.Blob([content], { type }));
+        const link = window.document.createElement('a');
+
+        link.href = url;
+        link.download = name;
+        link.hidden = true;
+        window.document.body.append(link);
+
+        try {
+            link.click();
+        } finally {
+            link.remove();
+            window.setTimeout(() => window.URL.revokeObjectURL(url), DOWNLOAD_URL_LIFETIME);
+        }
+    }
+
+    /** Plays a media element, and answers how the browser took the request: `"playing"`, `"blocked"` where its autoplay policy refuses, `"aborted"` where a pause or a new source interrupts it, and `"unsupported"` where it can play no source it has, or the element is no media element. */
+    static async #play(element) {
+        if (!MEDIA_ELEMENTS.has(element.localName)) {
+            return 'unsupported';
+        }
+
+        try {
+            await element.play();
+        } catch (error) {
+            switch (error?.name) {
+                case 'NotAllowedError':
+                    return 'blocked';
+                case 'AbortError':
+                    return 'aborted';
+                case 'NotSupportedError':
+                    return 'unsupported';
+                default:
+                    throw error;
+            }
+        }
+
+        return 'playing';
     }
 
     /** Starts an owned write of the target its arguments name on the element, at the value they give, and answers what updates it to other arguments, on this element or another, and ends it. */

@@ -603,3 +603,30 @@ Each entry is one of three kinds:
 - **Declined:**
   - Dispatching `input` or `change` after a write, which a caller does with an execution of its own where it wants one.
   - A selection's direction, which no query needs yet.
+
+<a id="d40"></a>
+
+## D40 — The browser's facilities answer how the browser took the request
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `Domql.window.writeClipboard(text)` answers `"written"`, `"refused"`, `"unsupported"` or `"failed"`; `readClipboard({ types })` a `ClipboardContent { outcome, entries }`, each entry a `ClipboardEntry { type, text }`; `requestShare({ title, text, url })` `"shared"`, `"canceled"`, `"refused"`, `"invalid"`, `"unsupported"` or `"failed"`; a media element's `play()` `"playing"`, `"blocked"`, `"aborted"` or `"unsupported"`; `pause()` and `writeMuted(Boolean)` whether they changed it; and `download({ name, content, type })` and `print()` nothing.
+- **Why:**
+  - A refusal, a cancellation and a missing facility are what these calls answer in the ordinary course, which a caller acts on, as by offering another way to copy, so each is an answer, and a failure stays one where the browser names nothing a caller can act on, as `"failed"` says for the clipboard and the share.
+  - `"unsupported"` joins the answers the plan listed, since a browser can lack the clipboard or the Web Share API, which `clipboard()` and `share()` test beforehand, and an answer saves a test for every call.
+  - Reading the clipboard answers its formats as text, since a result is data and holds no binary content, in the order asked, so a paste can prefer `text/html` to `text/plain`; where the browser reads no items, its text alone serves `text/plain`.
+  - A download and a print report nothing a page can read, so they answer nothing; a download's object URL is the execution's own, revoked a minute after the browser is asked, once it has begun the download.
+  - A browser test settled what headless Chromium allows: it refuses the clipboard to a page given no permission, offers no Web Share API, and blocks playing, a muted element included, until the user acts, so playing from a subscription's handler of a click plays.
+- **Declined:** `readClipboardText()`, which `readClipboard()` answers with its default of `["text/plain"]`, so one concept takes one execution.
+
+<a id="d41"></a>
+
+## D41 — No cookie writes
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `Domql.document.writeCookie({ … })`, planned at low priority, is declined.
+- **Why:** No use of it is left: what a page keeps of its culture or its choices, a module that owns the policy writes, and a cookie is a server's contract, whose attributes, its path, its expiry and its `SameSite` among them, are a policy rather than one platform call answering what it did.
+- **Reopened by:** a query that needs a cookie written where no module owns its policy.

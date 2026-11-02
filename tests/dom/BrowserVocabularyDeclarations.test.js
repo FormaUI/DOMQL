@@ -50,7 +50,7 @@ describe('BrowserVocabularyDeclarations', () => {
     it('declares the DOM\'s reference types, the views of an element and the structured types of its measurements and events', () => {
         expect(module.types.map(type => `${type.kind} ${type.name}${type.supertype === undefined ? '' : ` : ${type.supertype}`}${type.abstract ? ', abstract' : ''}`)).toEqual([
             'reference Node, abstract', 'reference Element : Node', 'reference Document : Node', 'reference DocumentFragment : Node', 'reference ShadowRoot : Node', 'reference Window', 'reference Shadow', 'reference Aria', 'reference Range',
-            'structured Size', 'structured Rectangle', 'structured Selection', 'structured DocumentSelection', 'structured Grid', 'structured Scroll', 'structured ScrollAxis', 'structured Playback', 'structured Location', 'structured SizeLimits', 'structured File', 'structured Listening', 'structured DomEvent', 'structured FocusEvent', 'structured InputEvent', 'structured ClipboardEvent', 'structured CompositionEvent', 'structured ToggleEvent', 'structured AnimationEvent', 'structured PointerEvent', 'structured TouchEvent', 'structured Touch', 'structured WheelEvent', 'structured KeyboardEvent', 'structured DragEvent',
+            'structured Size', 'structured Rectangle', 'structured Selection', 'structured DocumentSelection', 'structured Grid', 'structured Scroll', 'structured ScrollAxis', 'structured Playback', 'structured Location', 'structured SizeLimits', 'structured File', 'structured ClipboardContent', 'structured ClipboardEntry', 'structured Listening', 'structured DomEvent', 'structured FocusEvent', 'structured InputEvent', 'structured ClipboardEvent', 'structured CompositionEvent', 'structured ToggleEvent', 'structured AnimationEvent', 'structured PointerEvent', 'structured TouchEvent', 'structured Touch', 'structured WheelEvent', 'structured KeyboardEvent', 'structured DragEvent',
         ]);
         expect(module.types.filter(type => type.kind === 'structured').map(type => `${type.name} { ${type.members.map(member => `${member.name}: ${member.result}`).join(', ')} }`)).toEqual([
             'Size { width: Number, height: Number }',
@@ -64,6 +64,8 @@ describe('BrowserVocabularyDeclarations', () => {
             'Location { href: String, pathname: String, search: String, hash: String }',
             'SizeLimits { minWidth: Number?, minHeight: Number?, maxWidth: Number?, maxHeight: Number? }',
             'File { name: String, bytes: Number, type: String, lastModified: Number }',
+            'ClipboardContent { outcome: String, entries: List<ClipboardEntry> }',
+            'ClipboardEntry { type: String, text: String }',
             'Listening { capture: Boolean }',
             'DomEvent { target: Element?, timeStamp: Number, defaultPrevented: Boolean, composedPath: List<Element> }',
             'FocusEvent { target: Element?, relatedTarget: Element?, timeStamp: Number, defaultPrevented: Boolean, composedPath: List<Element> }',
@@ -90,10 +92,10 @@ describe('BrowserVocabularyDeclarations', () => {
             'Element.rect', 'Element.clientRect', 'Element.size', 'Element.clientSize', 'Element.scroll', 'Element.grid', 'Element.selection', 'Element.shadow', 'Element.aria', 'Element.direction', 'Element.attached', 'Element.hasChildren', 'Element.hasSelection',
             'Element.previousSibling', 'Element.nextSibling', 'Element.index', 'Element.hasPointerCapture',
             'Element[]', 'Element.attribute', 'Element.class', 'Element.style', 'Element.intersects', 'Element.overlaps', 'Element.matches', 'Element.rectRelativeTo', 'Element.closest', 'Element.scrollContainer', 'Element.on',
-            'Element.takeFocus', 'Element.scrollTo', 'Element.scrollBy', 'Element.scrollIntoView', 'Element.showPopover', 'Element.hidePopover', 'Element.showModal', 'Element.capturePointer', 'Element.releasePointer', 'Element.writeIndeterminate', 'Element.writeValue', 'Element.writeSelection', 'Element.ownAttribute', 'Element.ownClass', 'Element.ownStyle', 'Element.close',
+            'Element.takeFocus', 'Element.scrollTo', 'Element.scrollBy', 'Element.scrollIntoView', 'Element.showPopover', 'Element.hidePopover', 'Element.showModal', 'Element.capturePointer', 'Element.releasePointer', 'Element.play', 'Element.pause', 'Element.writeMuted', 'Element.writeIndeterminate', 'Element.writeValue', 'Element.writeSelection', 'Element.ownAttribute', 'Element.ownClass', 'Element.ownStyle', 'Element.close',
             'Document.visible', 'Document.focus', 'Document.activeElement', 'Document.selection', 'Document.on',
             'Window.size', 'Window.scroll', 'Window.devicePixelRatio', 'Window.location', 'Window.shortcutModifier', 'Window.media', 'Window.share', 'Window.clipboard', 'Window.on',
-            'Window.scrollTo', 'Window.scrollBy',
+            'Window.scrollTo', 'Window.scrollBy', 'Window.writeClipboard', 'Window.readClipboard', 'Window.download', 'Window.print', 'Window.requestShare',
             'Shadow.root', 'Shadow.elements',
             'Aria.checked', 'Aria.disabled', 'Aria[]', 'Aria.attribute', 'Aria as Element',
             'Range.rect', 'Range.collapsed', 'Range.text', 'Range.startElement', 'Range.endElement', 'Range.commonAncestor', 'Range.intersects', 'Range.all', 'Range.offsetsIn',
@@ -315,6 +317,9 @@ describe('BrowserVocabularyDeclarations', () => {
             'Element.showModal(): Boolean, once',
             'Element.capturePointer(pointerId: Number): Boolean, once',
             'Element.releasePointer(pointerId: Number): Boolean, once',
+            'Element.play(): String, once',
+            'Element.pause(): Boolean, once',
+            'Element.writeMuted(muted: Boolean): Boolean, once',
             'Element.writeIndeterminate(indeterminate: Boolean): Boolean, once',
             'Element.writeValue(value: String): String?, once',
             'Element.writeSelection(start: Number, end: Number): Boolean, once',
@@ -324,8 +329,13 @@ describe('BrowserVocabularyDeclarations', () => {
             'Element.close(returnValue: String? = null): Boolean, once',
             'Window.scrollTo(inline: Number? = null, block: Number? = null, behavior: String = "auto"): Boolean, once',
             'Window.scrollBy(inline: Number? = null, block: Number? = null, behavior: String = "auto"): Boolean, once',
+            'Window.writeClipboard(text: String): String, once',
+            'Window.readClipboard(types: List<String> = ["text/plain"]): ClipboardContent, once',
+            'Window.download(name: String, content: String, type: String = "text/plain"): none, once',
+            'Window.print(): none, once',
+            'Window.requestShare(title: String? = null, text: String? = null, url: String? = null): String, once',
         ]);
-        expect(executions.filter(({ member }) => member.arguments === 'positional').map(({ type, member }) => nameOf(type, member))).toEqual(['Element.writeIndeterminate', 'Element.writeValue']);
+        expect(executions.filter(({ member }) => member.arguments === 'positional').map(({ type, member }) => nameOf(type, member))).toEqual(['Element.writeMuted', 'Element.writeIndeterminate', 'Element.writeValue', 'Window.writeClipboard']);
         expect(executions.every(({ member }) => DispatchTable.get(member).requestKind === 'execution')).toBe(true);
     });
 

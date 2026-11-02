@@ -1201,6 +1201,11 @@ Each states its syntax and signature, as a function's does, what it does and ans
 | Element | [`capturePointer({ pointerId })`, `releasePointer({ pointerId })`](#execution-element-capturepointer-releasepointer) | Once |
 | Element | [`showPopover()`, `hidePopover()`](#execution-element-showpopover-hidepopover) | Once |
 | Element | [`showModal()`, `close({ returnValue })`](#execution-element-showmodal-close) | Once |
+| Element | [`play()`, `pause()`, `writeMuted(muted)`](#execution-element-play-pause-writemuted) | Once |
+| Window | [`writeClipboard(text)`, `readClipboard({ types })`](#execution-window-writeclipboard-readclipboard) | Once |
+| Window | [`download({ name, content, type })`](#execution-window-download) | Once |
+| Window | [`print()`](#execution-window-print) | Once |
+| Window | [`requestShare({ title, text, url })`](#execution-window-requestshare) | Once |
 | Element | [`writeIndeterminate(indeterminate)`](#execution-element-writeindeterminate) | Once |
 | Element | [`writeValue(value)`](#execution-element-writevalue) | Once |
 | Element | [`writeSelection({ start, end })`](#execution-element-writeselection) | Once |
@@ -1267,6 +1272,60 @@ Each states its syntax and signature, as a function's does, what it does and ans
 **Does.** Opens a dialog modally, in the top layer, making the rest of the document inert, or closes it, setting its `returnValue` to the one given, as the browser's own `showModal()` and `close()` do, firing its `close` event
 
 **Answers.** Whether it changed the dialog: `showModal()` answers false for a dialog open modally already, and `close` for one closed already, without calling the browser. Each fails for an element that is no dialog, and `showModal()` for a dialog open without being modal or in no document, which the browser refuses, its refusal the failure's cause
+
+<a id="execution-element-play-pause-writemuted"></a>
+
+### Element: play, pause, writeMuted
+
+**Syntax:** `play()`, `pause()`, `writeMuted(muted)`   **Signature:** `play` → `String`; `pause` → `Boolean`; `writeMuted`: `muted`: `Boolean` → `Boolean`   **Mode:** Once   **Activation:** The browser's autoplay policy, for `play`
+
+**Does.** Plays an `audio` or a `video` element, pauses it, or mutes it and unmutes it, as its own `play()`, `pause()` and `muted` do in the page's code
+
+**Answers.** `play` answers how the browser took the request, once it settles it: `"playing"`; `"blocked"`, where its autoplay policy refuses to play without the user's activation; `"aborted"`, where a pause or a new source interrupts it first; and `"unsupported"`, where it can play no source the element has, and for an element that is no media element. A failure of another kind fails the execution, its cause the browser's error. `pause` and `writeMuted` answer whether they changed the element, false where it was so already and for an element that is no media element, which they leave as it is
+
+**Activation.** Most browsers play a muted element without the user's activation and want it for sound; a browser test shows headless Chromium blocking either until the user acts, and playing from a subscription's handler of the click
+
+<a id="execution-window-writeclipboard-readclipboard"></a>
+
+### Window: writeClipboard, readClipboard
+
+**Syntax:** `writeClipboard(text)`, `readClipboard({ types })`   **Signature:** `writeClipboard`: `text`: `String` → `String`; `readClipboard`: optional `types`: `List<String>`, `["text/plain"]` when omitted → `ClipboardContent`   **Mode:** Once   **Activation:** As the browser decides
+
+**Does.** Writes the text to the clipboard, as `navigator.clipboard.writeText` does, or reads what the clipboard holds of each format asked for, as `navigator.clipboard.read` does, each as text; where the browser reads no items, its `readText` serves `text/plain` alone
+
+**Answers.** `writeClipboard` answers how the browser took the request: `"written"`; `"refused"`, where it refuses without the user's activation, a permission or a focused document; `"unsupported"`, where it offers no asynchronous clipboard, as outside a secure context, which [`clipboard()`](#boolean-function-window-clipboard) tells beforehand; and `"failed"` for any other error. `readClipboard` answers a `ClipboardContent { outcome, entries }`, its `outcome` `"read"` or one of the others, and its `entries` each a `ClipboardEntry { type, text }` of a format asked for that the clipboard holds, in the order asked, none where it read nothing
+
+**Activation.** Writing needs a focused document, and the user's activation or the clipboard's permission, as the browser decides; reading needs the clipboard's read permission, or the user's leave, which some browsers ask for as the page reads. A browser test shows headless Chromium refusing both to a page given no permission
+
+<a id="execution-window-download"></a>
+
+### Window: download
+
+**Syntax:** `download({ name, content, type })`   **Signature:** `name`, `content`: `String`; optional `type`: `String`, `"text/plain"` when omitted → none   **Mode:** Once   **Activation:** As the browser decides
+
+**Does.** Has the browser download the content as a file of the name and the media type given, through an object URL of its own, which it revokes a minute after asking, once the browser has begun the download
+
+**Answers.** Nothing: the browser says nothing of whether it downloaded the file. A browser may ask the user first, and may block downloads a page starts without the user's activation, or many of
+
+<a id="execution-window-print"></a>
+
+### Window: print
+
+**Syntax:** `print()`   **Signature:** → none   **Mode:** Once   **Activation:** None
+
+**Does.** Opens the browser's dialog for printing the page, as its `print()` does, which holds the page until the user closes it in most browsers
+
+**Answers.** Nothing, once the browser's call returns
+
+<a id="execution-window-requestshare"></a>
+
+### Window: requestShare
+
+**Syntax:** `requestShare({ title, text, url })`   **Signature:** optional `title`, `text`, `url`: `String?`, shared without it when omitted or null → `String`   **Mode:** Once   **Activation:** Transient activation
+
+**Does.** Asks the browser to share what is given, as `navigator.share` does, with the user's choice of where
+
+**Answers.** How the browser and the user took the request, once they settle it: `"shared"`; `"canceled"`, where the user dismissed it; `"refused"`, where the browser refuses it, as without the user's activation; `"invalid"`, where it can't share what is given, as nothing at all; `"unsupported"`, where it offers no Web Share API, which [`share()`](#boolean-function-window-share) tells beforehand; and `"failed"` for any other error
 
 <a id="execution-element-writeindeterminate"></a>
 

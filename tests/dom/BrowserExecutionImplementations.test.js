@@ -166,6 +166,145 @@ describe('BrowserExecutionImplementations', () => {
         });
     });
 
+    describe('media', () => {
+        /** A media element whose play answers as given, and which pauses and mutes as a browser's does. */
+        const mediaPlaying = answer => {
+            document.body.innerHTML = '<audio id="audio"></audio>';
+
+            const audio = document.getElementById('audio');
+            let paused = true;
+
+            Object.defineProperty(audio, 'paused', { get: () => paused, configurable: true });
+            audio.play = () => answer().then(() => {
+                paused = false;
+            });
+            audio.pause = () => {
+                paused = true;
+            };
+
+            return audio;
+        };
+
+        /** A refusal of the browser's, an error of the name given. */
+        const refusal = name => () => Promise.reject(Object.assign(new Error(name), { name }));
+
+        it('plays a media element, answering how the browser took the request', async () => {
+            const outcomes = [];
+
+            for (const answer of [() => Promise.resolve(), refusal('NotAllowedError'), refusal('AbortError'), refusal('NotSupportedError')]) {
+                outcomes.push(await execute('audio.play()', { audio: mediaPlaying(answer) }));
+            }
+
+            expect(outcomes).toEqual(['playing', 'blocked', 'aborted', 'unsupported']);
+            expect(await execute('plain.play()', { plain: document.createElement('div') })).toBe('unsupported');
+        });
+
+        it('fails where playing fails for a reason the browser names no outcome for, its error the cause', async () => {
+            const error = await failureOf(execute('audio.play()', { audio: mediaPlaying(refusal('InvalidStateError')) }));
+
+            expect(error).toMatchObject({ kind: 'evaluation', code: 'DOMQL5001', cause: expect.objectContaining({ name: 'InvalidStateError' }) });
+        });
+
+        it('pauses and mutes a media element, answering whether each changed it, and changes nothing of another element', async () => {
+            const audio = mediaPlaying(() => Promise.resolve());
+
+            await execute('audio.play()', { audio });
+
+            expect(await execute('audio.pause()', { audio })).toBe(true);
+            expect(await execute('audio.pause()', { audio })).toBe(false);
+            expect(await execute('audio.writeMuted(true)', { audio })).toBe(true);
+            expect(audio.muted).toBe(true);
+            expect(await execute('audio.writeMuted(true)', { audio })).toBe(false);
+            expect(await execute('plain.pause()', { plain: document.createElement('div') })).toBe(false);
+            expect(await execute('plain.writeMuted(true)', { plain: document.createElement('div') })).toBe(false);
+        });
+    });
+
+    describe('the browser\'s facilities', () => {
+        /** A window of its own, its navigator the one given and the rest of what it holds given beside it. */
+        const windowWith = (navigator, rest = {}) => ({ document, navigator, location: window.location, ...rest, get window() { return this; } });
+
+        /** Carries out the execution against the window given, as `Domql.window`. */
+        const executeIn = (text, given) => domql.query(text).executeAsync({ window: given });
+
+        /** A refusal of the browser's, an error of the name given. */
+        const refused = name => () => Promise.reject(Object.assign(new Error(name), { name }));
+
+        it('write text to the clipboard, answering how the browser took the request', async () => {
+            const written = [];
+            const clipboardOf = writeText => windowWith({ clipboard: { writeText } });
+
+            expect(await executeIn('Domql.window.writeClipboard("copied")', clipboardOf(text => written.push(text)))).toBe('written');
+            expect(await executeIn('Domql.window.writeClipboard("copied")', clipboardOf(refused('NotAllowedError')))).toBe('refused');
+            expect(await executeIn('Domql.window.writeClipboard("copied")', clipboardOf(refused('DataError')))).toBe('failed');
+            expect(await executeIn('Domql.window.writeClipboard("copied")', windowWith({}))).toBe('unsupported');
+            expect(written).toEqual(['copied']);
+        });
+
+        it('read the clipboard\'s content of each format asked for, in the order asked, each as text, and none it doesn\'t hold', async () => {
+            const item = { types: ['text/plain', 'text/html'], getType: type => Promise.resolve({ text: () => Promise.resolve(type === 'text/html' ? '<b>x</b>' : 'x') }) };
+            const reading = read => windowWith({ clipboard: { read } });
+
+            expect(await executeIn('Domql.window.readClipboard({ types = ["text/html", "image/png", "text/plain"] })', reading(() => Promise.resolve([item])))).toEqual({
+                outcome: 'read',
+                entries: [{ type: 'text/html', text: '<b>x</b>' }, { type: 'text/plain', text: 'x' }],
+            });
+            expect(await executeIn('Domql.window.readClipboard() { outcome = it.outcome, count = it.entries.count }', reading(refused('NotAllowedError')))).toEqual({ outcome: 'refused', count: 0 });
+        });
+
+        it('read the clipboard\'s text alone where the browser reads no items, and answer unsupported where it offers no clipboard', async () => {
+            const texts = windowWith({ clipboard: { readText: () => Promise.resolve('plain') } });
+
+            expect(await executeIn('Domql.window.readClipboard()', texts)).toEqual({ outcome: 'read', entries: [{ type: 'text/plain', text: 'plain' }] });
+            expect(await executeIn('Domql.window.readClipboard({ types = ["text/html"] })', texts)).toEqual({ outcome: 'read', entries: [] });
+            expect(await executeIn('Domql.window.readClipboard()', windowWith({}))).toEqual({ outcome: 'unsupported', entries: [] });
+        });
+
+        it('download text as a file through an object URL, which it revokes once the browser has begun the download', async () => {
+            const clicks = [];
+            const timers = [];
+            const revoked = [];
+            const urls = { createObjectURL: blob => `blob:${blob.type}`, revokeObjectURL: url => revoked.push(url) };
+            const click = vi.spyOn(window.HTMLAnchorElement.prototype, 'click').mockImplementation(function () {
+                clicks.push({ href: this.getAttribute('href'), name: this.download, attached: this.isConnected });
+            });
+
+            try {
+                expect(await executeIn('Domql.window.download({ name = "report.csv", content = "a,b", type = "text/csv" })', windowWith({}, { URL: urls, Blob: window.Blob, setTimeout: (callback, delay) => timers.push({ callback, delay }) }))).toBeNull();
+            } finally {
+                click.mockRestore();
+            }
+
+            expect(clicks).toEqual([{ href: 'blob:text/csv', name: 'report.csv', attached: true }]);
+            expect(document.querySelector('a[download]')).toBeNull();
+            expect(timers.map(timer => timer.delay)).toEqual([60_000]);
+
+            timers[0].callback();
+
+            expect(revoked).toEqual(['blob:text/csv']);
+        });
+
+        it('print the page, answering nothing', async () => {
+            let printed = 0;
+
+            expect(await executeIn('Domql.window.print()', windowWith({}, { print: () => printed++ }))).toBeNull();
+            expect(printed).toBe(1);
+        });
+
+        it('request a share of what is given alone, answering how the browser and the user took it', async () => {
+            const shared = [];
+            const sharing = share => windowWith({ share });
+
+            expect(await executeIn('Domql.window.requestShare({ title = "Report", url = "https://example.com/r" })', sharing(data => shared.push(data)))).toBe('shared');
+            expect(await executeIn('Domql.window.requestShare({ text = "x" })', sharing(refused('AbortError')))).toBe('canceled');
+            expect(await executeIn('Domql.window.requestShare()', sharing(refused('TypeError')))).toBe('invalid');
+            expect(await executeIn('Domql.window.requestShare({ text = "x" })', sharing(refused('NotAllowedError')))).toBe('refused');
+            expect(await executeIn('Domql.window.requestShare({ text = "x" })', sharing(refused('InvalidStateError')))).toBe('failed');
+            expect(await executeIn('Domql.window.requestShare({ text = "x" })', windowWith({}))).toBe('unsupported');
+            expect(shared).toEqual([{ title: 'Report', url: 'https://example.com/r' }]);
+        });
+    });
+
     describe('form controls', () => {
         beforeEach(() => {
             document.body.innerHTML = '<input id="box" type="checkbox"><input id="field" value="draft"><textarea id="notes">old</textarea><select id="list"><option>a</option><option>b</option></select><div id="plain"></div><div id="editor" contenteditable="true">one <b>two</b> three</div>';

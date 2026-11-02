@@ -257,6 +257,11 @@ export class BrowserVocabularyDeclarations {
                     execution('showModal', 'showModal', 'Boolean'),
                     execution('capturePointer', 'capturePointer', 'Boolean', { arguments: 'options', parameters: [valueParameter('pointerId', 'Number')] }),
                     execution('releasePointer', 'releasePointer', 'Boolean', { arguments: 'options', parameters: [valueParameter('pointerId', 'Number')] }),
+                    // A media element's playback, played, paused and muted as the page's code does it.
+                    execution('play', 'play', 'String'),
+                    execution('pause', 'pause', 'Boolean'),
+                    execution('writeMuted', 'writeMuted', 'Boolean', { parameters: [valueParameter('muted', 'Boolean')] }),
+
                     // The state of a form control, written as the page's code writes it, firing no event.
                     execution('writeIndeterminate', 'writeIndeterminate', 'Boolean', { parameters: [valueParameter('indeterminate', 'Boolean')] }),
                     execution('writeValue', 'writeValue', 'String?', { parameters: [valueParameter('value', 'String')] }),
@@ -310,6 +315,16 @@ export class BrowserVocabularyDeclarations {
                     // The changes DOMQL makes to the window, each one platform call answering what it did.
                     execution('windowScrollTo', 'scrollTo', 'Boolean', { arguments: 'options', parameters: SCROLL_PARAMETERS }),
                     execution('windowScrollBy', 'scrollBy', 'Boolean', { arguments: 'options', parameters: SCROLL_PARAMETERS }),
+
+                    // The browser's facilities, each answering how the browser took the request.
+                    execution('writeClipboard', 'writeClipboard', 'String', { parameters: [valueParameter('text', 'String')] }),
+                    execution('readClipboard', 'readClipboard', 'ClipboardContent', { arguments: 'options', parameters: [valueParameter('types', 'List<String>', { default: ['text/plain'] })] }),
+                    execution('download', 'download', undefined, { arguments: 'options', parameters: [valueParameter('name', 'String'), valueParameter('content', 'String'), valueParameter('type', 'String', { default: 'text/plain' })] }),
+                    execution('print', 'print', undefined),
+                    execution('requestShare', 'requestShare', 'String', {
+                        arguments: 'options',
+                        parameters: ['title', 'text', 'url'].map(name => valueParameter(name, 'String?', { default: null, nulls: 'accept', omitted: 'shared without it' })),
+                    }),
                 ]),
 
                 // The views of an element, each the element itself, of the view's type, so each accepts every element.
@@ -361,6 +376,9 @@ export class BrowserVocabularyDeclarations {
                 structuredType('SizeLimits', { minWidth: 'Number?', minHeight: 'Number?', maxWidth: 'Number?', maxHeight: 'Number?' }),
                 // A file a user chose, without its content.
                 structuredType('File', { name: 'String', bytes: 'Number', type: 'String', lastModified: 'Number' }),
+                // What the clipboard holds of the formats asked for, each as text, and how the browser took the request.
+                structuredType('ClipboardContent', { outcome: 'String', entries: 'List<ClipboardEntry>' }),
+                structuredType('ClipboardEntry', { type: 'String', text: 'String' }),
                 // How an event source listens: in the capture phase, or at the target and as the event bubbles.
                 structuredType('Listening', { capture: 'Boolean' }),
                 // An event such as scroll or resize can target the document or the window, which is no element.

@@ -6,6 +6,20 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-297"></a>
+
+## `1.0.0-alpha.297`
+
+*November 1, 2026 · Nexo language `1.0.0-beta.15` · definition format 38*
+
+DOMQL writes and reads the clipboard, downloads, prints, shares and plays media, each answering how the browser took the request.
+
+**Executions**
+
+- [`Domql.window.writeClipboard(text)` and `readClipboard({ types })`](spec/vocabulary.md#execution-window-writeclipboard-readclipboard), [`download({ name, content, type })`](spec/vocabulary.md#execution-window-download), [`print()`](spec/vocabulary.md#execution-window-print) and [`requestShare({ title, text, url })`](spec/vocabulary.md#execution-window-requestshare), each stating what it needs of the user's activation, as [D40](docs/decisions.md#d40) records.
+- A media element's [`play()`, `pause()` and `writeMuted(muted)`](spec/vocabulary.md#execution-element-play-pause-writemuted): `play` answers `"playing"`, `"blocked"`, `"aborted"` or `"unsupported"`, and the others whether they changed it.
+- `readClipboardText()` is declined beside `readClipboard()`, and `writeCookie` declined, as [D41](docs/decisions.md#d41) records.
+
 <a id="v1-0-0-alpha-296"></a>
 
 ## `1.0.0-alpha.296`

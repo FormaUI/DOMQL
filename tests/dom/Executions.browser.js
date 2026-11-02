@@ -116,6 +116,62 @@ describe('Executions in a browser', () => {
         });
     });
 
+    describe('the browser\'s facilities', () => {
+        /** A WAV file of a tenth of a second of silence, which a media element plays. */
+        const silence = () => {
+            const samples = 800;
+            const bytes = new Uint8Array(44 + samples).fill(128);
+            const view = new DataView(bytes.buffer);
+            const text = (offset, value) => [...value].forEach((character, index) => view.setUint8(offset + index, character.charCodeAt(0)));
+
+            text(0, 'RIFF');
+            view.setUint32(4, 36 + samples, true);
+            text(8, 'WAVEfmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, 1, true);
+            view.setUint32(24, 8000, true);
+            view.setUint32(28, 8000, true);
+            view.setUint16(32, 1, true);
+            view.setUint16(34, 8, true);
+            text(36, 'data');
+            view.setUint32(40, samples, true);
+
+            return URL.createObjectURL(new Blob([bytes], { type: 'audio/wav' }));
+        };
+
+        it('answers that the browser refuses the clipboard to a page it gave no permission, as headless Chromium does', async () => {
+            expect(await execute('Domql.window.writeClipboard("copied")')).toBe('refused');
+            expect(await execute('Domql.window.readClipboard()')).toEqual({ outcome: 'refused', entries: [] });
+        });
+
+        it('answers that sharing is unsupported where the browser offers no Web Share API, as headless Chromium does', async () => {
+            expect(await execute('Domql.window.requestShare({ title = "Report" })')).toBe(domql.query('Domql.window.share()').evaluate() ? 'refused' : 'unsupported');
+        });
+
+        it('plays, pauses and mutes a media element, answering how the browser took each request, its autoplay policy blocking it until the user acts', async () => {
+            document.body.innerHTML = '<audio id="audio"></audio><audio id="broken"></audio><button id="button">Play</button>';
+
+            const audio = document.getElementById('audio');
+            const broken = document.getElementById('broken');
+            const played = [];
+
+            audio.src = silence();
+            broken.src = URL.createObjectURL(new Blob([new Uint8Array(16)], { type: 'audio/wav' }));
+
+            expect(await execute('audio.writeMuted(true)', { audio })).toBe(true);
+            expect(await execute('audio.play()', { audio })).toBe('blocked');
+
+            document.getElementById('button').addEventListener('click', () => played.push(execute('audio.play()', { audio })));
+            await userEvent.click(document.getElementById('button'));
+
+            expect(await Promise.all(played)).toEqual(['playing']);
+            expect(await execute('audio.pause()', { audio })).toBe(true);
+            expect(await execute('audio.pause()', { audio })).toBe(false);
+            expect(await execute('broken.play()', { broken })).toBe('unsupported');
+        });
+    });
+
     describe('form controls', () => {
         it('writes a checkbox mixed, a field\'s value and its selection, as the page\'s code writes them, which the browser shows', async () => {
             document.body.innerHTML = '<input id="box" type="checkbox"><input id="field" value="draft">';
