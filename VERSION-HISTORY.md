@@ -6,6 +6,20 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-314"></a>
+
+## `1.0.0-alpha.314`
+
+*November 2, 2026 · Nexo language `1.0.0-beta.20` · definition format 38*
+
+DOMQL promises the order of what it delivers across handles, and of what a caller asks of several handles.
+
+**The API**
+
+- [Order across handles](spec/api.md#api-order-across-handles): an occurrence reaches every subscription listening before `deliver` returns, an event of `on` within its dispatch, and a watch's change as its evaluation completes, so handlers hear what happens in the order it happens, across handles, subscriptions and owners; `run`, `update`, `dispose` and `executeAsync` take effect within their calls, so calls to several handles take effect in the order they are made, as [D69](docs/decisions.md#d69) records.
+
+**Breaking:** nothing.
+
 <a id="v1-0-0-alpha-313"></a>
 
 ## `1.0.0-alpha.313`

@@ -783,3 +783,148 @@ describe('Behaviors\' state', () => {
         expect(refusal).toEqual({ code: 'DOMQL4012', module: 'Desk', type: 'DeskElements', declaration: 'glow', declarationKey: 'behavior' });
     });
 });
+
+describe('The order of what DOMQL delivers across handles', () => {
+    let isolated;
+    let panel;
+    let other;
+    let log;
+
+    /** A host call of an element extension. */
+    const hostCall = (name, overrides) => ({ name, kind: 'function', invokedBy: 'host', ...overrides });
+
+    /**
+     * A module of a router, `routes(label)`, whose instances share one listener of the document's clicks, as a module's code keeps state for its document: a click outside an instance's receiver dismisses it, and one
+     * inside acts on it, each delivered for the instance's owner, in the order the instances started, the receiver that acted then marked with its label.
+     */
+    const router = () => {
+        const routing = new WeakMap();
+
+        return isolated.createModule('Router', {
+            types: [{
+                name: 'RouterElements', kind: 'extension', target: 'Domql.Element',
+                members: [
+                    hostCall('routes', {
+                        requestKind: 'execution', executionMode: 'continuous', arguments: 'positional',
+                        parameters: [{ name: 'label', kind: 'value', type: 'String', required: true }],
+                        impl: ({ receiver, args: { label }, env, deliver }) => {
+                            let state = routing.get(env.document);
+
+                            if (state === undefined) {
+                                state = { instances: [] };
+                                state.listener = event => {
+                                    for (const instance of [...state.instances]) {
+                                        if (instance.receiver.contains(event.target)) {
+                                            instance.deliver('actions', instance.label);
+                                            instance.receiver.setAttribute('data-acted', instance.label);
+                                        } else {
+                                            instance.deliver('dismissals', instance.label);
+                                        }
+                                    }
+                                };
+                                routing.set(env.document, state);
+                                env.document.addEventListener('click', state.listener);
+                            }
+
+                            const instance = {
+                                receiver, label, deliver,
+                                update: (next, { label: nextLabel }) => {
+                                    log.push(`update ${env.owner} ${nextLabel}`);
+                                    Object.assign(instance, { receiver: next, label: nextLabel });
+                                },
+                                dispose: () => state.instances.splice(state.instances.indexOf(instance), 1),
+                            };
+
+                            state.instances.push(instance);
+
+                            return instance;
+                        },
+                    }),
+                    hostCall('dismissals', { requestKind: 'subscription', behavior: 'routes', result: 'String' }),
+                    hostCall('actions', { requestKind: 'subscription', behavior: 'routes', result: 'String' }),
+                ],
+            }],
+        });
+    };
+
+    const run = (text, bindings, options) => isolated.query(`import Router\n${text}`, bindings).run(options);
+    const subscribe = (text, bindings, handler, options) => isolated.query(`import Router\n${text}`, bindings).subscribe(handler, options);
+
+    beforeEach(async () => {
+        vi.resetModules();
+        ({ domql: isolated } = await import('#domql/domql.js'));
+        document.body.innerHTML = '<div id="panel"><button></button></div><div id="other"><button></button></div>';
+        panel = document.getElementById('panel');
+        other = document.getElementById('other');
+        log = [];
+        isolated.registerModule(router());
+    });
+
+    afterEach(() => {
+        document.body.innerHTML = '';
+    });
+
+    it('hands occurrences to the subscriptions of several owners in the order they are delivered, each handler called before the next occurrence is delivered', async () => {
+        const handles = [run('panel:routes("first")', { panel }, { owner: 'a' }), run('other:routes("second")', { other }, { owner: 'b' })];
+        let settleSlow;
+        const slow = new Promise(resolve => {
+            settleSlow = resolve;
+        });
+        const listeners = [
+            subscribe('panel:dismissals()', { panel }, (sender, args) => {
+                log.push(`dismissal a ${args.value}`);
+
+                return slow;
+            }, { owner: 'a' }),
+            subscribe('panel:actions()', { panel }, (sender, args) => log.push(`action a ${args.value}`), { owner: 'a' }),
+            subscribe('other:dismissals()', { other }, (sender, args) => log.push(`dismissal b ${args.value}`), { owner: 'b' }),
+            subscribe('other:actions()', { other }, (sender, args) => log.push(`action b ${args.value}`), { owner: 'b' }),
+        ];
+
+        // One press dismisses the first owner's scope and acts on the second's, its handlers all called before the press's dispatch ends, a slow one included.
+        other.querySelector('button').click();
+
+        expect(log).toEqual(['dismissal a first', 'action b second']);
+
+        panel.querySelector('button').click();
+        settleSlow();
+        await slow;
+
+        expect(log).toEqual(['dismissal a first', 'action b second', 'action a first', 'dismissal b second']);
+        listeners.forEach(listener => listener.dispose());
+        handles.forEach(handle => handle.dispose());
+    });
+
+    it('raises a watch\'s change after the occurrences of the task that changed what it reads', async () => {
+        const handle = run('other:routes("second")', { other }, { owner: 'b' });
+        const listener = subscribe('other:actions()', { other }, (sender, args) => log.push(`action ${args.value}`), { owner: 'b' });
+        const watch = isolated.query('other["data-acted"]', { other }).watch({ schedule: 'immediate' });
+
+        watch.subscribe('change', (sender, args) => log.push(`change ${args.value}`));
+        await watch.readyAsync();
+
+        other.querySelector('button').click();
+        log.push('dispatched');
+        await new Promise(resolve => setTimeout(resolve));
+
+        expect(log).toEqual(['change null', 'action second', 'dispatched', 'change second']);
+        watch.dispose();
+        listener.dispose();
+        handle.dispose();
+    });
+
+    it('applies the updates of several handles in the order they are made, each before its call returns', () => {
+        const first = run('panel:routes(label)', { panel, label: 'one' }, { owner: 'a' });
+        const second = run('panel:routes(label)', { panel, label: 'one' }, { owner: 'b' });
+
+        first.update({ panel, label: 'two' });
+        expect(log).toEqual(['update a two']);
+
+        second.update({ panel, label: 'three' });
+        first.update({ panel, label: 'four' });
+        expect(log).toEqual(['update a two', 'update b three', 'update a four']);
+
+        first.dispose();
+        second.dispose();
+    });
+});

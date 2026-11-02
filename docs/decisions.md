@@ -1029,3 +1029,16 @@ Each entry is one of three kinds:
   - One loader for every module, given each name, which every library registering modules would have to share.
   - Loading inside `evaluateAsync` and `executeAsync`, which would make an execution's order and activation depend on whether its module was loaded yet.
   - Modules a module depends on, loaded by DOMQL from its declarations: a loader loads them first itself, through `loadModulesAsync`, since only it knows what its module names.
+
+<a id="d69"></a>
+
+## D69 — What DOMQL delivers reaches its handlers in the order it happens, across handles
+
+*November 2, 2026*
+
+- **Kind:** Contract.
+- **Decision:** An occurrence reaches every subscription listening before `deliver` returns, an event of `on` within its dispatch, and a watch's change as its evaluation completes; `run`, `update`, `dispose` and `executeAsync` take effect within their calls. So handlers hear what happens in the order it happens across handles, subscriptions and owners, and calls to several handles take effect in the order they are made ([A5](features-status.md#planned-api-and-host)). The C# half's bounded queue, which never coalesces and fails on overflow, waits with it ([D46](#d46)).
+- **Why:**
+  - One press can dismiss one owner's scope and act on another's, and the host must hear the dismissal first, since the order of activations decides which scope takes precedence. DOMQL already delivered synchronously ([D51](#d51)), so the order holds; the specification now promises it across handles, and tests prove it for two owners, a slow handler among them, a watch's change after the occurrences of its task, and updates to several handles.
+  - A caller that forwards across a boundary keeps the order by sending in the order its handlers are called, through one queue of its own; its bounds and transport are the caller's, as keeping a copy of a result has them.
+- **Declined:** A queue of DOMQL's own in JavaScript, which would delay every handler for a guarantee the synchronous delivery already gives.

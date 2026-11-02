@@ -19,8 +19,9 @@ In this document:
 1. [Entry points and operations](#api-entry-points-and-operations)
 2. [Objects](#api-objects)
 3. [Events of a handle](#events-of-a-handle)
-4. [Lifetimes](#lifetimes)
-5. [Errors](#api-errors)
+4. [Order across handles](#api-order-across-handles)
+5. [Lifetimes](#lifetimes)
+6. [Errors](#api-errors)
 
 <a id="api-entry-points-and-operations"></a>
 
@@ -99,6 +100,22 @@ listener.dispose(); // Stops this listener.
 - **Order.** Handlers run in the order their listeners were subscribed, and receive each event in the order the events were raised. DOMQL does not wait for the promise a handler returns, so the continuations of asynchronous handlers can overlap; a caller that needs them one at a time arranges that at its own delivery boundary.
 - **Failures.** A handler that throws or rejects keeps no other handler from the event, undoes no result, does not stop the watch, and is reported to the `"error"` handlers of the watch or execution handle that raised the event. A failure of an `"error"` handler, and an `"error"` event no listener receives, go to the window's error reporting; no handler is called with its own failure, nothing is called again, and no other handle is interrupted.
 - **Disposal** prevents any new handler call; one already running may finish. Disposing a handle stops every listener subscribed to it.
+
+<a id="api-order-across-handles"></a>
+
+## Order across handles
+
+What DOMQL delivers reaches its handlers within the call or the callback that causes it, and what a caller asks of a handle takes effect within the call that asks it. So handlers hear what happens in the order it happens, across handles, subscriptions and owners, and a caller's calls take effect in the order it makes them:
+
+| What | When it reaches its handlers, or takes effect |
+| --- | --- |
+| An occurrence a behavior delivers | Before `deliver` returns, every subscription listening for it called, as [delivering](behaviors.md#behaviors-occurrences) sets out; so a behavior that delivers a dismissal to one owner and then an action to another has the first owner's handlers called before the second's |
+| An event of `on` | Within the browser's dispatch of that event, as [subscribing](events.md#subscribing) sets out, in the order the browser dispatches events |
+| A watch's change | As its evaluation completes, at its schedule, as [when its handlers run](watches.md#watching-when-handlers-run) sets out; so it follows the occurrences and events of the task that changed what it read |
+| `run`, `update`, `dispose` and `executeAsync` | Within the call: an execution starts, is updated or ends, and a once execution's implementation is invoked, before the call returns, as [executing once](executions.md#executions-executing-once) and [running continuously](executions.md#executions-running-continuously) set out; so updates to several handles apply in the order they are made, and a command reaches the instance the latest of them left running |
+
+- **A promise a handler returns** is not waited for before the next handler is called, so the continuations of asynchronous handlers can interleave, and each occurrence's [acknowledgment](behaviors.md#behaviors-acknowledgment) settles as its own subscriptions apply it.
+- **A caller that forwards what it hears,** as a host across an interop boundary does, keeps this order by sending in the order its handlers are called, through one queue for all its handles; that queue, its bounds and its transport are the caller's, as [keeping a copy of a result](results.md#results-keeping-a-copy) sets out.
 
 <a id="lifetimes"></a>
 
