@@ -24,6 +24,16 @@ export class EventListener {
     /** What carries out the subscription's reactions to an event's projected value, answering a promise of each one's result, or null for a subscription that has none. @type {((value: unknown) => readonly Promise<unknown>[]) | null} */
     #react;
 
+    /** The interval a throttle hands the handler at most one event in, in milliseconds, or null for a subscription that hands it every event; and the window's timers it waits on. */
+    #throttle;
+    #timers;
+
+    /** The timer of the throttle's interval running, or null while none runs. */
+    #interval = null;
+
+    /** The event a throttle holds until its interval ends: the handler's call, and the acknowledgment that follows it; null while it holds none. @type {{ callback: () => Promise<void>, acknowledgment: Acknowledgment } | null} */
+    #held = null;
+
     /** What stops the source, once it has started. @type {{ stop: () => void } | null} */
     #sourceHandle = null;
 
@@ -57,11 +67,15 @@ export class EventListener {
      * @param {(sender: EventListener, args: object) => unknown} dependencies.handler Receives the event listener and, for each event, `status: 'ready'` with its projected result as `value`, and the promises of its reactions'
      * results as `reactions` where it has reactions, or `status: 'failed'` with the `error` that capturing or projecting it raised. What it returns is not awaited.
      * @param {((value: unknown) => readonly Promise<unknown>[]) | null} [dependencies.react] Carries out the subscription's reactions to an event's projected value, within its delivery; null where it has none.
+     * @param {number | null} [dependencies.throttle] The interval the handler hears at most one event in, the latest, in milliseconds; null where it hears every event.
+     * @param {{ set: (callback: () => void, delay: number) => unknown, clear: (timer: unknown) => void }} [dependencies.timers] The window's timers, which a throttle waits on.
      * @param {AbortSignal} [dependencies.signal] Disposes the event listener when it aborts.
      */
-    constructor({ evaluator, sourceOf, getLocation, observations, reportError, handler, react = null, signal }) {
+    constructor({ evaluator, sourceOf, getLocation, observations, reportError, handler, react = null, throttle = null, timers, signal }) {
         this.#evaluator = evaluator;
         this.#react = react;
+        this.#throttle = throttle;
+        this.#timers = timers;
         this.#sourceOf = sourceOf;
         this.#getLocation = getLocation;
         this.#observations = observations;
@@ -119,6 +133,14 @@ export class EventListener {
 
         this.#status = 'disposed';
         this.#signal?.removeEventListener('abort', this.#disposeOnAbort);
+
+        // The event a throttle holds is never handed over, and its acknowledgment rejects with the others.
+        if (this.#interval !== null) {
+            this.#timers.clear(this.#interval);
+            this.#interval = null;
+        }
+
+        this.#held = null;
 
         try {
             this.#sourceHandle?.stop();
@@ -195,7 +217,7 @@ export class EventListener {
 
             if (error !== null) {
                 // The handler hears of the failure before the event listener ends, and after the events held before it while the listener starts.
-                return this.#runOrHold(() => {
+                return this.#hand(false, () => {
                     const applied = this.#call({ status: 'failed', error });
 
                     this.dispose();
@@ -210,7 +232,7 @@ export class EventListener {
         if (projection.error !== null) {
             this.#release(projection);
 
-            return this.#runOrHold(() => this.#call({ status: 'failed', error: projection.error }));
+            return this.#hand(false, () => this.#call({ status: 'failed', error: projection.error }));
         }
 
         // The projection holds its sessions before the last lets go of its own, so an observation both read keeps running.
@@ -226,7 +248,59 @@ export class EventListener {
             return this.#runOrHold(() => this.#call({ status: 'ready', value: projection.value, reactions }));
         }
 
-        return this.#runOrHold(() => this.#call({ status: 'ready', value: projection.value }));
+        return this.#hand(true, () => this.#call({ status: 'ready', value: projection.value }));
+    }
+
+    /**
+     * Hands the event to the handler, now or once the caller holds the event listener, answering what follows its call. A throttle hands over at once an event heard while no interval runs, starting one, and holds one
+     * heard during it until it ends, dropping the one held before; a failed event, never dropped, hands over the event held before it and then itself.
+     */
+    #hand(isReady, callback) {
+        if (this.#throttle === null) {
+            return this.#runOrHold(callback);
+        }
+
+        if (this.#interval === null) {
+            this.#startInterval();
+
+            return this.#runOrHold(callback);
+        }
+
+        if (!isReady) {
+            this.#handHeld();
+
+            return this.#runOrHold(callback);
+        }
+
+        const dropped = this.#held;
+        const acknowledgment = this.#acknowledge();
+
+        this.#held = { callback, acknowledgment };
+        dropped?.acknowledgment.reject(NexoError.evaluation('DOMQL5024', 'The subscription\'s throttle dropped the occurrence for a later one', this.#getLocation(this.#preparedCall.pointer)));
+
+        return acknowledgment.promise;
+    }
+
+    /** Starts the throttle's interval, at whose end the event it holds, if any, is handed over, and the next interval starts. */
+    #startInterval() {
+        this.#interval = this.#timers.set(() => {
+            this.#interval = null;
+
+            if (this.#held !== null) {
+                this.#handHeld();
+                this.#startInterval();
+            }
+        }, this.#throttle);
+    }
+
+    /** Hands the event the throttle holds to the handler, its acknowledgment following the handler's call. */
+    #handHeld() {
+        const held = this.#held;
+
+        if (held !== null) {
+            this.#held = null;
+            this.#runOrHold(held.callback).then(held.acknowledgment.resolve, held.acknowledgment.reject);
+        }
     }
 
     /** A promise of an acknowledgment that waits, kept until it settles, so disposal rejects it, and handled, so a source that leaves it is never reported for it. @returns {Acknowledgment} */

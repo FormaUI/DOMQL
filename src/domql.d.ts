@@ -26,8 +26,15 @@ export interface DomqlEvaluateAsyncOptions extends DomqlEvaluateOptions {
 
 /** How a query is watched, its events carrying each snapshot whole. */
 export interface DomqlWatchOptions {
-    /** When an evaluation follows a change: at the next animation frame, once however many observations fired (the default), or, without waiting for an animation frame, in a microtask the first invalidation queues, which the invalidations received before it begins share. */
-    schedule?: 'frame' | 'immediate';
+    /**
+     * When an evaluation follows a change: at the next animation frame, once however many observations fired (the default); without waiting for an animation frame, in a microtask the first invalidation queues, which
+     * the invalidations received before it begins share; or, `delayed`, once its `delay` has passed with no invalidation, which `refreshAsync` ends early.
+     */
+    schedule?: 'frame' | 'immediate' | 'delayed';
+    /** How long the delayed schedule waits with no invalidation before it evaluates, in milliseconds above 0; the delayed schedule takes one, and another takes none. */
+    delay?: number;
+    /** The parts whose change alone has a snapshot reported, whole, each a field's name or a list of path items; a snapshot it doesn't report is not kept. */
+    reportOn?: readonly (string | readonly DomqlPathItem[])[];
     /** What the watch's events carry: each snapshot whole, the default. */
     updateStrategy?: 'snapshot';
     /** Whether the watch accepts a member whose observations only partly cover its changes; a watch over one without it is a validation error. */
@@ -63,6 +70,8 @@ export interface DomqlSubscribeOptions extends DomqlOperationOptions {
      * subscription's owner; the handler's ready event carries a promise of each one's result.
      */
     reactions?: readonly DomqlQuery[];
+    /** The interval the handler hears at most one event in, the latest, in milliseconds above 0; an event a later one replaced while it was held is dropped. A subscription with reactions takes none. */
+    throttle?: number;
 }
 
 /** How a listener of a handle's events listens. */

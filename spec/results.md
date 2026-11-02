@@ -79,6 +79,10 @@ A watch keeps its result as live state when its caller chooses it as its update 
 
 A watch reports a snapshot that differs from the last one it reported, compared field by field and item by item. Strings, Booleans and null compare exactly; a number compares within the tolerance its member declares, and exactly where it declares none; a number arithmetic computed compares exactly, whatever tolerance a member it reads declares.
 
+<a id="results-reporting-on-parts"></a>
+
+**Reporting on parts.** A watch given `reportOn`, a list of paths into its result, each a field's name or a list of path items, reports a snapshot only where the part at one of those paths differs from the last snapshot it reported, and then reports it whole, the parts it doesn't report on included: an editor's state reported as its selection changes, carrying its content too. A snapshot it doesn't report is not kept: `snapshot` stays the last one reported, and the next evaluation is compared with it, so a change set of live state takes the result from it. Its first snapshot, and its first after a failed evaluation, are reported as any watch's are. Each path is checked as a [selection](queries.md#selecting-a-result) is, against the result's type, as the watch starts; a `reportOn` that is no list of paths is refused with `DOMQL2020`.
+
 A number a conditional gave compares within the tolerance of the member its branch read where the number last reported came from the same branch, and exactly where it came from another, which is a different reading whose difference no tolerance absorbs. A number a coalescing operator gave compares the same way, by the side it came from, its value or its fallback, one an `and` or an `or` gave by the operand it answered, and one a computed property access gave by the property its name selected. A conditional can select a different branch at each place in the result, as for each item of a list, and each place is compared by the branch selected there.
 
 <a id="results-collections"></a>

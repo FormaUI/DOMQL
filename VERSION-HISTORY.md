@@ -6,6 +6,28 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-318"></a>
+
+## `1.0.0-alpha.318`
+
+*November 2, 2026 · Nexo language `1.0.0-beta.20` · definition format 38*
+
+A watch can wait for a burst of changes to end and report only where chosen parts change, and a subscription can throttle what it hands its handler.
+
+**Watches**
+
+- [The delayed schedule](spec/watches.md#watching-delayed): `schedule: 'delayed'` with a `delay` evaluates once the delay has passed with no invalidation, each one starting the wait again, and `refreshAsync()` flushes it early, as [D73](docs/decisions.md#d73) records. The new `DOMQL2019` refuses a delay out of place.
+
+**Results**
+
+- [Reporting on parts](spec/results.md#results-reporting-on-parts): `reportOn`, a list of paths, has a snapshot reported, whole, only where one of those parts changed; a snapshot not reported is not kept. The new `DOMQL2020` refuses one that is no list of paths.
+
+**Events**
+
+- [Throttling](spec/events.md#events-throttling): `throttle` hands the handler at most one event each interval, the latest, the first at once; a failed event is never dropped, and a dropped occurrence's acknowledgment rejects with the new `DOMQL5024`. `DOMQL2017` and `DOMQL2018` refuse a throttle out of range, or beside reactions. A subscription delivered by animation frame stays declined.
+
+**Breaking:** nothing.
+
 <a id="v1-0-0-alpha-317"></a>
 
 ## `1.0.0-alpha.317`

@@ -14,9 +14,16 @@ export class Watch {
     #observations;
     #comparer;
     #frames;
+    #timers;
     #schedule;
     #checkPath;
     #eventDispatcher;
+
+    /** How long the delayed schedule waits with no invalidation before it evaluates, in milliseconds, or null under another schedule. @type {number | null} */
+    #delay = null;
+
+    /** The parts, each by its whole path into the result, whose change alone has a snapshot reported, or null where every change does. @type {(string | number)[][] | null} */
+    #reportOn = null;
 
     /** The path into the result the watch reports, empty for the whole result, as a selection's watch reports its part. @type {(string | number)[]} */
     #path;
@@ -44,6 +51,9 @@ export class Watch {
 
     /** The read of the animation frame the next evaluation waits for, which withdraws it, or null while none is asked for. @type {{ cancel: () => void } | null} */
     #frame = null;
+
+    /** The timer the delayed schedule's next evaluation waits for, or null while none runs. */
+    #timer = null;
     /** Whether an evaluation under the immediate schedule is queued for the next microtask, which the invalidations received before it share. */
     #isQueued = false;
     #isRunning = false;
@@ -77,20 +87,26 @@ export class Watch {
      * @param {import('./Observations.mjs').Observations} dependencies.observations The observations of the window, which the watch holds sessions on.
      * @param {import('../snapshots/SnapshotComparer.mjs').SnapshotComparer} dependencies.comparer Compares the snapshots.
      * @param {import('./FrameSchedule.mjs').FrameSchedule} dependencies.frames The animation frames of the window the watch belongs to, among whose reads it evaluates under the frame schedule.
+     * @param {{ set: (callback: () => void, delay: number) => unknown, clear: (timer: unknown) => void }} [dependencies.timers] The window's timers, which the delayed schedule waits on.
      * @param {(error: unknown) => void} dependencies.reportError The environment's error reporting, which a failure no listener receives reaches.
      * @param {(path: (string | number)[]) => void} dependencies.checkPath Refuses a path that does not fit the result's type.
      * @param {object} dependencies.options The watch's options.
-     * @param {'frame' | 'immediate'} dependencies.options.schedule When an evaluation follows a change: at the next animation frame, once however many observations fired, or, without waiting for an animation frame, in a microtask the first invalidation queues, which the invalidations received before it begins share.
+     * @param {'frame' | 'immediate' | 'delayed'} dependencies.options.schedule When an evaluation follows a change: at the next animation frame, once however many observations fired; without waiting for an animation frame, in a microtask the first invalidation queues, which the invalidations received before it begins share; or once the delay has passed with no invalidation.
+     * @param {number} [dependencies.options.delay] How long the delayed schedule waits with no invalidation, in milliseconds.
+     * @param {(string | number)[][] | null} [dependencies.options.reportOn] The parts, each by its whole path into the result, whose change alone has a snapshot reported; null where every change does.
      * @param {'snapshot' | 'liveState'} dependencies.options.updateStrategy What the watch's events carry: each snapshot whole, or one object it keeps current in place.
      * @param {(string | number)[]} [dependencies.options.path] The part of the result the watch reports.
      * @param {AbortSignal} [dependencies.options.signal] Disposes the watch when it aborts.
      */
-    constructor({ evaluator, observations, comparer, frames, reportError, checkPath, options: { schedule, updateStrategy = 'snapshot', path = [], signal } }) {
+    constructor({ evaluator, observations, comparer, frames, timers, reportError, checkPath, options: { schedule, delay = null, reportOn = null, updateStrategy = 'snapshot', path = [], signal } }) {
         this.#evaluator = evaluator;
         this.#observations = observations;
         this.#comparer = comparer;
         this.#frames = frames;
+        this.#timers = timers;
         this.#schedule = schedule;
+        this.#delay = delay;
+        this.#reportOn = reportOn;
         this.#checkPath = checkPath;
         this.#path = path;
         this.#eventDispatcher = new EventDispatcher({ sender: this, description: 'A watch', eventNames: ['change', 'error'], reportError });
@@ -323,7 +339,7 @@ export class Watch {
 
         this.#status = 'disposed';
         this.#signal?.removeEventListener('abort', this.#disposeOnAbort);
-        this.#cancelFrame();
+        this.#cancelScheduled();
         this.#eventDispatcher.dispose();
 
         this.#release(this.#successfulEvaluation);
@@ -413,7 +429,17 @@ export class Watch {
             return;
         }
 
-        if (this.#schedule === 'immediate') {
+        if (this.#schedule === 'delayed') {
+            // Each invalidation starts the wait again, so a burst of changes evaluates once, as it ends.
+            if (this.#timer !== null) {
+                this.#timers.clear(this.#timer);
+            }
+
+            this.#timer = this.#timers.set(() => {
+                this.#timer = null;
+                this.#run();
+            }, this.#delay);
+        } else if (this.#schedule === 'immediate') {
             if (!this.#isQueued) {
                 this.#isQueued = true;
                 queueMicrotask(() => {
@@ -432,10 +458,16 @@ export class Watch {
         }
     }
 
-    #cancelFrame() {
+    /** Withdraws the evaluation the schedule waits for: its animation frame's read, or the delayed schedule's timer. */
+    #cancelScheduled() {
         if (this.#frame !== null) {
             this.#frame.cancel();
             this.#frame = null;
+        }
+
+        if (this.#timer !== null) {
+            this.#timers.clear(this.#timer);
+            this.#timer = null;
         }
     }
 
@@ -446,7 +478,7 @@ export class Watch {
 
         this.#hasRun = true;
         this.#isQueued = false;
-        this.#cancelFrame();
+        this.#cancelScheduled();
 
         // The refreshes waiting now are answered by this evaluation, and one asked for while it runs by the next.
         const waiting = this.#pendingRefreshes.splice(0);
@@ -515,10 +547,14 @@ export class Watch {
 
         const next = this.#hasSnapshot ? this.#comparer.reconcile(this.#lastSnapshot, this.#lastMetadata, queryEvaluation.value, queryEvaluation.metadata) : queryEvaluation.value;
         const isDue = this.#needsDelivery;
-        const isReported = !this.#hasSnapshot || isDue || next !== this.#lastSnapshot;
+        const isReported = !this.#hasSnapshot || isDue || (next !== this.#lastSnapshot && (this.#reportOn === null || this.#changesReportedPart(next)));
 
-        this.#lastSnapshot = next;
-        this.#lastMetadata = queryEvaluation.metadata;
+        // A snapshot a watch reporting on parts doesn't report is not kept, so the next is compared with the last one reported.
+        if (isReported || this.#reportOn === null) {
+            this.#lastSnapshot = next;
+            this.#lastMetadata = queryEvaluation.metadata;
+        }
+
         this.#hasSnapshot = true;
         this.#needsDelivery = false;
         this.#error = null;
@@ -540,6 +576,11 @@ export class Watch {
         for (const { resolve } of waiting) {
             resolve();
         }
+    }
+
+    /** Whether the snapshot changes a part the watch reports on, from the last one it reported; reconciling keeps a part that didn't change the same value. */
+    #changesReportedPart(next) {
+        return this.#reportOn.some(path => !Object.is(nexo.paths.valueAt(next, path), nexo.paths.valueAt(this.#lastSnapshot, path)));
     }
 
     /** Holds the evaluation's sessions and lets go of the ones the evaluations before it held, after it has its own, so an observation both need keeps running. */

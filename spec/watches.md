@@ -33,7 +33,7 @@ In this document:
 
 ## The watch and its handle
 
-`query.watch(options?)` starts a watch and answers its handle, a `DomqlWatch`. Its options are its `schedule`, `frame` by default or `immediate`; its `updateStrategy`, `snapshot` by default or `liveState`, as [results](results.md) set out; whether it accepts partial observation; its `signal`, which disposes it when it aborts; its `window`; and its [`owner`](api.md#api-the-owner). What the watch delivers reaches the listeners its handle's `subscribe` adds, as [events of a handle](api.md#events-of-a-handle) sets out.
+`query.watch(options?)` starts a watch and answers its handle, a `DomqlWatch`. Its options are its `schedule`, `frame` by default, `immediate` or `delayed`, with the `delay` the last takes, as [when a watch evaluates](#watching-when-a-watch-evaluates) sets out; its `updateStrategy`, `snapshot` by default or `liveState`, as [results](results.md) set out; the parts it [reports on](results.md#results-reporting-on-parts), `reportOn`; whether it accepts partial observation; its `signal`, which disposes it when it aborts; its `window`; and its [`owner`](api.md#api-the-owner). What the watch delivers reaches the listeners its handle's `subscribe` adds, as [events of a handle](api.md#events-of-a-handle) sets out.
 
 - **The first evaluation** runs in a microtask the call queues, after `watch` returns and before any later task, so a caller subscribes before any event is raised; a `refreshAsync` called before then runs that evaluation at once instead. Its result is the first `"change"` event.
 - **Status.** `status` is `pending` until the first snapshot is available, the samples of the maintained members it reads included, and `ready` from then on. After an evaluation fails it is `failed`: the watch keeps running and keeps its last successful snapshot, if it has one, and returns to `ready` with its next successful evaluation. Once ended it is `disposed`. `snapshot` is the last successful snapshot, `undefined` before the first, so a result that is null is told apart from none yet, and `error` is the latest evaluation failure, cleared by the next success.
@@ -120,11 +120,19 @@ The watch evaluates again whenever the panel's text changes, and reports the row
 
 Invalidation, evaluation and delivery each keep their own schedule. An observation invalidates the watch at once. The watch evaluates at the next animation frame, once however many observations fired, among the frame's reads, after the writes module code asks for with [`env.frame`](vocabulary.md#extension-modules-environment), so it reads what they wrote, or, under `immediate`, without waiting for an animation frame, where its caller needs a change handled as soon as it is reported, such as at mutation delivery: the first invalidation queues an evaluation in a microtask, and the invalidations received before that evaluation begins share it, so the records one delivery of mutations brings evaluate once, and an invalidation received after it begins, or while it runs, asks for another. Separate native callbacks each reach a microtask of their own, so a resize the browser reports for each element in its own callback evaluates once for each; the frame schedule evaluates once for them all. When the caller receives the snapshot is the caller's own.
 
+<a id="watching-delayed"></a>
+
+**The delayed schedule.** Under `delayed`, the watch evaluates once its `delay`, a number of milliseconds above 0, has passed with no invalidation: each invalidation starts the wait again, so a burst of changes, as a reader typing, evaluates once, as the burst ends. It defers the evaluation itself, not only its delivery, so a costly query, as one serializing an editor's content, runs once a burst. Its first evaluation follows the call that starts it, as every watch's does.
+
+- **An early flush** is `refreshAsync()`, which evaluates now instead of at the schedule, ending the wait; a caller that must flush as an event happens, as a field losing focus, refreshes in that event's handler, which runs inside its dispatch.
+- **Its options.** A `delay` that is no number above 0, the delayed schedule given none, and a `delay` given to another schedule are refused with `DOMQL2019`.
+
 <a id="watching-when-handlers-run"></a>
 
 **When its handlers run.** A watch raises its `"change"` event as its evaluation completes, so its handlers run where it evaluates:
 
 - **Under `immediate`,** within the microtask checkpoint of the delivery that invalidated it: a mutation delivery's, after the observers notified in it, and before any task or animation frame, so a handler acts on a mutation before the browser runs anything else or paints.
+- **Under `delayed`,** in the timer task its wait ends in, or within the call of a refresh that ends it early.
 - **Under `frame`,** inside the animation frame, among its reads, after the writes module code and DOMQL's [owned writes](vocabulary.md#execution-element-owned-writes) ask the frame for, and before the browser lays the frame out and paints it, so a handler may write what it measured, and a resize that write causes is reported before paint.
 
 A watch evaluates its whole query each time. A member may keep its result until its own observations fire, as long as the result is the one a full evaluation would give.

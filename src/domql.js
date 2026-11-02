@@ -43,12 +43,19 @@ import { nexo, NexoError } from '@formaui-net/nexo';
 /**
  * How a query is watched.
  * @typedef {object} DomqlWatchOptions
- * @property {'frame' | 'immediate'} [schedule] When an evaluation follows a change: at the next animation frame, once however many observations fired, or, without waiting for an animation frame, in a microtask the first invalidation queues, which the invalidations received before it begins share.
+ * @property {'frame' | 'immediate' | 'delayed'} [schedule] When an evaluation follows a change: at the next animation frame, once however many observations fired; without waiting for an animation frame, in a microtask the first invalidation queues, which the invalidations received before it begins share; or once its delay has passed with no invalidation.
+ * @property {number} [delay] How long the delayed schedule waits with no invalidation, in milliseconds above 0.
+ * @property {(string | (string | number)[])[]} [reportOn] The parts whose change alone has a snapshot reported, whole, each a field's name or a list of path items.
  * @property {'snapshot' | 'liveState'} [updateStrategy] What the watch's events carry: each snapshot whole, or one object the watch keeps current in place, which keeps its identity.
  * @property {boolean} [acceptPartialObservation] Whether the watch accepts a member whose observations only partly cover its changes.
  * @property {AbortSignal} [signal] Disposes the watch when it aborts.
  * @property {Window} [window] The window `Domql.window` stands for, and whose document `Domql.document` stands for; by default the environment's.
  * @property {unknown} [owner] Who watches, which every implementation the watch reaches receives as `env.owner`; null by default.
+ */
+
+/**
+ * How a subscription is listened to: as any operation, with the once executions it carries out as it hears each event, and the interval its handler hears at most one event in.
+ * @typedef {DomqlOperationOptions & { reactions?: DomqlQuery[], throttle?: number }} DomqlSubscribeOptions
  */
 
 /**
@@ -81,7 +88,7 @@ const REQUESTS = {
 const FRAME_PHASES = ['write', 'read'];
 
 /** When a watch evaluates after a change, and what its events carry. */
-const WATCH_SCHEDULES = ['frame', 'immediate'];
+const WATCH_SCHEDULES = ['frame', 'immediate', 'delayed'];
 const WATCH_UPDATE_STRATEGIES = ['snapshot', 'liveState'];
 
 class Domql {
@@ -393,10 +400,16 @@ class Domql {
     }
 
     /** Starts a watch of the query, whose snapshots are the part of its result the path reaches; a signal already aborted answers a watch that is disposed and starts nothing. */
-    static #watch(query, path, { schedule = 'frame', updateStrategy = 'snapshot', acceptPartialObservation = false, signal, window = globalThis.window, owner = null }) {
+    static #watch(query, path, { schedule = 'frame', delay, reportOn, updateStrategy = 'snapshot', acceptPartialObservation = false, signal, window = globalThis.window, owner = null }) {
         if (!WATCH_SCHEDULES.includes(schedule)) {
-            throw NexoError.structure('DOMQL2003', `A watch is scheduled as ${WATCH_SCHEDULES.join(' or ')}`, {});
+            throw NexoError.structure('DOMQL2003', `A watch is scheduled as ${WATCH_SCHEDULES.join(', ')}`, {});
         }
+
+        if ((schedule === 'delayed') !== (delay !== undefined) || (delay !== undefined && !Domql.#isInterval(delay))) {
+            throw NexoError.structure('DOMQL2019', "A watch scheduled as 'delayed' takes the delay it waits with no invalidation, a number of milliseconds above 0, and a watch of another schedule takes none", {});
+        }
+
+        const reportedPaths = Domql.#reportedPathsOf(reportOn, path);
 
         if (!WATCH_UPDATE_STRATEGIES.includes(updateStrategy)) {
             throw NexoError.structure('DOMQL2004', `The update strategy of a watch is ${WATCH_UPDATE_STRATEGIES.join(' or ')}`, {});
@@ -415,6 +428,7 @@ class Domql {
         }
 
         Domql.#checkPath(resolution, path);
+        reportedPaths?.forEach(reported => resolution.typeAt(reported));
 
         const evaluator = Domql.#createEvaluator(query, resolution, Domql.#createEnvironment(window, owner), () => Domql.#resolveFor('watch', query, { watch: true, acceptPartialObservation: acceptPartialObservation === true }));
 
@@ -427,10 +441,40 @@ class Domql {
             observations: Domql.#getObservations(window),
             comparer: new SnapshotComparer(),
             frames: Domql.#servicesOf(window).frames,
+            timers: schedule === 'delayed' ? Domql.#timersOf(window) : undefined,
             reportError: Domql.#createErrorReporter(window),
             checkPath: selected => resolution.typeAt(selected),
-            options: { schedule, updateStrategy, path, signal },
+            options: { schedule, delay, reportOn: reportedPaths, updateStrategy, path, signal },
         });
+    }
+
+    /** Whether the value is an interval a schedule or a throttle waits: a number of milliseconds above 0. */
+    static #isInterval(value) {
+        return typeof value === 'number' && Number.isFinite(value) && value > 0;
+    }
+
+    /** The whole paths into the result of the parts a watch reports on, each a field's name or a list of path items relative to the part the watch reports, or null where it reports every change. */
+    static #reportedPathsOf(reportOn, path) {
+        if (reportOn === undefined) {
+            return null;
+        }
+
+        if (!Array.isArray(reportOn) || reportOn.length === 0 || !reportOn.every(part => typeof part === 'string' || Array.isArray(part))) {
+            throw NexoError.structure('DOMQL2020', "A watch's reportOn is a list of the parts it reports on, each a field's name or a list of path items", {});
+        }
+
+        return reportOn.map(part => {
+            const relative = typeof part === 'string' ? [part] : part;
+
+            nexo.paths.validate(relative);
+
+            return [...path, ...relative];
+        });
+    }
+
+    /** The window's timers, which a delayed schedule and a throttle wait on. */
+    static #timersOf(window) {
+        return { set: (callback, delay) => window.setTimeout(callback, delay), clear: timer => window.clearTimeout(timer) };
     }
 
     /**
@@ -439,9 +483,17 @@ class Domql {
      * An event source of a behavior is DOMQL's to carry out: it listens to the occurrences every instance of the behavior running for its owner on its receiver delivers, now or later.
      * Its reactions are carried out as each event is projected, within its delivery, before the handler receives the event with a promise of each one's result.
      */
-    static #subscribe(query, handler, { window = globalThis.window, owner = null, signal, reactions }) {
+    static #subscribe(query, handler, { window = globalThis.window, owner = null, signal, reactions, throttle }) {
         if (typeof handler !== 'function') {
             throw NexoError.structure('DOMQL2007', 'A subscription takes the function that handles each event', {});
+        }
+
+        if (throttle !== undefined && !Domql.#isInterval(throttle)) {
+            throw NexoError.structure('DOMQL2017', "A subscription's throttle is the interval it hands its handler at most one event in, a number of milliseconds above 0", {});
+        }
+
+        if (throttle !== undefined && reactions !== undefined) {
+            throw NexoError.structure('DOMQL2018', 'A subscription that reacts to its events hands its handler every event its reactions ran for, so it takes no throttle', {});
         }
 
         const react = reactions === undefined ? null : Domql.#reactionsOf(reactions, window, owner);
@@ -466,6 +518,8 @@ class Domql {
             reportError: Domql.#createErrorReporter(window),
             handler,
             react,
+            throttle: throttle ?? null,
+            timers: throttle === undefined ? undefined : Domql.#timersOf(window),
             signal,
         });
     }

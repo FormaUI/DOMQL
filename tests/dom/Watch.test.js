@@ -1721,6 +1721,102 @@ describe('Watch', () => {
         });
     });
 
+    describe('under the delayed schedule', () => {
+        beforeEach(() => {
+            vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+        });
+
+        afterEach(() => {
+            vi.useRealTimers();
+        });
+
+        /** Lets the observations deliver and the time given pass, running the timers due in it. */
+        const pass = milliseconds => vi.advanceTimersByTimeAsync(milliseconds);
+
+        it('evaluates once its delay has passed with no invalidation, each invalidation starting the wait again, its first evaluation following the call', async () => {
+            watch('import Tally\npanel:tally', { panel }, { schedule: 'delayed', delay: 100 });
+            await pass(0);
+
+            expect(snapshots).toEqual([1]);
+
+            panel.setAttribute('data-n', '2');
+            await pass(60);
+            panel.setAttribute('data-n', '3');
+            await pass(60);
+
+            expect(evaluations).toBe(1);
+
+            await pass(40);
+
+            expect(snapshots).toEqual([1, 2]);
+            expect(evaluations).toBe(2);
+        });
+
+        it('evaluates at once on a refresh, which ends the wait, and evaluates nothing once disposed', async () => {
+            const watched = watch('import Tally\npanel:tally', { panel }, { schedule: 'delayed', delay: 100 });
+
+            await pass(0);
+            panel.setAttribute('data-n', '2');
+            await pass(50);
+            await watched.refreshAsync();
+
+            expect(snapshots).toEqual([1, 2]);
+
+            await pass(200);
+            panel.setAttribute('data-n', '3');
+            await pass(50);
+            watched.dispose();
+            await pass(200);
+
+            expect(evaluations).toBe(2);
+        });
+
+        it('is refused without a delay above 0, and a delay is refused under another schedule', () => {
+            for (const options of [{ schedule: 'delayed' }, { schedule: 'delayed', delay: 0 }, { schedule: 'delayed', delay: '100' }, { delay: 100 }, { schedule: 'immediate', delay: 100 }]) {
+                expect(() => isolated.query('panel["data-n"]', { panel }).watch(options)).toThrow(expect.objectContaining({ kind: 'structure', code: 'DOMQL2019' }));
+            }
+        });
+    });
+
+    describe('reporting on parts', () => {
+        it('reports a snapshot whole only where a part it reports on changed, keeping the last one it reported until then', async () => {
+            const [first] = panel.children;
+            const watched = watch('{ n = panel["data-n"], m = first["data-n"] }', { panel, first }, { reportOn: ['n'] });
+
+            await settle();
+            await change(first, 5);
+
+            expect(snapshots).toEqual([{ n: '1', m: '1' }]);
+            expect(watched.snapshot).toEqual({ n: '1', m: '1' });
+
+            await change(panel, 2);
+
+            expect(snapshots).toEqual([{ n: '1', m: '1' }, { n: '2', m: '5' }]);
+        });
+
+        it('hands live state the changes since the last snapshot it reported, through a path into a part', async () => {
+            const [first] = panel.children;
+            const calls = [];
+
+            watch('{ state = { n = panel["data-n"] }, m = first["data-n"] }', { panel, first }, { updateStrategy: 'liveState', reportOn: [['state', 'n']], onChange: (state, changes) => calls.push(changes) });
+
+            await settle();
+            await change(first, 5);
+            await change(first, 6);
+            await change(panel, 2);
+
+            expect(calls).toEqual([[], [{ op: 'replace', path: '/state/n', value: '2' }, { op: 'replace', path: '/m', value: '6' }]]);
+        });
+
+        it('is refused where it is no list of paths, and where a path doesn\'t fit the result', () => {
+            for (const reportOn of ['n', [], [3]]) {
+                expect(() => isolated.query('{ n = panel["data-n"] }', { panel }).watch({ reportOn })).toThrow(expect.objectContaining({ kind: 'structure', code: 'DOMQL2020' }));
+            }
+
+            expect(() => isolated.query('{ n = panel["data-n"] }', { panel }).watch({ reportOn: ['size'] })).toThrow(expect.objectContaining({ kind: 'validation' }));
+        });
+    });
+
     describe('sourceOf', () => {
         it('answers the element each item of a list in the snapshot came from, as the items move, and through a projection, a filter and a selected view', async () => {
             const [first, second] = panel.children;

@@ -1096,3 +1096,23 @@ Each entry is one of three kinds:
 - **Declined:**
   - Elements in the result, or in a parallel structure in each event's arguments, which would cost for every event and every listener.
   - The immediate input of a projection, where an item came through several, rather than its provenance, the element the first projection read, which is what a handler writes to.
+
+<a id="d73"></a>
+
+## D73 — Delivery options: a delayed schedule a refresh flushes, reporting on parts, and a throttle that keeps the latest
+
+*November 2, 2026*
+
+- **Kind:** Contract.
+- **Decision:** A watch takes `schedule: 'delayed'` with a `delay`, evaluating once the delay has passed with no invalidation, and `reportOn`, the parts whose change alone has a snapshot reported, whole ([A9](features-status.md#planned-api-and-host)). A subscription takes `throttle`, handing its handler at most one event each interval, the latest, a failed event never dropped, and the acknowledgment of a dropped occurrence rejecting with `DOMQL5024`. The early flush of a delayed watch is `refreshAsync()`. A subscription delivered by animation frame stays declined.
+- **Why:**
+  - An editor serializes its content once a burst of typing ends, so the delay restarts at each change and defers the evaluation itself, not only its delivery, as the consumer's correction asked. Its early flush, as the editor losing focus, evaluates now instead of at the schedule, which is what `refreshAsync()` already does; a caller refreshes in that event's handler, inside its dispatch.
+  - An editor's state is reported as its selection changes, carrying its content too, so a watch compares the parts it reports on and reports the whole snapshot; a snapshot it doesn't report isn't kept, so the next is compared with the last reported, and live state's change sets stay relative to what its caller holds.
+  - An inspector of every input decision shows the latest, so a throttle keeps the latest event of each interval and hands the first at once; every event is still projected in its dispatch, since what it reads is read then. A failure is never dropped, since nothing else would report it, and it hands over the event held before it, so order holds.
+  - A subscription with reactions hands its handler every event its reactions ran for, so it takes no throttle, rather than leave the promises of dropped events' reactions to no one.
+  - A frame would deliver events away from their dispatch, losing its moment and the user's activation, while a throttle paces by an interval and what a frame renders reads the latest value itself.
+  - In twelve paired rounds against the commit before it, evaluating a small query, refreshing watches of 100 and 1,000 rows and projecting an event each measured within noise, their medians from 6% faster to 8% slower and every range crossing zero.
+- **Declined:**
+  - `flushOn`, a subscription that flushes a delayed watch, which a refresh in the caller's handler already does; the design's [decisions not taken](domql-design.md#decisions-not-taken) say what reopens it.
+  - A maximum wait for the delayed schedule, which no consumer asked for.
+  - A subscription delivered by animation frame, as above.

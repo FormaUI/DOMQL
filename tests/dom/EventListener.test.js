@@ -655,6 +655,92 @@ describe('EventListener', () => {
         });
     });
 
+    describe('a throttle', () => {
+        beforeEach(() => {
+            vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+        });
+
+        afterEach(() => {
+            vi.useRealTimers();
+        });
+
+        /** Registers the source `beats`, whose deliver the test keeps, and subscribes to it with the options given, recording each event's number, or its failure. */
+        const subscribeBeats = options => {
+            const source = {};
+
+            registerBeats(({ deliver }) => {
+                source.deliver = deliver;
+
+                return { stop: () => {} };
+            });
+
+            const heard = [];
+            const listener = isolated.query('import Beats\nimport Flaky\npanel:beats("beat") { n = it.n, flaky = panel:flaky }', { panel }).subscribe((sender, args) => heard.push(args.status === 'ready' ? args.value.n : args.error.message), options);
+
+            listeners.push(listener);
+
+            return { source, heard, listener };
+        };
+
+        /** Whether a promise has settled, fulfilled or rejected, by the next turn. */
+        const outcomeOf = promise => promise.then(() => 'applied', error => error.code);
+
+        it('hands the handler the first event at once, and the latest one heard during each interval as it ends, dropping the ones a later one replaced', async () => {
+            const { source, heard } = subscribeBeats({ throttle: 100 });
+            const outcomes = [1, 2, 3].map(n => outcomeOf(source.deliver({ n })));
+
+            expect(heard).toEqual([1]);
+
+            await vi.advanceTimersByTimeAsync(100);
+
+            expect(heard).toEqual([1, 3]);
+            expect(await Promise.all(outcomes)).toEqual(['applied', 'DOMQL5024', 'applied']);
+
+            source.deliver({ n: 4 });
+            await vi.advanceTimersByTimeAsync(100);
+
+            expect(heard).toEqual([1, 3, 4]);
+
+            // An interval that ends holding nothing starts no other, so the next event is handed over at once.
+            await vi.advanceTimersByTimeAsync(100);
+            source.deliver({ n: 5 });
+
+            expect(heard).toEqual([1, 3, 4, 5]);
+        });
+
+        it('never drops a failed event, which hands over the event held before it and then itself', async () => {
+            const { source, heard } = subscribeBeats({ throttle: 100 });
+
+            source.deliver({ n: 1 });
+            source.deliver({ n: 2 });
+            broken = true;
+            source.deliver({ n: 3 });
+
+            expect(heard).toEqual([1, 2, expect.stringContaining('broken')]);
+        });
+
+        it('rejects the acknowledgment of the event it holds as the subscription ends', async () => {
+            const { source, listener } = subscribeBeats({ throttle: 100 });
+
+            source.deliver({ n: 1 });
+
+            const held = outcomeOf(source.deliver({ n: 2 }));
+
+            listener.dispose();
+            await vi.advanceTimersByTimeAsync(100);
+
+            expect(await held).toBe('DOMQL5017');
+        });
+
+        it('is refused where it is no number above 0, and beside reactions', () => {
+            for (const throttle of [0, -5, '100', Number.POSITIVE_INFINITY]) {
+                expect(() => isolated.query('panel.on("input")', { panel }).subscribe(() => {}, { throttle })).toThrow(expect.objectContaining({ kind: 'structure', code: 'DOMQL2017' }));
+            }
+
+            expect(() => isolated.query('panel.on("input")', { panel }).subscribe(() => {}, { throttle: 100, reactions: [] })).toThrow(expect.objectContaining({ kind: 'structure', code: 'DOMQL2018' }));
+        });
+    });
+
     describe('disposal', () => {
         it('lets go of every session even where an observation fails to stop, and reports the failure', () => {
             const [first, second] = panel.children;

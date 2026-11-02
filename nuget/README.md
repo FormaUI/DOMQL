@@ -261,6 +261,28 @@ unreadItems.dispose();
 
 `sourceOf` answers the element each item of a list was projected from, through a filter or an ordering too, and null for an item that came from data. It reads the watch's current snapshot, so call it before the handler awaits anything.
 
+### Wait for a burst of changes to end
+
+A costly query, such as one that serializes an editor's content, should run once a burst of changes ends, not at every keystroke. Schedule its watch as `delayed`: it evaluates once its `delay` has passed with no change, and `refreshAsync()` evaluates at once, as when the editor loses focus:
+
+```js
+const settled = domql.query('panel.children.where(it["data-unread"] != null).count', { panel }).watch({ schedule: 'delayed', delay: 300 });
+
+settled.subscribe('change', (sender, args) => console.log(args.value));
+await settled.readyAsync();
+// 2
+
+// For this example only: the page changes; the watch evaluates 300 ms after the last change, or at once when refreshed.
+panel.children[2].setAttribute('data-unread', '1');
+await settled.refreshAsync();
+// 3
+
+settled.dispose();
+panel.children[2].removeAttribute('data-unread');
+```
+
+Two more options shape what a watch reports. `reportOn: ['selection']` reports a snapshot, whole, only where one of the parts it names changed. A subscription takes `throttle: 100`, which hands its handler at most one event every 100 ms, the latest of those heard meanwhile.
+
 ### Live state
 
 By default, each update is an immutable snapshot. Use `updateStrategy: 'liveState'` when you want one object updated in place.

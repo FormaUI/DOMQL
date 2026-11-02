@@ -98,7 +98,7 @@ A member the event carries no value of its type for is null where its type is nu
 
 ## Subscribing
 
-An event's object expression is evaluated as the event arrives, and its result, immutable data, reaches the caller by the caller's own delivery. `query.subscribe(handler, options?)` listens to a subscription and answers a `DomqlEventListener`, the subscription's handle, with `status` and `dispose()` alone, as every event listener has; its options are `window`, [`owner`](api.md#api-the-owner), `signal`, which disposes it when it aborts, and [`reactions`](#events-reactions). The handler is called with `(sender, args)`: the event listener, and for each event `status: "ready"` with the event's result as `value`, or `status: "failed"` with `error` alone where capturing or projecting the event fails. Its handler's calls follow the order and the disposal of [events of a handle](api.md#events-of-a-handle).
+An event's object expression is evaluated as the event arrives, and its result, immutable data, reaches the caller by the caller's own delivery. `query.subscribe(handler, options?)` listens to a subscription and answers a `DomqlEventListener`, the subscription's handle, with `status` and `dispose()` alone, as every event listener has; its options are `window`, [`owner`](api.md#api-the-owner), `signal`, which disposes it when it aborts, [`reactions`](#events-reactions), and [`throttle`](#events-throttling). The handler is called with `(sender, args)`: the event listener, and for each event `status: "ready"` with the event's result as `value`, or `status: "failed"` with `error` alone where capturing or projecting the event fails. Its handler's calls follow the order and the disposal of [events of a handle](api.md#events-of-a-handle).
 
 - **Listening starts in the call.** The event listener starts its source before `subscribe` returns, so an event dispatched right after the call is heard, and a source that cannot start fails the call with an evaluation error whose cause is what the source threw. Its `status` is `ready` from the call on and `disposed` once ended; it never waits for an event.
 - **Events during the start.** A source may deliver while it starts. Those events are captured and projected at once, and the handler receives them once the caller holds the event listener, before any later event; where the start fails, the handler never receives them and the observations they started are let go of.
@@ -129,6 +129,19 @@ domql.query('button.on("click") { text = it.target?["data-copy"] }', { button })
 - **Their results.** The handler's ready event carries `reactions`, one promise for each reaction, in their order, each settling as `executeAsync`'s promise does: with the execution's result, or its failure. A promise settles after the handler has been called, so a caller that forwards the event and then each result, in order, sends every result after the event that triggered it. A promise the handler leaves goes unhandled, as one `executeAsync` answers does.
 - **Several in one event.** Reactions carried out in one event keep their order, each invoked within the event's delivery, as [executions carried out in one task](executions.md#executions-executing-once) do, so a dialog shown and then a field in it focused take one event.
 - **Its list** is fixed as the subscription starts. A list holding anything but query objects this instance made is refused with `DOMQL2015`.
+
+<a id="events-throttling"></a>
+
+## Throttling
+
+A subscription given `throttle`, a number of milliseconds above 0, hands its handler at most one event each interval, keeping the latest: an event heard while none was handed over in the last interval reaches the handler at once, and starts an interval; an event heard during the interval is held, replacing the one held before it, and reaches the handler as the interval ends, which starts the next.
+
+- **Every event is still projected** in its dispatch, since what it reads is read then; only handing it to the handler waits.
+- **A dropped event,** one a later event replaced while it was held, never reaches the handler, and the acknowledgment of a behavior's occurrence dropped so rejects with `DOMQL5024`, located at the subscription. A held event the subscription ends with rejects as any event it didn't apply does.
+- **A failed event is never dropped:** it hands over the event held before it, if any, and then reaches the handler at once.
+- **Its options.** A `throttle` that is no number above 0 is refused with `DOMQL2017`, and one given with `reactions` with `DOMQL2018`, since a subscription that reacts hands its handler every event its reactions ran for.
+
+Delivering events by animation frame is declined, as [the design](../docs/domql-design.md#decisions-not-taken) records: a throttle paces them, and what a frame renders reads the latest event's value itself.
 
 <a id="events-maintained-members"></a>
 

@@ -27,7 +27,7 @@ A caller's use of the API, refused where it is made.
 | --- | --- |
 | `DOMQL2001` | `domql.query` given a query object, which `query.with(bindings)` binds anew |
 | `DOMQL2002` | `domql.query` or `domql.format` given a query object another DOMQL instance made, which is made here from its definition |
-| `DOMQL2003` | A watch scheduled neither `frame` nor `immediate` |
+| `DOMQL2003` | A watch scheduled neither `frame`, `immediate` nor `delayed` |
 | `DOMQL2004` | A watch's update strategy neither `snapshot` nor `liveState` |
 | `DOMQL2005` | A selection watched as live state |
 | `DOMQL2006` | A watch scheduled by animation frame in a window that has none |
@@ -41,6 +41,10 @@ A caller's use of the API, refused where it is made.
 | `DOMQL2014` | `domql.loadModulesAsync` given neither a query object, a definition, a text nor a list of module names |
 | `DOMQL2015` | A subscription's `reactions` given anything but a list of query objects of the instance |
 | `DOMQL2016` | A watch's `sourceOf` given a path that ends at no list's item |
+| `DOMQL2017` | A subscription's `throttle` that is no number above 0 |
+| `DOMQL2018` | A subscription given both `throttle` and `reactions` |
+| `DOMQL2019` | A watch's `delay` that is no number above 0, given to a schedule other than `delayed`, or missing from one that is |
+| `DOMQL2020` | A watch's `reportOn` that is no list of paths |
 
 <a id="errors-validation"></a>
 
@@ -113,3 +117,4 @@ A failure while a request is carried out, located in the query where it concerns
 | `DOMQL5021` | An execution, or an operation environment's `observe`, `frame` or `measureUnder`, while a query is evaluated, which reads alone |
 | `DOMQL5022` | A maintained observation failing to take the new sample a refresh asked for, its failure the error's `cause` |
 | `DOMQL5023` | A module's loader failing, its failure the error's `cause` |
+| `DOMQL5024` | An occurrence a throttled subscription dropped for a later one |

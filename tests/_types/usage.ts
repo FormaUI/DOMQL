@@ -150,6 +150,8 @@ living.select('rows');
 
 // The options of a watch, by their names.
 const watching: DomqlWatchOptions = { schedule: 'immediate', signal };
+const debounced: DomqlWatchOptions = { schedule: 'delayed', delay: 400, reportOn: ['count', ['count']] };
+const throttled: DomqlSubscribeOptions = { throttle: 100 };
 const keeping: DomqlLiveStateWatchOptions = { updateStrategy: 'liveState', acceptPartialObservation: true };
 const watchedAgain: DomqlWatch<{ count: number }> = query.watch(watching);
 const keptAgain: DomqlLiveStateWatch<{ count: number }> = query.watch(keeping);
