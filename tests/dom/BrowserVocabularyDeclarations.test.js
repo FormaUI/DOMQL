@@ -288,7 +288,7 @@ describe('BrowserVocabularyDeclarations', () => {
                 result: '@selected',
                 parameters: [{ name: 'type', type: 'String', fixed: true, selects: 'type', selector: 'event' }, { name: 'options', type: 'Listening?', required: false, default: null, nulls: 'accept' }],
             });
-            expect(DispatchTable.get(member)).toEqual({ requestKind: 'subscription', executionMode: null, implementation: undefined, type: type.name });
+            expect(DispatchTable.get(member)).toEqual({ requestKind: 'subscription', executionMode: null, implementation: undefined, type: type.name, module: 'Domql', behavior: null });
         }
 
         expect(module.typeSelectors).toEqual([{ name: 'event' }]);

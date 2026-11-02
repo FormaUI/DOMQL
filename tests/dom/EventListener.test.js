@@ -210,7 +210,7 @@ describe('EventListener', () => {
             listener.dispose();
             deliver({ n: 6 });
 
-            expect(calls).toEqual([{ receiver: panel, args: { type: 'beat' }, environment: { window, document } }]);
+            expect(calls).toEqual([{ receiver: panel, args: { type: 'beat' }, environment: { window, document, owner: null } }]);
             expect(results).toEqual([{ n: 5 }]);
             expect(stopped).toBe(1);
         });

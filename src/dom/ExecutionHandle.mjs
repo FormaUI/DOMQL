@@ -1,19 +1,25 @@
 /**
- * ExecutionHandle — one continuous execution run: it starts the instance its implementation creates, replaces the bindings it runs with when updated, raises the failures it reports while it runs, and disposes it
+ * ExecutionHandle — one continuous execution run for its owner: it starts the instance its implementation creates, keeps it where its module's commands find it, replaces the bindings it runs with when updated, raises the
+ * failures it reports while it runs, and disposes it
  */
 
 import { NexoError } from '@formaui-net/nexo';
 import { EventDispatcher } from './EventDispatcher.mjs';
 
 /**
- * A continuous execution prepared against one binding set: its declaration, null while a receiver of unknown type has selected none, its name, the implementation that starts it, the receiver and arguments it is started or updated with,
- * which are null where the preparation was skipped, the environment, and where it stands.
- * @typedef {{ declaration: object | null, name: string, start: Function | undefined, receiver: unknown, args: Record<string, unknown> | null, environment: object, location: object }} PreparedExecution
+ * A continuous execution prepared against one binding set: its declaration, null while a receiver of unknown type has selected none, its name, the module that declares it, null with its declaration, the implementation
+ * that starts it, the receiver and arguments it is started or updated with, which are null where the preparation was skipped, the environment, and where it stands.
+ * @typedef {{ declaration: object | null, name: string, module: string | null, start: Function | undefined, receiver: unknown, args: Record<string, unknown> | null, environment: object, location: object }} PreparedExecution
  */
 
 export class ExecutionHandle {
     #prepare;
     #eventDispatcher;
+    #behaviors;
+    #owner;
+
+    /** Where the running instance is kept for its module's commands, null while none runs. @type {import('./Behaviors.mjs').RunningBehavior | null} */
+    #running = null;
     /** The declaration of the execution, or null while a receiver of unknown type has selected none. */
     #declaration;
 
@@ -33,10 +39,14 @@ export class ExecutionHandle {
      * @param {PreparedExecution} dependencies.execution The execution prepared against its first bindings.
      * @param {(bindings: unknown) => PreparedExecution} dependencies.prepare Prepares the execution against other bindings, throwing a validation or an evaluation error where they cannot be used.
      * @param {(error: unknown) => void} dependencies.reportError The environment's error reporting, which a failure of disposing the execution reaches, and one no `error` listener receives.
+     * @param {import('./Behaviors.mjs').Behaviors} dependencies.behaviors Where the running instance is kept for its owner on its receiver, which its module's commands find it in.
+     * @param {unknown} dependencies.owner The owner the execution runs for.
      * @param {AbortSignal} [dependencies.signal] Disposes the execution when it aborts.
      */
-    constructor({ execution, prepare, reportError, signal }) {
+    constructor({ execution, prepare, reportError, behaviors, owner, signal }) {
         this.#prepare = prepare;
+        this.#behaviors = behaviors;
+        this.#owner = owner;
         this.#eventDispatcher = new EventDispatcher({ sender: this, description: 'An execution', eventNames: ['error'], reportError });
         this.#declaration = execution.declaration;
 
@@ -103,6 +113,9 @@ export class ExecutionHandle {
         } catch (error) {
             throw NexoError.evaluation('DOMQL5006', `The execution '${execution.name}' failed to update`, execution.location, { cause: error });
         }
+
+        // An update that moves the execution to another receiver moves it there for its commands too.
+        this.#behaviors.move(this.#running, execution.receiver);
     }
 
     /** Ends the execution: disposes the instance its implementation created, reporting a failure of that, stops its listeners, and marks the handle disposed whatever happened. Disposing again does nothing. */
@@ -117,8 +130,11 @@ export class ExecutionHandle {
         this.#eventDispatcher.dispose();
     }
 
-    /** Has the execution's implementation create its instance, which must answer how it is updated and disposed; a failure it reports while it runs is raised as an `error` event. */
-    #start({ name, start, receiver, args, environment, location }) {
+    /**
+     * Has the execution's implementation create its instance, which must answer how it is updated and disposed, and keeps it for its owner on its receiver, the latest there; a failure it reports while it runs is raised as
+     * an `error` event.
+     */
+    #start({ name, module, start, receiver, args, environment, location }) {
         let instance;
 
         try {
@@ -138,13 +154,21 @@ export class ExecutionHandle {
             throw NexoError.evaluation('DOMQL5008', `The execution '${name}' started and answered no update and dispose`, location);
         }
 
+        this.#running = this.#behaviors.start({ module, name, owner: this.#owner, receiver, instance });
+
         return instance;
     }
 
+    /** Ends the running instance: no command finds it from then on, and its implementation's own disposal runs, a failure of which is reported. */
     #disposeInstance() {
         const instance = this.#instance;
 
         this.#instance = null;
+
+        if (this.#running !== null) {
+            this.#behaviors.end(this.#running);
+            this.#running = null;
+        }
 
         try {
             instance?.dispose();

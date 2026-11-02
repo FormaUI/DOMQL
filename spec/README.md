@@ -1,4 +1,4 @@
-# DOMQL Specification v1.0.0-alpha.301
+# DOMQL Specification v1.0.0-alpha.302
 
 DOMQL reads the DOM and shapes what it reads as data, keeps that data current as the document changes, delivers the page's events as data, and carries out the executions its own module and its extensions declare. Its queries are scripts written in [Nexo](https://github.com/FormaUI/Nexo/blob/cf5cb6f30f3326c0be12ec6369d24540ffaba5e2/spec/README.md), whose specification holds two contracts: the language's, what a script means, and the runtime's, how a host binds, resolves and evaluates a script. DOMQL declares the DOM as Nexo's domain, in a module like any other, and is the host that carries each query out against a document. It adds no language rule: a rule of the language or of its runtime is Nexo's, and this specification links to it.
 
@@ -6,7 +6,7 @@ This specification is the authoritative contract for DOMQL. It states what DOMQL
 
 <a id="version"></a>
 
-**Version.** This specification describes DOMQL's version `1.0.0-alpha.301`, which changes as DOMQL's contract does, apart from its runtime's version and from Nexo's language. It describes DOMQL on Nexo's language version `1.0.0-beta.19`, of [definition version 38](https://github.com/FormaUI/Nexo/blob/cf5cb6f30f3326c0be12ec6369d24540ffaba5e2/spec/README.md#version). An implementation says which specification it follows, and which language version its Nexo runtime follows, in `domql.info.versions`, as [the API](api.md#api-entry-points-and-operations) sets out.
+**Version.** This specification describes DOMQL's version `1.0.0-alpha.302`, which changes as DOMQL's contract does, apart from its runtime's version and from Nexo's language. It describes DOMQL on Nexo's language version `1.0.0-beta.19`, of [definition version 38](https://github.com/FormaUI/Nexo/blob/cf5cb6f30f3326c0be12ec6369d24540ffaba5e2/spec/README.md#version). An implementation says which specification it follows, and which language version its Nexo runtime follows, in `domql.info.versions`, as [the API](api.md#api-entry-points-and-operations) sets out.
 
 ## What it covers
 
@@ -17,7 +17,7 @@ Five layers meet whenever a query runs. Nexo's specification covers the first tw
 | The language | What a query means: its imports, syntax, names and scope, values and types, expressions and functions, members, extensions, and the contracts a vocabulary keeps | [Nexo's language](https://github.com/FormaUI/Nexo/blob/cf5cb6f30f3326c0be12ec6369d24540ffaba5e2/spec/README.md) |
 | The runtime | Binding, resolving and evaluating a script for a host, the modules it registers, its definitions and its results | [Nexo's runtime](https://github.com/FormaUI/Nexo/blob/cf5cb6f30f3326c0be12ec6369d24540ffaba5e2/spec/runtime/hosting.md) |
 | DOMQL's module | The DOM as Nexo's domain: its nodes and shadow trees, its members, its Boolean functions among them, its event sources and event types, its executions, and the observations that follow its changes | [Nodes and shadow trees](nodes-and-shadow-trees.md), [vocabulary](vocabulary.md), [events](events.md) |
-| DOMQL, the host | Carrying a query out against a document: evaluating it, watching it, and invoking its host calls, delivering its events and carrying out its executions, through the API a caller uses | [Queries](queries.md), [evaluation](evaluation.md), [watches](watches.md), [results](results.md), [events](events.md), [executions](executions.md), [the API](api.md), [errors](errors.md) |
+| DOMQL, the host | Carrying a query out against a document: evaluating it, watching it, and invoking its host calls, delivering its events, carrying out its executions and keeping its behaviors where their module reaches them, through the API a caller uses | [Queries](queries.md), [evaluation](evaluation.md), [watches](watches.md), [results](results.md), [events](events.md), [executions](executions.md), [behaviors](behaviors.md), [the API](api.md), [errors](errors.md) |
 | The caller | The application around DOMQL: which queries it makes, when it carries each out, and what it does with each result | The caller's own |
 
 <a id="reading-this-specification"></a>
@@ -36,7 +36,8 @@ Start with [queries](queries.md), which shows a query with its parameters and it
 6. [Results](results.md): snapshots, live state and change sets, when a watch reports a result that differs, and keeping a copy of a result elsewhere.
 7. [Events](events.md): event sources, event types, and subscribing to events.
 8. [Executions](executions.md): executing once and running continuously.
-9. [The API](api.md): every entry point, operation and handle, the events a handle raises, lifetimes and errors.
-10. [Errors](errors.md): the codes of DOMQL's own conditions.
-11. [Examples](examples.md): a complete query with its document and result, and queries by what they ask.
-12. [Terms](terms.md): the glossary.
+9. [Behaviors](behaviors.md): an operation's owner, a behavior's running instance, and the commands that reach it.
+10. [The API](api.md): every entry point, operation and handle, the events a handle raises, lifetimes and errors.
+11. [Errors](errors.md): the codes of DOMQL's own conditions.
+12. [Examples](examples.md): a complete query with its document and result, and queries by what they ask.
+13. [Terms](terms.md): the glossary.

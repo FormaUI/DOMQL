@@ -2,11 +2,11 @@
 
 ## Current state
 
-**DOMQL's vocabulary, queries, watches, events and executions are implemented on Nexo's language `1.0.0-beta.19`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.301`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next are the [planned capabilities](#planned-capabilities) of the host side; the C# half waits for its design.**
+**DOMQL's vocabulary, queries, watches, events and executions are implemented on Nexo's language `1.0.0-beta.19`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.302`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next are the [planned capabilities](#planned-capabilities) of the host side; the C# half waits for its design.**
 
 | Version | Implementation | Specification |
 | --- | --- | --- |
-| DOMQL specification | `1.0.0-alpha.301` | `1.0.0-alpha.301` |
+| DOMQL specification | `1.0.0-alpha.302` | `1.0.0-alpha.302` |
 | Nexo language | `1.0.0-beta.19` | `1.0.0-beta.19` |
 | Definition format | 38 | 38 |
 
@@ -95,6 +95,8 @@ Each feature, the contract that states it, its state in the implementation, and 
 | Subscriptions to event sources | [Events](../spec/events.md#subscribing) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
 | Executions, once and continuous, carried out over Nexo's host calls | [Executions](../spec/executions.md), [host calls DOMQL carries out](../spec/vocabulary.md#extension-modules-host-calls) | Implemented | [`alpha.276`](../VERSION-HISTORY.md#v1-0-0-alpha-276) |
 | Handles: their events, lifetimes and errors | [The API](../spec/api.md) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
+| An operation's owner, which every implementation receives in one environment for the operation | [The owner](../spec/behaviors.md#behaviors-the-owner), [the environment](../spec/vocabulary.md#extension-modules-environment) | Implemented, as [D47](decisions.md#d47) records | [`alpha.302`](../VERSION-HISTORY.md#v1-0-0-alpha-302) |
+| Commands to a running behavior, reaching its instance for their owner on their receiver | [Commands](../spec/behaviors.md#behaviors-commands) | Implemented, as [D48](decisions.md#d48) records | [`alpha.302`](../VERSION-HISTORY.md#v1-0-0-alpha-302) |
 | `domql.info.versions` | [The API](../spec/api.md#api-entry-points-and-operations) | Implemented | [`alpha.275`](../VERSION-HISTORY.md#v1-0-0-alpha-275) |
 | The JavaScript bundle and its TypeScript declarations | [README](../README.md#build-and-try-it) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
 | The C# half | [Design](domql-design.md#the-c-half) | Waits for its design | — |
@@ -145,9 +147,9 @@ The language's part is Nexo's already, adopted with the [migration](#migration-t
 
 **The order of the work:**
 
-1. **The host side.** Change sets against an acknowledged result and a refresh that delivers (A2, A3), modules loaded on request (A4); occurrences a behavior offers and its owner (C1, C4); and DOMQL's observations for module code (C5).
-2. **Input.** Module state per document (C8), synchronous handling stated (C10) and ordered delivery (A5).
-3. **Presentation.** Commands to a running behavior (C3), ownership of written styles and classes against a framework (A10), nullable options (C11) and the frame promise (T2).
+1. **The host side.** Change sets against an acknowledged result and a refresh that delivers (A2, A3), modules loaded on request (A4) and ordered delivery (A5); occurrences a behavior offers (C1), synchronous handling stated (C10), nullable options (C11) and nested options holding an element (C12), which a behavior needs as soon as a host runs one; and DOMQL's observations for module code (C5).
+2. **Input.** Module state per document (C8).
+3. **Presentation.** Ownership of written styles and classes against a framework (A10) and the frame promise (T2).
 4. **Virtualization.** State a behavior offers and history per holder (C2, C9).
 5. **Gestures.** Continuous measurement (O3).
 6. **Dialogs and frames.** Ordered executions (T3).
@@ -211,8 +213,7 @@ A behavior's occurrences, state, commands and owner (C1 to C4), and reactions in
 | --- | --- |
 | C1 | **Occurrences a behavior offers:** an event source bound to the owner's running continuous execution on the receiver, which delivers in the order the behavior calls `deliver`, never coalesced, and outlives the execution's replacement and release ([D3](decisions.md#d3)). It reopens the design's [event sources a continuous execution offers](domql-design.md#decisions-not-taken) |
 | C2 | **State a behavior offers:** a module member backed by the running instance, which a watch reads and follows |
-| C3 | **Commands to a running behavior:** one instance per receiver that the module's once executions and sources find, so commands such as `fit`, `measure`, `raise`, `open`, `close` and an editor's `execute` reach it; today a module keeps its own `WeakMap` of running instances |
-| C4 | **The owner's identity** in what an implementation receives, so "this owner's behavior on this element" needs no token passed by hand in every query |
+
 | C5 | **DOMQL's observations for module code:** `env.observe({ type, target, … }, notify)` → `{ stop() }` over the shared resize, mutation and intersection pools, and the frame schedule, `env.frame(…)`, under which a module may write before it reads |
 | C6 | **Queries from module code:** an implementation reaching its DOMQL instance to evaluate or watch a query, `env.domql` |
 | C7 | **A transient measurement:** apply a class, read, restore, and have DOMQL drain its own mutation observers of the records it caused, `env.measureUnder(element, { class }, read)`; without it every watch reading `matches`, `closest`, `first` or `all` evaluates again after each measurement |

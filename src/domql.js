@@ -3,6 +3,7 @@
  */
 
 import { SnapshotComparer } from './snapshots/SnapshotComparer.mjs';
+import { Behaviors } from './dom/Behaviors.mjs';
 import { BrowserModule } from './dom/BrowserModule.mjs';
 import { DomqlQuery } from './dom/DomqlQuery.mjs';
 import { ExecutionHandle } from './dom/ExecutionHandle.mjs';
@@ -25,12 +26,14 @@ import { nexo, NexoError } from '@formaui-net/nexo';
  * How a query is evaluated once.
  * @typedef {object} DomqlEvaluateOptions
  * @property {Window} [window] The window `Domql.window` stands for, and whose document `Domql.document` stands for; by default the environment's.
+ * @property {unknown} [owner] Who carries the request out, which every implementation it reaches receives as `env.owner`; null, the owner every operation that names none shares, by default.
  */
 
 /**
  * How a query is evaluated once, waiting for its maintained members.
  * @typedef {object} DomqlEvaluateAsyncOptions
  * @property {Window} [window] The window `Domql.window` stands for, and whose document `Domql.document` stands for; by default the environment's.
+ * @property {unknown} [owner] Who carries the request out, which every implementation it reaches receives as `env.owner`; null by default.
  * @property {AbortSignal} [signal] Cancels the evaluation, which then rejects with the signal's reason.
  */
 
@@ -42,12 +45,14 @@ import { nexo, NexoError } from '@formaui-net/nexo';
  * @property {boolean} [acceptPartialObservation] Whether the watch accepts a member whose observations only partly cover its changes.
  * @property {AbortSignal} [signal] Disposes the watch when it aborts.
  * @property {Window} [window] The window `Domql.window` stands for, and whose document `Domql.document` stands for; by default the environment's.
+ * @property {unknown} [owner] Who watches, which every implementation the watch reaches receives as `env.owner`; null by default.
  */
 
 /**
  * How a subscription is listened to, or an execution carried out once or run.
  * @typedef {object} DomqlOperationOptions
  * @property {Window} [window] The window `Domql.window` stands for, and whose document `Domql.document` stands for; by default the environment's.
+ * @property {unknown} [owner] Who carries the request out, which every implementation it reaches receives as `env.owner`, and for whom a continuous execution runs; null by default.
  * @property {AbortSignal} [signal] Ends what the operation started when it aborts.
  */
 
@@ -74,6 +79,9 @@ const WATCH_SCHEDULES = ['frame', 'immediate'];
 const WATCH_UPDATE_STRATEGIES = ['snapshot', 'liveState'];
 
 class Domql {
+    /** The continuous executions running, each kept for its owner on its receiver, where its module's commands find it. */
+    static #behaviors = new Behaviors();
+
     static #browserModule = BrowserModule.create();
     static #moduleRegistry = nexo.createRegistry([Domql.#browserModule]);
 
@@ -186,26 +194,26 @@ class Domql {
     }
 
     /** Evaluates the query once, synchronously, answering the part of its result the path reaches. */
-    static #evaluate(query, path, { window = globalThis.window }) {
+    static #evaluate(query, path, { window = globalThis.window, owner = null }) {
         const resolution = Domql.#resolveFor('evaluate', query);
 
         Domql.#checkPath(resolution, path);
 
-        return nexo.paths.valueAt(Domql.#createEvaluator(query, resolution, window).evaluateOnce(), path);
+        return nexo.paths.valueAt(Domql.#createEvaluator(query, resolution, Domql.#createEnvironment(window, owner)).evaluateOnce(), path);
     }
 
     /**
      * Evaluates the query once, waiting for the first sample of every maintained member it reads, and answers a promise of the part of its result the path reaches.
      * The query is evaluated again as samples arrive and as what it depends on changes, until an evaluation reads no pending member; every observation it started is released when it settles, fails or is canceled.
      */
-    static async #evaluateAsync(query, path, { window = globalThis.window, signal }) {
+    static async #evaluateAsync(query, path, { window = globalThis.window, owner = null, signal }) {
         signal?.throwIfAborted();
 
         const resolution = Domql.#resolveFor('evaluateAsync', query);
 
         Domql.#checkPath(resolution, path);
 
-        const evaluator = Domql.#createEvaluator(query, resolution, window, () => Domql.#resolveFor('evaluateAsync', query));
+        const evaluator = Domql.#createEvaluator(query, resolution, Domql.#createEnvironment(window, owner), () => Domql.#resolveFor('evaluateAsync', query));
         const observations = Domql.#getObservations(window);
         const reportError = Domql.#createErrorReporter(window);
 
@@ -265,7 +273,7 @@ class Domql {
     }
 
     /** Starts a watch of the query, whose snapshots are the part of its result the path reaches; a signal already aborted answers a watch that is disposed and starts nothing. */
-    static #watch(query, path, { schedule = 'frame', updateStrategy = 'snapshot', acceptPartialObservation = false, signal, window = globalThis.window }) {
+    static #watch(query, path, { schedule = 'frame', updateStrategy = 'snapshot', acceptPartialObservation = false, signal, window = globalThis.window, owner = null }) {
         if (!WATCH_SCHEDULES.includes(schedule)) {
             throw NexoError.structure('DOMQL2003', `A watch is scheduled as ${WATCH_SCHEDULES.join(' or ')}`, {});
         }
@@ -288,7 +296,7 @@ class Domql {
 
         Domql.#checkPath(resolution, path);
 
-        const evaluator = Domql.#createEvaluator(query, resolution, window, () => Domql.#resolveFor('watch', query, { watch: true, acceptPartialObservation: acceptPartialObservation === true }));
+        const evaluator = Domql.#createEvaluator(query, resolution, Domql.#createEnvironment(window, owner), () => Domql.#resolveFor('watch', query, { watch: true, acceptPartialObservation: acceptPartialObservation === true }));
 
         if (schedule === 'frame' && typeof window.requestAnimationFrame !== 'function') {
             throw NexoError.structure('DOMQL2006', "A watch scheduled by animation frame needs a window that has them; schedule it as 'immediate' otherwise", {});
@@ -309,18 +317,19 @@ class Domql {
      * Listens to the subscription's event source from the call on, so an event that follows the call is heard, and answers the event listener; a source that cannot start fails the call.
      * Each event is captured and projected through the object expression that follows the source, in the task the event is delivered in, and the handler receives the event listener and the result, or the failure. The source's receiver and arguments are evaluated once, as listening starts.
      */
-    static #subscribe(query, handler, { window = globalThis.window, signal }) {
+    static #subscribe(query, handler, { window = globalThis.window, owner = null, signal }) {
         if (typeof handler !== 'function') {
             throw NexoError.structure('DOMQL2007', 'A subscription takes the function that handles each event', {});
         }
 
         const resolution = Domql.#resolveFor('subscribe', query);
+        const environment = Domql.#createEnvironment(window, owner);
 
         return new EventListener({
-            evaluator: Domql.#createEvaluator(query, resolution, window, () => Domql.#resolveFor('subscribe', query)),
+            evaluator: Domql.#createEvaluator(query, resolution, environment, () => Domql.#resolveFor('subscribe', query)),
             implementationOf: call => Domql.#implementationOf(call),
             getLocation: pointer => resolution.getLocation(pointer),
-            environment: { window, document: window.document },
+            environment,
             observations: Domql.#getObservations(window),
             reportError: Domql.#createErrorReporter(window),
             handler,
@@ -333,13 +342,14 @@ class Domql {
      * Its host call is prepared first; a failure there rejects and executes nothing, and a skipped preparation, where the receiver or an argument is null, executes nothing and resolves to null. The execution's implementation receives
      * the signal, and may answer its result or a promise of it, which Nexo captures as the type the execution declares; one that declares none resolves to null. A failure of the execution rejects with an evaluation error whose cause
      * is what it threw. A signal that aborts rejects with its reason at once; the execution learns of it through the signal, its result is then discarded, and a failure it reports afterwards goes to the window's error reporting. DOMQL
-     * never undoes what an execution changed.
+     * never undoes what an execution changed. A command, a once execution reaching a behavior, finds the instance of that behavior running for its owner on its receiver, and rejects, executing nothing, where none runs.
      */
-    static async #executeAsync(query, { window = globalThis.window, signal }) {
+    static async #executeAsync(query, { window = globalThis.window, owner = null, signal }) {
         signal?.throwIfAborted();
 
         const resolution = Domql.#resolveFor('executeAsync', query);
-        const evaluator = Domql.#createEvaluator(query, resolution, window, () => Domql.#resolveFor('executeAsync', query));
+        const environment = Domql.#createEnvironment(window, owner);
+        const evaluator = Domql.#createEvaluator(query, resolution, environment, () => Domql.#resolveFor('executeAsync', query));
         const call = evaluator.prepareHostCall();
 
         if (call.kind === 'skipped') {
@@ -350,6 +360,12 @@ class Domql {
 
         const execute = Domql.#implementationOf(call);
         const { name } = call.declaration;
+        const { module, behavior } = DispatchTable.get(call.declaration);
+        const reached = behavior === null ? {} : { instance: Domql.#behaviors.find(module, behavior, owner, call.receiver) };
+
+        if (reached.instance === null) {
+            throw NexoError.evaluation('DOMQL5016', `No '${behavior}' runs for this owner on this receiver, and the command '${name}' reaches its running instance alone`, location);
+        }
         const reportError = Domql.#createErrorReporter(window);
         const createExecutionError = error => NexoError.evaluation('DOMQL5001', `The execution '${name}' failed: ${error?.message ?? String(error)}`, location, { cause: error });
 
@@ -367,7 +383,7 @@ class Domql {
             signal?.addEventListener('abort', cancel, { once: true });
 
             try {
-                returnValue = execute({ receiver: call.receiver, args: call.args, env: { window, document: window.document }, signal: signal ?? new AbortController().signal });
+                returnValue = execute({ receiver: call.receiver, args: call.args, env: environment, signal: signal ?? new AbortController().signal, ...reached });
             } catch (error) {
                 settle(() => reject(createExecutionError(error)));
 
@@ -405,29 +421,35 @@ class Domql {
     /**
      * Runs the continuous execution the request ends in, which has started once the call returns, and answers its handle, which belongs to the caller. Disposing the handle ends the execution and leaves its module registered.
      * Its host call is prepared now; a skipped preparation, where the receiver or an argument is null, has nothing to start until an update supplies one. An execution that cannot start fails the call and leaves nothing running.
+     * The execution runs for its owner, and its running instance is kept on its receiver for its module's commands. Its environment is the handle's, through every update.
      */
-    static #run(query, { window = globalThis.window, signal }) {
+    static #run(query, { window = globalThis.window, owner = null, signal }) {
+        const resolution = Domql.#resolveFor('run', query);
+        const environment = Domql.#createEnvironment(window, owner);
+
         // An update binds the same definition anew, so it is validated, resolved and prepared as the first bindings were.
-        const prepare = request => {
-            const resolution = Domql.#resolveFor('run', request);
-            const call = Domql.#createEvaluator(request, resolution, window).prepareHostCall();
+        const prepare = (request, resolved = Domql.#resolveFor('run', request)) => {
+            const call = Domql.#createEvaluator(request, resolved, environment).prepareHostCall();
             const isPrepared = call.kind === 'prepared';
 
             return {
-                declaration: resolution.hostCall.declaration,
-                name: resolution.hostCall.name,
+                declaration: resolved.hostCall.declaration,
+                name: resolved.hostCall.name,
+                module: isPrepared ? DispatchTable.get(call.declaration).module : null,
                 start: isPrepared ? Domql.#implementationOf(call) : undefined,
                 receiver: isPrepared ? call.receiver : null,
                 args: isPrepared ? call.args : null,
-                environment: { window, document: window.document },
-                location: resolution.getLocation(call.pointer),
+                environment,
+                location: resolved.getLocation(call.pointer),
             };
         };
 
         return new ExecutionHandle({
-            execution: prepare(query),
+            execution: prepare(query, resolution),
             prepare: bindings => prepare(query.with(bindings)),
             reportError: Domql.#createErrorReporter(window),
+            behaviors: Domql.#behaviors,
+            owner,
             signal,
         });
     }
@@ -593,15 +615,21 @@ class Domql {
     }
 
     /**
-     * Creates the evaluator of a resolved request in its window, which an evaluation needs; given how to resolve the request again, it evaluates and prepares through a current resolution where a registration made
-     * this one stale.
+     * Creates the environment of one operation, which every implementation the operation reaches receives as its `env`, from the operation's start to its end: the window and its document, which an evaluation needs, and
+     * the operation's owner.
      */
-    static #createEvaluator(query, resolution, window, resolveAgain = null) {
+    static #createEnvironment(window, owner) {
         if (!window?.document) {
             throw NexoError.evaluation('DOMQL5002', 'DOMQL cannot evaluate without a browser window. Pass a window explicitly when running outside a browser.', {});
         }
 
-        const environment = { window, document: window.document };
+        return Object.freeze({ window, document: window.document, owner });
+    }
+
+    /**
+     * Creates the evaluator of a resolved request in its operation's environment; given how to resolve the request again, it evaluates and prepares through a current resolution where a registration made this one stale.
+     */
+    static #createEvaluator(query, resolution, environment, resolveAgain = null) {
         const createEvaluator = current => current.createEvaluator(DomqlQuery.bindingsOf(query), environment);
 
         return new QueryEvaluator(Domql.#moduleRegistry, createEvaluator(resolution), resolveAgain === null ? null : { resolution, resolveAgain, createEvaluator });

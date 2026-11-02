@@ -6,6 +6,22 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-302"></a>
+
+## `1.0.0-alpha.302`
+
+*November 2, 2026 · Nexo language `1.0.0-beta.19` · definition format 38*
+
+DOMQL carries every operation out for an owner, and a module's commands reach the behavior running for theirs.
+
+**Behaviors**
+
+- [The owner](spec/behaviors.md#behaviors-the-owner): every operation takes an `owner` option, any value, null by default, which every implementation it reaches receives as `env.owner`, as [D47](docs/decisions.md#d47) records.
+- [The environment](spec/vocabulary.md#extension-modules-environment): an operation gives every implementation it reaches one frozen environment, from its start to its end, a continuous execution's every update included.
+- [Commands](spec/behaviors.md#behaviors-commands): a once execution declaring `behavior` reaches the running instance of that continuous execution of its module, for its owner on its receiver, the latest where several run, and rejects with `DOMQL5016` where none does, as [D48](docs/decisions.md#d48) records. `domql.createModule` refuses a `behavior` on any other declaration, `DOMQL4011`, and one naming no continuous execution of the module, `DOMQL4012`.
+
+**Breaking:** every environment holds `owner` beside `window` and `document`, and a continuous execution's is one object through its updates. An implementation that compared its environment whole reads the members it needs instead.
+
 <a id="v1-0-0-alpha-301"></a>
 
 ## `1.0.0-alpha.301`

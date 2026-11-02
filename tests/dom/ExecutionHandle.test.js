@@ -92,7 +92,7 @@ describe('ExecutionHandle', () => {
 
             expect(highlight.status).toBe('ready');
             expect(panel.dataset.highlight).toBe('gold');
-            expect(calls).toEqual([{ call: 'start', element: panel, color: 'gold', environment: { window, document }, reportError: expect.any(Function) }]);
+            expect(calls).toEqual([{ call: 'start', element: panel, color: 'gold', environment: { window, document, owner: null }, reportError: expect.any(Function) }]);
         });
 
         it('takes a request of a continuous execution made from its definition', () => {

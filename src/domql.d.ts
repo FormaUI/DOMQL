@@ -14,6 +14,8 @@ export interface DomqlResolveOptions {
 export interface DomqlEvaluateOptions {
     /** The window `Domql.window` stands for, and whose document `Domql.document` stands for; by default the environment's. */
     window?: Window;
+    /** Who carries the request out, any value, which every implementation it reaches receives as `env.owner`; null, the owner every operation that names none shares, by default. */
+    owner?: unknown;
 }
 
 /** How a query is evaluated once, waiting for its maintained members. */
@@ -34,6 +36,8 @@ export interface DomqlWatchOptions {
     signal?: AbortSignal;
     /** The window `Domql.window` stands for, and whose document `Domql.document` stands for; by default the environment's. */
     window?: Window;
+    /** Who watches, any value, which every implementation the watch reaches receives as `env.owner`; null by default. */
+    owner?: unknown;
 }
 
 /** How a query is watched when its result is kept as live state: one object the watch keeps current in place, which keeps its identity. */
@@ -46,6 +50,8 @@ export interface DomqlLiveStateWatchOptions extends Omit<DomqlWatchOptions, 'upd
 export interface DomqlOperationOptions {
     /** The window `Domql.window` stands for, and whose document `Domql.document` stands for; by default the environment's. */
     window?: Window;
+    /** Who carries the request out, any value, which every implementation it reaches receives as `env.owner`, for whom a continuous execution runs, and whose running behavior a command reaches; null by default. */
+    owner?: unknown;
     /** Ends what the operation started when it aborts; one already aborted starts nothing. */
     signal?: AbortSignal;
 }
@@ -444,17 +450,29 @@ export interface DomqlParameterDeclaration {
     omitted?: string;
 }
 
+/** The environment of one operation, which every implementation it reaches receives as its `env`, the same from the operation's start to its end. */
+export interface DomqlEnvironment {
+    /** The window the query runs against, `Domql.window`. */
+    readonly window: Window;
+    /** Its document, `Domql.document`. */
+    readonly document: Document;
+    /** Who the operation is carried out for, null where it names none. */
+    readonly owner: unknown;
+}
+
 /** What a member's implementation receives, by name: its receiver, which a module member has none of, its arguments by parameter name, the environment, and what its kind adds. */
 export interface DomqlMemberImplementationInput {
     readonly receiver?: unknown;
     readonly args: Readonly<Record<string, unknown>>;
-    readonly env: unknown;
+    readonly env: DomqlEnvironment;
     /** A member that reads maintained values: its observations' latest samples, in the order its declaration names them. */
     readonly samples?: readonly unknown[];
     /** An event source: the function each event is handed to. */
     readonly deliver?: (event: unknown) => void;
     /** A once execution: the signal that aborts it. */
     readonly signal?: AbortSignal;
+    /** A command: the running instance of its behavior, for its owner on its receiver, as the behavior's implementation answered it. */
+    readonly instance?: any;
     /** A continuous execution: where a failure while it runs is reported. */
     readonly reportError?: (error: unknown) => void;
 }
@@ -476,6 +494,8 @@ export interface DomqlMemberDeclaration {
     requestKind?: 'subscription' | 'execution';
     /** How an execution runs: once, answering its result, or continuously, until it is updated or disposed. */
     executionMode?: 'once' | 'continuous';
+    /** A command, a once execution: the continuous execution of its module whose running instance it reaches, by its name. */
+    behavior?: string;
     /** The form its arguments take where it has parameters, an optional one included: one for each parameter, in order, the required ones before the optional ones, or one options object whose fields supply them; a function alone takes it. */
     arguments?: 'positional' | 'options';
     /** Its parameters; a property takes none. */

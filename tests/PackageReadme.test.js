@@ -66,6 +66,7 @@ const examples = [
     { file: '21-module.js', observed: 'reads', answers: [['{ childCount: 3 }']] },
     { file: '22-execute-once.js', observed: 'reads', answers: [['true']] },
     { file: '23-run-continuously.js', observed: 'printed', answers: [["'gold'"], ["'teal'"], ['undefined']] },
+    { file: '24-command.js', observed: 'reads', answers: [['true']] },
 ];
 
 /** What an example gives: the values its comments show, those it names, or the result in the JSON block it names. */

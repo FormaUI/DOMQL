@@ -33,8 +33,8 @@ describe('DispatchTable', () => {
         });
         const [beats, mark, size] = module.members;
 
-        expect(DispatchTable.get(beats)).toEqual({ requestKind: 'subscription', executionMode: null, implementation: start, type: null });
-        expect(DispatchTable.get(mark)).toEqual({ requestKind: 'execution', executionMode: 'once', implementation: execute, type: null });
+        expect(DispatchTable.get(beats)).toEqual({ requestKind: 'subscription', executionMode: null, implementation: start, type: null, module: 'Desk', behavior: null });
+        expect(DispatchTable.get(mark)).toEqual({ requestKind: 'execution', executionMode: 'once', implementation: execute, type: null, module: 'Desk', behavior: null });
         expect(DispatchTable.get(size)).toBeUndefined();
         expect([beats, mark].map(declaration => ['requestKind', 'executionMode', 'impl'].some(key => key in declaration))).toEqual([false, false]);
         expect(typeof size.impl).toBe('function');
@@ -52,17 +52,17 @@ describe('DispatchTable', () => {
         });
         const [lamp, fan, extension] = module.types;
 
-        expect(DispatchTable.get(lamp.members[0])).toEqual({ requestKind: 'subscription', executionMode: null, implementation: start, type: 'Lamp' });
-        expect(DispatchTable.get(fan.members[1])).toEqual({ requestKind: 'subscription', executionMode: null, implementation: start, type: 'Fan' });
+        expect(DispatchTable.get(lamp.members[0])).toEqual({ requestKind: 'subscription', executionMode: null, implementation: start, type: 'Lamp', module: 'Desk', behavior: null });
+        expect(DispatchTable.get(fan.members[1])).toEqual({ requestKind: 'subscription', executionMode: null, implementation: start, type: 'Fan', module: 'Desk', behavior: null });
         expect(DispatchTable.get(fan.members[0])).toBeUndefined();
-        expect(DispatchTable.get(extension.members[0])).toEqual({ requestKind: 'execution', executionMode: 'continuous', implementation: undefined, type: 'DeskElements' });
+        expect(DispatchTable.get(extension.members[0])).toEqual({ requestKind: 'execution', executionMode: 'continuous', implementation: undefined, type: 'DeskElements', module: 'Desk', behavior: null });
         expect('impl' in lamp.members[0]).toBe(false);
     });
 
     it('keeps a host call declared without an implementation, resolved against and never carried out', () => {
         const [mark] = DispatchTable.createModule('Desk', { members: [hostCall({ requestKind: 'execution', executionMode: 'continuous' })] }).members;
 
-        expect(DispatchTable.get(mark)).toEqual({ requestKind: 'execution', executionMode: 'continuous', implementation: undefined, type: null });
+        expect(DispatchTable.get(mark)).toEqual({ requestKind: 'execution', executionMode: 'continuous', implementation: undefined, type: null, module: 'Desk', behavior: null });
     });
 
     it('refuses a host call whose request kind is missing or unknown', () => {

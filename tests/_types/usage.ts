@@ -211,6 +211,32 @@ const focusTrap: DomqlMemberDeclaration = {
 // @ts-expect-error An execution runs once or continuously.
 const looping: DomqlMemberDeclaration = { name: 'loop', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'forever' };
 
+// A command names the behavior whose running instance it reaches, which its implementation receives beside the environment's owner.
+const release: DomqlMemberDeclaration = {
+    name: 'release',
+    kind: 'function',
+    invokedBy: 'host',
+    requestKind: 'execution',
+    executionMode: 'once',
+    behavior: 'focusTrap',
+    result: 'Boolean',
+    impl: ({ instance, env }) => {
+        const owner: unknown = env.owner;
+        const document: Document = env.document;
+
+        return instance.release(owner, document);
+    },
+};
+
+// Every operation is carried out for an owner, any value.
+const owned: DomqlExecutionHandle = domql.query('import Traps\ndialog:focusTrap()', { dialog: panel }).run({ owner: { component: 7 } });
+const released: Promise<boolean> = domql.query<boolean>('import Traps\ndialog:release()', { dialog: panel }).executeAsync({ owner: 'menu' });
+const ownedCount: number = domql.query<number>('panel.children.count', { panel }).evaluate({ owner: 'menu' });
+const ownedWatch: DomqlWatch<number> = domql.query<number>('panel.children.count', { panel }).watch({ owner: 'menu' });
+
+// @ts-expect-error A command names its behavior by its name.
+const unnamedBehavior: DomqlMemberDeclaration = { name: 'release', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', behavior: true };
+
 trap.update({ dialog: panel });
 trap.dispose();
 
@@ -359,4 +385,4 @@ const listed: DomqlDefinitionNode = { kind: 'list', items: [{ kind: 'literal', v
 const last: DomqlDefinitionNode = { kind: 'indexerAccess', receiver: { kind: 'local', name: 'rows' }, argument: { kind: 'fromEndIndex', offset: { kind: 'literal', value: 1 } } };
 const imported: DomqlDefinition = { version: 38, imports: [{ module: 'Domql' }], expression: { kind: 'memberAccess', receiver: { kind: 'namespace', name: 'Domql' }, name: 'document' } };
 
-export { bound, version, specificationVersion, languageVersion, formatted, formattedText, kind, typeText, count, anything, waited, shorthand, selected, selectedAsync, selectedWatch, key, listening, status, snapshot, failure, ready, refreshed, viewed, viewStatus, viewReady, smaller, held, livingSnapshot, livingReady, livingRefreshed, watchedAgain, keptAgain, clicking, source, moved, stepped, trapping, reported };
+export { release, owned, released, ownedCount, ownedWatch, bound, version, specificationVersion, languageVersion, formatted, formattedText, kind, typeText, count, anything, waited, shorthand, selected, selectedAsync, selectedWatch, key, listening, status, snapshot, failure, ready, refreshed, viewed, viewStatus, viewReady, smaller, held, livingSnapshot, livingReady, livingRefreshed, watchedAgain, keptAgain, clicking, source, moved, stepped, trapping, reported };

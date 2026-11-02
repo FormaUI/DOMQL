@@ -68,6 +68,8 @@ A module refused as it is created or registered, and a host call carried out tha
 | `DOMQL4008` | A module declaring observation targets, registered |
 | `DOMQL4009` | A host call registered without the request it makes, in a module `domql.createModule` didn't make |
 | `DOMQL4010` | A host call carried out that has no `impl` |
+| `DOMQL4011` | A `behavior` declared by a declaration that reaches none, or naming none by a name |
+| `DOMQL4012` | A `behavior` naming no continuous execution of its module |
 
 <a id="errors-evaluation"></a>
 
@@ -92,3 +94,4 @@ A failure while a request is carried out, located in the query where it concerns
 | `DOMQL5013` | A maintained observation's sample that is no `{ pending, value }`, with a value once it is not pending |
 | `DOMQL5014` | A watch disposed while a caller waits for it to be ready |
 | `DOMQL5015` | A running subscription or a once execution a module registered since made stale, whose request prepared again reaches no host call, or another |
+| `DOMQL5016` | A command carried out where no instance of its behavior runs for its owner on its receiver |

@@ -76,6 +76,10 @@ In this document:
 | Once execution | An execution that changes the page once and answers its result, carried out by `executeAsync` | [Executing once](executions.md#executions-executing-once) |
 | Continuous execution | An execution that starts something running on the page until it is updated or disposed, carried out by `run` | [Running continuously](executions.md#executions-running-continuously) |
 | Execution handle | A `DomqlExecutionHandle`, through which the caller updates or disposes a continuous execution | [Running continuously](executions.md#executions-running-continuously) |
+| Owner | Who an operation is carried out for, which every implementation it reaches receives, and for whom a continuous execution runs | [The owner](behaviors.md#behaviors-the-owner) |
+| Behavior | A continuous execution an extension module declares, whose running instance the module's other declarations reach | [Behaviors](behaviors.md#behaviors) |
+| Running instance | What a continuous execution's implementation answers, kept for its owner on its receiver while it runs | [The running instance](behaviors.md#behaviors-the-running-instance) |
+| Command | A once execution that reaches a running behavior of its module, named by its `behavior` | [Commands](behaviors.md#behaviors-commands) |
 | Built-in execution | An execution DOMQL's module declares, one platform call answering what it did | [Executions](vocabulary.md#built-in-executions) |
 | Transient activation | The browser's leave for a page to do some things only while the user has just acted, which some built-in executions need | [Activation](vocabulary.md#built-in-executions) |
 | Owned write | A continuous execution that holds one target of an element, an attribute, a class or an inline style property, at its value while it runs, among the target's other holders | [Owned writes](vocabulary.md#execution-element-owned-writes) |

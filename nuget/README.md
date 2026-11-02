@@ -1008,6 +1008,50 @@ console.log(panel.dataset.highlight);
 
 `update()` replaces the complete bindings object and validates it before applying a change. A validation failure leaves the current execution running. Disposing the handle ends the execution; its module remains registered.
 
+### Reach a running behavior
+
+Every operation takes an `owner`, any value, which each implementation it reaches receives as `env.owner`. A continuous execution runs for its owner, and a command, a once execution whose declaration names that execution as its `behavior`, reaches the instance running for its own owner on its receiver: its implementation receives that instance, what the behavior's implementation answered, as `instance`. With none running, the command rejects with `DOMQL5016`.
+
+This example opens a disclosure through a command:
+
+```js
+domql.registerModule(domql.createModule('Disclosures', {
+    types: [{
+        name: 'DisclosureElements',
+        kind: 'extension',
+        target: 'Domql.Element',
+        members: [{
+            name: 'disclosure',
+            kind: 'function',
+            invokedBy: 'host',
+            requestKind: 'execution',
+            executionMode: 'continuous',
+            impl: ({ receiver: element }) => ({
+                open: () => element.toggleAttribute('data-open', true),
+                update: () => {},
+                dispose: () => element.removeAttribute('data-open')
+            })
+        }, {
+            name: 'open',
+            kind: 'function',
+            invokedBy: 'host',
+            requestKind: 'execution',
+            executionMode: 'once',
+            behavior: 'disclosure',
+            result: 'Boolean',
+            impl: ({ instance }) => instance.open()
+        }]
+    }]
+}));
+
+const disclosure = domql.query('import Disclosures\npanel:disclosure()', { panel }).run({ owner: 'menu' });
+
+await domql.query('import Disclosures\npanel:open()', { panel }).executeAsync({ owner: 'menu' });
+// true
+
+disclosure.dispose();
+```
+
 ## Learn more
 
 - [Repository README](https://github.com/FormaUI/DOMQL): what DOMQL is for, what is built, and how to build and test it.

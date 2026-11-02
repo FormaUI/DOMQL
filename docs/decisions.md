@@ -699,3 +699,39 @@ Each entry is one of three kinds:
 - **Decision:** The C# half (A1) is out of the current work until the owner designs it. The design's section and the status's outline stay as where that design starts. Editor tooling, which is Nexo's, waits for Nexo's design too.
 - **Why:** The outline names an API and an adapter, but leaves open what a host with a transport of its own takes from it, how a result maps onto records a field discriminates, and how text is checked without a parser in .NET. Those are the owner's to design.
 - **Declined:** Building it from the outline, which would settle those questions without the owner.
+
+<a id="d47"></a>
+
+## D47 — Every operation is carried out for an owner, which its implementations receive
+
+*November 2, 2026*
+
+- **Kind:** Contract.
+- **Decision:** Every operation takes an `owner` option ([C4](features-status.md#planned-extension-contract)), any value, null by default. Every implementation an operation reaches receives it as `env.owner`, in one frozen environment the operation makes as it starts and keeps until it ends.
+- **Why:**
+  - "This owner's behavior on this element" is what a command and an occurrence need, and an owner given once to each operation spares passing a token in every query's bindings.
+  - The members a behavior offers are read by a watch, so a watch and an evaluation take an owner as well as a subscription and an execution do; one concept, one option, on every operation.
+  - Any value serves a host: an object a JavaScript caller holds, or a string or a number a host across a boundary names its components by. Null is an owner like any other, so a caller that gives none still reaches what it ran.
+  - One environment for the whole operation lets a module key what it keeps by it, and a continuous execution's environment no longer changes at each update.
+- **Declined:**
+  - An owner of objects alone, which a host naming its components by key couldn't give without a map of its own.
+  - Every operation its own owner by default, which would leave a caller that names none no way to reach what it ran.
+  - The owner as a key beside `env`, which a member's implementation never receives, since Nexo builds what it receives.
+
+<a id="d48"></a>
+
+## D48 — A command reaches the latest instance of its behavior, and fails where none runs
+
+*November 2, 2026*
+
+- **Kind:** Contract.
+- **Decision:** A once execution declaring `behavior`, the name of a continuous execution of its module, is a command ([C3](features-status.md#planned-extension-contract)): it reaches the running instance of that behavior for its owner on its receiver, which its implementation receives as `instance`. Where several run there, it reaches the latest to start or to move there; where none runs, it rejects with `DOMQL5016` and executes nothing.
+- **Why:**
+  - Every module that reaches a running behavior kept a `WeakMap` of its own by receiver; DOMQL already knows each instance, its owner and its receiver.
+  - The instance is what the behavior's implementation answered, so a command calls its methods, `open()` or `measure()`, as the module wrote them, with no protocol between them.
+  - Two instances of one behavior may run for one owner on one element, as a host starting a replacement before disposing the one it replaces does, and as two owned writes of one target do. The latest is the one the caller started last, and refusing the second would refuse what owned writes allow.
+  - A command with no behavior to reach did nothing the caller asked for, so it fails, with a code a caller tells from the command's own failure.
+- **Declined:**
+  - Refusing a second instance for one owner on one receiver, which breaks a replacement that starts before it disposes.
+  - Resolving to null with none running, which a caller can't tell from a command answering null.
+  - `env.instanceOf(name, receiver)`, which every command's implementation would call, and which needs the module's name to tell two modules' behaviors apart.

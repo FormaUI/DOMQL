@@ -35,8 +35,8 @@ Each entry point and operation is listed here with what it takes, and the sectio
 | `query.with(bindings)` | A new query with the same definition, bound to these bindings |
 | `query.resolve(options?)` | Resolves and types a request without evaluating anything, as [resolution](queries.md#queries-resolution) sets out |
 | `query.select(...path)` | A part of its result, as [selecting a result](queries.md#selecting-a-result) sets out |
-| `query.evaluate(options?)` | Evaluates a query once, as [evaluating a query](evaluation.md#evaluating) sets out; its option is `window` |
-| `query.evaluateAsync(options?)` | Evaluates a query once, waiting for its maintained members, as [waiting for maintained members](evaluation.md#waiting-for-maintained-members) sets out; its options are `window` and `signal` |
+| `query.evaluate(options?)` | Evaluates a query once, as [evaluating a query](evaluation.md#evaluating) sets out; its options are `window` and `owner` |
+| `query.evaluateAsync(options?)` | Evaluates a query once, waiting for its maintained members, as [waiting for maintained members](evaluation.md#waiting-for-maintained-members) sets out; its options are `window`, `owner` and `signal` |
 | `query.watch(options?)` | Watches a query, answering a `DomqlWatch`, as [the watch and its handle](watches.md#the-watch-and-its-handle) sets out |
 | `query.subscribe(handler, options?)` | Subscribes to a subscription, answering a `DomqlEventListener`, as [subscribing](events.md#subscribing) sets out |
 | `query.executeAsync(options?)` | Carries out a once execution, answering a promise of its result, as [executing once](executions.md#executions-executing-once) sets out |
@@ -47,6 +47,10 @@ Each entry point and operation is listed here with what it takes, and the sectio
 | `domql.info` | Which build this is and what it follows, in `versions`: `runtime`, the runtime release version, which the package and the bundle carry, its sources reporting the same; `specification`, the version of DOMQL's specification it follows; and `language`, the language specification version the Nexo runtime it runs on follows, its `nexo.info.versions.language` |
 
 Almost every operation answers directly, so the plain name is the synchronous one, and every operation that answers a promise takes the suffix `Async`, as `evaluateAsync`, `readyAsync`, `refreshAsync` and `executeAsync` do.
+
+<a id="api-the-owner"></a>
+
+**The owner.** Every operation takes an `owner` among its options, who carries the request out: any value, null by default, the owner every operation that names none shares. Every implementation the operation reaches receives it as `env.owner`; a continuous execution runs for it, and a command reaches the behavior running for it, as [behaviors](behaviors.md#behaviors-the-owner) set out.
 
 <a id="api-objects"></a>
 

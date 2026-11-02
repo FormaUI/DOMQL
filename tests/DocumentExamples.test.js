@@ -98,6 +98,7 @@ const DOCUMENTS = {
         { about: 'a subscription reading a maintained member' },
     ],
     'spec/executions.md': [],
+    'spec/behaviors.md': [],
     'spec/api.md': [],
     'spec/examples.md': [
         { about: 'a complete query' },
