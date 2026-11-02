@@ -6011,3 +6011,45 @@ describe('domql kept functions', () => {
         expect(getError(() => kept[0](panel))).toMatchObject({ code: 'NEXO5007', cause: expect.objectContaining({ code: 'DOMQL5021' }) });
     });
 });
+
+describe('domql executions carried out in one task', () => {
+    it('invoke each implementation within the call that carries it out, in the order they are carried out', async () => {
+        vi.resetModules();
+
+        const { domql: isolated } = await import('#domql/domql.js');
+        const order = [];
+
+        document.body.innerHTML = '<div id="panel"></div>';
+        isolated.registerModule(isolated.createModule('Order', {
+            types: [elementExtension('OrderElements', [
+                {
+                    name: 'mark', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', arguments: 'positional',
+                    parameters: [{ name: 'label', kind: 'value', type: 'String', required: true }],
+                    result: 'Boolean',
+                    impl: async ({ args: { label } }) => order.push(label) > 0,
+                },
+                {
+                    name: 'hold', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'continuous', arguments: 'positional',
+                    parameters: [{ name: 'label', kind: 'value', type: 'String', required: true }],
+                    impl: ({ args: { label } }) => (order.push(label), { update: () => {}, dispose: () => {} }),
+                },
+            ])],
+        }));
+
+        const panel = document.getElementById('panel');
+        const first = isolated.query('import Order\npanel:mark("first")', { panel }).executeAsync();
+
+        order.push('after the first');
+        isolated.query('import Order\npanel:hold("second")', { panel }).run();
+        order.push('after the second');
+
+        const third = isolated.query('import Order\npanel:mark("third")', { panel }).executeAsync();
+
+        order.push('after the third');
+
+        expect(await first).toBe(true);
+        expect(await third).toBe(true);
+        expect(order).toEqual(['first', 'after the first', 'second', 'after the second', 'third', 'after the third']);
+        document.body.innerHTML = '';
+    });
+});

@@ -2,11 +2,11 @@
 
 ## Current state
 
-**DOMQL's vocabulary, queries, watches, events and executions are implemented on Nexo's language `1.0.0-beta.20`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.308`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next are the [planned capabilities](#planned-capabilities) of the host side; the C# half waits for its design.**
+**DOMQL's vocabulary, queries, watches, events, executions and behaviors are implemented on Nexo's language `1.0.0-beta.20`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.309`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next are the [planned capabilities](#planned-capabilities) of the API and host; the C# half waits for its design.**
 
 | Version | Implementation | Specification |
 | --- | --- | --- |
-| DOMQL specification | `1.0.0-alpha.308` | `1.0.0-alpha.308` |
+| DOMQL specification | `1.0.0-alpha.309` | `1.0.0-alpha.309` |
 | Nexo language | `1.0.0-beta.20` | `1.0.0-beta.20` |
 | Definition format | 38 | 38 |
 
@@ -112,6 +112,9 @@ Each feature, the contract that states it, its state in the implementation, and 
 | Handling inside the native dispatch, delivering synchronously and never throwing into the listener | [Handling inside the native dispatch](../spec/behaviors.md#behaviors-synchronous-handling) | Implemented, as [D51](decisions.md#d51) records | [`alpha.303`](../VERSION-HISTORY.md#v1-0-0-alpha-303) |
 | `domql.info.versions` | [The API](../spec/api.md#api-entry-points-and-operations) | Implemented | [`alpha.275`](../VERSION-HISTORY.md#v1-0-0-alpha-275) |
 | The JavaScript bundle and its TypeScript declarations | [README](../README.md#build-and-try-it) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
+| An immediate watch's handlers in its mutation delivery's checkpoint, before any task or frame | [When its handlers run](../spec/watches.md#watching-when-handlers-run) | Implemented, as [D62](decisions.md#d62) records | [`alpha.309`](../VERSION-HISTORY.md#v1-0-0-alpha-309) |
+| A frame watch's handlers inside the animation frame, after the frame's writes, owned writes kept among them | [When its handlers run](../spec/watches.md#watching-when-handlers-run) | Implemented, as [D63](decisions.md#d63) records | [`alpha.309`](../VERSION-HISTORY.md#v1-0-0-alpha-309) |
+| Executions carried out in one task keep their order | [Executing once](../spec/executions.md#executions-executing-once) | Implemented, as [D64](decisions.md#d64) records | [`alpha.309`](../VERSION-HISTORY.md#v1-0-0-alpha-309) |
 | The C# half | [Design](domql-design.md#the-c-half) | Waits for its design | — |
 
 <a id="migration-to-nexo"></a>
@@ -154,17 +157,16 @@ Contracts: [The C# half](domql-design.md#the-c-half), [keeping a copy of a resul
 
 ## Planned capabilities
 
-What DOMQL lacks for an application to do its browser work through it: changes to the page DOMQL carries out itself, behaviors that report back and take commands, and the vocabulary, events, observation, API and timing below. They were found by reading a large body of component scripts against DOMQL as it stands. Each has an identifier, and each name is provisional: the specification settles it.
+What DOMQL lacked for an application to do its browser work through it: changes to the page DOMQL carries out itself, behaviors that report back and take commands, and the vocabulary, events, observation, API and timing below. What remains is the API and host's. They were found by reading a large body of component scripts against DOMQL as it stands. Each has an identifier, and each name is provisional: the specification settles it.
 
 The language's part is Nexo's already, adopted with the [migration](#migration-to-nexo): numbers, strings, structured values written in place or bound, an item's position in a list, and resolutions that stay current across a registration, from its language `1.0.0-alpha.36`.
 
 **The order of the work:**
 
 1. **The host side.** Change sets against an acknowledged result and a refresh that delivers (A2, A3), modules loaded on request (A4) and ordered delivery (A5).
-2. **Presentation.** Ownership of written styles and classes against a framework (A10) and the frame promise (T2).
-3. **Dialogs and frames.** Ordered executions (T3).
-4. **The remaining facilities.** Reactions in the browser (A7).
-5. **Editing and data views.** Source elements for a local consumer (A8), and the timing of an immediate watch (T1).
+2. **Presentation.** Ownership of written styles and classes against a framework (A10).
+3. **The remaining facilities.** Reactions in the browser (A7).
+4. **Editing and data views.** Source elements for a local consumer (A8).
 
 <a id="planned-vocabulary"></a>
 
@@ -213,18 +215,16 @@ None remains: X1 to X10 are implemented, as [the features](#the-doms-vocabulary)
 
 ### The extension contract
 
-A behavior's occurrences, state, commands and owner (C1 to C4), and reactions in the browser (A7), are DOMQL's, never the language's: the language knows who invokes a function and nothing of its lifecycle.
+None remains: C1 to C14 are implemented, as [the features](#the-host) show, each DOMQL's and none the language's but the kept function, which Nexo's language `1.0.0-beta.20` designed for it. What their decisions settled:
 
-| | Addition |
-| --- | --- |
-
-
-
-
-
-
-
-
+- Every operation is carried out for an owner, which every implementation receives ([D47](decisions.md#d47)).
+- A command reaches the latest instance of its behavior for its owner on its receiver, and fails where none runs ([D48](decisions.md#d48)).
+- A behavior's event sources are DOMQL's, and hear every instance for their owner on their receiver ([D49](decisions.md#d49)); `deliver` answers a promise that settles once each subscription applied the occurrence ([D50](decisions.md#d50)), and delivering is synchronous and never throws ([D51](decisions.md#d51)).
+- A behavior's state is read by its module's members, followed through the `behavior` observation ([D52](decisions.md#d52)).
+- Module code observes and schedules through DOMQL's own ([D53](decisions.md#d53)), reaches its instance and executes nothing while a query is evaluated ([D54](decisions.md#d54)), and measures under a class DOMQL's observers never hear ([D55](decisions.md#d55)).
+- A module's state per document is its own, one across every instance ([D57](decisions.md#d57)), and a member's history its holder's ([D58](decisions.md#d58)).
+- A null option is passed as it stands where its parameter accepts null ([D59](decisions.md#d59)), and nested options holding an element are Nexo's structured values ([D60](decisions.md#d60)).
+- A kept function ends as the execution that keeps it ends ([D61](decisions.md#d61)).
 
 <a id="planned-api-and-host"></a>
 
@@ -247,11 +247,7 @@ A behavior's occurrences, state, commands and owner (C1 to C4), and reactions in
 
 ### Timing
 
-| | Addition |
-| --- | --- |
-| T1 | An `immediate` watch's handlers run within the microtask checkpoint of the mutation delivery that invalidated it, before any task or frame |
-| T2 | A `frame` watch's handlers run inside the animation frame, before paint, so a handler can write what it measured; a frame phase for executions' writes |
-| T3 | Executions carried out in one task keep their order, so opening then focusing happens in one task |
+None remains: T1 to T3 are implemented, as [the features](#the-host) show: an immediate watch handles in its mutation delivery's checkpoint ([D62](decisions.md#d62)), a frame watch inside the frame after its writes, owned writes kept among them ([D63](decisions.md#d63)), and executions in one task keep their order ([D64](decisions.md#d64)).
 
 <a id="release"></a>
 <a id="release-work"></a>

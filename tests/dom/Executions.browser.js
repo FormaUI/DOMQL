@@ -404,4 +404,32 @@ describe('Executions in a browser', () => {
             expect(await execute('clipped.scrollIntoView()', { clipped: document.getElementById('clipped') })).toBe(false);
         });
     });
+
+    describe('executions carried out in one task', () => {
+        it('keep their order, each invoked within the call that carries it out and seeing what the ones before it changed', async () => {
+            document.body.innerHTML = '<dialog id="dialog"><input id="field"></dialog>';
+
+            const dialog = document.getElementById('dialog');
+            const field = document.getElementById('field');
+
+            // Opening, then focusing, in one task: the field is rendered once the dialog is open, so focus lands.
+            const opened = execute('dialog.showModal()', { dialog });
+            const focused = execute('field.takeFocus()', { field });
+
+            expect(await opened).toBe(true);
+            expect(await focused).toBe(true);
+            expect(document.activeElement).toBe(field);
+
+            dialog.close();
+            field.blur();
+
+            // Focusing, then opening: the field in a closed dialog is rendered nowhere as focusing is carried out.
+            const unfocused = execute('field.takeFocus()', { field });
+            const reopened = execute('dialog.showModal()', { dialog });
+
+            expect(await unfocused).toBe(false);
+            expect(await reopened).toBe(true);
+            dialog.close();
+        });
+    });
 });

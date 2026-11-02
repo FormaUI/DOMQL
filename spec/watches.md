@@ -97,6 +97,13 @@ The watch evaluates again whenever the panel's text changes, and reports the row
 
 Invalidation, evaluation and delivery each keep their own schedule. An observation invalidates the watch at once. The watch evaluates at the next animation frame, once however many observations fired, among the frame's reads, after the writes module code asks for with [`env.frame`](vocabulary.md#extension-modules-environment), so it reads what they wrote, or, under `immediate`, without waiting for an animation frame, where its caller needs a change handled as soon as it is reported, such as at mutation delivery: the first invalidation queues an evaluation in a microtask, and the invalidations received before that evaluation begins share it, so the records one delivery of mutations brings evaluate once, and an invalidation received after it begins, or while it runs, asks for another. Separate native callbacks each reach a microtask of their own, so a resize the browser reports for each element in its own callback evaluates once for each; the frame schedule evaluates once for them all. When the caller receives the snapshot is the caller's own.
 
+<a id="watching-when-handlers-run"></a>
+
+**When its handlers run.** A watch raises its `"change"` event as its evaluation completes, so its handlers run where it evaluates:
+
+- **Under `immediate`,** within the microtask checkpoint of the delivery that invalidated it: a mutation delivery's, after the observers notified in it, and before any task or animation frame, so a handler acts on a mutation before the browser runs anything else or paints.
+- **Under `frame`,** inside the animation frame, among its reads, after the writes module code and DOMQL's [owned writes](vocabulary.md#execution-element-owned-writes) ask the frame for, and before the browser lays the frame out and paints it, so a handler may write what it measured, and a resize that write causes is reported before paint.
+
 A watch evaluates its whole query each time. A member may keep its result until its own observations fire, as long as the result is the one a full evaluation would give.
 
 <a id="elements-that-leave-the-document"></a>

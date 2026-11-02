@@ -929,3 +929,38 @@ Each entry is one of three kinds:
   - An instance that refuses an update keeps the arguments it ran with, so its functions stay open, and the update's are ended; one that accepts them leaves the old ones nothing to serve.
   - A cancelled once execution still runs until its answer settles, as its signal leaves it to, so its functions end then, never as the caller stops waiting.
 - **Declined:** Ending a once execution's functions as its caller stops waiting, which would fail calls the execution still makes while it winds down.
+
+<a id="d62"></a>
+
+## D62 — An immediate watch handles a mutation in its delivery's checkpoint
+
+*November 2, 2026*
+
+- **Kind:** Contract.
+- **Decision:** An `immediate` watch's handlers run within the microtask checkpoint of the delivery that invalidated it, a mutation delivery's before any task or animation frame ([T1](features-status.md#planned-timing)). DOMQL already ran them so; the specification now promises it, and a browser test proves it against a task, a timer and a frame asked for after the mutation.
+- **Why:** A caller that must act on a mutation before anything else runs, as moving focus to an heir before focus is painted on the body, needs the promise, not the implementation's habit.
+- **Declined:** Running the handlers inside the mutation observer's callback, which would evaluate once for each observer notified rather than once for the delivery.
+
+<a id="d63"></a>
+
+## D63 — A frame watch handles inside the frame, after the frame's writes, and owned writes keep their values there
+
+*November 2, 2026*
+
+- **Kind:** Contract.
+- **Decision:** A `frame` watch's handlers run inside the animation frame, among its reads, before the browser lays it out and paints it ([T2](features-status.md#planned-timing)). An owned write keeping its value against another writer writes it again among the frame's writes, the phase module code writes in through `env.frame`, so the watches of that frame read it.
+- **Why:**
+  - A handler that measures and writes, as one placing a surface beside what it measured, must write before paint, which a frame callback does; a browser test proves the handler runs inside the frame and the resize its write causes is reported before the next.
+  - Executions' writes and module code's in one phase before the frame's reads let every watch of the frame read one laid-out state, so a kept value never shows a frame late, and never forces a second layout.
+- **Declined:** A phase after the reads for executions' writes, which would leave the watches of the frame reading what the writes then undo.
+
+<a id="d64"></a>
+
+## D64 — Executions carried out in one task keep their order
+
+*November 2, 2026*
+
+- **Kind:** Contract.
+- **Decision:** An execution's implementation is invoked within the call that carries it out, once its preparation has run, so executions carried out in one task are invoked in that order, each seeing what the ones before it changed ([T3](features-status.md#planned-timing)).
+- **Why:** Opening a dialog and then focusing within it works only in that order, in one task, since a field of a closed dialog is rendered nowhere; a caller that carries both out together needs the order promised. `executeAsync` and `run` already invoked their implementations so, and a browser test proves it both ways.
+- **Declined:** Queuing executions to a microtask or a frame, which would separate them from the user's activation and from the task the caller ordered them in.

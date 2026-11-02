@@ -68,16 +68,17 @@ export class OwnedWrites {
     }
 
     /**
-     * Holds the target at the value given, and answers what updates the holding and ends it. The latest holding of a target applies its value, and one that keeps it writes it again before the next frame where another
-     * writer changes it.
+     * Holds the target at the value given, and answers what updates the holding and ends it. The latest holding of a target applies its value, and one that keeps it writes it again in the next frame's writes, before its
+     * reads, where another writer changes it.
      * @param {Target} target
      * @param {{ value: unknown, restore: boolean, keep: boolean }} options
-     * @param {(error: unknown) => void} reportError Where a failure to write the value again is reported.
+     * @param {{ reportError: (error: unknown) => void, frame: (callback: () => void) => { cancel: () => void } }} scheduling Where a failure to write the value again is reported, and the frame schedule whose writes
+     * write it again.
      */
-    hold(target, options, reportError) {
+    hold(target, options, { reportError, frame }) {
         let holding = this.#begin({ target, ...options });
         let observer = null;
-        let isScheduled = false;
+        let scheduled = null;
 
         // Whether the holding applies its value and keeps it, and another writer changed it since DOMQL wrote it.
         const isOverwritten = () => {
@@ -86,15 +87,14 @@ export class OwnedWrites {
             return holding.keep && entry?.holdings.at(-1) === holding && holding.target.read() !== entry.written;
         };
 
-        // Another writer's change is undone before the next frame, once a frame, so two writers that keep a value never alternate faster than the page paints.
+        // Another writer's change is undone in the next frame's writes, once a frame, before the watches of that frame read it, so two writers that keep a value never alternate faster than the page paints.
         const keepValue = () => {
-            if (isScheduled || !isOverwritten()) {
+            if (scheduled !== null || !isOverwritten()) {
                 return;
             }
 
-            isScheduled = true;
-            holding.target.element.ownerDocument.defaultView.requestAnimationFrame(() => {
-                isScheduled = false;
+            scheduled = frame(() => {
+                scheduled = null;
 
                 if (isOverwritten()) {
                     try {
@@ -138,10 +138,12 @@ export class OwnedWrites {
 
                 observe();
             },
-            /** Ends the holding, its target's last writing back the value the target held before where it restores it. */
+            /** Ends the holding, its target's last writing back the value the target held before where it restores it, and withdraws a write it asked a frame for. */
             dispose: () => {
                 observer?.disconnect();
                 observer = null;
+                scheduled?.cancel();
+                scheduled = null;
                 this.#end(holding);
             },
         };
