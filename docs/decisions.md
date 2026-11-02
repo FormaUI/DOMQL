@@ -646,3 +646,18 @@ Each entry is one of three kinds:
 - **Declined:**
   - Constructing native event types, as a `MouseEvent` for `click`, which would make DOMQL a synthetic input source; a module that needs one owns that policy.
   - `composed`, which no query needs yet.
+
+<a id="d43"></a>
+
+## D43 — The document's selection places itself
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `DocumentSelection`, the selection `Domql.document.selection` reads, declares `select({ node })`, `selectContents({ node, collapse })` and `collapse({ node, offset })`, each placing the document's selection, which the value read stands for, and answering whether the selection holds the place afterwards.
+- **Why:**
+  - A document has one selection, so what a query reads of it names it, and `Domql.document.selection?.select(…)` reads as it does, where a member of `Document` named `select` would read as selecting the document; a document with no selection reads null, so the placement is skipped where nothing could hold it.
+  - The three are the generic placements an editor makes before its own range work: around an image, around a block's text or at its end, and at a point. `collapse` takes `"start"` or `"end"` for `selectContents`, the two places a caret goes in a block.
+  - A browser takes no range of a node outside the document into its selection, so whether the selection holds the place is what tells a caller its node had gone.
+  - A selection placed at offsets in an element's text is `writeSelection`'s, which an editable element takes as its `selection` reads them.
+- **Declined:** placing a selection's anchor and focus apart, `setBaseAndExtent`, and extending it, which no query needs yet.

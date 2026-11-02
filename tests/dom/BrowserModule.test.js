@@ -7,9 +7,15 @@ import { DispatchTable } from '#domql/dom/DispatchTable.mjs';
 import { BrowserVocabularyImplementations } from '#domql/dom/BrowserVocabularyImplementations.mjs';
 
 /**
- * The declarations of a module that run code: its module members, the members and operators within its reference types, and its observation types. A structured type's data shape runs none, since Nexo reads it from the data.
+ * The declarations of a module that run code: its module members, the members and operators within its reference types, the host calls within its structured types, and its observation types. A structured type's data
+ * shape runs none, since Nexo reads it from the data.
  */
-const declarationsOf = module => [...module.members, ...module.types.filter(type => type.kind === 'reference').flatMap(type => type.members), ...module.observationTypes];
+const declarationsOf = module => [
+    ...module.members,
+    ...module.types.filter(type => type.kind === 'reference').flatMap(type => type.members),
+    ...module.types.filter(type => type.kind === 'structured').flatMap(type => type.members.filter(member => member.invokedBy === 'host')),
+    ...module.observationTypes,
+];
 
 /** What carries the declaration out: its own implementation, or a host call's, which DOMQL's dispatch table keeps. */
 const implementationOf = declaration => declaration.impl ?? DispatchTable.get(declaration)?.implementation;

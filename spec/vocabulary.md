@@ -1210,6 +1210,7 @@ Each states its syntax and signature, as a function's does, what it does and ans
 | Element | [`writeIndeterminate(indeterminate)`](#execution-element-writeindeterminate) | Once |
 | Element | [`writeValue(value)`](#execution-element-writevalue) | Once |
 | Element | [`writeSelection({ start, end })`](#execution-element-writeselection) | Once |
+| Document selection | [`select({ node })`, `selectContents({ node, collapse })`, `collapse({ node, offset })`](#execution-document-selection-placement) | Once |
 | Element | [`ownAttribute({ name, value, restore, keep })`, `ownClass({ name, present, restore, keep })`, `ownStyle({ property, value, restore, keep })`](#execution-element-owned-writes) | Continuous |
 
 <a id="execution-dispatch"></a>
@@ -1367,6 +1368,16 @@ Each states its syntax and signature, as a function's does, what it does and ans
 **Does.** Places the selection as its [`selection`](#property-element-selection) reads it: a text input's or a text area's at those offsets, as `setSelectionRange` does, and, for an element whose content is editable, the document's selection at those offsets in its [`text`](#property-element-text); an offset past the end is held at the end, and a start after the end is moved to it. It moves no focus
 
 **Answers.** Whether it placed the selection; false for an element whose selection the browser doesn't expose, as one that is neither a text control nor editable and an input of a type the selection API excludes, as `number`, which `selection` answers null for
+
+<a id="execution-document-selection-placement"></a>
+
+### Document selection: select, selectContents, collapse
+
+**Syntax:** `select({ node })`, `selectContents({ node, collapse })`, `collapse({ node, offset })`   **Signature:** `node`: `Node`; `selectContents`: optional `collapse`: `String?`, `"start"` or `"end"`, the whole of the contents selected when omitted or null; `collapse`: optional `offset`: `Number`, 0 when omitted → `Boolean`   **Mode:** Once   **Activation:** None
+
+**Does.** Places the document's selection, which [`Domql.document.selection`](#property-document-selection) reads and stands for, so a query writes `Domql.document.selection?.select({ node = image })`: around the node, as a range's `selectNode` does; around its contents, as `selectNodeContents` does, or collapsed to their start or their end; or collapsed at the point `offset` names within the node, a child's place within an element and a character's within text, as `collapse` does. It moves no focus, and fires the document's `selectionchange`
+
+**Answers.** Whether the selection holds the place afterwards; false where the node lies outside the document, as one detached is, which the browser takes no selection of. An end other than these fails the execution, and so do an offset past the node's end and selecting a node with no parent, their cause the browser's refusal
 
 <a id="execution-element-owned-writes"></a>
 

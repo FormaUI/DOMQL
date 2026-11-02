@@ -6,6 +6,18 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-299"></a>
+
+## `1.0.0-alpha.299`
+
+*November 1, 2026 · Nexo language `1.0.0-beta.15` · definition format 38*
+
+DOMQL places the document's selection around a node, around its contents or at a point.
+
+**Executions**
+
+- [`Domql.document.selection?.select({ node })`, `selectContents({ node, collapse })` and `collapse({ node, offset })`](spec/vocabulary.md#execution-document-selection-placement) place the document's selection, which the selection read of it stands for, and answer whether the selection holds the place, as [D43](docs/decisions.md#d43) records.
+
 <a id="v1-0-0-alpha-298"></a>
 
 ## `1.0.0-alpha.298`

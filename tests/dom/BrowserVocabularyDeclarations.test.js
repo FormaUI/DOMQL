@@ -52,7 +52,7 @@ describe('BrowserVocabularyDeclarations', () => {
             'reference Node, abstract', 'reference Element : Node', 'reference Document : Node', 'reference DocumentFragment : Node', 'reference ShadowRoot : Node', 'reference Window', 'reference Shadow', 'reference Aria', 'reference Range',
             'structured Size', 'structured Rectangle', 'structured Selection', 'structured DocumentSelection', 'structured Grid', 'structured Scroll', 'structured ScrollAxis', 'structured Playback', 'structured Location', 'structured SizeLimits', 'structured File', 'structured ClipboardContent', 'structured ClipboardEntry', 'structured Listening', 'structured DomEvent', 'structured FocusEvent', 'structured InputEvent', 'structured ClipboardEvent', 'structured CompositionEvent', 'structured ToggleEvent', 'structured AnimationEvent', 'structured PointerEvent', 'structured TouchEvent', 'structured Touch', 'structured WheelEvent', 'structured KeyboardEvent', 'structured DragEvent',
         ]);
-        expect(module.types.filter(type => type.kind === 'structured').map(type => `${type.name} { ${type.members.map(member => `${member.name}: ${member.result}`).join(', ')} }`)).toEqual([
+        expect(module.types.filter(type => type.kind === 'structured').map(type => `${type.name} { ${type.members.filter(member => member.kind === 'property').map(member => `${member.name}: ${member.result}`).join(', ')} }`)).toEqual([
             'Size { width: Number, height: Number }',
             'Rectangle { left: Number, top: Number, right: Number, bottom: Number, width: Number, height: Number }',
             'Selection { start: Number, end: Number }',
@@ -81,7 +81,7 @@ describe('BrowserVocabularyDeclarations', () => {
             'KeyboardEvent { target: Element, key: String, code: String, repeat: Boolean, isComposing: Boolean, ctrlKey: Boolean, metaKey: Boolean, altKey: Boolean, shiftKey: Boolean, altGraphKey: Boolean, timeStamp: Number, defaultPrevented: Boolean, composedPath: List<Element> }',
             'DragEvent { target: Element, clientX: Number, clientY: Number, types: List<String>, ctrlKey: Boolean, metaKey: Boolean, altKey: Boolean, shiftKey: Boolean, timeStamp: Number, defaultPrevented: Boolean, composedPath: List<Element> }',
         ]);
-        expect(module.types.filter(type => type.kind === 'structured').flatMap(type => type.members).every(member => member.kind === 'property' && member.updates === undefined && member.impl === undefined)).toBe(true);
+        expect(module.types.filter(type => type.kind === 'structured').flatMap(type => type.members).filter(member => member.invokedBy !== 'host').every(member => member.kind === 'property' && member.updates === undefined && member.impl === undefined)).toBe(true);
     });
 
     it('declares each member the specification lists within the type it reads', () => {
@@ -340,6 +340,15 @@ describe('BrowserVocabularyDeclarations', () => {
         ]);
         expect(executions.filter(({ member }) => member.arguments === 'positional').map(({ type, member }) => nameOf(type, member))).toEqual(['Element.writeMuted', 'Element.writeIndeterminate', 'Element.writeValue', 'Window.writeClipboard']);
         expect(executions.every(({ member }) => DispatchTable.get(member).requestKind === 'execution')).toBe(true);
+
+        // The document's selection, a structured value, places the selection it stands for.
+        const placements = module.types.find(type => type.name === 'DocumentSelection').members.filter(member => member.invokedBy === 'host');
+
+        expect(placements.map(member => `${member.name}(${member.parameters.map(parameter => `${parameter.name}: ${parameter.type}${parameter.required ? '' : ` = ${JSON.stringify(parameter.default)}`}`).join(', ')}): ${member.result}, ${DispatchTable.get(member).executionMode}`)).toEqual([
+            'select(node: Node): Boolean, once',
+            'selectContents(node: Node, collapse: String? = null): Boolean, once',
+            'collapse(node: Node, offset: Number = 0): Boolean, once',
+        ]);
     });
 
     it('refuses a key a module declares for the type selector event that the DOM vocabulary maps already', () => {

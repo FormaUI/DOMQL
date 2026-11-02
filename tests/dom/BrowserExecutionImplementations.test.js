@@ -343,6 +343,53 @@ describe('BrowserExecutionImplementations', () => {
         });
     });
 
+    describe('placing the selection', () => {
+        beforeEach(() => {
+            document.body.innerHTML = '<div id="editor" contenteditable="true"><p id="first">one <b id="bold">two</b></p><p id="second">three</p></div>';
+        });
+
+        const byId = id => document.getElementById(id);
+
+        /** The document's selection's first range, by its boundaries. */
+        const placed = () => {
+            const range = document.getSelection().getRangeAt(0);
+
+            return { start: [range.startContainer.id ?? range.startContainer.data, range.startOffset], end: [range.endContainer.id ?? range.endContainer.data, range.endOffset] };
+        };
+
+        it('selects a node, answering that the selection holds it', async () => {
+            expect(await execute('Domql.document.selection?.select({ node = bold })', { bold: byId('bold') })).toBe(true);
+            expect(placed()).toEqual({ start: ['first', 1], end: ['first', 2] });
+        });
+
+        it('selects a node\'s contents, or collapses to their start or their end', async () => {
+            const second = byId('second');
+
+            expect(await execute('Domql.document.selection?.selectContents({ node = second })', { second })).toBe(true);
+            expect(placed()).toEqual({ start: ['second', 0], end: ['second', 1] });
+            expect(await execute('Domql.document.selection?.selectContents({ node = second, collapse = "end" })', { second })).toBe(true);
+            expect(placed()).toEqual({ start: ['second', 1], end: ['second', 1] });
+            expect(await execute('Domql.document.selection?.selectContents({ node = second, collapse = "start" })', { second })).toBe(true);
+            expect(placed()).toEqual({ start: ['second', 0], end: ['second', 0] });
+        });
+
+        it('collapses the selection at a point within a node, at its start where no offset is given', async () => {
+            const first = byId('first');
+
+            expect(await execute('Domql.document.selection?.collapse({ node = first, offset = 1 })', { first })).toBe(true);
+            expect(placed()).toEqual({ start: ['first', 1], end: ['first', 1] });
+            expect(await execute('Domql.document.selection?.collapse({ node = first })', { first })).toBe(true);
+            expect(placed()).toEqual({ start: ['first', 0], end: ['first', 0] });
+        });
+
+        it('fails for an end of the contents it doesn\'t take, and an offset past a node\'s end, which the browser refuses', async () => {
+            const second = byId('second');
+
+            expect(await failureOf(execute('Domql.document.selection?.selectContents({ node = second, collapse = "middle" })', { second }))).toMatchObject({ code: 'DOMQL5001', message: expect.stringContaining('"middle" is no end of a node\'s contents') });
+            expect(await failureOf(execute('Domql.document.selection?.collapse({ node = second, offset = 9 })', { second }))).toMatchObject({ code: 'DOMQL5001', cause: expect.objectContaining({ name: 'IndexSizeError' }) });
+        });
+    });
+
     describe('form controls', () => {
         beforeEach(() => {
             document.body.innerHTML = '<input id="box" type="checkbox"><input id="field" value="draft"><textarea id="notes">old</textarea><select id="list"><option>a</option><option>b</option></select><div id="plain"></div><div id="editor" contenteditable="true">one <b>two</b> three</div>';

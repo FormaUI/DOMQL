@@ -75,6 +75,26 @@ export class BrowserExecutionImplementations {
                 return BrowserExecutionImplementations.#outcomeOf(window.navigator.share?.bind(window.navigator), [data], 'shared', { AbortError: 'canceled', TypeError: 'invalid', DataError: 'invalid' });
             },
 
+            // The document's selection, placed as a range of it, the selection read of it standing for it.
+            selectNode: ({ args: { node }, env }) => BrowserExecutionImplementations.#place(env.document, range => range.selectNode(node)),
+            selectContents: ({ args: { node, collapse }, env }) => {
+                if (collapse !== null && collapse !== 'start' && collapse !== 'end') {
+                    throw new Error(`${JSON.stringify(collapse)} is no end of a node's contents: a selection collapses to their "start" or their "end", and selects the whole of them where it is null`);
+                }
+
+                return BrowserExecutionImplementations.#place(env.document, range => {
+                    range.selectNodeContents(node);
+
+                    if (collapse !== null) {
+                        range.collapse(collapse === 'start');
+                    }
+                });
+            },
+            collapseSelection: ({ args: { node, offset }, env }) => BrowserExecutionImplementations.#place(env.document, range => {
+                range.setStart(node, offset);
+                range.collapse(true);
+            }),
+
             // A form control's state, as the page's code writes it, which fires no event.
             writeIndeterminate: ({ receiver: element, args: { indeterminate } }) => {
                 if (element.localName !== 'input' || element.type !== 'checkbox' || element.indeterminate === indeterminate) {
@@ -153,6 +173,32 @@ export class BrowserExecutionImplementations {
         selection.addRange(range);
 
         return true;
+    }
+
+    /**
+     * Places the document's selection at the range the function sets, and answers whether the selection holds it: not where the document offers no selection, or the range lies in another tree, as a detached one, which
+     * the selection takes no range of.
+     */
+    static #place(document, set) {
+        const selection = document.getSelection();
+
+        if (selection === null) {
+            return false;
+        }
+
+        const range = document.createRange();
+
+        set(range);
+        selection.removeAllRanges();
+        selection.addRange(range);
+
+        if (selection.rangeCount === 0) {
+            return false;
+        }
+
+        const placed = selection.getRangeAt(0);
+
+        return placed.startContainer === range.startContainer && placed.startOffset === range.startOffset && placed.endContainer === range.endContainer && placed.endOffset === range.endOffset;
     }
 
     /** The node and offset of a point in the element's text, the offset counted in its text nodes in document order, as `text` joins them; the element's end where it holds no text. */

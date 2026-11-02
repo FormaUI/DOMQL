@@ -187,6 +187,28 @@ describe('Executions in a browser', () => {
         });
     });
 
+    describe('placing the selection', () => {
+        it('selects a node, a node\'s contents and a point, as the selection then reads, and answers false for a node outside the document', async () => {
+            document.body.innerHTML = '<div id="editor" contenteditable="true"><p id="first">one <img id="image" alt="">two</p><p id="second">three</p></div>';
+
+            const [image, second] = ['image', 'second'].map(id => document.getElementById(id));
+            const selection = () => domql.query('Domql.document.selection { type = it.type, text = it.range?.text, anchor = it.anchorElement?["id"] }').evaluate();
+
+            expect(await execute('Domql.document.selection?.select({ node = image })', { image })).toBe(true);
+            expect(selection()).toEqual({ type: 'Range', text: '', anchor: 'first' });
+            expect(await execute('Domql.document.selection?.selectContents({ node = second })', { second })).toBe(true);
+            expect(selection()).toEqual({ type: 'Range', text: 'three', anchor: 'second' });
+            expect(await execute('Domql.document.selection?.selectContents({ node = second, collapse = "end" })', { second })).toBe(true);
+            expect(selection()).toEqual({ type: 'Caret', text: '', anchor: 'second' });
+            const holder = document.createElement('div');
+
+            holder.innerHTML = '<span></span>';
+
+            expect(await execute('Domql.document.selection?.select({ node = detached })', { detached: holder.firstChild })).toBe(false);
+            expect((await execute('Domql.document.selection?.select({ node = holder })', { holder }).catch(error => error)).cause.name).toBe('InvalidNodeTypeError');
+        });
+    });
+
     describe('form controls', () => {
         it('writes a checkbox mixed, a field\'s value and its selection, as the page\'s code writes them, which the browser shows', async () => {
             document.body.innerHTML = '<input id="box" type="checkbox"><input id="field" value="draft">';

@@ -372,7 +372,16 @@ export class BrowserVocabularyDeclarations {
                 structuredType('Rectangle', { left: 'Number', top: 'Number', right: 'Number', bottom: 'Number', width: 'Number', height: 'Number' }),
                 structuredType('Selection', { start: 'Number', end: 'Number' }),
                 // The document's selection as it stands: its type, whether it is collapsed, its ranges, the elements its anchor and its focus are in, and its first range.
-                structuredType('DocumentSelection', { type: 'String', collapsed: 'Boolean', rangeCount: 'Number', anchorElement: 'Element?', focusElement: 'Element?', range: 'Range?' }),
+                {
+                    ...structuredType('DocumentSelection', { type: 'String', collapsed: 'Boolean', rangeCount: 'Number', anchorElement: 'Element?', focusElement: 'Element?', range: 'Range?' }),
+                    // Placing the document's selection, which the selection read of it stands for: around a node, around its contents or collapsed at one of their ends, or at a point within a node.
+                    members: [
+                        ...structuredType('DocumentSelection', { type: 'String', collapsed: 'Boolean', rangeCount: 'Number', anchorElement: 'Element?', focusElement: 'Element?', range: 'Range?' }).members,
+                        execution('selectNode', 'select', 'Boolean', { arguments: 'options', parameters: [valueParameter('node', 'Node')] }),
+                        execution('selectContents', 'selectContents', 'Boolean', { arguments: 'options', parameters: [valueParameter('node', 'Node'), valueParameter('collapse', 'String?', { default: null, nulls: 'accept', omitted: 'the whole of the contents selected' })] }),
+                        execution('collapseSelection', 'collapse', 'Boolean', { arguments: 'options', parameters: [valueParameter('node', 'Node'), valueParameter('offset', 'Number', { default: 0 })] }),
+                    ],
+                },
                 structuredType('Grid', { columns: 'List<Number>' }),
                 // How far a box is scrolled along each of its logical axes, and along one of them.
                 structuredType('Scroll', { inline: 'ScrollAxis', block: 'ScrollAxis' }),
