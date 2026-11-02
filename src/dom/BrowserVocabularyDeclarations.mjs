@@ -42,6 +42,9 @@ const RANGE_MISSES = 'the page\'s code moving a range other than the selection\'
 
 const SELECTOR_PARAMETERS = [valueParameter('selector', 'String')];
 
+/** How an owned write lets go of its target, writing back the value it found or leaving its own, and whether it writes its value again where another writer changes it. */
+const OWNERSHIP = [valueParameter('restore', 'Boolean', { default: true }), valueParameter('keep', 'Boolean', { default: false })];
+
 /** How a scroll moves: as the box's `scroll-behavior` decides, where it is omitted, at once, or smoothly. */
 const SCROLL_BEHAVIOR = valueParameter('behavior', 'String', { default: 'auto' });
 
@@ -254,6 +257,10 @@ export class BrowserVocabularyDeclarations {
                     execution('showModal', 'showModal', 'Boolean'),
                     execution('capturePointer', 'capturePointer', 'Boolean', { arguments: 'options', parameters: [valueParameter('pointerId', 'Number')] }),
                     execution('releasePointer', 'releasePointer', 'Boolean', { arguments: 'options', parameters: [valueParameter('pointerId', 'Number')] }),
+                    // The writes DOMQL owns while they run, each holding one target of the element.
+                    execution('ownAttribute', 'ownAttribute', undefined, { mode: 'continuous', arguments: 'options', parameters: [valueParameter('name', 'String'), valueParameter('value', 'String?', { nulls: 'accept' }), ...OWNERSHIP] }),
+                    execution('ownClass', 'ownClass', undefined, { mode: 'continuous', arguments: 'options', parameters: [valueParameter('name', 'String'), valueParameter('present', 'Boolean', { default: true }), ...OWNERSHIP] }),
+                    execution('ownStyle', 'ownStyle', undefined, { mode: 'continuous', arguments: 'options', parameters: [valueParameter('property', 'String'), valueParameter('value', 'String?', { nulls: 'accept' }), ...OWNERSHIP] }),
                     execution('closeDialog', 'close', 'Boolean', { arguments: 'options', parameters: [valueParameter('returnValue', 'String?', { default: null, nulls: 'accept', omitted: 'the dialog\'s return value left as it is' })] }),
                 ], { supertype: 'Node' }),
 

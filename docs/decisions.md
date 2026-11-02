@@ -568,3 +568,22 @@ Each entry is one of three kinds:
   - A browser test shows the capture holding at once, before the browser reports it at the pointer's next event, so the answer reads it as `hasPointerCapture` does, and a capture carried out while the press is handled holds.
   - The options form, `{ pointerId }`, leaves room for what a capture may take later without changing how it is written.
 - **Declined:** failing for a pointer that is not active, which a caller would catch to learn what the answer says.
+
+<a id="d38"></a>
+
+## D38 — Owned writes hold one target each, and say whether they restore and keep it
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** An owned write is a continuous execution holding one target of an element at its value while it runs: `ownAttribute({ name, value })`, `ownClass({ name, present })` and `ownStyle({ property, value })`, each taking `restore`, true by default, and `keep`, false by default. A target's holders apply the latest one's value, and ending one hands the target back to the one before it; the last writes back the value it found where it restores. DOMQL writes as a holding ends only where the target still holds what DOMQL last wrote, and writes again against another writer only where the latest holder keeps its value, before the next frame.
+- **Why:**
+  - `hidden`, `tabindex`, `lang` and `dir` are attributes, so one execution writes each, where a member of each would be four names for one write; a class and a style property are parts of an attribute, which another class or property beside them shares, so each is a target of its own.
+  - Restoring is the caller's to say: a document's `lang` and `dir`, which the page keeps once written, and a position a gesture commits, outlive the execution, where a class marking a drag does not.
+  - Two behaviors can hold one target, as two marking one element busy, and the latest-wins order with hand-back keeps one from undoing the other's write as it ends.
+  - Keeping a value against a framework's patch is the caller's choice, since writing again where a holder doesn't ask would fight the page's own renderer; writing again in the next frame, before it is painted, rather than in the mutation's microtask, keeps two writers that each keep a value from starving the page.
+- **Declined:**
+  - Restoring on every disposal, as the plan wrote, which would undo a value the page keeps.
+  - Writing again against a patch by default, as the plan wrote, which fights another holder.
+  - `element.attributes({ lang, dir })`, one execution of several attributes, which `ownAttribute` per attribute answers, each restored or kept as its own.
+  - A style property's priority, `!important`, which no query needs yet.

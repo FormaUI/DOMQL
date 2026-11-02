@@ -6,6 +6,18 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-295"></a>
+
+## `1.0.0-alpha.295`
+
+*November 1, 2026 · Nexo language `1.0.0-beta.15` · definition format 38*
+
+DOMQL owns writes to an element while they run: an attribute, a class, or an inline style property.
+
+**Executions**
+
+- [`ownAttribute({ name, value, restore, keep })`, `ownClass({ name, present, restore, keep })` and `ownStyle({ property, value, restore, keep })`](spec/vocabulary.md#execution-element-owned-writes) are continuous executions, each holding one target of an element at its value while it runs, as [D38](docs/decisions.md#d38) records. The latest holder of a target applies its value and hands it back to the one before it as it ends; the last writes back the value it found where it restores, and a holder that keeps its value writes it again before the next frame where another writer changes it.
+
 <a id="v1-0-0-alpha-294"></a>
 
 ## `1.0.0-alpha.294`

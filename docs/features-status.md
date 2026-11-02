@@ -2,11 +2,11 @@
 
 ## Current state
 
-**DOMQL's vocabulary, queries, watches, events and executions are implemented on Nexo's language `1.0.0-beta.15`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.294`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next is [the C# half](#the-c-half).**
+**DOMQL's vocabulary, queries, watches, events and executions are implemented on Nexo's language `1.0.0-beta.15`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.295`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next is [the C# half](#the-c-half).**
 
 | Version | Implementation | Specification |
 | --- | --- | --- |
-| DOMQL specification | `1.0.0-alpha.294` | `1.0.0-alpha.294` |
+| DOMQL specification | `1.0.0-alpha.295` | `1.0.0-alpha.295` |
 | Nexo language | `1.0.0-beta.15` | `1.0.0-beta.15` |
 | Definition format | 38 | 38 |
 
@@ -73,6 +73,7 @@ Each feature, the contract that states it, its state in the implementation, and 
 | `hasPointerCapture(pointerId)` | [`hasPointerCapture`](../spec/vocabulary.md#function-element-haspointercapture) | Implemented | [`alpha.284`](../VERSION-HISTORY.md#v1-0-0-alpha-284) |
 | Built-in executions: focusing, `takeFocus`, and scrolling, `scrollTo`, `scrollBy` and `scrollIntoView`, of an element and of the window | [Executions](../spec/vocabulary.md#built-in-executions) | Implemented, as [D34](decisions.md#d34) and [D35](decisions.md#d35) record | [`alpha.292`](../VERSION-HISTORY.md#v1-0-0-alpha-292) |
 | Pointer capture, `capturePointer` and `releasePointer` | [`capturePointer`](../spec/vocabulary.md#execution-element-capturepointer-releasepointer) | Implemented, as [D37](decisions.md#d37) records | [`alpha.294`](../VERSION-HISTORY.md#v1-0-0-alpha-294) |
+| Owned writes of an attribute, a class and an inline style property, `ownAttribute`, `ownClass` and `ownStyle`, each restoring and keeping its value as it says | [Owned writes](../spec/vocabulary.md#execution-element-owned-writes) | Implemented, as [D38](decisions.md#d38) records | [`alpha.295`](../VERSION-HISTORY.md#v1-0-0-alpha-295) |
 | The top layer's executions, `showPopover`, `hidePopover`, `showModal` and `close` | [`showPopover`](../spec/vocabulary.md#execution-element-showpopover-hidepopover), [`showModal`](../spec/vocabulary.md#execution-element-showmodal-close) | Implemented, as [D36](decisions.md#d36) records | [`alpha.293`](../VERSION-HISTORY.md#v1-0-0-alpha-293) |
 | Following a change a member misses through a body's local | [Following a change a member misses](../spec/watches.md#dependencies-following-what-a-member-misses) | Implemented | [`alpha.282`](../VERSION-HISTORY.md#v1-0-0-alpha-282) |
 
@@ -139,7 +140,7 @@ The language's part is Nexo's already, adopted with the [migration](#migration-t
 
 1. **The host side.** The C# half (A1), change sets against an acknowledged result and a refresh that delivers (A2, A3), modules loaded on request (A4); occurrences a behavior offers and its owner (C1, C4); and DOMQL's observations for module code (C5).
 2. **Input.** Module state per document (C8), synchronous handling stated (C10) and ordered delivery (A5).
-3. **Presentation.** Commands to a running behavior (C3), owned writes and their ownership (X5, A10), nullable options (C11) and the frame promise (T2).
+3. **Presentation.** Commands to a running behavior (C3), ownership of written styles and classes against a framework (A10), nullable options (C11) and the frame promise (T2).
 4. **Virtualization.** State a behavior offers and history per holder (C2, C9).
 5. **Gestures and files.** Files (X10), dispatch (X8) and continuous measurement (O3).
 6. **Dialogs and frames.** Ordered executions (T3).
@@ -176,11 +177,10 @@ O1, O2, O4 and O6 are implemented, as [the features](#the-doms-vocabulary) show:
 
 DOMQL's first built-in executions. Three names below would collide with DOMQL's Boolean functions `focus()`, `clipboard()` and `share()`, so they are written `takeFocus`, `writeClipboard` and `requestShare`.
 
-X1 to X4 are implemented, as [the features](#the-doms-vocabulary) show: focusing answers whether focus landed ([D34](decisions.md#d34)), a scroll is logical and answers once it has ended ([D35](decisions.md#d35)), the top layer's executions answer whether they changed it ([D36](decisions.md#d36)), and a pointer's capture whether the element holds it ([D37](decisions.md#d37)).
+X1 to X5 are implemented, as [the features](#the-doms-vocabulary) show: focusing answers whether focus landed ([D34](decisions.md#d34)), a scroll is logical and answers once it has ended ([D35](decisions.md#d35)), the top layer's executions answer whether they changed it ([D36](decisions.md#d36)), a pointer's capture whether the element holds it ([D37](decisions.md#d37)), and an owned write says whether it restores and keeps its value ([D38](decisions.md#d38)).
 
 | | Addition |
 | --- | --- |
-| X5 | Engine-owned writes, each declaring its ownership and released on dispose: a class, an inline style property, `hidden`, `tabIndex`, and, continuous, attributes kept against a host's patch, `element.attributes({ lang, dir })` |
 | X6 | Form controls: `writeIndeterminate(Boolean)`, `writeValue(String)` → `String?`, the value replaced, dispatching no event, and `writeSelection({ start, end })` → `Boolean` |
 | X7 | Browser facilities: `Domql.window.writeClipboard(text)` → `"written"`, `"refused"` or `"failed"`; `readClipboardText()` and `readClipboard({ types })`; `download({ name, content, type })`; `print()`; `requestShare({ title, url, text })` → `"shared"`, `"canceled"`, `"refused"` or `"invalid"`; `media.play()` → `"playing"`, `"blocked"`, `"aborted"` or `"unsupported"`, `pause()`, `writeMuted(Boolean)`; at low priority, `Domql.document.writeCookie({ … })` |
 | X8 | `dispatch({ type, bubbles, detail })`, answering whether it was cancelled |

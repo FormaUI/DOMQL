@@ -1201,6 +1201,7 @@ Each states its syntax and signature, as a function's does, what it does and ans
 | Element | [`capturePointer({ pointerId })`, `releasePointer({ pointerId })`](#execution-element-capturepointer-releasepointer) | Once |
 | Element | [`showPopover()`, `hidePopover()`](#execution-element-showpopover-hidepopover) | Once |
 | Element | [`showModal()`, `close({ returnValue })`](#execution-element-showmodal-close) | Once |
+| Element | [`ownAttribute({ name, value, restore, keep })`, `ownClass({ name, present, restore, keep })`, `ownStyle({ property, value, restore, keep })`](#execution-element-owned-writes) | Continuous |
 
 <a id="execution-element-takefocus"></a>
 
@@ -1263,6 +1264,20 @@ Each states its syntax and signature, as a function's does, what it does and ans
 **Does.** Opens a dialog modally, in the top layer, making the rest of the document inert, or closes it, setting its `returnValue` to the one given, as the browser's own `showModal()` and `close()` do, firing its `close` event
 
 **Answers.** Whether it changed the dialog: `showModal()` answers false for a dialog open modally already, and `close` for one closed already, without calling the browser. Each fails for an element that is no dialog, and `showModal()` for a dialog open without being modal or in no document, which the browser refuses, its refusal the failure's cause
+
+<a id="execution-element-owned-writes"></a>
+
+### Element: ownAttribute, ownClass, ownStyle
+
+**Syntax:** `ownAttribute({ name, value, restore, keep })`, `ownClass({ name, present, restore, keep })`, `ownStyle({ property, value, restore, keep })`   **Signature:** `name`, `property`: `String`; `value`: `String?`, none where it is null; `present`: `Boolean`, true when omitted; optional `restore`: `Boolean`, true when omitted; optional `keep`: `Boolean`, false when omitted   **Mode:** Continuous   **Activation:** None
+
+**Does.** Holds one **target** of the element at its value while it runs, an **owned write**: an attribute by its `name`, absent where `value` is null, as `hidden` and `tabindex` are attributes; a class of its class list by its `name`, there where `present` is true; or a property of its inline style, as its `style` attribute declares it, declared none where `value` is null. It writes the value as it starts and as an update gives another, and an update that binds another element, or names another target, ends its holding of the first and holds the other.
+
+- **Holders.** Each owned write running on a target is one of its holders, among those DOMQL's instance runs: the latest to start applies its value, and ending it gives the target back to the one before it, which writes its value again; ending one that is not the latest writes nothing.
+- **Ending the last.** Disposing the last holder of a target writes back the value the target held before the first began, where its `restore` is true, and leaves the value as it stands where it is false: a value the page keeps once it is written, as a document's `lang` and `dir`, and a position a gesture commits, are not restored.
+- **Another writer.** DOMQL writes to a target as a holding ends only where the target still holds the value DOMQL last wrote, so a value another writer wrote since, as a framework rendering the element, stands. Where the latest holder's `keep` is true, it writes its value again before the next frame each time another writer changes it, as against a framework's patch rewriting an attribute; where it is false, the other writer's value stands until an update writes the holder's again. DOMQL never writes again against a holder of its own.
+
+**Answers.** Nothing, as every continuous execution. A name that is no class, an attribute name the browser refuses, and a failure to write, fail the start or the update, which leaves the execution holding what it held
 
 <a id="built-in-conversions"></a>
 

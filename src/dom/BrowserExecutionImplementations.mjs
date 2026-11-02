@@ -3,6 +3,7 @@
  */
 
 import { BrowserVocabularyImplementations } from './BrowserVocabularyImplementations.mjs';
+import { OwnedWrites } from './OwnedWrites.mjs';
 
 /** How a scroll moves: as the box's `scroll-behavior` decides, at once, or smoothly. */
 const SCROLL_BEHAVIORS = new Set(['auto', 'instant', 'smooth']);
@@ -15,11 +16,14 @@ const LOGICAL_AXES = ['inline', 'block'];
 
 export class BrowserExecutionImplementations {
     /**
-     * Each implementation reads, from one object by name, the receiver, the arguments by parameter name, the environment the request is carried out in and the signal that aborts it, and answers its result or a
-     * promise of it.
-     * @type {Record<string, (input: { receiver: unknown, args: Record<string, any>, env: { window: Window, document: Document }, signal?: AbortSignal }) => unknown>}
+     * Each implementation reads, from one object by name, the receiver, the arguments by parameter name, the environment the request is carried out in, and the signal that aborts a once execution or the reporting a
+     * continuous one's failures reach; a once execution answers its result or a promise of it, and a continuous one what updates and ends it. The owned writes of one set of implementations share the targets they hold.
+     * @type {Record<string, (input: { receiver: unknown, args: Record<string, any>, env: { window: Window, document: Document }, signal?: AbortSignal, reportError?: (error: unknown) => void }) => unknown>}
      */
     static get implementations() {
+        const writes = new OwnedWrites();
+        const own = (targetOf, valueOf) => ({ receiver: element, args, reportError }) => BrowserExecutionImplementations.#own(writes, element, args, targetOf, valueOf, reportError);
+
         return {
             // Focusing answers whether focus landed on the element, as its focus() Boolean function reads it.
             takeFocus: ({ receiver: element, args: { preventScroll } }) => {
@@ -37,12 +41,25 @@ export class BrowserExecutionImplementations {
             capturePointer: ({ receiver: element, args: { pointerId } }) => BrowserExecutionImplementations.#capturePointer(element, pointerId),
             releasePointer: ({ receiver: element, args: { pointerId } }) => BrowserExecutionImplementations.#toggle(element, () => element.hasPointerCapture(pointerId), false, () => element.releasePointerCapture(pointerId)),
 
+            // The writes DOMQL owns while they run, each holding its target at its value.
+            ownAttribute: own((element, { name }) => OwnedWrites.attribute(element, name), ({ value }) => value),
+            ownClass: own((element, { name }) => OwnedWrites.class(element, name), ({ present }) => present),
+            ownStyle: own((element, { property }) => OwnedWrites.style(element, property), ({ value }) => value),
+
             // The top layer: each answers whether it changed the element's state, and false where the element is in that state already, which the platform's calls leave as it is.
             showPopover: ({ receiver: element }) => BrowserExecutionImplementations.#toggle(element, () => element.matches(':popover-open'), true, () => element.showPopover()),
             hidePopover: ({ receiver: element }) => BrowserExecutionImplementations.#toggle(element, () => element.matches(':popover-open'), false, () => element.hidePopover()),
             showModal: ({ receiver: element }) => BrowserExecutionImplementations.#toggle(BrowserExecutionImplementations.#dialog(element), () => element.matches(':modal'), true, () => element.showModal()),
             closeDialog: ({ receiver: element, args: { returnValue } }) => BrowserExecutionImplementations.#toggle(BrowserExecutionImplementations.#dialog(element), () => element.open, false, () => (returnValue === null ? element.close() : element.close(returnValue))),
         };
+    }
+
+    /** Starts an owned write of the target its arguments name on the element, at the value they give, and answers what updates it to other arguments, on this element or another, and ends it. */
+    static #own(writes, element, args, targetOf, valueOf, reportError) {
+        const optionsOf = given => ({ value: valueOf(given), restore: given.restore, keep: given.keep });
+        const holding = writes.hold(targetOf(element, args), optionsOf(args), reportError);
+
+        return { update: (receiver, next) => holding.update(targetOf(receiver, next), optionsOf(next)), dispose: () => holding.dispose() };
     }
 
     /** Brings the element into the state it is in where `isIn` answers `wanted`, and answers whether it did: false where it was in that state already, or a listener, as a beforetoggle one, kept it from changing. */
