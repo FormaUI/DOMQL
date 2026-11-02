@@ -2,19 +2,19 @@
 
 ## Current state
 
-**DOMQL's vocabulary, queries, watches, events, executions and behaviors are implemented on Nexo's language `1.0.0-beta.20`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.318`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Every [planned capability](#planned-capabilities) is implemented or declined but the C# half's, A1 and A5's queue, which wait for its design.**
+**DOMQL is in its beta, `1.0.0-beta.1`. Its vocabulary, queries, watches, events, executions and behaviors are implemented on Nexo's language `1.0.0-beta.20`, definition version 38. The specification describes DOMQL's `1.0.0-beta.1`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Every [planned capability](#planned-capabilities) is implemented or declined but the C# half's, A1 and A5's queue, which wait for its design.**
 
 | Version | Implementation | Specification |
 | --- | --- | --- |
-| DOMQL specification | `1.0.0-alpha.318` | `1.0.0-alpha.318` |
+| DOMQL specification | `1.0.0-beta.1` | `1.0.0-beta.1` |
 | Nexo language | `1.0.0-beta.20` | `1.0.0-beta.20` |
 | Definition format | 38 | 38 |
 
 - **The language DOMQL runs on.** DOMQL builds against Nexo at the commit `nexo.commit` pins, `e989dee`, Nexo's `1.0.0-beta.20`, and its documents link to [Nexo's documents at it](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/spec/README.md). The language was called Lexica before the [migration](#migration-to-nexo).
-- **Packages.** The bundle and type declarations are built, with Nexo bundled inside `domql.js`. npm and NuGet packages are packed locally but unpublished.
+- **Packages.** The bundle and type declarations are built, with Nexo bundled inside `domql.js`. The NuGet package is packed locally, carrying the runtime version `1.0.0-beta.1`, and is unpublished. The npm package is not made yet: `package.json` is private and carries no version.
 - **The C# half** waits for its design, as [D46](decisions.md#d46) records.
 
-The [specification](../spec/README.md) defines the contract, and the [design](domql-design.md) explains the architecture. The [version history](../VERSION-HISTORY.md) records what each version changed. This file tracks DOMQL's implementation and its remaining work. "Implemented" means built and tested in the gate for the current implementation version; it does not imply that later specification changes are implemented.
+The [specification](../spec/README.md) defines the contract, and the [design](domql-design.md) explains the architecture. The [version history](../VERSION-HISTORY.md) records what each version changed, and the [changelog](../CHANGELOG.md) each release of the packages. This file tracks DOMQL's implementation and its remaining work. "Implemented" means built and tested in the gate for the current implementation version; it does not imply that later specification changes are implemented.
 
 <a id="remaining-work"></a>
 
@@ -24,10 +24,11 @@ The [specification](../spec/README.md) defines the contract, and the [design](do
 | --- | --- |
 | [The C# half](#the-c-half) | Waits for its design |
 | [Planned capabilities](#planned-capabilities) | The C# half's alone remain, waiting for its design |
-| [Release](#release) | On Nexo's published packages |
+| [Release](#release) | The beta is declared; publishing waits for Nexo's published packages |
 
-- **Breaking changes are made directly,** without compatibility layers, migration notes or deprecations, until the beta.
-- **Documents move with their change.** The READMEs, the library guide, the specification, the type declarations, the version history and this file change in the commit that changes what they describe.
+- **A breaking change says how to migrate.** Since the beta, a version's entry in the [version history](../VERSION-HISTORY.md) says how to migrate beside each thing it breaks.
+- **A change a caller can notice is in the [changelog](../CHANGELOG.md),** listed by its rules.
+- **Documents move with their change.** The READMEs, the library guide, the specification, the type declarations, the version history, the changelog and this file change in the commit that changes what they describe.
 - **Every change passes the gate,** browser tests included.
 
 <a id="features"></a>
@@ -124,6 +125,7 @@ Each feature, the contract that states it, its state in the implementation, and 
 | Reactions, once executions a subscription carries out inside each event's delivery, bound to the event's value, whose results reach the handler after it | [Reactions](../spec/events.md#events-reactions) | Implemented, as [D71](decisions.md#d71) records | [`alpha.316`](../VERSION-HISTORY.md#v1-0-0-alpha-316) |
 | The element a watch's list item came from, `watch.sourceOf(...path)`, for a handler in the browser | [`sourceOf`](../spec/watches.md#watching-source-elements) | Implemented, as [D72](decisions.md#d72) records | [`alpha.317`](../VERSION-HISTORY.md#v1-0-0-alpha-317) |
 | Delivery options: a delayed schedule a refresh flushes, reporting on parts, and a subscription's throttle | [The delayed schedule](../spec/watches.md#watching-delayed), [reporting on parts](../spec/results.md#results-reporting-on-parts), [throttling](../spec/events.md#events-throttling) | Implemented, as [D73](decisions.md#d73) records | [`alpha.318`](../VERSION-HISTORY.md#v1-0-0-alpha-318) |
+| The beta, its promise and the changelog | [Version history](../VERSION-HISTORY.md#v1-0-0-beta-1), [changelog](../CHANGELOG.md) | Implemented, as [D75](decisions.md#d75) records | [`beta.1`](../VERSION-HISTORY.md#v1-0-0-beta-1) |
 | The C# half | [Design](domql-design.md#the-c-half) | Waits for its design | — |
 
 <a id="migration-to-nexo"></a>
@@ -283,20 +285,27 @@ Needs Nexo's packages, which its [release](https://github.com/FormaUI/Nexo/blob/
 
 ### Packages
 
-**Current:** packed locally; neither the npm nor the NuGet package is published.
+**Current:**
 
-**Remaining:** publish both, once DOMQL consumes a released Nexo. Before publishing, advance the runtime version, and check that the README and `domql.info.versions` name the specification and language versions the package implements.
-
-### Beta
-
-**Current:** the documents and the module API have been audited. The behavior of a cast inside an optional enclosed access is settled.
+- **NuGet:** `./publish.ps1` packs `formaui-net.DOMQL` locally. It carries the runtime version `src/Versions.mjs` declares, `1.0.0-beta.1`, and is unpublished.
+- **npm:** not made yet. `package.json` is private and carries no version.
+- **The gate** holds the NuGet package, both READMEs, the [changelog](../CHANGELOG.md) and `domql.info.versions` to the versions the sources declare. The sources declare the version due at publication, so nothing advances before publishing, as [D75](decisions.md#d75) records.
 
 **Remaining:**
 
-- Add `CHANGELOG.md`, empty until the first change after the beta.
-- Set the beta version to `1.0.0-beta` wherever the beta version is written or checked; number packages `1.0.0-beta.N`.
+1. Make the npm package, `@formaui-net/domql`, carrying the runtime version as the NuGet package does, its bundle importing `@formaui-net/nexo`, as [consuming the language](#consuming-nexo) sets out.
+2. Publish both, once DOMQL consumes a released Nexo. Publishing a version dates its entry in the changelog.
 
-Beta means no breaking redesign is planned and remaining limitations are documented. Breaking changes after beta require migration guidance.
+Both wait for Nexo's published packages, and publishing stays with the maintainer.
+
+### Beta
+
+**Done.** DOMQL entered the beta at `1.0.0-beta.1`, as [D75](decisions.md#d75) records:
+
+- The documents and the module API were audited, and the behavior of a cast inside an optional enclosed access was settled.
+- The specification and the runtime both took `1.0.0-beta.1`. The contract is that of `1.0.0-alpha.318`, unchanged.
+- No breaking redesign is planned. The C# half (A1) and A5's queue wait for their design, as [D46](decisions.md#d46) records. The [deferred work](#deferred) and the design's [decisions not taken](domql-design.md#decisions-not-taken) document the other limitations.
+- A break from here on says how to migrate, beside it, in the [version history](../VERSION-HISTORY.md), and a change a caller can notice is listed in the [changelog](../CHANGELOG.md).
 
 <a id="backlog"></a>
 

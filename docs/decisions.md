@@ -1130,3 +1130,28 @@ Each entry is one of three kinds:
   - Built in, the option would hold the same observation for every execution, and decide for every caller how long a move may take; a caller that needs a longer grace, or none, chooses its schedule.
   - The consumer's survey found the host builds it from a watch of `attached`, and counts it optional.
 - **Declined:** The option itself; the design's [decisions not taken](domql-design.md#decisions-not-taken) say what reopens it.
+
+<a id="d75"></a>
+
+## D75 — DOMQL enters the beta at `1.0.0-beta.1`, with the C# half waiting for its design
+
+*November 2, 2026*
+
+- **Kind:** Process.
+- **Decision:** DOMQL enters its beta. The specification and the runtime both take `1.0.0-beta.1`. Later betas number on from it, `1.0.0-beta.N`, each version advancing for its own reason as before. The C# half (A1) and A5's queue wait for their design, as [D46](#d46) records.
+- **The contract:** it is that of `1.0.0-alpha.318`, unchanged. The version advances because its promise does:
+  - No breaking redesign is planned.
+  - The limitations are documented: the C# half in the status's [outline](features-status.md#the-c-half), the [deferred work](features-status.md#deferred), and the design's [decisions not taken](domql-design.md#decisions-not-taken), each saying what would reopen it.
+  - A later version that breaks what this one allows says how to migrate, beside the break, in the [version history](../VERSION-HISTORY.md).
+- **The packages:** the sources declare `1.0.0-beta.1` before it is published, since it is the version due at publication. The [changelog](../CHANGELOG.md) records each release, and the gate holds its newest entry, and both READMEs, to the versions the sources declare. The runtime is no longer numbered by the commit count, so CI checks out the gated commit alone.
+- **Why:**
+  - Every planned capability is implemented or declined but A1 and A5's queue. What callers use today, the JavaScript half, is complete.
+  - The C# half is a client of that contract. It maps results onto records, drives the operations the JavaScript half offers, and carries across the boundary the order that half already keeps ([D69](#d69)). The questions D46 leaves open are its own: a host's own transport, records a field discriminates, and checking text without a parser in .NET. Should its design need more of the JavaScript half, that is an addition, which a beta allows.
+  - Nexo holds the same stance: it is in its beta, as its [decisions](https://github.com/FormaUI/Nexo/blob/main/docs/decisions.md#d27) record, while its tooling waits for its design, as its [status](https://github.com/FormaUI/Nexo/blob/main/docs/features-status.md#tooling) records.
+  - A caller reads `domql.info.versions` to learn what it can rely on. A beta runtime implementing an alpha specification would promise a stability its contract's version denies.
+- **Declined:**
+  - Waiting for the C# half. Its design has not started, and the JavaScript half would go without a promise until it ends.
+  - A bare `1.0.0-beta` for the specification, as the release plan named it. Its second beta would then be `1.0.0-beta.1`, the name the first package already carries, for another contract.
+  - Moving the runtime to the beta and keeping the specification at `1.0.0-alpha.318`. The promise is the contract's, and the specification's version names the contract.
+  - An empty changelog until the first change after the beta, as the plan named it. The first release is itself an entry, and the gate can check only an entry that exists.
+  - Giving the private `package.json` a version now. No npm package is made from it yet; it takes the runtime version when the npm package is made, as the status's [packages](features-status.md#packages) set out.

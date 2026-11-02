@@ -49,6 +49,26 @@ describe('Alignment', () => {
         expect(domql.info.versions.specification).toBe(Versions.specification);
     });
 
+    it('has a changelog whose newest entry is the runtime version the sources declare, with the specification, language and definition versions it implements', () => {
+        const changelog = read('CHANGELOG.md');
+        const [, newest, specification, language, format] = changelog.match(/^## `([^`]+)`\r?\n\r?\n\*[^·*]+· specification `([^`]+)` · Nexo language `([^`]+)` · definition format (\d+)\*/m);
+
+        expect([newest, specification, language, Number(format)]).toEqual([
+            domql.info.versions.runtime,
+            domql.info.versions.specification,
+            domql.info.versions.language,
+            nexo.info.versions.definition,
+        ]);
+    });
+
+    it('has READMEs that name the runtime version, the specification version it implements and the language version of the Nexo runtime it runs on', () => {
+        const { runtime, specification, language } = domql.info.versions;
+        const named = `The runtime, \`${runtime}\`, implements DOMQL's specification \`${specification}\` on Nexo's language \`${language}\`, definition version ${nexo.info.versions.definition}.`;
+
+        expect(read('README.md')).toContain(named);
+        expect(read('nuget/README.md')).toContain(named);
+    });
+
     it('has a specification whose complete query writes the fields of the result it shows', () => {
         const [, text, result] = read('spec/examples.md').match(/## A complete query[\s\S]*?The query reads it:\s*```domql\n([\s\S]*?)```[\s\S]*?```json\n([\s\S]*?)```/);
         const { expression } = domql.query(text).definition;

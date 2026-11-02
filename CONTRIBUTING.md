@@ -46,12 +46,18 @@ Run the full build from the repository root:
 | `spec/` | The specification, split by subject, with its index |
 | `docs/` | The design and the status overview |
 | `VERSION-HISTORY.md` | Each DOMQL version and what it changed |
+| `CHANGELOG.md` | Each release of the packages and what it changed |
 
 The [Nexo specification](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/spec/README.md) defines the language and its runtime, and the [DOMQL specification](spec/README.md) the DOM vocabulary, how queries are carried out, and the public API. The [Nexo design](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/docs/nexo-design.md) and the [DOMQL design](docs/domql-design.md) set out how each is built. If a change affects either contract, update the relevant document before implementing it. The [status overview](docs/features-status.md) tracks what is implemented, what is being built, and what remains.
 
 ## Develop a change
 
 Keep each change focused, and follow the surrounding code's conventions. Use `.editorconfig` for formatting and style.
+
+Since DOMQL entered its beta, two rules hold for a change its callers can notice:
+
+- **A break says how to migrate.** A version that breaks what the one before it allowed says how to migrate, beside the break, in its entry in the [version history](VERSION-HISTORY.md).
+- **A change a caller can notice is listed** in the [changelog](CHANGELOG.md), by its rules.
 
 Add or update tests for every source module you change. Test through the public API where possible, and place tests beside the corresponding source responsibility under `tests/`.
 

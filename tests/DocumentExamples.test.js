@@ -137,6 +137,7 @@ const DOCUMENTS = {
     'docs/features-status.md': [],
     'README.md': [],
     'VERSION-HISTORY.md': [],
+    'CHANGELOG.md': [],
 };
 
 describe('the examples of the documents', () => {

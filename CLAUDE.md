@@ -14,11 +14,12 @@ Read the documents that govern the affected contract:
 | [DOMQL design](docs/domql-design.md) | How DOMQL is built: its architecture, resolution, sessions, watching, comparing and patching, the C# half, and the decisions not taken |
 | [Status](docs/features-status.md) | What is implemented, the migration to Nexo, the planned capabilities, open decisions and deferred work |
 | [Decisions](docs/decisions.md) | Each decision taken without stopping to ask, with why and what was declined, for review |
-| [Version history](VERSION-HISTORY.md) | Each DOMQL version, newest first, with the features it added, what it changed and what it breaks |
+| [Version history](VERSION-HISTORY.md) | Each DOMQL version, newest first, with the features it added, what it changed, what it breaks and how to migrate |
+| [Changelog](CHANGELOG.md) | Each release of the packages, newest first, with the specification and language versions it implements and what changed in the implementation |
 | [Library guide](nuget/README.md) | Using DOMQL by example; it ships in the package, so it links absolutely |
 | `.editorconfig` | Code style; read it before writing C# |
 
-Update the specification before changing a contract, the vocabulary, the API or what an operation does, and the design before changing how DOMQL is built. Advance the specification version whenever DOMQL's contract changes, and add the version's entry to the [version history](VERSION-HISTORY.md) in the same commit. Each subject has one home: state a rule where it belongs and link to it elsewhere; a rule of the language or its runtime is Nexo's. Record a gap between the design and the code in the status overview until it closes, and update a row's status as soon as its work lands.
+Update the specification before changing a contract, the vocabulary, the API or what an operation does, and the design before changing how DOMQL is built. Advance the specification version whenever DOMQL's contract changes, and add the version's entry to the [version history](VERSION-HISTORY.md) in the same commit; since the beta, a break needs guidance on migrating. List a change a caller can notice in the [changelog](CHANGELOG.md), by its rules. Each subject has one home: state a rule where it belongs and link to it elsewhere; a rule of the language or its runtime is Nexo's. Record a gap between the design and the code in the status overview until it closes, and update a row's status as soon as its work lands.
 
 Use these sources rather than inventing scope, status or style rules.
 
@@ -35,6 +36,7 @@ Use these sources rather than inventing scope, status or style rules.
 | `spec/` | The specification, one document per subject, indexed by `spec/README.md` |
 | `docs/` | The design, the status overview and the decisions |
 | `VERSION-HISTORY.md` | Each DOMQL version and what it changed |
+| `CHANGELOG.md` | Each release of the packages and what it changed |
 | `nuget/` | The package project, which distributes the bundle, and the library guide |
 | `.local/` | Personal experiments, spikes, notes and benchmark baselines; ignored by Git |
 
@@ -104,10 +106,10 @@ The specification states the contract; the design explains how DOMQL is built to
 Use these version rules:
 
 - Each version is a literal in `src/Versions.mjs`, its one source, declared and never computed; the numbers may coincide, and neither determines another.
-- Runtime version: `Versions.runtime`, `1.0.0-alpha.N`, N chosen from the commit count when the release is numbered. The package project reads it, the bundle carries it, and `domql.info.versions.runtime` reports it, from the sources as from any build. Packing rejects a bundle of another version.
-- Specification version: `Versions.specification`, DOMQL's own, `1.0.0-alpha.N`, advanced as DOMQL's contract changes, never following the runtime version. The specification and design titles name the version the specification describes; `domql.info.versions.specification` reports, and the status names, the version the implementation follows, which may trail the titles while the specification moves ahead.
+- Runtime version: `Versions.runtime`, `1.0.0-beta.N`, numbered on from `1.0.0-beta.1`. It is the version due at the next publication, and advances once a release is published, when the next change a caller can notice opens the next entry of the [changelog](CHANGELOG.md). The package project reads it, the bundle carries it, and `domql.info.versions.runtime` reports it, from the sources as from any build. Packing rejects a bundle of another version.
+- Specification version: `Versions.specification`, DOMQL's own, `1.0.0-beta.N`, numbered on from `1.0.0-beta.1`, advanced as DOMQL's contract changes, never following the runtime version. The specification and design titles name the version the specification describes; `domql.info.versions.specification` reports, and the status names, the version the implementation follows, which may trail the titles while the specification moves ahead.
 - Language version: `Versions.language`, which `domql.info.versions.language` reports, is the language specification version the Nexo runtime DOMQL runs on follows, read from `nexo.info.versions.language`, never maintained here.
-- Preserve the version-alignment test, which checks these relationships without requiring the versions to match.
+- Preserve the version-alignment test, which checks these relationships without requiring the versions to match, and holds the changelog's newest entry and both READMEs to the versions the sources declare.
 
 ## Review and Git
 

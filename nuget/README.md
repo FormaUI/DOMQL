@@ -4,7 +4,7 @@
 
 DOMQL is a JavaScript library for querying the DOM, allowing you to read information from a document once or observe it as it changes. This guide takes you from your first query to watching results, handling events and extending the library. Its queries are written in [Nexo](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/spec/README.md).
 
-> **Alpha:** `formaui-net.DOMQL` is not yet published to NuGet. [Build the package locally](#install-and-load) to try it. The package distributes a JavaScript ES module; the API in this guide runs in JavaScript. Every example here runs on this alpha, on Nexo's language `1.0.0-beta.20`, definition version 38. [The status overview](https://github.com/FormaUI/DOMQL/blob/main/docs/features-status.md) says what is implemented and what is being built.
+> **Beta:** no breaking redesign is planned, and a version that breaks what the one before it allowed says how to migrate. `formaui-net.DOMQL` is not yet published to NuGet. [Build the package locally](#install-and-load) to try it. The package distributes a JavaScript ES module; the API in this guide runs in JavaScript. Every example here runs on this beta. The runtime, `1.0.0-beta.1`, implements DOMQL's specification `1.0.0-beta.1` on Nexo's language `1.0.0-beta.20`, definition version 38. [The status overview](https://github.com/FormaUI/DOMQL/blob/main/docs/features-status.md) says what is implemented and what is being built.
 
 ## In this guide
 
@@ -1493,4 +1493,5 @@ filtered.dispose();
 - [DOMQL specification](https://github.com/FormaUI/DOMQL/blob/main/spec/README.md): queries, the DOM's vocabulary, evaluating and watching a query, its results, events, executions, and the API.
 - [DOMQL design](https://github.com/FormaUI/DOMQL/blob/main/docs/domql-design.md): how DOMQL is built, and the decisions it did not take, and the [Nexo design](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/docs/nexo-design.md): how the language and its runtime are built.
 
+- [Changelog](https://github.com/FormaUI/DOMQL/blob/main/CHANGELOG.md): each release of the package and what it changed.
 - [Status](https://github.com/FormaUI/DOMQL/blob/main/docs/features-status.md): what is implemented, what is being built, and what remains.

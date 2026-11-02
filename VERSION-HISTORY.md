@@ -4,7 +4,27 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 
 - Each version is dated by the day the specification first described it.
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
-- Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
+
+Each entry says what its version breaks:
+
+- **Before the beta,** a version could break what the one before it allowed, with no guidance on migrating.
+- **From `1.0.0-beta.1` on,** no breaking redesign is planned. A version that breaks what the one before it allowed says, beside each break, how a query, a caller or a module migrates.
+
+<a id="v1-0-0-beta-1"></a>
+
+## `1.0.0-beta.1`
+
+*November 2, 2026 · Nexo language `1.0.0-beta.20` · definition format 38*
+
+The first beta. DOMQL's contract is that of `1.0.0-alpha.318`, unchanged. What changes is the promise a version makes about the next one, as [D75](docs/decisions.md#d75) records:
+
+- **Stability:** no breaking redesign is planned.
+- **Migration:** a later version that breaks what this one allows says how to migrate.
+- **Limitations:** the status overview documents what waits. [The C# half](docs/features-status.md#the-c-half) (A1) and A5's queue, which carries the order of delivery across the boundary, wait for their design. The [deferred work](docs/features-status.md#deferred) says what would reopen each of its items.
+
+The runtime takes `1.0.0-beta.1` too, its first release, which the [changelog](CHANGELOG.md) records.
+
+**Breaking:** nothing.
 
 <a id="v1-0-0-alpha-318"></a>
 
