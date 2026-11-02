@@ -1,6 +1,6 @@
 # DOMQL Design v1.0.0-alpha.301
 
-The [DOMQL specification](../spec/README.md) is the contract: DOMQL's module, which declares the DOM as Nexo's domain, and the host that carries queries out against a document. This design sets out how this implementation is built to meet it, and the reasons behind the choices that shape it. It describes DOMQL's version `1.0.0-alpha.301` on Nexo's definition version 38, as the specification does, and the C# half, which is designed and not yet built; [the status overview](features-status.md) says where the implementation still differs. [Nexo's design](https://github.com/FormaUI/Nexo/blob/cf5cb6f30f3326c0be12ec6369d24540ffaba5e2/docs/nexo-design.md), at the commit DOMQL builds against, sets out how the language and its runtime are built.
+The [DOMQL specification](../spec/README.md) is the contract: DOMQL's module, which declares the DOM as Nexo's domain, and the host that carries queries out against a document. This design sets out how this implementation is built to meet it, and the reasons behind the choices that shape it. It describes DOMQL's version `1.0.0-alpha.301` on Nexo's definition version 38, as the specification does, and an outline of the C# half, which waits for its design; [the status overview](features-status.md) says where the implementation still differs. [Nexo's design](https://github.com/FormaUI/Nexo/blob/cf5cb6f30f3326c0be12ec6369d24540ffaba5e2/docs/nexo-design.md), at the commit DOMQL builds against, sets out how the language and its runtime are built.
 
 In this document:
 
@@ -84,6 +84,8 @@ DOMQL keeps the rest in a catalog of its own. `domql.createModule` takes each ho
 An owned write's target is kept by `OwnedWrites`, one for each set of the module's implementations, so one instance of the library, as its registry and its observations are: by the element in a weak map, and by a key naming the target within it, as `attribute tabindex` or `class open`, the holders of each target in the order they began, the value the target held before the first, and the value DOMQL last wrote, which it reads back from the element after writing so the browser's serialization decides it. A holder that keeps its value observes its element's attribute with a mutation observer filtered to it, the `class` and `style` attributes for a class and a style property, and writes its value again in the next animation frame rather than in the mutation's own microtask, so two writers that each keep a value alternate once a frame instead of starving the page.
 
 ## The C# half
+
+This section outlines the C# half, which waits for its design, as [the decisions](decisions.md#d46) record.
 
 The C# half carries a watch to a .NET application, which starts a watch and receives its results; it is a caller that keeps its own copy of each result, as [keeping a copy of a result](../spec/results.md#results-keeping-a-copy) sets out. Its API follows the JavaScript one:
 

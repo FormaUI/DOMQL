@@ -2,7 +2,7 @@
 
 ## Current state
 
-**DOMQL's vocabulary, queries, watches, events and executions are implemented on Nexo's language `1.0.0-beta.19`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.301`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next is [the C# half](#the-c-half).**
+**DOMQL's vocabulary, queries, watches, events and executions are implemented on Nexo's language `1.0.0-beta.19`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.301`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next are the [planned capabilities](#planned-capabilities) of the host side; the C# half waits for its design.**
 
 | Version | Implementation | Specification |
 | --- | --- | --- |
@@ -12,7 +12,7 @@
 
 - **The language DOMQL runs on.** DOMQL builds against Nexo at the commit `nexo.commit` pins, `cf5cb6f`, Nexo's `1.0.0-beta.19`, and its documents link to [Nexo's documents at it](https://github.com/FormaUI/Nexo/blob/cf5cb6f30f3326c0be12ec6369d24540ffaba5e2/spec/README.md). The language was called Lexica before the [migration](#migration-to-nexo).
 - **Packages.** The bundle and type declarations are built, with Nexo bundled inside `domql.js`. npm and NuGet packages are packed locally but unpublished.
-- **The C# half** is designed and not started.
+- **The C# half** waits for its design, as [D46](decisions.md#d46) records.
 
 The [specification](../spec/README.md) defines the contract, and the [design](domql-design.md) explains the architecture. The [version history](../VERSION-HISTORY.md) records what each version changed. This file tracks DOMQL's implementation and its remaining work. "Implemented" means built and tested in the gate for the current implementation version; it does not imply that later specification changes are implemented.
 
@@ -22,7 +22,7 @@ The [specification](../spec/README.md) defines the contract, and the [design](do
 
 | Work | State |
 | --- | --- |
-| [The C# half](#the-c-half) | Next |
+| [The C# half](#the-c-half) | Waits for its design |
 | [Planned capabilities](#planned-capabilities) | Planned, in the order they are listed |
 | [Release](#release) | On Nexo's published packages |
 
@@ -97,7 +97,7 @@ Each feature, the contract that states it, its state in the implementation, and 
 | Handles: their events, lifetimes and errors | [The API](../spec/api.md) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
 | `domql.info.versions` | [The API](../spec/api.md#api-entry-points-and-operations) | Implemented | [`alpha.275`](../VERSION-HISTORY.md#v1-0-0-alpha-275) |
 | The JavaScript bundle and its TypeScript declarations | [README](../README.md#build-and-try-it) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
-| The C# half | [Design](domql-design.md#the-c-half) | Planned: [next](#the-c-half) | — |
+| The C# half | [Design](domql-design.md#the-c-half) | Waits for its design | — |
 
 <a id="migration-to-nexo"></a>
 <a id="implementation-plan"></a>
@@ -119,6 +119,8 @@ Contracts: [Queries](../spec/queries.md), [types](../spec/vocabulary.md#vocabula
 <a id="part-4--the-c-half"></a>
 
 ## The C# half
+
+**Waits for its design.** The C# half is out of the current work until it is designed, as [D46](decisions.md#d46) records; the outline below is where its design starts.
 
 The C# half follows the migration, so its API is built on the final query text, imports, definition version and result representations, never reworked after them.
 
@@ -143,7 +145,7 @@ The language's part is Nexo's already, adopted with the [migration](#migration-t
 
 **The order of the work:**
 
-1. **The host side.** The C# half (A1), change sets against an acknowledged result and a refresh that delivers (A2, A3), modules loaded on request (A4); occurrences a behavior offers and its owner (C1, C4); and DOMQL's observations for module code (C5).
+1. **The host side.** Change sets against an acknowledged result and a refresh that delivers (A2, A3), modules loaded on request (A4); occurrences a behavior offers and its owner (C1, C4); and DOMQL's observations for module code (C5).
 2. **Input.** Module state per document (C8), synchronous handling stated (C10) and ordered delivery (A5).
 3. **Presentation.** Commands to a running behavior (C3), ownership of written styles and classes against a framework (A10), nullable options (C11) and the frame promise (T2).
 4. **Virtualization.** State a behavior offers and history per holder (C2, C9).
@@ -227,7 +229,7 @@ A behavior's occurrences, state, commands and owner (C1 to C4), and reactions in
 
 | | Addition |
 | --- | --- |
-| A1 | **The C# half,** as [planned](#the-c-half): typed queries mapped onto records, watches, once and continuous executions and subscriptions, with failures reported, never discarded. Its acknowledgement follows the application of an update, never the application's handlers |
+| A1 | **The C# half,** waiting for its design, as [outlined](#the-c-half): typed queries mapped onto records, watches, once and continuous executions and subscriptions, with failures reported, never discarded. Its acknowledgement follows the application of an update, never the application's handlers |
 | A2 | **Change sets against an acknowledged result,** `watch.changesSince(snapshot)` or composition of pending change sets, so one delivery in flight carries everything since the receiver's last acknowledged state while list items stay matched by their sources; a host can't compute it, since item identity lives in metadata a result never holds |
 | A3 | **A refresh that delivers an equal result,** `refreshAsync({ rebaseline: true })`; today a refresh raises nothing when the result is unchanged, while a reconnection and a sentinel refreshed after a load each need it delivered |
 | A4 | **Modules loaded on request,** a loader by module, or the imports a definition names, so a module is registered before the query that names it is resolved; `run` starts synchronously, so its implementation must be loaded first |
@@ -295,7 +297,7 @@ This work is separate from the plan above. No order is assigned here.
 
 | Work | Status | Remaining |
 | --- | --- | --- |
-| Editor tooling | Planned | Nexo's, through its syntax tree, in its [tooling](https://github.com/FormaUI/Nexo/blob/main/docs/features-status.md#tooling) |
+| Editor tooling | Waits for Nexo's design | Nexo's, through its syntax tree, in its [tooling](https://github.com/FormaUI/Nexo/blob/main/docs/features-status.md#tooling), which waits for its design |
 
 **Verification outside the gate.** Performance is measured outside the gate, by `npm run bench` and `npm run scale` from `tests/`. `Domql.window.size` following a scrollbar that appears or goes runs in the gate, as a browser test with a launch of its own.
 

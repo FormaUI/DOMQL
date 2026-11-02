@@ -688,3 +688,14 @@ Each entry is one of three kinds:
 - **Declined:**
   - Keeping a query's evaluator between reads. A small repeated read was about 31% faster, but reading 1,000 or 10,000 rows once got 4 to 5% slower, beyond the noise.
   - A query keeping its resolution to skip Nexo's resolution key: no gain beyond the noise.
+
+<a id="d46"></a>
+
+## D46 — The C# half waits for its design
+
+*November 2, 2026*
+
+- **Kind:** Process.
+- **Decision:** The C# half (A1) is out of the current work until the owner designs it. The design's section and the status's outline stay as where that design starts. Editor tooling, which is Nexo's, waits for Nexo's design too.
+- **Why:** The outline names an API and an adapter, but leaves open what a host with a transport of its own takes from it, how a result maps onto records a field discriminates, and how text is checked without a parser in .NET. Those are the owner's to design.
+- **Declined:** Building it from the outline, which would settle those questions without the owner.
