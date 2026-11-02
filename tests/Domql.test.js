@@ -5823,3 +5823,75 @@ describe('domql state a module keeps', () => {
         });
     });
 });
+
+describe('domql host call arguments', () => {
+    let isolated;
+    let viewport;
+    let started;
+
+    beforeEach(async () => {
+        vi.resetModules();
+        ({ domql: isolated } = await import('#domql/domql.js'));
+        document.body.innerHTML = '<div id="viewport"><button id="back"></button></div>';
+        viewport = document.getElementById('viewport');
+        started = [];
+        isolated.registerModule(isolated.createModule('Scrolls', {
+            types: [
+                // A structured option, written in place, holding an element.
+                structuredType('Buttons', { container: 'Domql.Element', back: 'Domql.Element?', step: 'Number' }),
+                elementExtension('ScrollElements', [{
+                    name: 'scrolling', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'continuous', arguments: 'options',
+                    parameters: [
+                        { name: 'axis', kind: 'value', type: 'String', required: true },
+                        { name: 'bound', kind: 'value', type: 'Domql.Element?', required: false, default: null, nulls: 'accept' },
+                        { name: 'stops', kind: 'value', type: 'List<Number>?', required: false, default: null, nulls: 'accept' },
+                        { name: 'buttons', kind: 'value', type: 'Buttons?', required: false, default: null, nulls: 'accept' },
+                        { name: 'frozen', kind: 'value', type: 'Number?', required: false, default: 0, nulls: 'propagate' },
+                    ],
+                    impl: ({ args }) => {
+                        started.push(args);
+
+                        return { update: (receiver, next) => started.push(next), dispose: () => {} };
+                    },
+                }]),
+            ],
+        }));
+    });
+
+    afterEach(() => {
+        document.body.innerHTML = '';
+    });
+
+    it('passes a null argument whose parameter accepts null as it stands, a null bound meaning the viewport, and leaves an execution skipped only where one that propagates null is null', () => {
+        const run = (options, bindings = {}) => isolated.query(`import Scrolls\nviewport:scrolling(${options})`, { viewport, ...bindings }).run();
+
+        run('{ axis = "inline", bound = null, stops = null, buttons = null }');
+        run('{ axis = "inline", bound = edge, stops = marks }', { edge: null, marks: null });
+
+        expect(started).toEqual([
+            { axis: 'inline', bound: null, stops: null, buttons: null, frozen: 0 },
+            { axis: 'inline', bound: null, stops: null, buttons: null, frozen: 0 },
+        ]);
+
+        const skipped = run('{ axis = "inline", frozen = width }', { width: null });
+
+        expect(skipped.status).toBe('ready');
+        expect(started).toHaveLength(2);
+    });
+
+    it('passes a structured option written in place, holding an element, as the structure its type declares', () => {
+        const back = document.getElementById('back');
+        const scrolling = isolated.query('import Scrolls\nviewport:scrolling({ axis = "inline", buttons = { container = viewport, back = back, step = 3 } })', { viewport, back }).run();
+
+        expect(started).toEqual([{ axis: 'inline', bound: null, stops: null, buttons: { container: viewport, back, step: 3 }, frozen: 0 }]);
+        expect(Object.isFrozen(started[0].buttons)).toBe(true);
+
+        scrolling.update({ viewport, back: null });
+
+        expect(started[1].buttons).toEqual({ container: viewport, back: null, step: 3 });
+    });
+
+    it('refuses a structured option written in place whose field is of another type, as it is resolved', () => {
+        expect(getError(() => isolated.query('import Scrolls\nviewport:scrolling({ axis = "inline", buttons = { container = "viewport", step = 3 } })', { viewport }).run())).toMatchObject({ kind: 'validation' });
+    });
+});

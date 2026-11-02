@@ -120,7 +120,7 @@ export class EventListener {
         this.#rejectAcknowledgments();
     }
 
-    /** Starts the source the prepared call names and answers what stops it; a skipped call, whose receiver or an argument is null, has nothing to listen to. */
+    /** Starts the source the prepared call names and answers what stops it; a skipped call, whose receiver is null or an argument whose parameter propagates null is null, has nothing to listen to. */
     #start(call) {
         if (call.kind === 'skipped') {
             return { stop: () => {} };

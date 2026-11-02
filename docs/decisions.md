@@ -892,3 +892,25 @@ Each entry is one of three kinds:
   - Nexo has a captured member's holder keep its history, and DOMQL's holder of an evaluation is its operation: a watch, a wait or a subscription. One environment for each, the same from its start to its end, is the key that names it, and goes with it.
   - A key a module derives from its environment needs no protocol: a `WeakMap` of its own lets it go with the operation.
 - **Declined:** An identifier of the operation in the environment, which a module would key a map by anyway and never release.
+
+<a id="d59"></a>
+
+## D59 — A null argument skips a host call only where its parameter propagates null
+
+*November 2, 2026*
+
+- **Kind:** Contract.
+- **Decision:** DOMQL's documents say a skipped preparation is one where the receiver is null, or an argument whose parameter propagates null is null ([C11](features-status.md#planned-extension-contract)); a null argument whose parameter accepts null is passed as it stands.
+- **Why:** That is Nexo's rule, which DOMQL's preparation already followed, while its documents said any null argument skips the call. A behavior's options take null as a value, as a bound of null meaning the viewport, an heir of null meaning none, or a maximum length of null meaning no limit, and the wording must not tell a module author otherwise.
+- **Declined:** A rule of DOMQL's own, which would make one parameter's null policy mean two things.
+
+<a id="d60"></a>
+
+## D60 — Nested options holding an element are Nexo's structured values
+
+*November 2, 2026*
+
+- **Kind:** Contract.
+- **Decision:** An option declared a structured type, written in place as an object expression, as `buttons = { container = viewport, step = 3 }`, is constructed as that type's data, its reference fields holding the elements they name, and reaches the implementation frozen ([C12](features-status.md#planned-extension-contract)). DOMQL adds nothing: Nexo constructs it, from its language `1.0.0-alpha.36`.
+- **Why:** A test settled that a structured option holding an element, written in place in a continuous execution's options and given null where its field is nullable, reaches the implementation as the structure its type declares, through `run` and through an update, and that a field of another type is refused as the request is resolved.
+- **Declined:** An options form of DOMQL's own, which would repeat Nexo's construction of structures.

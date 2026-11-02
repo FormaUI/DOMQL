@@ -358,7 +358,8 @@ class Domql {
 
     /**
      * Carries out the once execution the request ends in and answers a promise of its result, an immutable snapshot containing no live DOM references, read through the object expression that follows the execution where one does.
-     * Its host call is prepared first; a failure there rejects and executes nothing, and a skipped preparation, where the receiver or an argument is null, executes nothing and resolves to null. The execution's implementation receives
+     * Its host call is prepared first; a failure there rejects and executes nothing, and a skipped preparation, where the receiver is null or an argument whose parameter propagates null is null, executes nothing and resolves
+     * to null. The execution's implementation receives
      * the signal, and may answer its result or a promise of it, which Nexo captures as the type the execution declares; one that declares none resolves to null. A failure of the execution rejects with an evaluation error whose cause
      * is what it threw. A signal that aborts rejects with its reason at once; the execution learns of it through the signal, its result is then discarded, and a failure it reports afterwards goes to the window's error reporting. DOMQL
      * never undoes what an execution changed. A command, a once execution reaching a behavior, finds the instance of that behavior running for its owner on its receiver, and rejects, executing nothing, where none runs.
@@ -440,7 +441,8 @@ class Domql {
 
     /**
      * Runs the continuous execution the request ends in, which has started once the call returns, and answers its handle, which belongs to the caller. Disposing the handle ends the execution and leaves its module registered.
-     * Its host call is prepared now; a skipped preparation, where the receiver or an argument is null, has nothing to start until an update supplies one. An execution that cannot start fails the call and leaves nothing running.
+     * Its host call is prepared now; a skipped preparation, where the receiver is null or an argument whose parameter propagates null is null, has nothing to start until an update supplies one. An execution that cannot
+     * start fails the call and leaves nothing running.
      * The execution runs for its owner, and its running instance is kept on its receiver for its module's commands. Its environment is the handle's, through every update.
      */
     static #run(query, { window = globalThis.window, owner = null, signal }) {

@@ -6,6 +6,21 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-307"></a>
+
+## `1.0.0-alpha.307`
+
+*November 2, 2026 · Nexo language `1.0.0-beta.19` · definition format 38*
+
+DOMQL states how a host call's options reach its implementation: a null passed as it stands where its parameter accepts null, and a structured option written in place.
+
+**Executions**
+
+- [Arguments](spec/vocabulary.md#extension-modules): a skipped preparation is one whose receiver is null, or an argument whose parameter propagates null is null; a null argument whose parameter accepts null is passed as it stands, as a bound of null meaning the viewport, as [D59](docs/decisions.md#d59) records. DOMQL's documents said any null argument skips the call, which its preparation never did.
+- [Arguments](spec/vocabulary.md#extension-modules): an option of a structured type, written in place as an object expression, reaches the implementation as that type's frozen data, its reference fields holding the elements they name, as [D60](docs/decisions.md#d60) records.
+
+**Breaking:** nothing.
+
 <a id="v1-0-0-alpha-306"></a>
 
 ## `1.0.0-alpha.306`

@@ -2,11 +2,11 @@
 
 ## Current state
 
-**DOMQL's vocabulary, queries, watches, events and executions are implemented on Nexo's language `1.0.0-beta.19`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.306`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next are the [planned capabilities](#planned-capabilities) of the host side; the C# half waits for its design.**
+**DOMQL's vocabulary, queries, watches, events and executions are implemented on Nexo's language `1.0.0-beta.19`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.307`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next are the [planned capabilities](#planned-capabilities) of the host side; the C# half waits for its design.**
 
 | Version | Implementation | Specification |
 | --- | --- | --- |
-| DOMQL specification | `1.0.0-alpha.306` | `1.0.0-alpha.306` |
+| DOMQL specification | `1.0.0-alpha.307` | `1.0.0-alpha.307` |
 | Nexo language | `1.0.0-beta.19` | `1.0.0-beta.19` |
 | Definition format | 38 | 38 |
 
@@ -106,6 +106,8 @@ Each feature, the contract that states it, its state in the implementation, and 
 | A transient measurement, `env.measureUnder`, which DOMQL's own observers never hear | [The environment](../spec/vocabulary.md#extension-modules-environment) | Implemented, as [D55](decisions.md#d55) records | [`alpha.305`](../VERSION-HISTORY.md#v1-0-0-alpha-305) |
 | A module's state per document, one across every instance of DOMQL | [State per document](../spec/vocabulary.md#extension-modules-state-per-document) | Implemented, as [D57](decisions.md#d57) records | [`alpha.306`](../VERSION-HISTORY.md#v1-0-0-alpha-306) |
 | A captured member's history, kept per holder by the operation's environment | [History per holder](../spec/vocabulary.md#extension-modules-history-per-holder) | Implemented, as [D58](decisions.md#d58) records | [`alpha.306`](../VERSION-HISTORY.md#v1-0-0-alpha-306) |
+| A null argument passed as it stands where its parameter accepts null | [Arguments](../spec/vocabulary.md#extension-modules) | Implemented, as [D59](decisions.md#d59) records | [`alpha.307`](../VERSION-HISTORY.md#v1-0-0-alpha-307) |
+| Nested options holding an element, a structured option written in place | [Arguments](../spec/vocabulary.md#extension-modules) | Implemented, as [D60](decisions.md#d60) records | [`alpha.307`](../VERSION-HISTORY.md#v1-0-0-alpha-307) |
 | Handling inside the native dispatch, delivering synchronously and never throwing into the listener | [Handling inside the native dispatch](../spec/behaviors.md#behaviors-synchronous-handling) | Implemented, as [D51](decisions.md#d51) records | [`alpha.303`](../VERSION-HISTORY.md#v1-0-0-alpha-303) |
 | `domql.info.versions` | [The API](../spec/api.md#api-entry-points-and-operations) | Implemented | [`alpha.275`](../VERSION-HISTORY.md#v1-0-0-alpha-275) |
 | The JavaScript bundle and its TypeScript declarations | [README](../README.md#build-and-try-it) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
@@ -157,7 +159,7 @@ The language's part is Nexo's already, adopted with the [migration](#migration-t
 
 **The order of the work:**
 
-1. **The host side.** Change sets against an acknowledged result and a refresh that delivers (A2, A3), modules loaded on request (A4) and ordered delivery (A5); nullable options (C11) and nested options holding an element (C12), which a behavior needs as soon as a host runs one.
+1. **The host side.** Change sets against an acknowledged result and a refresh that delivers (A2, A3), modules loaded on request (A4) and ordered delivery (A5).
 2. **Presentation.** Ownership of written styles and classes against a framework (A10) and the frame promise (T2).
 3. **Dialogs and frames.** Ordered executions (T3).
 4. **The remaining facilities.** Reactions in the browser (A7).
@@ -220,8 +222,7 @@ A behavior's occurrences, state, commands and owner (C1 to C4), and reactions in
 
 
 
-| C11 | **A null argument that doesn't skip:** DOMQL's executions say a null argument skips the call, while the language skips only where the parameter propagates null, so DOMQL narrows its wording to the language's rule, and a null option, as a bound of `null` meaning the viewport, is passed as it stands |
-| C12 | **Nested option objects holding an element,** `buttons = { container = root, … }`: an option declared a structured type, which an object expression written there constructs from Nexo's language `1.0.0-alpha.36`, its `container` a reference |
+
 | C13 | **A kept function argument,** as a predicate a running behavior keeps and calls later; the language forbids a host call to keep a function today, so what a behavior keeps is data |
 
 <a id="planned-api-and-host"></a>
