@@ -23,6 +23,30 @@ describe('SessionCache', () => {
         expect(sessionCache.find(observation, {}, {}, owner)).toBeNull();
     });
 
+    it('finds a session through any observation of the same content, which another declaration names', () => {
+        const sessionCache = new SessionCache();
+        const owner = {};
+        const target = {};
+        const cachedSession = keep(sessionCache, target, owner);
+
+        expect(sessionCache.find(Object.freeze({ type: 'probe', of: 'receiver' }), {}, target, owner)).toBe(cachedSession);
+        expect(sessionCache.find(Object.freeze({ type: 'probe', of: 'root' }), {}, target, owner)).toBeNull();
+    });
+
+    it('finds a session of an observation whose arguments depend on the call only for a call that resolves it to the same values', () => {
+        const sessionCache = new SessionCache();
+        const owner = {};
+        const target = {};
+        const named = Object.freeze({ type: 'probe', of: 'receiver', names: Object.freeze([Object.freeze({ argument: 'name' })]) });
+        const cachedSession = { request: { type: 'probe', target, arguments: { names: ['id'] } }, session: { isDisposed: false }, values: { type: 'probe', target, arguments: { names: ['id'] } }, owner };
+
+        sessionCache.keep(named, cachedSession);
+
+        expect(sessionCache.find(named, { name: 'id' }, target, owner)).toBe(cachedSession);
+        expect(sessionCache.find(named, { name: 'class' }, target, owner)).toBeNull();
+        expect(sessionCache.find(Object.freeze({ type: 'probe', of: 'receiver', names: Object.freeze([Object.freeze({ argument: 'name' })]) }), { name: 'id' }, target, owner)).toBe(cachedSession);
+    });
+
     it('gives a session to the evaluation that reaches it, once', () => {
         const sessionCache = new SessionCache();
         const cachedSession = keep(sessionCache, {}, {});

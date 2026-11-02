@@ -135,6 +135,21 @@ describe('SnapshotPatcher', () => {
             ]);
         });
 
+        it('changes inside the items of a projected list whose elements kept their places, an element standing twice among them, each at its place', () => {
+            const [a, b, c] = elements('a', 'b', 'c');
+
+            expect(SnapshotPatcher.changeSetBetween(
+                freeze({ rows: [{ key: 'a', height: 1 }, { key: 'b', height: 2 }, { key: 'c', height: 3 }] }), rowsOf([a, b, c]),
+                freeze({ rows: [{ key: 'a', height: 10 }, { key: 'b', height: 2 }, { key: 'c', height: 30 }] }), rowsOf([a, b, c]),
+            )).toEqual([
+                { op: 'replace', path: '/rows/0/height', value: 10 },
+                { op: 'replace', path: '/rows/2/height', value: 30 },
+            ]);
+            expect(SnapshotPatcher.changeSetBetween(freeze({ rows: [{ k: 1 }, { k: 1 }] }), rowsOf([a, a]), freeze({ rows: [{ k: 1 }, { k: 2 }] }), rowsOf([a, a]))).toEqual([
+                { op: 'replace', path: '/rows/1/k', value: 2 },
+            ]);
+        });
+
         it('matches by position a projected list in which an element stands twice or an item is null', () => {
             const [a, b] = elements('a', 'b');
 
@@ -151,6 +166,12 @@ describe('SnapshotPatcher', () => {
             expect(SnapshotPatcher.changeSetBetween(freeze({ 'a/b': 1, '~c': 1 }), null, freeze({ 'a/b': 2, '~c': 2 }), null)).toEqual([
                 { op: 'replace', path: '/a~1b', value: 2 },
                 { op: 'replace', path: '/~0c', value: 2 },
+            ]);
+
+            const shared = freeze({ 'x/y': 1 });
+
+            expect(SnapshotPatcher.changeSetBetween(freeze({ 'p~q': { s: shared, '~t': [1, 2] } }), null, freeze({ 'p~q': { s: shared, '~t': [1, 3] } }), null)).toEqual([
+                { op: 'replace', path: '/p~0q/~0t/1', value: 3 },
             ]);
         });
     });
@@ -245,6 +266,7 @@ describe('SnapshotPatcher', () => {
 
     const roundTrips = [
         ['fields, nulls and positional lists', freeze({ a: 1, b: { c: [1, 2] }, d: null }), null, freeze({ a: 2, b: { c: [2] }, d: { e: 'x' } }), null],
+        ['fields whose names a pointer escapes, at every depth', freeze({ 'a/b': { '~c': [1, { 'd~/e': 2 }], plain: 1 }, '~': 0 }), null, freeze({ 'a/b': { '~c': [1, { 'd~/e': 3 }, 4], plain: 1 }, '~': 1 }), null],
         ['a projected list reordered, updated, grown and shrunk at once', ...(() => {
             const [a, b, c, d, e] = elements('a', 'b', 'c', 'd', 'e');
 

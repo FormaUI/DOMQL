@@ -288,10 +288,13 @@ describe('Observations', () => {
             expect(observations.resolve({ type: 'ticks', of: { argument: 'other' } }, { receiver: target, args: { other } }).target).toBe(other);
         });
 
-        it('replace each argument an observation names with its value, in lists too', () => {
+        it('replace each argument an observation names with its value, in lists too, in the order the observation names them', () => {
             const resolved = observations.resolve({ type: 'ticks', of: 'receiver', step: { argument: 'name' }, names: [{ argument: 'name' }, 'fixed'], flag: true }, { receiver: target, args: { name: 'id' } });
 
             expect(resolved).toEqual({ type: 'ticks', target, arguments: { step: 'id', names: ['id', 'fixed'], flag: true } });
+            expect(Object.keys(resolved.arguments)).toEqual(['step', 'names', 'flag']);
+            expect(Object.keys(Observations.valuesOf(resolved).arguments)).toEqual(['step', 'names', 'flag']);
+            expect(Observations.valuesOf(resolved).arguments.names).not.toBe(resolved.arguments.names);
         });
 
         it('join an argument reference\'s prefix to the argument, and leave a null argument null', () => {

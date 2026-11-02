@@ -37,6 +37,10 @@ export class LiveState {
         this.#snapshot = snapshot;
         this.#metadata = metadata;
 
-        return Object.freeze(changes.map(operation => Object.freeze(operation)));
+        for (const operation of changes) {
+            Object.freeze(operation);
+        }
+
+        return Object.freeze(changes);
     }
 }

@@ -25,6 +25,22 @@ describe('Provenance', () => {
         expect(Provenance.referencesOf({ provenance: [reference(element), reference(element)] }, 2)).toBeNull();
     });
 
+    it('tells whether two lists\' items descend from the same sources place by place, which matching by reference and by position alike pair at their own places', () => {
+        const [first, second] = [{ id: 'first' }, { id: 'second' }];
+        const metadataOf = (...sources) => ({ provenance: sources });
+
+        expect(Provenance.keepsPlaces(metadataOf(reference(first), reference(second)), 2, metadataOf(reference(first), reference(second)), 2)).toBe(true);
+        expect(Provenance.keepsPlaces(metadataOf(reference(first), reference(first)), 2, metadataOf(reference(first), reference(first)), 2)).toBe(true);
+        expect(Provenance.keepsPlaces(metadataOf({ kind: 'data', value: 'a' }), 1, metadataOf(reference('a')), 1)).toBe(true);
+        expect(Provenance.keepsPlaces(metadataOf(), 0, metadataOf(), 0)).toBe(true);
+
+        expect(Provenance.keepsPlaces(metadataOf(reference(first), reference(second)), 2, metadataOf(reference(second), reference(first)), 2)).toBe(false);
+        expect(Provenance.keepsPlaces(metadataOf(reference(first)), 1, metadataOf(reference(first), reference(second)), 2)).toBe(false);
+        expect(Provenance.keepsPlaces(metadataOf(reference(first)), 2, metadataOf(reference(first)), 2)).toBe(false);
+        expect(Provenance.keepsPlaces(null, 1, metadataOf(reference(first)), 1)).toBe(false);
+        expect(Provenance.keepsPlaces({ origin: {} }, 1, { origin: {} }, 1)).toBe(false);
+    });
+
     it('tells a reference by the kind Nexo reports, never by its value', () => {
         const element = { id: 'element' };
 

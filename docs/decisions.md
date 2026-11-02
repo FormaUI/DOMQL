@@ -675,3 +675,16 @@ Each entry is one of three kinds:
   - `src` is an attribute, so the write joins the holders of an element's `src` that `ownAttribute` writes, and restores as they do.
   - A file's content is no data a result holds, as [D25](#d25) has it, so the source is read from the input itself; an update after a watch of `files` reports a new choice shows it, so the execution follows the caller rather than listening for changes of its own.
 - **Declined:** following the input's `change` events itself, which would show a choice the caller hasn't acted on, and a module's own execution for it, as the plan allowed.
+
+<a id="d45"></a>
+
+## D45 — An optimization stays only where paired runs show it helps
+
+*November 2, 2026*
+
+- **Kind:** Design.
+- **Decision:** Each optimization is measured in paired runs against the commit before it, time and allocation both, and kept only where it helps beyond the runs' noise. The design records each measurement beside the choice it settles. Its decisions not taken record what was tried and dropped.
+- **Why:** Most of DOMQL's cost is comparing, patching and projecting results, and the evaluation hooks. Those paths changed most: an event's projection is about 55% faster with about 66% less allocation, and a change set of one changed row about 93% faster.
+- **Declined:**
+  - Keeping a query's evaluator between reads. A small repeated read was about 31% faster, but reading 1,000 or 10,000 rows once got 4 to 5% slower, beyond the noise.
+  - A query keeping its resolution to skip Nexo's resolution key: no gain beyond the noise.

@@ -357,6 +357,15 @@ describe('DomqlQuery', () => {
             expect(() => isolated.query('panel { n = 1 }', { panel }).select('m').evaluate()).toThrow(expect.objectContaining({ kind: 'validation', code: 'NEXO3602', message: expect.stringContaining("'m'"), location: { pointer: '/expression', offset: 0, line: 1, column: 1 } }));
         });
 
+        it('is refused where its path does not fit the result, by each operation before anything starts', async () => {
+            const misfit = isolated.query('panel { n = 1 }', { panel }).select('n', 0);
+
+            expect(() => misfit.evaluate()).toThrow(expect.objectContaining({ kind: 'validation', code: 'NEXO3601' }));
+            await expect(misfit.evaluateAsync()).rejects.toMatchObject({ kind: 'validation', code: 'NEXO3601' });
+            expect(() => misfit.watch({ schedule: 'immediate' })).toThrow(expect.objectContaining({ kind: 'validation', code: 'NEXO3601' }));
+            expect(isolated.query('panel { n = 1 }', { panel }).evaluate()).toEqual({ n: 1 });
+        });
+
         it('watches the part, raised where it changed, and refuses to keep it as live state', async () => {
             const selection = isolated.query('panel { n = it["data-n"], rows = it.children { n = it["data-n"] } }', { panel }).select('rows', 0, 'n');
             const watch = selection.watch({ schedule: 'immediate' });

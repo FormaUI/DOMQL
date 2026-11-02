@@ -64,8 +64,8 @@ export class SnapshotPatcher {
             return;
         }
 
-        const parent = SnapshotPatcher.#valueAt(target, path.slice(0, -1));
-        const token = path.at(-1);
+        const parent = SnapshotPatcher.#valueAt(target, path, path.length - 1);
+        const token = path[path.length - 1];
 
         if (Array.isArray(parent)) {
             const index = token === '-' && op === 'add' ? parent.length : SnapshotPatcher.#parseIndex(token);
@@ -96,8 +96,8 @@ export class SnapshotPatcher {
             throw new TypeError('A change set cannot remove the whole result');
         }
 
-        const parent = SnapshotPatcher.#valueAt(target, path.slice(0, -1));
-        const token = path.at(-1);
+        const parent = SnapshotPatcher.#valueAt(target, path, path.length - 1);
+        const token = path[path.length - 1];
 
         if (Array.isArray(parent)) {
             const index = SnapshotPatcher.#parseIndex(token);
@@ -169,7 +169,13 @@ export class SnapshotPatcher {
 
         if (ObjectUtils.isNonArrayObject(previous) && ObjectUtils.isNonArrayObject(next) && SnapshotPatcher.#sameNames(previous, next)) {
             for (const name of Object.keys(next)) {
-                SnapshotPatcher.#compare(previous[name], previousMetadata?.objectFields?.[name] ?? null, next[name], nextMetadata?.objectFields?.[name] ?? null, `${path}/${SnapshotPatcher.#escape(name)}`, operations);
+                const before = previous[name];
+                const after = next[name];
+
+                // A part the next result shares with the previous one is unchanged, so the path of a part is written only where it differs.
+                if (!Object.is(before, after)) {
+                    SnapshotPatcher.#compare(before, previousMetadata?.objectFields?.[name] ?? null, after, nextMetadata?.objectFields?.[name] ?? null, `${path}/${SnapshotPatcher.#escape(name)}`, operations);
+                }
             }
 
             return;
@@ -179,15 +185,19 @@ export class SnapshotPatcher {
     }
 
     static #compareLists(previous, previousMetadata, next, nextMetadata, path, operations) {
-        const previousElements = Provenance.referencesOf(previousMetadata, previous.length);
-        const nextElements = Provenance.referencesOf(nextMetadata, next.length);
+        // Items that kept their places change by element as they do by position.
+        const keepsPlaces = Provenance.keepsPlaces(previousMetadata, previous.length, nextMetadata, next.length);
+        const previousElements = keepsPlaces ? null : Provenance.referencesOf(previousMetadata, previous.length);
+        const nextElements = keepsPlaces ? null : Provenance.referencesOf(nextMetadata, next.length);
         const itemMetadataOf = (metadata, index) => metadata?.items?.[index] ?? null;
 
         if (previousElements === null || nextElements === null) {
             const commonLength = Math.min(previous.length, next.length);
 
             for (let index = 0; index < commonLength; index++) {
-                SnapshotPatcher.#compare(previous[index], itemMetadataOf(previousMetadata, index), next[index], itemMetadataOf(nextMetadata, index), `${path}/${index}`, operations);
+                if (!Object.is(previous[index], next[index])) {
+                    SnapshotPatcher.#compare(previous[index], itemMetadataOf(previousMetadata, index), next[index], itemMetadataOf(nextMetadata, index), `${path}/${index}`, operations);
+                }
             }
 
             for (let index = commonLength; index < next.length; index++) {
@@ -235,30 +245,35 @@ export class SnapshotPatcher {
         nextElements.forEach((element, index) => {
             const previousIndex = previousIndexByElement.get(element);
 
-            if (previousIndex !== undefined) {
+            if (previousIndex !== undefined && !Object.is(previous[previousIndex], next[index])) {
                 SnapshotPatcher.#compare(previous[previousIndex], itemMetadataOf(previousMetadata, previousIndex), next[index], itemMetadataOf(nextMetadata, index), `${path}/${index}`, operations);
             }
         });
     }
 
-    static #valueAt(node, path) {
-        return path.reduce((current, token) => {
-            if (Array.isArray(current)) {
-                const index = SnapshotPatcher.#parseIndex(token);
+    /** The value the first tokens of the path, as many as given, reach from the node. */
+    static #valueAt(node, path, length) {
+        let current = node;
 
-                if (index >= current.length) {
+        for (let index = 0; index < length; index++) {
+            const token = path[index];
+
+            if (Array.isArray(current)) {
+                const position = SnapshotPatcher.#parseIndex(token);
+
+                if (position >= current.length) {
                     throw new TypeError(`The path reaches past the end of a list, at '${token}'`);
                 }
 
-                return current[index];
+                current = current[position];
+            } else if (ObjectUtils.isNonArrayObject(current) && Object.hasOwn(current, token)) {
+                current = current[token];
+            } else {
+                throw new TypeError(`The path names '${token}', which the result does not hold`);
             }
+        }
 
-            if (ObjectUtils.isNonArrayObject(current) && Object.hasOwn(current, token)) {
-                return current[token];
-            }
-
-            throw new TypeError(`The path names '${token}', which the result does not hold`);
-        }, node);
+        return current;
     }
 
     /** The tokens of a JSON Pointer, unescaped. */
@@ -267,7 +282,20 @@ export class SnapshotPatcher {
             throw new TypeError(`'${pointer}' is no JSON Pointer`);
         }
 
-        return pointer === '' ? [] : pointer.slice(1).split('/').map(token => token.replaceAll('~1', '/').replaceAll('~0', '~'));
+        if (pointer === '') {
+            return [];
+        }
+
+        const tokens = pointer.slice(1).split('/');
+
+        // A token holds an escape only where it holds a tilde.
+        for (let index = 0; index < tokens.length; index++) {
+            if (tokens[index].includes('~')) {
+                tokens[index] = tokens[index].replaceAll('~1', '/').replaceAll('~0', '~');
+            }
+        }
+
+        return tokens;
     }
 
     static #parseIndex(token) {

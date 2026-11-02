@@ -7,6 +7,12 @@ import { Provenance } from './Provenance.mjs';
 
 export class SnapshotComparer {
     /**
+     * The names of the fields each record of an object expression's fields describes, in the order written, by the record: Nexo freezes a record and shares it among the objects one expression builds, through every
+     * evaluation of its resolution, so its names are listed once, and are released with the record. @type {WeakMap<object, string[]>}
+     */
+    static #fieldNames = new WeakMap();
+
+    /**
      * The next snapshot, in which every branch equal to the previous snapshot's is the previous branch itself, so a snapshot that did not change is the previous one and a new snapshot shares what it did not change.
      * Strings, Booleans and null compare exactly, and a number compares within the tolerance its metadata gives where the previous and the next value have one origin, and exactly where their origins differ or it has none.
      * An item of a list projected from references is compared with the previous item of the same reference, wherever it stood, so a reordered list shares the items that did not change.
@@ -61,7 +67,7 @@ export class SnapshotComparer {
     /** An object an object expression built, its fields compared in the order written, each by its own record. */
     static #reconcileFields(previous, previousMetadata, next, nextMetadata) {
         const previousRecord = ObjectUtils.isNonArrayObject(previous) ? previous : undefined;
-        const names = Object.keys(nextMetadata.objectFields);
+        const names = SnapshotComparer.#fieldNamesOf(nextMetadata.objectFields);
         const isSameShape = previousRecord !== undefined && SnapshotComparer.#hasFieldCount(previousRecord, names.length);
 
         // The fields are gathered only from the first that is not the previous object's, until which they are the previous object's own.
@@ -89,6 +95,18 @@ export class SnapshotComparer {
         return fields === null ? (isSameShape ? previousRecord : Object.freeze({})) : Object.freeze(fields);
     }
 
+    /** The names of the fields the record describes, listed once for each record. */
+    static #fieldNamesOf(objectFields) {
+        let names = SnapshotComparer.#fieldNames.get(objectFields);
+
+        if (names === undefined) {
+            names = Object.keys(objectFields);
+            SnapshotComparer.#fieldNames.set(objectFields, names);
+        }
+
+        return names;
+    }
+
     /** Whether the record has exactly as many fields as given, counted without a list of their names. */
     static #hasFieldCount(record, count) {
         let found = 0;
@@ -104,6 +122,11 @@ export class SnapshotComparer {
 
     /** For each next item, the index of the previous item that descends from its reference, or -1 for a reference that entered; null where either list is matched by position. */
     static #matchBySource(previousMetadata, previousLength, nextMetadata, nextLength) {
+        // Items that kept their places match by reference as they do by position.
+        if (Provenance.keepsPlaces(previousMetadata, previousLength, nextMetadata, nextLength)) {
+            return null;
+        }
+
         const previousReferences = Provenance.referencesOf(previousMetadata, previousLength);
         const nextReferences = Provenance.referencesOf(nextMetadata, nextLength);
 

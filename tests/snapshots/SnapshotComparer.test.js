@@ -136,6 +136,29 @@ describe('SnapshotComparer', () => {
             expect(Object.isFrozen(next)).toBe(true);
         });
 
+        it('compares every object one expression builds by the fields it names, in their order, through each item and each snapshot', () => {
+            const [a, b] = [elementOf({ key: 'a', n: '1', m: '1' }), elementOf({ key: 'b', n: '2', m: '2' })];
+            const element = elementOf({}, [a, b]);
+            const watch = watchOf('element.children { key = it.attribute["key"], n = it.attribute["n"], m = it.attribute["m"] }', { element });
+            const first = watch.snapshot();
+
+            b.setAttribute('m', '9');
+
+            const second = watch.snapshot();
+            const reconciled = watch.reconcile(first, second);
+
+            a.setAttribute('n', '7');
+
+            const third = watch.reconcile({ value: reconciled, metadata: second.metadata }, watch.snapshot());
+
+            expect(reconciled[0]).toBe(first.value[0]);
+            expect(reconciled[1]).toEqual({ key: 'b', n: '2', m: '9' });
+            expect(Object.keys(reconciled[1])).toEqual(['key', 'n', 'm']);
+            expect(third[1]).toBe(reconciled[1]);
+            expect(third[0]).toEqual({ key: 'a', n: '7', m: '1' });
+            expect(Object.keys(third[0])).toEqual(['key', 'n', 'm']);
+        });
+
         it('gives a new object where the previous one has fields the expression does not name, even where every named field is the same', () => {
             const element = elementOf({ a: '1', b: '2' });
             const watch = watchOf('element { a = it.attribute["a"], b = it.attribute["b"] }', { element });

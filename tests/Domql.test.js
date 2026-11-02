@@ -1441,6 +1441,79 @@ describe('domql modules', () => {
         types: [elementExtension(`${name}Elements`, [{ name: name.toLowerCase(), kind: 'property', result: 'Number', updates: { changes: 'constant', reads: 'fresh' }, impl: () => 7 }])],
     });
 
+    describe('a query evaluated again', () => {
+        it('reads the document as it is each time, in the window each evaluation gives', () => {
+            document.body.innerHTML = '<div id="panel"><i></i></div>';
+
+            const panel = document.getElementById('panel');
+            const count = isolated.query('{ count = panel.children.count, ratio = Domql.window.devicePixelRatio }', { panel });
+            const other = { document, devicePixelRatio: 3, get window() { return this; } };
+
+            expect(count.evaluate()).toEqual({ count: 1, ratio: window.devicePixelRatio });
+
+            panel.append(document.createElement('i'));
+
+            expect(count.evaluate()).toEqual({ count: 2, ratio: window.devicePixelRatio });
+            expect(count.evaluate({ window: other })).toEqual({ count: 2, ratio: 3 });
+            expect(count.evaluate()).toEqual({ count: 2, ratio: window.devicePixelRatio });
+        });
+
+        it('is evaluated anew by a member its evaluation reads that evaluates it again, each evaluation reading for itself', () => {
+            document.body.innerHTML = '<div id="panel" data-depth="2"></div>';
+
+            const panel = document.getElementById('panel');
+            let query = null;
+
+            isolated.registerModule(isolated.createModule('Nested', {
+                types: [elementExtension('NestedElements', [{
+                    name: 'nested', kind: 'property', result: 'Number', updates: { changes: 'constant', reads: 'fresh' },
+                    impl: ({ receiver }) => {
+                        const depth = Number(receiver.getAttribute('data-depth'));
+
+                        if (depth === 0) {
+                            return 0;
+                        }
+
+                        receiver.setAttribute('data-depth', String(depth - 1));
+
+                        return query.evaluate().inner + 1;
+                    },
+                }])],
+            }));
+
+            query = isolated.query('import Nested\n{ outer = panel.attribute["data-depth"], inner = panel:nested, after = panel.attribute["data-depth"] }', { panel });
+
+            expect(query.evaluate()).toEqual({ outer: '2', inner: 2, after: '0' });
+
+            panel.setAttribute('data-depth', '1');
+
+            expect(query.evaluate()).toEqual({ outer: '1', inner: 1, after: '0' });
+        });
+
+        it('is evaluated through a current resolution once a registration made its own stale', () => {
+            document.body.innerHTML = '<div id="panel" data-n="1"></div>';
+
+            const panel = document.getElementById('panel');
+
+            // A member answering a value of Any, which a typeOf registered later may recognize, so a resolution reading it goes stale.
+            isolated.registerModule(isolated.createModule('Bag', {
+                types: [elementExtension('BagElements', [{ name: 'bag', kind: 'property', result: 'Any', updates: { changes: 'constant', reads: 'fresh' }, impl: ({ receiver }) => receiver.getAttribute('data-n') }])],
+            }));
+
+            const query = isolated.query('import Bag\n{ n = panel:bag, count = panel.children.count }', { panel });
+            const before = query.resolve();
+
+            expect(query.evaluate()).toEqual({ n: '1', count: 0 });
+
+            isolated.registerModule(isolated.createModule('Gadgets', { typeOf: () => null, types: [{ name: 'Gadget', kind: 'reference', isInstance: () => false }] }));
+            panel.setAttribute('data-n', '2');
+
+            expect(query.evaluate()).toEqual({ n: '2', count: 0 });
+            expect(query.resolve()).not.toBe(before);
+            expect(query.evaluate()).toEqual({ n: '2', count: 0 });
+        });
+    });
+
     describe('an observation type that is not shared', () => {
         /** Registers `Level`, whose `level` is a member maintained by an observation that is not shared; each observation it starts is recorded, its sample given by `deliver`. */
         const registerLevel = () => {

@@ -11,8 +11,11 @@ import { Observations } from './Observations.mjs';
  */
 
 export class SessionCache {
-    /** The content of each observation a declaration names, by the observation, which is frozen, so declarations that name the same observation hold its sessions together. @type {WeakMap<object, string>} */
-    static #contents = new WeakMap();
+    /**
+     * What is found once of each observation a declaration names, by the observation, which is frozen: its content, so declarations that name the same observation hold its sessions together, and whether its argument values
+     * depend on the call. @type {WeakMap<object, { content: string, hasDynamicArguments: boolean }>}
+     */
+    static #forms = new WeakMap();
 
     /** The cached sessions, by the content of their observation and then their target: one, or several where their arguments differ. @type {Map<string, Map<object, CachedSession | CachedSession[]>>} */
     #byObservation = new Map();
@@ -49,18 +52,19 @@ export class SessionCache {
      * @returns {CachedSession | null}
      */
     find(observationDeclaration, args, target, owner) {
-        const candidates = this.#byObservation.get(SessionCache.#contentOf(observationDeclaration))?.get(target);
+        const form = SessionCache.#formOf(observationDeclaration);
+        const candidates = this.#byObservation.get(form.content)?.get(target);
 
         if (candidates === undefined) {
             return null;
         }
 
         if (!Array.isArray(candidates)) {
-            return SessionCache.#matches(candidates, observationDeclaration, args, target, owner) ? candidates : null;
+            return SessionCache.#matches(candidates, form, observationDeclaration, args, target, owner) ? candidates : null;
         }
 
         for (const cachedSession of candidates) {
-            if (SessionCache.#matches(cachedSession, observationDeclaration, args, target, owner)) {
+            if (SessionCache.#matches(cachedSession, form, observationDeclaration, args, target, owner)) {
                 return cachedSession;
             }
         }
@@ -90,7 +94,7 @@ export class SessionCache {
      * @param {CachedSession} cachedSession The session and what it was acquired for.
      */
     keep(observationDeclaration, cachedSession) {
-        const content = SessionCache.#contentOf(observationDeclaration);
+        const { content } = SessionCache.#formOf(observationDeclaration);
         let byTarget = this.#byObservation.get(content);
 
         if (byTarget === undefined) {
@@ -130,26 +134,26 @@ export class SessionCache {
         }
     }
 
-    /** The observation's content, written once for each observation. */
-    static #contentOf(observationDeclaration) {
-        let content = SessionCache.#contents.get(observationDeclaration);
+    /** The observation's content and whether its argument values depend on the call, found once for each observation. */
+    static #formOf(observationDeclaration) {
+        let form = SessionCache.#forms.get(observationDeclaration);
 
-        if (content === undefined) {
-            content = JSON.stringify(observationDeclaration);
-            SessionCache.#contents.set(observationDeclaration, content);
+        if (form === undefined) {
+            form = { content: JSON.stringify(observationDeclaration), hasDynamicArguments: Observations.hasDynamicArguments(observationDeclaration) };
+            SessionCache.#forms.set(observationDeclaration, form);
         }
 
-        return content;
+        return form;
     }
 
     static #isHeld(cachedSession) {
         return cachedSession.session !== null && !cachedSession.session.isDisposed;
     }
 
-    static #matches(cachedSession, observationDeclaration, args, target, owner) {
+    static #matches(cachedSession, form, observationDeclaration, args, target, owner) {
         const isAvailable = cachedSession.session === null ? cachedSession.owner === owner : !cachedSession.session.isDisposed;
 
         // The sessions found together are of one observation's content at one target, and a declaration is frozen, so one whose argument values do not depend on the call has no other request to compare.
-        return isAvailable && (!Observations.hasDynamicArguments(observationDeclaration) || Observations.resolvesAt(observationDeclaration, args, target, cachedSession.values));
+        return isAvailable && (!form.hasDynamicArguments || Observations.resolvesAt(observationDeclaration, args, target, cachedSession.values));
     }
 }
