@@ -234,6 +234,27 @@ const released: Promise<boolean> = domql.query<boolean>('import Traps\ndialog:re
 const ownedCount: number = domql.query<number>('panel.children.count', { panel }).evaluate({ owner: 'menu' });
 const ownedWatch: DomqlWatch<number> = domql.query<number>('panel.children.count', { panel }).watch({ owner: 'menu' });
 
+// An event source of a behavior names it, and the behavior hands it each occurrence, awaiting its acknowledgment where it needs one.
+const drops: DomqlMemberDeclaration = { name: 'drops', kind: 'function', invokedBy: 'host', requestKind: 'subscription', behavior: 'dropZone', result: 'Domql.Element' };
+const dropZone: DomqlMemberDeclaration = {
+    name: 'dropZone',
+    kind: 'function',
+    invokedBy: 'host',
+    requestKind: 'execution',
+    executionMode: 'continuous',
+    impl: ({ receiver, deliver }) => {
+        const drop = async (event: Event) => {
+            const applied: Promise<void> | undefined = deliver?.('drops', event.target);
+
+            await applied;
+        };
+
+        (receiver as Element).addEventListener('drop', drop);
+
+        return { update: () => {}, dispose: () => (receiver as Element).removeEventListener('drop', drop) };
+    },
+};
+
 // @ts-expect-error A command names its behavior by its name.
 const unnamedBehavior: DomqlMemberDeclaration = { name: 'release', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', behavior: true };
 
@@ -385,4 +406,4 @@ const listed: DomqlDefinitionNode = { kind: 'list', items: [{ kind: 'literal', v
 const last: DomqlDefinitionNode = { kind: 'indexerAccess', receiver: { kind: 'local', name: 'rows' }, argument: { kind: 'fromEndIndex', offset: { kind: 'literal', value: 1 } } };
 const imported: DomqlDefinition = { version: 38, imports: [{ module: 'Domql' }], expression: { kind: 'memberAccess', receiver: { kind: 'namespace', name: 'Domql' }, name: 'document' } };
 
-export { release, owned, released, ownedCount, ownedWatch, bound, version, specificationVersion, languageVersion, formatted, formattedText, kind, typeText, count, anything, waited, shorthand, selected, selectedAsync, selectedWatch, key, listening, status, snapshot, failure, ready, refreshed, viewed, viewStatus, viewReady, smaller, held, livingSnapshot, livingReady, livingRefreshed, watchedAgain, keptAgain, clicking, source, moved, stepped, trapping, reported };
+export { drops, dropZone, release, owned, released, ownedCount, ownedWatch, bound, version, specificationVersion, languageVersion, formatted, formattedText, kind, typeText, count, anything, waited, shorthand, selected, selectedAsync, selectedWatch, key, listening, status, snapshot, failure, ready, refreshed, viewed, viewStatus, viewReady, smaller, held, livingSnapshot, livingReady, livingRefreshed, watchedAgain, keptAgain, clicking, source, moved, stepped, trapping, reported };

@@ -467,8 +467,14 @@ export interface DomqlMemberImplementationInput {
     readonly env: DomqlEnvironment;
     /** A member that reads maintained values: its observations' latest samples, in the order its declaration names them. */
     readonly samples?: readonly unknown[];
-    /** An event source: the function each event is handed to. */
-    readonly deliver?: (event: unknown) => void;
+    /**
+     * An event source: the function each event is handed to, `deliver(event)`. A continuous execution: the function each occurrence is handed to, `deliver(source, value)`, by the name of its module's event source. Each
+     * answers a promise that settles once each subscription has applied what it delivered, and never throws.
+     */
+    readonly deliver?: {
+        (event: unknown): Promise<void>;
+        (source: string, value: unknown): Promise<void>;
+    };
     /** A once execution: the signal that aborts it. */
     readonly signal?: AbortSignal;
     /** A command: the running instance of its behavior, for its owner on its receiver, as the behavior's implementation answered it. */
@@ -494,7 +500,7 @@ export interface DomqlMemberDeclaration {
     requestKind?: 'subscription' | 'execution';
     /** How an execution runs: once, answering its result, or continuously, until it is updated or disposed. */
     executionMode?: 'once' | 'continuous';
-    /** A command, a once execution: the continuous execution of its module whose running instance it reaches, by its name. */
+    /** A command, a once execution, or an event source of occurrences: the continuous execution of its module whose running instance it reaches, by its name. An event source of occurrences declares no `impl` and no parameters. */
     behavior?: string;
     /** The form its arguments take where it has parameters, an optional one included: one for each parameter, in order, the required ones before the optional ones, or one options object whose fields supply them; a function alone takes it. */
     arguments?: 'positional' | 'options';

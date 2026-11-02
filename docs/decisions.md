@@ -735,3 +735,52 @@ Each entry is one of three kinds:
   - Refusing a second instance for one owner on one receiver, which breaks a replacement that starts before it disposes.
   - Resolving to null with none running, which a caller can't tell from a command answering null.
   - `env.instanceOf(name, receiver)`, which every command's implementation would call, and which needs the module's name to tell two modules' behaviors apart.
+
+<a id="d49"></a>
+
+## D49 — A behavior's event sources are DOMQL's, and hear every instance for their owner on their receiver
+
+*November 2, 2026*
+
+- **Kind:** Contract.
+- **Decision:** An event source declaring `behavior` is carried out by DOMQL ([C1](features-status.md#planned-extension-contract)), so it declares no `impl` and no parameters. A behavior's implementation receives `deliver(source, value)`, and each occurrence reaches every subscription of that source listening for the instance's owner on the receiver it runs on now, from every instance running there. An update that moves an instance to another receiver moves its occurrences there.
+- **Why:**
+  - [D3](#d3) binds a source to the owner's behavior on the receiver and lets it outlive replacement and release, so the subscription is kept apart from every instance and needs nothing of the source's own to listen.
+  - A source carried out by DOMQL can't miss an occurrence or listen to the wrong instance, and a module writes one call where it would write a registry of its subscribers.
+  - The source's name says which kind of occurrence a value is, so one behavior offers several, as drops and hovers, through one `deliver`.
+  - A subscription bound to a receiver hears what runs on it, so one an update leaves hears nothing more; a caller that moves a behavior subscribes on the new receiver first, since a subscription starts before what it hears.
+- **Declined:**
+  - Hearing only the latest instance where several run, which loses what an older one reports during a replacement that overlaps it.
+  - Parameters filtering what a source delivers, which the subscription's object expression and its handler already decide.
+  - A source following its behavior to another receiver, which would make a subscription bound to one element hear another.
+
+<a id="d50"></a>
+
+## D50 — `deliver` answers a promise that settles once each subscription applied the occurrence
+
+*November 2, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `deliver` answers an acknowledgment ([C14](features-status.md#planned-extension-contract)): a promise that settles once each subscription has applied the occurrence, its handler having returned, and the promise it returned having fulfilled. It rejects with `DOMQL5017` where no subscription listens or one is disposed before applying it, `DOMQL5018` where the instance has ended, `DOMQL5019` for a source its behavior has none of, and `DOMQL5020`, the failure its `cause`, where a projection or a handler fails. DOMQL handles the promise, so a behavior may leave it. The `deliver` an event source of a module's own receives answers it too.
+- **Why:**
+  - A behavior that must know an occurrence was applied, as a registration resolving only once its first value is applied, or a switch answering "accepted" only once the requester applied it, waits for the subscriber's own completion, which only the handler's promise knows.
+  - Every reason nothing was applied is a fact the behavior acts on, as resending or giving up, so each is a code it reads, and none is thrown into its listener.
+  - Most behaviors never await it, and an unawaited rejection would be reported by the browser as unhandled, so DOMQL handles it as it makes it.
+  - One concept takes one contract: handing a value to a subscription is the same act for an event source of a module's own, so its `deliver` answers the same.
+- **Declined:**
+  - Resolving with no subscription listening, which would tell a behavior its occurrence was applied when nothing heard it.
+  - Waiting for the handler before calling it with the next occurrence, which would delay every subscription for one that is slow; the acknowledgment follows each without holding the others back.
+  - An acknowledgment of the host's own transport, which is the caller's handler's to settle, as its promise does.
+
+<a id="d51"></a>
+
+## D51 — Delivering is synchronous, and never throws into the listener that delivers
+
+*November 2, 2026*
+
+- **Kind:** Contract.
+- **Decision:** A behavior decides what must be decided within the browser's dispatch inside its own listeners ([C10](features-status.md#planned-extension-contract)). `deliver` captures and projects the occurrence and calls every handler before it returns, so a handler runs inside the dispatch, and nothing that happens to the occurrence throws into the listener that delivered it.
+- **Why:**
+  - Cancelling an event and capturing a pointer must happen before the dispatch ends, as [D2](#d2) keeps them in a module's listeners; a handler running within the dispatch also has the event's activation for an execution it carries out.
+  - A listener that delivers and then goes on, as one applying a press it passes through, must not lose its own work to a subscriber's failure, which has a home of its own: the handler's failed event, the window's error reporting, and the acknowledgment.
+- **Declined:** Delivering in a microtask, which would leave every handler outside the dispatch and its activation.

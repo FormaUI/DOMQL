@@ -316,6 +316,7 @@ class Domql {
     /**
      * Listens to the subscription's event source from the call on, so an event that follows the call is heard, and answers the event listener; a source that cannot start fails the call.
      * Each event is captured and projected through the object expression that follows the source, in the task the event is delivered in, and the handler receives the event listener and the result, or the failure. The source's receiver and arguments are evaluated once, as listening starts.
+     * An event source of a behavior is DOMQL's to carry out: it listens to the occurrences every instance of the behavior running for its owner on its receiver delivers, now or later.
      */
     static #subscribe(query, handler, { window = globalThis.window, owner = null, signal }) {
         if (typeof handler !== 'function') {
@@ -327,9 +328,18 @@ class Domql {
 
         return new EventListener({
             evaluator: Domql.#createEvaluator(query, resolution, environment, () => Domql.#resolveFor('subscribe', query)),
-            implementationOf: call => Domql.#implementationOf(call),
+            sourceOf: call => {
+                const { module, behavior } = DispatchTable.get(call.declaration);
+
+                if (behavior !== null) {
+                    return deliver => Domql.#behaviors.listen({ module, behavior, source: call.declaration.name, owner, receiver: call.receiver }, deliver);
+                }
+
+                const start = Domql.#implementationOf(call);
+
+                return deliver => start({ receiver: call.receiver, args: call.args, env: environment, deliver });
+            },
             getLocation: pointer => resolution.getLocation(pointer),
-            environment,
             observations: Domql.#getObservations(window),
             reportError: Domql.#createErrorReporter(window),
             handler,
@@ -436,6 +446,7 @@ class Domql {
                 declaration: resolved.hostCall.declaration,
                 name: resolved.hostCall.name,
                 module: isPrepared ? DispatchTable.get(call.declaration).module : null,
+                sources: isPrepared ? DispatchTable.sourcesOf(call.declaration) : null,
                 start: isPrepared ? Domql.#implementationOf(call) : undefined,
                 receiver: isPrepared ? call.receiver : null,
                 args: isPrepared ? call.args : null,

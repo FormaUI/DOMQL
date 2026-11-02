@@ -1052,6 +1052,55 @@ await domql.query('import Disclosures\npanel:open()', { panel }).executeAsync({ 
 disclosure.dispose();
 ```
 
+### Report what a behavior does
+
+A behavior reports what happens, a drop, a move or a choice, as an occurrence: it hands a value to an event source its module declares for it, `deliver('picks', value)`, and every subscription of that source listening for the behavior's owner on its receiver projects it and calls its handler before `deliver` returns. The source names the behavior as its `behavior`, and declares no implementation and no parameters, since DOMQL carries it out. A subscription made before the behavior starts hears it, and goes on listening as the behavior is updated or replaced.
+
+`deliver` answers a promise that settles once each subscription has applied the occurrence, a handler's returned promise included, and rejects where none listens or one failed; a behavior that doesn't need to know may leave it.
+
+```js
+domql.registerModule(domql.createModule('Pickers', {
+    types: [{
+        name: 'PickerElements',
+        kind: 'extension',
+        target: 'Domql.Element',
+        members: [{
+            name: 'picker',
+            kind: 'function',
+            invokedBy: 'host',
+            requestKind: 'execution',
+            executionMode: 'continuous',
+            impl: ({ receiver: element, deliver }) => {
+                const pick = event => deliver('picks', event.target);
+
+                element.addEventListener('click', pick);
+
+                return {
+                    update: () => {},
+                    dispose: () => element.removeEventListener('click', pick)
+                };
+            }
+        }, {
+            name: 'picks',
+            kind: 'function',
+            invokedBy: 'host',
+            requestKind: 'subscription',
+            behavior: 'picker',
+            result: 'Domql.Element'
+        }]
+    }]
+}));
+
+const picks = domql.query('import Pickers\npanel:picks() { key = it["data-key"] }', { panel }).subscribe((sender, args) => console.log(args.value));
+const picker = domql.query('import Pickers\npanel:picker()', { panel }).run();
+
+panel.querySelector('[data-key="a3"]').click();
+// { key: 'a3' }
+
+picker.dispose();
+picks.dispose();
+```
+
 ## Learn more
 
 - [Repository README](https://github.com/FormaUI/DOMQL): what DOMQL is for, what is built, and how to build and test it.

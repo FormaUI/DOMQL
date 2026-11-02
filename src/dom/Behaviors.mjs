@@ -1,11 +1,16 @@
 /**
- * Behaviors — the continuous executions running in one instance of DOMQL, each by its module, its name, its owner and its receiver, so the commands its module declares reach the one running for their owner on their receiver
+ * Behaviors — the continuous executions running in one instance of DOMQL, each by its module, its name, its owner and its receiver, so the commands its module declares reach the one running for their owner on their receiver,
+ * and the subscriptions to its occurrences, which hear every instance of it running for their owner on their receiver
  */
 
+import { NexoError } from '@formaui-net/nexo';
+
 /**
- * One running instance of a continuous execution: the module that declares it, its name, its owner, the receiver it runs on now, and what its implementation answered.
- * @typedef {{ module: string, name: string, owner: unknown, receiver: unknown, instance: object }} RunningBehavior
+ * One running instance of a continuous execution: the module that declares it, its name, its owner, the receiver it runs on now, what its implementation answered, null while it starts, and whether it has ended.
+ * @typedef {{ module: string, name: string, owner: unknown, receiver: unknown, instance: object | null, hasEnded: boolean }} RunningBehavior
  */
+
+/** What hears an occurrence: it projects the value it is handed and calls its subscription's handler, and answers a promise that settles once the handler has applied it. @typedef {(value: unknown) => Promise<void>} OccurrenceReceiver */
 
 export class Behaviors {
     /**
@@ -16,19 +21,21 @@ export class Behaviors {
     #running = new Map();
 
     /**
-     * Adds an instance that has started, the latest of its owner on its receiver, and answers its entry, which moves it to another receiver and ends it.
-     * @param {{ module: string, name: string, owner: unknown, receiver: unknown, instance: object }} started
-     * @returns {RunningBehavior}
+     * The receivers of each event source of a behavior, by the module, the behavior and the source, then their owner, then their receiver, each receiver's in the order they subscribed. An entry is made as a subscription
+     * starts and released as the last of its receiver ends, so a subscription outlives no listening of its own.
+     * @type {Map<string, Map<unknown, Map<unknown, OccurrenceReceiver[]>>>}
      */
-    start({ module, name, owner, receiver, instance }) {
-        const running = { module, name, owner, receiver, instance };
+    #listening = new Map();
 
-        this.#instancesAt(running, true).push(running);
-
-        return running;
+    /**
+     * Adds an instance that has started, the latest of its owner on its receiver.
+     * @param {RunningBehavior} running
+     */
+    start(running) {
+        Behaviors.#entriesAt(this.#running, Behaviors.#keyOf(running.module, running.name), running.owner, running.receiver, true).push(running);
     }
 
-    /** Moves a running instance to another receiver, where it becomes the latest of its owner. */
+    /** Moves a running instance to another receiver, where it becomes the latest of its owner, and where its occurrences go from then on. */
     move(running, receiver) {
         if (Object.is(running.receiver, receiver)) {
             return;
@@ -36,11 +43,12 @@ export class Behaviors {
 
         this.#remove(running);
         running.receiver = receiver;
-        this.#instancesAt(running, true).push(running);
+        this.start(running);
     }
 
-    /** Ends a running instance, so nothing finds it again; ending it again does nothing. */
+    /** Ends a running instance, so nothing finds it again and it delivers nothing more; ending it again does nothing. */
     end(running) {
+        running.hasEnded = true;
         this.#remove(running);
     }
 
@@ -55,10 +63,65 @@ export class Behaviors {
         return this.#running.get(Behaviors.#keyOf(module, name))?.get(owner)?.get(receiver)?.at(-1)?.instance ?? null;
     }
 
-    /** The instances running of the entry's behavior for its owner on its receiver, made where `creates` says so, and undefined otherwise where there are none. */
-    #instancesAt({ module, name, owner, receiver }, creates = false) {
-        const key = Behaviors.#keyOf(module, name);
-        let owners = this.#running.get(key);
+    /**
+     * Listens to an event source of a behavior for the owner on the receiver, whichever instance of it runs there, now or later, and answers what stops the listening.
+     * @param {{ module: string, behavior: string, source: string, owner: unknown, receiver: unknown }} source
+     * @param {OccurrenceReceiver} receive
+     * @returns {{ stop: () => void }}
+     */
+    listen({ module, behavior, source, owner, receiver }, receive) {
+        const key = Behaviors.#keyOf(module, behavior, source);
+        const receivers = Behaviors.#entriesAt(this.#listening, key, owner, receiver, true);
+
+        receivers.push(receive);
+
+        return {
+            stop: () => {
+                const index = receivers.indexOf(receive);
+
+                if (index !== -1) {
+                    receivers.splice(index, 1);
+                    Behaviors.#prune(this.#listening, key, owner, receiver);
+                }
+            },
+        };
+    }
+
+    /**
+     * Hands an occurrence of the running instance to every subscription of its source listening for its owner on its receiver, in the order they subscribed, each projecting it and calling its handler before this returns,
+     * and answers a promise that settles once each has applied it, or rejects with the first failure, and with `DOMQL5017` where none listens.
+     * @param {RunningBehavior} running The instance delivering it.
+     * @param {string} source The event source it is an occurrence of.
+     * @param {unknown} value The occurrence.
+     * @param {object} location Where the behavior stands, which a delivery no subscription hears is located at.
+     * @returns {Promise<void>}
+     */
+    deliver(running, source, value, location) {
+        const receivers = this.#listening.get(Behaviors.#keyOf(running.module, running.name, source))?.get(running.owner)?.get(running.receiver);
+
+        if (receivers === undefined) {
+            return Promise.reject(NexoError.evaluation('DOMQL5017', `No subscription of '${source}' listens for this owner on this receiver, so no subscriber applied the occurrence '${running.name}' delivered`, location));
+        }
+
+        // A handler that subscribes or stops another as it receives the occurrence changes who hears the next, never this one.
+        return Promise.all([...receivers].map(receive => receive(value))).then(() => undefined);
+    }
+
+    /** Takes the entry out of its receiver's instances, releasing every map it leaves empty. */
+    #remove(running) {
+        const key = Behaviors.#keyOf(running.module, running.name);
+        const instances = this.#running.get(key)?.get(running.owner)?.get(running.receiver);
+        const index = instances?.indexOf(running) ?? -1;
+
+        if (index !== -1) {
+            instances.splice(index, 1);
+            Behaviors.#prune(this.#running, key, running.owner, running.receiver);
+        }
+    }
+
+    /** The entries kept under the key, the owner and the receiver, made where `creates` says so, and undefined otherwise where there are none. */
+    static #entriesAt(root, key, owner, receiver, creates = false) {
+        let owners = root.get(key);
 
         if (owners === undefined) {
             if (!creates) {
@@ -66,7 +129,7 @@ export class Behaviors {
             }
 
             owners = new Map();
-            this.#running.set(key, owners);
+            root.set(key, owners);
         }
 
         let receivers = owners.get(owner);
@@ -80,48 +143,38 @@ export class Behaviors {
             owners.set(owner, receivers);
         }
 
-        let instances = receivers.get(receiver);
+        let entries = receivers.get(receiver);
 
-        if (instances === undefined && creates) {
-            instances = [];
-            receivers.set(receiver, instances);
+        if (entries === undefined && creates) {
+            entries = [];
+            receivers.set(receiver, entries);
         }
 
-        return instances;
+        return entries;
     }
 
-    /** Takes the entry out of its receiver's instances, releasing every map it leaves empty. */
-    #remove(running) {
-        const instances = this.#instancesAt(running);
-        const index = instances?.indexOf(running) ?? -1;
+    /** Releases the entries kept under the key, the owner and the receiver where they are empty, and every map that leaves empty. */
+    static #prune(root, key, owner, receiver) {
+        const owners = root.get(key);
+        const receivers = owners?.get(owner);
 
-        if (index === -1) {
+        if (receivers === undefined || receivers.get(receiver)?.length !== 0) {
             return;
         }
 
-        instances.splice(index, 1);
-
-        if (instances.length > 0) {
-            return;
-        }
-
-        const key = Behaviors.#keyOf(running.module, running.name);
-        const owners = this.#running.get(key);
-        const receivers = owners.get(running.owner);
-
-        receivers.delete(running.receiver);
+        receivers.delete(receiver);
 
         if (receivers.size === 0) {
-            owners.delete(running.owner);
+            owners.delete(owner);
 
             if (owners.size === 0) {
-                this.#running.delete(key);
+                root.delete(key);
             }
         }
     }
 
-    /** The key of a module's behavior of a name; neither a module's name nor a member's holds a line feed. */
-    static #keyOf(module, name) {
-        return `${module}\n${name}`;
+    /** The key of a module's behavior, or of one of its event sources; no module's name, and no member's, holds a line feed. */
+    static #keyOf(...names) {
+        return names.join('\n');
     }
 }

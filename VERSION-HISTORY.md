@@ -6,6 +6,22 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-303"></a>
+
+## `1.0.0-alpha.303`
+
+*November 2, 2026 · Nexo language `1.0.0-beta.19` · definition format 38*
+
+DOMQL delivers a behavior's occurrences to the subscriptions of its module's event sources, and tells the behavior once they have applied each.
+
+**Behaviors**
+
+- [Occurrences](spec/behaviors.md#behaviors-occurrences): an event source declaring `behavior` is carried out by DOMQL. A behavior's implementation receives `deliver(source, value)`, and every subscription of that source listening for its owner on its receiver hears it, from every instance running there, in the order delivered and never coalesced, through the behavior's replacement and release, as [D49](docs/decisions.md#d49) records. `domql.createModule` refuses such a source declaring an `impl` or parameters, `DOMQL4013`.
+- [Acknowledgment](spec/behaviors.md#behaviors-acknowledgment): `deliver` answers a promise that settles once each subscription has applied the occurrence, a handler's returned promise included, and rejects with `DOMQL5017` to `DOMQL5020` where nothing applied it, as [D50](docs/decisions.md#d50) records. The `deliver` of a module's own event source answers it too.
+- [Handling inside the native dispatch](spec/behaviors.md#behaviors-synchronous-handling): `deliver` projects and calls every handler before it returns, and never throws into the listener that delivers, as [D51](docs/decisions.md#d51) records.
+
+**Breaking:** an event source's `deliver` answers a promise where it answered nothing. A source that ignored what it answered goes on as it was; one that relied on its answering nothing reads the promise instead.
+
 <a id="v1-0-0-alpha-302"></a>
 
 ## `1.0.0-alpha.302`

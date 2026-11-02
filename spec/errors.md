@@ -70,6 +70,7 @@ A module refused as it is created or registered, and a host call carried out tha
 | `DOMQL4010` | A host call carried out that has no `impl` |
 | `DOMQL4011` | A `behavior` declared by a declaration that reaches none, or naming none by a name |
 | `DOMQL4012` | A `behavior` naming no continuous execution of its module |
+| `DOMQL4013` | An event source of a behavior declaring an `impl` or parameters, which DOMQL carries out |
 
 <a id="errors-evaluation"></a>
 
@@ -95,3 +96,7 @@ A failure while a request is carried out, located in the query where it concerns
 | `DOMQL5014` | A watch disposed while a caller waits for it to be ready |
 | `DOMQL5015` | A running subscription or a once execution a module registered since made stale, whose request prepared again reaches no host call, or another |
 | `DOMQL5016` | A command carried out where no instance of its behavior runs for its owner on its receiver |
+| `DOMQL5017` | An occurrence no subscription applied: none listened as it was delivered, or one ended before it applied it |
+| `DOMQL5018` | An occurrence delivered after its behavior's instance ended |
+| `DOMQL5019` | An occurrence delivered to an event source its behavior has none of |
+| `DOMQL5020` | An occurrence a subscription failed to apply: its projection failed, or its handler threw or rejected, its failure the error's `cause` |

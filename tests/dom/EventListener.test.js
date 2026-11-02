@@ -916,13 +916,12 @@ describe('EventListener preparing again', () => {
                 prepareHostCall: () => calls.shift(),
                 project: () => ({ value: null, error: NexoError.structure('NEXO2040', 'The resolution is stale', {}), dispose: () => {} }),
             },
-            implementationOf: () => ({ deliver: delivers }) => {
+            sourceOf: () => delivers => {
                 deliver = delivers;
 
                 return { stop: () => stopped++ };
             },
             getLocation: pointer => ({ pointer }),
-            environment: { window, document },
             observations: null,
             reportError: error => reported.push(error),
             handler: (_sender, args) => received.push(args),

@@ -1,15 +1,16 @@
 /**
- * ExecutionHandle — one continuous execution run for its owner: it starts the instance its implementation creates, keeps it where its module's commands find it, replaces the bindings it runs with when updated, raises the
- * failures it reports while it runs, and disposes it
+ * ExecutionHandle — one continuous execution run for its owner: it starts the instance its implementation creates, keeps it where its module's commands find it, delivers the occurrences it hands on, replaces the bindings
+ * it runs with when updated, raises the failures it reports while it runs, and disposes it
  */
 
 import { NexoError } from '@formaui-net/nexo';
 import { EventDispatcher } from './EventDispatcher.mjs';
 
 /**
- * A continuous execution prepared against one binding set: its declaration, null while a receiver of unknown type has selected none, its name, the module that declares it, null with its declaration, the implementation
- * that starts it, the receiver and arguments it is started or updated with, which are null where the preparation was skipped, the environment, and where it stands.
- * @typedef {{ declaration: object | null, name: string, module: string | null, start: Function | undefined, receiver: unknown, args: Record<string, unknown> | null, environment: object, location: object }} PreparedExecution
+ * A continuous execution prepared against one binding set: its declaration, null while a receiver of unknown type has selected none, its name, the module that declares it and the event sources its occurrences are
+ * delivered to, each null with its declaration, the implementation that starts it, the receiver and arguments it is started or updated with, which are null where the preparation was skipped, the environment, and where it
+ * stands.
+ * @typedef {{ declaration: object | null, name: string, module: string | null, sources: ReadonlySet<string> | null, start: Function | undefined, receiver: unknown, args: Record<string, unknown> | null, environment: object, location: object }} PreparedExecution
  */
 
 export class ExecutionHandle {
@@ -132,18 +133,29 @@ export class ExecutionHandle {
 
     /**
      * Has the execution's implementation create its instance, which must answer how it is updated and disposed, and keeps it for its owner on its receiver, the latest there; a failure it reports while it runs is raised as
-     * an `error` event.
+     * an `error` event, and each occurrence it hands `deliver`, from its start on, is delivered to the subscriptions of its source listening for its owner on its receiver.
      */
-    #start({ name, module, start, receiver, args, environment, location }) {
+    #start({ name, module, sources, start, receiver, args, environment, location }) {
+        const running = { module, name, owner: this.#owner, receiver, instance: null, hasEnded: false };
         let instance;
 
         try {
-            instance = start({ receiver, args, env: environment, reportError: error => this.#eventDispatcher.raiseError(error) });
+            instance = start({
+                receiver,
+                args,
+                env: environment,
+                reportError: error => this.#eventDispatcher.raiseError(error),
+                deliver: (source, value) => this.#deliver(running, sources, location, source, value),
+            });
         } catch (error) {
+            running.hasEnded = true;
+
             throw NexoError.evaluation('DOMQL5007', `The execution '${name}' failed to start`, location, { cause: error });
         }
 
         if (typeof instance?.update !== 'function' || typeof instance?.dispose !== 'function') {
+            running.hasEnded = true;
+
             // What answered no way to update it is still let go of, where it offers a way to.
             try {
                 instance?.dispose?.();
@@ -154,9 +166,39 @@ export class ExecutionHandle {
             throw NexoError.evaluation('DOMQL5008', `The execution '${name}' started and answered no update and dispose`, location);
         }
 
-        this.#running = this.#behaviors.start({ module, name, owner: this.#owner, receiver, instance });
+        running.instance = instance;
+        this.#behaviors.start(running);
+        this.#running = running;
 
         return instance;
+    }
+
+    /**
+     * Delivers an occurrence the running instance hands on to the subscriptions of its source, synchronously, and answers a promise that settles once each has applied it. It never throws into the code that calls it: an
+     * instance that has ended delivers nothing and rejects, and a source its behavior has none of rejects and is raised as an `error` event, since it is the module's mistake. The promise is handled, so a behavior that
+     * leaves it is never reported for it.
+     */
+    #deliver(running, sources, location, source, value) {
+        let delivered;
+
+        try {
+            if (running.hasEnded) {
+                delivered = Promise.reject(NexoError.evaluation('DOMQL5018', `The execution '${running.name}' has ended, and delivers nothing more`, location));
+            } else if (!sources.has(source)) {
+                const error = NexoError.evaluation('DOMQL5019', `'${String(source)}' is no event source of '${running.name}', whose occurrences ${sources.size === 0 ? 'no source of its module delivers' : `are delivered to ${[...sources].map(name => `'${name}'`).join(', ')}`}`, location);
+
+                this.#eventDispatcher.raiseError(error);
+                delivered = Promise.reject(error);
+            } else {
+                delivered = this.#behaviors.deliver(running, source, value, location);
+            }
+        } catch (error) {
+            delivered = Promise.reject(error);
+        }
+
+        delivered.catch(() => {});
+
+        return delivered;
     }
 
     /** Ends the running instance: no command finds it from then on, and its implementation's own disposal runs, a failure of which is reported. */
@@ -165,6 +207,7 @@ export class ExecutionHandle {
 
         this.#instance = null;
 
+        // An instance that has ended delivers nothing more, its own disposal included.
         if (this.#running !== null) {
             this.#behaviors.end(this.#running);
             this.#running = null;

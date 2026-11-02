@@ -2,12 +2,13 @@
 
 <a id="behaviors"></a>
 
-A **behavior** is a [continuous execution](executions.md#executions-running-continuously) an extension module declares, running on the page for an owner: a placement, a gesture, an editor. DOMQL keeps each running instance of it where the module's other declarations find it, so a caller reaches "this owner's behavior on this element" with the element and the owner alone, and no token passed by hand in every query.
+A **behavior** is a [continuous execution](executions.md#executions-running-continuously) an extension module declares, running on the page for an owner: a placement, a gesture, an editor. DOMQL keeps each running instance of it where the module's other declarations find it, so a caller reaches "this owner's behavior on this element" with the element and the owner alone, and no token passed by hand in every query: its commands reach it, and its occurrences reach the subscriptions to its event sources.
 
 ```js
-const placement = domql.query('import Placement\npopover:anchoredPlacement({ anchor = trigger })', { popover, trigger }).run({ owner: menu });
+const drops = domql.query('import DragDrop\nzone:drops() { key = it.target?["data-key"] }', { zone }).subscribe(handleDrop, { owner: sidebar });
+const dropZone = domql.query('import DragDrop\nzone:dropZone({ targets = "[data-key]" })', { zone }).run({ owner: sidebar });
 
-await domql.query('import Placement\npopover:open()', { popover }).executeAsync({ owner: menu });
+await domql.query('import DragDrop\nzone:cancelDrag()', { zone }).executeAsync({ owner: sidebar });
 ```
 
 In this document:
@@ -15,6 +16,8 @@ In this document:
 1. [The owner](#behaviors-the-owner)
 2. [The running instance](#behaviors-the-running-instance)
 3. [Commands](#behaviors-commands)
+4. [Occurrences](#behaviors-occurrences)
+5. [Handling inside the native dispatch](#behaviors-synchronous-handling)
 
 <a id="behaviors-the-owner"></a>
 
@@ -44,3 +47,28 @@ A **command** is a once execution that reaches a running behavior, as a popover'
 - **What it reaches.** `executeAsync` prepares the command as it prepares every once execution, then finds the instance of its behavior running for its owner on its receiver, which its implementation receives as `instance` beside its receiver, its arguments, its environment and its signal.
 - **None running.** Where no instance of its behavior runs for its owner on its receiver, the command executes nothing and its promise rejects with the evaluation error `DOMQL5016`, located at the command, so a caller tells a behavior that has ended from a command that failed.
 - **Anything else** is a once execution's, as [executing once](executions.md#executions-executing-once) sets out: its result, its failure, its cancellation, and a skipped preparation, which finds nothing and resolves to null.
+
+<a id="behaviors-occurrences"></a>
+
+## Occurrences
+
+What a behavior reports, a drop, a move, a placement or an editor's change, is an **occurrence**: a value it hands to an event source its module declares, whose subscriptions shape it as they shape any event, as [subscribing](events.md#subscribing) sets out. The source names the behavior by its `behavior` key, and DOMQL carries it out, so it declares no implementation and no parameters.
+
+- **Delivering.** A behavior's implementation receives `deliver(source, value)`, which hands the value to the source of that name, from the moment its implementation starts until its instance ends: to every subscription of that source listening for the instance's owner on the receiver it runs on now, each projecting it through its own object expression and calling its handler, in the order they subscribed, before `deliver` returns. Occurrences reach each subscription in the order the behavior delivers them, every one of them: none is dropped or combined with another.
+- **What a subscription hears.** A subscription to a behavior's source listens for its owner on its receiver, whichever instance of the behavior runs there, and every instance where several do. It starts listening as it is made, before any instance runs, and goes on listening as an instance ends and another starts, or as an update gives it other arguments, until it is disposed, so a caller that replaces a behavior loses nothing of what happens between.
+- **Moving to another receiver.** An update that moves an instance to another receiver moves its occurrences there: the subscriptions listening on the receiver it left hear nothing more of it, and those listening on the one it entered hear it from the update on. A subscription made for the new receiver before the update loses nothing.
+
+<a id="behaviors-acknowledgment"></a>
+
+**Acknowledgment.** `deliver` answers a promise that settles once each subscription has applied the occurrence: a handler applies it as it returns, or, where it returns a promise, as that promise fulfils. The promise rejects with an evaluation error located at the behavior, where no subscription listens, `DOMQL5017`, and where the instance has ended, `DOMQL5018`, having delivered nothing; with `DOMQL5017` located at the subscription, where a subscription is disposed before it applied the occurrence; and with `DOMQL5020` located there, its `cause` the failure, where the subscription's projection fails, which its handler receives as a failed event, or its handler throws or rejects, which goes to the window's error reporting as well. A source its module has none of reaching the behavior rejects with `DOMQL5019`, raised as an `"error"` event of the behavior's handle too, since it is the module's mistake. A behavior may leave the promise: DOMQL handles it, so nothing reports a rejection no one awaited.
+
+The `deliver` an event source of a module's own implementation receives answers the same acknowledgment, of its one subscription.
+
+<a id="behaviors-synchronous-handling"></a>
+
+## Handling inside the native dispatch
+
+What must be decided before the browser's dispatch of an event ends, cancelling it, consuming a key, claiming a click or capturing a pointer, is decided inside a behavior's own listeners, which the behavior adds to the page and the browser calls within that dispatch, as for any script. A subscription never cancels what it hears, as [`on`](events.md#event-sources) never does.
+
+- **Delivering is synchronous.** `deliver` captures the occurrence, projects it for every subscription and calls every handler before it returns, so a handler runs inside the native dispatch of the listener that delivered, and an execution it carries out at once has the [activation](vocabulary.md#built-in-executions) the event gives. A handler's own asynchronous work goes on after the dispatch, as the promise it returns.
+- **Delivering never throws.** Nothing that happens to an occurrence, no subscription, a projection or a handler failing, or an ended instance, throws into the listener that delivers it: it reaches the promise `deliver` answers, and the handler or the window's error reporting where it always does, so the listener goes on with its own work, as applying a press it passes through after delivering.
