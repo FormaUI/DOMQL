@@ -1,6 +1,6 @@
 // How a TypeScript caller uses DOMQL, which the declarations must accept; the test compiles this file.
 import { domql, NexoError } from '../../src/domql.js';
-import type { DomqlFrameOptions, DomqlFrameRequest, DomqlHeldObservation, DomqlMeasureOptions, DomqlChangeOperation, DomqlOperatorImplementationInput, DomqlTypeDeclaration, DomqlDefinition, DomqlDefinitionNode, DomqlEvaluateAsyncOptions, DomqlEventListener, DomqlExecutionHandle, DomqlLiveStateWatch, DomqlLiveStateWatchOptions, DomqlMemberDeclaration, DomqlModule, DomqlModuleContents, DomqlOperationOptions, DomqlQuery, DomqlReadOnly, DomqlResolvedDefinition, DomqlResultArgs, DomqlSelectedView, DomqlSelection, DomqlWatch, DomqlWatchOptions } from '../../src/domql.js';
+import type { DomqlEventArgs, DomqlSubscribeOptions, DomqlFrameOptions, DomqlFrameRequest, DomqlHeldObservation, DomqlMeasureOptions, DomqlChangeOperation, DomqlOperatorImplementationInput, DomqlTypeDeclaration, DomqlDefinition, DomqlDefinitionNode, DomqlEvaluateAsyncOptions, DomqlEventListener, DomqlExecutionHandle, DomqlLiveStateWatch, DomqlLiveStateWatchOptions, DomqlMemberDeclaration, DomqlModule, DomqlModuleContents, DomqlOperationOptions, DomqlQuery, DomqlReadOnly, DomqlResolvedDefinition, DomqlResultArgs, DomqlSelectedView, DomqlSelection, DomqlWatch, DomqlWatchOptions } from '../../src/domql.js';
 
 const panel = document.createElement('div');
 const controller = new AbortController();
@@ -162,6 +162,20 @@ const clicks: DomqlEventListener = domql.query<{ x: number }>('panel.on("click")
 const operating: DomqlOperationOptions = { window, signal };
 const keys: DomqlEventListener = domql.query<{ key: string }>('panel.on("keydown") { key = it.key }', { panel }).subscribe((sender, args) => args.status, operating);
 const clicking: 'ready' | 'disposed' = clicks.status;
+
+// A subscription's reactions are once executions carried out as each event is heard, whose results its handler receives as promises.
+const reacting: DomqlSubscribeOptions = { reactions: [domql.query('Domql.window.writeClipboard(event.text)')], owner: 'menu' };
+const copies: DomqlEventListener = domql.query<{ text: string }>('panel.on("click") { text = "copied" }', { panel }).subscribe(async (sender, args: DomqlEventArgs<{ text: string }>) => {
+    if (args.status === 'ready') {
+        const results: unknown[] = await Promise.all(args.reactions ?? []);
+
+        return [args.value.text, results];
+    }
+
+    return args.error;
+}, reacting);
+
+copies.dispose();
 
 keys.dispose();
 

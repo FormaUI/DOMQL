@@ -244,6 +244,38 @@ describe('EventListener', () => {
             expect(results).toHaveLength(3);
         });
 
+        it('carries out its reactions to what the source delivers while it starts within that delivery, and hands them to the handler with the event once the caller has the event listener', async () => {
+            const marked = [];
+
+            isolated.registerModule(isolated.createModule('Marks', {
+                types: [elementExtension('Marks', [{
+                    name: 'mark', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', arguments: 'positional',
+                    parameters: [{ name: 'n', kind: 'value', type: 'Number', required: true }],
+                    result: 'Number',
+                    impl: ({ args: { n } }) => (marked.push(n), n * 10),
+                }])],
+            }));
+            registerBeats(({ deliver }) => {
+                deliver({ n: 1 });
+
+                return { stop: () => {} };
+            });
+
+            const heard = [];
+            const reaction = isolated.query('import Marks\npanel:mark(event.n)', { panel });
+            const listener = isolated.query('import Beats\npanel:beats("beat") { n = it.n }', { panel }).subscribe((sender, args) => heard.push(args), { reactions: [reaction] });
+
+            listeners.push(listener);
+
+            expect(marked).toEqual([1]);
+            expect(heard).toEqual([]);
+
+            await Promise.resolve();
+
+            expect(heard.map(args => args.value)).toEqual([{ n: 1 }]);
+            expect(await heard[0].reactions[0]).toBe(10);
+        });
+
         it('fails the call where the source cannot start, or answers nothing that stops it', () => {
             registerBeats(({ receiver: element }) => {
                 if (element.id === 'a') {

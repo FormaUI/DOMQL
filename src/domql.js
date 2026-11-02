@@ -138,7 +138,7 @@ class Domql {
      */
     static query(source, bindings = {}) {
         if (typeof source === 'string') {
-            return new DomqlQuery(nexo.parse(source, { imports: Domql.#imports }), Domql.#bind(bindings), Domql.#operations);
+            return new DomqlQuery(nexo.parse(source, { imports: Domql.#imports }), Domql.#bind(bindings), Domql.#operations, bindings);
         }
 
         if (source instanceof DomqlQuery) {
@@ -149,7 +149,7 @@ class Domql {
             throw NexoError.structure('DOMQL2002', 'A query object is made from text or a definition; one another DOMQL instance made is made here from its definition, as domql.query(query.definition, bindings)', {});
         }
 
-        return new DomqlQuery(nexo.validate(source), Domql.#bind(bindings), Domql.#operations);
+        return new DomqlQuery(nexo.validate(source), Domql.#bind(bindings), Domql.#operations, bindings);
     }
 
     /**
@@ -437,12 +437,14 @@ class Domql {
      * Listens to the subscription's event source from the call on, so an event that follows the call is heard, and answers the event listener; a source that cannot start fails the call.
      * Each event is captured and projected through the object expression that follows the source, in the task the event is delivered in, and the handler receives the event listener and the result, or the failure. The source's receiver and arguments are evaluated once, as listening starts.
      * An event source of a behavior is DOMQL's to carry out: it listens to the occurrences every instance of the behavior running for its owner on its receiver delivers, now or later.
+     * Its reactions are carried out as each event is projected, within its delivery, before the handler receives the event with a promise of each one's result.
      */
-    static #subscribe(query, handler, { window = globalThis.window, owner = null, signal }) {
+    static #subscribe(query, handler, { window = globalThis.window, owner = null, signal, reactions }) {
         if (typeof handler !== 'function') {
             throw NexoError.structure('DOMQL2007', 'A subscription takes the function that handles each event', {});
         }
 
+        const react = reactions === undefined ? null : Domql.#reactionsOf(reactions, window, owner);
         const resolution = Domql.#resolveFor('subscribe', query);
         const environment = Domql.#createEnvironment(window, owner);
 
@@ -463,8 +465,31 @@ class Domql {
             observations: Domql.#getObservations(window),
             reportError: Domql.#createErrorReporter(window),
             handler,
+            react,
             signal,
         });
+    }
+
+    /**
+     * What carries out a subscription's reactions for an event, in their order, each a once execution bound to its own values and `event`, the event's projected value, for the subscription's owner in its window, and
+     * answers a promise of each one's result, frozen in a list; a list holding anything but query objects this instance made is refused.
+     */
+    static #reactionsOf(reactions, window, owner) {
+        if (!Array.isArray(reactions) || !reactions.every(reaction => DomqlQuery.isQuery(reaction))) {
+            throw NexoError.structure('DOMQL2015', "A subscription's reactions are a list of query objects this instance made, each ending in a once execution", {});
+        }
+
+        const fixed = [...reactions];
+        const options = { window, owner };
+        const carryOut = (reaction, value) => {
+            try {
+                return Domql.#executeAsync(reaction.with({ ...DomqlQuery.valuesOf(reaction), event: value }), options);
+            } catch (error) {
+                return Promise.reject(error);
+            }
+        };
+
+        return value => Object.freeze(fixed.map(reaction => carryOut(reaction, value)));
     }
 
     /**

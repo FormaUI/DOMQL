@@ -21,6 +21,9 @@ export class EventListener {
     #handler;
     #reportError;
 
+    /** What carries out the subscription's reactions to an event's projected value, answering a promise of each one's result, or null for a subscription that has none. @type {((value: unknown) => readonly Promise<unknown>[]) | null} */
+    #react;
+
     /** What stops the source, once it has started. @type {{ stop: () => void } | null} */
     #sourceHandle = null;
 
@@ -51,11 +54,14 @@ export class EventListener {
      * @param {(pointer: string) => object} dependencies.getLocation Where a pointer into the subscription's definition stands, which a failure to start is located at.
      * @param {import('./Observations.mjs').Observations} dependencies.observations The observations of the window, which the projections hold sessions on.
      * @param {(error: unknown) => void} dependencies.reportError The environment's error reporting, which a failure of the handler reaches.
-     * @param {(sender: EventListener, args: object) => unknown} dependencies.handler Receives the event listener and, for each event, `status: 'ready'` with its projected result as `value`, or `status: 'failed'` with the `error` that capturing or projecting it raised. What it returns is not awaited.
+     * @param {(sender: EventListener, args: object) => unknown} dependencies.handler Receives the event listener and, for each event, `status: 'ready'` with its projected result as `value`, and the promises of its reactions'
+     * results as `reactions` where it has reactions, or `status: 'failed'` with the `error` that capturing or projecting it raised. What it returns is not awaited.
+     * @param {((value: unknown) => readonly Promise<unknown>[]) | null} [dependencies.react] Carries out the subscription's reactions to an event's projected value, within its delivery; null where it has none.
      * @param {AbortSignal} [dependencies.signal] Disposes the event listener when it aborts.
      */
-    constructor({ evaluator, sourceOf, getLocation, observations, reportError, handler, signal }) {
+    constructor({ evaluator, sourceOf, getLocation, observations, reportError, handler, react = null, signal }) {
         this.#evaluator = evaluator;
+        this.#react = react;
         this.#sourceOf = sourceOf;
         this.#getLocation = getLocation;
         this.#observations = observations;
@@ -212,6 +218,13 @@ export class EventListener {
 
         this.#lastProjection = projection;
         this.#release(last);
+
+        // Reactions are carried out within the event's delivery, whenever the handler hears of them.
+        if (this.#react !== null) {
+            const reactions = this.#react(projection.value);
+
+            return this.#runOrHold(() => this.#call({ status: 'ready', value: projection.value, reactions }));
+        }
 
         return this.#runOrHold(() => this.#call({ status: 'ready', value: projection.value }));
     }

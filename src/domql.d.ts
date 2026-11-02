@@ -56,6 +56,15 @@ export interface DomqlOperationOptions {
     signal?: AbortSignal;
 }
 
+/** How a subscription is listened to. */
+export interface DomqlSubscribeOptions extends DomqlOperationOptions {
+    /**
+     * Once executions carried out as each event is heard, inside its delivery and before the handler is called with it, in their order, each bound to its own values and `event`, the event's projected value, for the
+     * subscription's owner; the handler's ready event carries a promise of each one's result.
+     */
+    reactions?: readonly DomqlQuery[];
+}
+
 /** How a listener of a handle's events listens. */
 export interface DomqlListenOptions {
     /** Stops the listener when it aborts; one already aborted answers a listener that is stopped. */
@@ -81,6 +90,11 @@ export interface DomqlEventListener {
 /** What an event of a result carries: the result, or the failure that produced none. */
 export type DomqlResultArgs<T> =
     | { readonly status: 'ready'; readonly value: T }
+    | { readonly status: 'failed'; readonly error: unknown };
+
+/** What a subscription's event carries: its projected result, with a promise of each reaction's result where the subscription has reactions, or the failure that produced none. */
+export type DomqlEventArgs<T> =
+    | { readonly status: 'ready'; readonly value: T; readonly reactions?: readonly Promise<unknown>[] }
     | { readonly status: 'failed'; readonly error: unknown };
 
 /** What a live-state watch's change event carries: the object kept current, the immutable snapshot it was brought to and the change set just applied, empty in a listener's first event; or the failure that produced none. */
@@ -278,7 +292,7 @@ export interface DomqlQuery<T = unknown> {
     /** Starts a watch of the query that keeps its result as live state. */
     watch(options: DomqlLiveStateWatchOptions): DomqlLiveStateWatch<T>;
     /** Listens to the subscription's event source from the call on, and answers the event listener; the handler receives it and each event's result, or the failure that capturing or projecting the event raised. */
-    subscribe(handler: (sender: DomqlEventListener, args: DomqlResultArgs<T>) => unknown, options?: DomqlOperationOptions): DomqlEventListener;
+    subscribe(handler: (sender: DomqlEventListener, args: DomqlEventArgs<T>) => unknown, options?: DomqlSubscribeOptions): DomqlEventListener;
     /** Carries out the once execution the query ends in, and answers a promise of its result. A signal that aborts rejects with its reason; DOMQL never undoes what the execution changed. */
     executeAsync(options?: DomqlOperationOptions): Promise<T>;
     /** Runs the continuous execution the query ends in, which has started once the call returns, and answers its handle. */

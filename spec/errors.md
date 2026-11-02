@@ -39,6 +39,7 @@ A caller's use of the API, refused where it is made.
 | `DOMQL2012` | `env.measureUnder` given an element that is none, a class that is no one token, or a `read` that is no function |
 | `DOMQL2013` | `domql.registerModuleLoader` given a name that is no module's, a `load` that is no function, or a name a loader is registered for already |
 | `DOMQL2014` | `domql.loadModulesAsync` given neither a query object, a definition, a text nor a list of module names |
+| `DOMQL2015` | A subscription's `reactions` given anything but a list of query objects of the instance |
 
 <a id="errors-validation"></a>
 

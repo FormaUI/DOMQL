@@ -2306,6 +2306,126 @@ describe('domql evaluateAsync', () => {
     });
 });
 
+describe('domql reactions', () => {
+    let isolated;
+    let panel;
+    let log;
+
+    beforeEach(async () => {
+        vi.resetModules();
+        ({ domql: isolated } = await import('#domql/domql.js'));
+        document.body.innerHTML = '<div id="panel"><button data-key="a1"></button><button data-key="a2"></button></div>';
+        panel = document.getElementById('panel');
+        log = [];
+
+        // A once execution that records what it was carried out with, answering its label, and one that fails; and a member that fails while the test says so.
+        isolated.registerModule(isolated.createModule('Marks', {
+            types: [elementExtension('MarkElements', [
+                {
+                    name: 'mark', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', arguments: 'options',
+                    parameters: [{ name: 'label', kind: 'value', type: 'String', required: true }, { name: 'key', kind: 'value', type: 'String?', nulls: 'accept', default: null }],
+                    result: 'String',
+                    impl: ({ args: { label, key }, env }) => {
+                        log.push(`${label} ${key} ${env.owner}`);
+
+                        return label;
+                    },
+                },
+                {
+                    name: 'broken', kind: 'property', result: 'String', updates: { changes: 'constant', reads: 'fresh' },
+                    impl: () => {
+                        throw new Error('unreadable');
+                    },
+                },
+                {
+                    name: 'fail', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once',
+                    impl: () => {
+                        throw new Error('broken');
+                    },
+                },
+            ])],
+        }));
+    });
+
+    afterEach(() => {
+        document.body.innerHTML = '';
+    });
+
+    /** A subscription to clicks on the panel, each projected to the key of the button clicked, whose handler records each event and its reactions' promises. */
+    const subscribe = (options, text = 'panel.on("click") { key = it.target?["data-key"] }') => {
+        const events = [];
+        const listener = isolated.query(text, { panel }).subscribe((sender, args) => {
+            log.push('handler');
+            events.push(args);
+        }, options);
+
+        return { listener, events };
+    };
+
+    const reaction = (text, bindings = { panel }) => isolated.query(`import Marks\n${text}`, bindings);
+
+    it('carries out each reaction as the subscription hears an event, in their order and before its handler, bound to the event\'s value, for its owner', async () => {
+        const { listener, events } = subscribe({ owner: 'menu', reactions: [reaction('panel:mark({ label = "first", key = event.key })'), reaction('panel:mark({ label = "second" })')] });
+
+        panel.children[1].click();
+
+        expect(log).toEqual(['first a2 menu', 'second null menu', 'handler']);
+        expect(events).toHaveLength(1);
+        expect(events[0].value).toEqual({ key: 'a2' });
+        expect(Object.isFrozen(events[0].reactions)).toBe(true);
+        expect(await Promise.all(events[0].reactions)).toEqual(['first', 'second']);
+        listener.dispose();
+    });
+
+    it('settles each reaction\'s promise after the handler was called, so its result follows the event that triggered it', async () => {
+        const order = [];
+        const listener = isolated.query('panel.on("click") { key = it.target?["data-key"] }', { panel }).subscribe((sender, args) => {
+            order.push('event');
+            args.reactions.forEach(promise => promise.then(result => order.push(result)));
+        }, { reactions: [reaction('panel:mark({ label = "copied" })')] });
+
+        panel.children[0].click();
+        order.push('dispatched');
+        await new Promise(resolve => setTimeout(resolve));
+
+        expect(order).toEqual(['event', 'dispatched', 'copied']);
+        listener.dispose();
+    });
+
+    it('rejects a reaction\'s promise alone where it fails, as executeAsync rejects it, and reacts to no event whose projection fails', async () => {
+        const { listener, events } = subscribe({ reactions: [reaction('panel:fail()'), reaction('panel.children.count'), reaction('panel:mark({ label = "after" })')] });
+
+        panel.children[0].click();
+
+        const [failed, refused, after] = await Promise.allSettled(events[0].reactions);
+
+        expect(failed.reason).toMatchObject({ kind: 'evaluation', code: 'DOMQL5001', message: expect.stringContaining('broken') });
+        expect(refused.reason).toMatchObject({ kind: 'validation', code: 'DOMQL3004' });
+        expect(after).toEqual({ status: 'fulfilled', value: 'after' });
+        listener.dispose();
+
+        const failing = subscribe({ reactions: [reaction('panel:mark({ label = "never" })')] }, 'import Marks\npanel.on("click") { key = panel:broken }');
+
+        panel.children[0].click();
+
+        expect(failing.events.map(args => args.status)).toEqual(['failed']);
+        expect('reactions' in failing.events[0]).toBe(false);
+        expect(log.some(entry => entry.startsWith('never'))).toBe(false);
+        failing.listener.dispose();
+    });
+
+    it('refuses reactions that are no list of query objects this instance made', async () => {
+        vi.resetModules();
+
+        const { domql: another } = await import('#domql/domql.js');
+
+        // A stand-in for a query object, as a proxy of one, is no query object this instance made either.
+        for (const reactions of [reaction('panel:mark({ label = "x" })'), ['panel:mark()'], [another.query('1')], [new Proxy(reaction('panel:mark({ label = "x" })'), {})]]) {
+            expect(getError(() => subscribe({ reactions }))).toMatchObject({ kind: 'structure', code: 'DOMQL2015' });
+        }
+    });
+});
+
 describe('domql executeAsync', () => {
     // Each test loads its own copy of domql, with a registry of its own.
     let isolated;

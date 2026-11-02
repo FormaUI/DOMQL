@@ -6,6 +6,20 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-316"></a>
+
+## `1.0.0-alpha.316`
+
+*November 2, 2026 · Nexo language `1.0.0-beta.20` · definition format 38*
+
+A subscription carries out reactions, once executions run inside each event's delivery with the user's activation, with no round trip to a caller across a boundary.
+
+**Events**
+
+- [Reactions](spec/events.md#events-reactions): `subscribe` takes `reactions`, query objects each ending in a once execution, carried out in their order as each event is projected, inside its delivery and before the handler, each bound to its own values and `event`, the event's projected value, for the subscription's owner. The handler's ready event carries `reactions`, a promise of each one's result, settling after the handler was called, as [D71](docs/decisions.md#d71) records. A list of anything but the instance's query objects is refused with the new `DOMQL2015`.
+
+**Breaking:** nothing.
+
 <a id="v1-0-0-alpha-315"></a>
 
 ## `1.0.0-alpha.315`

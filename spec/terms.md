@@ -75,6 +75,7 @@ In this document:
 | Event source | A host call that delivers things that happened, as `on(type)` does | [Event sources](events.md#event-sources) |
 | Event type | A key of DOMQL's type selector `event`, which names the type its events are captured as | [Event types](events.md#event-types) |
 | Subscription | A query whose chain ends in an event source, which shapes each event into data | [Events](events.md#events) |
+| Reaction | A once execution a subscription carries out as it hears each event, inside the event's delivery | [Reactions](events.md#events-reactions) |
 | Event listener | The handle of a subscription, and of each listener subscribed to a handle's events | [Subscribing](events.md#subscribing), [events of a handle](api.md#events-of-a-handle) |
 | Execution | A host call that changes the page, of the execution mode its declaration gives | [Executions](executions.md#executions) |
 | Once execution | An execution that changes the page once and answers its result, carried out by `executeAsync` | [Executing once](executions.md#executions-executing-once) |

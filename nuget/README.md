@@ -325,6 +325,34 @@ Listening starts during `subscribe()` and ends with `dispose()`. A failed projec
 
 Event projections do not wait for browser observations. A maintained value such as `intersects` is null until its first sample arrives.
 
+### React inside the event
+
+Some changes must happen while the browser still dispatches the event: writing the clipboard, sharing and playing need the user's activation, and selecting a field's text as it takes focus must come before anything else runs. A caller across a boundary, as a .NET host, can't answer in time. Give the subscription its `reactions` instead, once executions it carries out as it hears each event, before calling the handler:
+
+```js
+const announce = domql.query('panel.dispatch({ type = "chosen", detail = event.key })', { panel });
+let reacted;
+
+const choices = domql.query('panel.on("click") { key = it.target?["data-key"] }', { panel }).subscribe((sender, args) => {
+    console.log(args.value);
+    reacted = args.reactions[0];
+}, { reactions: [announce] });
+
+panel.addEventListener('chosen', event => console.log(event.detail), { once: true });
+
+// For this example only: the user clicks the third item.
+panel.querySelector('[data-key="a3"]').click();
+// 'a3': the reaction, inside the click
+// { key: 'a3' }: then the handler
+
+console.log(await reacted);
+// false: no listener cancelled the event the reaction dispatched
+
+choices.dispose();
+```
+
+Each reaction is bound to its own bindings and `event`, the event's projected value, and carried out for the subscription's owner. The handler receives a promise of each reaction's result as `args.reactions`, in order, each settling after the handler was called, so forwarding the event and then each result keeps every result after the event that triggered it. An event whose projection fails is reacted to by none.
+
 ## The language
 
 Each code block in this section shows a separate query or JavaScript example. Examples that use `panel` refer to the original three-item markup above.

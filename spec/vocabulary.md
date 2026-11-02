@@ -1191,7 +1191,7 @@ list.scrollTo({ block = 0, behavior = "smooth" }) // Whether the list moved, onc
 
 Each states its syntax and signature, as a function's does, what it does and answers, and what it needs of the user. An argument of a value it takes none of, as a behavior it doesn't know, fails the execution with an evaluation error whose cause says why, before it changes anything; a failure the platform reports fails it alike, its cause the platform's error. A receiver that is null, or a null argument whose parameter propagates null, skips the execution, as [executing once](executions.md#executions-executing-once) sets out; a null argument whose parameter accepts null is passed as it stands, as `ownAttribute`'s `value` is.
 
-**Activation.** A browser lets a page do some things only while the user has just acted, its **transient activation**, which a click, a key press or a tap gives for a few seconds. An execution that needs it says so. A subscription's handler runs inside the event's dispatch, so an execution it carries out at once has the activation the event gives; one carried out after a round trip may find it expired.
+**Activation.** A browser lets a page do some things only while the user has just acted, its **transient activation**, which a click, a key press or a tap gives for a few seconds. An execution that needs it says so. A subscription's handler runs inside the event's dispatch, so an execution it carries out at once has the activation the event gives, as a subscription's [reactions](events.md#events-reactions) do for a caller across a boundary; one carried out after a round trip may find it expired.
 
 | Receiver | Execution | Mode |
 | --- | --- | --- |

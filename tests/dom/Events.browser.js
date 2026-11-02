@@ -247,4 +247,40 @@ describe('Events in a browser', () => {
             expect([loads, errors, volumes]).toEqual([[{ target: 'good' }], [{ target: 'bad' }], [{ target: 'video' }]]);
         });
     });
+
+    describe('reactions', () => {
+        it('are carried out inside the dispatch of the event the user\'s press gives, with its activation, before the handler hears of it', async () => {
+            document.body.innerHTML = '<button id="button" data-copy="link">Copy</button>';
+
+            const button = document.getElementById('button');
+            const order = [];
+
+            // A once execution that answers what it finds as it is invoked: the event being dispatched, whether the user has just acted, and the text it was given.
+            domql.registerModule(domql.createModule('Activation', {
+                members: [{
+                    name: 'activationNow', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', arguments: 'positional',
+                    parameters: [{ name: 'text', kind: 'value', type: 'String', required: true }],
+                    result: 'String',
+                    impl: ({ args: { text }, env }) => {
+                        order.push('reaction');
+
+                        return `${env.window.event?.type} ${env.window.navigator.userActivation.isActive} ${text}`;
+                    },
+                }],
+            }));
+
+            const reaction = domql.query('import Activation\nActivation.activationNow(event.text)');
+            const results = [];
+
+            listeners.push(domql.query('button.on("click") { text = it.target?["data-copy"] }', { button }).subscribe((sender, args) => {
+                order.push('handler');
+                results.push(...args.reactions);
+            }, { reactions: [reaction] }));
+
+            await userEvent.click(button);
+
+            expect(order).toEqual(['reaction', 'handler']);
+            expect(await results[0]).toBe('click true link');
+        });
+    });
 });

@@ -44,6 +44,7 @@ const examples = [
     { file: '30-resample.js', observed: 'printed', answers: [['{ nearEnd: true }']] },
     { file: '07-live-state.js', observed: 'printed', answers: [['[]'], ["[{ op: 'replace', path: '/1/selected', value: true }]"], ['true']] },
     { file: '08-subscribe.js', observed: 'printed', answers: [["{ key: 'a2', wasSelected: true, selectedCount: 1 }"]] },
+    { file: '33-reactions.js', observed: 'printed', answers: [["'a3'"], ["{ key: 'a3' }"], ['false']] },
     { file: '09-objects.js', observed: 'reads', answers: [['{ count: 3, attached: true, hasChildren: true }']] },
     {
         file: '10-objects-of-lists.js',
@@ -114,8 +115,17 @@ describe('the package README', () => {
         const printed = [];
         const watches = [];
 
-        // The examples call domql as the README writes it: every result an evaluation or an execution answers is kept, and every watch a query makes is disposed when they end.
-        const kept = query => new Proxy(query, {
+        // The examples call domql as the README writes it: every result an evaluation or an execution answers is kept, and every watch a query makes is disposed when they end. A query a subscription reacts with is
+        // handed to DOMQL as it made it.
+        const made = new WeakMap();
+        const kept = query => {
+            const proxy = keeping(query);
+
+            made.set(proxy, query);
+
+            return proxy;
+        };
+        const keeping = query => new Proxy(query, {
             get: (target, key) => {
                 switch (key) {
                     case 'evaluate':
@@ -128,6 +138,8 @@ describe('the package README', () => {
                         return options => { const watch = target.watch(options); watches.push(watch); return watch; };
                     case 'with':
                         return bindings => kept(target.with(bindings));
+                    case 'subscribe':
+                        return (handler, options) => target.subscribe(handler, options?.reactions === undefined ? options : { ...options, reactions: options.reactions.map(reaction => made.get(reaction) ?? reaction) });
                     default:
                         return typeof target[key] === 'function' ? target[key].bind(target) : target[key];
                 }

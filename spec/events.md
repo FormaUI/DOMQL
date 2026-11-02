@@ -98,15 +98,37 @@ A member the event carries no value of its type for is null where its type is nu
 
 ## Subscribing
 
-An event's object expression is evaluated as the event arrives, and its result, immutable data, reaches the caller by the caller's own delivery. `query.subscribe(handler, options?)` listens to a subscription and answers a `DomqlEventListener`, the subscription's handle, with `status` and `dispose()` alone, as every event listener has; its options are `window`, [`owner`](api.md#api-the-owner) and `signal`, which disposes it when it aborts. The handler is called with `(sender, args)`: the event listener, and for each event `status: "ready"` with the event's result as `value`, or `status: "failed"` with `error` alone where capturing or projecting the event fails. Its handler's calls follow the order and the disposal of [events of a handle](api.md#events-of-a-handle).
+An event's object expression is evaluated as the event arrives, and its result, immutable data, reaches the caller by the caller's own delivery. `query.subscribe(handler, options?)` listens to a subscription and answers a `DomqlEventListener`, the subscription's handle, with `status` and `dispose()` alone, as every event listener has; its options are `window`, [`owner`](api.md#api-the-owner), `signal`, which disposes it when it aborts, and [`reactions`](#events-reactions). The handler is called with `(sender, args)`: the event listener, and for each event `status: "ready"` with the event's result as `value`, or `status: "failed"` with `error` alone where capturing or projecting the event fails. Its handler's calls follow the order and the disposal of [events of a handle](api.md#events-of-a-handle).
 
 - **Listening starts in the call.** The event listener starts its source before `subscribe` returns, so an event dispatched right after the call is heard, and a source that cannot start fails the call with an evaluation error whose cause is what the source threw. Its `status` is `ready` from the call on and `disposed` once ended; it never waits for an event.
 - **Events during the start.** A source may deliver while it starts. Those events are captured and projected at once, and the handler receives them once the caller holds the event listener, before any later event; where the start fails, the handler never receives them and the observations they started are let go of.
 - **The receiver and the arguments** of the source are prepared once, as listening starts, so an event listener does not follow a receiver that changes; a skipped preparation, where the receiver is null, or an argument whose parameter propagates null is null, starts nothing, and the event listener is `ready` and listens to nothing.
 - **A failed event,** one whose capture or object expression fails, reaches the handler with `status: "failed"` and leaves the event listener `ready`, listening; the next event is captured and projected again. A failure of the handler itself goes to the window's error reporting, and the handler is never called with its own failure.
+- **Reactions,** once executions the subscription carries out as it hears each event, reach the handler as promises of their results beside the event's value, as [reactions](#events-reactions) set out.
 - **Applying an event.** The handler applies an event as it returns, or, where it returns a promise, as that promise fulfils. DOMQL calls the handler with the next event without waiting for it, and the source that delivered the event learns when it was applied from what its `deliver` answers, as a behavior's [acknowledgment](behaviors.md#behaviors-acknowledgment) sets out.
 - **A behavior's source.** An event source a module declares for a [behavior](behaviors.md#behaviors-occurrences) delivers the occurrences every instance of the behavior running for the subscription's owner on its receiver hands it, from the subscription's start on, whether or not an instance runs as it starts.
 - **`dispose()`** ends the listening, lets go of every observation the event listener holds and prevents any new handler call; one already running may finish. Disposing again does nothing.
+
+<a id="events-reactions"></a>
+
+## Reactions
+
+A **reaction** is a once execution DOMQL carries out as a subscription hears an event, inside that event's delivery, with no round trip to its caller: so it has the user's [activation](vocabulary.md#built-in-executions) for writing the clipboard, sharing or playing, and acts before anything else runs, as selecting a field's text as it takes focus. `subscribe` takes them as its `reactions` option, a list of query objects, each ending in a once execution:
+
+```js
+const copy = domql.query('Domql.window.writeClipboard(event.text)');
+
+domql.query('button.on("click") { text = it.target?["data-copy"] }', { button }).subscribe(async (sender, args) => {
+    send(args.value);                // The event, which a caller across a boundary forwards first,
+    send(await args.reactions[0]);   // and then how the browser took the copy, carried out inside the click.
+}, { reactions: [copy] });
+```
+
+- **When.** For each event the subscription projects, its reactions are carried out in their order, each as `executeAsync` carries it out, before the handler is called with that event. An event whose capture or projection fails is reacted to by none.
+- **What each reads.** Each reaction is carried out with its own bindings and `event`, the event's projected value, bound in place of a binding of that name, for the subscription's owner and in its window. A reaction is resolved as each event binds it, so one that is no once execution, or that doesn't resolve with the event bound, fails as `executeAsync` fails it.
+- **Their results.** The handler's ready event carries `reactions`, one promise for each reaction, in their order, each settling as `executeAsync`'s promise does: with the execution's result, or its failure. A promise settles after the handler has been called, so a caller that forwards the event and then each result, in order, sends every result after the event that triggered it. A promise the handler leaves goes unhandled, as one `executeAsync` answers does.
+- **Several in one event.** Reactions carried out in one event keep their order, each invoked within the event's delivery, as [executions carried out in one task](executions.md#executions-executing-once) do, so a dialog shown and then a field in it focused take one event.
+- **Its list** is fixed as the subscription starts. A list holding anything but query objects this instance made is refused with `DOMQL2015`.
 
 <a id="events-maintained-members"></a>
 

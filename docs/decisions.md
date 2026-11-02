@@ -1061,3 +1061,22 @@ Each entry is one of three kinds:
   - Refusing a second holder of a target, an exclusive owner enforced, which would break a replacement that starts before it disposes, as [D48](#d48) found for behaviors.
   - Telling a holder from a patch by the value it writes, which a class's presence can't tell; the time of the answer does, for every kind of target.
   - An owned-write tool of the environment's own for module code, which `env.domql` already reaches.
+
+<a id="d71"></a>
+
+## D71 — A subscription carries out its reactions inside each event's delivery, and hands their results to its handler
+
+*November 2, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `subscribe` takes `reactions`, a list of query objects each ending in a once execution ([A7](features-status.md#planned-api-and-host)). For each event it projects, the subscription carries them out in their order, inside the event's delivery and before calling its handler, each bound to its own values and `event`, the event's projected value, for the subscription's owner. The handler's ready event carries `reactions`, a promise of each one's result, settling as `executeAsync`'s does. An event whose projection fails is reacted to by none. Several executions in one crossing are executions carried out in one task, which keep their order ([D64](#d64)).
+- **Why:**
+  - Writing the clipboard, sharing and playing need the user's activation, and selecting a field's text on focus must come before anything else runs, so a caller across a boundary, which hears the event only after a round trip, can't carry them out in time. A browser test proves a reaction runs inside a click's dispatch, with its activation, before the handler.
+  - A route of a module's router delivers every action of a scope through one source, so a reaction reads the event's value, as `execute({ command = event.action })` does, rather than one subscription per action, which no source can filter.
+  - The event is the trigger, so its handler hears of it first, with promises of the reactions' results that settle after it; a caller forwarding the event and then each result keeps every result after the event that triggered it, as the consumer's correction asked.
+  - A reaction is a once execution like any other, so its result, failure and validation are `executeAsync`'s, its failure confined to its own promise.
+  - In five paired rounds, projecting an event and making a small query measured within noise.
+- **Declined:**
+  - Reactions after the handler, which would leave the handler no promise of their results with the event.
+  - Refusing as the subscription starts a reaction that would fail at every event: a reaction reading `event` resolves only once an event binds it, so it is resolved, and fails, as each event binds it, as `executeAsync` would.
+  - A batch operation for several executions, which carrying them out in one task already orders.

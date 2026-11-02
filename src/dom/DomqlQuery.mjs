@@ -20,17 +20,20 @@ import { nexo } from '@formaui-net/nexo';
 export class DomqlQuery {
     #definition;
     #bindings;
+    #values;
     #operations;
 
     /**
      * @param {object} definition The request's validated, frozen definition.
      * @param {object} bindings The values its parameters are bound to, as the registry it is resolved against binds them.
      * @param {QueryOperations} operations What carries its operations out.
+     * @param {Record<string, unknown>} values The values given by parameter name, which `bindings` binds.
      */
-    constructor(definition, bindings, operations) {
+    constructor(definition, bindings, operations, values) {
         this.#definition = definition;
         this.#bindings = bindings;
         this.#operations = operations;
+        this.#values = values;
     }
 
     /** The immutable definition, without its bindings. */
@@ -43,9 +46,19 @@ export class DomqlQuery {
         return query.#bindings;
     }
 
+    /** Whether the value is a query object itself, as this instance made it, rather than another instance's or anything standing in for one. */
+    static isQuery(value) {
+        return value !== null && typeof value === 'object' && #values in value;
+    }
+
+    /** The values given by parameter name, as the caller gave them, which a reaction binds again beside its event; no part of a query object's API. */
+    static valuesOf(query) {
+        return query.#values;
+    }
+
     /** A new query object with the same definition, bound to these bindings, which replace the old ones whole; this one, and every operation running from it, are unaffected. */
     with(bindings) {
-        return new DomqlQuery(this.#definition, this.#operations.bind(bindings), this.#operations);
+        return new DomqlQuery(this.#definition, this.#operations.bind(bindings), this.#operations, bindings);
     }
 
     /** The request validated against the vocabulary and typed, without evaluating anything; its options resolve it as a watch would. */
