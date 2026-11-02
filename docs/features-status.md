@@ -2,7 +2,7 @@
 
 ## Current state
 
-**DOMQL's vocabulary, queries, watches, events, executions and behaviors are implemented on Nexo's language `1.0.0-beta.20`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.318`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next are the [planned capabilities](#planned-capabilities) of the API and host; the C# half waits for its design.**
+**DOMQL's vocabulary, queries, watches, events, executions and behaviors are implemented on Nexo's language `1.0.0-beta.20`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.318`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Every [planned capability](#planned-capabilities) is implemented or declined but the C# half's, A1 and A5's queue, which wait for its design.**
 
 | Version | Implementation | Specification |
 | --- | --- | --- |
@@ -23,7 +23,7 @@ The [specification](../spec/README.md) defines the contract, and the [design](do
 | Work | State |
 | --- | --- |
 | [The C# half](#the-c-half) | Waits for its design |
-| [Planned capabilities](#planned-capabilities) | Planned, in the order they are listed |
+| [Planned capabilities](#planned-capabilities) | The C# half's alone remain, waiting for its design |
 | [Release](#release) | On Nexo's published packages |
 
 - **Breaking changes are made directly,** without compatibility layers, migration notes or deprecations, until the beta.
@@ -166,13 +166,13 @@ Contracts: [The C# half](domql-design.md#the-c-half), [keeping a copy of a resul
 
 ## Planned capabilities
 
-What DOMQL lacked for an application to do its browser work through it: changes to the page DOMQL carries out itself, behaviors that report back and take commands, and the vocabulary, events, observation, API and timing below. What remains is the API and host's. They were found by reading a large body of component scripts against DOMQL as it stands. Each has an identifier, and each name is provisional: the specification settles it.
+What DOMQL lacked for an application to do its browser work through it: changes to the page DOMQL carries out itself, behaviors that report back and take commands, and the vocabulary, events, observation, API and timing below. They were found by reading a large body of component scripts against DOMQL as it stands. Each has an identifier, and each name is provisional: the specification settles it. What remains is the C# half's: A1, and A5's queue, which carries across the boundary the order the JavaScript side keeps.
 
 The language's part is Nexo's already, adopted with the [migration](#migration-to-nexo): numbers, strings, structured values written in place or bound, an item's position in a list, and resolutions that stay current across a registration, from its language `1.0.0-alpha.36`.
 
 **The order of the work:**
 
-1. **The C# half's queue** of ordered delivery (A5), with the C# half (A1), once it is designed.
+1. **The C# half** (A1), with its queue of ordered delivery (A5), once it is designed, as [D46](decisions.md#d46) records.
 
 <a id="planned-vocabulary"></a>
 
@@ -236,13 +236,22 @@ None remains: C1 to C14 are implemented, as [the features](#the-host) show, each
 
 ### API and host
 
-A2 to A4 are implemented, as [the features](#the-host) show: change sets compose by concatenation, so a host coalesces them itself ([D65](decisions.md#d65)); a refresh takes new samples where it is asked to, while delivering an equal result needs nothing new ([D66](decisions.md#d66)); and a module is loaded on request through a loader by its name, before the query importing it is carried out ([D68](decisions.md#d68)). A5's JavaScript side is implemented: what DOMQL delivers reaches its handlers in the order it happens, across handles and owners, and calls to several handles take effect in the order they are made ([D69](decisions.md#d69)). A10 is implemented: each target of a rendered element is the framework's or an owned write's, an owned write keeps its value against a patch and yields to a writer keeping its own, and a rendered node's text is written in place ([D70](decisions.md#d70)). A7 is implemented: a subscription carries out its reactions inside each event's delivery, keeping the user's activation, and its handler receives their results after the event ([D71](decisions.md#d71)). A8 is implemented: a watch answers the element a list item came from, beside its result, to a handler in the browser ([D72](decisions.md#d72)). A9 is implemented: a watch takes a delayed schedule, which a refresh flushes, and reports on parts, and a subscription takes a throttle, while delivering a subscription by frame stays declined ([D73](decisions.md#d73)).
+Only the C# half's remain, A1 and A5's queue, both waiting for its design ([D46](decisions.md#d46)). A2 to A10 are implemented, as [the features](#the-host) show, or declined where their decisions say why. What their decisions settled:
+
+- Change sets compose by concatenation, so a host coalesces them itself ([D65](decisions.md#d65)).
+- A refresh takes new samples where it is asked to, and delivering an equal result needs nothing new ([D66](decisions.md#d66)).
+- A module is loaded on request through a loader by its name, before the query importing it is carried out ([D68](decisions.md#d68)).
+- What DOMQL delivers reaches its handlers in the order it happens, across handles and owners, and calls to several handles take effect in the order they are made; the C# half's queue carries that order across the boundary ([D69](decisions.md#d69)).
+- An execution's lifetime is anchored to its element by its caller, with a watch of `attached`, and `run({ anchor })` is declined ([D74](decisions.md#d74)).
+- A subscription carries out its reactions inside each event's delivery, keeping the user's activation, and its handler receives their results after the event ([D71](decisions.md#d71)).
+- A watch answers the element a list item came from, beside its result ([D72](decisions.md#d72)).
+- A watch takes a delayed schedule, which a refresh flushes, and reports on parts; a subscription takes a throttle; and delivering a subscription by frame stays declined ([D73](decisions.md#d73)).
+- Each target of a rendered element is the framework's or an owned write's: an owned write keeps its value against a patch, yields to a writer keeping its own, and writes a rendered node's text in place ([D70](decisions.md#d70)).
 
 | | Addition |
 | --- | --- |
 | A1 | **The C# half,** waiting for its design, as [outlined](#the-c-half): typed queries mapped onto records, watches, once and continuous executions and subscriptions, with failures reported, never discarded. Its acknowledgement follows the application of an update, never the application's handlers |
 | A5 | **The C# half's queue of ordered delivery:** bounded, never coalesced, failing explicitly on overflow, carrying across the boundary the order the JavaScript side already keeps. It waits with A1 |
-| A6 | **An execution's lifetime anchored to its element,** `run({ anchor })`, disposing it once the element has left the document a frame later; a host can build it from a watch of `it.attached` |
 
 <a id="planned-timing"></a>
 

@@ -71,6 +71,7 @@ const examples = [
     { file: '31-load-on-request.js', observed: 'reads', answers: [['7']] },
     { file: '22-execute-once.js', observed: 'reads', answers: [['true']] },
     { file: '23-run-continuously.js', observed: 'printed', answers: [["'gold'"], ["'teal'"], ['undefined']] },
+    { file: '36-anchor.js', observed: 'printed', answers: [["'disposed'"]] },
     { file: '32-beside-a-framework.js', observed: 'printed', answers: [["'rendered dragging'"], ["'2 unread'"]] },
     { file: '24-command.js', observed: 'reads', answers: [['true']] },
     { file: '25-occurrences.js', observed: 'printed', answers: [["{ key: 'a3' }"]] },

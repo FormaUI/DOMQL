@@ -1128,6 +1128,32 @@ console.log(panel.dataset.highlight);
 
 `update()` replaces the complete bindings object and validates it before applying a change. A validation failure leaves the current execution running. Disposing the handle ends the execution; its module remains registered.
 
+To end an execution once its element leaves the page, watch whether the element is attached, and dispose both when it no longer is:
+
+```js
+const badge = document.createElement('span');
+
+document.body.append(badge);
+
+const marked = domql.query('badge.ownClass({ name = "busy" })', { badge }).run();
+const attached = domql.query('badge.attached', { badge }).watch({ acceptPartialObservation: true });
+
+attached.subscribe('change', (sender, args) => {
+    if (args.status === 'ready' && !args.value) {
+        marked.dispose();
+        attached.dispose();
+    }
+});
+
+// For this example only: the page removes the element.
+badge.remove();
+await attached.refreshAsync();
+console.log(marked.status);
+// 'disposed'
+```
+
+The watch evaluates at the next animation frame, so an element a framework moves, removing and inserting it in one task, keeps its execution. It accepts partial observation, since what `attached` misses is a detached tree inserted into a shadow root, never a removal.
+
 ### Write beside a framework
 
 A framework that renders an element writes its whole `class` and `style` attributes again as it renders, dropping a class or a property it doesn't know, and holds the text nodes it rendered. Hold what you write with an owned write instead of writing it directly:

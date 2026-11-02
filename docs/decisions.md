@@ -1116,3 +1116,17 @@ Each entry is one of three kinds:
   - `flushOn`, a subscription that flushes a delayed watch, which a refresh in the caller's handler already does; the design's [decisions not taken](domql-design.md#decisions-not-taken) say what reopens it.
   - A maximum wait for the delayed schedule, which no consumer asked for.
   - A subscription delivered by animation frame, as above.
+
+<a id="d74"></a>
+
+## D74 — An execution's lifetime is anchored to its element by its caller, with a watch of `attached`
+
+*November 2, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `run({ anchor })`, a continuous execution disposed once its element has left the document a frame later ([A6](features-status.md#planned-api-and-host)), is declined. A caller watches `element.attached` and disposes the execution, and the watch, once it reads false, as the library guide shows.
+- **Why:**
+  - The composition is a few lines, every part of it DOMQL's already: `attached` follows the element through every shadow root, a watch scheduled by frame evaluates once the task that moved the element has ended, so a framework that removes and inserts it in one task leaves its execution running, and `dispose` ends both.
+  - Built in, the option would hold the same observation for every execution, and decide for every caller how long a move may take; a caller that needs a longer grace, or none, chooses its schedule.
+  - The consumer's survey found the host builds it from a watch of `attached`, and counts it optional.
+- **Declined:** The option itself; the design's [decisions not taken](domql-design.md#decisions-not-taken) say what reopens it.
