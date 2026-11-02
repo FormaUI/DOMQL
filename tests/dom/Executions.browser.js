@@ -187,6 +187,39 @@ describe('Executions in a browser', () => {
         });
     });
 
+    describe('a file\'s source', () => {
+        it('shows an image the user chose through an object URL it revokes once the source no longer shows it', async () => {
+            document.body.innerHTML = '<input id="picker" type="file" multiple><img id="preview">';
+
+            const picker = document.getElementById('picker');
+            const preview = document.getElementById('preview');
+            const chosen = new DataTransfer();
+            const gif = Uint8Array.from(atob('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'), character => character.charCodeAt(0));
+
+            chosen.items.add(new File([gif], 'first.gif', { type: 'image/gif' }));
+            chosen.items.add(new File([gif], 'second.gif', { type: 'image/gif' }));
+            picker.files = chosen.files;
+
+            const loaded = new Promise(resolve => preview.addEventListener('load', resolve, { once: true }));
+            const handle = domql.query('preview.ownFileSource({ input = picker, index = index })', { preview, picker, index: 0 }).run();
+
+            await loaded;
+
+            const first = preview.src;
+
+            expect([first.startsWith('blob:'), preview.naturalWidth]).toEqual([true, 1]);
+
+            handle.update({ preview, picker, index: 1 });
+
+            expect(preview.src).not.toBe(first);
+            await expect(fetch(first)).rejects.toThrow();
+
+            handle.dispose();
+
+            expect(preview.hasAttribute('src')).toBe(false);
+        });
+    });
+
     describe('placing the selection', () => {
         it('selects a node, a node\'s contents and a point, as the selection then reads, and answers false for a node outside the document', async () => {
             document.body.innerHTML = '<div id="editor" contenteditable="true"><p id="first">one <img id="image" alt="">two</p><p id="second">three</p></div>';

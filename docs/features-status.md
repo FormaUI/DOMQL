@@ -2,11 +2,11 @@
 
 ## Current state
 
-**DOMQL's vocabulary, queries, watches, events and executions are implemented on Nexo's language `1.0.0-beta.15`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.299`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next is [the C# half](#the-c-half).**
+**DOMQL's vocabulary, queries, watches, events and executions are implemented on Nexo's language `1.0.0-beta.15`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.300`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next is [the C# half](#the-c-half).**
 
 | Version | Implementation | Specification |
 | --- | --- | --- |
-| DOMQL specification | `1.0.0-alpha.299` | `1.0.0-alpha.299` |
+| DOMQL specification | `1.0.0-alpha.300` | `1.0.0-alpha.300` |
 | Nexo language | `1.0.0-beta.15` | `1.0.0-beta.15` |
 | Definition format | 38 | 38 |
 
@@ -71,6 +71,7 @@ Each feature, the contract that states it, its state in the implementation, and 
 | `all`, `first`, `matches` and `closest` observing what their selector reads, the `selector` observation | [`matches`](../spec/vocabulary.md#function-element-matches), [observation types](../spec/vocabulary.md#observations-types) | Implemented | [`alpha.286`](../VERSION-HISTORY.md#v1-0-0-alpha-286) |
 | An element's `sizeLimits` in pixels, and a file input's `files` | [`sizeLimits`](../spec/vocabulary.md#property-element-sizelimits), [`files`](../spec/vocabulary.md#property-element-files) | Implemented | [`alpha.285`](../VERSION-HISTORY.md#v1-0-0-alpha-285) |
 | `hasPointerCapture(pointerId)` | [`hasPointerCapture`](../spec/vocabulary.md#function-element-haspointercapture) | Implemented | [`alpha.284`](../VERSION-HISTORY.md#v1-0-0-alpha-284) |
+| A chosen file shown as an element's source, `ownFileSource`, its object URL owned and revoked | [`ownFileSource`](../spec/vocabulary.md#execution-element-ownfilesource) | Implemented, as [D44](decisions.md#d44) records | [`alpha.300`](../VERSION-HISTORY.md#v1-0-0-alpha-300) |
 | Placing the document's selection, `select`, `selectContents` and `collapse` of `Domql.document.selection` | [Selection placement](../spec/vocabulary.md#execution-document-selection-placement) | Implemented, as [D43](decisions.md#d43) records | [`alpha.299`](../VERSION-HISTORY.md#v1-0-0-alpha-299) |
 | `dispatch`, a custom event of the page's own, of an element, the document and the window | [`dispatch`](../spec/vocabulary.md#execution-dispatch) | Implemented, as [D42](decisions.md#d42) records | [`alpha.298`](../VERSION-HISTORY.md#v1-0-0-alpha-298) |
 | Built-in executions: focusing, `takeFocus`, and scrolling, `scrollTo`, `scrollBy` and `scrollIntoView`, of an element and of the window | [Executions](../spec/vocabulary.md#built-in-executions) | Implemented, as [D34](decisions.md#d34) and [D35](decisions.md#d35) record | [`alpha.292`](../VERSION-HISTORY.md#v1-0-0-alpha-292) |
@@ -146,7 +147,7 @@ The language's part is Nexo's already, adopted with the [migration](#migration-t
 2. **Input.** Module state per document (C8), synchronous handling stated (C10) and ordered delivery (A5).
 3. **Presentation.** Commands to a running behavior (C3), ownership of written styles and classes against a framework (A10), nullable options (C11) and the frame promise (T2).
 4. **Virtualization.** State a behavior offers and history per holder (C2, C9).
-5. **Gestures and files.** Files (X10) and continuous measurement (O3).
+5. **Gestures.** Continuous measurement (O3).
 6. **Dialogs and frames.** Ordered executions (T3).
 7. **The remaining facilities.** Reactions in the browser (A7).
 8. **Editing and data views.** Source elements for a local consumer (A8), and transient measurement (C7, T1).
@@ -161,7 +162,13 @@ None remains: V1 to V18 are implemented, as [the features](#the-doms-vocabulary)
 
 ### Events
 
-None remains: E1 to E9 are implemented, as [the features](#the-doms-vocabulary) show. `on` takes a `Listening` option ([D27](decisions.md#d27)), a click shares `PointerEvent` with the pointer events ([D28](decisions.md#d28)), `touchend` and `touchcancel` are declined, since pointer events cover them ([D29](decisions.md#d29)), `focus` and `blur` are each a `FocusEvent` ([D30](decisions.md#d30)), and every event carries its time, its cancellation and its path ([D33](decisions.md#d33)).
+None remains: E1 to E9 are implemented, as [the features](#the-doms-vocabulary) show. What their decisions settled:
+
+- `on` takes a `Listening` option for the capture phase ([D27](decisions.md#d27)).
+- A click shares `PointerEvent` with the pointer events ([D28](decisions.md#d28)).
+- `touchend` and `touchcancel` are declined, since pointer events cover them ([D29](decisions.md#d29)).
+- `focus` and `blur` are each a `FocusEvent` ([D30](decisions.md#d30)).
+- Every event carries its time, its cancellation and its path ([D33](decisions.md#d33)).
 
 <a id="planned-observation"></a>
 
@@ -179,13 +186,18 @@ O1, O2, O4 and O6 are implemented, as [the features](#the-doms-vocabulary) show:
 
 ### Executions
 
-DOMQL's first built-in executions. Three names below would collide with DOMQL's Boolean functions `focus()`, `clipboard()` and `share()`, so they are written `takeFocus`, `writeClipboard` and `requestShare`.
+None remains: X1 to X10 are implemented, as [the features](#the-doms-vocabulary) show. Three are named apart from DOMQL's Boolean functions `focus()`, `clipboard()` and `share()`: `takeFocus`, `writeClipboard` and `requestShare`. What their decisions settled:
 
-X1 to X9 are implemented, as [the features](#the-doms-vocabulary) show: focusing answers whether focus landed ([D34](decisions.md#d34)), a scroll is logical and answers once it has ended ([D35](decisions.md#d35)), the top layer's executions answer whether they changed it ([D36](decisions.md#d36)), a pointer's capture whether the element holds it ([D37](decisions.md#d37)), an owned write says whether it restores and keeps its value ([D38](decisions.md#d38)), a form control's writes answer what they changed ([D39](decisions.md#d39)), and the browser's facilities how the browser took the request ([D40](decisions.md#d40)); `readClipboardText` is declined beside `readClipboard` ([D40](decisions.md#d40)), `writeCookie` declined ([D41](decisions.md#d41)), `dispatch` answers whether a listener cancelled its event ([D42](decisions.md#d42)), and the document's selection places itself ([D43](decisions.md#d43)).
-
-| | Addition |
-| --- | --- |
-| X10 | Image sources from selected files, their object URLs owned and revoked by the execution: built in, or a module's |
+- Focusing answers whether focus landed ([D34](decisions.md#d34)).
+- A scroll is logical and answers once it has ended ([D35](decisions.md#d35)).
+- The top layer's executions answer whether they changed it ([D36](decisions.md#d36)).
+- A pointer's capture answers whether the element holds it ([D37](decisions.md#d37)).
+- An owned write says whether it restores and keeps its value ([D38](decisions.md#d38)).
+- A form control's writes answer what they changed ([D39](decisions.md#d39)).
+- The browser's facilities answer how the browser took the request, and `readClipboardText` is declined beside `readClipboard` ([D40](decisions.md#d40)); `writeCookie` is declined ([D41](decisions.md#d41)).
+- `dispatch` answers whether a listener cancelled its event ([D42](decisions.md#d42)).
+- The document's selection places itself ([D43](decisions.md#d43)).
+- A chosen file's source is built in, its object URL the execution's own ([D44](decisions.md#d44)).
 
 <a id="planned-extension-contract"></a>
 

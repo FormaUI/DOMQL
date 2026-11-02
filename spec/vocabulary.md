@@ -1212,6 +1212,7 @@ Each states its syntax and signature, as a function's does, what it does and ans
 | Element | [`writeSelection({ start, end })`](#execution-element-writeselection) | Once |
 | Document selection | [`select({ node })`, `selectContents({ node, collapse })`, `collapse({ node, offset })`](#execution-document-selection-placement) | Once |
 | Element | [`ownAttribute({ name, value, restore, keep })`, `ownClass({ name, present, restore, keep })`, `ownStyle({ property, value, restore, keep })`](#execution-element-owned-writes) | Continuous |
+| Element | [`ownFileSource({ input, index, restore })`](#execution-element-ownfilesource) | Continuous |
 
 <a id="execution-dispatch"></a>
 
@@ -1392,6 +1393,16 @@ Each states its syntax and signature, as a function's does, what it does and ans
 - **Another writer.** DOMQL writes to a target as a holding ends only where the target still holds the value DOMQL last wrote, so a value another writer wrote since, as a framework rendering the element, stands. Where the latest holder's `keep` is true, it writes its value again before the next frame each time another writer changes it, as against a framework's patch rewriting an attribute; where it is false, the other writer's value stands until an update writes the holder's again. DOMQL never writes again against a holder of its own.
 
 **Answers.** Nothing, as every continuous execution. A name that is no class, an attribute name the browser refuses, and a failure to write, fail the start or the update, which leaves the execution holding what it held
+
+<a id="execution-element-ownfilesource"></a>
+
+### Element: ownFileSource
+
+**Syntax:** `ownFileSource({ input, index, restore })`   **Signature:** `input`: `Element`; optional `index`: `Number`, 0 when omitted; optional `restore`: `Boolean`, true when omitted → none   **Mode:** Continuous   **Activation:** None
+
+**Does.** Shows a file the user chose as the element's source, as an image's or a media element's: an [owned write](#execution-element-owned-writes) of its `src` attribute, held at an object URL of the file the file input holds at the index, among [`files`](#property-element-files), and absent where it holds none there. The URL is the execution's own: it makes one as a file is first shown, keeps it while an update shows the same file on the same element, and revokes it once the source no longer shows it, as an update showing another file and disposing do. It reads the input's files as it starts and as it is updated, so an update after the user chooses shows the new choice. Disposing writes back the source the element held before, as an owned write does, where `restore` is true
+
+**Answers.** Nothing, as every continuous execution. An `input` that is no file input fails the start or the update
 
 <a id="built-in-conversions"></a>
 

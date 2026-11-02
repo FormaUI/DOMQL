@@ -661,3 +661,17 @@ Each entry is one of three kinds:
   - A browser takes no range of a node outside the document into its selection, so whether the selection holds the place is what tells a caller its node had gone.
   - A selection placed at offsets in an element's text is `writeSelection`'s, which an editable element takes as its `selection` reads them.
 - **Declined:** placing a selection's anchor and focus apart, `setBaseAndExtent`, and extending it, which no query needs yet.
+
+<a id="d44"></a>
+
+## D44 — A file's source is built in, an owned write of `src`
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `ownFileSource({ input, index, restore })` is a built-in continuous execution, an owned write of the element's `src` at an object URL of the file the input holds at the index. The URL is the execution's own, made as a file is first shown and revoked once the source no longer shows it. It reads the input's files as it starts and as it is updated.
+- **Why:**
+  - Showing a chosen file is one platform call, an object URL, and one write, its source, with no policy, so it is built in, as [D1](#d1) has it; an object URL left unrevoked holds the file's memory until the page unloads, and only what made it knows when it is no longer shown, so the execution owns it.
+  - `src` is an attribute, so the write joins the holders of an element's `src` that `ownAttribute` writes, and restores as they do.
+  - A file's content is no data a result holds, as [D25](#d25) has it, so the source is read from the input itself; an update after a watch of `files` reports a new choice shows it, so the execution follows the caller rather than listening for changes of its own.
+- **Declined:** following the input's `change` events itself, which would show a choice the caller hasn't acted on, and a module's own execution for it, as the plan allowed.

@@ -122,6 +122,7 @@ export class BrowserExecutionImplementations {
             ownAttribute: own((element, { name }) => OwnedWrites.attribute(element, name), ({ value }) => value),
             ownClass: own((element, { name }) => OwnedWrites.class(element, name), ({ present }) => present),
             ownStyle: own((element, { property }) => OwnedWrites.style(element, property), ({ value }) => value),
+            ownFileSource: ({ receiver: element, args, reportError }) => BrowserExecutionImplementations.#ownFileSource(writes, element, args, reportError),
 
             // The top layer: each answers whether it changed the element's state, and false where the element is in that state already, which the platform's calls leave as it is.
             showPopover: ({ receiver: element }) => BrowserExecutionImplementations.#toggle(element, () => element.matches(':popover-open'), true, () => element.showPopover()),
@@ -322,6 +323,66 @@ export class BrowserExecutionImplementations {
         const holding = writes.hold(targetOf(element, args), optionsOf(args), reportError);
 
         return { update: (receiver, next) => holding.update(targetOf(receiver, next), optionsOf(next)), dispose: () => holding.dispose() };
+    }
+
+    /**
+     * Starts an owned write of the element's `src` at an object URL of the file a file input holds at the index, absent where it holds none there, and answers what updates it to another file and ends it. The URL is
+     * the execution's own: it is made as the file is first shown, kept while the file stays the one shown, and revoked once the source no longer shows it, or the execution ends.
+     */
+    static #ownFileSource(writes, element, { input, index, restore }, reportError) {
+        // The file the input holds at the index, null where it holds none there; an element that is no file input holds no files.
+        const fileOf = given => {
+            if (given.input.localName !== 'input' || given.input.type !== 'file') {
+                throw new Error(`A ${given.input.localName} element is no file input, whose chosen files a source shows`);
+            }
+
+            return given.input.files?.[given.index] ?? null;
+        };
+        // An object URL of the file, made in the window of the element it is the source of, which revokes it.
+        const sourceOf = (receiver, chosen) => (chosen === null ? null : { url: receiver.ownerDocument.defaultView.URL.createObjectURL(chosen), window: receiver.ownerDocument.defaultView });
+        const revoke = source => source?.window.URL.revokeObjectURL(source.url);
+
+        let file = fileOf({ input, index });
+        let source = sourceOf(element, file);
+        let holding;
+
+        try {
+            holding = writes.hold(OwnedWrites.attribute(element, 'src'), { value: source?.url ?? null, restore, keep: false }, reportError);
+        } catch (error) {
+            revoke(source);
+
+            throw error;
+        }
+
+        return {
+            update: (receiver, next) => {
+                const chosen = fileOf(next);
+                const shown = chosen === file && receiver === element ? source : sourceOf(receiver, chosen);
+
+                try {
+                    holding.update(OwnedWrites.attribute(receiver, 'src'), { value: shown?.url ?? null, restore: next.restore, keep: false });
+                } catch (error) {
+                    if (shown !== source) {
+                        revoke(shown);
+                    }
+
+                    throw error;
+                }
+
+                if (shown !== source) {
+                    revoke(source);
+                }
+
+                element = receiver;
+                file = chosen;
+                source = shown;
+            },
+            dispose: () => {
+                holding.dispose();
+                revoke(source);
+                source = null;
+            },
+        };
     }
 
     /** Brings the element into the state it is in where `isIn` answers `wanted`, and answers whether it did: false where it was in that state already, or a listener, as a beforetoggle one, kept it from changing. */

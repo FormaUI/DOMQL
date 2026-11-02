@@ -343,6 +343,90 @@ describe('BrowserExecutionImplementations', () => {
         });
     });
 
+    describe('a file\'s source', () => {
+        let made;
+        let revoked;
+        let handles;
+
+        beforeEach(() => {
+            document.body.innerHTML = '<input id="picker" type="file"><img id="preview" src="placeholder.png"><img id="other">';
+            made = [];
+            revoked = [];
+            handles = [];
+            vi.spyOn(window.URL, 'createObjectURL').mockImplementation(file => {
+                made.push(file.name);
+
+                return `blob:${file.name}`;
+            });
+            vi.spyOn(window.URL, 'revokeObjectURL').mockImplementation(url => revoked.push(url));
+        });
+
+        afterEach(() => {
+            handles.forEach(handle => handle.dispose());
+            vi.restoreAllMocks();
+        });
+
+        const byId = id => document.getElementById(id);
+
+        /** Gives the file input the files named, as the user chooses them. */
+        const choose = (...names) => Object.defineProperty(byId('picker'), 'files', { value: names.map(name => new window.File(['x'], name, { type: 'image/png' })), configurable: true });
+
+        const run = (text, bindings) => {
+            const handle = domql.query(text, bindings).run();
+
+            handles.push(handle);
+
+            return handle;
+        };
+
+        it('shows the file a file input holds through an object URL of its own, and writes back the source it found once disposed, revoking the URL', () => {
+            choose('a.png', 'b.png');
+
+            const handle = run('preview.ownFileSource({ input = picker })', { preview: byId('preview'), picker: byId('picker') });
+
+            expect(byId('preview').getAttribute('src')).toBe('blob:a.png');
+
+            handle.dispose();
+
+            expect(byId('preview').getAttribute('src')).toBe('placeholder.png');
+            expect([made, revoked]).toEqual([['a.png'], ['blob:a.png']]);
+        });
+
+        it('makes a URL only for a file it doesn\'t show yet, revoking the one it showed once the source no longer shows it', () => {
+            choose('a.png', 'b.png');
+
+            const picker = byId('picker');
+            const handle = run('target.ownFileSource({ input = picker, index = index })', { target: byId('preview'), picker, index: 0 });
+
+            handle.update({ target: byId('preview'), picker, index: 0 });
+            handle.update({ target: byId('preview'), picker, index: 1 });
+
+            expect(byId('preview').getAttribute('src')).toBe('blob:b.png');
+            expect([made, revoked]).toEqual([['a.png', 'b.png'], ['blob:a.png']]);
+
+            handle.update({ target: byId('other'), picker, index: 1 });
+
+            expect([byId('preview').getAttribute('src'), byId('other').getAttribute('src')]).toEqual(['placeholder.png', 'blob:b.png']);
+            expect(revoked).toEqual(['blob:a.png', 'blob:b.png']);
+        });
+
+        it('shows no source where the input holds no file at the place given, and leaves its source where it restores none', () => {
+            choose();
+
+            const preview = byId('preview');
+
+            run('preview.ownFileSource({ input = picker, restore = false })', { preview, picker: byId('picker') }).dispose();
+
+            expect(preview.hasAttribute('src')).toBe(false);
+            expect(made).toEqual([]);
+        });
+
+        it('fails to start for an input that is no file input, making no URL', () => {
+            expect(() => run('preview.ownFileSource({ input = other })', { preview: byId('preview'), other: byId('other') })).toThrow(expect.objectContaining({ kind: 'evaluation', code: 'DOMQL5007', cause: expect.objectContaining({ message: expect.stringContaining('A img element is no file input') }) }));
+            expect(made).toEqual([]);
+        });
+    });
+
     describe('placing the selection', () => {
         beforeEach(() => {
             document.body.innerHTML = '<div id="editor" contenteditable="true"><p id="first">one <b id="bold">two</b></p><p id="second">three</p></div>';
