@@ -2,11 +2,11 @@
 
 ## Current state
 
-**DOMQL's vocabulary, queries, watches, events, executions and behaviors are implemented on Nexo's language `1.0.0-beta.20`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.309`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next are the [planned capabilities](#planned-capabilities) of the API and host; the C# half waits for its design.**
+**DOMQL's vocabulary, queries, watches, events, executions and behaviors are implemented on Nexo's language `1.0.0-beta.20`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.310`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next are the [planned capabilities](#planned-capabilities) of the API and host; the C# half waits for its design.**
 
 | Version | Implementation | Specification |
 | --- | --- | --- |
-| DOMQL specification | `1.0.0-alpha.309` | `1.0.0-alpha.309` |
+| DOMQL specification | `1.0.0-alpha.310` | `1.0.0-alpha.310` |
 | Nexo language | `1.0.0-beta.20` | `1.0.0-beta.20` |
 | Definition format | 38 | 38 |
 
@@ -115,6 +115,7 @@ Each feature, the contract that states it, its state in the implementation, and 
 | An immediate watch's handlers in its mutation delivery's checkpoint, before any task or frame | [When its handlers run](../spec/watches.md#watching-when-handlers-run) | Implemented, as [D62](decisions.md#d62) records | [`alpha.309`](../VERSION-HISTORY.md#v1-0-0-alpha-309) |
 | A frame watch's handlers inside the animation frame, after the frame's writes, owned writes kept among them | [When its handlers run](../spec/watches.md#watching-when-handlers-run) | Implemented, as [D63](decisions.md#d63) records | [`alpha.309`](../VERSION-HISTORY.md#v1-0-0-alpha-309) |
 | Executions carried out in one task keep their order | [Executing once](../spec/executions.md#executions-executing-once) | Implemented, as [D64](decisions.md#d64) records | [`alpha.309`](../VERSION-HISTORY.md#v1-0-0-alpha-309) |
+| Change sets that compose by concatenation, which a host coalesces, or replaces with the latest snapshot | [Composing](../spec/results.md#results-composing), [coalescing](../spec/results.md#results-coalescing) | Implemented, as [D65](decisions.md#d65) records | [`alpha.310`](../VERSION-HISTORY.md#v1-0-0-alpha-310) |
 | The C# half | [Design](domql-design.md#the-c-half) | Waits for its design | — |
 
 <a id="migration-to-nexo"></a>
@@ -163,7 +164,7 @@ The language's part is Nexo's already, adopted with the [migration](#migration-t
 
 **The order of the work:**
 
-1. **The host side.** Change sets against an acknowledged result and a refresh that delivers (A2, A3), modules loaded on request (A4) and ordered delivery (A5).
+1. **The host side.** A refresh that delivers (A3), modules loaded on request (A4) and ordered delivery (A5).
 2. **Presentation.** Ownership of written styles and classes against a framework (A10).
 3. **The remaining facilities.** Reactions in the browser (A7).
 4. **Editing and data views.** Source elements for a local consumer (A8).
@@ -230,10 +231,11 @@ None remains: C1 to C14 are implemented, as [the features](#the-host) show, each
 
 ### API and host
 
+A2 is implemented, as [the features](#the-host) show: change sets compose by concatenation, so a host coalesces them itself ([D65](decisions.md#d65)).
+
 | | Addition |
 | --- | --- |
 | A1 | **The C# half,** waiting for its design, as [outlined](#the-c-half): typed queries mapped onto records, watches, once and continuous executions and subscriptions, with failures reported, never discarded. Its acknowledgement follows the application of an update, never the application's handlers |
-| A2 | **Change sets against an acknowledged result,** `watch.changesSince(snapshot)` or composition of pending change sets, so one delivery in flight carries everything since the receiver's last acknowledged state while list items stay matched by their sources; a host can't compute it, since item identity lives in metadata a result never holds |
 | A3 | **A refresh that delivers an equal result,** `refreshAsync({ rebaseline: true })`; today a refresh raises nothing when the result is unchanged, while a reconnection and a sentinel refreshed after a load each need it delivered |
 | A4 | **Modules loaded on request,** a loader by module, or the imports a definition names, so a module is registered before the query that names it is resolved; `run` starts synchronously, so its implementation must be loaded first |
 | A5 | **Ordered occurrence delivery to C#,** bounded, never coalesced, failing explicitly on overflow, and updates to several handles kept in their invocation order, since the order of activations can decide which handle takes precedence |

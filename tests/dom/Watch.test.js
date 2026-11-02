@@ -1775,6 +1775,112 @@ describe('Watch', () => {
             expect(rows[0]).toBe(rowOfSecond);
         });
 
+        describe('change sets a host coalesces', () => {
+            /** Applies a change set as JSON Patch applies a document, one operation after another, moving an item itself rather than a copy of it, and answers the document it gives. */
+            const applyPatch = (document, operations) => {
+                const tokensOf = pointer => (pointer === '' ? [] : pointer.slice(1).split('/').map(token => token.replaceAll('~1', '/').replaceAll('~0', '~')));
+                const parentOf = tokens => tokens.slice(0, -1).reduce((node, token) => node[Array.isArray(node) ? Number(token) : token], document);
+                const take = tokens => {
+                    const parent = parentOf(tokens);
+                    const last = tokens.at(-1);
+
+                    if (Array.isArray(parent)) {
+                        return parent.splice(Number(last), 1)[0];
+                    }
+
+                    const value = parent[last];
+
+                    delete parent[last];
+
+                    return value;
+                };
+                const put = (tokens, value, adds) => {
+                    const parent = parentOf(tokens);
+                    const last = tokens.at(-1);
+
+                    if (Array.isArray(parent) && adds) {
+                        parent.splice(last === '-' ? parent.length : Number(last), 0, value);
+                    } else {
+                        parent[Array.isArray(parent) ? Number(last) : last] = value;
+                    }
+                };
+
+                for (const operation of operations) {
+                    const tokens = tokensOf(operation.path);
+
+                    if (tokens.length === 0) {
+                        document = structuredClone(operation.value);
+                    } else if (operation.op === 'remove') {
+                        take(tokens);
+                    } else if (operation.op === 'move') {
+                        put(tokens, take(tokensOf(operation.from)), true);
+                    } else {
+                        put(tokens, structuredClone(operation.value), operation.op === 'add');
+                    }
+                }
+
+                return document;
+            };
+
+            /** A watch of each row's value as live state, recording every ready event's snapshot and change set. */
+            const watchRows = () => {
+                const events = [];
+                const watched = isolated.query('{ rows = panel.children { n = it["data-n"] } }', { panel }).watch({ schedule: 'immediate', updateStrategy: 'liveState' });
+
+                watches.push(watched);
+                watched.subscribe('change', (sender, args) => events.push({ snapshot: args.snapshot, changes: args.changes }));
+
+                return { watched, events };
+            };
+
+            it('compose: concatenated in order, they take the first event\'s snapshot to the last one\'s, each item kept as the object of its element', async () => {
+                const [first, second] = panel.children;
+                const { events } = watchRows();
+                const third = document.createElement('i');
+
+                await settle();
+
+                // The receiving side's copy, its first row the first element's and its second the second's.
+                const copy = structuredClone(events[0].snapshot);
+                const [rowOfFirst, rowOfSecond] = copy.rows;
+
+                // While one delivery is in flight, the rows move, change, enter and leave, each in a change set of its own.
+                panel.insertBefore(second, first);
+                await settle();
+                first.setAttribute('data-n', '10');
+                await settle();
+                third.setAttribute('data-n', '3');
+                panel.prepend(third);
+                await settle();
+                panel.append(second);
+                second.setAttribute('data-n', '20');
+                await settle();
+
+                const changes = events.slice(1).flatMap(event => event.changes);
+                const applied = applyPatch(copy, changes);
+
+                expect(events).toHaveLength(5);
+                expect(changes).toContainEqual({ op: 'move', from: '/rows/1', path: '/rows/0' });
+                expect(applied).toBe(copy);
+                expect(applied).toEqual(events.at(-1).snapshot);
+                expect(applied).toEqual({ rows: [{ n: '3' }, { n: '10' }, { n: '20' }] });
+                expect(applied.rows[1]).toBe(rowOfFirst);
+                expect(applied.rows[2]).toBe(rowOfSecond);
+            });
+
+            it('give the latest snapshot as a new baseline, sent whole as one operation replacing the root', async () => {
+                const { watched, events } = watchRows();
+
+                await settle();
+                await change(panel.children[0], 5);
+
+                const copy = applyPatch(structuredClone(events[0].snapshot), [{ op: 'replace', path: '', value: watched.snapshot }]);
+
+                expect(copy).toEqual({ rows: [{ n: '5' }, { n: '2' }] });
+                expect(copy).toEqual(events.at(-1).snapshot);
+            });
+        });
+
         it('leaves the object as it was through a failed evaluation, and brings it up to date in one change set on recovery', async () => {
             const { watched, calls } = watchLive('import Flaky\n{ n = panel:flaky, m = panel["data-n"] }', { panel });
 

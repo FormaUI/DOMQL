@@ -52,6 +52,10 @@ A snapshot never changes once delivered. A new snapshot reuses every immutable b
 - **Matched by position.** A list no projection built, one an item of which descends from data or from null, and one in which an element stands twice, are matched by position. DOMQL reads the classification Nexo reports, never inferring a reference from the value.
 - **What a change set reproduces.** A change set takes the result it was computed against to the reconciled snapshot, the one the watch reports, with every comparison and tolerance applied; it never describes a different, raw evaluation.
 
+<a id="results-composing"></a>
+
+- **Composing.** Each change set is computed against the snapshot of the event before it, and is applied one operation after another, as JSON Patch applies a document. So the change sets of consecutive events, concatenated in order, are one change set: it takes the snapshot the first was computed against to the last one's snapshot. Each item stays matched by its source throughout, since an operation of a later change set reaches the item where the ones before it left it.
+
 Evaluating only what changed and delivering only what changed are separate: a watch that evaluates its whole query still hands live state only the changes in its result.
 
 <a id="live-state"></a>
@@ -92,3 +96,14 @@ A result holds a dictionary or a pair as data, in the form Nexo [exports](https:
 ## Keeping a copy of a result
 
 DOMQL owns the semantics every caller shares: evaluation, dependency recording, observation, snapshots, live state, and the change sets that describe updates to that state, their format and the rules for applying them. A caller that keeps its own representation of a result, as one across an interop boundary does, owns its transport, its reconnection and who owns a watch, and maintains that representation by applying a watch's change sets in order, by DOMQL's rules: each change set is applied completely before the updated result is exposed. Where it can no longer establish that its result is synchronized, it discards that result and starts a fresh watch, whose first delivery carries the complete result as its baseline, from which it rebuilds its own. It implements the application of change sets, never deciding for itself what changed or applying one by rules of its own, and DOMQL does not know what a connection is.
+
+<a id="results-coalescing"></a>
+
+**Coalescing.** A caller that keeps one delivery in flight sends what accumulated meanwhile as one change set, in either of two ways:
+
+| Sends | Is | Costs |
+| --- | --- | --- |
+| The change sets of the events since the receiving side's last acknowledged state, concatenated in order | One change set from that state to the latest snapshot, its items matched by their sources, as [composing](#results-composing) sets out | Grows with the changes, never with the result |
+| The latest event's snapshot whole, as one operation replacing the root, `[{ op: "replace", path: "", value: snapshot }]` | A new baseline, which the receiving side applies as it applies any change set | The whole result, however little changed |
+
+Either is a change set, applied completely before the updated result is exposed, so the receiving side needs no rule of its own for it. The caller chooses between them by size alone.

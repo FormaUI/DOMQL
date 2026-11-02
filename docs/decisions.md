@@ -964,3 +964,17 @@ Each entry is one of three kinds:
 - **Decision:** An execution's implementation is invoked within the call that carries it out, once its preparation has run, so executions carried out in one task are invoked in that order, each seeing what the ones before it changed ([T3](features-status.md#planned-timing)).
 - **Why:** Opening a dialog and then focusing within it works only in that order, in one task, since a field of a closed dialog is rendered nowhere; a caller that carries both out together needs the order promised. `executeAsync` and `run` already invoked their implementations so, and a browser test proves it both ways.
 - **Declined:** Queuing executions to a microtask or a frame, which would separate them from the user's activation and from the task the caller ordered them in.
+
+<a id="d65"></a>
+
+## D65 — A host coalesces change sets by concatenating them
+
+*November 2, 2026*
+
+- **Kind:** Contract.
+- **Decision:** Change sets compose: the change sets of consecutive events, concatenated in order, are one change set from the first's snapshot to the last's, each item matched by its source throughout ([A2](features-status.md#planned-api-and-host)). A host with one delivery in flight sends that concatenation, or the latest snapshot whole as one operation replacing the root. DOMQL computes no change set against an older snapshot.
+- **Why:**
+  - JSON Patch applies a document's operations one after another, and each change set is computed against the snapshot of the event before it, so an operation of a later change set reaches an item where the earlier ones left it. A test proves it over moves, changes inside moved items, additions and removals, keeping each item's object.
+  - Item identity lives in metadata a result never holds, which is why a host couldn't compute a change set itself; concatenating needs none of it.
+  - A minimal change set only bounds a delivery's size, a cost rather than a capability, and the snapshot sent whole bounds it too.
+- **Declined:** `watch.changesSince(snapshot)`, which would keep the metadata of every snapshot delivered, and with it the elements its lists came from, for as long as the caller holds the snapshot. The design's [decisions not taken](domql-design.md#decisions-not-taken) say what reopens it.

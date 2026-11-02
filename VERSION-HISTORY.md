@@ -6,6 +6,21 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-310"></a>
+
+## `1.0.0-alpha.310`
+
+*November 2, 2026 · Nexo language `1.0.0-beta.20` · definition format 38*
+
+DOMQL promises that change sets compose, so a host that keeps one delivery in flight coalesces them itself.
+
+**Results**
+
+- [Composing](spec/results.md#results-composing): the change sets of consecutive events, concatenated in order, are one change set from the first's snapshot to the last's, each item matched by its source throughout, as [D65](docs/decisions.md#d65) records.
+- [Coalescing](spec/results.md#results-coalescing): a host sends what accumulated during a delivery as that concatenation, or as the latest snapshot whole, one operation replacing the root, choosing by size alone.
+
+**Breaking:** nothing.
+
 <a id="v1-0-0-alpha-309"></a>
 
 ## `1.0.0-alpha.309`
