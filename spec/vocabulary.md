@@ -1198,6 +1198,8 @@ Each states its syntax and signature, as a function's does, what it does and ans
 | Element | [`takeFocus({ preventScroll })`](#execution-element-takefocus) | Once |
 | Element, window | [`scrollTo({ inline, block, behavior })`, `scrollBy({ inline, block, behavior })`](#execution-scrollto-scrollby) | Once |
 | Element | [`scrollIntoView({ block, inline, behavior })`](#execution-element-scrollintoview) | Once |
+| Element | [`showPopover()`, `hidePopover()`](#execution-element-showpopover-hidepopover) | Once |
+| Element | [`showModal()`, `close({ returnValue })`](#execution-element-showmodal-close) | Once |
 
 <a id="execution-element-takefocus"></a>
 
@@ -1228,6 +1230,26 @@ Each states its syntax and signature, as a function's does, what it does and ans
 **Does.** Scrolls each box that holds the element, and the window, so it shows, aligned along each axis of its writing mode at the `"start"`, the `"center"` or the `"end"`, or at the `"nearest"` edge, which leaves an axis it shows along as it is; `behavior` as `scrollTo` takes it
 
 **Answers.** Whether it is in view once the scroll has ended, waited for as `scrollTo` waits: its border box overlaps the layout viewport and the padding box of every flat-tree ancestor that clips its overflow, compared as [`overlaps`](#function-element-overlaps) compares boxes. False where it has no layout box, and where a box that clips without scrolling, as one of `overflow: clip`, holds it outside its edges
+
+<a id="execution-element-showpopover-hidepopover"></a>
+
+### Element: showPopover, hidePopover
+
+**Syntax:** `showPopover()`, `hidePopover()`   **Signature:** → `Boolean`   **Mode:** Once   **Activation:** None
+
+**Does.** Shows the popover in the top layer, or hides it, as the browser's own `showPopover()` and `hidePopover()` do, firing its `beforetoggle` and `toggle` events and hiding the other popovers its showing closes
+
+**Answers.** Whether it changed the popover, as [`popoverOpen()`](#boolean-function-element-popoveropen) reads it afterwards. An element already in the state asked for answers false without calling the browser, which would leave it as it is or refuse it, as some browsers do: `showPopover()` answers false for a popover showing already, and `hidePopover()` for one hidden already and for an element that is no popover; each answers false too where a `beforetoggle` listener keeps the popover as it was. `showPopover()` fails for an element that is no popover, and for one in no document, which the browser refuses, its refusal the failure's cause
+
+<a id="execution-element-showmodal-close"></a>
+
+### Element: showModal, close
+
+**Syntax:** `showModal()`, `close({ returnValue })`   **Signature:** `close`: optional `returnValue`: `String?`, the dialog's return value left as it is when omitted or null → `Boolean`   **Mode:** Once   **Activation:** None
+
+**Does.** Opens a dialog modally, in the top layer, making the rest of the document inert, or closes it, setting its `returnValue` to the one given, as the browser's own `showModal()` and `close()` do, firing its `close` event
+
+**Answers.** Whether it changed the dialog: `showModal()` answers false for a dialog open modally already, and `close` for one closed already, without calling the browser. Each fails for an element that is no dialog, and `showModal()` for a dialog open without being modal or in no document, which the browser refuses, its refusal the failure's cause
 
 <a id="built-in-conversions"></a>
 

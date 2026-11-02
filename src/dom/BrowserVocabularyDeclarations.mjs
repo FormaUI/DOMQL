@@ -249,6 +249,10 @@ export class BrowserVocabularyDeclarations {
                     execution('scrollTo', 'scrollTo', 'Boolean', { arguments: 'options', parameters: SCROLL_PARAMETERS }),
                     execution('scrollBy', 'scrollBy', 'Boolean', { arguments: 'options', parameters: SCROLL_PARAMETERS }),
                     execution('scrollIntoView', 'scrollIntoView', 'Boolean', { arguments: 'options', parameters: [valueParameter('block', 'String', { default: 'start' }), valueParameter('inline', 'String', { default: 'nearest' }), SCROLL_BEHAVIOR] }),
+                    execution('showPopover', 'showPopover', 'Boolean'),
+                    execution('hidePopover', 'hidePopover', 'Boolean'),
+                    execution('showModal', 'showModal', 'Boolean'),
+                    execution('closeDialog', 'close', 'Boolean', { arguments: 'options', parameters: [valueParameter('returnValue', 'String?', { default: null, nulls: 'accept', omitted: 'the dialog\'s return value left as it is' })] }),
                 ], { supertype: 'Node' }),
 
                 referenceType('Document', value => nodeKindOf(value) === 'Document', [

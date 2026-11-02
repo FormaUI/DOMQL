@@ -6,6 +6,18 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-293"></a>
+
+## `1.0.0-alpha.293`
+
+*November 1, 2026 · Nexo language `1.0.0-beta.15` · definition format 38*
+
+DOMQL shows and hides popovers and dialogs.
+
+**Executions**
+
+- [`showPopover()` and `hidePopover()`](spec/vocabulary.md#execution-element-showpopover-hidepopover), and [`showModal()` and `close({ returnValue })`](spec/vocabulary.md#execution-element-showmodal-close), each answer whether they changed the element, and false, without calling the browser, where it is in the state asked for already, as [D36](docs/decisions.md#d36) records.
+
 <a id="v1-0-0-alpha-292"></a>
 
 ## `1.0.0-alpha.292`

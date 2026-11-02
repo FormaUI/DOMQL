@@ -166,6 +166,41 @@ describe('BrowserExecutionImplementations', () => {
         });
     });
 
+    describe('the top layer', () => {
+        it('fails to open or close as a dialog an element that is no dialog, where the execution stands', async () => {
+            const error = await failureOf(execute('panel.showModal()', { panel }));
+
+            expect(error).toMatchObject({ kind: 'evaluation', code: 'DOMQL5001', message: expect.stringContaining("The execution 'showModal' failed: A div element is no dialog"), location: { pointer: '/expression', offset: 0, line: 1, column: 1 } });
+            expect(await failureOf(execute('panel.close({ returnValue = "ok" })', { panel }))).toMatchObject({ code: 'DOMQL5001', message: expect.stringContaining("The execution 'close' failed: A div element is no dialog") });
+        });
+
+        it('closes a dialog, answering whether it closed it, with the return value given or the one it had', async () => {
+            document.body.innerHTML = '<dialog id="dialog" open>Dialog</dialog>';
+
+            const dialog = document.getElementById('dialog');
+
+            expect(await execute('dialog.close({ returnValue = "saved" })', { dialog })).toBe(true);
+            expect([dialog.open, dialog.returnValue]).toEqual([false, 'saved']);
+            expect(await execute('dialog.close()', { dialog })).toBe(false);
+            expect(dialog.returnValue).toBe('saved');
+        });
+
+        it('shows and hides a popover, answering whether it changed it, as the browser\'s popover-open state reads it', async () => {
+            const states = { tip: false };
+            const tip = document.getElementById('plain');
+
+            // The simulated document knows no popover-open state, so the element keeps its own, as a browser does.
+            tip.matches = selector => (selector === ':popover-open' ? states.tip : false);
+            tip.showPopover = () => { states.tip = true; };
+            tip.hidePopover = () => { states.tip = false; };
+
+            expect(await execute('tip.showPopover()', { tip })).toBe(true);
+            expect(await execute('tip.showPopover()', { tip })).toBe(false);
+            expect(await execute('tip.hidePopover()', { tip })).toBe(true);
+            expect(await execute('tip.hidePopover()', { tip })).toBe(false);
+        });
+    });
+
     describe('scrollIntoView', () => {
         it('answers false for an element that has no layout box, which is in no view', async () => {
             expect(await execute('field.scrollIntoView()', { field })).toBe(false);

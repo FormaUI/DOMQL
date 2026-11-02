@@ -913,7 +913,7 @@ DOMQL makes a few changes itself, each one browser call that answers what it did
 list.scrollTo({ block = 0, behavior = "smooth" })
 ```
 
-`takeFocus()` focuses an element and answers whether focus landed on it. `scrollTo` and `scrollBy` scroll an element or `Domql.window` along the axes of its writing mode, from the start of its content even under RTL, and answer whether it moved once the scroll has ended; `scrollIntoView` answers whether the element is in view then. The specification lists every [built-in execution](https://github.com/FormaUI/DOMQL/blob/main/spec/vocabulary.md#built-in-executions) and what each needs of the user.
+`takeFocus()` focuses an element and answers whether focus landed on it, and `showPopover()`, `hidePopover()`, `showModal()` and `close()` show and hide popovers and dialogs, each answering whether it changed them. `scrollTo` and `scrollBy` scroll an element or `Domql.window` along the axes of its writing mode, from the start of its content even under RTL, and answer whether it moved once the scroll has ended; `scrollIntoView` answers whether the element is in view then. The specification lists every [built-in execution](https://github.com/FormaUI/DOMQL/blob/main/spec/vocabulary.md#built-in-executions) and what each needs of the user.
 
 ### Execute once
 

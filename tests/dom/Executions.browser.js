@@ -115,6 +115,70 @@ describe('Executions in a browser', () => {
         });
     });
 
+    describe('the top layer', () => {
+        it('shows and hides a popover, answering whether it changed it, and false where it is in that state already', async () => {
+            document.body.innerHTML = '<div id="tip" popover>Tip</div>';
+
+            const tip = document.getElementById('tip');
+
+            expect(await execute('tip.showPopover()', { tip })).toBe(true);
+            expect(tip.matches(':popover-open')).toBe(true);
+            expect(await execute('tip.showPopover()', { tip })).toBe(false);
+            expect(await execute('tip.hidePopover()', { tip })).toBe(true);
+            expect(tip.matches(':popover-open')).toBe(false);
+            expect(await execute('tip.hidePopover()', { tip })).toBe(false);
+        });
+
+        it('answers false where a beforetoggle listener keeps the popover from showing', async () => {
+            document.body.innerHTML = '<div id="tip" popover>Tip</div>';
+
+            const tip = document.getElementById('tip');
+
+            tip.addEventListener('beforetoggle', event => event.preventDefault());
+
+            expect(await execute('tip.showPopover()', { tip })).toBe(false);
+            expect(tip.matches(':popover-open')).toBe(false);
+        });
+
+        it('fails to show an element that is no popover, or one in no document, the browser\'s refusal its cause, and hiding one answers false', async () => {
+            document.body.innerHTML = '<div id="plain">Plain</div>';
+
+            const plain = document.getElementById('plain');
+            const detached = document.createElement('div');
+
+            detached.popover = 'auto';
+
+            const refusal = await execute('plain.showPopover()', { plain }).catch(error => error);
+
+            expect(refusal).toMatchObject({ kind: 'evaluation', code: 'DOMQL5001', cause: expect.objectContaining({ name: 'NotSupportedError' }) });
+            expect((await execute('detached.showPopover()', { detached }).catch(error => error)).cause.name).toBe('InvalidStateError');
+            expect(await execute('plain.hidePopover()', { plain })).toBe(false);
+        });
+
+        it('opens a dialog modally and closes it with a return value, answering whether each changed it', async () => {
+            document.body.innerHTML = '<dialog id="dialog">Dialog</dialog>';
+
+            const dialog = document.getElementById('dialog');
+
+            expect(await execute('dialog.showModal()', { dialog })).toBe(true);
+            expect(dialog.matches(':modal')).toBe(true);
+            expect(await execute('dialog.showModal()', { dialog })).toBe(false);
+            expect(await execute('dialog.close({ returnValue = "saved" })', { dialog })).toBe(true);
+            expect([dialog.open, dialog.returnValue]).toEqual([false, 'saved']);
+            expect(await execute('dialog.close()', { dialog })).toBe(false);
+        });
+
+        it('fails to open modally a dialog open without being modal, the browser\'s refusal its cause', async () => {
+            document.body.innerHTML = '<dialog id="dialog" open>Dialog</dialog>';
+
+            const dialog = document.getElementById('dialog');
+
+            expect((await execute('dialog.showModal()', { dialog }).catch(error => error)).cause.name).toBe('InvalidStateError');
+            expect(dialog.matches(':modal')).toBe(false);
+            expect(await execute('dialog.close()', { dialog })).toBe(true);
+        });
+    });
+
     describe('scrolling into view', () => {
         it('scrolls an element into view through the boxes that hold it, answering that it is in view once the scroll has ended', async () => {
             document.body.innerHTML = '<div style="height: 2000px"></div><div id="box" style="width: 100px; height: 100px; overflow: auto"><div style="height: 600px"></div><p id="far" style="margin: 0">Far</p></div>';

@@ -32,7 +32,33 @@ export class BrowserExecutionImplementations {
             windowScrollTo: ({ receiver: window, args, signal }) => BrowserExecutionImplementations.#scroll(BrowserExecutionImplementations.#windowScroller(window), args, 'scrollTo', signal),
             windowScrollBy: ({ receiver: window, args, signal }) => BrowserExecutionImplementations.#scroll(BrowserExecutionImplementations.#windowScroller(window), args, 'scrollBy', signal),
             scrollIntoView: ({ receiver: element, args, signal }) => BrowserExecutionImplementations.#scrollIntoView(element, args, signal),
+
+            // The top layer: each answers whether it changed the element's state, and false where the element is in that state already, which the platform's calls leave as it is.
+            showPopover: ({ receiver: element }) => BrowserExecutionImplementations.#toggle(element, () => element.matches(':popover-open'), true, () => element.showPopover()),
+            hidePopover: ({ receiver: element }) => BrowserExecutionImplementations.#toggle(element, () => element.matches(':popover-open'), false, () => element.hidePopover()),
+            showModal: ({ receiver: element }) => BrowserExecutionImplementations.#toggle(BrowserExecutionImplementations.#dialog(element), () => element.matches(':modal'), true, () => element.showModal()),
+            closeDialog: ({ receiver: element, args: { returnValue } }) => BrowserExecutionImplementations.#toggle(BrowserExecutionImplementations.#dialog(element), () => element.open, false, () => (returnValue === null ? element.close() : element.close(returnValue))),
         };
+    }
+
+    /** Brings the element into the state it is in where `isIn` answers `wanted`, and answers whether it did: false where it was in that state already, or a listener, as a beforetoggle one, kept it from changing. */
+    static #toggle(element, isIn, wanted, change) {
+        if (isIn() === wanted) {
+            return false;
+        }
+
+        change();
+
+        return isIn() === wanted;
+    }
+
+    /** The element, where it is a dialog, which it refuses otherwise. */
+    static #dialog(element) {
+        if (element.localName !== 'dialog') {
+            throw new Error(`A ${element.localName} element is no dialog, which alone opens modally and closes`);
+        }
+
+        return element;
     }
 
     /**

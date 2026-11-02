@@ -537,3 +537,20 @@ Each entry is one of three kinds:
   - Answering at once, which says nothing of a smooth scroll.
   - Physical `left` and `top`, which every query that handles RTL converts.
   - Waiting for `scrollend`, which fires nothing where nothing moves, so a caller would wait for a scroll that never began.
+
+<a id="d36"></a>
+
+## D36 — The top layer's executions answer whether they changed it
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `showPopover()`, `hidePopover()`, `showModal()` and `close({ returnValue })` each answer whether they changed the element, false where it is in the state asked for already, which they answer without calling the browser. `showPopover()` fails for an element that is no popover or in no document; `showModal()` and `close` fail for an element that is no dialog, and `showModal()` for a dialog open without being modal; each failure's cause is the browser's refusal.
+- **Why:**
+  - Browsers have thrown `InvalidStateError` for a popover showing already, and a caller that opens a surface it may have opened before needs no failure for it. A browser test shows Chromium leaving such a popover or a modal dialog as it is, so answering false without the call means the same everywhere.
+  - Whether it changed is what the caller acts on, as focusing what it just opened, and a `beforetoggle` listener that keeps a popover closed answers false too; whether it shows is `popoverOpen()`'s to read.
+  - A dialog open without being modal is in no state `showModal()` asks for, and the browser refuses to change it, so the call fails, as asking an element that is no popover to show does; hiding an element that is no popover changes nothing, so it answers false.
+  - `close` keeps the platform's name; no member of an element is named `close` beside it, and its event is a string key, never a member.
+- **Declined:**
+  - Answering whether the element shows afterwards, which `popoverOpen()` reads, and which can't tell a caller it opened nothing.
+  - `togglePopover`, `requestClose` and a popover's `source`, which no query needs yet.
