@@ -1,4 +1,5 @@
 import { afterEach, describe, it, expect } from 'vitest';
+import { userEvent } from '@vitest/browser/context';
 import { domql } from '#domql/domql.js';
 
 /** What DOMQL's built-in executions change in a real browser, and what each answers. */
@@ -112,6 +113,34 @@ describe('Executions in a browser', () => {
             document.body.innerHTML = '<div id="plain" style="width: 100px; height: 100px"></div>';
 
             expect(await execute('plain.scrollTo({ block = 50 })', { plain: document.getElementById('plain') })).toBe(false);
+        });
+    });
+
+    describe('pointer capture', () => {
+        it('captures the pointer pressed on an element while its press is handled, and releases it, answering whether each changed it', async () => {
+            document.body.innerHTML = '<div id="handle" style="width: 50px; height: 50px"></div>';
+
+            const handle = document.getElementById('handle');
+            const answers = [];
+
+            handle.addEventListener('pointerdown', event => {
+                const bindings = { handle, id: event.pointerId };
+
+                answers.push(execute('handle.capturePointer({ pointerId = id })', bindings));
+                answers.push(handle.hasPointerCapture(event.pointerId));
+                answers.push(execute('handle.releasePointer({ pointerId = id })', bindings));
+                answers.push(execute('handle.releasePointer({ pointerId = id })', bindings));
+            });
+
+            await userEvent.click(handle);
+
+            expect(await Promise.all(answers)).toEqual([true, true, true, false]);
+        });
+
+        it('answers false for a pointer that is not active, which the browser refuses to capture', async () => {
+            document.body.innerHTML = '<div id="handle"></div>';
+
+            expect(await execute('handle.capturePointer({ pointerId = 12345 })', { handle: document.getElementById('handle') })).toBe(false);
         });
     });
 

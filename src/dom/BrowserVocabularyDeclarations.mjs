@@ -252,6 +252,8 @@ export class BrowserVocabularyDeclarations {
                     execution('showPopover', 'showPopover', 'Boolean'),
                     execution('hidePopover', 'hidePopover', 'Boolean'),
                     execution('showModal', 'showModal', 'Boolean'),
+                    execution('capturePointer', 'capturePointer', 'Boolean', { arguments: 'options', parameters: [valueParameter('pointerId', 'Number')] }),
+                    execution('releasePointer', 'releasePointer', 'Boolean', { arguments: 'options', parameters: [valueParameter('pointerId', 'Number')] }),
                     execution('closeDialog', 'close', 'Boolean', { arguments: 'options', parameters: [valueParameter('returnValue', 'String?', { default: null, nulls: 'accept', omitted: 'the dialog\'s return value left as it is' })] }),
                 ], { supertype: 'Node' }),
 

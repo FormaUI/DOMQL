@@ -1198,6 +1198,7 @@ Each states its syntax and signature, as a function's does, what it does and ans
 | Element | [`takeFocus({ preventScroll })`](#execution-element-takefocus) | Once |
 | Element, window | [`scrollTo({ inline, block, behavior })`, `scrollBy({ inline, block, behavior })`](#execution-scrollto-scrollby) | Once |
 | Element | [`scrollIntoView({ block, inline, behavior })`](#execution-element-scrollintoview) | Once |
+| Element | [`capturePointer({ pointerId })`, `releasePointer({ pointerId })`](#execution-element-capturepointer-releasepointer) | Once |
 | Element | [`showPopover()`, `hidePopover()`](#execution-element-showpopover-hidepopover) | Once |
 | Element | [`showModal()`, `close({ returnValue })`](#execution-element-showmodal-close) | Once |
 
@@ -1230,6 +1231,18 @@ Each states its syntax and signature, as a function's does, what it does and ans
 **Does.** Scrolls each box that holds the element, and the window, so it shows, aligned along each axis of its writing mode at the `"start"`, the `"center"` or the `"end"`, or at the `"nearest"` edge, which leaves an axis it shows along as it is; `behavior` as `scrollTo` takes it
 
 **Answers.** Whether it is in view once the scroll has ended, waited for as `scrollTo` waits: its border box overlaps the layout viewport and the padding box of every flat-tree ancestor that clips its overflow, compared as [`overlaps`](#function-element-overlaps) compares boxes. False where it has no layout box, and where a box that clips without scrolling, as one of `overflow: clip`, holds it outside its edges
+
+<a id="execution-element-capturepointer-releasepointer"></a>
+
+### Element: capturePointer, releasePointer
+
+**Syntax:** `capturePointer({ pointerId })`, `releasePointer({ pointerId })`   **Signature:** `pointerId`: `Number` → `Boolean`   **Mode:** Once   **Activation:** An active pointer
+
+**Does.** Captures the pointer to the element, so the pointer's events target it until the capture is released or the pointer ends, as the browser's `setPointerCapture` does, or releases a capture the element holds, as `releasePointerCapture` does
+
+**Answers.** `capturePointer` answers whether the element holds the capture afterwards, as [`hasPointerCapture`](#function-element-haspointercapture) answers at once, before the browser reports it, and false for a pointer that is not active and for an element in no document, which the browser refuses; `releasePointer` answers whether it released a capture the element held, and false where it held none. A refusal of any other kind fails the execution, its cause the browser's error
+
+**Activation.** The pointer must be active: a mouse's while a button is pressed, and a touch's or a pen's while it touches. A capture carried out while the pointer's `pointerdown` is handled, from a subscription's handler, holds from that event on; one asked after a round trip may find the pointer released
 
 <a id="execution-element-showpopover-hidepopover"></a>
 

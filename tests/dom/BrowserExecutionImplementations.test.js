@@ -166,6 +166,50 @@ describe('BrowserExecutionImplementations', () => {
         });
     });
 
+    describe('pointer capture', () => {
+        /** Gives the element the pointer capture a browser keeps, the pointers given active. */
+        const capturing = (element, active) => {
+            const held = new Set();
+            const refuse = name => Object.assign(new Error(`No active pointer with the given id is found`), { name });
+
+            element.setPointerCapture = id => {
+                if (!active.includes(id)) {
+                    throw refuse('NotFoundError');
+                }
+
+                held.add(id);
+            };
+            element.releasePointerCapture = id => held.delete(id);
+            element.hasPointerCapture = id => held.has(id);
+        };
+
+        it('captures an active pointer, answering that the element holds it, and answers false for one that isn\'t active', async () => {
+            capturing(field, [3]);
+
+            expect(await execute('field.capturePointer({ pointerId = 3 })', { field })).toBe(true);
+            expect(field.hasPointerCapture(3)).toBe(true);
+            expect(await execute('field.capturePointer({ pointerId = 4 })', { field })).toBe(false);
+        });
+
+        it('releases a capture the element holds, answering whether it did', async () => {
+            capturing(field, [3]);
+            field.setPointerCapture(3);
+
+            expect(await execute('field.releasePointer({ pointerId = 3 })', { field })).toBe(true);
+            expect(await execute('field.releasePointer({ pointerId = 3 })', { field })).toBe(false);
+        });
+
+        it('fails where the browser refuses the capture for any other reason, its refusal the cause', async () => {
+            field.setPointerCapture = () => {
+                throw new TypeError('No pointer');
+            };
+
+            const error = await failureOf(execute('field.capturePointer({ pointerId = 1 })', { field }));
+
+            expect(error).toMatchObject({ kind: 'evaluation', code: 'DOMQL5001', cause: expect.objectContaining({ name: 'TypeError' }) });
+        });
+    });
+
     describe('the top layer', () => {
         it('fails to open or close as a dialog an element that is no dialog, where the execution stands', async () => {
             const error = await failureOf(execute('panel.showModal()', { panel }));

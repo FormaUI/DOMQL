@@ -554,3 +554,17 @@ Each entry is one of three kinds:
 - **Declined:**
   - Answering whether the element shows afterwards, which `popoverOpen()` reads, and which can't tell a caller it opened nothing.
   - `togglePopover`, `requestClose` and a popover's `source`, which no query needs yet.
+
+<a id="d37"></a>
+
+## D37 — Pointer capture answers whether the element holds it
+
+*November 1, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `capturePointer({ pointerId })` answers whether the element holds the pointer's capture afterwards, and false for a pointer that is not active or an element in no document, which the browser refuses. `releasePointer({ pointerId })` answers whether it released a capture the element held.
+- **Why:**
+  - A pointer can end before a request that crosses a boundary arrives, so a capture asked too late is a fact a caller acts on, not a failure; the answer says the element holds nothing, as `hasPointerCapture` would. Any other refusal is a failure, with the browser's error as its cause.
+  - A browser test shows the capture holding at once, before the browser reports it at the pointer's next event, so the answer reads it as `hasPointerCapture` does, and a capture carried out while the press is handled holds.
+  - The options form, `{ pointerId }`, leaves room for what a capture may take later without changing how it is written.
+- **Declined:** failing for a pointer that is not active, which a caller would catch to learn what the answer says.

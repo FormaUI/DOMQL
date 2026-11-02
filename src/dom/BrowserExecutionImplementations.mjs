@@ -33,6 +33,10 @@ export class BrowserExecutionImplementations {
             windowScrollBy: ({ receiver: window, args, signal }) => BrowserExecutionImplementations.#scroll(BrowserExecutionImplementations.#windowScroller(window), args, 'scrollBy', signal),
             scrollIntoView: ({ receiver: element, args, signal }) => BrowserExecutionImplementations.#scrollIntoView(element, args, signal),
 
+            // A pointer's capture: whether the element holds it afterwards, and whether it let go of one it held.
+            capturePointer: ({ receiver: element, args: { pointerId } }) => BrowserExecutionImplementations.#capturePointer(element, pointerId),
+            releasePointer: ({ receiver: element, args: { pointerId } }) => BrowserExecutionImplementations.#toggle(element, () => element.hasPointerCapture(pointerId), false, () => element.releasePointerCapture(pointerId)),
+
             // The top layer: each answers whether it changed the element's state, and false where the element is in that state already, which the platform's calls leave as it is.
             showPopover: ({ receiver: element }) => BrowserExecutionImplementations.#toggle(element, () => element.matches(':popover-open'), true, () => element.showPopover()),
             hidePopover: ({ receiver: element }) => BrowserExecutionImplementations.#toggle(element, () => element.matches(':popover-open'), false, () => element.hidePopover()),
@@ -50,6 +54,19 @@ export class BrowserExecutionImplementations {
         change();
 
         return isIn() === wanted;
+    }
+
+    /** Sets the capture of the pointer to the element, and answers whether it holds it: not for a pointer that is not active, or an element in no document, which the browser refuses. */
+    static #capturePointer(element, pointerId) {
+        try {
+            element.setPointerCapture(pointerId);
+        } catch (error) {
+            if (error?.name !== 'NotFoundError' && error?.name !== 'InvalidStateError') {
+                throw error;
+            }
+        }
+
+        return element.hasPointerCapture(pointerId);
     }
 
     /** The element, where it is a dialog, which it refuses otherwise. */

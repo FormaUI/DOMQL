@@ -6,6 +6,18 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-294"></a>
+
+## `1.0.0-alpha.294`
+
+*November 1, 2026 · Nexo language `1.0.0-beta.15` · definition format 38*
+
+DOMQL captures a pointer to an element and releases it.
+
+**Executions**
+
+- [`capturePointer({ pointerId })` and `releasePointer({ pointerId })`](spec/vocabulary.md#execution-element-capturepointer-releasepointer) answer whether the element holds the capture afterwards and whether it released one it held, a pointer that is not active answering false, as [D37](docs/decisions.md#d37) records.
+
 <a id="v1-0-0-alpha-293"></a>
 
 ## `1.0.0-alpha.293`
