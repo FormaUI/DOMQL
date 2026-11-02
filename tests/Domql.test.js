@@ -1441,6 +1441,131 @@ describe('domql modules', () => {
         types: [elementExtension(`${name}Elements`, [{ name: name.toLowerCase(), kind: 'property', result: 'Number', updates: { changes: 'constant', reads: 'fresh' }, impl: () => 7 }])],
     });
 
+    describe('loaded on request', () => {
+        let panel;
+
+        beforeEach(() => {
+            document.body.innerHTML = '<div id="panel"></div>';
+            panel = document.getElementById('panel');
+        });
+
+        /** The error a promise rejects with. */
+        const rejectionOf = promise => promise.then(() => {
+            throw new Error('The promise resolved');
+        }, error => error);
+
+        it('registers a module its loader answers once a load asks for it, after which the query importing it is carried out, and before which it is refused at the import', async () => {
+            isolated.registerModuleLoader('Answer', async () => module('Answer'));
+
+            const query = isolated.query('import Answer\npanel:answer', { panel });
+            const refused = getError(() => query.evaluate());
+
+            expect(refused).toMatchObject({ kind: 'validation', code: 'DOMQL3007', message: expect.stringContaining("'import Answer' names a module loaded on request, which is not loaded yet; await domql.loadModulesAsync before carrying the query out") });
+            expect(refused.location).toMatchObject({ pointer: '/imports/0', line: 1, column: 1 });
+
+            await expect(isolated.loadModulesAsync(query)).resolves.toBeUndefined();
+            expect(query.evaluate()).toBe(7);
+        });
+
+        it('shares a load under way, and loads a module the instance holds no second time, whether a query object, a definition, a text or a list names it', async () => {
+            let loads = 0;
+
+            isolated.registerModuleLoader('Answer', async () => {
+                loads++;
+
+                return module('Answer');
+            });
+
+            const query = isolated.query('import Answer\npanel:answer', { panel });
+
+            await Promise.all([isolated.loadModulesAsync(query), isolated.loadModulesAsync(query.definition), isolated.loadModulesAsync('import Answer\n1'), isolated.loadModulesAsync(['Answer', 'Answer'])]);
+            await isolated.loadModulesAsync(['Answer', 'Domql']);
+
+            expect(loads).toBe(1);
+            expect(query.evaluate()).toBe(7);
+        });
+
+        it('registers no second time a module registered while its loader ran', async () => {
+            isolated.registerModuleLoader('Answer', () => {
+                const loaded = module('Answer');
+
+                isolated.registerModule(loaded);
+
+                return loaded;
+            });
+
+            await isolated.loadModulesAsync(['Answer']);
+
+            expect(isolated.query('import Answer\npanel:answer', { panel }).evaluate()).toBe(7);
+        });
+
+        it('lets a loader load the module its own names the types of first', async () => {
+            const order = [];
+
+            isolated.registerModuleLoader('Base', async () => (order.push('Base'), module('Base')));
+            isolated.registerModuleLoader('Derived', async () => {
+                await isolated.loadModulesAsync(['Base']);
+                order.push('Derived');
+
+                return module('Derived');
+            });
+
+            await isolated.loadModulesAsync('import Derived\nimport Base\npanel:derived + panel:base');
+
+            expect(order).toEqual(['Base', 'Derived']);
+        });
+
+        it('rejects with DOMQL5023 where the loader fails, its failure the cause, and asks it again at the next load', async () => {
+            const lost = new Error('offline');
+            let fails = true;
+
+            isolated.registerModuleLoader('Answer', async () => {
+                if (fails) {
+                    throw lost;
+                }
+
+                return module('Answer');
+            });
+
+            const error = await rejectionOf(isolated.loadModulesAsync(['Answer']));
+
+            expect(error).toMatchObject({ name: 'NexoError', kind: 'evaluation', code: 'DOMQL5023', message: expect.stringContaining("The module 'Answer' failed to load: offline"), cause: lost, location: { module: 'Answer' } });
+
+            fails = false;
+            await isolated.loadModulesAsync(['Answer']);
+            expect(isolated.query('import Answer\npanel:answer', { panel }).evaluate()).toBe(7);
+        });
+
+        it('rejects with DOMQL4014 where the loader answers no module of its name, and with DOMQL4015 where a module named has neither a registration nor a loader', async () => {
+            isolated.registerModuleLoader('Answer', () => module('Other'));
+            isolated.registerModuleLoader('Nothing', () => undefined);
+
+            expect(await rejectionOf(isolated.loadModulesAsync(['Answer']))).toMatchObject({ kind: 'module', code: 'DOMQL4014', message: expect.stringContaining("The loader of the module 'Answer' answered the module 'Other', where it answers the module of its name"), location: { module: 'Answer' } });
+            expect(await rejectionOf(isolated.loadModulesAsync(['Nothing']))).toMatchObject({ kind: 'module', code: 'DOMQL4014', message: expect.stringContaining('answered no module'), location: { module: 'Nothing' } });
+            expect(await rejectionOf(isolated.loadModulesAsync('import Unknown\n1'))).toMatchObject({ kind: 'module', code: 'DOMQL4015', location: { module: 'Unknown' } });
+            expect(getError(() => isolated.query('import Unknown\n1').evaluate()).code).toBe('NEXO3002');
+        });
+
+        it('refuses a loader that is no function, a name that is none, and a second loader of one module', () => {
+            const load = () => module('Answer');
+
+            expect(getError(() => isolated.registerModuleLoader('', load))).toMatchObject({ kind: 'structure', code: 'DOMQL2013' });
+            expect(getError(() => isolated.registerModuleLoader('Answer', 'answer'))).toMatchObject({ kind: 'structure', code: 'DOMQL2013' });
+
+            isolated.registerModuleLoader('Answer', load);
+
+            expect(getError(() => isolated.registerModuleLoader('Answer', load))).toMatchObject({ kind: 'structure', code: 'DOMQL2013', message: "A loader of the module 'Answer' is registered already, and a module has one loader" });
+        });
+
+        it('refuses what names no modules, and a query object of another instance', async () => {
+            const other = domql.query('1');
+
+            expect(await rejectionOf(isolated.loadModulesAsync(42))).toMatchObject({ kind: 'structure', code: 'DOMQL2014' });
+            expect(await rejectionOf(isolated.loadModulesAsync(['Answer', '']))).toMatchObject({ kind: 'structure', code: 'DOMQL2014' });
+            expect(await rejectionOf(isolated.loadModulesAsync(other))).toMatchObject({ kind: 'structure', code: 'DOMQL2002' });
+        });
+    });
+
     describe('a query evaluated again', () => {
         it('reads the document as it is each time, in the window each evaluation gives', () => {
             document.body.innerHTML = '<div id="panel"><i></i></div>';

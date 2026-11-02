@@ -6,6 +6,21 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-313"></a>
+
+## `1.0.0-alpha.313`
+
+*November 2, 2026 · Nexo language `1.0.0-beta.20` · definition format 38*
+
+A module can be loaded on request, through a loader by its name, before the query that imports it is carried out.
+
+**Modules**
+
+- [Loading a module on request](spec/vocabulary.md#extension-modules-loading): `domql.registerModuleLoader(name, load)` registers the loader of a module, and `domql.loadModulesAsync(modules)` loads and registers every module named that the instance doesn't hold yet, those a query object, a definition or a text imports, or a list names, sharing a load under way, as [D68](docs/decisions.md#d68) records.
+- New codes: `DOMQL2013` and `DOMQL2014` for their misuse; `DOMQL3007` for a request importing a module whose loader hasn't run yet, refused at the import; `DOMQL4014` for a loader answering no module of its name, `DOMQL4015` for a module neither registered nor given a loader, and `DOMQL5023` for a loader that fails.
+
+**Breaking:** nothing.
+
 <a id="v1-0-0-alpha-312"></a>
 
 ## `1.0.0-alpha.312`

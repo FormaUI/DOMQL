@@ -1010,3 +1010,22 @@ Each entry is one of three kinds:
   - Treating `"auto"` as smooth for `scrollIntoView` wherever any ancestor might be, which keeps the delay for the common case of no smooth box.
   - Waiting for `scrollend` in a hidden document, which fires nothing where nothing moves, as [D35](#d35) found.
   - Finishing at once a smooth scroll the document is hidden during: it resumes as the document is shown, and answers once it has ended, as any smooth scroll does.
+
+<a id="d68"></a>
+
+## D68 — A module is loaded on request through a loader by its name, before a query importing it is carried out
+
+*November 2, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `domql.registerModuleLoader(name, load)` registers the loader of a module by its name, and `domql.loadModulesAsync(modules)` loads, and registers, every module named that the instance doesn't hold yet: those a query object, a definition or a text imports, or those a list names ([A4](features-status.md#planned-api-and-host)). A load under way is shared, a module held is never loaded again, and a failed load leaves nothing registered. No operation loads a module itself: a request importing a module that has a loader and is not loaded yet is refused with `DOMQL3007`.
+- **Why:**
+  - A host that receives queries from elsewhere, as across an interop boundary, knows which modules each needs only from its imports, and registers a module's code when a query first names it. A loader by name, kept by the instance, lets every library register its own modules' loaders independently, and the host load what any query imports without a table of its own.
+  - Sharing a load under way and skipping what is held makes loading safe to ask for before every query, where a host's own `import()` and registration would race two queries naming one module into a second registration, which Nexo refuses.
+  - `run` starts its execution before it returns, and `executeAsync` invokes its implementation within its call, keeping their order and the user's activation, so loading inside an operation would break both; the caller awaits the load first, and a forgotten load is refused with a code of its own at the import, rather than as a module Nexo doesn't know.
+  - A loader that fails, or answers a module of another name, is reported at the module, with the failure as its cause; the next load asks the loader again, since a failed network fetch may succeed later.
+  - Two auditors counted it a convenience, since a host can `import()` and register a module itself; it is built all the same, since the consumer's plan treats it as blocking and the races above are the host's to get wrong otherwise.
+- **Declined:**
+  - One loader for every module, given each name, which every library registering modules would have to share.
+  - Loading inside `evaluateAsync` and `executeAsync`, which would make an execution's order and activation depend on whether its module was loaded yet.
+  - Modules a module depends on, loaded by DOMQL from its declarations: a loader loads them first itself, through `loadModulesAsync`, since only it knows what its module names.

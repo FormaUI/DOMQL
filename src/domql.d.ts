@@ -699,6 +699,13 @@ export interface Domql {
     createModule(name: string, contents: DomqlModuleContents): DomqlModule;
     /** Registers a module's vocabulary, which every request resolved afterwards may use. */
     registerModule(module: DomqlModule): void;
+    /** Registers the loader of a module loaded on request, by the module's name: `load` answers the module, or a promise of it, and registers nothing itself. */
+    registerModuleLoader(name: string, load: () => DomqlModule | Promise<DomqlModule>): void;
+    /**
+     * Loads every module named that the instance doesn't hold yet, each through its loader, and registers it, settling once each named is registered: those a query object, a definition or a text imports, or those a
+     * list names. A load already under way is shared.
+     */
+    loadModulesAsync(modules: DomqlQuery | DomqlDefinition | string | readonly string[]): Promise<void>;
 }
 
 export declare const domql: Domql;

@@ -922,6 +922,35 @@ A member the host invokes, `invokedBy: 'host'`, is a host call that DOMQL carrie
 
 [Nexo's modules](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/spec/runtime/modules.md#modules) specify the full extension contracts. The next section shows execution modules.
 
+### Load a module on request
+
+A page can load a module's code only when a query first needs it. Register a loader by the module's name, which answers the module, and load what a query imports before carrying it out:
+
+```js
+domql.registerModuleLoader('Unread', async () => domql.createModule('Unread', {
+    types: [{
+        name: 'UnreadElements',
+        kind: 'extension',
+        target: 'Domql.Element',
+        members: [{
+            name: 'unread',
+            kind: 'property',
+            result: 'Number',
+            updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: ['data-unread'] }] },
+            impl: ({ receiver: element }) => Number(element.getAttribute('data-unread') ?? 0)
+        }]
+    }]
+}));
+
+const unread = domql.query('import Unread\npanel.children.sum(it:unread)', { panel });
+
+await domql.loadModulesAsync(unread);
+unread.evaluate();
+// 7
+```
+
+`loadModulesAsync` takes a query, a definition, a text or a list of module names. It loads only the modules the instance doesn't hold yet, and shares a load that is already under way, so call it before every query that may need one. A query that imports a module whose loader hasn't run yet is refused with `DOMQL3007`. Load first even for `run`, which starts its execution before it returns.
+
 ## Execute once and run continuously
 
 ### Change the page with a built-in execution

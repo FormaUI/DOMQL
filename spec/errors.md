@@ -37,6 +37,8 @@ A caller's use of the API, refused where it is made.
 | `DOMQL2010` | `env.observe` given a request without a type or a target, or a `notify` that is no function |
 | `DOMQL2011` | `env.frame` given a callback that is no function or a phase neither `write` nor `read`, or in a window without animation frames |
 | `DOMQL2012` | `env.measureUnder` given an element that is none, a class that is no one token, or a `read` that is no function |
+| `DOMQL2013` | `domql.registerModuleLoader` given a name that is no module's, a `load` that is no function, or a name a loader is registered for already |
+| `DOMQL2014` | `domql.loadModulesAsync` given neither a query object, a definition, a text nor a list of module names |
 
 <a id="errors-validation"></a>
 
@@ -52,12 +54,13 @@ A request refused as it is resolved, before anything is evaluated or started, lo
 | `DOMQL3004` | A request carried out by an operation of another request kind |
 | `DOMQL3005` | A host call on a receiver of unknown type, whose host calls of its name disagree on what they request |
 | `DOMQL3006` | A continuous execution's update whose bindings select another execution |
+| `DOMQL3007` | A request importing a module loaded on request that is not loaded yet |
 
 <a id="errors-module"></a>
 
 ## Module errors
 
-A module refused as it is created or registered, and a host call carried out that its module gives nothing to carry it out, located in the module, at the declaration and the key concerned, and at the type it stands within where it stands within one.
+A module refused as it is created or registered, a module loaded on request that can't be, and a host call carried out that its module gives nothing to carry it out, located in the module, at the declaration and the key concerned, and at the type it stands within where it stands within one.
 
 | Code | Condition |
 | --- | --- |
@@ -74,6 +77,8 @@ A module refused as it is created or registered, and a host call carried out tha
 | `DOMQL4011` | A `behavior` declared by a continuous execution, or naming none by a name |
 | `DOMQL4012` | A `behavior` naming no continuous execution of its module |
 | `DOMQL4013` | An event source of a behavior declaring an `impl` or parameters, which DOMQL carries out |
+| `DOMQL4014` | A module's loader answering no module of its name |
+| `DOMQL4015` | A module loaded that is neither registered nor given a loader |
 
 <a id="errors-evaluation"></a>
 
@@ -105,3 +110,4 @@ A failure while a request is carried out, located in the query where it concerns
 | `DOMQL5020` | An occurrence a subscription failed to apply: its projection failed, or its handler threw or rejected, its failure the error's `cause` |
 | `DOMQL5021` | An execution, or an operation environment's `observe`, `frame` or `measureUnder`, while a query is evaluated, which reads alone |
 | `DOMQL5022` | A maintained observation failing to take the new sample a refresh asked for, its failure the error's `cause` |
+| `DOMQL5023` | A module's loader failing, its failure the error's `cause` |

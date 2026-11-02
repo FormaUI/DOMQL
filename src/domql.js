@@ -1,5 +1,6 @@
 /**
- * domql — makes query objects from text or a definition, through which every request is evaluated, watched, subscribed to, executed once or run, and registers the modules that extend the vocabulary
+ * domql — makes query objects from text or a definition, through which every request is evaluated, watched, subscribed to, executed once or run, and registers the modules that extend the vocabulary, loading on request
+ * those its callers give loaders of
  */
 
 import { SnapshotComparer } from './snapshots/SnapshotComparer.mjs';
@@ -92,6 +93,12 @@ class Domql {
 
     static #browserModule = BrowserModule.create({ behaviors: Domql.#behaviors, mutationObservers: Domql.#mutationObservers });
     static #moduleRegistry = nexo.createRegistry([Domql.#browserModule]);
+
+    /** The loader of each module loaded on request, by its name, which a load asks where the registry holds no module of that name; kept for the instance's life. @type {Map<string, () => unknown>} */
+    static #moduleLoaders = new Map();
+
+    /** The load of each module under way, by its name, which every load asking for that module meanwhile shares; released as it settles, so a failed one is asked of its loader again. @type {Map<string, Promise<void>>} */
+    static #loadingModules = new Map();
 
     /** The imports DOMQL supplies to every query it reads and writes: its own module, under its own name. */
     static #imports = Object.freeze([Domql.#browserModule.name]);
@@ -188,6 +195,110 @@ class Domql {
         }
 
         Domql.#moduleRegistry.registerModule(module);
+    }
+
+    /**
+     * Registers the loader of the module of the name given, which `loadModulesAsync` asks for it where this instance holds no module of that name: `load()` answers the module, or a promise of it, and registers nothing
+     * itself. A name that is no module's, a `load` that is no function, and a second loader for one name are refused.
+     * @param {string} name The module's name.
+     * @param {() => unknown} load Answers the module.
+     */
+    static registerModuleLoader(name, load) {
+        if (typeof name !== 'string' || name === '' || typeof load !== 'function') {
+            throw NexoError.structure('DOMQL2013', 'A module loader is registered by the name of the module it loads, and is the function that answers that module', {});
+        }
+
+        if (Domql.#moduleLoaders.has(name)) {
+            throw NexoError.structure('DOMQL2013', `A loader of the module '${name}' is registered already, and a module has one loader`, {});
+        }
+
+        Domql.#moduleLoaders.set(name, load);
+    }
+
+    /**
+     * Loads every module named that this instance doesn't hold yet, each through its loader, and registers it, answering a promise that settles once each named is registered: those a query object, a definition or a
+     * text imports, or those a list names. A load of a module already under way is shared, and a failed one is asked of its loader again by the next load.
+     * @param {DomqlQuery | object | string | string[]} modules What names the modules.
+     * @returns {Promise<void>}
+     */
+    static loadModulesAsync(modules) {
+        let names;
+
+        try {
+            names = Domql.#moduleNamesOf(modules);
+        } catch (error) {
+            return Promise.reject(error);
+        }
+
+        return Promise.all(names.map(name => Domql.#loadModuleAsync(name))).then(() => undefined);
+    }
+
+    /** The names of the modules a query object, a definition or a text imports, or a list names, each once. */
+    static #moduleNamesOf(modules) {
+        if (Array.isArray(modules)) {
+            if (!modules.every(name => typeof name === 'string' && name !== '')) {
+                throw NexoError.structure('DOMQL2014', 'A list of the modules to load holds their names', {});
+            }
+
+            return [...new Set(modules)];
+        }
+
+        let definition;
+
+        if (modules instanceof DomqlQuery) {
+            ({ definition } = modules);
+        } else if (typeof modules?.with === 'function') {
+            throw NexoError.structure('DOMQL2002', 'A query object another DOMQL instance made is loaded for from its definition, as domql.loadModulesAsync(query.definition)', {});
+        } else if (typeof modules === 'string') {
+            definition = nexo.parse(modules, { imports: Domql.#imports });
+        } else if (modules !== null && typeof modules === 'object') {
+            definition = nexo.validate(modules);
+        } else {
+            throw NexoError.structure('DOMQL2014', 'The modules to load are named by the imports of a query object, a definition or a text, or by a list of their names', {});
+        }
+
+        return [...new Set(definition.imports.map(({ module }) => module))];
+    }
+
+    /** Loads the module of the name through its loader and registers it, unless this instance holds it; a load already under way is shared until it settles. */
+    static #loadModuleAsync(name) {
+        if (Domql.#moduleRegistry.moduleNames.includes(name)) {
+            return Promise.resolve();
+        }
+
+        let loading = Domql.#loadingModules.get(name);
+
+        if (loading === undefined) {
+            const load = Domql.#moduleLoaders.get(name);
+
+            if (load === undefined) {
+                return Promise.reject(NexoError.module('DOMQL4015', `The module '${name}' is neither registered nor loaded on request; register it, or a loader of it with domql.registerModuleLoader, before a query that imports it is carried out`, { module: name }));
+            }
+
+            loading = Domql.#registerLoadedModuleAsync(name, load).finally(() => Domql.#loadingModules.delete(name));
+            Domql.#loadingModules.set(name, loading);
+        }
+
+        return loading;
+    }
+
+    /** Asks the loader for its module and registers it, unless this instance came to hold one of its name meanwhile. */
+    static async #registerLoadedModuleAsync(name, load) {
+        let module;
+
+        try {
+            module = await load();
+        } catch (error) {
+            throw NexoError.evaluation('DOMQL5023', `The module '${name}' failed to load: ${error?.message ?? String(error)}`, { module: name }, { cause: error });
+        }
+
+        if (module === null || typeof module !== 'object' || module.name !== name) {
+            throw NexoError.module('DOMQL4014', `The loader of the module '${name}' answered ${typeof module?.name === 'string' ? `the module '${module.name}'` : 'no module'}, where it answers the module of its name`, { module: name });
+        }
+
+        if (!Domql.#moduleRegistry.moduleNames.includes(name)) {
+            Domql.registerModule(module);
+        }
     }
 
     /** Every member the module declares, each with the name of the type it stands within, null for a module member; contents that are no list hold none. */
@@ -534,7 +645,12 @@ class Domql {
 
         // A resolution stays current until a registration may change what it recognizes, which Nexo alone can tell.
         if (resolution === undefined || !resolution.isCurrent) {
-            resolution = Domql.#moduleRegistry.resolve(query.definition, bindings);
+            try {
+                resolution = Domql.#moduleRegistry.resolve(query.definition, bindings);
+            } catch (error) {
+                throw Domql.#unloadedImportOf(query.definition, error) ?? error;
+            }
+
             resolutions.set(bindings.resolutionKey, resolution);
         }
 
@@ -543,6 +659,24 @@ class Domql {
         }
 
         return resolution;
+    }
+
+    /** The refusal of an import naming a module loaded on request that is not loaded yet, where Nexo refused an import of a module the registry does not hold; null for any other failure. */
+    static #unloadedImportOf(definition, error) {
+        if (error?.code !== 'NEXO3002') {
+            return null;
+        }
+
+        const moduleNames = Domql.#moduleRegistry.moduleNames;
+        const index = definition.imports.findIndex(({ module }) => !moduleNames.includes(module) && Domql.#moduleLoaders.has(module));
+
+        if (index === -1) {
+            return null;
+        }
+
+        const { module } = definition.imports[index];
+
+        return NexoError.validation('DOMQL3007', `'import ${module}' names a module loaded on request, which is not loaded yet; await domql.loadModulesAsync before carrying the query out`, nexo.getLocation(definition, `/imports/${index}`));
     }
 
     /**
@@ -771,12 +905,14 @@ class Domql {
     }
 }
 
-/** DOMQL: makes query objects, formats requests, registers the modules that extend the vocabulary, and says which build it is and which specification it follows. */
+/** DOMQL: makes query objects, formats requests, registers the modules that extend the vocabulary and loads those loaded on request, and says which build it is and which specification it follows. */
 export const domql = Object.freeze({
     query: (source, bindings) => Domql.query(source, bindings),
     format: source => Domql.format(source),
     createModule: (name, contents) => Domql.createModule(name, contents),
     registerModule: module => Domql.registerModule(module),
+    registerModuleLoader: (name, load) => Domql.registerModuleLoader(name, load),
+    loadModulesAsync: modules => Domql.loadModulesAsync(modules),
     info: Object.freeze({ versions: Object.freeze({ runtime: Versions.runtime, specification: Versions.specification, language: Versions.language }) }),
 });
 

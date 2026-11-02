@@ -43,6 +43,7 @@ In this document:
 | Observation | What a member names to learn that its result may have changed, or to keep the sample it reads | [Observations](vocabulary.md#observations) |
 | Observation target | What an observation observes besides a receiver or an argument: `window`, `document`, `root` or `roots` | [Observation targets](vocabulary.md#observations-targets) |
 | Extension module | A module that adds to the built-in vocabulary, registered in an instance's registry | [Extension modules](vocabulary.md#extension-modules) |
+| Module loaded on request | A module registered only when a query first needs it, through the loader its caller registered by its name | [Loading a module on request](vocabulary.md#extension-modules-loading) |
 | Environment | What every implementation an operation reaches receives as its `env`: the window, its document, the owner, the instance of DOMQL, and the tools that observe, schedule and measure through DOMQL's own | [The environment](vocabulary.md#extension-modules-environment) |
 | Transient measurement | Reading an element under a class it lacks, which DOMQL's own observers never hear | [The environment](vocabulary.md#extension-modules-environment) |
 | Continuous measurement | Evaluating again each animation frame while the `frame` observation is held | [Observation types](vocabulary.md#observations-types) |

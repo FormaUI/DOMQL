@@ -382,6 +382,15 @@ const declaredType: DomqlTypeDeclaration = module.types[0];
 
 domql.registerModule(module);
 
+// A module loaded on request: its loader answers the module, and a query's imports name what to load.
+domql.registerModuleLoader('Lazy', async () => domql.createModule('Lazy', { types: [] }));
+
+const loaded: Promise<void> = domql.loadModulesAsync(domql.query('import Lazy\n1'));
+const loadedByName: Promise<void> = domql.loadModulesAsync(['Lazy']);
+
+// @ts-expect-error A loader answers the module, which DOMQL registers.
+domql.registerModuleLoader('Lazy', () => 'Lazy');
+
 // A reference type of a module's own recognizes its values, as its module's typeOf does.
 const lamps: DomqlModuleContents = {
     typeOf: value => (value instanceof HTMLButtonElement ? 'Lamp' : null),

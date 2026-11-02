@@ -1541,6 +1541,28 @@ A query's imports decide what it resolves against, so a module registered later 
 - **A running watch or a waiting evaluation made stale** resolves its request again at its next evaluation, which evaluates the whole query anew, as each of its evaluations does, so it goes on as before. A watch compares that evaluation's result as it compares any, within each value's tolerance: Nexo gives every resolution of one definition the same [origins](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/spec/runtime/evaluation.md#runtime-results) where it selects the same declarations. Resolving again checks what starting the watch checked, and its refusal is that evaluation's failure.
 - **A subscription or a once execution made stale** prepares its request again where a value its host call supplies is next projected: at the next event, or as the execution's result arrives. Where that preparation reaches the declaration it was carried out through, the value is projected through it, its locals and the object expression evaluated as that preparation finds them, and a subscription goes on listening with the receiver and the arguments its event source started with. Where it reaches none, or another, the subscription hands its handler the failure `DOMQL5015` and ends, and the once execution rejects with it, its effect standing. Where preparing it again fails, the subscription hands its handler that failure and ends, and the once execution rejects with it.
 
+<a id="extension-modules-loading"></a>
+
+### Loading a module on request
+
+A query is resolved against the modules registered by then, and `run` starts its execution before it returns, so a module a query imports is registered before the query is carried out. A module the page loads only when a query first needs it is **loaded on request**: its caller registers a loader for it by its name, and loads what a query imports before carrying the query out.
+
+```js
+domql.registerModuleLoader("Charts", async () => (await import("./charts.js")).createChartsModule(domql));
+
+const chart = domql.query("import Charts\npanel:palette", { panel });
+
+await domql.loadModulesAsync(chart);
+chart.evaluate();
+```
+
+- **`domql.registerModuleLoader(name, load)`** registers the loader of the module of that name: `load()` answers the module, as `domql.createModule` creates it, or a promise of it, and registers nothing itself. A name that is no module's name, as an empty one, a `load` that is no function, and a second loader for one name are refused with `DOMQL2013`.
+- **`domql.loadModulesAsync(modules)`** loads every module named that the instance doesn't hold yet, each through its loader, and registers it, answering a promise that settles once each named is registered. `modules` names them as the imports of a query object, a definition or a text, or as a list of module names. Anything else is refused with `DOMQL2014`, and a query object of another instance as `domql.query` refuses it.
+  - **Once for each module.** A load asked for while one of the same module is under way shares it, and a module the instance holds is not loaded again, so loading is safe to ask for before every query. A module another caller registered meanwhile, by the loader's own code or any other, is registered no second time.
+  - **Failures,** each located at the module: a module neither registered nor given a loader rejects with `DOMQL4015`; a loader that throws or rejects, with `DOMQL5023`, its failure the `cause`; and one answering no module of its name, with `DOMQL4014`. A registration that fails rejects with its own error. Nothing is registered for a load that fails, and the next load asks the loader again.
+- **A module that names another's types** is registered after it, so its loader loads that one first, `await domql.loadModulesAsync(["Gestures"])`, before answering its own.
+- **Not loaded yet.** A request importing a module that has a loader, and is not registered yet, is refused as it is resolved with `DOMQL3007`, located at the import, rather than Nexo's refusal of a module it doesn't know. No operation loads a module itself: an execution would lose the order and the activation of the call that carries it out.
+
 <a id="extension-modules-host-calls"></a>
 
 ### Host calls DOMQL carries out

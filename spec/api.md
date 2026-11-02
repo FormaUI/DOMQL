@@ -44,6 +44,8 @@ Each entry point and operation is listed here with what it takes, and the sectio
 | `domql.format(source)` | The canonical text of a text, a definition or a query object, as [formatting](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/spec/runtime/definition.md#definition-canonical-text) sets out |
 | `domql.createModule(name, contents)` | Creates a module from its declarations, each that runs code carrying its implementation, as [extension modules](vocabulary.md#extension-modules) set out |
 | `domql.registerModule(module)` | Registers a module's declarations in the instance's registry, as [extension modules](vocabulary.md#extension-modules) set out |
+| `domql.registerModuleLoader(name, load)` | Registers the loader of a module loaded on request, as [loading a module on request](vocabulary.md#extension-modules-loading) sets out |
+| `domql.loadModulesAsync(modules)` | Loads and registers every module named that the instance doesn't hold yet, answering a promise, as [loading a module on request](vocabulary.md#extension-modules-loading) sets out |
 | `domql.info` | Which build this is and what it follows, in `versions`: `runtime`, the runtime release version, which the package and the bundle carry, its sources reporting the same; `specification`, the version of DOMQL's specification it follows; and `language`, the language specification version the Nexo runtime it runs on follows, its `nexo.info.versions.language` |
 
 Almost every operation answers directly, so the plain name is the synchronous one, and every operation that answers a promise takes the suffix `Async`, as `evaluateAsync`, `readyAsync`, `refreshAsync` and `executeAsync` do.

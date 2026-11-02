@@ -65,6 +65,7 @@ const examples = [
         answers: [['NEXO3042'], ['validation'], ["The argument 'name' of '[…]' expects String and finds Number", '(line 1, column 7, at /expression/argument)']],
     },
     { file: '21-module.js', observed: 'reads', answers: [['{ childCount: 3 }']] },
+    { file: '31-load-on-request.js', observed: 'reads', answers: [['7']] },
     { file: '22-execute-once.js', observed: 'reads', answers: [['true']] },
     { file: '23-run-continuously.js', observed: 'printed', answers: [["'gold'"], ["'teal'"], ['undefined']] },
     { file: '24-command.js', observed: 'reads', answers: [['true']] },
