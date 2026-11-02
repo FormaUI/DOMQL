@@ -146,6 +146,40 @@ export class Watch {
         return this.#subscribeAt([], eventName, handler, options);
     }
 
+    /**
+     * The reference the list item at the path in the watch's snapshot descends from, as Nexo's metadata records it: the element a row was projected from. Null where it descends from data or from null, where no
+     * projection built its list, where the path reaches no item, and before the first snapshot; a path that doesn't fit the result's type, or ends at anything but a list's item, is refused.
+     * @param {...(string | number)} path The item, relative to the part the watch reports.
+     */
+    sourceOf(...path) {
+        nexo.paths.validate(path);
+
+        if (typeof path.at(-1) !== 'number') {
+            throw NexoError.structure('DOMQL2016', "sourceOf names a list's item, its path ending at the item's index", {});
+        }
+
+        const full = [...this.#path, ...path];
+
+        this.#checkPath(full);
+
+        if (!this.#hasSnapshot) {
+            return null;
+        }
+
+        let metadata = this.#lastMetadata;
+
+        // Each step reaches the record of the part it names; a part with none descends from nothing a projection recorded.
+        for (let index = 0; index < full.length - 1 && metadata !== null; index++) {
+            const step = full[index];
+
+            metadata = (typeof step === 'number' ? metadata.items?.[step] : metadata.objectFields?.[step]) ?? null;
+        }
+
+        const source = metadata?.provenance?.[full.at(-1)];
+
+        return source?.kind === 'reference' ? source.value : null;
+    }
+
     /** A selected view of a snapshot watch: a part of its result, whose path is checked against the result's type at once. */
     select(...path) {
         if (this.#liveState !== null) {
@@ -567,6 +601,13 @@ class SelectedView {
     /** A smaller part, checked against the result's type at once. */
     select(...path) {
         return this.#watch.select(...this.#path, ...path);
+    }
+
+    /** The reference the list item at the path, relative to the part, descends from, as the watch's `sourceOf` answers it. */
+    sourceOf(...path) {
+        nexo.paths.validate(path);
+
+        return this.#watch.sourceOf(...this.#path, ...path);
     }
 
     /**

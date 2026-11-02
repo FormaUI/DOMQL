@@ -146,6 +146,11 @@ interface DomqlWatchBase<T> {
      * It raises no event where the result is unchanged, so a caller that needs the result whatever it is reads `snapshot` once it settles.
      */
     refreshAsync(options?: DomqlRefreshOptions): Promise<void>;
+    /**
+     * The reference the list item at the path in `snapshot` descends from, as the element a row was projected from, which a handler in the browser writes to; null where it descends from data or from null, where no
+     * projection built its list, where the path reaches no item, and before the first snapshot. The path ends at an item's index.
+     */
+    sourceOf(...path: DomqlPathItem[]): object | null;
     /** Ends the watch: cancels what it scheduled, disposes every observation session and stops every listener, its views' included. */
     dispose(): void;
 }
@@ -180,6 +185,8 @@ export interface DomqlSelectedView<T = unknown> {
     readonly error: unknown;
     /** A smaller part. */
     select<U = unknown>(...path: DomqlPathItem[]): DomqlSelectedView<U>;
+    /** The reference the list item at the path, relative to the part, descends from, as the watch's `sourceOf` answers it. */
+    sourceOf(...path: DomqlPathItem[]): object | null;
     /** Listens to the part: raised where it changed, and after a failed evaluation; the sender is the owning watch. */
     subscribe(eventName: 'change', handler: (sender: DomqlWatch, args: DomqlResultArgs<T>) => unknown, options?: DomqlListenOptions): DomqlEventListener;
     /** Waits for the watch's successful ready state and answers the part. */

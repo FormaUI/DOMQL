@@ -1721,6 +1721,55 @@ describe('Watch', () => {
         });
     });
 
+    describe('sourceOf', () => {
+        it('answers the element each item of a list in the snapshot came from, as the items move, and through a projection, a filter and a selected view', async () => {
+            const [first, second] = panel.children;
+            const watched = watch('{ rows = panel.children.where(it["data-n"] != null) { n = it["data-n"] } { label = it.n } }', { panel });
+
+            expect(watched.sourceOf('rows', 0)).toBeNull();
+
+            await settle();
+
+            expect([watched.sourceOf('rows', 0), watched.sourceOf('rows', 1)]).toEqual([first, second]);
+
+            panel.insertBefore(second, first);
+            await settle();
+
+            expect([watched.sourceOf('rows', 0), watched.sourceOf('rows', 1)]).toEqual([second, first]);
+            expect(watched.select('rows').sourceOf(1)).toBe(first);
+            expect(watched.sourceOf('rows', 2)).toBeNull();
+        });
+
+        it('answers null for an item of a list no projection built, or one that descends from data', async () => {
+            const watched = watch('{ ns = [1, 2], keys = ["a", "b"] { key = it } }', {});
+
+            await settle();
+
+            expect(watched.sourceOf('ns', 0)).toBeNull();
+            expect(watched.sourceOf('keys', 1)).toBeNull();
+        });
+
+        it('answers the element an item came from in a watch that keeps live state, and in one of a selection, its path relative to the part', async () => {
+            const [first, second] = panel.children;
+            const living = watch('{ rows = panel.children { n = it["data-n"] } }', { panel }, { updateStrategy: 'liveState' });
+            const selected = isolated.query('{ rows = panel.children { n = it["data-n"] } }', { panel }).select('rows').watch({ schedule: 'immediate' });
+
+            watches.push(selected);
+            await settle();
+
+            expect(living.sourceOf('rows', 1)).toBe(second);
+            expect(selected.sourceOf(0)).toBe(first);
+        });
+
+        it('refuses a path that ends at no list\'s item, or that doesn\'t fit the result', () => {
+            const watched = watch('{ rows = panel.children { n = it["data-n"] } }', { panel });
+
+            expect(() => watched.sourceOf('rows')).toThrow(expect.objectContaining({ kind: 'structure', code: 'DOMQL2016' }));
+            expect(() => watched.sourceOf('rows', 0, 'n')).toThrow(expect.objectContaining({ kind: 'structure', code: 'DOMQL2016' }));
+            expect(() => watched.sourceOf('columns', 0)).toThrow(expect.objectContaining({ kind: 'validation' }));
+        });
+    });
+
     describe('readyAsync', () => {
         it('rejects when called after disposal, even where the watch was ready', async () => {
             const watched = watch('panel["data-n"]', { panel });

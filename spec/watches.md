@@ -48,6 +48,20 @@ In this document:
   - An observation that fails to take a new sample rejects the refresh with `DOMQL5022`, its failure the `cause`, and the watch goes on.
 - **`signal`** cancels a refresh's wait alone, rejecting it with the signal's reason; the watch goes on, and evaluates at its schedule.
 - **An equal result.** A refresh raises no event where its result equals the last one reported. A caller that needs the result whatever it is, as one rebuilding its copy after a reconnection, reads `snapshot` once the refresh settles: it is the snapshot the next change set is computed against.
+<a id="watching-source-elements"></a>
+
+- **`sourceOf(...path)`** answers the reference the list item at the path in `snapshot` descends from, its [provenance](results.md#results-change-sets), as the element a row was projected from, so a handler in the browser writes to the element an item came from:
+
+  ```js
+  rows.subscribe("change", (sender, args) => {
+      args.value.forEach((row, index) => sender.sourceOf(index).classList.toggle("wide", row.width > 400));
+  });
+  ```
+
+  - It answers null where the item descends from data or from null, where no projection built its list, where the path reaches no item, as past a list's end, and before the first snapshot.
+  - A path is checked as `select` checks one, against the result's type, and one that ends at anything but a list's item is refused with `DOMQL2016`.
+  - It reads the snapshot the watch has now, as `snapshot` does, so a handler reads it before it awaits anything.
+  - The reference never enters a result, so a caller that keeps a copy of a result elsewhere, as across an interop boundary, has none.
 - **`dispose()`** cancels the evaluation the watch scheduled, lets go of every observation the watch holds, stops every listener subscribed to it, sets the status to `disposed` and prevents any new handler call; a handler already running may finish. Disposing again does nothing.
 - **The watch runs until its owner disposes it,** whether or not listeners remain on it.
 
@@ -154,4 +168,4 @@ watch.select("size").subscribe("change", (sender, args) => {
 });
 ```
 
-A selected view of a snapshot watch, which `watch.select(...path)` answers, offers `snapshot`, `status`, `error`, `select(...path)`, `subscribe(eventName, handler, options?)` and `readyAsync(options?)`. A selected view belongs to the running watch it was selected from, where a [selection](queries.md#selecting-a-result) belongs to a query: it starts no evaluation of its own and needs no disposal, so it has no `dispose()`; each listener subscribed to it stops by its own `dispose()` or `signal`, and disposing the watch stops them all, as it stops its own. Its handlers' sender is the owning watch, and their `value` is the selected part, raised where that part changed, and after a failed evaluation whether or not it did. A watch's query is resolved when the watch starts, so `watch.select(...)` checks the whole path at once, its shape and its fit to the result's type alike, even before the first snapshot arrives. A live-state watch offers no selected views.
+A selected view of a snapshot watch, which `watch.select(...path)` answers, offers `snapshot`, `status`, `error`, `select(...path)`, `sourceOf(...path)`, its path relative to the part, `subscribe(eventName, handler, options?)` and `readyAsync(options?)`. A selected view belongs to the running watch it was selected from, where a [selection](queries.md#selecting-a-result) belongs to a query: it starts no evaluation of its own and needs no disposal, so it has no `dispose()`; each listener subscribed to it stops by its own `dispose()` or `signal`, and disposing the watch stops them all, as it stops its own. Its handlers' sender is the owning watch, and their `value` is the selected part, raised where that part changed, and after a failed evaluation whether or not it did. A watch's query is resolved when the watch starts, so `watch.select(...)` checks the whole path at once, its shape and its fit to the result's type alike, even before the first snapshot arrives. A live-state watch offers no selected views.

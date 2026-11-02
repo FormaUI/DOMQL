@@ -40,6 +40,7 @@ A caller's use of the API, refused where it is made.
 | `DOMQL2013` | `domql.registerModuleLoader` given a name that is no module's, a `load` that is no function, or a name a loader is registered for already |
 | `DOMQL2014` | `domql.loadModulesAsync` given neither a query object, a definition, a text nor a list of module names |
 | `DOMQL2015` | A subscription's `reactions` given anything but a list of query objects of the instance |
+| `DOMQL2016` | A watch's `sourceOf` given a path that ends at no list's item |
 
 <a id="errors-validation"></a>
 

@@ -6,6 +6,20 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-317"></a>
+
+## `1.0.0-alpha.317`
+
+*November 2, 2026 · Nexo language `1.0.0-beta.20` · definition format 38*
+
+A watch answers the element each list item came from to a handler in the browser, beside its result.
+
+**Watches**
+
+- [`sourceOf(...path)`](spec/watches.md#watching-source-elements): the reference the list item at the path in the watch's snapshot descends from, its provenance, as the element a row was projected from, or null where it descends from data, as [D72](docs/decisions.md#d72) records; a selected view answers it for a path relative to its part. A path ending at anything but a list's item is refused with the new `DOMQL2016`.
+
+**Breaking:** nothing.
+
 <a id="v1-0-0-alpha-316"></a>
 
 ## `1.0.0-alpha.316`

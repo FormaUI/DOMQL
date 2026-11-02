@@ -239,6 +239,28 @@ sentinel.dispose();
 
 The refresh evaluates once every new sample has arrived. Like any refresh, it raises no event where the result is unchanged, so read `snapshot` when you need the result whatever it is. Pass `{ signal }` to stop waiting.
 
+### Write to the elements a result came from
+
+A result holds data alone, never an element. A handler in the browser that writes to the element an item came from asks the watch for it with `sourceOf(...path)`, the item's path in the snapshot:
+
+```js
+const unreadItems = domql.query('panel.children.where(it["data-unread"] != null) { count = it["data-unread"] }', { panel }).watch();
+
+unreadItems.subscribe('change', (sender, args) => {
+    args.value.forEach((item, index) => {
+        sender.sourceOf(index).title = `${item.count} unread`;
+    });
+});
+
+await unreadItems.refreshAsync();
+console.log(panel.children[1].title);
+// '5 unread'
+
+unreadItems.dispose();
+```
+
+`sourceOf` answers the element each item of a list was projected from, through a filter or an ordering too, and null for an item that came from data. It reads the watch's current snapshot, so call it before the handler awaits anything.
+
 ### Live state
 
 By default, each update is an immutable snapshot. Use `updateStrategy: 'liveState'` when you want one object updated in place.
@@ -845,7 +867,7 @@ Keep independent results in a top-level object, as above. If you instead write `
 | `domql.registerModule(module)` | Register a module for query resolution. |
 | `domql.info` | Read the build's `versions`: its `runtime`, the DOMQL `specification` it follows, and the Nexo `language` it runs on. |
 
-A watch handle exposes `status`, `snapshot`, `error`, `readyAsync()`, `refreshAsync({ resample })`, `subscribe(eventName, handler)` and `dispose()`. Snapshot watches support `select(...path)`; live-state watches expose `liveState`. See [Watch a query](#watch-a-query) for examples.
+A watch handle exposes `status`, `snapshot`, `error`, `sourceOf(...path)`, `readyAsync()`, `refreshAsync({ resample })`, `subscribe(eventName, handler)` and `dispose()`. Snapshot watches support `select(...path)`; live-state watches expose `liveState`. See [Watch a query](#watch-a-query) for examples.
 
 ### Choose the matching operation
 

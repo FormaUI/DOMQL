@@ -1080,3 +1080,19 @@ Each entry is one of three kinds:
   - Reactions after the handler, which would leave the handler no promise of their results with the event.
   - Refusing as the subscription starts a reaction that would fail at every event: a reaction reading `event` resolves only once an event binds it, so it is resolved, and fails, as each event binds it, as `executeAsync` would.
   - A batch operation for several executions, which carrying them out in one task already orders.
+
+<a id="d72"></a>
+
+## D72 — A watch answers the element a list item came from, beside its result, never in it
+
+*November 2, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `watch.sourceOf(...path)` answers the reference the list item at the path in the watch's snapshot descends from, its provenance, as the element a row was projected from, and null where it descends from data or null, where no projection built its list, where the path reaches no item, and before the first snapshot ([A8](features-status.md#planned-api-and-host)). A selected view answers it for a path relative to its part. A path ending at anything but a list's item is refused with `DOMQL2016`.
+- **Why:**
+  - A handler in the browser that lays out what a watch measured, as a gutter aligning its rows to the blocks of an editor, writes to the elements the items came from; the watch already knows each, from the provenance Nexo records to match items, so the caller needs no second query and no index of its own.
+  - A result holds data alone, so it crosses a boundary and is compared as data; an element in it would break both, so the reference is asked for beside the result, and a caller across a boundary never meets one.
+  - Asking the watch, rather than finding the element in every event's arguments, costs nothing for the events no handler asks about. It reads the snapshot the watch has now, which a handler has before it awaits anything, as it has `sender.snapshot`.
+- **Declined:**
+  - Elements in the result, or in a parallel structure in each event's arguments, which would cost for every event and every listener.
+  - The immediate input of a projection, where an item came through several, rather than its provenance, the element the first projection read, which is what a handler writes to.

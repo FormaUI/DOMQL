@@ -42,6 +42,7 @@ const examples = [
         gives: ['validation'],
     },
     { file: '30-resample.js', observed: 'printed', answers: [['{ nearEnd: true }']] },
+    { file: '34-source-elements.js', observed: 'printed', answers: [["'5 unread'"]] },
     { file: '07-live-state.js', observed: 'printed', answers: [['[]'], ["[{ op: 'replace', path: '/1/selected', value: true }]"], ['true']] },
     { file: '08-subscribe.js', observed: 'printed', answers: [["{ key: 'a2', wasSelected: true, selectedCount: 1 }"]] },
     { file: '33-reactions.js', observed: 'printed', answers: [["'a3'"], ["{ key: 'a3' }"], ['false']] },

@@ -72,6 +72,7 @@ const failure: unknown = watch.error;
 const ready: Promise<{ count: number }> = watch.readyAsync({ signal });
 const refreshed: Promise<void> = watch.refreshAsync();
 const resampled: Promise<void> = watch.refreshAsync({ resample: true, signal });
+const sourceElement: object | null = domql.query('panel.children { n = it.children.count }', { panel }).watch().sourceOf(0);
 
 failures.dispose();
 
