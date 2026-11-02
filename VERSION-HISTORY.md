@@ -6,6 +6,32 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-305"></a>
+
+## `1.0.0-alpha.305`
+
+*November 2, 2026 · Nexo language `1.0.0-beta.19` · definition format 38*
+
+DOMQL gives module code its observations, its animation frames, its instance and a transient measurement, and measures continuously where a module asks it to.
+
+**The environment**
+
+- [`env.observe` and `env.frame`](spec/vocabulary.md#extension-modules-environment): module code holds an observation through the window's shared observations, a mutation notifying at its delivery, and runs a write in the next animation frame before the watches DOMQL evaluates in it read, or a read among them, as [D53](docs/decisions.md#d53) records.
+- [`env.domql`](spec/vocabulary.md#extension-modules-environment): the instance of DOMQL the operation belongs to. While a query is evaluated, `executeAsync` and `run`, and an operation environment's `observe`, `frame` and `measureUnder`, are refused with `DOMQL5021`, as [D54](docs/decisions.md#d54) records.
+- [`env.measureUnder(element, { class }, read)`](spec/vocabulary.md#extension-modules-environment): a transient measurement, which DOMQL's own mutation observers never hear, for an observation type while a watch runs, as [D55](docs/decisions.md#d55) records.
+- [An observation's environment](spec/vocabulary.md#extension-modules-observation-environment): an observation type's implementation receives the window's own, whose tools it may always use.
+- `DOMQL2010`, `DOMQL2011` and `DOMQL2012` refuse what `observe`, `frame` and `measureUnder` don't take.
+
+**Observations**
+
+- [`frame`](spec/vocabulary.md#observations-types): continuous measurement, invalidating what reads it at the start of each animation frame while it is held, its cost measured, as [D56](docs/decisions.md#d56) records.
+
+**Watches**
+
+- [When a watch evaluates](spec/watches.md#watching-when-a-watch-evaluates): a watch scheduled by frame evaluates among the frame's reads, after the writes module code asks for.
+
+**Breaking:** an execution carried out while a query is evaluated, by a member's implementation, is refused with `DOMQL5021`, where it ran; such a member carries it out from a behavior instead.
+
 <a id="v1-0-0-alpha-304"></a>
 
 ## `1.0.0-alpha.304`

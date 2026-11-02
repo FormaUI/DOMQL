@@ -452,6 +452,7 @@ export class BrowserVocabularyDeclarations {
                 observationType('navigation', 'invalidation', 'observeNavigation'),
                 observationType('selector', 'invalidation', 'observeSelector', { identity: ['selector'] }),
                 observationType('behavior', 'invalidation', 'observeBehavior', { identity: ['behavior'] }),
+                observationType('frame', 'invalidation', 'observeFrame'),
             ],
 
             // The targets the observations observe besides the receiver and an argument: the window and the document; the receiver's root, the root of the tree it is in, and its roots, every root of its flat-tree ancestry through slots and shadow hosts;

@@ -801,3 +801,67 @@ Each entry is one of three kinds:
 - **Declined:**
   - A maintained observation holding the state as its sample, which an owner can't tell apart, since one observation serves every owner.
   - Keeping the state in DOMQL, written by the behavior, which would copy what the instance already holds and still need the behavior to say when.
+
+<a id="d53"></a>
+
+## D53 — Module code observes and schedules through DOMQL's own, a frame's writes before its reads
+
+*November 2, 2026*
+
+- **Kind:** Contract.
+- **Decision:** An environment offers `observe({ type, target, …arguments }, notify)`, over the window's shared observations, and `frame(callback, { phase })`, over its frame schedule ([C5](features-status.md#planned-extension-contract)). A frame runs the writes module code asks for, then its reads, a frame watch's evaluation among them. A `mutation` observation notifies at mutation delivery, in its microtask, never at a frame.
+- **Why:**
+  - Module code ran resize and intersection pools of its own beside DOMQL's, observing the same elements twice; sharing the window's observations runs one.
+  - A module writing in a frame before DOMQL's watches read it lets them read what it wrote in that frame, with one layout, where a frame of its own would leave them a frame behind or force a layout between.
+  - Code that must act before paint, as moving focus to an heir before focus is painted on the body, needs a mutation as it is delivered, so `observe` notifies as the observation reports, and the module chooses a frame itself where it wants one.
+- **Declined:**
+  - Notifying a mutation at a frame, which loses the delivery's moment.
+  - A frame of reads before writes, which leaves a module's write to a frame after the watches that would read it.
+
+<a id="d54"></a>
+
+## D54 — Module code reaches its DOMQL instance, and executes nothing while a query is evaluated
+
+*November 2, 2026*
+
+- **Kind:** Contract.
+- **Decision:** An environment holds `domql`, the instance the operation belongs to ([C6](features-status.md#planned-extension-contract)). While a query is evaluated, a host call prepared or a value projected, `executeAsync` and `run` are refused with `DOMQL5021`, and so are an operation environment's `observe`, `frame` and `measureUnder`; an evaluation, a watch and a subscription may start, and an observation's environment refuses nothing.
+- **Why:**
+  - A module that builds on queries, as one finding the arrows among a strip's children, needs the instance its queries are registered in, which only DOMQL knows, since two instances on one page never share a registry.
+  - A member's implementation reads alone, which nothing enforced: refusing what changes the page or holds something while an evaluation runs keeps evaluating free of effects, re-entrant or not.
+  - An evaluation, a watch and a subscription change nothing as they start, so module code reading through a query of its own, an observation type composing a watch among it, may start them.
+  - An observation starts while a query is evaluated, and observing, scheduling and measuring are what an observation type does, so its environment allows them.
+- **Declined:**
+  - A `domql` bound to the environment's window, which every query object it makes would have to carry; a caller passes `{ window: env.window }` as any caller does.
+  - Refusing watches and subscriptions too, which would refuse an observation type built on a watch.
+
+<a id="d55"></a>
+
+## D55 — A transient measurement drains DOMQL's own observers, and is no member's
+
+*November 2, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `env.measureUnder(element, { class }, read)` adds the class, reads, restores the class attribute as it was, and drains every mutation observer DOMQL runs in the element's window of the records of that element's class attribute, handing each the rest ([C7](features-status.md#planned-extension-contract)). An observation type measures through it while a watch runs; an operation's environment refuses it while a query is evaluated.
+- **Why:**
+  - A measurement under a class, as a column's wanted width under `max-content`, changes the page for the length of a read, and without draining every watch reading `matches`, `closest`, `first` or `all` would evaluate again after each.
+  - DOMQL can drain only its own observers, which it made; a framework's own observers see the class come and go, as they would without DOMQL.
+  - The class's change restores itself before a frame is laid out, so no resize or intersection is reported, and the records of other changes keep their delivery, a microtask later.
+  - An observation type's measurement is the one change watching makes, restored before it returns; a member reads alone, so it never measures.
+- **Declined:**
+  - Any change beside one class, an inline style or an attribute, which no measurement asks for yet.
+  - Muting DOMQL's observers for the read's length, which would lose a change the read itself makes.
+
+<a id="d56"></a>
+
+## D56 — Continuous measurement is an observation of each frame, held only while it is needed
+
+*November 2, 2026*
+
+- **Kind:** Contract.
+- **Decision:** DOMQL's `frame` observation of the window invalidates what reads it at the start of each animation frame's writes while it is held ([O3](features-status.md#planned-observation)), so a watch reading it evaluates again in that frame. A module holds it through `env.observe` or a member naming it, and lets it go when the gesture or the pointer that needs it ends.
+- **Why:**
+  - Content moving under a still pointer, by an animation or a transform, changes nothing another observation reports, so only measuring each frame follows it.
+  - An observation is what a member names and a module holds, and its sessions already end with their holders, so continuous measurement stops as the last lets it go.
+  - Its cost was measured in Chromium: holding it costs about 0.03 ms a frame, and a watch reading 1,000 boxes through it about 2.2 ms, which the design records.
+- **Declined:** A watch schedule that evaluates each frame, which would measure every member a query reads each frame, where the observation measures those that name it.

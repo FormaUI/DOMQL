@@ -13,7 +13,7 @@ export class Watch {
     #evaluator;
     #observations;
     #comparer;
-    #window;
+    #frames;
     #schedule;
     #checkPath;
     #eventDispatcher;
@@ -42,7 +42,7 @@ export class Watch {
     /** What every session the watch holds calls when something the result depends on may have changed, the one function its evaluations share. */
     #onDependencyChange = () => this.#invalidate();
 
-    /** The animation frame the next evaluation waits for. */
+    /** The read of the animation frame the next evaluation waits for, which withdraws it, or null while none is asked for. @type {{ cancel: () => void } | null} */
     #frame = null;
     /** Whether an evaluation under the immediate schedule is queued for the next microtask, which the invalidations received before it share. */
     #isQueued = false;
@@ -73,7 +73,7 @@ export class Watch {
      * @param {import('./QueryEvaluator.mjs').QueryEvaluator} dependencies.evaluator Evaluates the query.
      * @param {import('./Observations.mjs').Observations} dependencies.observations The observations of the window, which the watch holds sessions on.
      * @param {import('../snapshots/SnapshotComparer.mjs').SnapshotComparer} dependencies.comparer Compares the snapshots.
-     * @param {Window} dependencies.window The window the watch belongs to.
+     * @param {import('./FrameSchedule.mjs').FrameSchedule} dependencies.frames The animation frames of the window the watch belongs to, among whose reads it evaluates under the frame schedule.
      * @param {(error: unknown) => void} dependencies.reportError The environment's error reporting, which a failure no listener receives reaches.
      * @param {(path: (string | number)[]) => void} dependencies.checkPath Refuses a path that does not fit the result's type.
      * @param {object} dependencies.options The watch's options.
@@ -82,11 +82,11 @@ export class Watch {
      * @param {(string | number)[]} [dependencies.options.path] The part of the result the watch reports.
      * @param {AbortSignal} [dependencies.options.signal] Disposes the watch when it aborts.
      */
-    constructor({ evaluator, observations, comparer, window, reportError, checkPath, options: { schedule, updateStrategy = 'snapshot', path = [], signal } }) {
+    constructor({ evaluator, observations, comparer, frames, reportError, checkPath, options: { schedule, updateStrategy = 'snapshot', path = [], signal } }) {
         this.#evaluator = evaluator;
         this.#observations = observations;
         this.#comparer = comparer;
-        this.#window = window;
+        this.#frames = frames;
         this.#schedule = schedule;
         this.#checkPath = checkPath;
         this.#path = path;
@@ -329,16 +329,17 @@ export class Watch {
                 });
             }
         } else if (this.#frame === null) {
-            this.#frame = this.#window.requestAnimationFrame(() => {
+            // A frame's writes, a module's among them, run before its reads, so the evaluation reads what they wrote.
+            this.#frame = this.#frames.request(() => {
                 this.#frame = null;
                 this.#run();
-            });
+            }, 'read');
         }
     }
 
     #cancelFrame() {
         if (this.#frame !== null) {
-            this.#window.cancelAnimationFrame(this.#frame);
+            this.#frame.cancel();
             this.#frame = null;
         }
     }

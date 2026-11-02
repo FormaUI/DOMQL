@@ -2,11 +2,11 @@
 
 ## Current state
 
-**DOMQL's vocabulary, queries, watches, events and executions are implemented on Nexo's language `1.0.0-beta.19`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.304`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next are the [planned capabilities](#planned-capabilities) of the host side; the C# half waits for its design.**
+**DOMQL's vocabulary, queries, watches, events and executions are implemented on Nexo's language `1.0.0-beta.19`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.305`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next are the [planned capabilities](#planned-capabilities) of the host side; the C# half waits for its design.**
 
 | Version | Implementation | Specification |
 | --- | --- | --- |
-| DOMQL specification | `1.0.0-alpha.304` | `1.0.0-alpha.304` |
+| DOMQL specification | `1.0.0-alpha.305` | `1.0.0-alpha.305` |
 | Nexo language | `1.0.0-beta.19` | `1.0.0-beta.19` |
 | Definition format | 38 | 38 |
 
@@ -47,6 +47,7 @@ Each feature, the contract that states it, its state in the implementation, and 
 | Boolean functions | [Boolean functions](../spec/vocabulary.md#boolean-functions) | Implemented | [`alpha.276`](../VERSION-HISTORY.md#v1-0-0-alpha-276) |
 | Conversions, Nexo's, which DOMQL's queries use | [Built-in conversions](../spec/vocabulary.md#built-in-conversions) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
 | Observation types, shared in sessions | [Observation types](../spec/vocabulary.md#observations-types) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
+| Continuous measurement, the `frame` observation, its cost measured | [Observation types](../spec/vocabulary.md#observations-types) | Implemented, as [D56](decisions.md#d56) records | [`alpha.305`](../VERSION-HISTORY.md#v1-0-0-alpha-305) |
 | Observation targets DOMQL declares and resolves | [Observation targets](../spec/vocabulary.md#observations-targets) | Implemented | [`alpha.276`](../VERSION-HISTORY.md#v1-0-0-alpha-276) |
 | Event sources and event types | [Events](../spec/events.md#event-sources) | Implemented | [`alpha.276`](../VERSION-HISTORY.md#v1-0-0-alpha-276) |
 | Listening in the capture phase, `on(type, { capture = true })`, for observing alone | [Event sources](../spec/events.md#event-sources) | Implemented, as [D27](decisions.md#d27) records | [`alpha.288`](../VERSION-HISTORY.md#v1-0-0-alpha-288) |
@@ -100,6 +101,9 @@ Each feature, the contract that states it, its state in the implementation, and 
 | Occurrences a behavior offers, through event sources of its module bound to its owner and receiver | [Occurrences](../spec/behaviors.md#behaviors-occurrences) | Implemented, as [D49](decisions.md#d49) records | [`alpha.303`](../VERSION-HISTORY.md#v1-0-0-alpha-303) |
 | A delivery acknowledged once each subscription applied it | [Acknowledgment](../spec/behaviors.md#behaviors-acknowledgment) | Implemented, as [D50](decisions.md#d50) records | [`alpha.303`](../VERSION-HISTORY.md#v1-0-0-alpha-303) |
 | State a behavior offers, read by its module's members and followed through the `behavior` observation | [State](../spec/behaviors.md#behaviors-state) | Implemented, as [D52](decisions.md#d52) records | [`alpha.304`](../VERSION-HISTORY.md#v1-0-0-alpha-304) |
+| DOMQL's observations and frames for module code, `env.observe` and `env.frame`, a frame's writes before its reads | [The environment](../spec/vocabulary.md#extension-modules-environment) | Implemented, as [D53](decisions.md#d53) records | [`alpha.305`](../VERSION-HISTORY.md#v1-0-0-alpha-305) |
+| Queries from module code, `env.domql`, and no execution while a query is evaluated | [The environment](../spec/vocabulary.md#extension-modules-environment) | Implemented, as [D54](decisions.md#d54) records | [`alpha.305`](../VERSION-HISTORY.md#v1-0-0-alpha-305) |
+| A transient measurement, `env.measureUnder`, which DOMQL's own observers never hear | [The environment](../spec/vocabulary.md#extension-modules-environment) | Implemented, as [D55](decisions.md#d55) records | [`alpha.305`](../VERSION-HISTORY.md#v1-0-0-alpha-305) |
 | Handling inside the native dispatch, delivering synchronously and never throwing into the listener | [Handling inside the native dispatch](../spec/behaviors.md#behaviors-synchronous-handling) | Implemented, as [D51](decisions.md#d51) records | [`alpha.303`](../VERSION-HISTORY.md#v1-0-0-alpha-303) |
 | `domql.info.versions` | [The API](../spec/api.md#api-entry-points-and-operations) | Implemented | [`alpha.275`](../VERSION-HISTORY.md#v1-0-0-alpha-275) |
 | The JavaScript bundle and its TypeScript declarations | [README](../README.md#build-and-try-it) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
@@ -151,14 +155,13 @@ The language's part is Nexo's already, adopted with the [migration](#migration-t
 
 **The order of the work:**
 
-1. **The host side.** Change sets against an acknowledged result and a refresh that delivers (A2, A3), modules loaded on request (A4) and ordered delivery (A5); nullable options (C11) and nested options holding an element (C12), which a behavior needs as soon as a host runs one; and DOMQL's observations for module code (C5).
+1. **The host side.** Change sets against an acknowledged result and a refresh that delivers (A2, A3), modules loaded on request (A4) and ordered delivery (A5); nullable options (C11) and nested options holding an element (C12), which a behavior needs as soon as a host runs one.
 2. **Input.** Module state per document (C8).
 3. **Presentation.** Ownership of written styles and classes against a framework (A10) and the frame promise (T2).
 4. **Virtualization.** History per holder (C9).
-5. **Gestures.** Continuous measurement (O3).
-6. **Dialogs and frames.** Ordered executions (T3).
-7. **The remaining facilities.** Reactions in the browser (A7).
-8. **Editing and data views.** Source elements for a local consumer (A8), and transient measurement (C7, T1).
+5. **Dialogs and frames.** Ordered executions (T3).
+6. **The remaining facilities.** Reactions in the browser (A7).
+7. **Editing and data views.** Source elements for a local consumer (A8), and the timing of an immediate watch (T1).
 
 <a id="planned-vocabulary"></a>
 
@@ -184,11 +187,7 @@ None remains: E1 to E9 are implemented, as [the features](#the-doms-vocabulary) 
 
 Page-wide module state needs nothing new: it is a member of a module's extension of `Document`, observing its receiver, and the document owns it, as [C8](#planned-extension-contract)'s state per document has it.
 
-O1, O2, O4 and O6 are implemented, as [the features](#the-doms-vocabulary) show: O2 observes what a selector reads rather than the receiver's subtree ([D26](decisions.md#d26)), O4's autofill observation is declined, since it would write a stylesheet into the page ([D17](decisions.md#d17)), and O6 is a body's local reading what a member misses ([D19](decisions.md#d19)).
-
-| | Addition |
-| --- | --- |
-| O3 | Opt-in continuous measurement each frame while a module holds it, so a subscriber follows content moving under a still pointer |
+None remains: O1 to O4 and O6 are implemented, as [the features](#the-doms-vocabulary) show: O2 observes what a selector reads rather than the receiver's subtree ([D26](decisions.md#d26)), O3 is the `frame` observation ([D56](decisions.md#d56)), O4's autofill observation is declined, since it would write a stylesheet into the page ([D17](decisions.md#d17)), and O6 is a body's local reading what a member misses ([D19](decisions.md#d19)).
 
 <a id="planned-executions"></a>
 
@@ -218,9 +217,7 @@ A behavior's occurrences, state, commands and owner (C1 to C4), and reactions in
 
 
 
-| C5 | **DOMQL's observations for module code:** `env.observe({ type, target, … }, notify)` → `{ stop() }` over the shared resize, mutation and intersection pools, and the frame schedule, `env.frame(…)`, under which a module may write before it reads |
-| C6 | **Queries from module code:** an implementation reaching its DOMQL instance to evaluate or watch a query, `env.domql` |
-| C7 | **A transient measurement:** apply a class, read, restore, and have DOMQL drain its own mutation observers of the records it caused, `env.measureUnder(element, { class }, read)`; without it every watch reading `matches`, `closest`, `first` or `all` evaluates again after each measurement |
+
 | C8 | **Module state per document,** keyed by `env.document`, with an optional hook at a document's first use and last release |
 | C9 | **Captured members with history per holder,** for a value that depends on what the member measured before: DOMQL states that an implementation's `env` is one per evaluator, as `#createEvaluator` makes it, so a module keys its history by `env` and receiver; the language keeps such history the holder's |
 

@@ -382,11 +382,11 @@ export interface DomqlUpdates {
     observations?: DomqlObservationDeclaration[];
 }
 
-/** What an implementation of an observation type receives: the request it observes, the function it calls when something may have changed, and the environment. */
+/** What an implementation of an observation type receives: the request it observes, the function it calls when something may have changed, and its window's observation environment. */
 export interface DomqlObservationImplementationInput {
     readonly request: Readonly<Record<string, unknown>>;
     readonly notify: () => void;
-    readonly env: unknown;
+    readonly env: DomqlObservationEnvironment;
 }
 
 /** A type of observation: what its observations provide, and the implementation that starts one. */
@@ -450,12 +450,58 @@ export interface DomqlParameterDeclaration {
     omitted?: string;
 }
 
-/** The environment of one operation, which every implementation it reaches receives as its `env`, the same from the operation's start to its end. */
-export interface DomqlEnvironment {
-    /** The window the query runs against, `Domql.window`. */
+/** An observation module code holds: its observation type, what it observes, and the arguments its type takes. */
+export interface DomqlObservationRequest {
+    readonly type: string;
+    readonly target: object;
+    readonly [argument: string]: unknown;
+}
+
+/** An observation module code holds, until it stops it. */
+export interface DomqlHeldObservation {
+    /** Lets the observation go; the last holder stops it. */
+    stop(): void;
+    /** A maintained observation's latest sample, pending until its first arrives. */
+    sample?(): { readonly pending: boolean; readonly value?: unknown };
+}
+
+/** When in an animation frame a callback runs: among its writes, before every read of the frame, or among its reads, the evaluations of the watches scheduled by frame among them. */
+export interface DomqlFrameOptions {
+    phase?: 'write' | 'read';
+}
+
+/** A callback asked for in an animation frame. */
+export interface DomqlFrameRequest {
+    /** Withdraws the callback, unless it has run. */
+    cancel(): void;
+}
+
+/** What a transient measurement applies: one class. */
+export interface DomqlMeasureOptions {
+    class: string;
+}
+
+/** What module code observes, schedules and measures through, DOMQL's own for the window, and the instance of DOMQL it reaches. */
+export interface DomqlObservationEnvironment {
+    /** The window the observation belongs to. */
     readonly window: Window;
-    /** Its document, `Domql.document`. */
+    /** Its document. */
     readonly document: Document;
+    /** The instance of DOMQL the environment belongs to; an operation it carries out runs in the global window unless its `window` option names another. */
+    readonly domql: Domql;
+    /** Holds an observation through the window's own, notifying as it reports a change, a mutation at mutation delivery. */
+    observe(request: DomqlObservationRequest, notify: () => void): DomqlHeldObservation;
+    /** Runs the callback in the window's next animation frame, given its time, among its writes by default, or its reads. */
+    frame(callback: (time: number) => void, options?: DomqlFrameOptions): DomqlFrameRequest;
+    /** Reads the element under a class it lacks, restoring its class attribute afterwards, which DOMQL's own observers never hear. */
+    measureUnder<T>(element: Element, options: DomqlMeasureOptions, read: () => T): T;
+}
+
+/**
+ * The environment of one operation, which every implementation it reaches receives as its `env`, the same from the operation's start to its end. Its `observe`, `frame` and `measureUnder` are refused while a query is
+ * evaluated, since a member's implementation reads alone.
+ */
+export interface DomqlEnvironment extends DomqlObservationEnvironment {
     /** Who the operation is carried out for, null where it names none. */
     readonly owner: unknown;
 }

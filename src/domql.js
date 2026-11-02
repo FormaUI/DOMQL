@@ -8,6 +8,8 @@ import { BrowserModule } from './dom/BrowserModule.mjs';
 import { DomqlQuery } from './dom/DomqlQuery.mjs';
 import { ExecutionHandle } from './dom/ExecutionHandle.mjs';
 import { DispatchTable } from './dom/DispatchTable.mjs';
+import { FrameSchedule } from './dom/FrameSchedule.mjs';
+import { MutationObservers } from './dom/MutationObservers.mjs';
 import { Observations } from './dom/Observations.mjs';
 import { QueryEvaluator } from './dom/QueryEvaluator.mjs';
 import { EventListener } from './dom/EventListener.mjs';
@@ -74,6 +76,9 @@ const REQUESTS = {
     continuous: { does: 'it keeps an effect running', takes: 'run()' },
 };
 
+/** The phases of an animation frame: the writes, then the reads. */
+const FRAME_PHASES = ['write', 'read'];
+
 /** When a watch evaluates after a change, and what its events carry. */
 const WATCH_SCHEDULES = ['frame', 'immediate'];
 const WATCH_UPDATE_STRATEGIES = ['snapshot', 'liveState'];
@@ -82,7 +87,10 @@ class Domql {
     /** The continuous executions running, each kept for its owner on its receiver, where its module's commands find it. */
     static #behaviors = new Behaviors();
 
-    static #browserModule = BrowserModule.create({ behaviors: Domql.#behaviors });
+    /** The mutation observers this instance runs, which a transient measurement drains of the records its own change caused. */
+    static #mutationObservers = new MutationObservers();
+
+    static #browserModule = BrowserModule.create({ behaviors: Domql.#behaviors, mutationObservers: Domql.#mutationObservers });
     static #moduleRegistry = nexo.createRegistry([Domql.#browserModule]);
 
     /** The imports DOMQL supplies to every query it reads and writes: its own module, under its own name. */
@@ -96,10 +104,11 @@ class Domql {
     static #resolutionsByDefinition = new WeakMap();
 
     /**
-     * The observations of each window, so requests carried out in one window share the observations they have in common.
-     * @type {WeakMap<Window, Observations>}
+     * What each window's operations share: its observations, so requests carried out in one window share those they have in common; its animation frames, whose writes run before its reads; and the tools an
+     * environment offers, an operation's refusing what reads alone must not do, and an observation's.
+     * @type {WeakMap<Window, { observations: Observations, frames: FrameSchedule, tools: object }>}
      */
-    static #observationsByWindow = new WeakMap();
+    static #windowsServices = new WeakMap();
 
     /** What carries out the operations of the query objects this instance makes. @type {import('./dom/DomqlQuery.mjs').QueryOperations} */
     static #operations = Object.freeze({
@@ -306,7 +315,7 @@ class Domql {
             evaluator,
             observations: Domql.#getObservations(window),
             comparer: new SnapshotComparer(),
-            window,
+            frames: Domql.#servicesOf(window).frames,
             reportError: Domql.#createErrorReporter(window),
             checkPath: selected => resolution.typeAt(selected),
             options: { schedule, updateStrategy, path, signal },
@@ -356,6 +365,7 @@ class Domql {
      */
     static async #executeAsync(query, { window = globalThis.window, owner = null, signal }) {
         signal?.throwIfAborted();
+        Domql.#refuseWhileEvaluating('An execution');
 
         const resolution = Domql.#resolveFor('executeAsync', query);
         const environment = Domql.#createEnvironment(window, owner);
@@ -434,6 +444,8 @@ class Domql {
      * The execution runs for its owner, and its running instance is kept on its receiver for its module's commands. Its environment is the handle's, through every update.
      */
     static #run(query, { window = globalThis.window, owner = null, signal }) {
+        Domql.#refuseWhileEvaluating('A continuous execution');
+
         const resolution = Domql.#resolveFor('run', query);
         const environment = Domql.#createEnvironment(window, owner);
 
@@ -626,15 +638,86 @@ class Domql {
     }
 
     /**
-     * Creates the environment of one operation, which every implementation the operation reaches receives as its `env`, from the operation's start to its end: the window and its document, which an evaluation needs, and
-     * the operation's owner.
+     * Creates the environment of one operation, which every implementation the operation reaches receives as its `env`, from the operation's start to its end: the window and its document, which an evaluation needs; the
+     * operation's owner; this instance of DOMQL; and the tools that observe, schedule and measure through the window's own, which refuse what reads alone must not do.
      */
     static #createEnvironment(window, owner) {
         if (!window?.document) {
             throw NexoError.evaluation('DOMQL5002', 'DOMQL cannot evaluate without a browser window. Pass a window explicitly when running outside a browser.', {});
         }
 
-        return Object.freeze({ window, document: window.document, owner });
+        return Object.freeze({ window, document: window.document, owner, domql, ...Domql.#servicesOf(window).tools });
+    }
+
+    /**
+     * What the window's operations share, made at the first that needs it: its observations, whose implementations receive an environment of their own, which observes, schedules and measures whenever they ask, since an
+     * observation's start runs as a query is evaluated; its animation frames; and the tools an operation's environment offers, which refuse to run while a query is evaluated, since a member's implementation reads alone.
+     */
+    static #servicesOf(window) {
+        let services = Domql.#windowsServices.get(window);
+
+        if (services === undefined) {
+            const frames = new FrameSchedule(window, Domql.#createErrorReporter(window));
+            const tools = {
+                observe: (request, notify) => Domql.#observe(services.observations, request, notify),
+                frame: (callback, options) => Domql.#requestFrame(window, frames, callback, options),
+                measureUnder: (element, options, read) => Domql.#measureUnder(element, options, read),
+            };
+            const refusing = Object.fromEntries(Object.entries(tools).map(([name, tool]) => [name, (...args) => {
+                Domql.#refuseWhileEvaluating(`env.${name}`);
+
+                return tool(...args);
+            }]));
+
+            services = {
+                observations: new Observations(Domql.#moduleRegistry, Object.freeze({ window, document: window.document, domql, ...tools })),
+                frames,
+                tools: Object.freeze(refusing),
+            };
+            Domql.#windowsServices.set(window, services);
+        }
+
+        return services;
+    }
+
+    /** Refuses what changes the page, or holds an observation, while a query is evaluated, since a member's implementation, and everything it calls, reads alone. */
+    static #refuseWhileEvaluating(what) {
+        if (QueryEvaluator.isEvaluating) {
+            throw NexoError.evaluation('DOMQL5021', `${what} is refused while a query is evaluated, since a member's implementation reads alone; an observation type's implementation observes, schedules and measures through the environment it receives`, {});
+        }
+    }
+
+    /**
+     * Observes through the window's observations, which the watches of the window share: `{ type, target, …arguments }`, by an observation type a registered module declares, calling `notify` as the observation reports a
+     * change, and answers what stops it and, for a maintained observation, its latest sample.
+     */
+    static #observe(observations, request, notify) {
+        if (request === null || typeof request !== 'object' || typeof request.type !== 'string' || request.target === null || request.target === undefined || typeof notify !== 'function') {
+            throw NexoError.structure('DOMQL2010', 'An observation module code holds names its type and its target, { type, target, …arguments }, and takes the function it notifies', {});
+        }
+
+        const { type, target, ...args } = request;
+        const session = observations.acquire({ type, target, arguments: args }, notify);
+
+        return session.contract === 'maintained' ? Object.freeze({ stop: () => session.dispose(), sample: () => session.sample() }) : Object.freeze({ stop: () => session.dispose() });
+    }
+
+    /** Runs the callback in the window's next animation frame, among its writes, before the frame's reads, or among its reads, as its phase says, and answers what withdraws it. */
+    static #requestFrame(window, frames, callback, { phase = 'write' } = {}) {
+        if (typeof callback !== 'function' || !FRAME_PHASES.includes(phase) || typeof window.requestAnimationFrame !== 'function') {
+            throw NexoError.structure('DOMQL2011', `A frame takes the function it runs, in its ${FRAME_PHASES.join(' or ')} phase, in a window that has animation frames`, {});
+        }
+
+        return Object.freeze(frames.request(callback, phase));
+    }
+
+    /** Reads an element under a class it lacks, restoring it afterwards, and drains this instance's mutation observers of the records the class's change caused. */
+    static #measureUnder(element, { class: name } = {}, read) {
+        if (element?.nodeType !== 1 || typeof name !== 'string' || name === '' || /[\t\n\f\r ]/.test(name) || typeof read !== 'function') {
+            throw NexoError.structure('DOMQL2012', 'A transient measurement takes an element, the class it reads it under, { class }, one token, and the function that reads it', {});
+        }
+
+        return Domql.#mutationObservers.measureUnder(element, name, read);
     }
 
     /**
@@ -648,14 +731,7 @@ class Domql {
 
     /** Returns the observations shared by everything carried out in the window, creating them on first use. */
     static #getObservations(window) {
-        let observations = Domql.#observationsByWindow.get(window);
-
-        if (observations === undefined) {
-            observations = new Observations(Domql.#moduleRegistry, { window, document: window.document });
-            Domql.#observationsByWindow.set(window, observations);
-        }
-
-        return observations;
+        return Domql.#servicesOf(window).observations;
     }
 
     /** Creates the function that reports a failure no handler receives to the window's error reporting; a failure of the reporting itself is dropped. */

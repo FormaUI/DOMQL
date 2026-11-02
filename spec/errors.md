@@ -34,6 +34,9 @@ A caller's use of the API, refused where it is made.
 | `DOMQL2007` | A subscription or a listener given a handler that is no function |
 | `DOMQL2008` | A listener subscribed to an event its handle doesn't raise |
 | `DOMQL2009` | A selected view of a watch that keeps live state |
+| `DOMQL2010` | `env.observe` given a request without a type or a target, or a `notify` that is no function |
+| `DOMQL2011` | `env.frame` given a callback that is no function or a phase neither `write` nor `read`, or in a window without animation frames |
+| `DOMQL2012` | `env.measureUnder` given an element that is none, a class that is no one token, or a `read` that is no function |
 
 <a id="errors-validation"></a>
 
@@ -100,3 +103,4 @@ A failure while a request is carried out, located in the query where it concerns
 | `DOMQL5018` | An occurrence delivered after its behavior's instance ended |
 | `DOMQL5019` | An occurrence delivered to an event source its behavior has none of |
 | `DOMQL5020` | An occurrence a subscription failed to apply: its projection failed, or its handler threw or rejected, its failure the error's `cause` |
+| `DOMQL5021` | An execution, or an operation environment's `observe`, `frame` or `measureUnder`, while a query is evaluated, which reads alone |

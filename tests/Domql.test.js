@@ -5526,3 +5526,174 @@ describe('domql list indexing', () => {
     });
 });
 
+
+describe('domql environment', () => {
+    // Each test loads its own copy of DOMQL, with a registry of its own.
+    let isolated;
+    let panel;
+
+    /** The environment the module's behavior, `tool`, received, and what its member, `probe`, did with its own. */
+    let environment;
+    let probed;
+
+    const settleTasks = () => new Promise(resolve => setTimeout(resolve, 0));
+
+    /** A module whose behavior keeps its environment, and whose member calls the tool its binding `tool` names on the environment it receives. */
+    const toolsModule = () => isolated.createModule('Tools', {
+        types: [elementExtension('ToolElements', [
+            {
+                name: 'tool', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'continuous',
+                impl: ({ env }) => {
+                    environment = env;
+
+                    return { update: () => {}, dispose: () => {} };
+                },
+            },
+            {
+                name: 'probe', kind: 'function', result: 'Boolean', arguments: 'positional',
+                parameters: [{ name: 'tool', kind: 'value', type: 'String', required: true }],
+                updates: { changes: 'constant', reads: 'fresh' },
+                impl: ({ receiver, args: { tool }, env }) => {
+                    probed = tool === 'evaluate' ? env.domql.query('panel.children.count', { panel: receiver }).evaluate({ window: env.window })
+                        : tool === 'execute' ? env.domql.query('panel.takeFocus()', { panel: receiver }).executeAsync()
+                        : tool === 'run' ? env.domql.query('panel.ownClass({ name = "busy" })', { panel: receiver }).run()
+                        : tool === 'observe' ? env.observe({ type: 'resize', target: receiver }, () => {})
+                        : env.frame(() => {});
+
+                    return true;
+                },
+            },
+        ])],
+    });
+
+    beforeEach(async () => {
+        vi.resetModules();
+        ({ domql: isolated } = await import('#domql/domql.js'));
+        document.body.innerHTML = '<div id="panel" data-n="1"><span></span></div>';
+        panel = document.getElementById('panel');
+        environment = null;
+        probed = undefined;
+        isolated.registerModule(toolsModule());
+        isolated.query('import Tools\npanel:tool()', { panel }).run();
+    });
+
+    afterEach(() => {
+        document.body.innerHTML = '';
+    });
+
+    describe('env.observe', () => {
+        it('holds an observation of DOMQL\'s, notifying as it reports a change, at mutation delivery for a mutation, until stopped', async () => {
+            const notified = [];
+            const observation = environment.observe({ type: 'mutation', target: panel, attributes: ['data-n'] }, () => notified.push(panel.dataset.n));
+
+            panel.dataset.n = '2';
+            panel.dataset.other = 'x';
+            await Promise.resolve();
+
+            expect(notified).toEqual(['2']);
+
+            observation.stop();
+            panel.dataset.n = '3';
+            await settleTasks();
+
+            expect(notified).toEqual(['2']);
+            expect(Object.keys(observation)).toEqual(['stop']);
+        });
+
+        it('shares one observation with the watches of its window that make the same request, and answers a maintained one\'s sample', async () => {
+            const IntersectionObserver = window.IntersectionObserver;
+            let started = 0;
+
+            window.IntersectionObserver = class {
+                #report;
+
+                constructor(report) {
+                    this.#report = report;
+                    started++;
+                }
+
+                observe(target) {
+                    queueMicrotask(() => this.#report([{ target, isIntersecting: true }]));
+                }
+
+                disconnect() {}
+            };
+
+            try {
+                const watch = isolated.query('panel.intersects({ margin = 4 })', { panel }).watch({ schedule: 'immediate' });
+
+                await watch.readyAsync();
+
+                const held = environment.observe({ type: 'intersection', target: panel, margin: 4 }, () => {});
+
+                expect(started).toBe(1);
+                expect(held.sample()).toEqual({ pending: false, value: true });
+
+                held.stop();
+                watch.dispose();
+            } finally {
+                window.IntersectionObserver = IntersectionObserver;
+            }
+        });
+
+        it('is refused a request without a type or a target, or a notify that is no function, and a type no module declares', () => {
+            for (const [request, notify] of [[{ target: panel }, () => {}], [{ type: 'resize' }, () => {}], [{ type: 'resize', target: null }, () => {}], [null, () => {}], [{ type: 'resize', target: panel }, 'later']]) {
+                expect(getError(() => environment.observe(request, notify))).toMatchObject({ kind: 'structure', code: 'DOMQL2010' });
+            }
+
+            expect(getError(() => environment.observe({ type: 'weather', target: panel }, () => {}))).toMatchObject({ kind: 'evaluation', code: 'DOMQL5009' });
+        });
+    });
+
+    describe('env.domql', () => {
+        it('is the instance of DOMQL the operation belongs to, whose queries an implementation evaluates in its own window', () => {
+            expect(environment.domql).toBe(isolated);
+            expect(isolated.query('import Tools\npanel:probe("evaluate")', { panel }).evaluate()).toBe(true);
+            expect(probed).toBe(1);
+        });
+
+        it('carries out no execution while a query is evaluated, and nothing observes or schedules through an operation\'s environment then', async () => {
+            for (const tool of ['run', 'observe', 'frame']) {
+                expect(getError(() => isolated.query(`import Tools\npanel:probe("${tool}")`, { panel }).evaluate()), tool).toMatchObject({
+                    code: 'NEXO5007',
+                    cause: expect.objectContaining({ kind: 'evaluation', code: 'DOMQL5021' }),
+                });
+            }
+
+            expect(isolated.query('import Tools\npanel:probe("execute")', { panel }).evaluate()).toBe(true);
+            await expect(probed).rejects.toMatchObject({ kind: 'evaluation', code: 'DOMQL5021', message: expect.stringContaining('An execution is refused while a query is evaluated') });
+            expect(panel.classList.contains('busy')).toBe(false);
+        });
+
+        it('carries out executions from a behavior, which runs outside every evaluation', async () => {
+            expect(await environment.domql.query('panel.ownClass({ name = "busy" })', { panel }).run({ window: environment.window }).status).toBe('ready');
+            expect(panel.classList.contains('busy')).toBe(true);
+        });
+    });
+
+    describe('the frame observation', () => {
+        it('notifies once each animation frame, at its start, while it is held', () => {
+            const callbacks = [];
+
+            vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => callbacks.push(callback));
+
+            try {
+                let notified = 0;
+                const frames = environment.observe({ type: 'frame', target: window }, () => notified++);
+
+                callbacks.splice(0).forEach(callback => callback(16));
+                callbacks.splice(0).forEach(callback => callback(32));
+
+                expect(notified).toBe(2);
+
+                frames.stop();
+                callbacks.splice(0).forEach(callback => callback(48));
+
+                expect(notified).toBe(2);
+                expect(callbacks).toEqual([]);
+            } finally {
+                vi.restoreAllMocks();
+            }
+        });
+    });
+});

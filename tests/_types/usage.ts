@@ -1,6 +1,6 @@
 // How a TypeScript caller uses DOMQL, which the declarations must accept; the test compiles this file.
 import { domql, NexoError } from '../../src/domql.js';
-import type { DomqlChangeOperation, DomqlOperatorImplementationInput, DomqlTypeDeclaration, DomqlDefinition, DomqlDefinitionNode, DomqlEvaluateAsyncOptions, DomqlEventListener, DomqlExecutionHandle, DomqlLiveStateWatch, DomqlLiveStateWatchOptions, DomqlMemberDeclaration, DomqlModule, DomqlModuleContents, DomqlOperationOptions, DomqlQuery, DomqlReadOnly, DomqlResolvedDefinition, DomqlResultArgs, DomqlSelectedView, DomqlSelection, DomqlWatch, DomqlWatchOptions } from '../../src/domql.js';
+import type { DomqlFrameOptions, DomqlFrameRequest, DomqlHeldObservation, DomqlMeasureOptions, DomqlChangeOperation, DomqlOperatorImplementationInput, DomqlTypeDeclaration, DomqlDefinition, DomqlDefinitionNode, DomqlEvaluateAsyncOptions, DomqlEventListener, DomqlExecutionHandle, DomqlLiveStateWatch, DomqlLiveStateWatchOptions, DomqlMemberDeclaration, DomqlModule, DomqlModuleContents, DomqlOperationOptions, DomqlQuery, DomqlReadOnly, DomqlResolvedDefinition, DomqlResultArgs, DomqlSelectedView, DomqlSelection, DomqlWatch, DomqlWatchOptions } from '../../src/domql.js';
 
 const panel = document.createElement('div');
 const controller = new AbortController();
@@ -277,6 +277,37 @@ const counting: DomqlMemberDeclaration = {
     },
 };
 
+// Module code observes, schedules and measures through DOMQL's own, and reaches its instance of DOMQL.
+const following: DomqlMemberDeclaration = {
+    name: 'following',
+    kind: 'function',
+    invokedBy: 'host',
+    requestKind: 'execution',
+    executionMode: 'continuous',
+    impl: ({ receiver, env }) => {
+        const element = receiver as Element;
+        let request: DomqlFrameRequest | null = null;
+        const resized: DomqlHeldObservation = env.observe({ type: 'resize', target: element, box: 'client' }, () => {
+            request ??= env.frame(time => {
+                request = null;
+                element.setAttribute('data-time', String(time));
+            });
+        });
+        const wanted: number = env.measureUnder(element, { class: 'measuring' }, () => element.scrollWidth);
+        const count: number = env.domql.query<number>('panel.children.count', { panel: element }).evaluate({ window: env.window });
+
+        element.setAttribute('data-wanted', String(wanted + count));
+
+        return { update: () => {}, dispose: () => { resized.stop(); request?.cancel(); } };
+    },
+};
+
+// @ts-expect-error A frame runs in its write phase or its read phase.
+const painting: DomqlFrameOptions = { phase: 'paint' };
+
+// @ts-expect-error A transient measurement applies a class.
+const styled: DomqlMeasureOptions = { style: 'width: auto' };
+
 // @ts-expect-error A command names its behavior by its name.
 const unnamedBehavior: DomqlMemberDeclaration = { name: 'release', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', behavior: true };
 
@@ -428,4 +459,4 @@ const listed: DomqlDefinitionNode = { kind: 'list', items: [{ kind: 'literal', v
 const last: DomqlDefinitionNode = { kind: 'indexerAccess', receiver: { kind: 'local', name: 'rows' }, argument: { kind: 'fromEndIndex', offset: { kind: 'literal', value: 1 } } };
 const imported: DomqlDefinition = { version: 38, imports: [{ module: 'Domql' }], expression: { kind: 'memberAccess', receiver: { kind: 'namespace', name: 'Domql' }, name: 'document' } };
 
-export { trapped, counting, drops, dropZone, release, owned, released, ownedCount, ownedWatch, bound, version, specificationVersion, languageVersion, formatted, formattedText, kind, typeText, count, anything, waited, shorthand, selected, selectedAsync, selectedWatch, key, listening, status, snapshot, failure, ready, refreshed, viewed, viewStatus, viewReady, smaller, held, livingSnapshot, livingReady, livingRefreshed, watchedAgain, keptAgain, clicking, source, moved, stepped, trapping, reported };
+export { following, painting, styled, trapped, counting, drops, dropZone, release, owned, released, ownedCount, ownedWatch, bound, version, specificationVersion, languageVersion, formatted, formattedText, kind, typeText, count, anything, waited, shorthand, selected, selectedAsync, selectedWatch, key, listening, status, snapshot, failure, ready, refreshed, viewed, viewStatus, viewReady, smaller, held, livingSnapshot, livingReady, livingRefreshed, watchedAgain, keptAgain, clicking, source, moved, stepped, trapping, reported };

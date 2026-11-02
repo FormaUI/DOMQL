@@ -1654,9 +1654,6 @@ describe('Watch', () => {
             panel.setAttribute('data-n', '2');
             await settle();
             watched.dispose();
-
-            expect(frames.canceled).toEqual([1]);
-
             frames.callbacks[0]();
 
             expect(snapshots).toEqual([1]);

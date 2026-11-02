@@ -2,6 +2,7 @@
  * BrowserObservationImplementations — the functions that start the DOM vocabulary's types of observation in a browser
  */
 
+import { MutationObservers } from './MutationObservers.mjs';
 import { Selectors } from './Selectors.mjs';
 
 /**
@@ -16,21 +17,31 @@ import { Selectors } from './Selectors.mjs';
 
 export class BrowserObservationImplementations {
     /**
-     * Each implementation starts an observation: it reads the request, the function to call when something may have changed, and the environment, from one object by name.
+     * Each implementation starts an observation: it reads the request, the function to call when something may have changed, and the environment, from one object by name. Its mutation observers are DOMQL's own, which
+     * a set of implementations counts among those of no other set.
      * @type {Record<string, (input: { request: ObservationRequest, notify: () => void, env: { window: Window } }) => Observation>}
      */
     static get implementations() {
+        return BrowserObservationImplementations.implementationsWith({ mutationObservers: new MutationObservers() });
+    }
+
+    /**
+     * The implementations, whose mutation observers are counted among those given, the ones one instance of DOMQL runs, which a transient measurement drains.
+     * @param {{ mutationObservers: MutationObservers }} dependencies
+     */
+    static implementationsWith({ mutationObservers }) {
         return {
             observeResize: BrowserObservationImplementations.#observeResize,
-            observeMutation: BrowserObservationImplementations.#observeMutation,
-            observeAttachment: BrowserObservationImplementations.#observeAttachment,
+            observeMutation: input => BrowserObservationImplementations.#observeMutation(input, mutationObservers),
+            observeAttachment: input => BrowserObservationImplementations.#observeAttachment(input, mutationObservers),
             observeIntersection: BrowserObservationImplementations.#observeIntersection,
             observeMedia: BrowserObservationImplementations.#observeMedia,
             observePixelRatio: BrowserObservationImplementations.#observePixelRatio,
             observeEvents: BrowserObservationImplementations.#observeEvents,
             observeVisibility: BrowserObservationImplementations.#observeVisibility,
             observeNavigation: BrowserObservationImplementations.#observeNavigation,
-            observeSelector: BrowserObservationImplementations.#observeSelector,
+            observeSelector: input => BrowserObservationImplementations.#observeSelector(input, mutationObservers),
+            observeFrame: BrowserObservationImplementations.#observeFrame,
         };
     }
 
@@ -95,7 +106,7 @@ export class BrowserObservationImplementations {
     }
 
     /** The attributes, the children and the text of a node, and of its descendants where it says so. */
-    static #observeMutation({ request: { target, arguments: { attributes = false, childList = false, subtree = false, characterData = false } }, notify, env: { window } }) {
+    static #observeMutation({ request: { target, arguments: { attributes = false, childList = false, subtree = false, characterData = false } }, notify, env: { window } }, mutationObservers) {
         const options = { attributes: attributes !== false, childList, subtree, characterData };
 
         if (Array.isArray(attributes)) {
@@ -106,7 +117,7 @@ export class BrowserObservationImplementations {
             throw new TypeError('A mutation observation observes attributes, children or text');
         }
 
-        const observer = new window.MutationObserver(() => notify());
+        const observer = mutationObservers.create(window, () => notify());
 
         observer.observe(target, options);
 
@@ -117,7 +128,7 @@ export class BrowserObservationImplementations {
      * Whether a node is attached to its document, through every shadow root between them; a document is its own.
      * The window's document is observed too, since a node of another document, as a template's content is, is adopted by the one it is inserted into.
      */
-    static #observeAttachment({ request: { target }, notify, env: { window } }) {
+    static #observeAttachment({ request: { target }, notify, env: { window } }, mutationObservers) {
         const rootsOf = () => {
             const roots = new Set([window.document, target.ownerDocument ?? target]);
 
@@ -137,7 +148,7 @@ export class BrowserObservationImplementations {
 
         let isAttached = target.isConnected;
         let observedRoots = rootsOf();
-        const observer = new window.MutationObserver(() => {
+        const observer = mutationObservers.create(window, () => {
             const roots = rootsOf();
 
             if (target.isConnected !== isAttached || roots.length !== observedRoots.length || roots.some((root, index) => root !== observedRoots[index])) {
@@ -210,7 +221,7 @@ export class BrowserObservationImplementations {
      * What a selector reads within a tree: the tree's structure and the attributes the selector tests, every attribute where it holds a pseudo-class whose reads are unknown; focus moving where it tests focus, as the
      * document hears it; and a popover's toggle, captured at the root since it does not bubble, where it tests `:popover-open`.
      */
-    static #observeSelector({ request: { target, arguments: { selector } }, notify, env: { window } }) {
+    static #observeSelector({ request: { target, arguments: { selector } }, notify, env: { window } }, mutationObservers) {
         const { attributes, focus, popovers } = Selectors.readsOf(selector);
         const options = { childList: true, subtree: true };
 
@@ -221,7 +232,7 @@ export class BrowserObservationImplementations {
             options.attributeFilter = attributes;
         }
 
-        const observer = new window.MutationObserver(() => notify());
+        const observer = mutationObservers.create(window, () => notify());
         const listeners = [];
 
         observer.observe(target, options);
@@ -250,6 +261,19 @@ export class BrowserObservationImplementations {
         const navigation = target.navigation;
 
         return navigation ? BrowserObservationImplementations.#listen(navigation, ['currententrychange'], false, notify) : BrowserObservationImplementations.#listen(target, ['popstate', 'hashchange'], false, notify);
+    }
+
+    /** Each animation frame, at the start of its writes, while it is held, so what reads it is evaluated again in that frame. */
+    static #observeFrame({ notify, env }) {
+        let request;
+        const tick = () => {
+            request = env.frame(tick);
+            notify();
+        };
+
+        request = env.frame(tick);
+
+        return { stop: () => request.cancel() };
     }
 
     static #listen(target, types, capture, notify) {

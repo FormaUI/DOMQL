@@ -3,6 +3,7 @@
  */
 
 import { BrowserVocabularyImplementations } from './BrowserVocabularyImplementations.mjs';
+import { MutationObservers } from './MutationObservers.mjs';
 import { OwnedWrites } from './OwnedWrites.mjs';
 
 /** How a scroll moves: as the box's `scroll-behavior` decides, at once, or smoothly. */
@@ -30,7 +31,15 @@ export class BrowserExecutionImplementations {
      * @type {Record<string, (input: { receiver: unknown, args: Record<string, any>, env: { window: Window, document: Document }, signal?: AbortSignal, reportError?: (error: unknown) => void }) => unknown>}
      */
     static get implementations() {
-        const writes = new OwnedWrites();
+        return BrowserExecutionImplementations.implementationsWith({ mutationObservers: new MutationObservers() });
+    }
+
+    /**
+     * The implementations, whose owned writes observe their targets through the mutation observers given, the ones one instance of DOMQL runs, which a transient measurement drains.
+     * @param {{ mutationObservers: MutationObservers }} dependencies
+     */
+    static implementationsWith({ mutationObservers }) {
+        const writes = new OwnedWrites({ mutationObservers });
         const own = (targetOf, valueOf) => ({ receiver: element, args, reportError }) => BrowserExecutionImplementations.#own(writes, element, args, targetOf, valueOf, reportError);
 
         return {

@@ -135,7 +135,8 @@ describe('Behaviors', () => {
 
             expect(environments).toHaveLength(3);
             expect(new Set(environments).size).toBe(1);
-            expect(environments[0]).toEqual({ window, document, owner: 'menu' });
+            expect(Object.keys(environments[0])).toEqual(['window', 'document', 'owner', 'domql', 'observe', 'frame', 'measureUnder']);
+            expect(environments[0]).toMatchObject({ window, document, owner: 'menu', domql: isolated });
             expect(Object.isFrozen(environments[0])).toBe(true);
         });
     });

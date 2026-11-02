@@ -375,8 +375,8 @@ describe('BrowserVocabularyDeclarations', () => {
             const named = evaluated.flatMap(declaration => declaration.updates.observations.map(observation => observation.type));
 
             expect(named.every(type => types.has(type))).toBe(true);
-            // The state a behavior offers is an extension's to observe, through its members reading it.
-            expect([...new Set(named), 'behavior'].sort()).toEqual([...types].sort());
+            // The state a behavior offers, and each animation frame, are an extension's to observe, through its members or its module's code.
+            expect([...new Set(named), 'behavior', 'frame'].sort()).toEqual([...types].sort());
         });
 
         it('observe the window, the document, and the receiver\'s root, roots and children, the targets the module declares', () => {

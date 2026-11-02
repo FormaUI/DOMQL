@@ -59,6 +59,25 @@ const NO_OBSERVATIONS = Object.freeze([]);
 const PENDING = Object.freeze({ pending: true });
 
 export class QueryEvaluator {
+    /** How many evaluations of this instance of DOMQL are running, one inside another where an implementation evaluates a query of its own. */
+    static #depth = 0;
+
+    /** Whether an evaluation of this instance of DOMQL is running: a query evaluated, a host call prepared, or a value projected, which reads alone, and whatever its members' implementations call reads alone too. */
+    static get isEvaluating() {
+        return QueryEvaluator.#depth > 0;
+    }
+
+    /** Runs an evaluation, counted as running until it ends, however it ends. */
+    static #within(run) {
+        QueryEvaluator.#depth++;
+
+        try {
+            return run();
+        } finally {
+            QueryEvaluator.#depth--;
+        }
+    }
+
     /** Nexo's evaluator of the request, which this host observes, replaced where a registration made its resolution stale. @type {import('@formaui-net/nexo').NexoEvaluator} */
     #evaluator;
 
@@ -89,7 +108,7 @@ export class QueryEvaluator {
 
     /** The result of evaluating the query once: immutable data holding no reference to the document. A member maintained by an observation fails it, since its first sample cannot arrive during a synchronous evaluation. */
     evaluateOnce() {
-        return this.#currentEvaluator().evaluate().value;
+        return QueryEvaluator.#within(() => this.#currentEvaluator().evaluate().value);
     }
 
     /**
@@ -112,7 +131,7 @@ export class QueryEvaluator {
 
     /** Prepares the host call the request ends in, as Nexo's evaluator prepares it: the call to invoke, or a skipped call where there is nothing to invoke. */
     prepareHostCall() {
-        return this.#currentEvaluator().prepareHostCall();
+        return QueryEvaluator.#within(() => this.#currentEvaluator().prepareHostCall());
     }
 
     /**
@@ -176,7 +195,7 @@ export class QueryEvaluator {
         this.#observationContext = observationContext;
 
         try {
-            ({ value, metadata } = produce());
+            ({ value, metadata } = QueryEvaluator.#within(produce));
         } catch (failure) {
             // An evaluation that fails having read a maintained member still pending reports nothing and waits for its sample, since the failure may come from the null the member answered, and nothing tells which failures do; one that fails before it reads a pending member reports its failure.
             error = waits && observationContext.isPending ? null : failure;

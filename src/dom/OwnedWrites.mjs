@@ -14,6 +14,13 @@
  */
 
 export class OwnedWrites {
+    #mutationObservers;
+
+    /** @param {{ mutationObservers: import('./MutationObservers.mjs').MutationObservers }} dependencies The mutation observers of DOMQL's own, which a holder that keeps its value observes its element through. */
+    constructor({ mutationObservers }) {
+        this.#mutationObservers = mutationObservers;
+    }
+
     /**
      * The holdings of each target, by its element and its key, in the order they began, with the value the target held before the first and the one DOMQL last wrote. An entry is made as a target's first holding begins
      * and released as its last ends, and an element's entries go with the element.
@@ -104,7 +111,7 @@ export class OwnedWrites {
             observer = null;
 
             if (holding.keep) {
-                observer = new holding.target.element.ownerDocument.defaultView.MutationObserver(keepValue);
+                observer = this.#mutationObservers.create(holding.target.element.ownerDocument.defaultView, keepValue);
                 observer.observe(holding.target.element, { attributes: true, attributeFilter: [holding.target.observes] });
             }
         };
