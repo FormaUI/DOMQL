@@ -25,7 +25,8 @@ const isCast = declaration => declaration.kind === 'operator' && declaration.nam
 
 describe('BrowserModule', () => {
     const module = BrowserModule.create();
-    const keys = Object.keys({ ...BrowserVocabularyImplementations.implementations, ...BrowserExecutionImplementations.implementations, ...BrowserObservationImplementations.implementations });
+    // The state of a behavior is observed through the behaviors of the module's own instance of DOMQL, which the module adds to the classes' implementations.
+    const keys = [...Object.keys({ ...BrowserVocabularyImplementations.implementations, ...BrowserExecutionImplementations.implementations, ...BrowserObservationImplementations.implementations }), 'observeBehavior'];
 
     it('is the DOM vocabulary', () => {
         const shapeOf = declared => declared.types.map(type => [type.name, type.members.map(member => member.name ?? `${type.name}[]`)]);

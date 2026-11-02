@@ -256,16 +256,16 @@ describe('Behaviors', () => {
             expect(refusalOf([behavior, hostCall('light', { requestKind: 'execution', executionMode: 'once', behavior: 'light' })]).code).toBe('DOMQL4012');
         });
 
-        it('is refused where it is no command, or names its behavior by no name', () => {
+        it('is refused on a behavior itself, and where it names its behavior by no name', () => {
             const refused = {
                 kind: 'module',
                 code: 'DOMQL4011',
-                message: 'A command, a once execution, and an event source of occurrences name by their behavior the continuous execution of their module whose running instance they reach, and no other declaration names one',
+                message: 'A command, a once execution, an event source of occurrences and a member reading the state a behavior offers name by their behavior the continuous execution of their module whose running instance they reach, and a behavior itself names none',
                 module: 'Desk', type: 'DeskElements', declarationKey: 'behavior',
             };
 
             expect(refusalOf([hostCall('lamp', { requestKind: 'execution', executionMode: 'continuous', behavior: 'lamp' })])).toEqual({ ...refused, declaration: 'lamp' });
-            expect(refusalOf([behavior, { name: 'glow', kind: 'property', result: 'Number', behavior: 'lamp', updates: { changes: 'constant', reads: 'fresh' } }])).toEqual({ ...refused, declaration: 'glow' });
+            expect(refusalOf([behavior, { name: 'glow', kind: 'property', result: 'Number', behavior: 7, updates: { changes: 'constant', reads: 'fresh' } }])).toEqual({ ...refused, declaration: 'glow' });
             expect(refusalOf([behavior, hostCall('light', { requestKind: 'execution', executionMode: 'once', behavior: '' })])).toEqual({ ...refused, declaration: 'light' });
             expect(refusalOf([behavior, hostCall('light', { requestKind: 'execution', executionMode: 'once', behavior: 7 })])).toEqual({ ...refused, declaration: 'light' });
         });
@@ -604,5 +604,181 @@ describe('Behaviors\' occurrences', () => {
         it('is refused where its behavior is no continuous execution of its module', () => {
             expect(refusalOf([lamp, hostCall('glows', { requestKind: 'subscription', behavior: 'lantern', result: 'Number' })]).code).toBe('DOMQL4012');
         });
+    });
+});
+
+describe('Behaviors\' state', () => {
+    let isolated;
+    let panel;
+    let other;
+
+    /** The running instances of the counter behavior, in the order they started, and each read of its count, by its receiver's id. */
+    let counters;
+    let reads;
+
+    const hostCall = (name, overrides) => ({ name, kind: 'function', invokedBy: 'host', ...overrides });
+
+    /** A module of a counter behavior, `counter(step)`, whose instance counts by its step and says so, and a member, `count`, reading the count the instance running for the owner on the receiver offers. */
+    const countersModule = () => isolated.createModule('Counters', {
+        types: [{
+            name: 'CounterElements', kind: 'extension', target: 'Domql.Element',
+            members: [
+                hostCall('counter', {
+                    requestKind: 'execution', executionMode: 'continuous', arguments: 'positional',
+                    parameters: [{ name: 'step', kind: 'value', type: 'Number', required: true }],
+                    impl: ({ args: { step }, notify }) => {
+                        const instance = {
+                            count: 0, step,
+                            increment: () => {
+                                instance.count += instance.step;
+                                notify();
+                            },
+                            update: (receiver, next) => Object.assign(instance, next),
+                            dispose: () => {},
+                        };
+
+                        counters.push(instance);
+
+                        return instance;
+                    },
+                }),
+                {
+                    name: 'count', kind: 'property', result: 'Number?', behavior: 'counter',
+                    updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'behavior', of: 'receiver', behavior: 'counter' }] },
+                    impl: ({ receiver, instance }) => {
+                        reads.push(receiver.id);
+
+                        return instance === null ? null : instance.count * 10 + instance.step;
+                    },
+                },
+            ],
+        }],
+    });
+
+    const run = (bindings, options, step = 1) => isolated.query('import Counters\npanel?:counter(step)', { step, ...bindings }).run(options);
+
+    /** Watches the count on the receiver bound, under the immediate schedule, keeping each value the watch reports. */
+    const watch = (bindings, options) => {
+        const values = [];
+        const watching = isolated.query('import Counters\npanel:count', bindings).watch({ schedule: 'immediate', ...options });
+
+        watching.subscribe('change', (sender, args) => values.push(args.value));
+
+        return { values, watching };
+    };
+
+    /** Lets every microtask queued so far run, and the ones they queue. */
+    const settle = () => new Promise(resolve => setTimeout(resolve, 0));
+
+    beforeEach(async () => {
+        vi.resetModules();
+        ({ domql: isolated } = await import('#domql/domql.js'));
+        document.body.innerHTML = '<div id="panel"></div><div id="other"></div>';
+        panel = document.getElementById('panel');
+        other = document.getElementById('other');
+        counters = [];
+        reads = [];
+        isolated.registerModule(countersModule());
+    });
+
+    afterEach(() => {
+        document.body.innerHTML = '';
+    });
+
+    it('is read by a member through the instance running for the environment\'s owner on its receiver, null where none runs', () => {
+        const query = isolated.query('import Counters\npanel:count', { panel });
+
+        expect(query.evaluate()).toBeNull();
+
+        run({ panel }, { owner: 'menu' }, 2);
+        counters[0].increment();
+
+        expect(query.evaluate({ owner: 'menu' })).toBe(22);
+        expect(query.evaluate()).toBeNull();
+        expect(query.evaluate({ owner: 'list' })).toBeNull();
+    });
+
+    it('is followed by a watch as the behavior starts, says it changed, is updated and ends', async () => {
+        const { values, watching } = watch({ panel });
+
+        await settle();
+
+        const counter = run({ panel });
+
+        await settle();
+        counters[0].increment();
+        await settle();
+        counter.update({ panel, step: 5 });
+        await settle();
+        counter.dispose();
+        await settle();
+
+        expect(values).toEqual([null, 1, 11, 15, null]);
+        watching.dispose();
+    });
+
+    it('is followed to another receiver an update moves the behavior to, the receiver it left reading none', async () => {
+        const left = watch({ panel });
+        const entered = watch({ panel: other });
+
+        await settle();
+
+        const counter = run({ panel });
+
+        await settle();
+        counter.update({ panel: other, step: 1 });
+        await settle();
+
+        expect(left.values).toEqual([null, 1, null]);
+        expect(entered.values).toEqual([null, 1]);
+        left.watching.dispose();
+        entered.watching.dispose();
+    });
+
+    it('evaluates no watch of another receiver again as it changes, and tells nothing once its instance has ended', async () => {
+        const { watching } = watch({ panel: other });
+
+        await settle();
+        run({ panel });
+        await settle();
+
+        const instance = counters[0];
+
+        reads.length = 0;
+        instance.increment();
+        await settle();
+
+        expect(reads).toEqual([]);
+        watching.dispose();
+    });
+
+    it('reads a watch\'s own owner\'s behavior, as an owner that is no other\'s', async () => {
+        const mine = watch({ panel }, { owner: 'menu' });
+
+        await settle();
+        run({ panel }, {}, 3);
+        await settle();
+
+        expect(mine.values).toEqual([null]);
+
+        run({ panel }, { owner: 'menu' }, 4);
+        await settle();
+
+        expect(mine.values).toEqual([null, 4]);
+        mine.watching.dispose();
+    });
+
+    it('is declared by a member naming a continuous execution of its module, and refused where it names none', () => {
+        const refusal = (() => {
+            try {
+                isolated.createModule('Desk', { types: [{ name: 'DeskElements', kind: 'extension', target: 'Domql.Element', members: [{ name: 'glow', kind: 'property', result: 'Number', behavior: 'lamp', updates: { changes: 'constant', reads: 'fresh' } }] }] });
+            } catch (error) {
+                return { code: error.code, ...error.location };
+            }
+
+            return null;
+        })();
+
+        expect(refusal).toEqual({ code: 'DOMQL4012', module: 'Desk', type: 'DeskElements', declaration: 'glow', declarationKey: 'behavior' });
     });
 });

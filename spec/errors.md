@@ -68,7 +68,7 @@ A module refused as it is created or registered, and a host call carried out tha
 | `DOMQL4008` | A module declaring observation targets, registered |
 | `DOMQL4009` | A host call registered without the request it makes, in a module `domql.createModule` didn't make |
 | `DOMQL4010` | A host call carried out that has no `impl` |
-| `DOMQL4011` | A `behavior` declared by a declaration that reaches none, or naming none by a name |
+| `DOMQL4011` | A `behavior` declared by a continuous execution, or naming none by a name |
 | `DOMQL4012` | A `behavior` naming no continuous execution of its module |
 | `DOMQL4013` | An event source of a behavior declaring an `impl` or parameters, which DOMQL carries out |
 

@@ -255,6 +255,28 @@ const dropZone: DomqlMemberDeclaration = {
     },
 };
 
+// A member reads the state a behavior offers through its instance, which a watch follows through the behavior observation the instance notifies.
+const trapped: DomqlMemberDeclaration = {
+    name: 'trapped',
+    kind: 'property',
+    result: 'Boolean',
+    behavior: 'focusTrap',
+    updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'behavior', of: 'receiver', behavior: 'focusTrap' }] },
+    impl: ({ instance }) => instance !== null,
+};
+const counting: DomqlMemberDeclaration = {
+    name: 'counting',
+    kind: 'function',
+    invokedBy: 'host',
+    requestKind: 'execution',
+    executionMode: 'continuous',
+    impl: ({ notify }) => {
+        const timer = setInterval(() => notify?.(), 1000);
+
+        return { update: () => {}, dispose: () => clearInterval(timer) };
+    },
+};
+
 // @ts-expect-error A command names its behavior by its name.
 const unnamedBehavior: DomqlMemberDeclaration = { name: 'release', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'once', behavior: true };
 
@@ -406,4 +428,4 @@ const listed: DomqlDefinitionNode = { kind: 'list', items: [{ kind: 'literal', v
 const last: DomqlDefinitionNode = { kind: 'indexerAccess', receiver: { kind: 'local', name: 'rows' }, argument: { kind: 'fromEndIndex', offset: { kind: 'literal', value: 1 } } };
 const imported: DomqlDefinition = { version: 38, imports: [{ module: 'Domql' }], expression: { kind: 'memberAccess', receiver: { kind: 'namespace', name: 'Domql' }, name: 'document' } };
 
-export { drops, dropZone, release, owned, released, ownedCount, ownedWatch, bound, version, specificationVersion, languageVersion, formatted, formattedText, kind, typeText, count, anything, waited, shorthand, selected, selectedAsync, selectedWatch, key, listening, status, snapshot, failure, ready, refreshed, viewed, viewStatus, viewReady, smaller, held, livingSnapshot, livingReady, livingRefreshed, watchedAgain, keptAgain, clicking, source, moved, stepped, trapping, reported };
+export { trapped, counting, drops, dropZone, release, owned, released, ownedCount, ownedWatch, bound, version, specificationVersion, languageVersion, formatted, formattedText, kind, typeText, count, anything, waited, shorthand, selected, selectedAsync, selectedWatch, key, listening, status, snapshot, failure, ready, refreshed, viewed, viewStatus, viewReady, smaller, held, livingSnapshot, livingReady, livingRefreshed, watchedAgain, keptAgain, clicking, source, moved, stepped, trapping, reported };

@@ -29,10 +29,12 @@ export class DispatchTable {
      * unknown, an execution whose mode is missing or unknown, an event source given a mode or declaring no result, a member the evaluator invokes given either key, a continuous execution declaring a result, and an `impl`
      * that is no function are refused with a module error naming the declaration, an unnamed indexer as `[]`, as Nexo names it, the type it stands in where it stands in one, and the key; so is a `behavior` on a
      * declaration that reaches none, one naming no continuous execution of the module, and an event source of a behavior given an implementation or parameters, which DOMQL carries out.
+     * A member the evaluator invokes declaring a `behavior` reads the state that behavior offers: its implementation receives the instance running for the environment's owner on its receiver, null where none runs.
      * @param {string} name The module's name.
      * @param {object} contents What the module declares.
+     * @param {import('./Behaviors.mjs').Behaviors} [behaviors] The behaviors running, which a member reading a behavior's state finds its instance among.
      */
-    static createModule(name, contents) {
+    static createModule(name, contents, behaviors) {
         // Contents Nexo refuses are left to it, which names what is wrong with them.
         if (contents === null || typeof contents !== 'object' || Array.isArray(contents)) {
             return nexo.createModule(name, contents);
@@ -43,13 +45,15 @@ export class DispatchTable {
             throw NexoError.module(code, message, location(type, declaration, key));
         };
 
-        // Each host call the module declares, with its name and the type it stands within, which the declarations reaching a behavior are checked against.
+        // Each host call the module declares, and each member reading a behavior's state, with its name and the type it stands within, which the declarations reaching a behavior are checked against.
         const described = [];
         const describe = (members, type) => (Array.isArray(members) ? members.map(member => {
             const descriptor = DispatchTable.#createDescriptor(member, type, String(name), (code, message, declaration, key) => fail(code, message, type, declaration, key));
 
             if (descriptor !== null) {
                 described.push({ descriptor, name: member.name, type });
+            } else if (member?.behavior !== undefined) {
+                described.push({ descriptor: { requestKind: null, executionMode: null, behavior: member.behavior }, name: member.name, type });
             }
 
             return descriptor;
@@ -57,11 +61,11 @@ export class DispatchTable {
 
         const memberDescriptors = describe(contents.members, null);
         const typeDescriptors = Array.isArray(contents.types) ? contents.types.map(type => describe(type?.members, DispatchTable.#localNameOf(type?.name))) : null;
-        const declarationsOf = (members, descriptors) => members.map((member, index) => DispatchTable.#createDeclaration(member, descriptors[index]));
+        const declarationsOf = (members, descriptors) => members.map((member, index) => DispatchTable.#createDeclaration(member, descriptors[index], String(name), behaviors));
 
         // A behavior is a continuous execution of the module, which each declaration reaching it names.
-        const behaviors = new Set(described.filter(({ descriptor }) => descriptor.executionMode === 'continuous').map(entry => entry.name));
-        const unknown = described.find(({ descriptor }) => descriptor.behavior !== null && !behaviors.has(descriptor.behavior));
+        const continuous = new Set(described.filter(({ descriptor }) => descriptor.executionMode === 'continuous').map(entry => entry.name));
+        const unknown = described.find(({ descriptor }) => descriptor.behavior !== null && !continuous.has(descriptor.behavior));
 
         if (unknown !== undefined) {
             fail('DOMQL4012', `'${unknown.descriptor.behavior}' is no continuous execution the module '${name}' declares, whose running instance a declaration naming it reaches`, unknown.type, unknown.name, 'behavior');
@@ -129,7 +133,7 @@ export class DispatchTable {
                 }
             }
 
-            if (behavior !== undefined) {
+            if (behavior !== undefined && (typeof behavior !== 'string' || behavior === '')) {
                 fail('DOMQL4011', DispatchTable.#behaviorRefusal, name, 'behavior');
             }
 
@@ -182,12 +186,21 @@ export class DispatchTable {
     }
 
     /** Why a declaration's `behavior` is refused. */
-    static #behaviorRefusal = 'A command, a once execution, and an event source of occurrences name by their behavior the continuous execution of their module whose running instance they reach, and no other declaration names one';
+    static #behaviorRefusal = 'A command, a once execution, an event source of occurrences and a member reading the state a behavior offers name by their behavior the continuous execution of their module whose running instance they reach, and a behavior itself names none';
 
-    /** The declaration Nexo is given: a host call's without what the table keeps of it, and any other member's as it is. */
-    static #createDeclaration(member, descriptor) {
+    /**
+     * The declaration Nexo is given: a host call's without what the table keeps of it; a member reading a behavior's state without its `behavior`, its implementation given the instance running for the environment's owner
+     * on its receiver, null where none runs; and any other member's as it is.
+     */
+    static #createDeclaration(member, descriptor, module, behaviors) {
         if (descriptor === null) {
-            return member;
+            if (member?.behavior === undefined) {
+                return member;
+            }
+
+            const { behavior, impl, ...declaration } = member;
+
+            return impl === undefined ? declaration : { ...declaration, impl: input => impl({ ...input, instance: behaviors?.find(module, behavior, input.env?.owner ?? null, input.receiver) ?? null }) };
         }
 
         const { requestKind, executionMode, impl, behavior, ...declaration } = member;

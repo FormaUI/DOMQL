@@ -6,6 +6,24 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-304"></a>
+
+## `1.0.0-alpha.304`
+
+*November 2, 2026 · Nexo language `1.0.0-beta.19` · definition format 38*
+
+DOMQL lets a behavior's module offer what the behavior holds as members, which a watch follows.
+
+**Behaviors**
+
+- [State](spec/behaviors.md#behaviors-state): a member the evaluator invokes declaring `behavior` reads the state that behavior offers, its implementation receiving the instance running for the environment's owner on its receiver, or null, as [D52](docs/decisions.md#d52) records. A behavior's implementation receives `notify()`, which says what it offers may have changed.
+
+**Observations**
+
+- [`behavior`](spec/vocabulary.md#observations-types), DOMQL's eleventh observation type, invalidates a watch as an instance of the behavior it names starts on its target, is updated, moves there or away, or ends, and as the instance notifies.
+
+**Breaking:** nothing.
+
 <a id="v1-0-0-alpha-303"></a>
 
 ## `1.0.0-alpha.303`

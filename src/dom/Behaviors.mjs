@@ -1,6 +1,6 @@
 /**
- * Behaviors — the continuous executions running in one instance of DOMQL, each by its module, its name, its owner and its receiver, so the commands its module declares reach the one running for their owner on their receiver,
- * and the subscriptions to its occurrences, which hear every instance of it running for their owner on their receiver
+ * Behaviors — the continuous executions running in one instance of DOMQL, each by its module, its name, its owner and its receiver, so the commands and the members its module declares reach the one running for their owner
+ * on their receiver; the subscriptions to its occurrences, which hear every instance of it running for their owner on their receiver; and the observations of the state it offers
  */
 
 import { NexoError } from '@formaui-net/nexo';
@@ -28,28 +28,111 @@ export class Behaviors {
     #listening = new Map();
 
     /**
-     * Adds an instance that has started, the latest of its owner on its receiver.
+     * What each observation of the state behaviors offer calls, by the behavior's name and then the receiver it observes, so a behavior of that name starting, updated, moving or ending there, or saying the state it offers
+     * changed, tells it. An entry is made as an observation starts and released as the last of its receiver stops.
+     * @type {Map<string, Map<unknown, (() => void)[]>>}
+     */
+    #observing = new Map();
+
+    /**
+     * Adds an instance that has started, the latest of its owner on its receiver, which tells the observations of its state there.
      * @param {RunningBehavior} running
      */
     start(running) {
         Behaviors.#entriesAt(this.#running, Behaviors.#keyOf(running.module, running.name), running.owner, running.receiver, true).push(running);
+        this.#tell(running.name, running.receiver);
     }
 
-    /** Moves a running instance to another receiver, where it becomes the latest of its owner, and where its occurrences go from then on. */
-    move(running, receiver) {
+    /**
+     * Tells the observations of the state a running instance offers that an update gave it other arguments, moving it first where the update gave it another receiver, where it becomes the latest of its owner and where its
+     * occurrences go from then on; the observations of the receiver it left are told too.
+     */
+    update(running, receiver) {
         if (Object.is(running.receiver, receiver)) {
+            this.#tell(running.name, receiver);
+
             return;
         }
 
         this.#remove(running);
+        this.#tell(running.name, running.receiver);
         running.receiver = receiver;
         this.start(running);
     }
 
-    /** Ends a running instance, so nothing finds it again and it delivers nothing more; ending it again does nothing. */
+    /** Ends a running instance, so nothing finds it again and it delivers nothing more, and tells the observations of its state; ending it again does nothing. */
     end(running) {
+        if (running.hasEnded) {
+            return;
+        }
+
         running.hasEnded = true;
         this.#remove(running);
+        this.#tell(running.name, running.receiver);
+    }
+
+    /** Tells the observations of the state a running instance offers that it may have changed, as the instance says; an instance that has ended tells nothing. */
+    notify(running) {
+        if (!running.hasEnded && running.instance !== null) {
+            this.#tell(running.name, running.receiver);
+        }
+    }
+
+    /**
+     * Observes the state the behaviors of a name offer on the receiver, whichever module and owner they belong to, calling `notify` as one starts, is updated, moves or ends there, or says what it offers changed; answers
+     * what stops it.
+     * @param {string} name The behavior's name.
+     * @param {unknown} receiver What it runs on.
+     * @param {() => void} notify
+     * @returns {{ stop: () => void }}
+     */
+    observe(name, receiver, notify) {
+        let receivers = this.#observing.get(name);
+
+        if (receivers === undefined) {
+            receivers = new Map();
+            this.#observing.set(name, receivers);
+        }
+
+        let notifiers = receivers.get(receiver);
+
+        if (notifiers === undefined) {
+            notifiers = [];
+            receivers.set(receiver, notifiers);
+        }
+
+        notifiers.push(notify);
+
+        return {
+            stop: () => {
+                const index = notifiers.indexOf(notify);
+
+                if (index === -1) {
+                    return;
+                }
+
+                notifiers.splice(index, 1);
+
+                if (notifiers.length === 0 && receivers.get(receiver) === notifiers) {
+                    receivers.delete(receiver);
+
+                    if (receivers.size === 0 && this.#observing.get(name) === receivers) {
+                        this.#observing.delete(name);
+                    }
+                }
+            },
+        };
+    }
+
+    /** Calls every observation of the state the behaviors of the name offer on the receiver, each as it was when this began. */
+    #tell(name, receiver) {
+        const notifiers = this.#observing.get(name)?.get(receiver);
+
+        if (notifiers !== undefined) {
+            for (const notify of [...notifiers]) {
+                notify();
+            }
+        }
     }
 
     /**

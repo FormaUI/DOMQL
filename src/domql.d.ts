@@ -477,10 +477,12 @@ export interface DomqlMemberImplementationInput {
     };
     /** A once execution: the signal that aborts it. */
     readonly signal?: AbortSignal;
-    /** A command: the running instance of its behavior, for its owner on its receiver, as the behavior's implementation answered it. */
+    /** A command, or a member reading the state a behavior offers: the running instance of its behavior, for its owner on its receiver, as the behavior's implementation answered it, null for a member where none runs. */
     readonly instance?: any;
     /** A continuous execution: where a failure while it runs is reported. */
     readonly reportError?: (error: unknown) => void;
+    /** A continuous execution: says that the state it offers may have changed, so a watch reading it through a member evaluates again. */
+    readonly notify?: () => void;
 }
 
 /**
@@ -500,7 +502,10 @@ export interface DomqlMemberDeclaration {
     requestKind?: 'subscription' | 'execution';
     /** How an execution runs: once, answering its result, or continuously, until it is updated or disposed. */
     executionMode?: 'once' | 'continuous';
-    /** A command, a once execution, or an event source of occurrences: the continuous execution of its module whose running instance it reaches, by its name. An event source of occurrences declares no `impl` and no parameters. */
+    /**
+     * A command, a once execution, an event source of occurrences, or a member the evaluator invokes reading the state a behavior offers: the continuous execution of its module whose running instance it reaches, by its name.
+     * An event source of occurrences declares no `impl` and no parameters.
+     */
     behavior?: string;
     /** The form its arguments take where it has parameters, an optional one included: one for each parameter, in order, the required ones before the optional ones, or one options object whose fields supply them; a function alone takes it. */
     arguments?: 'positional' | 'options';

@@ -115,8 +115,8 @@ export class ExecutionHandle {
             throw NexoError.evaluation('DOMQL5006', `The execution '${execution.name}' failed to update`, execution.location, { cause: error });
         }
 
-        // An update that moves the execution to another receiver moves it there for its commands too.
-        this.#behaviors.move(this.#running, execution.receiver);
+        // An update that moves the execution to another receiver moves it there for its commands and its occurrences too, and the state it offers may have changed.
+        this.#behaviors.update(this.#running, execution.receiver);
     }
 
     /** Ends the execution: disposes the instance its implementation created, reporting a failure of that, stops its listeners, and marks the handle disposed whatever happened. Disposing again does nothing. */
@@ -146,6 +146,7 @@ export class ExecutionHandle {
                 env: environment,
                 reportError: error => this.#eventDispatcher.raiseError(error),
                 deliver: (source, value) => this.#deliver(running, sources, location, source, value),
+                notify: () => this.#behaviors.notify(running),
             });
         } catch (error) {
             running.hasEnded = true;

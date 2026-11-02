@@ -784,3 +784,20 @@ Each entry is one of three kinds:
   - Cancelling an event and capturing a pointer must happen before the dispatch ends, as [D2](#d2) keeps them in a module's listeners; a handler running within the dispatch also has the event's activation for an execution it carries out.
   - A listener that delivers and then goes on, as one applying a press it passes through, must not lose its own work to a subscriber's failure, which has a home of its own: the handler's failed event, the window's error reporting, and the acknowledgment.
 - **Declined:** Delivering in a microtask, which would leave every handler outside the dispatch and its activation.
+
+<a id="d52"></a>
+
+## D52 — A behavior's state is read by its module's members, which a `behavior` observation keeps current
+
+*November 2, 2026*
+
+- **Kind:** Contract.
+- **Decision:** A member the evaluator invokes declaring `behavior` reads the state that behavior offers ([C2](features-status.md#planned-extension-contract)): its implementation receives `instance`, the one running for the environment's owner on its receiver, or null. DOMQL's observation type `behavior` invalidates a watch reading it as an instance of that name starts, is updated, moves or ends on its receiver, and as the instance calls the `notify()` its implementation receives.
+- **Why:**
+  - State is read, not heard, so it is a member, which a watch follows by the observations it names, as every member is followed; a watch then reads the placement a frame keeps rather than replaying its changes.
+  - The instance offers what the behavior's implementation holds, so the member reads it as a command does, with no copy kept in DOMQL.
+  - Only the behavior knows when what it holds changes, so it says so, as an observation type's implementation calls its `notify`; its start, update, move and end are DOMQL's to tell.
+  - An observation's identity holds its arguments alone, so the observation follows a behavior's name, and a name two modules or two owners share costs an evaluation, never a missed change.
+- **Declined:**
+  - A maintained observation holding the state as its sample, which an owner can't tell apart, since one observation serves every owner.
+  - Keeping the state in DOMQL, written by the behavior, which would copy what the instance already holds and still need the behavior to say when.

@@ -82,7 +82,7 @@ class Domql {
     /** The continuous executions running, each kept for its owner on its receiver, where its module's commands find it. */
     static #behaviors = new Behaviors();
 
-    static #browserModule = BrowserModule.create();
+    static #browserModule = BrowserModule.create({ behaviors: Domql.#behaviors });
     static #moduleRegistry = nexo.createRegistry([Domql.#browserModule]);
 
     /** The imports DOMQL supplies to every query it reads and writes: its own module, under its own name. */
@@ -160,7 +160,7 @@ class Domql {
      * @param {object} contents What the module declares.
      */
     static createModule(name, contents) {
-        return DispatchTable.createModule(name, contents);
+        return DispatchTable.createModule(name, contents, Domql.#behaviors);
     }
 
     /** Registers a module's vocabulary, which every request resolved afterwards may use; a module declaring observation targets is refused, since DOMQL resolves its own module's alone. */

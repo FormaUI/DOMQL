@@ -2,7 +2,7 @@
 
 <a id="behaviors"></a>
 
-A **behavior** is a [continuous execution](executions.md#executions-running-continuously) an extension module declares, running on the page for an owner: a placement, a gesture, an editor. DOMQL keeps each running instance of it where the module's other declarations find it, so a caller reaches "this owner's behavior on this element" with the element and the owner alone, and no token passed by hand in every query: its commands reach it, and its occurrences reach the subscriptions to its event sources.
+A **behavior** is a [continuous execution](executions.md#executions-running-continuously) an extension module declares, running on the page for an owner: a placement, a gesture, an editor. DOMQL keeps each running instance of it where the module's other declarations find it, so a caller reaches "this owner's behavior on this element" with the element and the owner alone, and no token passed by hand in every query: its commands reach it, its occurrences reach the subscriptions to its event sources, and the state it offers is read by its members, which a watch follows.
 
 ```js
 const drops = domql.query('import DragDrop\nzone:drops() { key = it.target?["data-key"] }', { zone }).subscribe(handleDrop, { owner: sidebar });
@@ -18,6 +18,7 @@ In this document:
 3. [Commands](#behaviors-commands)
 4. [Occurrences](#behaviors-occurrences)
 5. [Handling inside the native dispatch](#behaviors-synchronous-handling)
+6. [State](#behaviors-state)
 
 <a id="behaviors-the-owner"></a>
 
@@ -72,3 +73,13 @@ What must be decided before the browser's dispatch of an event ends, cancelling 
 
 - **Delivering is synchronous.** `deliver` captures the occurrence, projects it for every subscription and calls every handler before it returns, so a handler runs inside the native dispatch of the listener that delivered, and an execution it carries out at once has the [activation](vocabulary.md#built-in-executions) the event gives. A handler's own asynchronous work goes on after the dispatch, as the promise it returns.
 - **Delivering never throws.** Nothing that happens to an occurrence, no subscription, a projection or a handler failing, or an ended instance, throws into the listener that delivers it: it reaches the promise `deliver` answers, and the handler or the window's error reporting where it always does, so the listener goes on with its own work, as applying a press it passes through after delivering.
+
+<a id="behaviors-state"></a>
+
+## State
+
+What a behavior holds that a caller reads rather than hears, a placement's side or an editor's selection, is **state it offers**: a member of its module that the evaluator invokes, declaring the behavior by its `behavior` key, and read with `:` as any extension member is, `popover:placement`.
+
+- **What it reads.** Its implementation receives `instance`, the instance of its behavior running for the environment's owner on its receiver, as a command finds it, or null where none runs, beside what every member's implementation receives, and reads alone, as every member does. A member of a module member behavior, which runs on no receiver, is a module member too.
+- **How a watch follows it.** The member names DOMQL's observation `behavior`, of its receiver, `{ type: 'behavior', of: 'receiver', behavior: 'anchoredPlacement' }`, which invalidates a watch reading it as an instance of the behavior of that name starts on the receiver, is updated, moves there or away, or ends, and each time the instance says that what it offers may have changed, through the `notify()` its implementation receives. The observation follows behaviors by their name, whatever module and owner they belong to, so the member's own reading tells what changed for its owner.
+- **Its type** is the member's own, data a result holds, as the instance offers it through the member's implementation; the instance itself never reaches a result.
