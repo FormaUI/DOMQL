@@ -1,6 +1,6 @@
-# DOMQL Design v1.0.0-alpha.300
+# DOMQL Design v1.0.0-alpha.301
 
-The [DOMQL specification](../spec/README.md) is the contract: DOMQL's module, which declares the DOM as Nexo's domain, and the host that carries queries out against a document. This design sets out how this implementation is built to meet it, and the reasons behind the choices that shape it. It describes DOMQL's version `1.0.0-alpha.300` on Nexo's definition version 38, as the specification does, and the C# half, which is designed and not yet built; [the status overview](features-status.md) says where the implementation still differs. [Nexo's design](https://github.com/FormaUI/Nexo/blob/2cb596ea0d1a1fc624552783b30139379124bb67/docs/nexo-design.md), at the commit DOMQL builds against, sets out how the language and its runtime are built.
+The [DOMQL specification](../spec/README.md) is the contract: DOMQL's module, which declares the DOM as Nexo's domain, and the host that carries queries out against a document. This design sets out how this implementation is built to meet it, and the reasons behind the choices that shape it. It describes DOMQL's version `1.0.0-alpha.301` on Nexo's definition version 38, as the specification does, and the C# half, which is designed and not yet built; [the status overview](features-status.md) says where the implementation still differs. [Nexo's design](https://github.com/FormaUI/Nexo/blob/cf5cb6f30f3326c0be12ec6369d24540ffaba5e2/docs/nexo-design.md), at the commit DOMQL builds against, sets out how the language and its runtime are built.
 
 In this document:
 
@@ -56,7 +56,7 @@ A selector is read for what it tests by `Selectors`, a scan of its text that nee
 
 ## Comparing and patching
 
-The comparer reads what Nexo's [result metadata](https://github.com/FormaUI/Nexo/blob/2cb596ea0d1a1fc624552783b30139379124bb67/spec/runtime/evaluation.md#runtime-results) records beside each value: the provenance of each item, the source the earliest projection it descends from read, by which a list is matched where Nexo classifies every item's provenance as a reference, each standing once; the origin of each value, which tells whether a number came from the same branch, operand or property as the number before it; and the tolerance it compares within. A result therefore holds data alone, and a change set never names an element.
+The comparer reads what Nexo's [result metadata](https://github.com/FormaUI/Nexo/blob/cf5cb6f30f3326c0be12ec6369d24540ffaba5e2/spec/runtime/evaluation.md#runtime-results) records beside each value: the provenance of each item, the source the earliest projection it descends from read, by which a list is matched where Nexo classifies every item's provenance as a reference, each standing once; the origin of each value, which tells whether a number came from the same branch, operand or property as the number before it; and the tolerance it compares within. A result therefore holds data alone, and a change set never names an element.
 
 The patcher computes the change set that takes one reconciled snapshot to the next, and applies change sets in place to live state.
 

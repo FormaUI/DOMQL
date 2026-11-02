@@ -6,6 +6,16 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-301"></a>
+
+## `1.0.0-alpha.301`
+
+*November 2, 2026 · Nexo language `1.0.0-beta.19` · definition format 38*
+
+DOMQL moves to Nexo's language `1.0.0-beta.19`. Its runtime is that of `1.0.0-beta.15`, whose tooling Nexo withdrew until it is designed, and a text that ends inside a collection, as `[10,`, is refused with NEXO1000 where a `TypeError` escaped.
+
+**Breaking:** nothing.
+
 <a id="v1-0-0-alpha-300"></a>
 
 ## `1.0.0-alpha.300`
@@ -186,7 +196,7 @@ DOMQL moves to Nexo's language `1.0.0-beta.15`, which settles what Nexo's status
 - **Membership compares by key equality alone.** `contains`, `indexOf`, `distinct` and `distinctBy` take numbers, strings, Booleans, references and null, so a list of elements works as before, and one of objects, lists or values of `Any` is refused (NEXO3083), where it was compared by identity.
 - **A result path is checked wherever it is given,** so `select` refuses a malformed path as it did, and steps into an object's own fields and a list's items alone.
 - **A module's declarations name Nexo's own types qualified,** as `Nexo.Number`, where the module declares a type of that name.
-- **Conditions Nexo told apart by message have codes of their own,** NEXO5043 to NEXO5050 among them, as [Nexo's language history](https://github.com/FormaUI/Nexo/blob/2cb596ea0d1a1fc624552783b30139379124bb67/LANGUAGE-HISTORY.md) records.
+- **Conditions Nexo told apart by message have codes of their own,** NEXO5043 to NEXO5050 among them, as [Nexo's language history](https://github.com/FormaUI/Nexo/blob/cf5cb6f30f3326c0be12ec6369d24540ffaba5e2/LANGUAGE-HISTORY.md) records.
 
 **Breaking:** a query that tested membership in a list of objects, lists or values of `Any` is refused; test a key field instead, as `items.any(it.id == id)`.
 

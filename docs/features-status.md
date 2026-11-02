@@ -2,15 +2,15 @@
 
 ## Current state
 
-**DOMQL's vocabulary, queries, watches, events and executions are implemented on Nexo's language `1.0.0-beta.15`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.300`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next is [the C# half](#the-c-half).**
+**DOMQL's vocabulary, queries, watches, events and executions are implemented on Nexo's language `1.0.0-beta.19`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.301`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next is [the C# half](#the-c-half).**
 
 | Version | Implementation | Specification |
 | --- | --- | --- |
-| DOMQL specification | `1.0.0-alpha.300` | `1.0.0-alpha.300` |
-| Nexo language | `1.0.0-beta.15` | `1.0.0-beta.15` |
+| DOMQL specification | `1.0.0-alpha.301` | `1.0.0-alpha.301` |
+| Nexo language | `1.0.0-beta.19` | `1.0.0-beta.19` |
 | Definition format | 38 | 38 |
 
-- **The language DOMQL runs on.** DOMQL builds against Nexo at the commit `nexo.commit` pins, `2cb596e`, Nexo's `1.0.0-beta.15`, and its documents link to [Nexo's documents at it](https://github.com/FormaUI/Nexo/blob/2cb596ea0d1a1fc624552783b30139379124bb67/spec/README.md). The language was called Lexica before the [migration](#migration-to-nexo).
+- **The language DOMQL runs on.** DOMQL builds against Nexo at the commit `nexo.commit` pins, `cf5cb6f`, Nexo's `1.0.0-beta.19`, and its documents link to [Nexo's documents at it](https://github.com/FormaUI/Nexo/blob/cf5cb6f30f3326c0be12ec6369d24540ffaba5e2/spec/README.md). The language was called Lexica before the [migration](#migration-to-nexo).
 - **Packages.** The bundle and type declarations are built, with Nexo bundled inside `domql.js`. npm and NuGet packages are packed locally but unpublished.
 - **The C# half** is designed and not started.
 
@@ -260,7 +260,7 @@ Consume a released Nexo before publishing packages.
 
 ### Consuming the language
 
-**Current:** DOMQL depends on `@formaui-net/nexo` through `file:.nexo`, which the build fills with Nexo at the commit `nexo.commit` pins, `2cb596e`, taken from a checkout beside this one named `formaui-net.Nexo`, or links to the checkout `NEXO_SOURCE` names; CI checks Nexo out at the same commit. It imports the language's entry point alone, and bundles it into `domql.js`. The language's tests that run through DOMQL's entry point are DOMQL's integration tests.
+**Current:** DOMQL depends on `@formaui-net/nexo` through `file:.nexo`, which the build fills with Nexo at the commit `nexo.commit` pins, `cf5cb6f`, taken from a checkout beside this one named `formaui-net.Nexo`, or links to the checkout `NEXO_SOURCE` names; CI checks Nexo out at the same commit. It imports the language's entry point alone, and bundles it into `domql.js`. The language's tests that run through DOMQL's entry point are DOMQL's integration tests.
 
 **Remaining:**
 
