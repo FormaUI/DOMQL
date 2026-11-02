@@ -58,6 +58,27 @@ describe('QueryEvaluation', () => {
         expect([kept.disposed, taken.disposed]).toEqual([1, 0]);
     });
 
+    it('has each maintained observation it still holds take a new sample, settling once each has, or with the first failure', async () => {
+        const asked = [];
+        const maintained = answer => ({ contract: 'maintained', resampleAsync: () => (asked.push(answer), answer) });
+        const owner = {};
+        const failure = new Error('lost');
+        const cachedSessions = [
+            { session: maintained(Promise.resolve()), owner },
+            { session: { contract: 'invalidation' }, owner },
+            { session: maintained(Promise.resolve()), owner: {} },
+            { session: null, owner },
+        ];
+        const evaluation = new QueryEvaluation({ value: 1, isPending: false, dependencies: [], sessions: cachedSessions, owner, error: null });
+
+        await expect(evaluation.resampleAsync()).resolves.toBeUndefined();
+        expect(asked).toHaveLength(1);
+
+        cachedSessions[1].session = maintained(Promise.reject(failure));
+
+        await expect(evaluation.resampleAsync()).rejects.toBe(failure);
+    });
+
     it('hands its sessions on once, and none once it has let them go', () => {
         const sessionCache = {};
         const evaluation = evaluationOf([], sessionCache);

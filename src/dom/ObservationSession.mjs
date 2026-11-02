@@ -14,7 +14,7 @@ export class ObservationSession {
     /**
      * @param {object} access What the session gives access to.
      * @param {'invalidation' | 'maintained'} access.contract What the observation provides.
-     * @param {{ sample?: () => { pending: boolean, value: unknown } } | null} access.observation The observation, or null where nothing is observed.
+     * @param {{ sample?: () => { pending: boolean, value: unknown }, resampleAsync?: () => Promise<void> } | null} access.observation The observation, or null where nothing is observed.
      * @param {() => void} access.onChange Called, synchronously, when something may have changed; what it returns is ignored, so a promise it returns is not awaited and a rejection of it is not caught.
      * @param {(session: ObservationSession) => void} access.end Lets the observations know this consumer has ended its access.
      * @param {(error: unknown) => void} access.reportError Where a failure of onChange is reported, which does not throw.
@@ -53,6 +53,18 @@ export class ObservationSession {
         }
 
         return this.#observation.sample();
+    }
+
+    /**
+     * Has the observation take a new sample, and answers a promise that settles once it has arrived; an observation of invalidation has none to take, and a session disposed asks for none. A failure to take it rejects
+     * the promise.
+     */
+    resampleAsync() {
+        if (this.#isDisposed || this.#contract !== 'maintained') {
+            return Promise.resolve();
+        }
+
+        return this.#observation.resampleAsync();
     }
 
     /** Tells the consumer something may have changed, unless it has disposed the session; a failure of its callback is reported and reaches no other consumer. */

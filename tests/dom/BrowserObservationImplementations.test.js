@@ -146,6 +146,96 @@ describe('BrowserObservationImplementations', () => {
         });
     });
 
+    describe('intersection', () => {
+        /** A window whose intersection observer the test controls: it records what it observes and unobserves, and holds the reports the browser has made and not yet delivered. */
+        const createIntersectionWindow = () => {
+            const fake = {
+                observer: null,
+                IntersectionObserver: class {
+                    constructor(callback, options) {
+                        this.callback = callback;
+                        this.options = options;
+                        this.steps = [];
+                        this.queued = [];
+                        fake.observer = this;
+                    }
+
+                    observe(target) {
+                        this.steps.push(['observe', target]);
+                    }
+
+                    unobserve(target) {
+                        this.steps.push(['unobserve', target]);
+                    }
+
+                    takeRecords() {
+                        return this.queued.splice(0);
+                    }
+
+                    disconnect() {
+                        this.steps.push(['disconnect']);
+                    }
+                },
+            };
+
+            return fake;
+        };
+
+        const element = document.createElement('div');
+        const start = (fake, notify = () => {}) => BrowserObservationImplementations.implementations.observeIntersection({ request: { type: 'intersection', target: element, arguments: { margin: 20 } }, notify, env: { window: fake } });
+
+        it('is pending until the browser first reports the element, and holds its latest report after', () => {
+            const fake = createIntersectionWindow();
+            let changes = 0;
+            const observation = start(fake, () => changes++);
+
+            expect(fake.observer.options).toEqual({ root: null, rootMargin: '20px' });
+            expect(observation.sample()).toEqual({ pending: true, value: null });
+
+            fake.observer.callback([{ isIntersecting: false }, { isIntersecting: true }]);
+
+            expect(observation.sample()).toEqual({ pending: false, value: true });
+            expect(changes).toBe(1);
+        });
+
+        it('takes a new sample by observing the element again, settling at the report that follows, once for every ask before it', async () => {
+            const fake = createIntersectionWindow();
+            const observation = start(fake);
+            const settled = [];
+
+            fake.observer.callback([{ isIntersecting: true }]);
+
+            // A report the browser made before it is asked is no new sample.
+            fake.observer.queued.push({ isIntersecting: false });
+
+            const first = observation.resampleAsync().then(() => settled.push('first'));
+            const second = observation.resampleAsync().then(() => settled.push('second'));
+
+            expect(observation.sample()).toEqual({ pending: false, value: false });
+            expect(fake.observer.steps).toEqual([['observe', element], ['unobserve', element], ['observe', element]]);
+
+            await Promise.resolve();
+            expect(settled).toEqual([]);
+
+            fake.observer.callback([{ isIntersecting: true }]);
+            await Promise.all([first, second]);
+
+            expect(settled).toEqual(['first', 'second']);
+            expect(observation.sample()).toEqual({ pending: false, value: true });
+        });
+
+        it('settles a new sample it waits for as it stops', async () => {
+            const fake = createIntersectionWindow();
+            const observation = start(fake);
+            const resampled = observation.resampleAsync();
+
+            observation.stop();
+
+            await expect(resampled).resolves.toBeUndefined();
+            expect(fake.observer.steps.at(-1)).toEqual(['disconnect']);
+        });
+    });
+
     describe('selector', () => {
         /** Starts the observation of what the selector reads in the document, and answers how often it has reported. */
         const observe = selector => {

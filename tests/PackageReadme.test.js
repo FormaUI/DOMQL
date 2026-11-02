@@ -41,6 +41,7 @@ const examples = [
         inspect: "[(() => { try { query.watch(); } catch (error) { return error.kind; } })()]",
         gives: ['validation'],
     },
+    { file: '30-resample.js', observed: 'printed', answers: [['{ nearEnd: true }']] },
     { file: '07-live-state.js', observed: 'printed', answers: [['[]'], ["[{ op: 'replace', path: '/1/selected', value: true }]"], ['true']] },
     { file: '08-subscribe.js', observed: 'printed', answers: [["{ key: 'a2', wasSelected: true, selectedCount: 1 }"]] },
     { file: '09-objects.js', observed: 'reads', answers: [['{ count: 3, attached: true, hasChildren: true }']] },
@@ -159,6 +160,12 @@ describe('the package README', () => {
 
             observe(target) {
                 queueMicrotask(() => this.#report([{ target, isIntersecting: true }]));
+            }
+
+            unobserve() {}
+
+            takeRecords() {
+                return [];
             }
 
             disconnect() {}

@@ -978,3 +978,18 @@ Each entry is one of three kinds:
   - Item identity lives in metadata a result never holds, which is why a host couldn't compute a change set itself; concatenating needs none of it.
   - A minimal change set only bounds a delivery's size, a cost rather than a capability, and the snapshot sent whole bounds it too.
 - **Declined:** `watch.changesSince(snapshot)`, which would keep the metadata of every snapshot delivered, and with it the elements its lists came from, for as long as the caller holds the snapshot. The design's [decisions not taken](domql-design.md#decisions-not-taken) say what reopens it.
+
+<a id="d66"></a>
+
+## D66 — A refresh takes new samples where it is asked to, and delivering an equal result needs nothing new
+
+*November 2, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `refreshAsync({ resample: true })` has every maintained observation the watch's last evaluation read take a new sample, and evaluates once each has arrived ([A3](features-status.md#planned-api-and-host)). A maintained observation type offers `resampleAsync()` to take one; one offering none is read as it stands. A failure to take one rejects the refresh with `DOMQL5022`. A refresh also takes a `signal`, which cancels its wait alone. `rebaseline` is declined.
+- **Why:**
+  - The browser reports an intersection after it lays a frame out, so a frame watch evaluates before the report of that frame, and a refresh after a load reads the sentinel where it was before the load: a refreshed `true` would start another load. A browser test proves the stale read and the new sample.
+  - Only the observation knows how to take a sample anew, so it is the observation type's to offer; the `intersection` type observes its element again, which the browser always reports. A type whose sample is computed as it is read is current already, and offers none.
+  - A shared observation takes one new sample for every watch holding it, so a refresh never makes another watch's member pending again.
+  - A refresh that may wait for the browser should be cancellable, as `readyAsync` and `evaluateAsync` are.
+- **Declined:** `refreshAsync({ rebaseline: true })`, a refresh that delivers an equal result. A caller that needs the result whatever it is reads `snapshot` once the refresh settles, the snapshot the next change set is computed against, so delivering it again would add a second way to do one thing.

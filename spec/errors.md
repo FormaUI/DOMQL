@@ -104,3 +104,4 @@ A failure while a request is carried out, located in the query where it concerns
 | `DOMQL5019` | An occurrence delivered to an event source its behavior has none of |
 | `DOMQL5020` | An occurrence a subscription failed to apply: its projection failed, or its handler threw or rejected, its failure the error's `cause` |
 | `DOMQL5021` | An execution, or an operation environment's `observe`, `frame` or `measureUnder`, while a query is evaluated, which reads alone |
+| `DOMQL5022` | A maintained observation failing to take the new sample a refresh asked for, its failure the error's `cause` |

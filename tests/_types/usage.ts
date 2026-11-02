@@ -71,6 +71,7 @@ const snapshot: { count: number } | undefined = watch.snapshot;
 const failure: unknown = watch.error;
 const ready: Promise<{ count: number }> = watch.readyAsync({ signal });
 const refreshed: Promise<void> = watch.refreshAsync();
+const resampled: Promise<void> = watch.refreshAsync({ resample: true, signal });
 
 failures.dispose();
 
@@ -374,7 +375,7 @@ const contents: DomqlModuleContents = {
         members: [{ kind: 'operator', name: 'convert', result: 'ChildMetrics', impl: ({ value, reject }) => (typeof value === 'string' && /^[0-9]+$/.test(value) ? { childCount: Number(value) } : reject(`${String(value)} is no count`)) }],
     }],
     mappings: [{ selector: 'event', key: 'chart-selected', type: 'Number' }],
-    observationTypes: [{ name: 'chartsChanged', contract: 'maintained', identity: ['root'], shared: true, impl: ({ notify }) => ({ stop: () => notify(), sample: () => ({ pending: true }) }) }],
+    observationTypes: [{ name: 'chartsChanged', contract: 'maintained', identity: ['root'], shared: true, impl: ({ notify }) => ({ stop: () => notify(), sample: () => ({ pending: true }), resampleAsync: () => Promise.resolve() }) }],
 };
 const module: DomqlModule = domql.createModule('Metrics', contents);
 const declaredType: DomqlTypeDeclaration = module.types[0];

@@ -54,6 +54,19 @@ export class QueryEvaluation {
         return sessionCache;
     }
 
+    /** Has every maintained observation the evaluation still holds take a new sample, and answers a promise that settles once each has arrived, or rejects with the first failure to take one. */
+    resampleAsync() {
+        const resampled = [];
+
+        for (const cachedSession of this.#sessions) {
+            if (cachedSession.owner === this.#owner && cachedSession.session?.contract === 'maintained') {
+                resampled.push(cachedSession.session.resampleAsync());
+            }
+        }
+
+        return Promise.all(resampled).then(() => undefined);
+    }
+
     /**
      * Disposes every session the evaluation still owns, those no later evaluation took, so the observations only it needed stop. Disposing again does nothing.
      * Every session is disposed even where one fails to be, and the first failure is thrown once all of them have been.

@@ -62,6 +62,14 @@ export interface DomqlListenOptions {
     signal?: AbortSignal;
 }
 
+/** How a watch is refreshed. */
+export interface DomqlRefreshOptions {
+    /** Whether every maintained observation the last evaluation read takes a new sample first, the evaluation waiting until each has arrived; false by default. */
+    resample?: boolean;
+    /** Cancels the refresh's wait alone, rejecting it with the signal's reason; the watch goes on. */
+    signal?: AbortSignal;
+}
+
 /** A listener: it listens from the call that answered it until it is disposed. */
 export interface DomqlEventListener {
     /** `ready` while it listens, and `disposed` once it is ended. */
@@ -119,8 +127,11 @@ interface DomqlWatchBase<T> {
     readonly error: unknown;
     /** Waits for a successful ready state and answers its snapshot; it rejects where an evaluation fails while it waits or the watch is disposed, and its signal cancels the wait alone. */
     readyAsync(options?: DomqlListenOptions): Promise<T>;
-    /** Evaluates now, and settles once the evaluation has completed and the event it produced, if any, has been raised. */
-    refreshAsync(): Promise<void>;
+    /**
+     * Evaluates now, and settles once the evaluation has completed and the event it produced, if any, has been raised; where it resamples, every maintained observation the last evaluation read takes a new sample first.
+     * It raises no event where the result is unchanged, so a caller that needs the result whatever it is reads `snapshot` once it settles.
+     */
+    refreshAsync(options?: DomqlRefreshOptions): Promise<void>;
     /** Ends the watch: cancels what it scheduled, disposes every observation session and stops every listener, its views' included. */
     dispose(): void;
 }
@@ -398,8 +409,11 @@ export interface DomqlObservationTypeDeclaration {
     identity?: string[];
     /** Whether equivalent requests share one observation; one that is not shared is kept for each of its host's evaluations alone. */
     shared?: boolean;
-    /** Starts an observation, and answers an object whose `stop` ends it and, for a maintained one, whose `sample` answers its latest sample as `{ pending, value }`, pending until the first arrives. */
-    impl?: (input: DomqlObservationImplementationInput) => { stop(): void; sample?(): { pending: boolean; value?: unknown } };
+    /**
+     * Starts an observation, and answers an object whose `stop` ends it and, for a maintained one, whose `sample` answers its latest sample as `{ pending, value }`, pending until the first arrives. A maintained one whose
+     * sample can lag behind the page offers `resampleAsync`, which takes a new sample and answers a promise that settles once it has arrived; one that offers none is read as it stands.
+     */
+    impl?: (input: DomqlObservationImplementationInput) => { stop(): void; sample?(): { pending: boolean; value?: unknown }; resampleAsync?(): Promise<unknown> };
 }
 
 /** A target a module's observation types observe besides the receiver and an argument of the member, which DOMQL's own module alone declares. */

@@ -463,7 +463,27 @@ export class Observations {
         }
 
         // A sample a member reads is checked where the observation answers it, so a broken one names its type rather than the member.
-        return { stop: () => observation.stop(), sample: () => Observations.#checkSample(type, observation.sample()) };
+        return { stop: () => observation.stop(), sample: () => Observations.#checkSample(type, observation.sample()), resampleAsync: () => Observations.#resampleAsync(type, observation) };
+    }
+
+    /**
+     * Has a maintained observation take a new sample, answering a promise that settles once it has arrived; one whose type takes no new sample is read as it stands, and settles at once. A failure to take one, thrown or
+     * rejected, rejects with an evaluation error naming the type.
+     */
+    static #resampleAsync(type, observation) {
+        if (typeof observation.resampleAsync !== 'function') {
+            return Promise.resolve();
+        }
+
+        const fail = error => {
+            throw NexoError.evaluation('DOMQL5022', `The observation '${type.name}' failed to take a new sample: ${error?.message ?? String(error)}`, {}, { cause: error });
+        };
+
+        try {
+            return Promise.resolve(observation.resampleAsync()).then(() => undefined, fail);
+        } catch (error) {
+            return Promise.reject(error).catch(fail);
+        }
     }
 
     /** The sample a maintained observation answered: `{ pending, value }`, pending a Boolean, and a value beside it once it is no longer pending. */

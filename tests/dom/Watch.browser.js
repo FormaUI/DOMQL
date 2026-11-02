@@ -112,4 +112,28 @@ describe('Watch timing in a browser', () => {
             watch.dispose();
         });
     });
+
+    describe('a refresh that takes new samples', () => {
+        it('reads where a load left a sentinel, which a refresh reading the sample the browser reported before misses', async () => {
+            document.body.innerHTML = '<div id="list" style="height: 100px; overflow: auto"><div id="rows" style="height: 50px"></div><div id="sentinel" style="height: 1px"></div></div>';
+
+            const [list, rows, sentinel] = ['list', 'rows', 'sentinel'].map(id => document.getElementById(id));
+            const watch = domql.query('{ nearEnd = sentinel.intersects({ root = list }) }', { sentinel, list }).watch();
+
+            expect(await watch.readyAsync()).toEqual({ nearEnd: true });
+
+            // A load pushes the sentinel out of view, which the browser reports only after it lays out its next frame.
+            rows.style.height = '500px';
+            await watch.refreshAsync();
+            expect(watch.snapshot).toEqual({ nearEnd: true });
+
+            await watch.refreshAsync({ resample: true });
+            expect(watch.snapshot).toEqual({ nearEnd: false });
+
+            rows.style.height = '50px';
+            await watch.refreshAsync({ resample: true });
+            expect(watch.snapshot).toEqual({ nearEnd: true });
+            watch.dispose();
+        });
+    });
 });

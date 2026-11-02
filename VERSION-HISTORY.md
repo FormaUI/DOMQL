@@ -6,6 +6,26 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-311"></a>
+
+## `1.0.0-alpha.311`
+
+*November 2, 2026 · Nexo language `1.0.0-beta.20` · definition format 38*
+
+A watch's refresh takes new samples of the maintained members it reads where it is asked to, so a sentinel refreshed after a load reads where the load left it.
+
+**Watches**
+
+- [Resampling](spec/watches.md#watching-resampling): `refreshAsync({ resample: true })` has every maintained observation the watch's last evaluation read take a new sample, and evaluates once each has arrived; a failure to take one rejects the refresh with the new `DOMQL5022`, and the watch goes on, as [D66](docs/decisions.md#d66) records.
+- A refresh takes a `signal`, which cancels its wait alone. A refresh still raises no event where its result is unchanged: a caller that needs the result reads `snapshot` once it settles, and `rebaseline` is declined.
+
+**Observations**
+
+- [Extension modules](spec/vocabulary.md#extension-modules): a maintained observation type may offer `resampleAsync()`, which takes a new sample and answers a promise that settles once it has arrived; one offering none is read as it stands.
+- [`intersection`](spec/vocabulary.md#observations-types) takes a new sample by observing its element again.
+
+**Breaking:** nothing.
+
 <a id="v1-0-0-alpha-310"></a>
 
 ## `1.0.0-alpha.310`

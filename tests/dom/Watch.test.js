@@ -1590,6 +1590,135 @@ describe('Watch', () => {
             expect(error).toMatchObject({ kind: 'evaluation', code: 'DOMQL5005', message: expect.stringContaining('A disposed watch cannot be refreshed') });
             expect(error.location).toEqual({});
         });
+
+        it('is canceled by its signal alone, rejecting with its reason, and the watch goes on', async () => {
+            const watched = watch('panel["data-n"]', { panel }, { schedule: 'frame' });
+            const lifetime = new AbortController();
+
+            lifetime.abort(new Error('stopped'));
+
+            await expect(watched.refreshAsync({ signal: lifetime.signal })).rejects.toThrow('stopped');
+            await watched.refreshAsync();
+            expect(snapshots).toEqual(['1']);
+            expect(watched.status).toBe('ready');
+        });
+
+        describe('taking new samples', () => {
+            /** The probe each element's observation of the type `probe` keeps: the sample it reports, and the new samples asked of it, which a test answers. */
+            let probes;
+
+            beforeEach(() => {
+                probes = new Map();
+
+                // A member kept by an observation whose report lags behind the page until a new sample is taken.
+                isolated.registerModule(isolated.createModule('Probe', {
+                    observationTypes: [{
+                        name: 'probe', contract: 'maintained',
+                        impl: ({ request: { target } }) => {
+                            const probe = { reported: { pending: false, value: 1 }, asked: [] };
+
+                            probes.set(target, probe);
+
+                            return {
+                                stop: () => {},
+                                sample: () => probe.reported,
+                                resampleAsync: () => new Promise((resolve, reject) => probe.asked.push({ resolve, reject })),
+                            };
+                        },
+                    }],
+                    types: [elementExtension('Probe', [{
+                        name: 'probe', kind: 'property', result: 'Number?',
+                        updates: { changes: 'observable', reads: 'maintained', observations: [{ type: 'probe', of: 'receiver' }] },
+                        impl: ({ samples: [sample] }) => sample,
+                    }])],
+                }));
+            });
+
+            it('evaluates once every maintained observation the last evaluation read has taken a new sample, reading it', async () => {
+                const [first] = panel.children;
+                const watched = watch('import Probe\nimport Level\n{ near = item:probe, level = item:level }', { item: first });
+
+                await settle();
+                gauges.get(first).sample = { pending: false, value: 4 };
+                gauges.get(first).notify();
+                await settle();
+
+                // The page moved, and the browser has not reported it yet.
+                const probe = probes.get(first);
+                const refreshing = watched.refreshAsync({ resample: true });
+
+                await settle();
+
+                expect(probe.asked).toHaveLength(1);
+                expect(snapshots).toEqual([{ near: 1, level: 4 }]);
+
+                probe.reported = { pending: false, value: 2 };
+                probe.asked[0].resolve();
+                await refreshing;
+
+                expect(snapshots).toEqual([{ near: 1, level: 4 }, { near: 2, level: 4 }]);
+            });
+
+            it('evaluates at once where the watch has not evaluated yet, having read nothing to sample again', async () => {
+                const [first] = panel.children;
+                const watched = watch('import Probe\n{ near = item:probe }', { item: first });
+
+                await watched.refreshAsync({ resample: true });
+
+                expect(probes.get(first).asked).toEqual([]);
+                expect(snapshots).toEqual([{ near: 1 }]);
+            });
+
+            it('rejects with DOMQL5022 where an observation fails to take a new sample, and the watch goes on', async () => {
+                const [first] = panel.children;
+                const watched = watch('import Probe\n{ near = item:probe }', { item: first });
+
+                await settle();
+
+                const refreshing = rejection(watched.refreshAsync({ resample: true }));
+                const lost = new Error('lost');
+
+                probes.get(first).asked[0].reject(lost);
+
+                const error = await refreshing;
+
+                expect(error).toMatchObject({ kind: 'evaluation', code: 'DOMQL5022', message: "The observation 'probe' failed to take a new sample: lost", cause: lost });
+                expect(error.location).toEqual({});
+                expect(watched.status).toBe('ready');
+                expect(snapshots).toEqual([{ near: 1 }]);
+            });
+
+            it('settles without delivering where disposal ends its wait for samples', async () => {
+                const [first] = panel.children;
+                const watched = watch('import Probe\n{ near = item:probe }', { item: first });
+
+                await settle();
+
+                const refreshing = watched.refreshAsync({ resample: true });
+
+                watched.dispose();
+
+                await expect(refreshing).resolves.toBeUndefined();
+                expect(snapshots).toEqual([{ near: 1 }]);
+            });
+
+            it('is canceled by its signal while it waits, and the samples it asked for change nothing', async () => {
+                const [first] = panel.children;
+                const watched = watch('import Probe\n{ near = item:probe }', { item: first });
+                const lifetime = new AbortController();
+
+                await settle();
+
+                const refreshing = rejection(watched.refreshAsync({ resample: true, signal: lifetime.signal }));
+
+                lifetime.abort(new Error('stopped'));
+                probes.get(first).asked[0].resolve();
+
+                expect((await refreshing).message).toBe('stopped');
+                await settle();
+                expect(snapshots).toEqual([{ near: 1 }]);
+            });
+        });
     });
 
     describe('readyAsync', () => {

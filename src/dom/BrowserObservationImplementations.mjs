@@ -168,17 +168,55 @@ export class BrowserObservationImplementations {
         return { stop: () => observer.disconnect() };
     }
 
-    /** Whether the browser reports an element intersecting a root, or the window, grown by a margin; pending until the first report. */
+    /**
+     * Whether the browser reports an element intersecting a root, or the window, grown by a margin; pending until the first report. It takes a new sample by observing the element again, which the browser reports once it
+     * has laid out its next frame, whatever it reported before.
+     */
     static #observeIntersection({ request: { target, arguments: { root = null, margin = 0 } }, notify, env: { window } }) {
         let latest = { pending: true, value: null };
+
+        // The new sample asked for, which the next report answers, or null while none is.
+        let resampling = null;
+        const resampled = () => {
+            resampling?.resolve();
+            resampling = null;
+        };
         const observer = new window.IntersectionObserver(entries => {
             latest = { pending: false, value: entries.at(-1).isIntersecting };
+            resampled();
             notify();
         }, { root, rootMargin: `${margin}px` });
 
         observer.observe(target);
 
-        return { stop: () => observer.disconnect(), sample: () => latest };
+        return {
+            stop: () => {
+                observer.disconnect();
+                resampled();
+            },
+            sample: () => latest,
+            resampleAsync: () => {
+                if (resampling === null) {
+                    // A report the browser made before is no new sample, so it is taken now, and the one the new observation brings answers.
+                    const reported = observer.takeRecords();
+
+                    if (reported.length > 0) {
+                        latest = { pending: false, value: reported.at(-1).isIntersecting };
+                    }
+
+                    const asked = {};
+
+                    asked.promise = new Promise(resolve => {
+                        asked.resolve = resolve;
+                    });
+                    resampling = asked;
+                    observer.unobserve(target);
+                    observer.observe(target);
+                }
+
+                return resampling.promise;
+            },
+        };
     }
 
     /** Whether a media query matches. */

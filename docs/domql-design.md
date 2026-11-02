@@ -1,6 +1,6 @@
-# DOMQL Design v1.0.0-alpha.310
+# DOMQL Design v1.0.0-alpha.311
 
-The [DOMQL specification](../spec/README.md) is the contract: DOMQL's module, which declares the DOM as Nexo's domain, and the host that carries queries out against a document. This design sets out how this implementation is built to meet it, and the reasons behind the choices that shape it. It describes DOMQL's version `1.0.0-alpha.310` on Nexo's definition version 38, as the specification does, and an outline of the C# half, which waits for its design; [the status overview](features-status.md) says where the implementation still differs. [Nexo's design](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/docs/nexo-design.md), at the commit DOMQL builds against, sets out how the language and its runtime are built.
+The [DOMQL specification](../spec/README.md) is the contract: DOMQL's module, which declares the DOM as Nexo's domain, and the host that carries queries out against a document. This design sets out how this implementation is built to meet it, and the reasons behind the choices that shape it. It describes DOMQL's version `1.0.0-alpha.311` on Nexo's definition version 38, as the specification does, and an outline of the C# half, which waits for its design; [the status overview](features-status.md) says where the implementation still differs. [Nexo's design](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/docs/nexo-design.md), at the commit DOMQL builds against, sets out how the language and its runtime are built.
 
 In this document:
 
@@ -53,6 +53,8 @@ Every observation a query starts is reached through a session, which the query d
 ## Watching
 
 A watch evaluates its whole query each time, and its dependencies are what that evaluation read, recorded by the hooks Nexo's evaluator calls around each member's implementation: a branch not taken records nothing, so what a watch observes follows the branches its evaluations take. Evaluating only what changed would save little for the changes lists most often see, as [the status overview](features-status.md#deferred) records.
+
+A refresh that resamples asks each evaluation the watch holds, its last successful one and the failed one after it, to have the maintained observations it still holds take a new sample, and evaluates once every one has arrived, through the refresh's ordinary path. An observation shared with other watches takes one new sample for them all, which each of them is told of as of any report. The `intersection` type takes one by observing its element again: the browser reports a newly observed element after it lays out its next frame, whatever it reported before, and a report it made before and has not delivered is taken first, so it never stands for the new one.
 
 A selector is read for what it tests by `Selectors`, a scan of its text that needs no parse of the grammar: a class for each `.`, an id for each `#`, the name each attribute selector opens with, and what each pseudo-class reads, from a table of the pseudo-classes it knows, any other taken to read every attribute. Strings and escapes are passed over, so a `.` inside `[title=".a"]` reads nothing. The `selector` observation filters its mutation observer by those attributes, so an attribute no selector of the watch tests, as a behavior's own `tabindex`, evaluates nothing again.
 

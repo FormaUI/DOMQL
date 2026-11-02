@@ -1,4 +1,4 @@
-# DOMQL Specification v1.0.0-alpha.310
+# DOMQL Specification v1.0.0-alpha.311
 
 DOMQL reads the DOM and shapes what it reads as data, keeps that data current as the document changes, delivers the page's events as data, and carries out the executions its own module and its extensions declare. Its queries are scripts written in [Nexo](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/spec/README.md), whose specification holds two contracts: the language's, what a script means, and the runtime's, how a host binds, resolves and evaluates a script. DOMQL declares the DOM as Nexo's domain, in a module like any other, and is the host that carries each query out against a document. It adds no language rule: a rule of the language or of its runtime is Nexo's, and this specification links to it.
 
@@ -6,7 +6,7 @@ This specification is the authoritative contract for DOMQL. It states what DOMQL
 
 <a id="version"></a>
 
-**Version.** This specification describes DOMQL's version `1.0.0-alpha.310`, which changes as DOMQL's contract does, apart from its runtime's version and from Nexo's language. It describes DOMQL on Nexo's language version `1.0.0-beta.20`, of [definition version 38](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/spec/README.md#version). An implementation says which specification it follows, and which language version its Nexo runtime follows, in `domql.info.versions`, as [the API](api.md#api-entry-points-and-operations) sets out.
+**Version.** This specification describes DOMQL's version `1.0.0-alpha.311`, which changes as DOMQL's contract does, apart from its runtime's version and from Nexo's language. It describes DOMQL on Nexo's language version `1.0.0-beta.20`, of [definition version 38](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/spec/README.md#version). An implementation says which specification it follows, and which language version its Nexo runtime follows, in `domql.info.versions`, as [the API](api.md#api-entry-points-and-operations) sets out.
 
 ## What it covers
 

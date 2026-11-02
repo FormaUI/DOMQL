@@ -5,7 +5,7 @@ import { BrowserVocabularyDeclarations } from '#domql/dom/BrowserVocabularyDecla
 
 /** A module of observation types that start nothing in a browser, and the record of what they did. */
 const createObservationTypes = () => {
-    const record = { started: [], stopped: [], notifiers: [], samples: [] };
+    const record = { started: [], stopped: [], notifiers: [], samples: [], resampled: [] };
     const start = name => ({ request, notify }) => {
         const index = record.started.length;
 
@@ -21,6 +21,10 @@ const createObservationTypes = () => {
         observationTypes: [
             { name: 'ticks', contract: 'invalidation', identity: ['step'], impl: start('ticks') },
             { name: 'sampled', contract: 'maintained', impl: start('sampled') },
+            {
+                name: 'resampled', contract: 'maintained',
+                impl: input => ({ ...start('resampled')(input), resampleAsync: () => record.resampled.shift()() }),
+            },
             { name: 'solo', contract: 'invalidation', shared: false, impl: start('solo') },
             { name: 'broken', contract: 'invalidation', impl: () => { throw new Error('no clock'); } },
             { name: 'mute', contract: 'invalidation', impl: () => ({}) },
@@ -233,6 +237,47 @@ describe('Observations', () => {
 
         it('belong to a maintained observation alone', () => {
             expect(() => observations.acquire(request('ticks'), () => {}).sample()).toThrow(TypeError);
+        });
+
+        it('are taken anew where the observation takes new samples, settling once the new one has arrived', async () => {
+            const session = observations.acquire(request('resampled'), () => {});
+            const arrived = [];
+
+            record.resampled.push(() => Promise.resolve('taken'));
+
+            await session.resampleAsync().then(value => arrived.push(value));
+
+            expect(arrived).toEqual([undefined]);
+            expect(record.resampled).toEqual([]);
+        });
+
+        it('are read as they stand where the observation takes no new samples, or holds none', async () => {
+            await expect(observations.acquire(request('sampled'), () => {}).resampleAsync()).resolves.toBeUndefined();
+            await expect(observations.acquire(request('ticks'), () => {}).resampleAsync()).resolves.toBeUndefined();
+        });
+
+        it('fail with DOMQL5022 naming the type where the observation fails to take a new one, thrown or rejected', async () => {
+            const session = observations.acquire(request('resampled'), () => {});
+            const lost = new Error('lost');
+
+            record.resampled.push(() => Promise.reject(lost), () => {
+                throw lost;
+            });
+
+            for (let attempt = 0; attempt < 2; attempt++) {
+                const error = await session.resampleAsync().then(() => null, rejected => rejected);
+
+                expect(error).toBeInstanceOf(NexoError);
+                expect(error).toMatchObject({ kind: 'evaluation', code: 'DOMQL5022', message: "The observation 'resampled' failed to take a new sample: lost", cause: lost });
+            }
+        });
+
+        it('are taken anew by no disposed session', async () => {
+            const session = observations.acquire(request('resampled'), () => {});
+
+            session.dispose();
+
+            await expect(session.resampleAsync()).resolves.toBeUndefined();
         });
     });
 

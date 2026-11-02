@@ -57,6 +57,9 @@ export class Watch {
     /** The refreshes waiting for the next evaluation to complete. @type {{ resolve: () => void, reject: (error: unknown) => void }[]} */
     #pendingRefreshes = [];
 
+    /** The refreshes waiting for new samples before they evaluate, which disposal settles. @type {Set<{ resolve: () => void, reject: (error: unknown) => void }>} */
+    #resamplingRefreshes = new Set();
+
     /** The callers waiting for a successful ready state. @type {{ resolve: (snapshot: unknown) => void, reject: (error: unknown) => void }[]} */
     #readyWaiters = [];
 
@@ -202,22 +205,80 @@ export class Watch {
 
     /**
      * Evaluates now instead of at the schedule, and settles once the evaluation has completed and the event it produced, if any, has been raised; where that evaluation waits for a sample, it settles with the evaluation that ends the wait.
-     * It rejects with the failure of its evaluation, resolves without delivering where disposal cancels it, and rejects where called after disposal.
+     * Where it resamples, every maintained observation the last evaluation read takes a new sample first, and it evaluates once each has arrived. It rejects with the failure of its evaluation, or of taking a sample, resolves
+     * without delivering where disposal cancels it, and rejects where called after disposal; its `signal` cancels its wait alone.
+     * @param {{ resample?: boolean, signal?: AbortSignal }} [options]
      */
-    refreshAsync() {
+    refreshAsync({ resample = false, signal } = {}) {
         if (this.#status === 'disposed') {
             return Promise.reject(NexoError.evaluation('DOMQL5005', 'A disposed watch cannot be refreshed', {}));
         }
 
-        return new Promise((resolve, reject) => {
-            this.#pendingRefreshes.push({ resolve, reject });
+        if (signal?.aborted === true) {
+            return Promise.reject(signal.reason);
+        }
 
-            if (this.#isRunning) {
-                this.#rerun = 'now';
-            } else {
-                this.#run();
+        // A refresh that neither resamples nor can be canceled waits for its evaluation alone.
+        if (!resample && signal === undefined) {
+            return new Promise((resolve, reject) => {
+                this.#pendingRefreshes.push({ resolve, reject });
+                this.#runNow();
+            });
+        }
+
+        return new Promise((resolve, reject) => {
+            let isSettled = false;
+
+            // Settling once, whichever comes first: its evaluation, its failure, disposal or the signal.
+            const settle = outcome => {
+                if (!isSettled) {
+                    isSettled = true;
+                    signal?.removeEventListener('abort', cancel);
+                    this.#resamplingRefreshes.delete(refresh);
+                    outcome();
+                }
+            };
+            const refresh = { resolve: () => settle(resolve), reject: error => settle(() => reject(error)) };
+            const cancel = () => {
+                const index = this.#pendingRefreshes.indexOf(refresh);
+
+                if (index !== -1) {
+                    this.#pendingRefreshes.splice(index, 1);
+                }
+
+                refresh.reject(signal.reason);
+            };
+            const evaluate = () => {
+                if (isSettled) {
+                    return;
+                }
+
+                this.#resamplingRefreshes.delete(refresh);
+                this.#pendingRefreshes.push(refresh);
+                this.#runNow();
+            };
+
+            signal?.addEventListener('abort', cancel, { once: true });
+
+            if (!resample) {
+                evaluate();
+
+                return;
             }
+
+            // The samples are taken anew before the evaluation reads them, so it reads what the browser reports now.
+            this.#resamplingRefreshes.add(refresh);
+            Promise.all([this.#successfulEvaluation, this.#failedEvaluation].map(evaluation => evaluation?.resampleAsync())).then(evaluate, refresh.reject);
         });
+    }
+
+    /** Evaluates now, or, where an evaluation is running, once it has. */
+    #runNow() {
+        if (this.#isRunning) {
+            this.#rerun = 'now';
+        } else {
+            this.#run();
+        }
     }
 
     /** Ends the watch: cancels the evaluation it scheduled, disposes every session, stops every listener, its views' included, and prevents any new handler call; a handler already running may finish. Disposing again does nothing. */
@@ -236,7 +297,7 @@ export class Watch {
         this.#successfulEvaluation = null;
         this.#failedEvaluation = null;
 
-        for (const { resolve } of this.#pendingRefreshes.splice(0)) {
+        for (const { resolve } of [...this.#pendingRefreshes.splice(0), ...this.#resamplingRefreshes]) {
             resolve();
         }
 

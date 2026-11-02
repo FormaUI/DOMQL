@@ -60,7 +60,7 @@ Almost every operation answers directly, so the plain name is the synchronous on
 | --- | --- | --- |
 | `DomqlQuery` | `definition`, `with(bindings)`, `resolve(options?)`, `select(...path)`, `evaluate(options?)`, `evaluateAsync(options?)`, `watch(options?)`, `subscribe(handler, options?)`, `executeAsync(options?)`, `run(options?)` | [Making a query](queries.md#making-a-query) |
 | `DomqlSelection` | `select(...path)`, `evaluate(options?)`, `evaluateAsync(options?)`, `watch(options?)` | [Selecting a result](queries.md#selecting-a-result) |
-| `DomqlWatch` | `status`, `snapshot`, `error`, `readyAsync(options?)`, `refreshAsync()`, `subscribe(eventName, handler, options?)`, `dispose()`, and `select(...path)` for snapshots or `liveState` for live state | [The watch and its handle](watches.md#the-watch-and-its-handle), [live state](results.md#live-state) |
+| `DomqlWatch` | `status`, `snapshot`, `error`, `readyAsync(options?)`, `refreshAsync(options?)`, `subscribe(eventName, handler, options?)`, `dispose()`, and `select(...path)` for snapshots or `liveState` for live state | [The watch and its handle](watches.md#the-watch-and-its-handle), [live state](results.md#live-state) |
 | `DomqlSelectedView` | `snapshot`, `status`, `error`, `select(...path)`, `subscribe(eventName, handler, options?)`, `readyAsync(options?)` | [Sharing a watch](watches.md#sharing-a-watch) |
 | `DomqlEventListener` | `status`, `dispose()` | [Events of a handle](#events-of-a-handle), [subscribing](events.md#subscribing) |
 | `DomqlExecutionHandle` | `status`, `update(bindings)`, `subscribe(eventName, handler, options?)`, `dispose()` | [Running continuously](executions.md#executions-running-continuously) |
