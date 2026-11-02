@@ -429,13 +429,16 @@ export class BrowserExecutionImplementations {
 
     /**
      * What scrolling an element reads and calls: the element, which the scroll methods are called on, its position along each physical axis, its sign included, and the element whose writing mode and direction place
-     * its scroll origin, itself.
+     * its scroll origin, and whose `scroll-behavior` an "auto" scroll takes, itself.
      */
     static #elementScroller(element) {
         return { target: element, window: element.ownerDocument.defaultView, position: () => ({ left: element.scrollLeft, top: element.scrollTop }), placedBy: element };
     }
 
-    /** What scrolling the window reads and calls: the window, its position, and the document's root element, whose writing mode and direction place the viewport's scroll origin, as its `scroll` reads them. */
+    /**
+     * What scrolling the window reads and calls: the window, its position, and the document's root element, whose writing mode and direction place the viewport's scroll origin, as its `scroll` reads them, and whose
+     * `scroll-behavior` the viewport takes.
+     */
     static #windowScroller(window) {
         return { target: window, window, position: () => ({ left: window.scrollX, top: window.scrollY }), placedBy: window.document.documentElement };
     }
@@ -473,7 +476,9 @@ export class BrowserExecutionImplementations {
      * @param {AbortSignal | undefined} signal
      */
     static async #scroll(scroller, { inline, block, behavior }, method, signal) {
-        const options = { behavior: BrowserExecutionImplementations.#behaviorOf(behavior) };
+        const requested = BrowserExecutionImplementations.#behaviorOf(behavior);
+        const isInstant = BrowserExecutionImplementations.#isInstant(scroller.window, requested, () => [scroller.placedBy]);
+        const options = { behavior: isInstant ? 'instant' : requested };
         const axes = BrowserExecutionImplementations.#axesOf(scroller);
 
         for (const [axis, value] of LOGICAL_AXES.map(name => [name, name === 'inline' ? inline : block])) {
@@ -484,7 +489,7 @@ export class BrowserExecutionImplementations {
 
         const before = scroller.position();
 
-        await BrowserExecutionImplementations.#ended(scroller.window, scroller.target[method](options), scroller.position, signal);
+        await BrowserExecutionImplementations.#ended(scroller.window, scroller.target[method](options), isInstant, scroller.position, signal);
 
         const after = scroller.position();
 
@@ -499,26 +504,70 @@ export class BrowserExecutionImplementations {
             }
         }
 
-        const options = { block, inline, behavior: BrowserExecutionImplementations.#behaviorOf(behavior) };
+        const window = element.ownerDocument.defaultView;
+        const requested = BrowserExecutionImplementations.#behaviorOf(behavior);
+        const isInstant = BrowserExecutionImplementations.#isInstant(window, requested, () => BrowserExecutionImplementations.#scrollContainersOf(element));
+        const options = { block, inline, behavior: isInstant ? 'instant' : requested };
         const placement = () => {
             const box = element.getBoundingClientRect();
 
             return { left: box.left, top: box.top };
         };
 
-        await BrowserExecutionImplementations.#ended(element.ownerDocument.defaultView, element.scrollIntoView(options), placement, signal);
+        await BrowserExecutionImplementations.#ended(window, element.scrollIntoView(options), isInstant, placement, signal);
 
         return BrowserExecutionImplementations.#isInView(element);
     }
 
     /**
-     * Waits until the scroll has ended: for the promise the browser's scroll method answers, where it answers one, and otherwise for the first animation frame, from the third on, in which what the scroll moves
-     * holds still, since a smooth scroll begins to move a frame or two after it is asked; a signal that aborts stops the waiting.
+     * Whether a scroll is instant, so it has ended as the browser's method returns: where it is asked to be, where it is "auto" and every box it may move computes `scroll-behavior: auto`, and in a hidden document, which
+     * lays out no frame to animate a smooth one in.
+     * @param {Window} window
+     * @param {string} behavior The behavior asked for.
+     * @param {() => Element[]} boxesOf The boxes the scroll may move, read only for an "auto" one.
      */
-    static async #ended(window, answer, read, signal) {
+    static #isInstant(window, behavior, boxesOf) {
+        if (behavior === 'instant' || window.document.visibilityState === 'hidden') {
+            return true;
+        }
+
+        return behavior === 'auto' && boxesOf().every(box => window.getComputedStyle(box).scrollBehavior !== 'smooth');
+    }
+
+    /**
+     * The boxes scrolling the element into view may move: the root element, whose `scroll-behavior` the viewport takes, and each scroll container among its flat-tree ancestors, one whose overflow is neither visible nor
+     * clipped; the body gives its overflow to the viewport while the root's is visible, and is none then.
+     */
+    static #scrollContainersOf(element) {
+        const { documentElement, body, defaultView: window } = element.ownerDocument;
+        const rootStyle = window.getComputedStyle(documentElement);
+        const bodyPropagates = rootStyle.overflowX === 'visible' && rootStyle.overflowY === 'visible';
+        const containers = [documentElement];
+        const scrollsNothing = overflow => overflow === 'visible' || overflow === 'clip';
+
+        for (let current = BrowserVocabularyImplementations.flatParentOf(element); current !== null && current !== documentElement; current = BrowserVocabularyImplementations.flatParentOf(current)) {
+            const style = window.getComputedStyle(current);
+
+            if (!(current === body && bodyPropagates) && !(scrollsNothing(style.overflowX) && scrollsNothing(style.overflowY))) {
+                containers.push(current);
+            }
+        }
+
+        return containers;
+    }
+
+    /**
+     * Waits until the scroll has ended: for the promise the browser's scroll method answers, where it answers one; not at all for an instant scroll, which has ended as the method returns; and otherwise for the first
+     * animation frame, from the third on, in which what the scroll moves holds still, since a smooth scroll begins to move a frame or two after it is asked. A signal that aborts stops the waiting.
+     */
+    static async #ended(window, answer, isInstant, read, signal) {
         if (typeof answer?.then === 'function') {
             await answer;
 
+            return;
+        }
+
+        if (isInstant) {
             return;
         }
 

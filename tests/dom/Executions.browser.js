@@ -94,6 +94,113 @@ describe('Executions in a browser', () => {
             expect(box.scrollTop).toBe(300);
         });
 
+        describe('an instant scroll', () => {
+            /** The animation frames DOMQL asks for while the action runs, and what it answers, its scroll methods answering nothing that says when, as a browser without promise-returning scroll methods. */
+            const framesOf = async (action, ...scrollers) => {
+                const native = window.requestAnimationFrame;
+                const methods = scrollers.flatMap(target => ['scrollTo', 'scrollBy', 'scrollIntoView'].filter(name => typeof target[name] === 'function').map(name => [target, name, target[name], Object.hasOwn(target, name)]));
+                let frames = 0;
+
+                methods.forEach(([target, name, method]) => {
+                    target[name] = options => {
+                        method.call(target, options);
+                    };
+                });
+                window.requestAnimationFrame = callback => {
+                    frames++;
+
+                    return native.call(window, callback);
+                };
+
+                try {
+                    const answer = await action();
+
+                    return { answer, frames };
+                } finally {
+                    window.requestAnimationFrame = native;
+                    // The window holds its own methods, which are put back; an element's are its prototype's.
+                    methods.forEach(([target, name, method, isOwn]) => (isOwn ? (target[name] = method) : delete target[name]));
+                }
+            };
+
+            it('answers without waiting for a frame where it is asked to be instant, or is "auto" and the box computes scroll-behavior: auto', async () => {
+                const box = scroller();
+
+                expect(await framesOf(() => execute('box.scrollTo({ block = 300, behavior = "instant" })', { box }), box)).toEqual({ answer: true, frames: 0 });
+                expect(box.scrollTop).toBe(300);
+                expect(await framesOf(() => execute('box.scrollBy({ block = 100 })', { box }), box)).toEqual({ answer: true, frames: 0 });
+                expect(box.scrollTop).toBe(400);
+            });
+
+            it('waits for the scroll to end where the box computes scroll-behavior: smooth', async () => {
+                const box = scroller({ style: 'scroll-behavior: smooth' });
+                const { answer, frames } = await framesOf(() => execute('box.scrollTo({ block = 300 })', { box }), box);
+
+                expect(answer).toBe(true);
+                expect(frames).toBeGreaterThanOrEqual(3);
+                expect(box.scrollTop).toBe(300);
+            });
+
+            it('takes the window\'s scroll-behavior from the root element', async () => {
+                document.body.innerHTML = '<div style="height: 3000px"></div>';
+
+                expect(await framesOf(() => execute('Domql.window.scrollTo({ block = 200 })'), window)).toEqual({ answer: true, frames: 0 });
+                expect(window.scrollY).toBe(200);
+
+                document.documentElement.style.scrollBehavior = 'smooth';
+
+                try {
+                    const { answer, frames } = await framesOf(() => execute('Domql.window.scrollTo({ block = 0 })'), window);
+
+                    expect(answer).toBe(true);
+                    expect(frames).toBeGreaterThanOrEqual(3);
+                    expect(window.scrollY).toBe(0);
+                } finally {
+                    document.documentElement.style.scrollBehavior = '';
+                }
+            });
+
+            it('scrolls into view instantly under "auto" only where every scroll container it may move, and the viewport, computes scroll-behavior: auto', async () => {
+                document.body.innerHTML = '<div id="outer" style="height: 150px; overflow: auto"><div id="box" style="width: 100px; height: 100px; overflow: hidden"><div style="height: 600px"></div><p id="far" style="margin: 0">Far</p></div><div style="height: 600px"></div></div>';
+
+                const [outer, box, far] = ['outer', 'box', 'far'].map(id => document.getElementById(id));
+
+                expect(await framesOf(() => execute('far.scrollIntoView()', { far }), far)).toEqual({ answer: true, frames: 0 });
+                expect(box.scrollTop).toBeGreaterThan(0);
+
+                box.scrollTop = 0;
+                outer.style.scrollBehavior = 'smooth';
+
+                const { answer, frames } = await framesOf(() => execute('far.scrollIntoView()', { far }), far);
+
+                expect(answer).toBe(true);
+                expect(frames).toBeGreaterThanOrEqual(3);
+            });
+
+            it('is asked for in a hidden document whatever the behavior, which lays out no frame to animate a smooth one in', async () => {
+                const box = scroller();
+                const asked = [];
+                const scrollTo = box.scrollTo;
+
+                // Headless Chromium keeps its document visible, so the document says it is hidden.
+                Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+                box.scrollTo = options => {
+                    asked.push(options.behavior);
+
+                    return scrollTo.call(box, options);
+                };
+
+                try {
+                    expect(await execute('box.scrollTo({ block = 300, behavior = "smooth" })', { box })).toBe(true);
+                    expect(box.scrollTop).toBe(300);
+                    expect(asked).toEqual(['instant']);
+                } finally {
+                    delete document.visibilityState;
+                    delete box.scrollTo;
+                }
+            });
+        });
+
         it('scrolls a box under RTL by its offset from the start of its content, which the browser counts down from 0', async () => {
             const box = scroller({ style: 'direction: rtl' });
 

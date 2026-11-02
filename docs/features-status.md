@@ -2,11 +2,11 @@
 
 ## Current state
 
-**DOMQL's vocabulary, queries, watches, events, executions and behaviors are implemented on Nexo's language `1.0.0-beta.20`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.311`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next are the [planned capabilities](#planned-capabilities) of the API and host; the C# half waits for its design.**
+**DOMQL's vocabulary, queries, watches, events, executions and behaviors are implemented on Nexo's language `1.0.0-beta.20`, definition version 38. The specification describes DOMQL's `1.0.0-alpha.312`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Next are the [planned capabilities](#planned-capabilities) of the API and host; the C# half waits for its design.**
 
 | Version | Implementation | Specification |
 | --- | --- | --- |
-| DOMQL specification | `1.0.0-alpha.311` | `1.0.0-alpha.311` |
+| DOMQL specification | `1.0.0-alpha.312` | `1.0.0-alpha.312` |
 | Nexo language | `1.0.0-beta.20` | `1.0.0-beta.20` |
 | Definition format | 38 | 38 |
 
@@ -76,6 +76,7 @@ Each feature, the contract that states it, its state in the implementation, and 
 | Placing the document's selection, `select`, `selectContents` and `collapse` of `Domql.document.selection` | [Selection placement](../spec/vocabulary.md#execution-document-selection-placement) | Implemented, as [D43](decisions.md#d43) records | [`alpha.299`](../VERSION-HISTORY.md#v1-0-0-alpha-299) |
 | `dispatch`, a custom event of the page's own, of an element, the document and the window | [`dispatch`](../spec/vocabulary.md#execution-dispatch) | Implemented, as [D42](decisions.md#d42) records | [`alpha.298`](../VERSION-HISTORY.md#v1-0-0-alpha-298) |
 | Built-in executions: focusing, `takeFocus`, and scrolling, `scrollTo`, `scrollBy` and `scrollIntoView`, of an element and of the window | [Executions](../spec/vocabulary.md#built-in-executions) | Implemented, as [D34](decisions.md#d34) and [D35](decisions.md#d35) record | [`alpha.292`](../VERSION-HISTORY.md#v1-0-0-alpha-292) |
+| An instant scroll answered as the browser's method returns, without waiting for a frame, and a scroll in a hidden document asked for as instant | [Instant scrolls](../spec/vocabulary.md#execution-scroll-instant) | Implemented, as [D67](decisions.md#d67) records | [`alpha.312`](../VERSION-HISTORY.md#v1-0-0-alpha-312) |
 | Pointer capture, `capturePointer` and `releasePointer` | [`capturePointer`](../spec/vocabulary.md#execution-element-capturepointer-releasepointer) | Implemented, as [D37](decisions.md#d37) records | [`alpha.294`](../VERSION-HISTORY.md#v1-0-0-alpha-294) |
 | The browser's facilities, `writeClipboard`, `readClipboard`, `download`, `print` and `requestShare`, and a media element's `play`, `pause` and `writeMuted`; `readClipboardText` and `writeCookie` declined, as [D40](decisions.md#d40) and [D41](decisions.md#d41) record | [`writeClipboard`](../spec/vocabulary.md#execution-window-writeclipboard-readclipboard), [`requestShare`](../spec/vocabulary.md#execution-window-requestshare), [`play`](../spec/vocabulary.md#execution-element-play-pause-writemuted) | Implemented | [`alpha.297`](../VERSION-HISTORY.md#v1-0-0-alpha-297) |
 | A form control's writes, `writeIndeterminate`, `writeValue` and `writeSelection`, firing no event | [`writeValue`](../spec/vocabulary.md#execution-element-writevalue), [`writeSelection`](../spec/vocabulary.md#execution-element-writeselection) | Implemented, as [D39](decisions.md#d39) records | [`alpha.296`](../VERSION-HISTORY.md#v1-0-0-alpha-296) |

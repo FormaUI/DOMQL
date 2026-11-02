@@ -993,3 +993,20 @@ Each entry is one of three kinds:
   - A shared observation takes one new sample for every watch holding it, so a refresh never makes another watch's member pending again.
   - A refresh that may wait for the browser should be cancellable, as `readyAsync` and `evaluateAsync` are.
 - **Declined:** `refreshAsync({ rebaseline: true })`, a refresh that delivers an equal result. A caller that needs the result whatever it is reads `snapshot` once the refresh settles, the snapshot the next change set is computed against, so delivering it again would add a second way to do one thing.
+
+<a id="d67"></a>
+
+## D67 — An instant scroll answers at once, and a hidden document scrolls instantly
+
+*November 2, 2026*
+
+- **Kind:** Contract.
+- **Decision:** A scroll is instant where its behavior is `"instant"`, or `"auto"` where every box it may move computes `scroll-behavior: auto`, and it answers as the browser's method returns, waiting for no animation frame. For the window that box is the root element, whose `scroll-behavior` the viewport takes; for `scrollIntoView`, every scroll container among the element's flat-tree ancestors and the viewport. In a hidden document DOMQL asks the browser for an instant scroll whatever the behavior.
+- **Why:**
+  - A script audit found that where the browser's scroll method answers no promise, an instant scroll was answered after the frames the stillness check waits for, about three frames, though the browser had finished it as its method returned; a caller revealing items by the keyboard felt the delay. Chromium 156 answers a promise that settles at once for an instant scroll, as a probe measured, so the frames were waited for only in browsers whose methods answer none.
+  - `scrollIntoView` under `"auto"` moves each scroll container that holds the element as its own `scroll-behavior` says, so it is instant only where every one of them, and the viewport, is; reading each ancestor's style costs little beside the scroll, and a smooth one anywhere waits as before. A body whose overflow goes to the viewport scrolls nothing of its own, and is left out.
+  - A hidden document lays out no frame, so a smooth scroll there neither animates nor reports holding still, and its answer would wait until the document is shown. No one sees the animation, so the scroll is asked for as instant and answers at once. Headless Chromium keeps its document visible even with its window minimized, so a test reports the document hidden in its place.
+- **Declined:**
+  - Treating `"auto"` as smooth for `scrollIntoView` wherever any ancestor might be, which keeps the delay for the common case of no smooth box.
+  - Waiting for `scrollend` in a hidden document, which fires nothing where nothing moves, as [D35](#d35) found.
+  - Finishing at once a smooth scroll the document is hidden during: it resumes as the document is shown, and answers once it has ended, as any smooth scroll does.

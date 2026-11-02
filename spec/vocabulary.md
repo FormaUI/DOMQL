@@ -1240,9 +1240,13 @@ Each states its syntax and signature, as a function's does, what it does and ans
 
 **Syntax:** `scrollTo({ inline, block, behavior })`, `scrollBy({ inline, block, behavior })`   **Signature:** optional `inline`, `block`: `Number?`, the axis left as it is when omitted or null; optional `behavior`: `String`, `"auto"` when omitted → `Boolean`   **Mode:** Once   **Activation:** None
 
-**Does.** Scrolls the box along the axes of its writing mode, as its [`scroll`](#property-element-scroll) reads them, the window's along those of the document's root element, as [its `scroll`](#property-window-scroll) reads them. `scrollTo` sets each axis's offset from the scroll origin to the number given, and `scrollBy` moves it by the number given, toward the end of the content where it is positive, so `scrollTo({ inline = 0 })` shows the start of the content under RTL too, where the browser counts the position down from 0. The browser holds the offset within the box's scroll range. `behavior` is `"auto"`, as the box's `scroll-behavior` decides, `"instant"` or `"smooth"`
+**Does.** Scrolls the box along the axes of its writing mode, as its [`scroll`](#property-element-scroll) reads them, the window's along those of the document's root element, as [its `scroll`](#property-window-scroll) reads them. `scrollTo` sets each axis's offset from the scroll origin to the number given, and `scrollBy` moves it by the number given, toward the end of the content where it is positive, so `scrollTo({ inline = 0 })` shows the start of the content under RTL too, where the browser counts the position down from 0. The browser holds the offset within the box's scroll range. `behavior` is `"auto"`, as the box's `scroll-behavior` decides, `"instant"` or `"smooth"`.
 
-**Answers.** Whether its position moved, once the scroll has ended: a smooth scroll is waited for, as the browser's scroll method reports its end, and, in a browser whose method reports none, until the first animation frame from the third in which the box holds still. False where it was there already, where its scroll range holds it, and where it scrolls nothing, as a box that is no scroll container
+<a id="execution-scroll-instant"></a>
+
+A scroll is **instant** where its `behavior` is `"instant"`, or `"auto"` where the box computes `scroll-behavior: auto`, the root element for the window, whose `scroll-behavior` the viewport takes. A scroll in a hidden document is instant whatever its behavior: the document lays out no frame to animate it in, so DOMQL asks the browser for an instant scroll there
+
+**Answers.** Whether its position moved, once the scroll has ended. An instant scroll ends as the browser's method returns, so it answers without waiting for an animation frame. A smooth scroll is waited for, as the browser's scroll method reports its end, and, in a browser whose method reports none, until the first animation frame from the third in which the box holds still; a document hidden while it runs lays out no frame, so it ends, and answers, once the document is shown again. False where it was there already, where its scroll range holds it, and where it scrolls nothing, as a box that is no scroll container
 
 <a id="execution-element-scrollintoview"></a>
 
@@ -1250,9 +1254,9 @@ Each states its syntax and signature, as a function's does, what it does and ans
 
 **Syntax:** `scrollIntoView({ block, inline, behavior })`   **Signature:** optional `block`: `String`, `"start"` when omitted; optional `inline`: `String`, `"nearest"` when omitted; optional `behavior`: `String`, `"auto"` when omitted → `Boolean`   **Mode:** Once   **Activation:** None
 
-**Does.** Scrolls each box that holds the element, and the window, so it shows, aligned along each axis of its writing mode at the `"start"`, the `"center"` or the `"end"`, or at the `"nearest"` edge, which leaves an axis it shows along as it is; `behavior` as `scrollTo` takes it
+**Does.** Scrolls each box that holds the element, and the window, so it shows, aligned along each axis of its writing mode at the `"start"`, the `"center"` or the `"end"`, or at the `"nearest"` edge, which leaves an axis it shows along as it is; `behavior` as `scrollTo` takes it. Under `"auto"` it is [instant](#execution-scroll-instant) where every box it may move computes `scroll-behavior: auto`: each scroll container among the element's flat-tree ancestors, one whose overflow is not `visible` or `clip`, and the viewport, as the root element gives it
 
-**Answers.** Whether it is in view once the scroll has ended, waited for as `scrollTo` waits: its border box overlaps the layout viewport and the padding box of every flat-tree ancestor that clips its overflow, compared as [`overlaps`](#function-element-overlaps) compares boxes. False where it has no layout box, and where a box that clips without scrolling, as one of `overflow: clip`, holds it outside its edges
+**Answers.** Whether it is in view once the scroll has ended, waited for as `scrollTo` waits, an instant one not at all: its border box overlaps the layout viewport and the padding box of every flat-tree ancestor that clips its overflow, compared as [`overlaps`](#function-element-overlaps) compares boxes. False where it has no layout box, and where a box that clips without scrolling, as one of `overflow: clip`, holds it outside its edges
 
 <a id="execution-element-capturepointer-releasepointer"></a>
 

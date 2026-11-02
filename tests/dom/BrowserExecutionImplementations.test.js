@@ -138,6 +138,33 @@ describe('BrowserExecutionImplementations', () => {
             expect(panel.scrollLeft).toBe(-35);
         });
 
+        it('answer an instant scroll without asking for an animation frame, its method answering nothing that says when, and ask the browser for an instant one in a hidden document', async () => {
+            const asked = [];
+            const frames = vi.spyOn(window, 'requestAnimationFrame');
+
+            panel.scrollTo = options => {
+                asked.push(options.behavior);
+                panel.scrollTop = options.top;
+            };
+
+            expect(await execute('panel.scrollTo({ block = 20, behavior = "instant" })', { panel })).toBe(true);
+            expect(await execute('panel.scrollTo({ block = 30 })', { panel })).toBe(true);
+            expect(frames).not.toHaveBeenCalled();
+
+            Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+
+            try {
+                expect(await execute('panel.scrollTo({ block = 40, behavior = "smooth" })', { panel })).toBe(true);
+                expect(frames).not.toHaveBeenCalled();
+            } finally {
+                delete document.visibilityState;
+                frames.mockRestore();
+            }
+
+            expect(asked).toEqual(['instant', 'instant', 'instant']);
+            expect(panel.scrollTop).toBe(40);
+        });
+
         it('scroll the window, answering whether it moved', async () => {
             expect(await execute('Domql.window.scrollTo({ block = 100 })')).toBe(true);
             expect(window.scrollY).toBe(100);

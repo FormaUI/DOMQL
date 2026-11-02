@@ -6,6 +6,21 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 - A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 - Until the beta, a version may break what the one before it allowed, and each entry says what it breaks.
 
+<a id="v1-0-0-alpha-312"></a>
+
+## `1.0.0-alpha.312`
+
+*November 2, 2026 · Nexo language `1.0.0-beta.20` · definition format 38*
+
+An instant scroll answers as soon as the browser has made it, and a scroll in a hidden document no longer waits for the document to be shown.
+
+**Executions**
+
+- [Instant scrolls](spec/vocabulary.md#execution-scroll-instant): `scrollTo`, `scrollBy` and `scrollIntoView` answer an instant scroll as the browser's method returns, without waiting for an animation frame. A scroll is instant where its behavior is `"instant"`, or `"auto"` where every box it may move computes `scroll-behavior: auto`: the box itself, the root element for the window, and for `scrollIntoView` each scroll container holding the element and the viewport, as [D67](docs/decisions.md#d67) records. A browser whose scroll methods answer no promise had them answered three frames late.
+- A scroll in a hidden document is asked for as instant whatever its behavior, so it answers at once rather than once the document is shown again.
+
+**Breaking:** nothing.
+
 <a id="v1-0-0-alpha-311"></a>
 
 ## `1.0.0-alpha.311`
