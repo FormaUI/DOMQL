@@ -1219,6 +1219,8 @@ status.dispose();
 
 `keep = true` writes the value again before the browser paints, wherever another writer changed it; a writer that writes its own value again in answer, as code holding the same attribute does, is yielded to rather than fought, while a framework's renders are written against however soon they follow one another. `ownText` writes into the text node the element holds, so the framework keeps the node it rendered. A position a gesture commits to the framework is held with `restore = false`, so it stands once the holding ends, until the framework renders it. Module code holds what it writes the same way, running an owned write with `env.domql`.
 
+An owned write updated often, as a position following a pointer, binds numbers and writes the unit in its text, `value = $"{left}px"`. A string, a Boolean or a null bound is part of what the query is resolved for, since one can select what a member reads, so each new string an update binds is resolved anew, where a new number is not.
+
 ### Reach a running behavior
 
 Every operation takes an `owner`, any value, which each implementation it reaches receives as `env.owner`. A continuous execution runs for its owner, and a command, a once execution whose declaration names that execution as its `behavior`, reaches the instance running for its own owner on its receiver: its implementation receives that instance, what the behavior's implementation answered, as `instance`. With none running, the command rejects with `DOMQL5016`.

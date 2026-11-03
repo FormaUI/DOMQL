@@ -1280,3 +1280,20 @@ Each entry is one of three kinds:
   - Yielding after several answers in a row, which still loses the class to a burst of renders during a press.
   - Judging by the class's presence or the property's value alone, which a render and a holder change alike.
 - **Cost:** a writer that answers with a new value each time, as code animating the property a holder keeps does, is written against once a frame until the holding ends or is updated. Two such writers of one target is a conflict in the page; the holder that should give way holds with `keep = false`.
+
+<a id="d84"></a>
+
+## D84 — A definition keeps the resolutions of its 16 bindings used most recently
+
+*November 4, 2026*
+
+- **Kind:** Implementation.
+- **Decision:** DOMQL keeps a definition's resolutions by resolution key, the most recently used last, and lets go of the one used least recently beyond 16. An operation goes on holding the resolution it was made with.
+- **Why:**
+  - Nexo's resolution key holds every bound string, Boolean and null, since a string can select what a member reads. An owned write updated with a new position each frame, as Forma's anchored popover is, bound a string never bound before at each update, and DOMQL kept a resolution for each for as long as the text was in use. A Chromium probe of 20,000 such updates kept 75.7 MB, about 3.9 KB an update, and disposing the execution released none of it. With the bound, 40,000 updates level off at about 1 MB.
+  - An operation holds its resolution through its evaluator, so the cache only shares one between operations made from the same text and key; letting one go changes nothing any operation reads.
+  - In paired Chromium runs of 1,000 steps of two updates, the median of nine runs after three warm-ups, an update cycling through 900 strings, which the unbounded cache held all of, went from 15 µs to about 35 µs, since each now resolves anew. One binding a new string each time stayed about 35 µs, and one binding a number written with its unit in the text, `value = $"{x}px"`, about 12 µs.
+- **Declined:**
+  - Keying a resolution by the bindings whose values decided it. Nexo folds a bound value through conditions, `??`, `and`, `or`, comparisons and computed names, so telling which values decided a resolution means tracking each use in Nexo, for about 20 µs an update a number binding saves today.
+  - Releasing a resolution once no operation holds it, through weak references, which would make a repeated evaluation resolve anew whenever the collector ran between two.
+  - A bound by the page's memory rather than by count, which no browser API offers to a script.

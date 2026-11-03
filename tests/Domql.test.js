@@ -1398,6 +1398,35 @@ describe('domql evaluates', () => {
             expect(domql.query('panel.size', { panel: other }).resolve()).toBe(domql.query('panel.size', { panel }).resolve());
         });
 
+        it('is kept for the sixteen bindings of a definition resolved most recently, the one used least recently let go of, while a watch made with it goes on holding its own', async () => {
+            const text = 'panel[name]';
+            const resolutionOf = name => domql.query(text, { panel, name }).resolve();
+            const first = resolutionOf('id');
+            const watch = domql.query(text, { panel, name: 'id' }).watch({ schedule: 'immediate' });
+            const values = [];
+
+            watch.subscribe('change', (sender, args) => values.push(args.value));
+
+            for (let index = 1; index < 16; index++) {
+                resolutionOf(`data-${index}`);
+            }
+
+            expect(resolutionOf('id')).toBe(first);
+
+            for (let index = 16; index < 32; index++) {
+                resolutionOf(`data-${index}`);
+            }
+
+            expect(resolutionOf('id')).not.toBe(first);
+
+            panel.id = 'moved';
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(values.at(-1)).toBe('moved');
+            watch.dispose();
+        });
+
         it('evaluates each query that shares it against its own bindings, interleaved, its locals and branches its own', () => {
             const text = 'panel { let id = it["id"], id = id, kind = if id == "first" then "one" else "other" end, count = it.children.count }';
             const first = document.createElement('div');

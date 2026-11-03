@@ -87,6 +87,9 @@ const REQUESTS = {
 /** The phases of an animation frame: the writes, then the reads. */
 const FRAME_PHASES = ['write', 'read'];
 
+/** How many resolutions of one definition are kept for the queries that ask for them next, the most recently used: more than the bindings of one text a page varies its strings or Booleans between. */
+const RESOLUTIONS_KEPT = 16;
+
 /** When a watch evaluates after a change, and what its events carry. */
 const WATCH_SCHEDULES = ['frame', 'immediate', 'delayed'];
 const WATCH_UPDATE_STRATEGIES = ['snapshot', 'liveState'];
@@ -111,8 +114,10 @@ class Domql {
     static #imports = Object.freeze([Domql.#browserModule.name]);
 
     /**
-     * The resolutions of each definition, by the resolution key of the bindings they were made against, each kept while it is current and released with the definition.
-     * Queries that share a definition, as those made from the same text do, and whose bindings have one resolution key, share its resolution; a watch's policy is checked against it each time.
+     * The resolutions of each definition, by the resolution key of the bindings they were made against, the most recently used last: each kept while it is current and among the definition's
+     * `RESOLUTIONS_KEPT` used most recently, and released with the definition. Queries that share a definition, as those made from the same text do, and whose bindings have one resolution key, share its
+     * resolution; a watch's policy is checked against it each time. An operation holds the resolution it was made with, so one let go of here costs only a resolution anew for the next query to ask for it,
+     * where a key holding a string, as each new value an update binds does, would otherwise keep one resolution more each time for the definition's life.
      * @type {WeakMap<object, Map<string, object>>}
      */
     static #resolutionsByDefinition = new WeakMap();
@@ -734,7 +739,8 @@ class Domql {
         }
 
         const bindings = DomqlQuery.bindingsOf(query);
-        let resolution = resolutions.get(bindings.resolutionKey);
+        const key = bindings.resolutionKey;
+        let resolution = resolutions.get(key);
 
         // A resolution stays current until a registration may change what it recognizes, which Nexo alone can tell.
         if (resolution === undefined || !resolution.isCurrent) {
@@ -743,8 +749,14 @@ class Domql {
             } catch (error) {
                 throw Domql.#unloadedImportOf(query.definition, error) ?? error;
             }
+        }
 
-            resolutions.set(bindings.resolutionKey, resolution);
+        // Kept as the most recently used, letting go of the one used least recently beyond those kept.
+        resolutions.delete(key);
+        resolutions.set(key, resolution);
+
+        if (resolutions.size > RESOLUTIONS_KEPT) {
+            resolutions.delete(resolutions.keys().next().value);
         }
 
         if (options.watch === true && resolution.hostCall === null) {
