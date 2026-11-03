@@ -78,6 +78,85 @@ describe('Geometry in a browser', () => {
             }
         });
 
+        describe('under scrolling and in the top layer', () => {
+            /** The next animation frame, after the ones already asked for. */
+            const nextFrame = () => new Promise(resolve => requestAnimationFrame(resolve));
+
+            /**
+             * A pane 100 pixels down the page, 200 high, shifted 20 to the right by a transform, scrolling an anchor 300 down its content, and holding a popover of 120 by 60 that places itself by its inline left and top;
+             * the page 3,000 high below it, so the window scrolls too.
+             */
+            const page = () => {
+                document.body.innerHTML = `
+                    <div style="height: 100px"></div>
+                    <div id="pane" style="height: 200px; overflow: auto; transform: translateX(20px)">
+                        <div style="height: 300px"></div>
+                        <div id="anchor" style="width: 80px; height: 20px"></div>
+                        <div style="height: 500px"></div>
+                        <div id="tip" popover style="inset: auto; margin: 0; padding: 0; border: 0; width: 120px; height: 60px"></div>
+                    </div>
+                    <div style="height: 3000px"></div>`;
+
+                return Object.fromEntries(['pane', 'anchor', 'tip'].map(id => [id, document.getElementById(id)]));
+            };
+
+            afterEach(() => {
+                window.scrollTo(0, 0);
+            });
+
+            it('are relative to the viewport as the page and a scroll container holding the element scroll, which a watch follows', async () => {
+                const { pane, anchor } = page();
+                const snapshots = [];
+                const watch = domql.query('anchor.rect { left = it.left, top = it.top }', { anchor }).watch({ acceptPartialObservation: true });
+
+                watch.subscribe('change', (sender, args) => snapshots.push(args.value));
+                await watch.readyAsync();
+
+                pane.scrollTop = 150;
+                await nextFrame();
+                await nextFrame();
+                window.scrollTo(0, 50);
+                await nextFrame();
+                await nextFrame();
+
+                expect(snapshots).toEqual([{ left: 20, top: 400 }, { left: 20, top: 250 }, { left: 20, top: 200 }]);
+                watch.dispose();
+            });
+
+            it('place a popover shown in the top layer where owned writes of its left and top put it, within the task, relative to the viewport and outside the transform and the clip of the pane holding it', async () => {
+                const { pane, anchor, tip } = page();
+
+                pane.scrollTop = 150;
+                window.scrollTo(0, 50);
+
+                expect(await domql.query('tip.showPopover()', { tip }).executeAsync()).toBe(true);
+
+                // Below the anchor, 4 pixels down, at its left edge.
+                const placement = () => {
+                    const { left, bottom } = read('anchor.rect', { anchor });
+
+                    return { tip, left: `${left}px`, top: `${bottom + 4}px` };
+                };
+                const left = domql.query('tip.ownStyle({ property = "left", value = left, keep = true })', placement()).run();
+                const top = domql.query('tip.ownStyle({ property = "top", value = top, keep = true })', placement()).run();
+
+                expect(tip.getBoundingClientRect().toJSON()).toMatchObject({ left: 20, top: 224, width: 120, height: 60 });
+                expect(read('tip.rect', { tip })).toEqual({ left: 20, top: 224, right: 140, bottom: 284, width: 120, height: 60 });
+                // The pane shows its content down to 250, and the popover is drawn past it, above the page.
+                expect(document.elementFromPoint(30, 270)).toBe(tip);
+
+                // The anchor moves up with a scroll of its pane, and the popover follows within the task, before any frame.
+                pane.scrollTop = 180;
+                left.update(placement());
+                top.update(placement());
+
+                expect(tip.getBoundingClientRect().toJSON()).toMatchObject({ left: 20, top: 194 });
+                left.dispose();
+                top.dispose();
+                tip.hidePopover();
+            });
+        });
+
         it('give the height an aggregate reads', () => {
             const list = add('');
 
@@ -227,6 +306,86 @@ describe('Geometry in a browser', () => {
             } finally {
                 document.body.style.overflow = '';
             }
+        });
+
+        describe('a table with a sticky header and a frozen first column', () => {
+            /**
+             * A table in a box 300 by 150 that scrolls both ways: its header 40 high and sticky at the top, five rows of 30 below it, its first column 100 wide and sticky at the inline start, the corner sticky both ways,
+             * and four columns of 150 beside it. Its corner, the first row's frozen cell and the second header cell are answered.
+             */
+            const table = dir => {
+                const row = tag => `<tr><${tag} class="frozen"></${tag}>${`<${tag}></${tag}>`.repeat(4)}</tr>`;
+
+                document.body.innerHTML = `
+                    <style>
+                        #box th, #box td { padding: 0; width: 150px; min-width: 150px; height: 30px }
+                        #box th { position: sticky; top: 0; height: 40px }
+                        #box .frozen { position: sticky; inset-inline-start: 0; width: 100px; min-width: 100px }
+                    </style>
+                    <div id="box" dir="${dir}" style="width: 300px; height: 150px; overflow: auto; scrollbar-width: none">
+                        <table style="border-spacing: 0"><thead>${row('th')}</thead><tbody>${row('td').repeat(5)}</tbody></table>
+                    </div>`;
+
+                const box = document.getElementById('box');
+                const [corner, heading] = box.querySelectorAll('th');
+
+                return { box, corner, heading, cell: box.querySelector('td') };
+            };
+
+            const MEMBERS = `box {
+                inline = it.scroll?.inline,
+                block = it.scroll?.block,
+                direction = it.direction,
+                size = it.size,
+                clientSize = it.clientSize,
+                corner = corner.rectRelativeTo(box),
+                cell = cell.rectRelativeTo(box),
+                heading = heading.rectRelativeTo(box),
+                inlineEnd = it.all(".frozen").max(it.rectRelativeTo(box)?.right),
+                inlineStart = it.all(".frozen").min(it.rectRelativeTo(box)?.left),
+                blockEnd = it.all(".frozen").min(it.rectRelativeTo(box)?.bottom)
+            }`;
+            const rectangle = (left, top, width, height) => ({ left, top, right: left + width, bottom: top + height, width, height });
+
+            it('reads its scroll, its direction and sizes, and where its frozen cells stick relative to it, at the start, the middle and the end of its inline scroll, under LTR and RTL', () => {
+                for (const dir of ['ltr', 'rtl']) {
+                    const elements = table(dir);
+                    // The frozen column sticks at the left under LTR and at the right under RTL, and the header cell beside it moves by the offset toward the inline end.
+                    const start = dir === 'ltr' ? 0 : 200;
+                    const headingAt = offset => (dir === 'ltr' ? 100 - offset : 50 + offset);
+
+                    for (const offset of [0, 200, 400]) {
+                        elements.box.scrollLeft = dir === 'ltr' ? offset : -offset;
+
+                        expect(read(MEMBERS, elements), `${dir} at ${offset}`).toEqual({
+                            inline: { offset, extent: 700, viewport: 300 },
+                            block: { offset: 0, extent: 190, viewport: 150 },
+                            direction: dir,
+                            size: { width: 300, height: 150 },
+                            clientSize: { width: 300, height: 150 },
+                            corner: rectangle(start, 0, 100, 40),
+                            cell: rectangle(start, 40, 100, 30),
+                            heading: rectangle(headingAt(offset), 0, 150, 40),
+                            inlineEnd: start + 100,
+                            inlineStart: start,
+                            blockEnd: 40,
+                        });
+                    }
+                }
+            });
+
+            it('reads a frozen cell scrolled beneath the header along the block axis, the corner sticking where it was', () => {
+                const elements = table('ltr');
+
+                elements.box.scrollTop = 40;
+
+                expect(read('{ block = box.scroll?.block, corner = corner.rectRelativeTo(box), cell = cell.rectRelativeTo(box), blockEnd = box.all(".frozen").min(it.rectRelativeTo(box)?.bottom) }', elements)).toEqual({
+                    block: { offset: 40, extent: 190, viewport: 150 },
+                    corner: rectangle(0, 0, 100, 40),
+                    cell: rectangle(0, 0, 100, 30),
+                    blockEnd: 30,
+                });
+            });
         });
 
         it('follows a scroll, its content growing and a child added, missing a descendant overflowing a child of a fixed size until another change', async () => {

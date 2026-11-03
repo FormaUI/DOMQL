@@ -251,6 +251,55 @@ describe('domql evaluateAsync in a browser', () => {
             expect(snapshots).toEqual([false, true]);
         });
 
+        it('reads a member it keeps as the browser reports it once ready, false and never null while the element or its root is detached or hidden, a refresh taking new samples included, and true once each is back', async () => {
+            const snapshots = [];
+            const watch = domql.query('item.intersects({ root = panel })', { item: inside, panel }).watch();
+
+            watch.subscribe('change', (sender, args) => snapshots.push(args.value));
+            watches.push(watch);
+
+            expect(await watch.readyAsync()).toBe(true);
+
+            const changes = [
+                () => inside.remove(),
+                () => panel.prepend(inside),
+                () => { inside.style.display = 'none'; },
+                () => { inside.style.display = ''; },
+                () => panel.remove(),
+                () => document.body.append(panel),
+                () => { panel.style.display = 'none'; },
+                () => { panel.style.display = ''; },
+            ];
+
+            for (const change of changes) {
+                change();
+                await frame();
+                await watch.refreshAsync({ resample: true });
+            }
+
+            expect(snapshots).toEqual([true, false, true, false, true, false, true, false, true]);
+            expect(watch.status).toBe('ready');
+        });
+
+        it('reads null for a member it keeps on an element it reaches after its first snapshot, until the browser reports that element', async () => {
+            inside.className = 'near';
+
+            const snapshots = [];
+            const watch = domql.query('panel.first(".near")?.intersects({ root = panel })', { panel }).watch({ acceptPartialObservation: true });
+
+            watch.subscribe('change', (sender, args) => snapshots.push(args.value));
+            watches.push(watch);
+
+            expect(await watch.readyAsync()).toBe(true);
+
+            // Another element takes the class, as one rendered in place of the first.
+            inside.replaceWith(Object.assign(document.createElement('div'), { className: 'near', style: 'height: 40px' }));
+            await frame();
+            await frame();
+
+            expect(snapshots).toEqual([true, null, true]);
+        });
+
         it('stops reporting once it is disposed', async () => {
             const snapshots = [];
             const watch = domql.query('item.size', { item: inside }).watch();
