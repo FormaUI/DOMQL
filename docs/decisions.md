@@ -1245,3 +1245,20 @@ Each entry is one of three kinds:
   - The list states each change precisely, but a caller migrating needs the line to write.
   - Nexo's language history follows the same rule, as its [D70](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/docs/decisions.md#d70) records, and running its examples found what `1.0.0-beta.2`'s entry here misstated: a chain's limit counts terms, and a grouped chain is written `a + b + (c + d)`.
 - **Declined:** Running the history's examples in the gate, which would make a record of the past change with later versions.
+
+<a id="d82"></a>
+
+## D82 — A query declares its bindings' types
+
+*November 3, 2026*
+
+- **Kind:** Contract.
+- **Decision:** `domql.query(text, bindings, { types })` declares the type of a top-level binding by its notation, which Nexo's `createBindings` binds as its [declared types](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/runtime/bindings.md#runtime-bindings) do. Every binding made from the query keeps the types, `with`'s, an execution's update and a reaction's, and the query keeps a copy of them.
+- **Why:**
+  - It is the feature the 1.0 freeze allows, as [D80](#d80) records: replacing Forma's scripts needs it. Forma's input router binds its routes as `List<FormaInput.Route>` and its overrides as a dictionary of structures, and its culture coordinator binds its starting state as a structure. Data typed from itself is of no module's type, so each was refused (NEXO3042), and routes whose families carry different fields could not be bound at all.
+  - Nexo already captures data as a declared type, a map as a dictionary and a set as a list, and checks it, so DOMQL passes the types through and adds no rule of its own.
+  - The types belong to the query, as its text does, so rebinding it never drops them.
+- **Declined:**
+  - Writing the data into the query's text, which makes a new definition for each value and resolves each anew.
+  - A parameter declared `Any` and every binding normalized to one shape, which gives up the checks a declared type makes.
+  - Types given to `with` alone, which would let one query bind the same parameter as two types.

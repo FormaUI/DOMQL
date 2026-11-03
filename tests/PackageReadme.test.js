@@ -68,6 +68,7 @@ const examples = [
         answers: [['NEXO3042'], ['validation'], ["The argument 'name' of '[…]' expects String and finds Number", '(line 1, column 7, at /expression/argument)']],
     },
     { file: '21-module.js', observed: 'reads', answers: [['{ childCount: 3 }']] },
+    { file: '37-declared-types.js', observed: 'reads', answers: [["'submit'"]] },
     { file: '31-load-on-request.js', observed: 'reads', answers: [['7']] },
     { file: '22-execute-once.js', observed: 'reads', answers: [['true']] },
     { file: '23-run-continuously.js', observed: 'printed', answers: [["'gold'"], ["'teal'"], ['undefined']] },
@@ -148,7 +149,7 @@ describe('the package README', () => {
                 }
             },
         });
-        const domql = { ...real, query: (source, bindings) => kept(real.query(source, bindings)) };
+        const domql = { ...real, query: (source, bindings, options) => kept(real.query(source, bindings, options)) };
 
         document.body.innerHTML = fixture('document.html');
         layOut(document);

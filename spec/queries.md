@@ -93,15 +93,29 @@ A query uses the vocabulary of the modules it imports, as Nexo's [imports](https
 
 ### Binding its parameters
 
-Each parameter is bound under the name the query uses, with a value Nexo's [script parameters and bindings](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/language/scripts.md#scripts-script-parameters) allow, and a result is data, which a caller receives in its own language's form. `with` answers a new query whose bindings replace the old ones whole; the query it was called on, and every operation running from it, are unaffected. A query can be made without its bindings and bound afterwards, and a required binding that is missing fails before anything is carried out.
+Each parameter is bound under the name the query uses, with a value Nexo's [script parameters and bindings](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/language/scripts.md#scripts-script-parameters) allow, and a result is data, which a caller receives in its own language's form. `with` answers a new query whose bindings replace the old ones whole, of the types the query declares; the query it was called on, and every operation running from it, are unaffected. A query can be made without its bindings and bound afterwards, and a required binding that is missing fails before anything is carried out.
 
-A binding declares no type: every value is typed from itself, a null, an empty list and a list holding nulls among them, so a query is made for an element that is not there yet as it is for one that is.
+A binding is typed from its value, unless the query [declares its type](#making-a-query-declared-types): every value is typed from itself, a null, an empty list and a list holding nulls among them, so a query is made for an element that is not there yet as it is for one that is.
 
 ```js
 const query = domql.query("{ panel = panel { size = it.size }, ids = ids }", { panel: null, ids: [] });
 
 const another = query.with({ panel: otherPanel, ids: [1, 2] });
 ```
+
+<a id="making-a-query-declared-types"></a>
+
+**Declared types.** `domql.query(text, bindings, { types })` declares the type of a top-level binding by its notation, as Nexo's [declared types](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/runtime/bindings.md#runtime-bindings) bind it, where data typed from itself would be of no module's type:
+
+```js
+const routed = domql.query("import Forma\nForma.firstKey(routes)", { routes: [{ key: "Enter" }] }, { types: { routes: "List<Forma.Route>" } });
+```
+
+- **A notation** names the types of the modules registered when the query is made, each module's type qualified where another of its name would hide it. A module loaded on request is loaded first.
+- **Data is captured as the type:** a structure keeps its data shape, a property the data leaves out is null where its type is nullable, a map binds as a dictionary and a set as a list. Data the type doesn't admit refuses the binding (NEXO2045).
+- **A reference type holds to its contract:** the value belongs to the type, or is null where it is nullable.
+- **Every binding made from the query keeps the types:** `with`'s, an execution's update and a reaction's. The query keeps a copy of them, so a change its caller makes afterwards reaches none.
+- **The options are the bindings':** a declared type that is no string is refused (NEXO2044), and so is an option the bindings take none of (NEXO2048).
 
 With the first bindings, the result is the following: an object expression following the null `panel` is null, and `ids` is the empty list.
 

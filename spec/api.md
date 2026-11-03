@@ -31,9 +31,9 @@ Each entry point and operation is listed here with what it takes, and the sectio
 
 | Entry point or operation | Meaning |
 | --- | --- |
-| `domql.query(text, bindings?)`, `domql.query(definition, bindings?)` | Makes a query object, binding its parameters, as [making a query](queries.md#making-a-query) sets out |
+| `domql.query(text, bindings?, options?)`, `domql.query(definition, bindings?, options?)` | Makes a query object, binding its parameters, each of the type `options.types` [declares](queries.md#making-a-query-declared-types) for it, as [making a query](queries.md#making-a-query) sets out |
 | `query.definition` | The query's immutable definition, without its bindings |
-| `query.with(bindings)` | A new query with the same definition, bound to these bindings |
+| `query.with(bindings)` | A new query with the same definition, bound to these bindings, of the types the query declares |
 | `query.resolve(options?)` | Resolves and types a request without evaluating anything, as [resolution](queries.md#queries-resolution) sets out |
 | `query.select(...path)` | A part of its result, as [selecting a result](queries.md#selecting-a-result) sets out |
 | `query.evaluate(options?)` | Evaluates a query once, as [evaluating a query](evaluation.md#evaluating) sets out; its options are `window` and `owner` |

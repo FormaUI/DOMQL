@@ -279,9 +279,18 @@ export interface DomqlDefinitionObjectField {
     readonly value: DomqlDefinitionNode;
 }
 
-/** The values supplied by parameter name, each typed from the value itself. */
+/** The values supplied by parameter name, each typed from the value itself, or as its query declares it. */
 export interface DomqlBindings {
     [name: string]: unknown;
+}
+
+/** The options a query's bindings take, as Nexo's `createBindings` takes them. */
+export interface DomqlQueryOptions {
+    /**
+     * The type of each top-level binding it names, by its notation, a module's type qualified where another of its name would hide it, as `{ routes: 'List<Forma.Route>' }`. Data is captured as that type, a map as a
+     * dictionary and a set as a list, and a reference holds to the type's contract. Every binding of the query keeps the types, `with`'s, an update's and a reaction's among them.
+     */
+    readonly types?: Readonly<Record<string, string>>;
 }
 
 /**
@@ -293,7 +302,7 @@ export interface DomqlQuery<T = unknown> {
     readonly definition: DomqlDefinition;
     /** The type of the result the query produces, for TypeScript alone: the caller's type argument asserts it, and no query holds it. */
     readonly [domqlResult]?: { result(value: T): void };
-    /** A new query object with the same definition, bound to these bindings, which replace the old ones whole. */
+    /** A new query object with the same definition, bound to these bindings, which replace the old ones whole, each of the type the query declares for it. */
     with(bindings: DomqlBindings): DomqlQuery<T>;
     /** The request validated against the vocabulary and typed, without evaluating anything. */
     resolve(options?: DomqlResolveOptions): DomqlResolvedDefinition;
@@ -720,9 +729,9 @@ export interface Domql {
     /** Which build this is, and which specification it follows. */
     readonly info: DomqlInfo;
     /** Makes a query object from a request's text, binding its parameters; it parses and checks the text, and evaluates nothing. */
-    query<T = unknown>(text: string, bindings?: DomqlBindings): DomqlQuery<T>;
+    query<T = unknown>(text: string, bindings?: DomqlBindings, options?: DomqlQueryOptions): DomqlQuery<T>;
     /** Makes a query object from a request's definition, binding its parameters. */
-    query<T = unknown>(definition: DomqlDefinition, bindings?: DomqlBindings): DomqlQuery<T>;
+    query<T = unknown>(definition: DomqlDefinition, bindings?: DomqlBindings, options?: DomqlQueryOptions): DomqlQuery<T>;
     /** The canonical text of a request, given as its text, its definition or a query object: it parses and checks the structure, writes every import the definition records but `Domql`, which DOMQL supplies, needs no bindings, and formatting what it gives gives that again. */
     format(source: string | DomqlDefinition | DomqlQuery): string;
     /** Creates a module from the vocabulary it declares, each declaration that runs code carrying its implementation. */

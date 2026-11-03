@@ -865,7 +865,7 @@ optional.evaluate();
 // { panel: null, ids: [] }
 ```
 
-A binding's type comes from its value. Null bindings and empty lists can leave a type unknown; applicable property checks are deferred until the type is known, while calls are still checked against the vocabulary. Use optional access when reading a member from a nullable binding.
+A binding's type comes from its value, unless the query [declares it](#bind-data-as-a-modules-type). Null bindings and empty lists can leave a type unknown; applicable property checks are deferred until the type is known, while calls are still checked against the vocabulary. Use optional access when reading a member from a nullable binding.
 
 Keep independent results in a top-level object, as above. If you instead write `panel { size = it.size, ids = ids }`, the entire result is null while `panel` is null.
 
@@ -993,6 +993,49 @@ Modules can also declare Boolean members, properties and functions whose result 
 A member the host invokes, `invokedBy: 'host'`, is a host call that DOMQL carries out: an event source, `requestKind: 'subscription'`, or an execution, `requestKind: 'execution'`, which runs `once` or `continuous` as its `executionMode` says. An event source's implementation receives the receiver, arguments, environment and an event-delivery callback, as `{ receiver, args, env, deliver }`, and returns an object with a `stop` method to end listening. Each event is captured as the type its declaration's result names, and a module adds event types of its own as mappings of DOMQL's type selector `event`, `{ selector: 'event', key, type }`, each naming the type its events are captured as.
 
 [Nexo's modules](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/runtime/modules.md#modules) specify the full extension contracts. The next section shows execution modules.
+
+### Bind data as a module's type
+
+A binding's data is typed from itself, so a list of objects is no list of a module's structured type, and a member that takes one refuses it (NEXO3042). Declare the binding's type when making the query:
+
+```js
+const shortcutsModule = domql.createModule('Shortcuts', {
+    types: [{
+        name: 'Shortcut',
+        kind: 'structured',
+        members: [
+            { name: 'key', kind: 'property', result: 'String' },
+            { name: 'action', kind: 'property', result: 'String' }
+        ]
+    }],
+    members: [{
+        name: 'actionFor',
+        kind: 'function',
+        result: 'String?',
+        arguments: 'positional',
+        updates: { changes: 'constant', reads: 'fresh' },
+        parameters: [
+            { name: 'shortcuts', kind: 'value', type: 'List<Shortcut>' },
+            { name: 'key', kind: 'value', type: 'String' }
+        ],
+        impl: ({ args }) => args.shortcuts.find(shortcut => shortcut.key === args.key)?.action ?? null
+    }]
+});
+
+domql.registerModule(shortcutsModule);
+
+domql.query(
+    'import Shortcuts\nShortcuts.actionFor(shortcuts, "Enter")',
+    { shortcuts: [{ key: 'Enter', action: 'submit' }] },
+    { types: { shortcuts: 'List<Shortcuts.Shortcut>' } }
+).evaluate();
+// 'submit'
+```
+
+- **A declared type is a notation,** naming each module's type qualified where another of its name would hide it, as `List<Shortcuts.Shortcut>`.
+- **The data is captured as that type:** a property it leaves out is null where its type is nullable, a map binds as a dictionary and a set as a list, and data the type doesn't admit refuses the binding (NEXO2045).
+- **Every binding made from the query keeps the types:** `with`'s, an execution's update and a reaction's.
+- **A module a type names is registered first,** or loaded, before the query is made, since the query binds as it is made.
 
 ### Load a module on request
 

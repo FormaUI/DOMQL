@@ -432,6 +432,73 @@ describe('DomqlQuery', () => {
             expect(() => isolated.query(isolated.query('panel', { panel }))).toThrow(expect.objectContaining({ kind: 'structure', code: 'DOMQL2001', message: expect.stringContaining('query.with(bindings)') }));
             expect(isolated.query(foreign.definition, { panel }).evaluate()).toBe('1');
         });
+
+        describe('of the types a query declares', () => {
+            /** A module of routes: a structured route, and a member counting the routes it is given and naming the first, which takes them as routes alone. */
+            const routesModule = () =>
+                isolated.createModule('Routes', {
+                    types: [{ name: 'Route', kind: 'structured', members: [{ name: 'key', kind: 'property', result: 'String' }, { name: 'scope', kind: 'property', result: 'String?' }] }],
+                    members: [{
+                        name: 'first', kind: 'function', result: 'String?', arguments: 'positional', updates: { changes: 'constant', reads: 'fresh' },
+                        parameters: [{ name: 'routes', kind: 'value', type: 'List<Route>' }],
+                        impl: ({ args: { routes } }) => routes[0]?.key ?? null,
+                    }],
+                });
+
+            it('binds data as the type the query declares, a map as a dictionary, where data typed from itself is refused', () => {
+                isolated.registerModule(routesModule());
+
+                const text = 'import Routes\n{ first = Routes.first(routes), escape = overrides["escape"]?.scope, scopes = routes { scope = it.scope } }';
+                const types = { routes: 'List<Routes.Route>', overrides: 'Dictionary<String, Routes.Route>' };
+                const query = isolated.query(text, { routes: [{ key: 'Enter' }], overrides: new Map([['escape', { key: 'Escape', scope: 'menu' }]]) }, { types });
+
+                expect(query.resolve().type).toBe('{ first: String?, escape: String?, scopes: List<{ scope: String? }> }');
+                expect(query.evaluate()).toEqual({ first: 'Enter', escape: 'menu', scopes: [{ scope: null }] });
+                expect(() => isolated.query(text, { routes: [{ key: 'Enter' }], overrides: new Map() }).resolve()).toThrow(expect.objectContaining({ kind: 'validation', code: 'NEXO3042' }));
+            });
+
+            it('keeps the types for every binding made from the query, with\'s and an execution\'s update among them', () => {
+                let instance;
+
+                isolated.registerModule(routesModule());
+                isolated.registerModule(isolated.createModule('Router', {
+                    types: [elementExtension('Router', [{
+                        name: 'route', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'continuous', arguments: 'positional',
+                        parameters: [{ name: 'routes', kind: 'value', type: 'List<Routes.Route>' }],
+                        impl: ({ args }) => (instance = { routes: args.routes, update: (receiver, next) => (instance.routes = next.routes), dispose: () => {} }),
+                    }])],
+                }));
+
+                const query = isolated.query('import Routes\nimport Router\nRoutes.first(routes)', { routes: [{ key: 'Enter' }] }, { types: { routes: 'List<Routes.Route>' } });
+                const execution = isolated.query('import Router\npanel:route(routes)', { panel, routes: [{ key: 'Enter' }] }, { types: { routes: 'List<Routes.Route>' } }).run();
+
+                expect(query.with({ routes: [{ key: 'Tab', scope: 'grid' }] }).evaluate()).toBe('Tab');
+                execution.update({ panel, routes: [{ key: 'Escape' }] });
+                expect(instance.routes).toEqual([{ key: 'Escape', scope: null }]);
+                execution.dispose();
+            });
+
+            it('keeps the types it was made with, whatever its caller changes in them afterwards', () => {
+                isolated.registerModule(routesModule());
+
+                const options = { types: { routes: 'List<Routes.Route>' } };
+                const query = isolated.query('import Routes\nRoutes.first(routes)', { routes: [] }, options);
+
+                options.types.routes = 'List<String>';
+                options.types.other = 'Number';
+
+                expect(query.with({ routes: [{ key: 'Tab' }] }).evaluate()).toBe('Tab');
+            });
+
+            it('refuses data its declared type does not admit, a type no notation names, and an option the bindings take none of, as Nexo binds them', () => {
+                isolated.registerModule(routesModule());
+
+                expect(() => isolated.query('routes', { routes: [{ scope: 'menu' }] }, { types: { routes: 'List<Routes.Route>' } })).toThrow(expect.objectContaining({ kind: 'structure', code: 'NEXO2045' }));
+                expect(() => isolated.query('routes', { routes: [] }, { types: { routes: 5 } })).toThrow(expect.objectContaining({ kind: 'structure', code: 'NEXO2044' }));
+                expect(() => isolated.query('routes', { routes: [] }, { types: { routes: 'List<Missing.Route>' } })).toThrow(expect.objectContaining({ kind: 'structure' }));
+                expect(() => isolated.query('routes', { routes: [] }, { typez: { routes: 'List<Routes.Route>' } })).toThrow(expect.objectContaining({ kind: 'structure', code: 'NEXO2048' }));
+            });
+        });
     });
 
     describe('a continuous execution', () => {

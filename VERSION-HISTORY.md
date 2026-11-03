@@ -30,6 +30,7 @@ const query = domql.query('{ counts = ["a" = 1, "b" = 2] }');
 
 query.select('counts', 'entries', 1, 'value').evaluate();  // 2; NEXO3602 before
 query.select('counts', 'b').evaluate();                    // NEXO3602: a dictionary holds its entries
+domql.query('import Routes\nRoutes.first(routes)', { routes }, { types: { routes: 'List<Routes.Route>' } });  // routes captured as routes; NEXO3042 before
 domql.format('-(-1)');                                     // '1'; '-(-1)' before
 ```
 
@@ -48,6 +49,7 @@ DOMQL moves to Nexo's language `1.0.0-beta.40`, as [D76](docs/decisions.md#d76) 
 - [`and` and `or`](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/language/expressions.md#logical-expressions-negations-and-groups-type) share a type only where their value is used: `it.disabled() and "locked" or "open"` is a `String`, where it was refused.
 - A conversion of a value of `Any` converts by the type the value turns out to be, failing with NEXO5053 where nothing converts it, where it was refused at resolution.
 - A computed name through a namespace reads as it does after `@`: `Domql.["window"]` is `Domql.window`.
+- [A query declares its bindings' types](spec/queries.md#making-a-query-declared-types), `domql.query(text, bindings, { types })`, capturing data as a module's structured type, a map as a dictionary, where every binding was typed from its value.
 - A query nesting deeper than 256 levels is refused, NEXO1072, a chain of more than 256 terms, NEXO2046, and a string holding a surrogate standing alone, NEXO1049.
 - Diagnostics say what to write: `1.e3`, `value to List<Number>` and `element as Element?` among them.
 

@@ -126,7 +126,7 @@ class Domql {
 
     /** What carries out the operations of the query objects this instance makes. @type {import('./dom/DomqlQuery.mjs').QueryOperations} */
     static #operations = Object.freeze({
-        bind: bindings => Domql.#bind(bindings),
+        bind: (bindings, options) => Domql.#bind(bindings, options),
         resolve: (query, options) => Domql.#resolvedDefinitionOf(Domql.#resolve(query, options ?? {})),
         evaluate: (query, path, options) => Domql.#evaluate(query, path, options ?? {}),
         evaluateAsync: (query, path, options) => Domql.#evaluateAsync(query, path, options ?? {}),
@@ -141,11 +141,14 @@ class Domql {
      * A query object of another DOMQL instance is refused, with how to make it here from its definition.
      * @param {string | object} source The request's text, or its definition.
      * @param {Record<string, unknown>} [bindings] The values supplied by parameter name.
+     * @param {{ types?: Record<string, string> }} [options] The bindings' options, as Nexo's `createBindings` takes them: `types` declares a top-level binding's type by its notation, which every binding of the query keeps.
      * @returns {DomqlQuery}
      */
-    static query(source, bindings = {}) {
+    static query(source, bindings = {}, options = undefined) {
         if (typeof source === 'string') {
-            return new DomqlQuery(nexo.parse(source, { imports: Domql.#imports }), Domql.#bind(bindings), Domql.#operations, bindings);
+            const definition = nexo.parse(source, { imports: Domql.#imports });
+
+            return new DomqlQuery(definition, Domql.#bind(bindings, options), Domql.#operations, bindings, Domql.#keep(options));
         }
 
         if (source instanceof DomqlQuery) {
@@ -156,7 +159,9 @@ class Domql {
             throw NexoError.structure('DOMQL2002', 'A query object is made from text or a definition; one another DOMQL instance made is made here from its definition, as domql.query(query.definition, bindings)', {});
         }
 
-        return new DomqlQuery(nexo.validate(source), Domql.#bind(bindings), Domql.#operations, bindings);
+        const definition = nexo.validate(source);
+
+        return new DomqlQuery(definition, Domql.#bind(bindings, options), Domql.#operations, bindings, Domql.#keep(options));
     }
 
     /**
@@ -315,9 +320,18 @@ class Domql {
         return [...listOf(module?.members).map(declaration => ({ declaration, type: null })), ...listOf(module?.types).flatMap(type => listOf(type?.members).map(declaration => ({ declaration, type: type.name })))];
     }
 
-    /** Binds the values given by parameter name through DOMQL's registry, which every query resolves against. */
-    static #bind(bindings) {
-        return Domql.#moduleRegistry.createBindings(bindings);
+    /** The bindings' options a query keeps, once binding has checked them: a copy, so a change its caller makes afterwards reaches none of its bindings. */
+    static #keep(options) {
+        if (options === undefined) {
+            return undefined;
+        }
+
+        return Object.freeze(options.types === undefined ? { ...options } : { ...options, types: Object.freeze({ ...options.types }) });
+    }
+
+    /** Binds the values given by parameter name through DOMQL's registry, which every query resolves against, each binding whose type the options declare captured as that type. */
+    static #bind(bindings, options) {
+        return Domql.#moduleRegistry.createBindings(bindings, options);
     }
 
     /** Evaluates the query once, synchronously, answering the part of its result the path reaches. */
@@ -986,7 +1000,7 @@ class Domql {
 
 /** DOMQL: makes query objects, formats requests, registers the modules that extend the vocabulary and loads those loaded on request, and says which build it is and which specification it follows. */
 export const domql = Object.freeze({
-    query: (source, bindings) => Domql.query(source, bindings),
+    query: (source, bindings, options) => Domql.query(source, bindings, options),
     format: source => Domql.format(source),
     createModule: (name, contents) => Domql.createModule(name, contents),
     registerModule: module => Domql.registerModule(module),

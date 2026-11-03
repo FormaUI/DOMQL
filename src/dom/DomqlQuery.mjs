@@ -7,7 +7,7 @@ import { nexo } from '@formaui-net/nexo';
 /**
  * What carries a query object's operations out, in the DOMQL instance that made it, and binds its parameters there.
  * @typedef {object} QueryOperations
- * @property {(values: Record<string, unknown>) => object} bind
+ * @property {(values: Record<string, unknown>, options?: { types?: Record<string, string> }) => object} bind
  * @property {(query: DomqlQuery, options?: object) => object} resolve
  * @property {(query: DomqlQuery, path: (string | number)[], options?: object) => unknown} evaluate
  * @property {(query: DomqlQuery, path: (string | number)[], options?: object) => Promise<unknown>} evaluateAsync
@@ -21,6 +21,7 @@ export class DomqlQuery {
     #definition;
     #bindings;
     #values;
+    #options;
     #operations;
 
     /**
@@ -28,12 +29,14 @@ export class DomqlQuery {
      * @param {object} bindings The values its parameters are bound to, as the registry it is resolved against binds them.
      * @param {QueryOperations} operations What carries its operations out.
      * @param {Record<string, unknown>} values The values given by parameter name, which `bindings` binds.
+     * @param {{ types?: Record<string, string> }} [options] The bindings' options, the types they declare among them, which every binding of this query and of the queries `with` makes from it keeps.
      */
-    constructor(definition, bindings, operations, values) {
+    constructor(definition, bindings, operations, values, options) {
         this.#definition = definition;
         this.#bindings = bindings;
         this.#operations = operations;
         this.#values = values;
+        this.#options = options;
     }
 
     /** The immutable definition, without its bindings. */
@@ -56,9 +59,9 @@ export class DomqlQuery {
         return query.#values;
     }
 
-    /** A new query object with the same definition, bound to these bindings, which replace the old ones whole; this one, and every operation running from it, are unaffected. */
+    /** A new query object with the same definition, bound to these bindings, which replace the old ones whole, each of the type this query declares for it; this one, and every operation running from it, are unaffected. */
     with(bindings) {
-        return new DomqlQuery(this.#definition, this.#operations.bind(bindings), this.#operations, bindings);
+        return new DomqlQuery(this.#definition, this.#operations.bind(bindings, this.#options), this.#operations, bindings, this.#options);
     }
 
     /** The request validated against the vocabulary and typed, without evaluating anything; its options resolve it as a watch would. */

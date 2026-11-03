@@ -1,6 +1,6 @@
 // How a TypeScript caller uses DOMQL, which the declarations must accept; the test compiles this file.
 import { domql, NexoError } from '../../src/domql.js';
-import type { DomqlEventArgs, DomqlSubscribeOptions, DomqlFrameOptions, DomqlFrameRequest, DomqlHeldObservation, DomqlMeasureOptions, DomqlChangeOperation, DomqlOperatorImplementationInput, DomqlTypeDeclaration, DomqlDefinition, DomqlDefinitionNode, DomqlEvaluateAsyncOptions, DomqlEventListener, DomqlExecutionHandle, DomqlLiveStateWatch, DomqlLiveStateWatchOptions, DomqlMemberDeclaration, DomqlModule, DomqlModuleContents, DomqlOperationOptions, DomqlQuery, DomqlReadOnly, DomqlResolvedDefinition, DomqlResultArgs, DomqlSelectedView, DomqlSelection, DomqlWatch, DomqlWatchOptions } from '../../src/domql.js';
+import type { DomqlEventArgs, DomqlSubscribeOptions, DomqlFrameOptions, DomqlFrameRequest, DomqlHeldObservation, DomqlMeasureOptions, DomqlChangeOperation, DomqlOperatorImplementationInput, DomqlTypeDeclaration, DomqlDefinition, DomqlDefinitionNode, DomqlEvaluateAsyncOptions, DomqlEventListener, DomqlExecutionHandle, DomqlLiveStateWatch, DomqlLiveStateWatchOptions, DomqlMemberDeclaration, DomqlModule, DomqlModuleContents, DomqlOperationOptions, DomqlQuery, DomqlQueryOptions, DomqlReadOnly, DomqlResolvedDefinition, DomqlResultArgs, DomqlSelectedView, DomqlSelection, DomqlWatch, DomqlWatchOptions } from '../../src/domql.js';
 
 const panel = document.createElement('div');
 const controller = new AbortController();
@@ -12,6 +12,11 @@ const optional = domql.query('panel { size = it.size }', { panel: null, ids: [] 
 const definition: DomqlDefinition = query.definition;
 const created: DomqlQuery<{ count: number }> = domql.query<{ count: number }>(definition, { panel });
 const rebound: DomqlQuery<{ count: number }> = query.with({ panel: document.body });
+// A query declares a binding's type by its notation, which every binding made from it keeps.
+const queryOptions: DomqlQueryOptions = { types: { routes: 'List<Routes.Route>' } };
+const typed: DomqlQuery<string | null> = domql.query<string | null>('import Routes\nRoutes.first(routes)', { routes: [] }, queryOptions);
+// @ts-expect-error A declared type is its notation, a string.
+domql.query('routes', { routes: [] }, { types: { routes: 5 } });
 // @ts-expect-error A query's bindings are no part of its API; `with` binds it anew.
 const bound: unknown = rebound.bindings;
 const version: string = domql.info.versions.runtime;
