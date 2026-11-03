@@ -2,8 +2,9 @@
 
 Each version of DOMQL, newest first, with the features it added and what it changed. A version names DOMQL's contract, its [specification](spec/README.md): the DOM's vocabulary, the module that declares it, and DOMQL as the host that carries queries out. The language is Nexo's, called Lexica before `1.0.0-alpha.278`, so each entry also names the language version and definition format it describes.
 
-- Each version is dated by the day the specification first described it.
-- A change stands in the first version whose implementation follows it. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
+- **A version collects the changes made between two releases.** The first change to DOMQL's contract after a [release](CHANGELOG.md) opens the next version's entry, which reads *Unreleased*, and each later change joins it. The release that first implements the version dates it, and fixes it.
+- **Versions before `1.0.0-beta.2` advanced with each change,** before DOMQL's first release, each dated by the day the specification first described it.
+- **A change stands in the first version whose implementation follows it.** A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 
 Each entry says what its version breaks:
 
@@ -14,7 +15,7 @@ Each entry says what its version breaks:
 
 ## `1.0.0-beta.2`
 
-*November 3, 2026 · Nexo language `1.0.0-beta.40` · definition format 38*
+*Unreleased · Nexo language `1.0.0-beta.40` · definition format 38*
 
 DOMQL moves to Nexo's language `1.0.0-beta.40`, as [D76](docs/decisions.md#d76) records. Each change below is Nexo's, which its [language history](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/LANGUAGE-HISTORY.md#v1-0-0-beta-40) sets out by version; these are the ones a query, a caller and a module meet.
 

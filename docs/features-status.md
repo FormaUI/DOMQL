@@ -26,6 +26,7 @@ The [specification](../spec/README.md) defines the contract, and the [design](do
 | [Planned capabilities](#planned-capabilities) | The C# half's alone remain, waiting for its design |
 | [Release](#release) | The beta is declared; publishing waits for Nexo's published packages |
 
+- **A specification version collects the changes between two releases.** A change to DOMQL's contract joins the [version history](../VERSION-HISTORY.md)'s newest entry while it reads *Unreleased*, and opens the next version's entry once it is released, as [D79](decisions.md#d79) records.
 - **A breaking change says how to migrate.** Since the beta, a version's entry in the [version history](../VERSION-HISTORY.md) says how to migrate beside each thing it breaks.
 - **A change a caller can notice is in the [changelog](../CHANGELOG.md),** listed by its rules.
 - **Documents move with their change.** The READMEs, the library guide, the specification, the type declarations, the version history, the changelog and this file change in the commit that changes what they describe.
@@ -289,12 +290,12 @@ Needs Nexo's packages, which its [release](https://github.com/FormaUI/Nexo/blob/
 
 - **NuGet:** `./publish.ps1` packs `formaui-net.DOMQL` locally. It carries the runtime version `src/Versions.mjs` declares, `1.0.0-beta.1`, and is unpublished.
 - **npm:** not made yet. `package.json` is private and carries no version.
-- **The gate** holds the NuGet package, both READMEs, the [changelog](../CHANGELOG.md) and `domql.info.versions` to the versions the sources declare. The sources declare the version due at publication, so nothing advances before publishing, as [D75](decisions.md#d75) records.
+- **The gate** holds the NuGet package, both READMEs, the [changelog](../CHANGELOG.md) and `domql.info.versions` to the versions the sources declare. The sources declare the version due at the next release, so nothing advances before a release is cut, as [D75](decisions.md#d75) and [D79](decisions.md#d79) record.
 
 **Remaining:**
 
 1. Make the npm package, `@formaui-net/domql`, carrying the runtime version as the NuGet package does, its bundle importing `@formaui-net/nexo`, as [consuming the language](#consuming-nexo) sets out.
-2. Publish both, once DOMQL consumes a released Nexo. Publishing a version dates its entry in the changelog.
+2. Publish both, once DOMQL consumes Nexo's published packages, from the tag of a release [cut](../CONTRIBUTING.md#cut-a-release) as contributing sets out, which dates its entry in the changelog.
 
 Both wait for Nexo's published packages, and publishing stays with the maintainer.
 

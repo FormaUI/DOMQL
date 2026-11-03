@@ -1198,3 +1198,19 @@ Each entry is one of three kinds:
   - Moving the pin rewrote 89 links into Nexo, each checked by a script outside the gate, so a broken one could reach `main`.
   - Nexo renames a section when its subject changes, and a link at the release DOMQL pins must reach what that release holds.
 - **Declined:** Allowing a link to any of Nexo's commits, which would let a link meant to follow the pin stay behind it unnoticed.
+
+<a id="d79"></a>
+
+## D79 — A specification version collects the changes between two releases
+
+*November 3, 2026*
+
+- **Kind:** Process.
+- **Decision:**
+  - DOMQL's specification version advances at most once per release, as Nexo's language version does. The first change to DOMQL's contract after a release opens the next version's entry, which reads *Unreleased*, and each later change joins it. The release that first implements a version dates it.
+  - A release is a signed tag, `v` and its version, on the commit that dates its changelog entry. Its packages are published from that tag.
+  - `1.0.0-beta.2` is the first version collected so. The versions before it stand as they were declared.
+- **Why:**
+  - A version a caller relies on is one a release fixes, and DOMQL's version history and Nexo's language history now follow one rule, as Nexo's [D66](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/docs/decisions.md#d66) records.
+  - It narrows [D75](#d75)'s rule that each version advances for its own reason: the specification version's reason is now a release whose contract changed.
+- **Declined:** Dating a release when its packages are published, which leaves a caller nothing to pin until a registry holds them; DOMQL's packages wait for Nexo's anyway.

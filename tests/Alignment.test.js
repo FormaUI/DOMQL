@@ -61,6 +61,17 @@ describe('Alignment', () => {
         ]);
     });
 
+    it('dates the newest entries of the version history and the changelog, or marks them unreleased, a specification version staying unreleased only while the release that implements it does', () => {
+        const dateOf = path => read(path).match(/^## `[^`]+`\r?\n\r?\n\*([^·*]+?) ·/m)[1];
+        const specification = dateOf('VERSION-HISTORY.md');
+        const release = dateOf('CHANGELOG.md');
+        const dated = /^(January|February|March|April|May|June|July|August|September|October|November|December) [1-9]\d?, \d{4}$/;
+
+        [specification, release].forEach(date => expect(date === 'Unreleased' || dated.test(date), date).toBe(true));
+        // A release fixes the specification version it implements, so a dated release implements a dated version.
+        expect(release === 'Unreleased' || specification !== 'Unreleased', `a release of ${release} implements an unreleased specification version`).toBe(true);
+    });
+
     it('has READMEs that name the runtime version, the specification version it implements and the language version of the Nexo runtime it runs on', () => {
         const { runtime, specification, language } = domql.info.versions;
         const named = `The runtime, \`${runtime}\`, implements DOMQL's specification \`${specification}\` on Nexo's language \`${language}\`, definition version ${nexo.info.versions.definition}.`;

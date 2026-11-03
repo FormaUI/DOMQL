@@ -84,6 +84,19 @@ Two details to keep in mind:
 
 For performance changes, run `npm run bench` from `tests/` for simulated-DOM benchmarks and `npm run scale` for Chromium workloads with 1,000 to 100,000 rows. Compare against a baseline, keep gains that repeat beyond measurement noise, and record a conclusion that decides something in the [design](docs/domql-design.md), beside the decision it settles. Benchmarks are separate from the build gate.
 
+<a id="cut-a-release"></a>
+
+## Cut a release
+
+A release is a signed tag on the commit that dates it. The [changelog](CHANGELOG.md) says what each release changed in the implementation, and the [version history](VERSION-HISTORY.md) what each specification version changed in DOMQL's contract.
+
+1. Date the changelog's newest entry by the day of the release, and the version history's newest entry where it reads *Unreleased*.
+2. Pass the gate, `./build.ps1 -Browser`, and commit.
+3. Tag the commit with a signed tag named for the release, as `git tag -s v1.0.0-beta.1`, and push the tag.
+4. Pack the packages from the tag with `./publish.ps1`, and publish them.
+
+After a release, the next change a caller can notice opens the changelog's next entry, and the next change to DOMQL's contract the version history's.
+
 ## Before opening a pull request
 
 Run `./build.ps1` from the repository root. This is the build gate: it runs tests, bundles the library, builds the package without warnings and checks formatting. Include the browser tests when your change affects browser behavior. CI runs the gate with browser tests on Linux for every pull request and push to `main`.
