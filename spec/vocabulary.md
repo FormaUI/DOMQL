@@ -710,7 +710,7 @@ Each function states what it answers, how its result changes, how it reads, and 
 
 **Syntax:** `intersects({ root, margin })`   **Signature:** optional `root`: `Element?`, the window when omitted or null; optional `margin`: `Number`, 0 when omitted → `Boolean?`   **Reads:** Maintained   **Fixed arguments:** None
 
-**Result.** Whether the browser's intersection observation reports it intersecting the root, or the window without a root, grown by the margin, with its ancestors' clipping applied as the browser applies it
+**Result.** Whether the browser's intersection observation reports it intersecting the root, or the window without a root, grown by the margin, with its ancestors' clipping applied as the browser applies it. It is the browser's report whatever the layout: false for an element or a root that has no layout box, detached or hidden, rather than the null other members that need a layout answer. It is null only until the browser first reports the element against that root and margin, as for any [maintained member](evaluation.md#waiting-for-maintained-members) read for the first time.
 
 **Changes.** Observable
 
