@@ -1185,3 +1185,16 @@ Each entry is one of three kinds:
   - A commit pin named one fix, and moving it rewrote a hash in 81 places across 21 documents.
   - A link to Nexo's `main` changes under DOMQL's documents, unseen.
 - **Declined:** Waiting for Nexo's packages on a registry, which would keep DOMQL on a commit until they are published; the packages remain the next step, as [consuming the language](features-status.md#consuming-nexo) sets out.
+
+<a id="d78"></a>
+
+## D78 — The gate checks every link a document gives
+
+*November 3, 2026*
+
+- **Kind:** Process.
+- **Decision:** A test reads every document and checks each link it gives: to DOMQL's own documents, and into Nexo. A link into Nexo names the release `nexo.release` pins, read from `.nexo`, which holds its tree, or a commit the test names as a record of the past, read from the Nexo checkout's history; CI checks out Nexo's whole history for it. Each link's document must be there, and its anchor too, an `<a id>` or a heading's as GitHub writes it.
+- **Why:**
+  - Moving the pin rewrote 89 links into Nexo, each checked by a script outside the gate, so a broken one could reach `main`.
+  - Nexo renames a section when its subject changes, and a link at the release DOMQL pins must reach what that release holds.
+- **Declined:** Allowing a link to any of Nexo's commits, which would let a link meant to follow the pin stay behind it unnoticed.

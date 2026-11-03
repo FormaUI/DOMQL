@@ -29,7 +29,7 @@ The [specification](../spec/README.md) defines the contract, and the [design](do
 - **A breaking change says how to migrate.** Since the beta, a version's entry in the [version history](../VERSION-HISTORY.md) says how to migrate beside each thing it breaks.
 - **A change a caller can notice is in the [changelog](../CHANGELOG.md),** listed by its rules.
 - **Documents move with their change.** The READMEs, the library guide, the specification, the type declarations, the version history, the changelog and this file change in the commit that changes what they describe.
-- **Every change passes the gate,** browser tests included.
+- **Every change passes the gate,** browser tests included, and every link a document gives reaches its document and anchor, as [D78](decisions.md#d78) records.
 
 <a id="features"></a>
 

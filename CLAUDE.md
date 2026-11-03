@@ -101,7 +101,7 @@ Every compiler warning is a build failure. Keep `*.bench.js` and `*.scale.js` be
 
 ## Documentation and versions
 
-The specification states the contract; the design explains how DOMQL is built to meet it. Avoid duplicating their contracts. Keep documentation examples valid and checked by the parser. Comments and summaries state what a thing is, rather than narrating how or why it was implemented.
+The specification states the contract; the design explains how DOMQL is built to meet it. Avoid duplicating their contracts. Keep documentation examples valid and checked by the parser. The gate checks every link a document gives, to DOMQL's own documents and into Nexo at the pinned release; a link to another of Nexo's commits is one its test names as a record of the past. Comments and summaries state what a thing is, rather than narrating how or why it was implemented.
 
 Use these version rules:
 
