@@ -463,6 +463,31 @@ describe('Executions in a browser', () => {
             expect(popup.style.left).toBe('10px');
         });
 
+        it('keep a class and a property against a framework that renders the element again within the frames after DOMQL wrote them again, each render a value of its own', async () => {
+            document.body.innerHTML = '<div id="window" class="framework" style="left: 0px"></div>';
+
+            const element = document.getElementById('window');
+            const marked = domql.query('element.ownClass({ name = "dragging", keep = true })', { element }).run();
+            const placed = domql.query('element.ownStyle({ property = "left", value = "40px", restore = false, keep = true })', { element }).run();
+
+            // A framework renders the element as it activates, then as it takes focus a frame after DOMQL wrote the owned values again, and again as the press ends: each render writes the whole attribute anew.
+            element.className = 'framework active';
+            element.setAttribute('style', 'top: 0px');
+            await frames(2);
+            element.className = 'framework active focused';
+            element.setAttribute('style', 'top: 1px');
+            await frames(1);
+            element.className = 'framework focused';
+            element.setAttribute('style', 'top: 2px');
+            await frames(6);
+
+            expect(element.className).toBe('framework focused dragging');
+            expect(element.style.left).toBe('40px');
+            marked.dispose();
+            placed.dispose();
+            expect(element.className).toBe('framework focused');
+        });
+
         it('write a rendered text node\'s data in place, the node the framework holds', async () => {
             document.body.innerHTML = '<output id="count">0</output>';
 

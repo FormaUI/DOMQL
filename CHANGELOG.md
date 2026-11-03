@@ -14,3 +14,4 @@ Each release of DOMQL's packages, newest first. The NuGet package `formaui-net.D
 - The first beta, and the first release. The [version history](VERSION-HISTORY.md) records what came before it.
 - Runs on Nexo's language `1.0.0-beta.40`, as the [version history](VERSION-HISTORY.md#v1-0-0-beta-2) sets out: `and` and `or` typed where their value is used, a selection into a dictionary's `entries` and a pair's `key` and `value`, and a module's maintained members declaring nullable results, among the rest.
 - A query declares its bindings' types, `domql.query(text, bindings, { types })`, so data binds as a module's structured type, a map as a dictionary and a set as a list; `DomqlQueryOptions` types the options.
+- A class or a property an owned write keeps survives a framework rendering the element twice in quick succession, where the holder yielded to the second render and dropped it.

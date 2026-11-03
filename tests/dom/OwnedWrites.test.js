@@ -265,6 +265,37 @@ describe('OwnedWrites', () => {
             }
         });
 
+        it('goes on keeping its value against a framework rendering again within the frames after its write, each render a value the framework hasn\'t written before', async () => {
+            const handle = run('panel.ownClass({ name = "dragging", keep = true })', { panel });
+            const renders = ['base active', 'base active focused', 'base focused', 'base'];
+
+            for (const render of renders) {
+                panel.className = render;
+                await nextFrame();
+
+                expect(panel.className).toBe(`${render} dragging`);
+            }
+
+            // A writer that restores the value it wrote, in answer, keeps a value of its own, and is yielded to.
+            const holder = new MutationObserver(() => {
+                if (panel.className !== 'base') {
+                    panel.className = 'base';
+                }
+            });
+
+            holder.observe(panel, { attributes: true, attributeFilter: ['class'] });
+            panel.className = 'base';
+
+            for (let frame = 0; frame < 6; frame++) {
+                await nextFrame();
+            }
+
+            expect(panel.className).toBe('base');
+            holder.disconnect();
+            handle.update({ panel });
+            expect(panel.className).toBe('base dragging');
+        });
+
         it('is the latest holder\'s alone, so a holder that keeps its value before another never fights it', async () => {
             run('panel.ownAttribute({ name = "lang", value = "fr", keep = true })', { panel });
             run('panel.ownAttribute({ name = "lang", value = "de" })', { panel });

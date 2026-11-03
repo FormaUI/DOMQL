@@ -1217,7 +1217,7 @@ dragging.dispose();
 status.dispose();
 ```
 
-`keep = true` writes the value again before the browser paints, wherever another writer changed it; a writer that writes its own value again in answer, as code holding the same attribute does, is yielded to rather than fought. `ownText` writes into the text node the element holds, so the framework keeps the node it rendered. A position a gesture commits to the framework is held with `restore = false`, so it stands once the holding ends, until the framework renders it. Module code holds what it writes the same way, running an owned write with `env.domql`.
+`keep = true` writes the value again before the browser paints, wherever another writer changed it; a writer that writes its own value again in answer, as code holding the same attribute does, is yielded to rather than fought, while a framework's renders are written against however soon they follow one another. `ownText` writes into the text node the element holds, so the framework keeps the node it rendered. A position a gesture commits to the framework is held with `restore = false`, so it stands once the holding ends, until the framework renders it. Module code holds what it writes the same way, running an owned write with `env.domql`.
 
 ### Reach a running behavior
 

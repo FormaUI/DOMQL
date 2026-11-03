@@ -4,9 +4,9 @@
  */
 
 /**
- * A target an execution holds: the element it is of, its key among the element's targets, what a mutation observer of the element observes of another writer's changes to it, and how its value is read and written, null
- * standing for none, as an attribute absent.
- * @typedef {{ element: Element, key: string, observe: MutationObserverInit, read: () => unknown, write: (value: unknown) => void }} Target
+ * A target an execution holds: the element it is of, its key among the element's targets, what a mutation observer of the element observes of another writer's changes to it, how its value is read and written, null
+ * standing for none, as an attribute absent, and what another writer writes as a whole, the attribute or the text the target is part of, which tells a writer restoring its own value from one writing a new one.
+ * @typedef {{ element: Element, key: string, observe: MutationObserverInit, read: () => unknown, write: (value: unknown) => void, written: () => string | null }} Target
  */
 
 /**
@@ -39,6 +39,7 @@ export class OwnedWrites {
             observe: { attributes: true, attributeFilter: [key] },
             read: () => element.getAttribute(name),
             write: value => (value === null ? element.removeAttribute(name) : element.setAttribute(name, value)),
+            written: () => element.getAttribute(name),
         };
     }
 
@@ -54,6 +55,7 @@ export class OwnedWrites {
             observe: { attributes: true, attributeFilter: ['class'] },
             read: () => element.classList.contains(name),
             write: present => element.classList.toggle(name, present),
+            written: () => element.getAttribute('class'),
         };
     }
 
@@ -65,6 +67,7 @@ export class OwnedWrites {
             observe: { attributes: true, attributeFilter: ['style'] },
             read: () => element.style.getPropertyValue(property) || null,
             write: value => (value === null ? element.style.removeProperty(property) : element.style.setProperty(property, value)),
+            written: () => element.getAttribute('style'),
         };
     }
 
@@ -107,12 +110,14 @@ export class OwnedWrites {
                     node.data = value;
                 }
             },
+            written: () => element.textContent,
         };
     }
 
     /**
      * Holds the target at the value given, and answers what updates the holding and ends it. The latest holding of a target applies its value, and one that keeps it writes it again in the next frame's writes, before its
-     * reads, where another writer changes it; where that writer writes again in answer, within the two frames after, it keeps a value of its own, and the holding yields to it until its next update.
+     * reads, where another writer changes it; where that writer writes its own value again in answer, within the two frames after, restoring the attribute or the text DOMQL's write changed, it keeps a value of its own, and
+     * the holding yields to it until its next update. A writer writing a new value, as a framework rendering again does, changes the target as a patch does.
      * @param {Target} target
      * @param {{ value: unknown, restore: boolean, keep: boolean }} options
      * @param {{ reportError: (error: unknown) => void, frame: (callback: () => void) => { cancel: () => void } }} scheduling Where a failure to write the value again is reported, and the frame schedule whose writes
@@ -123,8 +128,10 @@ export class OwnedWrites {
         let observer = null;
         let scheduled = null;
 
-        // The frames after DOMQL wrote the value again, in which another writer's change answers it, or null outside them; and whether the holding yielded to a writer that answered.
+        // The frames after DOMQL wrote the value again, in which another writer's change answers it, or null outside them; what that writer had written as a whole, which an answer restores; and whether the holding
+        // yielded to a writer that answered.
         let answering = null;
+        let overwritten = null;
         let hasYielded = false;
         const stopAnswering = () => {
             answering?.cancel();
@@ -138,24 +145,31 @@ export class OwnedWrites {
             return holding.keep && entry?.holdings.at(-1) === holding && holding.target.read() !== entry.written;
         };
 
-        // Another writer's change is undone in the next frame's writes, before the watches of that frame read it. A writer that writes again in answer keeps a value of its own, as a framework's patch does not, so the
-        // holding yields to it rather than fight it.
+        // Another writer's change is undone in the next frame's writes, before the watches of that frame read it. A writer that writes its own value again in answer keeps a value of its own, as a framework's patch does not,
+        // so the holding yields to it rather than fight it; a framework rendering again writes a value it hasn't written before, which is undone as its first patch was.
         const keepValue = () => {
             if (hasYielded || scheduled !== null || !isOverwritten()) {
                 return;
             }
 
             if (answering !== null) {
-                stopAnswering();
-                hasYielded = true;
+                const isRestored = holding.target.written() === overwritten;
 
-                return;
+                stopAnswering();
+
+                if (isRestored) {
+                    hasYielded = true;
+
+                    return;
+                }
             }
 
             scheduled = frame(() => {
                 scheduled = null;
 
                 if (isOverwritten()) {
+                    overwritten = holding.target.written();
+
                     try {
                         this.#apply(this.#entryOf(holding.target), holding);
                     } catch (error) {

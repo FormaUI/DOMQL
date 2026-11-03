@@ -1262,3 +1262,21 @@ Each entry is one of three kinds:
   - Writing the data into the query's text, which makes a new definition for each value and resolves each anew.
   - A parameter declared `Any` and every binding normalized to one shape, which gives up the checks a declared type makes.
   - Types given to `with` alone, which would let one query bind the same parameter as two types.
+
+<a id="d83"></a>
+
+## D83 — A kept value yields only to a writer restoring its own
+
+*November 3, 2026*
+
+- **Kind:** Contract.
+- **Decision:** A holder that keeps its value yields to another writer only where that writer's answer, within the two frames after DOMQL wrote the value again, restores the attribute or the text the target is part of as the writer left it. A write that leaves anything else is a patch, as a framework's render is, and the holder writes its value again, however soon it comes. This refines [D70](#d70), which yielded to any change within those frames.
+- **Why:**
+  - Replacing Forma's scripts holds classes on elements Blazor renders: a window's `is-dragging`, a drop zone's active class, a selection bar's active class. A component's class can change as it activates and again as it takes focus, two renders a frame or so apart. A Chromium test rendering the element a frame after DOMQL wrote the class again, then again, showed the holder yield to the second render and lose the class and the property for the rest of the gesture.
+  - A framework writes an attribute only as its own render changes it, so it never writes the value it wrote just before. A writer keeping a value of its own, as module code holding `lang` does, restores that value. The whole attribute, a class list or a style declaration, tells the two apart, where the class's presence, which [D70](#d70) declined to judge by, can't.
+  - The specification already called the other holder a writer that "writes its own value again in answer"; the implementation judged by the time of the answer alone.
+- **Declined:**
+  - A longer or shorter window, which only moves the render that is lost.
+  - Yielding after several answers in a row, which still loses the class to a burst of renders during a press.
+  - Judging by the class's presence or the property's value alone, which a render and a holder change alike.
+- **Cost:** a writer that answers with a new value each time, as code animating the property a holder keeps does, is written against once a frame until the holding ends or is updated. Two such writers of one target is a conflict in the page; the holder that should give way holds with `keep = false`.

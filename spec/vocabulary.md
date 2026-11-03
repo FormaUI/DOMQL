@@ -1399,7 +1399,8 @@ A scroll is **instant** where its `behavior` is `"instant"`, or `"auto"` where t
 
 <a id="execution-element-owned-writes-yielding"></a>
 
-- **Another holder.** A writer that writes its own value again in answer to DOMQL's, in the microtasks after it or among the writes of the two frames after it, keeps a value of its own, as a module's code holding the document's `lang` does, where a framework's patch writes once. The holder yields to it rather than fight it: the other writer's value stands, and every writer's after it, until an update writes the holder's again and keeps it from then on.
+- **Another holder.** A writer that writes its own value again in answer to DOMQL's, in the microtasks after it or among the writes of the two frames after it, keeps a value of its own, as a module's code holding the document's `lang` does: its answer restores the attribute or the text the target is part of as that writer left it before DOMQL wrote again. The holder yields to it rather than fight it: the other writer's value stands, and every writer's after it, until an update writes the holder's again and keeps it from then on.
+- **A render is a patch, however soon it comes.** A framework writes an attribute or a text as its own render changes it, so each write is a value it hadn't written just before. A write within those frames that leaves the attribute or the text otherwise than that writer left it is a patch, as the first was, and the holder writes its value again, as [D83](../docs/decisions.md#d83) records.
 
 <a id="execution-element-owned-writes-framework"></a>
 
@@ -1407,7 +1408,7 @@ A scroll is **instant** where its `behavior` is `"instant"`, or `"auto"` where t
 
 | The target is | Hold it with | So that |
 | --- | --- | --- |
-| Rendered by the framework, as part of a whole `class` or `style` attribute | `keep = true` | A patch that writes the whole attribute again, wiping the class or the property, is undone before paint, and a framework rendering the same target with a value of its own is yielded to only where it writes it again in answer |
+| Rendered by the framework, as part of a whole `class` or `style` attribute | `keep = true` | A patch that writes the whole attribute again, wiping the class or the property, is undone before paint, however soon one render follows another, and a writer is yielded to only where it writes its own value again in answer |
 | Committed to the framework, as a position a gesture ends with | `restore = false`, ended once the framework has applied the commit, as the [acknowledgment](behaviors.md#behaviors-acknowledgment) of the occurrence reporting it says | The value stands as the holding ends, and the framework's render of the committed value takes the target over without a frame of the old one |
 | A rendered node's text, as a count written as the reader types | `ownText` | The framework's own text node is written in place, so the nodes it holds stay the ones it rendered |
 

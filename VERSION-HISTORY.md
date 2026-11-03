@@ -35,6 +35,13 @@ domql.format('-(-1)');                                     // '1'; '-(-1)' befor
 ```
 
 ```js
+domql.query('frame.ownClass({ name = "dragging", keep = true })', { frame }).run();
+
+frame.className = 'window active';          // a render: DOMQL writes dragging again in the next frame
+frame.className = 'window active focused';  // a render a frame later: 'window active focused dragging'; dragging dropped before
+```
+
+```js
 const updates = { changes: 'observable', reads: 'maintained', observations: [{ type: 'level', of: 'receiver' }] };
 
 { name: 'level', kind: 'property', result: 'Number', updates }   // NEXO4071 from createModule; accepted before
@@ -52,6 +59,10 @@ DOMQL moves to Nexo's language `1.0.0-beta.40`, as [D76](docs/decisions.md#d76) 
 - [A query declares its bindings' types](spec/queries.md#making-a-query-declared-types), `domql.query(text, bindings, { types })`, capturing data as a module's structured type, a map as a dictionary, where every binding was typed from its value.
 - A query nesting deeper than 256 levels is refused, NEXO1072, a chain of more than 256 terms, NEXO2046, and a string holding a surrogate standing alone, NEXO1049.
 - Diagnostics say what to write: `1.e3`, `value to List<Number>` and `element as Element?` among them.
+
+**Executions**
+
+- [A render is a patch, however soon it comes](spec/vocabulary.md#execution-element-owned-writes-yielding): a holder that keeps its value yields only to a writer that restores its own value in answer. A framework rendering an element again within the two frames after DOMQL wrote a kept value again, each render a value of its own, is written against as its first render was, where the holder yielded to it and lost the class or the property, as [D83](docs/decisions.md#d83) records.
 
 **Results**
 
@@ -75,6 +86,7 @@ DOMQL moves to Nexo's language `1.0.0-beta.40`, as [D76](docs/decisions.md#d76) 
 - An object expression after a member declared `Any` that answers a list applies to the list once. Declare the member's result as a list, `List<Any>`, so it applies to each item.
 - A query nesting deeper than 256 levels, summing more than 256 terms, or holding a string with a surrogate standing alone, is refused. Group part of a long chain, as `a + b + (c + d)` does, and write the whole character.
 - A caller that compared `domql.format`'s text for such a negation or such a call reads the new text, which parses to the same definition.
+- A holder that keeps its value writes it again against a writer that answers with a new value each time, as code animating the property it holds does, where it yielded. Hold the target with `keep = false`, or end the holding while the other writer writes it.
 
 <a id="v1-0-0-beta-1"></a>
 
