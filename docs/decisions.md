@@ -1214,3 +1214,21 @@ Each entry is one of three kinds:
   - A version a caller relies on is one a release fixes, and DOMQL's version history and Nexo's language history now follow one rule, as Nexo's [D66](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/docs/decisions.md#d66) records.
   - It narrows [D75](#d75)'s rule that each version advances for its own reason: the specification version's reason is now a release whose contract changed.
 - **Declined:** Dating a release when its packages are published, which leaves a caller nothing to pin until a registry holds them; DOMQL's packages wait for Nexo's anyway.
+
+<a id="d80"></a>
+
+## D80 — 1.0 waits for six requirements, and no new feature comes before it
+
+*November 3, 2026*
+
+- **Kind:** Process.
+- **Decision:**
+  - DOMQL is 1.0 once it runs on Nexo's 1.0, its contracts are settled, the C# half is decided, its packages are published, Forma's scripts run on it, and a release candidate breaks nothing, as [what 1.0 requires](features-status.md#what-1-0-requires) sets out.
+  - Until then, a change fixes, explains, speeds up or documents, or meets a requirement. A feature lands only where Forma's scripts need it, as a decision records.
+- **Why:**
+  - The beta promised no breaking redesign, but said nothing about when breaks end.
+  - DOMQL's contract holds Nexo's language, so it can be no more settled than Nexo, which waits for its own 1.0 as its [D67](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/docs/decisions.md#d67) records.
+  - The planned capabilities came from reading Forma's scripts, so running them is the test of DOMQL's contract.
+- **Declined:**
+  - Making the C# half a requirement, which would hold 1.0 for a design the owner hasn't decided is needed.
+  - Refusing every feature without exception, which would hold 1.0 for the one its own requirement, Forma's scripts, turns out to need.

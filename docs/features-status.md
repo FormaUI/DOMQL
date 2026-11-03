@@ -25,6 +25,7 @@ The [specification](../spec/README.md) defines the contract, and the [design](do
 | [The C# half](#the-c-half) | Waits for its design |
 | [Planned capabilities](#planned-capabilities) | The C# half's alone remain, waiting for its design |
 | [Release](#release) | The beta is declared; publishing waits for Nexo's published packages |
+| [What 1.0 requires](#what-1-0-requires) | Six requirements, one met in part |
 
 - **A specification version collects the changes between two releases.** A change to DOMQL's contract joins the [version history](../VERSION-HISTORY.md)'s newest entry while it reads *Unreleased*, and opens the next version's entry once it is released, as [D79](decisions.md#d79) records.
 - **A breaking change says how to migrate.** Since the beta, a version's entry in the [version history](../VERSION-HISTORY.md) says how to migrate beside each thing it breaks.
@@ -307,6 +308,31 @@ Both wait for Nexo's published packages, and publishing stays with the maintaine
 - The specification and the runtime both took `1.0.0-beta.1`. The contract is that of `1.0.0-alpha.318`, unchanged.
 - No breaking redesign is planned. The C# half (A1) and A5's queue wait for their design, as [D46](decisions.md#d46) records. The [deferred work](#deferred) and the design's [decisions not taken](domql-design.md#decisions-not-taken) document the other limitations.
 - A break from here on says how to migrate, beside it, in the [version history](../VERSION-HISTORY.md), and a change a caller can notice is listed in the [changelog](../CHANGELOG.md).
+
+<a id="what-1-0-requires"></a>
+
+## What 1.0 requires
+
+1.0 promises no break until 2.0. DOMQL reaches it once each requirement holds:
+
+| Requirement | Why | State |
+| --- | --- | --- |
+| **Nexo's 1.0.** DOMQL runs on Nexo's 1.0, from its published packages. | DOMQL's contract holds the language its queries are written in, so it promises no more than Nexo does. | Nexo is in its beta, at `1.0.0-beta.1`, as [what Nexo's 1.0 requires](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/docs/features-status.md#what-1-0-requires) sets out. |
+| **Contracts settled.** No decision is open, and each [deferred](#deferred) item and [decision not taken](domql-design.md#decisions-not-taken) is shown to land without a break. | What may still change after 1.0 must be able to change compatibly. | No decision is open; the deferred items are not yet reviewed. |
+| **The C# half decided.** It is designed, or decided to follow 1.0 as an addition. | It waits for the owner's design, as [D46](decisions.md#d46) records, and a .NET application may need it to drive DOMQL. | Waits for its design. |
+| **Published.** DOMQL's packages are on npm and NuGet, tested as consumers install them. | A caller pins a release it can install. | The NuGet package is packed locally, and the npm package is not made yet. |
+| **Used for real.** Forma's own scripts run as DOMQL queries, watches, subscriptions and executions on a published release. | The [planned capabilities](#planned-capabilities) came from reading those scripts, and only running them settles the contract. | Planned. |
+| **A release candidate that breaks nothing.** `1.0.0-rc.1` is released once the rest hold, and Forma takes it with no change but its version. `1.0.0` is its contract, unchanged. | It is the last check that nothing still needs to break. | Waits for the rest. |
+
+**Until 1.0, DOMQL takes no new feature:** no new vocabulary, event, execution, API or behaviour a query or a caller can use. A change before 1.0 does one of these:
+
+- fixes a fault, or a contract that contradicts itself;
+- makes a diagnostic say more;
+- makes DOMQL faster or leaner, measured as [the design](domql-design.md) records each measurement that decides something;
+- documents what is there;
+- meets a requirement above.
+
+A feature Forma's scripts need, as replacing them shows, is the one exception, and a decision records it.
 
 <a id="backlog"></a>
 

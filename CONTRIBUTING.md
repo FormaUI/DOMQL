@@ -2,7 +2,7 @@
 
 Thanks for helping improve DOMQL. Bug reports, documentation fixes and code contributions are welcome.
 
-For a small fix, you can open a pull request directly. For a larger change, open an issue first so we can agree on the approach before you spend time implementing it. Report vulnerabilities privately using [SECURITY.md](SECURITY.md).
+For a small fix, you can open a pull request directly. For a larger change, open an issue first so we can agree on the approach before you spend time implementing it. Until 1.0, DOMQL takes fixes rather than features, as [what 1.0 requires](docs/features-status.md#what-1-0-requires) sets out. Report vulnerabilities privately using [SECURITY.md](SECURITY.md).
 
 ## Set up
 
