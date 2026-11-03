@@ -1310,3 +1310,18 @@ Each entry is one of three kinds:
 - **Decision:** A holding that keeps its value keeps its one mutation observer through every update that holds the same target and keeps it still, and makes a new one only where an update moves it to another target or changes `keep`. DOMQL's own write leaves the observer nothing overwritten to answer, so the update's write costs a callback that returns at once.
 - **Why:** A Chromium profile of an owned write updated each frame, as an anchored popover's `left` and `top` are, gave 18% of an update to creating its observer again. In paired runs of 1,000 steps of two updates, the median of nine after three warm-ups, an update binding a number went from 12.9 µs to 10.7 µs and 12.1 µs, and one binding a new string from 37.1 µs to 33.4 µs and 31.6 µs; one that keeps no value, which holds no observer, stayed within the runs' spread.
 - **Declined:** An observer for each element, shared by its holdings, which would route every holding's callback through one and save nothing an update pays.
+
+<a id="d86"></a>
+
+## D86 — A watch promises its result, not how much of its query it evaluates
+
+*November 4, 2026*
+
+- **Kind:** Contract.
+- **Decision:** Each time a watch evaluates, its result is the one a full evaluation of its query would give, and how much of the query it evaluates again to reach it is DOMQL's. A member's implementation is called as often as an evaluation needs it, never on a promise of one call each time. DOMQL still evaluates the whole query.
+- **Why:**
+  - 1.0 requires each deferred item and decision not taken to land without a break. Reviewing them found one promise that would make one a break: a watch "evaluates its whole query each time", so evaluating only what changed, the deferred incremental evaluation, would have broken a module counting on a call at each evaluation. Every other item lands as an addition or within the implementation.
+  - A member already reads alone, and may already keep its result until its observations fire, so no correct module depends on the number of calls.
+- **Declined:**
+  - Adopting incremental evaluation now, which no workload has shown a need for, as the deferred item records.
+  - Keeping the promise, which would leave incremental evaluation for 2.0.

@@ -64,6 +64,10 @@ DOMQL moves to Nexo's language `1.0.0-beta.40`, as [D76](docs/decisions.md#d76) 
 
 - [A render is a patch, however soon it comes](spec/vocabulary.md#execution-element-owned-writes-yielding): a holder that keeps its value yields only to a writer that restores its own value in answer. A framework rendering an element again within the two frames after DOMQL wrote a kept value again, each render a value of its own, is written against as its first render was, where the holder yielded to it and lost the class or the property, as [D83](docs/decisions.md#d83) records.
 
+**Watches**
+
+- [What an evaluation gives](spec/watches.md#watching-what-an-evaluation-gives): a watch's result is the one a full evaluation of its query would give, and how much of the query it evaluates again is DOMQL's, where it promised to evaluate the whole query each time. It still does; the promise no longer holds a later release to it, as [D86](docs/decisions.md#d86) records.
+
 **Results**
 
 - [A selection](spec/queries.md#selecting-a-result) steps into a dictionary's `entries` and a pair's `key` and `value`, the form [a result holds them](spec/results.md#results-collections) in, where a path into either was refused.
@@ -87,6 +91,7 @@ DOMQL moves to Nexo's language `1.0.0-beta.40`, as [D76](docs/decisions.md#d76) 
 - A query nesting deeper than 256 levels, summing more than 256 terms, or holding a string with a surrogate standing alone, is refused. Group part of a long chain, as `a + b + (c + d)` does, and write the whole character.
 - A caller that compared `domql.format`'s text for such a negation or such a call reads the new text, which parses to the same definition.
 - A holder that keeps its value writes it again against a writer that answers with a new value each time, as code animating the property it holds does, where it yielded. Hold the target with `keep = false`, or end the holding while the other writer writes it.
+- A module member's implementation is no longer promised a call at each evaluation of a watch, though it still gets one. Count nothing on its calls, and keep what must follow every evaluation out of it: a member reads alone.
 
 <a id="v1-0-0-beta-1"></a>
 

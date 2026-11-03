@@ -165,6 +165,11 @@ Its adapter owns the synchronization:
 
 Each of these was considered, measured where cost decided it, and not adopted. It is reopened only by the need its row names.
 
+Each lands after 1.0 without a break, which [1.0 requires](features-status.md#what-1-0-requires):
+
+- **As an addition,** an option, a method, a member or an event no caller uses today: observing the positions of chosen boxes, `watch.changesSince`, `watch.update`, a subscription delivered by frame, `flushOn`, a handle's event sources, `run({ anchor })`, `runAsync` and a window the viewport decides.
+- **Within the implementation,** no result or event changing: one native observer shared by every element, a query object keeping its evaluator and one keeping its resolution. Each changes only how often a member's implementation is called, which [no watch promises](../spec/watches.md#watching-what-an-evaluation-gives).
+
 | Decision | Why not | Reopened by |
 | --- | --- | --- |
 | Observing every box's position | `rect` keeps its own size, its scroll containers' scrolling, the window's size and its trees' structure, and stays partly observable. Observing its trees' mutations would cost a refresh for each one, about 50 ms for 10,000 rows in Chromium, and still miss a move a stylesheet, an image or a font causes. An intersection observer for each box caught nearly every move, but a watch of shaped rows started 78 to 88% slower and held about 60% more script memory a row, and scrolling 5,000 watched rows took 68 ms a frame rather than 17. | A consumer that needs the moves of a few chosen boxes followed without a refresh, as an opt-in for them |

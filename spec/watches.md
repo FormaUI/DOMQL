@@ -135,7 +135,9 @@ Invalidation, evaluation and delivery each keep their own schedule. An observati
 - **Under `delayed`,** in the timer task its wait ends in, or within the call of a refresh that ends it early.
 - **Under `frame`,** inside the animation frame, among its reads, after the writes module code and DOMQL's [owned writes](vocabulary.md#execution-element-owned-writes) ask the frame for, and before the browser lays the frame out and paints it, so a handler may write what it measured, and a resize that write causes is reported before paint.
 
-A watch evaluates its whole query each time. A member may keep its result until its own observations fire, as long as the result is the one a full evaluation would give.
+<a id="watching-what-an-evaluation-gives"></a>
+
+**What an evaluation gives.** Each time a watch evaluates, its result is the one a full evaluation of its query would give. How much of the query it evaluates again to reach it is DOMQL's, so a member's implementation is called as often as an evaluation needs it, never on a promise of one call each time: a member may keep its result until its own observations fire, and a watch may evaluate again only what its observations say changed.
 
 <a id="elements-that-leave-the-document"></a>
 
