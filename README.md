@@ -98,7 +98,7 @@ The source import above works when serving the repository; the [library guide](n
 | --- | --- |
 | [Library guide](nuget/README.md) | Install DOMQL, learn the language by example and use the API |
 | [DOMQL specification](spec/README.md) | Queries, the DOM's vocabulary, evaluating and watching a query, its results, events, executions, and the API |
-| [Nexo specification](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/README.md) | The language DOMQL is written in, and its runtime, at the commit DOMQL builds against |
+| [Nexo specification](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/README.md) | The language DOMQL is written in, and its runtime, at the release DOMQL builds against |
 | [Version history](VERSION-HISTORY.md) | Each version of DOMQL, with the features it added and what it changed |
 | [Changelog](CHANGELOG.md) | Each release of the packages and what it changed |
 | [Design](docs/domql-design.md) | How DOMQL is built, and the decisions it did not take |

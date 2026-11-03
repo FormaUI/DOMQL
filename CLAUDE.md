@@ -8,7 +8,7 @@ Read the documents that govern the affected contract:
 
 | Document | Authority |
 | --- | --- |
-| [Nexo specification](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/README.md) | Nexo's two contracts, at the commit DOMQL builds against: the language's, what a query means, and the runtime's, how DOMQL as its host binds, resolves, evaluates and registers modules |
+| [Nexo specification](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/README.md) | Nexo's two contracts, at the release DOMQL builds against: the language's, what a query means, and the runtime's, how DOMQL as its host binds, resolves, evaluates and registers modules |
 | [DOMQL specification](spec/README.md) | DOMQL's module and DOMQL as host: queries, nodes and shadow trees, the built-in vocabulary, evaluation, watching, results, events, executions, and the public API, one document per subject |
 | [Nexo design](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/docs/nexo-design.md) | How Nexo is built: its stages, modules, evaluation and tooling |
 | [DOMQL design](docs/domql-design.md) | How DOMQL is built: its architecture, resolution, sessions, watching, comparing and patching, the C# half, and the decisions not taken |
