@@ -16,3 +16,4 @@ Each release of DOMQL's packages, newest first. The NuGet package `formaui-net.D
 - A query declares its bindings' types, `domql.query(text, bindings, { types })`, so data binds as a module's structured type, a map as a dictionary and a set as a list; `DomqlQueryOptions` types the options.
 - A class or a property an owned write keeps survives a framework rendering the element twice in quick succession, where the holder yielded to the second render and dropped it.
 - A query's text keeps the resolutions of its 16 bindings used most recently, where each string an update bound for the first time kept one more, about 4 KB, for as long as the text was in use.
+- An owned write that keeps its value keeps its one observer through its updates, about 4 µs an update less in Chromium.

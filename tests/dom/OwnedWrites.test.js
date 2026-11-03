@@ -185,6 +185,30 @@ describe('OwnedWrites', () => {
             expect(panel.getAttribute('dir')).toBe('auto');
         });
 
+        it('keeps its value through updates of its value, and begins or stops keeping it as an update changes keep', async () => {
+            const handle = run('panel.ownAttribute({ name = "dir", value = value, keep = keep })', { panel, value: 'rtl', keep: true });
+
+            for (const value of ['ltr', 'rtl', 'auto']) {
+                handle.update({ panel, value, keep: true });
+                panel.setAttribute('dir', 'patched');
+                await nextFrame();
+
+                expect(panel.getAttribute('dir')).toBe(value);
+            }
+
+            handle.update({ panel, value: 'rtl', keep: false });
+            panel.setAttribute('dir', 'patched');
+            await nextFrame();
+
+            expect(panel.getAttribute('dir')).toBe('patched');
+
+            handle.update({ panel, value: 'ltr', keep: true });
+            panel.setAttribute('dir', 'patched');
+            await nextFrame();
+
+            expect(panel.getAttribute('dir')).toBe('ltr');
+        });
+
         it('yields to another writer that writes its value again in answer, rather than fight it, until an update writes the holder\'s again', async () => {
             const written = [];
 

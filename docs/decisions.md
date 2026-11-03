@@ -1297,3 +1297,14 @@ Each entry is one of three kinds:
   - Keying a resolution by the bindings whose values decided it. Nexo folds a bound value through conditions, `??`, `and`, `or`, comparisons and computed names, so telling which values decided a resolution means tracking each use in Nexo, for about 20 µs an update a number binding saves today.
   - Releasing a resolution once no operation holds it, through weak references, which would make a repeated evaluation resolve anew whenever the collector ran between two.
   - A bound by the page's memory rather than by count, which no browser API offers to a script.
+
+<a id="d85"></a>
+
+## D85 — A holding that keeps its value keeps its observer through its updates
+
+*November 4, 2026*
+
+- **Kind:** Implementation.
+- **Decision:** A holding that keeps its value keeps its one mutation observer through every update that holds the same target and keeps it still, and makes a new one only where an update moves it to another target or changes `keep`. DOMQL's own write leaves the observer nothing overwritten to answer, so the update's write costs a callback that returns at once.
+- **Why:** A Chromium profile of an owned write updated each frame, as an anchored popover's `left` and `top` are, gave 18% of an update to creating its observer again. In paired runs of 1,000 steps of two updates, the median of nine after three warm-ups, an update binding a number went from 12.9 µs to 10.7 µs and 12.1 µs, and one binding a new string from 37.1 µs to 33.4 µs and 31.6 µs; one that keeps no value, which holds no observer, stayed within the runs' spread.
+- **Declined:** An observer for each element, shared by its holdings, which would route every holding's callback through one and save nothing an update pays.

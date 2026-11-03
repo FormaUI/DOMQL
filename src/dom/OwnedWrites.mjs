@@ -207,6 +207,9 @@ export class OwnedWrites {
                 stopAnswering();
                 hasYielded = false;
 
+                // The observer goes on observing a target the update holds still, kept or not as before, since a write of DOMQL's own leaves it nothing overwritten to answer.
+                const wasKept = holding.keep;
+
                 if (target.element === holding.target.element && target.key === holding.target.key) {
                     Object.assign(holding, next);
 
@@ -215,14 +218,17 @@ export class OwnedWrites {
                     if (entry.holdings.at(-1) === holding) {
                         this.#apply(entry, holding);
                     }
+
+                    if (holding.keep !== wasKept) {
+                        observe();
+                    }
                 } else {
                     const replacement = this.#begin({ target, ...next });
 
                     this.#end(holding);
                     holding = replacement;
+                    observe();
                 }
-
-                observe();
             },
             /** Ends the holding, its target's last writing back the value the target held before where it restores it, and withdraws a write it asked a frame for. */
             dispose: () => {
