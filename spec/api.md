@@ -115,7 +115,7 @@ What DOMQL delivers reaches its handlers within the call or the callback that ca
 | `run`, `update`, `dispose` and `executeAsync` | Within the call: an execution starts, is updated or ends, and a once execution's implementation is invoked, before the call returns, as [executing once](executions.md#executions-executing-once) and [running continuously](executions.md#executions-running-continuously) set out; so updates to several handles apply in the order they are made, and a command reaches the instance the latest of them left running |
 
 - **A promise a handler returns** is not waited for before the next handler is called, so the continuations of asynchronous handlers can interleave, and each occurrence's [acknowledgment](behaviors.md#behaviors-acknowledgment) settles as its own subscriptions apply it.
-- **A caller that forwards what it hears,** as a host across an interop boundary does, keeps this order by sending in the order its handlers are called, through one queue for all its handles; that queue, its bounds and its transport are the caller's, as [keeping a copy of a result](results.md#results-keeping-a-copy) sets out.
+- **A caller that forwards what it hears,** as a host across an interop boundary does, keeps this order by sending in the order its handlers are called, through one queue for all its handles; that queue, its bounds and its transport are the caller's, as [keeping a copy of a result](results.md#results-keeping-a-copy) sets out. It sends each as it is queued, rather than once the far side has acknowledged the one before it: what the browser dispatches next, as the click after a blur, reaches the far side by a route of its own and overtakes what waits.
 
 <a id="lifetimes"></a>
 
