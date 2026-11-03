@@ -4,7 +4,8 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 
 - **A version collects the changes made between two releases.** The first change to DOMQL's contract after a [release](CHANGELOG.md) opens the next version's entry, which reads *Unreleased*, and each later change joins it. The release that first implements the version dates it, and fixes it.
 - **Versions before `1.0.0-beta.2` advanced with each change,** before DOMQL's first release, each dated by the day the specification first described it.
-- **A change stands in the first version whose implementation follows it.** A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
+- **A change stands in the first version whose implementation follows it.**
+- **From `1.0.0-beta.1` on, an entry leads with examples** of what its version changed: a query's in a `domql` block, a caller's or a module's in a `js` block, each line's comment saying what it does at that version and what it did before. The list below them is the reference. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 
 Each entry says what its version breaks:
 
@@ -17,6 +18,29 @@ Each entry says what its version breaks:
 
 *Unreleased · Nexo language `1.0.0-beta.40` · definition format 38*
 
+```domql
+panel { state = it.disabled() and "locked" or "open" }  // a String; NEXO3040 before
+panel { state = it.disabled() and "locked" }            // NEXO3040, false or a String, as before
+Domql.["window"].size                                   // Domql.window.size; NEXO1000 before
+1.e3                                                    // NEXO3001, now saying to write 1e3
+```
+
+```js
+const query = domql.query('{ counts = ["a" = 1, "b" = 2] }');
+
+query.select('counts', 'entries', 1, 'value').evaluate();  // 2; NEXO3602 before
+query.select('counts', 'b').evaluate();                    // NEXO3602: a dictionary holds its entries
+domql.format('-(-1)');                                     // '1'; '-(-1)' before
+```
+
+```js
+const updates = { changes: 'observable', reads: 'maintained', observations: [{ type: 'level', of: 'receiver' }] };
+
+{ name: 'level', kind: 'property', result: 'Number', updates }   // NEXO4071 from createModule; accepted before
+{ name: 'level', kind: 'property', result: 'Number?', updates }  // accepted: a query reads (panel:level ?? 0) > 20
+typeOf: value => undefined                                        // NEXO5002 as a binding asks it; answer null
+```
+
 DOMQL moves to Nexo's language `1.0.0-beta.40`, as [D76](docs/decisions.md#d76) records. Each change below is Nexo's, which its [language history](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/LANGUAGE-HISTORY.md#v1-0-0-beta-40) sets out by version; these are the ones a query, a caller and a module meet.
 
 **Queries**
@@ -24,7 +48,7 @@ DOMQL moves to Nexo's language `1.0.0-beta.40`, as [D76](docs/decisions.md#d76) 
 - [`and` and `or`](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/language/expressions.md#logical-expressions-negations-and-groups-type) share a type only where their value is used: `it.disabled() and "locked" or "open"` is a `String`, where it was refused.
 - A conversion of a value of `Any` converts by the type the value turns out to be, failing with NEXO5053 where nothing converts it, where it was refused at resolution.
 - A computed name through a namespace reads as it does after `@`: `Domql.["window"]` is `Domql.window`.
-- A query nesting deeper than 256 levels is refused, NEXO1072, and so is a string holding a surrogate standing alone, NEXO1049.
+- A query nesting deeper than 256 levels is refused, NEXO1072, a chain of more than 256 terms, NEXO2046, and a string holding a surrogate standing alone, NEXO1049.
 - Diagnostics say what to write: `1.e3`, `value to List<Number>` and `element as Element?` among them.
 
 **Results**
@@ -47,7 +71,7 @@ DOMQL moves to Nexo's language `1.0.0-beta.40`, as [D76](docs/decisions.md#d76) 
 - A module declaring a fixed parameter optional or with a default is refused. Make it required; neither form ever let a query leave the argument out.
 - `value and x`, where `value` is of `Any`, is of `Any`. Give it a fallback, or test it where one type is needed.
 - An object expression after a member declared `Any` that answers a list applies to the list once. Declare the member's result as a list, `List<Any>`, so it applies to each item.
-- A query nesting deeper than 256 levels, or holding a string with a surrogate standing alone, is refused. Group a long chain, as `(a + b) + (c + d)` does, and write the whole character.
+- A query nesting deeper than 256 levels, summing more than 256 terms, or holding a string with a surrogate standing alone, is refused. Group part of a long chain, as `a + b + (c + d)` does, and write the whole character.
 - A caller that compared `domql.format`'s text for such a negation or such a call reads the new text, which parses to the same definition.
 
 <a id="v1-0-0-beta-1"></a>

@@ -73,7 +73,8 @@ const COMPARED = '(%\n) != null';
  * Each document's `domql` blocks, an entry for each, in the order the document shows them. A block's queries are formatted, to text that formats to itself and means the same,
  * and resolved against the page and the bindings, with the ones its entry adds, within the context its entry states, `%` standing for the query, and with the modules it registers;
  * an entry that gives `results` also evaluates the queries it gives one for, by their index, and one that says `refuses` expects each query refused with that kind of error.
- * Every example must be one of these, so a block with no entry fails.
+ * Every example must be one of these, so a block with no entry fails. The version history is none of them: each of its examples shows what a line did at its version and before it,
+ * which a later version may change, so each was run at its version when its entry was written.
  */
 const DOCUMENTS = {
     'spec/README.md': [],
@@ -136,7 +137,6 @@ const DOCUMENTS = {
     'docs/domql-design.md': [],
     'docs/features-status.md': [],
     'README.md': [],
-    'VERSION-HISTORY.md': [],
     'CHANGELOG.md': [],
 };
 

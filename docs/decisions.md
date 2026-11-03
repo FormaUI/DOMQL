@@ -1232,3 +1232,16 @@ Each entry is one of three kinds:
 - **Declined:**
   - Making the C# half a requirement, which would hold 1.0 for a design the owner hasn't decided is needed.
   - Refusing every feature without exception, which would hold 1.0 for the one its own requirement, Forma's scripts, turns out to need.
+
+<a id="d81"></a>
+
+## D81 — A version history entry leads with examples of what changed
+
+*November 3, 2026*
+
+- **Kind:** Process.
+- **Decision:** From `1.0.0-beta.1` on, each entry of the [version history](../VERSION-HISTORY.md) leads with examples of what its version changed: a query's in a `domql` block, a caller's or a module's in a `js` block. Each line's comment says what it does at that version and what it did before. The entry's list follows them as the reference. Each example is run at its version when its entry is written; the gate doesn't run them.
+- **Why:**
+  - The list states each change precisely, but a caller migrating needs the line to write.
+  - Nexo's language history follows the same rule, as its [D70](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/docs/decisions.md#d70) records, and running its examples found what `1.0.0-beta.2`'s entry here misstated: a chain's limit counts terms, and a grouped chain is written `a + b + (c + d)`.
+- **Declined:** Running the history's examples in the gate, which would make a record of the past change with later versions.
