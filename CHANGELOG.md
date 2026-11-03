@@ -9,6 +9,7 @@ Each release of DOMQL's packages, newest first. The NuGet package `formaui-net.D
 
 ## `1.0.0-beta.1`
 
-*Unpublished · specification `1.0.0-beta.1` · Nexo language `1.0.0-beta.20` · definition format 38*
+*Unpublished · specification `1.0.0-beta.2` · Nexo language `1.0.0-beta.40` · definition format 38*
 
 - The first beta, and the first release. The [version history](VERSION-HISTORY.md) records what came before it.
+- Runs on Nexo's language `1.0.0-beta.40`, as the [version history](VERSION-HISTORY.md#v1-0-0-beta-2) sets out: `and` and `or` typed where their value is used, a selection into a dictionary's `entries` and a pair's `key` and `value`, and a module's maintained members declaring nullable results, among the rest.

@@ -2,9 +2,9 @@
 
 **A declarative approach to managing the DOM.**
 
-DOMQL is a JavaScript library for querying the DOM, allowing you to read information from a document once or observe it as it changes. This guide takes you from your first query to watching results, handling events and extending the library. Its queries are written in [Nexo](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/spec/README.md).
+DOMQL is a JavaScript library for querying the DOM, allowing you to read information from a document once or observe it as it changes. This guide takes you from your first query to watching results, handling events and extending the library. Its queries are written in [Nexo](https://github.com/FormaUI/Nexo/blob/812920516b6295c9b79355bd8f128ad46fd6da85/spec/README.md).
 
-> **Beta:** no breaking redesign is planned, and a version that breaks what the one before it allowed says how to migrate. `formaui-net.DOMQL` is not yet published to NuGet. [Build the package locally](#install-and-load) to try it. The package distributes a JavaScript ES module; the API in this guide runs in JavaScript. Every example here runs on this beta. The runtime, `1.0.0-beta.1`, implements DOMQL's specification `1.0.0-beta.1` on Nexo's language `1.0.0-beta.20`, definition version 38. [The status overview](https://github.com/FormaUI/DOMQL/blob/main/docs/features-status.md) says what is implemented and what is being built.
+> **Beta:** no breaking redesign is planned, and a version that breaks what the one before it allowed says how to migrate. `formaui-net.DOMQL` is not yet published to NuGet. [Build the package locally](#install-and-load) to try it. The package distributes a JavaScript ES module; the API in this guide runs in JavaScript. Every example here runs on this beta. The runtime, `1.0.0-beta.1`, implements DOMQL's specification `1.0.0-beta.2` on Nexo's language `1.0.0-beta.40`, definition version 38. [The status overview](https://github.com/FormaUI/DOMQL/blob/main/docs/features-status.md) says what is implemented and what is being built.
 
 ## In this guide
 
@@ -655,7 +655,7 @@ In the second line, `input.rect` reads the input with a plain `.`, because the r
 
 `or` falls back for `null` and `false`, and `??` for `null` alone: `false or true` is `true`, and `false ?? true` is `false`.
 
-Unlike Lua, DOMQL types every expression, so `and` and `or` must give values of one type. `it.disabled() and it` could give `false` or an element, and is refused; write `if it.disabled() then it else null end` if `null` is an acceptable alternative. Use a conditional whenever the chosen value may itself be `false` or `null`.
+DOMQL types every expression, so the values `and` and `or` give must share a type where the value is used. A condition, the operand of `not` and an operand of another `and` or `or` test truthiness alone, so `it.disabled() and "locked" or "open"` is a `String`: the `false` that selects `"open"` reaches nothing. `it.disabled() and it`, used as a value, could give `false` or an element, and is refused; write `if it.disabled() then it else null end` if `null` is an acceptable alternative. Use a conditional whenever the chosen value may itself be `false` or `null`: `c and x or y` gives `y` where `x` is falsey, which `if c then x else y end` does not.
 
 Mixing `??` with `==`, `!=`, `not`, `and` or `or` requires parentheses around one of the expressions.
 
@@ -992,7 +992,7 @@ Modules can also declare Boolean members, properties and functions whose result 
 
 A member the host invokes, `invokedBy: 'host'`, is a host call that DOMQL carries out: an event source, `requestKind: 'subscription'`, or an execution, `requestKind: 'execution'`, which runs `once` or `continuous` as its `executionMode` says. An event source's implementation receives the receiver, arguments, environment and an event-delivery callback, as `{ receiver, args, env, deliver }`, and returns an object with a `stop` method to end listening. Each event is captured as the type its declaration's result names, and a module adds event types of its own as mappings of DOMQL's type selector `event`, `{ selector: 'event', key, type }`, each naming the type its events are captured as.
 
-[Nexo's modules](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/spec/runtime/modules.md#modules) specify the full extension contracts. The next section shows execution modules.
+[Nexo's modules](https://github.com/FormaUI/Nexo/blob/812920516b6295c9b79355bd8f128ad46fd6da85/spec/runtime/modules.md#modules) specify the full extension contracts. The next section shows execution modules.
 
 ### Load a module on request
 
@@ -1489,9 +1489,9 @@ filtered.dispose();
 ## Learn more
 
 - [Repository README](https://github.com/FormaUI/DOMQL): what DOMQL is for, what is built, and how to build and test it.
-- [Nexo specification](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/spec/README.md): the language DOMQL is written in, its syntax, types, null semantics, imports and extensions, and the runtime contracts of its modules.
+- [Nexo specification](https://github.com/FormaUI/Nexo/blob/812920516b6295c9b79355bd8f128ad46fd6da85/spec/README.md): the language DOMQL is written in, its syntax, types, null semantics, imports and extensions, and the runtime contracts of its modules.
 - [DOMQL specification](https://github.com/FormaUI/DOMQL/blob/main/spec/README.md): queries, the DOM's vocabulary, evaluating and watching a query, its results, events, executions, and the API.
-- [DOMQL design](https://github.com/FormaUI/DOMQL/blob/main/docs/domql-design.md): how DOMQL is built, and the decisions it did not take, and the [Nexo design](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/docs/nexo-design.md): how the language and its runtime are built.
+- [DOMQL design](https://github.com/FormaUI/DOMQL/blob/main/docs/domql-design.md): how DOMQL is built, and the decisions it did not take, and the [Nexo design](https://github.com/FormaUI/Nexo/blob/812920516b6295c9b79355bd8f128ad46fd6da85/docs/nexo-design.md): how the language and its runtime are built.
 
 - [Changelog](https://github.com/FormaUI/DOMQL/blob/main/CHANGELOG.md): each release of the package and what it changed.
 - [Status](https://github.com/FormaUI/DOMQL/blob/main/docs/features-status.md): what is implemented, what is being built, and what remains.

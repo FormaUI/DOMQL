@@ -357,6 +357,16 @@ describe('DomqlQuery', () => {
             expect(() => isolated.query('panel { n = 1 }', { panel }).select('m').evaluate()).toThrow(expect.objectContaining({ kind: 'validation', code: 'NEXO3602', message: expect.stringContaining("'m'"), location: { pointer: '/expression', offset: 0, line: 1, column: 1 } }));
         });
 
+        it('steps into a dictionary and a pair in the form a result holds them, and refuses any other name after one', () => {
+            const query = isolated.query('{ counts = ["a" = 1, "b" = 2], range = ["a" = 1].entry["a"] }', { panel });
+
+            expect(query.select('counts', 'entries').evaluate()).toEqual([{ key: 'a', value: 1 }, { key: 'b', value: 2 }]);
+            expect(query.select('counts', 'entries', 1, 'value').evaluate()).toBe(2);
+            expect([query.select('range', 'key').evaluate(), query.select('range', 'value').evaluate()]).toEqual(['a', 1]);
+            expect(() => query.select('counts', 'a').evaluate()).toThrow(expect.objectContaining({ kind: 'validation', code: 'NEXO3602', message: expect.stringContaining("'a', which Dictionary<String, Number> does not hold"), location: { pointer: '/expression', offset: 0, line: 1, column: 1 } }));
+            expect(() => query.select('range', 'first').evaluate()).toThrow(expect.objectContaining({ kind: 'validation', code: 'NEXO3602', message: expect.stringContaining("'first', which Pair<String, Number> does not hold") }));
+        });
+
         it('is refused where its path does not fit the result, by each operation before anything starts', async () => {
             const misfit = isolated.query('panel { n = 1 }', { panel }).select('n', 0);
 

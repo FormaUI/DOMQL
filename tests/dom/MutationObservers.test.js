@@ -32,7 +32,7 @@ describe('MutationObservers', () => {
             name: 'MeasureElements', kind: 'extension', target: 'Domql.Element',
             members: [
                 {
-                    name: 'measuredClass', kind: 'property', result: 'String',
+                    name: 'measuredClass', kind: 'property', result: 'String?',
                     updates: { changes: 'observable', reads: 'maintained', observations: [{ type: 'measuring', of: 'receiver' }] },
                     impl: ({ samples: [value] }) => value,
                 },

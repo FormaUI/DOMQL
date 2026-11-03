@@ -9,7 +9,7 @@ export class Versions {
     static runtime = '1.0.0-beta.1';
 
     /** The DOMQL specification version the implementation follows. */
-    static specification = '1.0.0-beta.1';
+    static specification = '1.0.0-beta.2';
 
     /** The language specification version the Nexo runtime DOMQL runs on follows, as that runtime reports it. */
     static language = nexo.info.versions.language;

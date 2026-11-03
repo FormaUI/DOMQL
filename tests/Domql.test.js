@@ -3841,7 +3841,8 @@ describe('domql arithmetic', () => {
         expect(domql.format('a - (b - c)')).toBe('a - (b - c)');
         expect(domql.format('- (a + b)')).toBe('-(a + b)');
         expect(domql.format('- -x')).toBe('-(-x)');
-        expect(domql.format('-(-1)')).toBe('-(-1)');
+        // A negated number literal is the number it gives.
+        expect(domql.format('-(-1)')).toBe('1');
         expect(domql.format('a ?? -1')).toBe('a ?? -1');
         expect(domql.format('(a ?? 0) + 1')).toBe('(a ?? 0) + 1');
         expect(domql.format('(a + 1) == b')).toBe('a + 1 == b');

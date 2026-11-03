@@ -24,7 +24,7 @@ describe('MutationObservers in a browser', () => {
         types: [{
             name: 'MeasureElements', kind: 'extension', target: 'Domql.Element',
             members: [{
-                name: 'fittedWidth', kind: 'property', result: 'Number',
+                name: 'fittedWidth', kind: 'property', result: 'Number?',
                 updates: { changes: 'observable', reads: 'maintained', observations: [{ type: 'fitting', of: 'receiver' }] },
                 impl: ({ samples: [value] }) => value,
             }],

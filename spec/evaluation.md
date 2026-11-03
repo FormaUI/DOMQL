@@ -3,7 +3,7 @@
 <a id="evaluation"></a>
 <a id="evaluation-and-watching"></a>
 
-**Evaluating** a query reads the document once and answers its result. DOMQL evaluates a query as Nexo's [runtime](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/spec/runtime/evaluation.md#runtime-evaluation) evaluates a script, synchronously, against the document it runs against, and each member declares how it reads. A caller evaluates with `evaluate`, which answers at once, or with `evaluateAsync`, which also waits for the browser's first report of what a maintained member reads.
+**Evaluating** a query reads the document once and answers its result. DOMQL evaluates a query as Nexo's [runtime](https://github.com/FormaUI/Nexo/blob/812920516b6295c9b79355bd8f128ad46fd6da85/spec/runtime/evaluation.md#runtime-evaluation) evaluates a script, synchronously, against the document it runs against, and each member declares how it reads. A caller evaluates with `evaluate`, which answers at once, or with `evaluateAsync`, which also waits for the browser's first report of what a maintained member reads.
 
 ```js
 const query = domql.query('{ size = panel.size, nearEnd = sentinel.intersects({ root = panel }) }', { panel, sentinel });
@@ -12,7 +12,7 @@ query.evaluate();            // Throws an evaluation error: intersects is mainta
 await query.evaluateAsync(); // { size: { width: 640, height: 480 }, nearEnd: false }
 ```
 
-Evaluating a query is read-only, as [Nexo requires](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/spec/runtime/members.md#how-a-member-reads) of every vocabulary. A measurement that needs the document changed first, such as measuring columns at their intrinsic widths under a temporary class, is an [execution](executions.md) of its own.
+Evaluating a query is read-only, as [Nexo requires](https://github.com/FormaUI/Nexo/blob/812920516b6295c9b79355bd8f128ad46fd6da85/spec/runtime/members.md#how-a-member-reads) of every vocabulary. A measurement that needs the document changed first, such as measuring columns at their intrinsic widths under a temporary class, is an [execution](executions.md) of its own.
 
 In this document:
 
@@ -28,7 +28,7 @@ In this document:
 `query.evaluate(options?)` resolves the query, then evaluates it once against the document in a single synchronous pass, following the resolution rather than looking names up again. What an evaluation reads is always the document as it is. Its options are `window` and [`owner`](api.md#api-the-owner).
 
 - **The result** is a detached copy, frozen, that holds nothing of the document. A structure a member answers is taken by its data shape alone, the properties its type declares, each read as the value offers it, a getter's included, so a property beside them never reaches a result and an instance of a class answers as the properties its type declares.
-- **A member that breaks its contract.** A member whose function answers a type other than the one it declares has broken its contract, and the evaluation fails with an evaluation error naming the member and where it stands in the query; so does a member whose function throws, with the thrown error as its cause. A request that uses a member a module declares and does not implement is refused before anything is evaluated, with a module error naming the declaration, as Nexo's [declarations without an implementation](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/spec/runtime/modules.md#modules-declarations-without-an-implementation) set out.
+- **A member that breaks its contract.** A member whose function answers a type other than the one it declares has broken its contract, and the evaluation fails with an evaluation error naming the member and where it stands in the query; so does a member whose function throws, with the thrown error as its cause. A request that uses a member a module declares and does not implement is refused before anything is evaluated, with a module error naming the declaration, as Nexo's [declarations without an implementation](https://github.com/FormaUI/Nexo/blob/812920516b6295c9b79355bd8f128ad46fd6da85/spec/runtime/modules.md#modules-declarations-without-an-implementation) set out.
 - **A maintained member** cannot be read in a single synchronous pass and fails `evaluate`, with an evaluation error naming the member; `evaluateAsync` waits for it.
 - **A request of another kind** is refused, as [request kinds and their operations](queries.md#operations-and-request-kinds) set out.
 
@@ -36,7 +36,7 @@ In this document:
 
 ## How DOMQL's members read
 
-Each member declares how it reads by [Nexo's contract](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/spec/runtime/members.md#how-a-member-reads): DOMQL's members read fresh from the document, as an attribute or a box is, maintained by a browser observation, as `intersects` is, captured, as an event's data is, or derived, as a list's `count` is.
+Each member declares how it reads by [Nexo's contract](https://github.com/FormaUI/Nexo/blob/812920516b6295c9b79355bd8f128ad46fd6da85/spec/runtime/members.md#how-a-member-reads): DOMQL's members read fresh from the document, as an attribute or a box is, maintained by a browser observation, as `intersects` is, captured, as an event's data is, or derived, as a list's `count` is.
 
 A member whose result depends on what happened before, as well as on the document as it is, is captured: it keeps that history while a watch or an event listener holds it, and documents what an evaluation once reports without it.
 

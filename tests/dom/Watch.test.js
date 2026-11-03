@@ -657,7 +657,7 @@ describe('Watch', () => {
                     },
                 }],
                 types: [elementExtension('Meter', [{
-                    name: 'meter', kind: 'property', result: 'Number',
+                    name: 'meter', kind: 'property', result: 'Number?',
                     updates: { changes: 'observable', reads: 'maintained', tolerance: 2, observations: [{ type: 'meter', of: 'receiver' }] },
                     impl: ({ samples: [sample] }) => sample,
                 }])],

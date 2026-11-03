@@ -10,6 +10,45 @@ Each entry says what its version breaks:
 - **Before the beta,** a version could break what the one before it allowed, with no guidance on migrating.
 - **From `1.0.0-beta.1` on,** no breaking redesign is planned. A version that breaks what the one before it allowed says, beside each break, how a query, a caller or a module migrates.
 
+<a id="v1-0-0-beta-2"></a>
+
+## `1.0.0-beta.2`
+
+*November 3, 2026 · Nexo language `1.0.0-beta.40` · definition format 38*
+
+DOMQL moves to Nexo's language `1.0.0-beta.40`, as [D76](docs/decisions.md#d76) records. Each change below is Nexo's, which its [language history](https://github.com/FormaUI/Nexo/blob/812920516b6295c9b79355bd8f128ad46fd6da85/LANGUAGE-HISTORY.md#v1-0-0-beta-40) sets out by version; these are the ones a query, a caller and a module meet.
+
+**Queries**
+
+- [`and` and `or`](https://github.com/FormaUI/Nexo/blob/812920516b6295c9b79355bd8f128ad46fd6da85/spec/language/expressions.md#logical-expressions-negations-and-groups-type) share a type only where their value is used: `it.disabled() and "locked" or "open"` is a `String`, where it was refused.
+- A conversion of a value of `Any` converts by the type the value turns out to be, failing with NEXO5053 where nothing converts it, where it was refused at resolution.
+- A computed name through a namespace reads as it does after `@`: `Domql.["window"]` is `Domql.window`.
+- A query nesting deeper than 256 levels is refused, NEXO1072, and so is a string holding a surrogate standing alone, NEXO1049.
+- Diagnostics say what to write: `1.e3`, `value to List<Number>` and `element as Element?` among them.
+
+**Results**
+
+- [A selection](spec/queries.md#selecting-a-result) steps into a dictionary's `entries` and a pair's `key` and `value`, the form [a result holds them](spec/results.md#results-collections) in, where a path into either was refused.
+- `domql.format` writes a negated number literal as the number, `-(-1)` as `1`, and a call's arguments after a block's `end` on lines of their own.
+- Data a result holds nesting deeper than 1,000 levels is refused, NEXO5052, and a `sum` or a `sequence` no finite number holds, NEXO5020.
+
+**Modules**
+
+- [A member reading maintained values](https://github.com/FormaUI/Nexo/blob/812920516b6295c9b79355bd8f128ad46fd6da85/spec/runtime/members.md) declares a result that can be null, NEXO4071, since it reads as null until its first sample arrives.
+- A module's `typeOf` answering nothing is a fault, NEXO5002.
+- A fixed parameter is required and takes no default, NEXO4072, and an observation takes no expression or predicate parameter, NEXO4055.
+- A module error names a declaration only by a name that is a string.
+
+**Breaking:**
+
+- A module declaring a member that reads maintained values with a result that can't be null is refused. Declare it nullable, `Number?`, and give a query's reads of it a fallback, `(panel:level ?? 0) > 20`.
+- A `typeOf` answering `undefined` is a fault, NEXO5002. Answer `null` for a value of none of the module's types.
+- A module declaring a fixed parameter optional or with a default is refused. Make it required; neither form ever let a query leave the argument out.
+- `value and x`, where `value` is of `Any`, is of `Any`. Give it a fallback, or test it where one type is needed.
+- An object expression after a member declared `Any` that answers a list applies to the list once. Declare the member's result as a list, `List<Any>`, so it applies to each item.
+- A query nesting deeper than 256 levels, or holding a string with a surrogate standing alone, is refused. Group a long chain, as `(a + b) + (c + d)` does, and write the whole character.
+- A caller that compared `domql.format`'s text for such a negation or such a call reads the new text, which parses to the same definition.
+
 <a id="v1-0-0-beta-1"></a>
 
 ## `1.0.0-beta.1`
@@ -501,7 +540,7 @@ DOMQL moves to Nexo's language `1.0.0-beta.15`, which settles what Nexo's status
 - **Membership compares by key equality alone.** `contains`, `indexOf`, `distinct` and `distinctBy` take numbers, strings, Booleans, references and null, so a list of elements works as before, and one of objects, lists or values of `Any` is refused (NEXO3083), where it was compared by identity.
 - **A result path is checked wherever it is given,** so `select` refuses a malformed path as it did, and steps into an object's own fields and a list's items alone.
 - **A module's declarations name Nexo's own types qualified,** as `Nexo.Number`, where the module declares a type of that name.
-- **Conditions Nexo told apart by message have codes of their own,** NEXO5043 to NEXO5050 among them, as [Nexo's language history](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/LANGUAGE-HISTORY.md) records.
+- **Conditions Nexo told apart by message have codes of their own,** NEXO5043 to NEXO5050 among them, as [Nexo's language history](https://github.com/FormaUI/Nexo/blob/812920516b6295c9b79355bd8f128ad46fd6da85/LANGUAGE-HISTORY.md) records.
 
 **Breaking:** a query that tested membership in a list of objects, lists or values of `Any` is refused; test a key field instead, as `items.any(it.id == id)`.
 

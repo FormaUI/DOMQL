@@ -399,6 +399,7 @@ describe('LanguageResolver', () => {
             ['a conditional whose fixed condition selects one branch, the other left unread', 'panel.[if wide then "size" else "nonsense" end]', { wide: true }, 'Size?'],
             ['a conditional whose condition is read when the query is evaluated, either branch possible', 'panel.[if panel.attached then "size" else "clientSize" end]', {}, 'Size?'],
             ['a coalescing operator whose value cannot be null, its fallback never asked for names', 'panel.["size" ?? panel["x"]]', {}, 'Size?'],
+            ['an and of a Boolean member and a name, whose false the or after it replaces', 'panel { v = it.[it.attached and "size" or "clientSize"] }', {}, '{ v: Size? }'],
         ])('resolves a computed property access to the names %s', (_, text, bindings, type) => {
             expect(resolve(text, { panel, ...bindings }).type.toString()).toBe(type);
         });
@@ -406,7 +407,6 @@ describe('LanguageResolver', () => {
         it.each([
             ['an and that can give false', 'panel.[wide and "size"]', { wide: false }, 'NEXO3013', "A computed property access reads a string, and 'wide and \"size\"' can be false"],
             ['a name an and and an or reach that no property has', 'panel.[wide and "nonsense" or "size"]', { wide: true }, 'NEXO3056', "'nonsense' is no member of the vocabulary"],
-            ['an and of a Boolean member and a name, whose values no one type holds', 'panel { v = it.[it.attached and "size" or "clientSize"] }', {}, 'NEXO3040', "What 'and' gives is false or String"],
             ['a value that is no name', 'panel.[count]', { count: 5 }, 'NEXO3013', "A computed property access reads a string, and 'count' can be a value that is not one"],
             ['a fallback whose names go unasked, which is validated all the same', 'panel.["size" ?? panel.nonsense]', {}, 'NEXO3001', "'nonsense' is no member of the vocabulary"],
         ])('refuses a computed property access through %s', (_, text, bindings, code, message) => {

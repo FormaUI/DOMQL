@@ -404,7 +404,7 @@ Each entry is one of three kinds:
 - **Kind:** Contract.
 - **Decision:** `on(type, options?)` takes a second, optional positional argument, a `Listening { capture }`, so `on("click", { capture = true })` listens as the event is captured on its way to its target, and `on("click")` as before, at the target and as it bubbles. It listens passively either way, for observing alone, as [D2](#d2) has it.
 - **Why:**
-  - A member's argument form is positional or options, never both, and `on("click")` keeps its form, so the option is a structured value its parameter constructs from the object expression written there, as Nexo's [constructing a structure](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/spec/language/types.md#types-constructing-a-structure) sets out.
+  - A member's argument form is positional or options, never both, and `on("click")` keeps its form, so the option is a structured value its parameter constructs from the object expression written there, as Nexo's [constructing a structure](https://github.com/FormaUI/Nexo/blob/812920516b6295c9b79355bd8f128ad46fd6da85/spec/language/types.md#types-constructing-a-structure) sets out.
   - A structure leaves room for another listening option without changing the argument form, which would break every subscription.
   - Listening in the capture phase at an ancestor observes an event before any listener nearer its target runs, so a listener there that stops it hides nothing.
 - **Declined:**
@@ -922,7 +922,7 @@ Each entry is one of three kinds:
 *November 2, 2026*
 
 - **Kind:** Contract.
-- **Decision:** A host call's function argument reaches its implementation as a kept function, which Nexo's language `1.0.0-beta.20` designed for DOMQL ([C13](features-status.md#planned-extension-contract)), as its [decisions](https://github.com/FormaUI/Nexo/blob/e989dee2c662f0608e9a61b10afdf317a323fb90/docs/decisions.md#d49) record. DOMQL ends it as the execution keeping it ends: a continuous execution's instance ending or accepting other arguments, a once execution's answer settling, a subscription ending. Each call counts as an evaluation of the instance's, so what it reads reads alone.
+- **Decision:** A host call's function argument reaches its implementation as a kept function, which Nexo's language `1.0.0-beta.20` designed for DOMQL ([C13](features-status.md#planned-extension-contract)), as its [decisions](https://github.com/FormaUI/Nexo/blob/812920516b6295c9b79355bd8f128ad46fd6da85/docs/decisions.md#d49) record. DOMQL ends it as the execution keeping it ends: a continuous execution's instance ending or accepting other arguments, a once execution's answer settling, a subscription ending. Each call counts as an evaluation of the instance's, so what it reads reads alone.
 - **Why:**
   - A running behavior keeps a test of what it hears, as a route's condition, and calls it inside each event's dispatch; data alone left every such test a protocol of the module's own.
   - DOMQL alone knows when what it started ends, so it disposes each prepared call then, and a call after that fails with Nexo's code, where it would read a page the caller has moved on from.
@@ -1155,3 +1155,19 @@ Each entry is one of three kinds:
   - Moving the runtime to the beta and keeping the specification at `1.0.0-alpha.318`. The promise is the contract's, and the specification's version names the contract.
   - An empty changelog until the first change after the beta, as the plan named it. The first release is itself an entry, and the gate can check only an entry that exists.
   - Giving the private `package.json` a version now. No npm package is made from it yet; it takes the runtime version when the npm package is made, as the status's [packages](features-status.md#packages) set out.
+
+<a id="d76"></a>
+
+## D76 — DOMQL moves to Nexo's language `1.0.0-beta.40`, following its result paths
+
+*November 3, 2026*
+
+- **Kind:** Contract.
+- **Decision:** DOMQL builds against Nexo's `8129205`, its language `1.0.0-beta.40`, and its specification advances to `1.0.0-beta.2`. A selection steps into a dictionary and a pair as Nexo's result paths do, through a dictionary's `entries` and a pair's `key` and `value`.
+- **Why:**
+  - Nexo's maintenance sweep, its `1.0.0-beta.21` to `1.0.0-beta.40`, fixed faults a query and a module could meet: stack overflows, a hang, unsound typing of `Any`, and texts that read otherwise than they were written.
+  - A selection checks its path with Nexo's `typeAt` and reads it with `valueAt`, which now step into the form a result holds a dictionary or a pair in, so a selection reaches every part a result holds.
+  - Each break the move brings is one a beta allows with guidance: the [version history](../VERSION-HISTORY.md#v1-0-0-beta-2) gives each its migration.
+- **Declined:**
+  - Staying on `1.0.0-beta.20`, which would keep the faults the sweep fixed.
+  - Refusing a path into a dictionary or a pair in DOMQL's own check, as the specification said. A result holds them as `entries` and `key` and `value`, as a change set addresses them, so a selection that can't reach them would be the one operation that can't.
