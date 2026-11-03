@@ -2,7 +2,7 @@
 
 **A declarative approach to managing the DOM.**
 
-DOMQL is a JavaScript library for querying the DOM, allowing you to read information from a document once or observe it as it changes. Its queries are written in [Nexo](https://github.com/FormaUI/Nexo/blob/812920516b6295c9b79355bd8f128ad46fd6da85/spec/README.md).
+DOMQL is a JavaScript library for querying the DOM, allowing you to read information from a document once or observe it as it changes. Its queries are written in [Nexo](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/README.md).
 
 > **Beta.** No breaking redesign is planned, and a version that breaks what the one before it allowed says how to migrate. The runtime, `1.0.0-beta.1`, implements DOMQL's specification `1.0.0-beta.2` on Nexo's language `1.0.0-beta.40`, definition version 38. DOMQL declares the DOM as types of its own. It is not yet published to npm or NuGet; you can [build and try it locally](#build-and-try-it). See [the status overview](docs/features-status.md).
 
@@ -98,7 +98,7 @@ The source import above works when serving the repository; the [library guide](n
 | --- | --- |
 | [Library guide](nuget/README.md) | Install DOMQL, learn the language by example and use the API |
 | [DOMQL specification](spec/README.md) | Queries, the DOM's vocabulary, evaluating and watching a query, its results, events, executions, and the API |
-| [Nexo specification](https://github.com/FormaUI/Nexo/blob/812920516b6295c9b79355bd8f128ad46fd6da85/spec/README.md) | The language DOMQL is written in, and its runtime, at the commit DOMQL builds against |
+| [Nexo specification](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/README.md) | The language DOMQL is written in, and its runtime, at the commit DOMQL builds against |
 | [Version history](VERSION-HISTORY.md) | Each version of DOMQL, with the features it added and what it changed |
 | [Changelog](CHANGELOG.md) | Each release of the packages and what it changed |
 | [Design](docs/domql-design.md) | How DOMQL is built, and the decisions it did not take |

@@ -9,7 +9,7 @@ Removes every build output first, so the build starts from nothing.
 Also runs the tests that need a real browser's layout, in headless Chromium, which is installed first if it is not.
 
 .NOTES
-DOMQL builds against Nexo at the commit nexo.commit pins, which it extracts into .nexo from the checkout beside this one, formaui-net.Nexo. Set NEXO_SOURCE to a Nexo checkout to build against that checkout's working tree instead, for a change made in both repositories.
+DOMQL builds against the Nexo release nexo.release pins, the tree of its tag, which it extracts into .nexo from the checkout beside this one, formaui-net.Nexo, fetching the tag where the checkout lacks it. Set NEXO_SOURCE to a Nexo checkout to build against that checkout's working tree instead, for a change made in both repositories.
 
 .EXAMPLE
 ./build.ps1 -Clean
@@ -33,7 +33,8 @@ $tests = Join-Path $root 'tests'
 $artifacts = Join-Path $root 'artifacts'
 $nexo = Join-Path $root '.nexo'
 $nexoCheckout = Join-Path (Split-Path $root -Parent) 'formaui-net.Nexo'
-$nexoCommit = (Get-Content (Join-Path $root 'nexo.commit') -Raw).Trim()
+$nexoRelease = (Get-Content (Join-Path $root 'nexo.release') -Raw).Trim()
+$nexoTag = "v$nexoRelease"
 
 # Removes .nexo, a link alone where it is one, so the checkout it points to is never touched.
 function Remove-Nexo {
@@ -50,7 +51,7 @@ function Remove-Nexo {
     }
 }
 
-# Makes .nexo the Nexo DOMQL builds against: a link to NEXO_SOURCE where it is set, and otherwise the tree of the pinned commit.
+# Makes .nexo the Nexo DOMQL builds against: a link to NEXO_SOURCE where it is set, and otherwise the tree of the pinned release's tag.
 function Initialize-Nexo {
     $item = Get-Item -LiteralPath $nexo -Force -ErrorAction SilentlyContinue
 
@@ -67,43 +68,44 @@ function Initialize-Nexo {
         return
     }
 
-    $stamp = Join-Path $nexo '.commit'
-    if ($item -and -not $item.LinkType -and (Test-Path $stamp) -and ((Get-Content $stamp -Raw).Trim() -eq $nexoCommit)) {
+    # A release's tag never moves, so a tree stamped with it is that release's.
+    $stamp = Join-Path $nexo '.release'
+    if ($item -and -not $item.LinkType -and (Test-Path $stamp) -and ((Get-Content $stamp -Raw).Trim() -eq $nexoTag)) {
         return
     }
 
     if (-not (Test-Path (Join-Path $nexoCheckout '.git'))) {
-        throw "DOMQL builds against Nexo's commit $nexoCommit, taken from a checkout at $nexoCheckout; clone Nexo there, or set NEXO_SOURCE to a checkout."
+        throw "DOMQL builds against Nexo's release $nexoRelease, the tag $nexoTag of a checkout at $nexoCheckout; clone Nexo there, or set NEXO_SOURCE to a checkout."
     }
 
-    git -C $nexoCheckout cat-file -e "$nexoCommit^{commit}" 2>$null
+    git -C $nexoCheckout cat-file -e "refs/tags/$nexoTag^{commit}" 2>$null
     if ($LASTEXITCODE -ne 0) {
-        git -C $nexoCheckout fetch origin $nexoCommit
+        git -C $nexoCheckout fetch origin "refs/tags/${nexoTag}:refs/tags/${nexoTag}"
         if ($LASTEXITCODE -ne 0) {
-            throw "Nexo's checkout does not have the commit $nexoCommit, and fetching it failed."
+            throw "Nexo's checkout does not have the tag $nexoTag, and fetching it failed."
         }
     }
 
-    Write-Host "Extracting Nexo at $nexoCommit"
+    Write-Host "Extracting Nexo's release $nexoRelease"
     Remove-Nexo
     New-Item -ItemType Directory -Path $nexo | Out-Null
-    $archive = Join-Path ([System.IO.Path]::GetTempPath()) "nexo-$nexoCommit.tar"
+    $archive = Join-Path ([System.IO.Path]::GetTempPath()) "nexo-$nexoTag.tar"
     try {
-        git -C $nexoCheckout archive --format=tar -o $archive $nexoCommit
+        git -C $nexoCheckout archive --format=tar -o $archive "refs/tags/$nexoTag"
         if ($LASTEXITCODE -ne 0) {
-            throw "Archiving Nexo's commit $nexoCommit failed."
+            throw "Archiving Nexo's release $nexoRelease failed."
         }
 
         tar -xf $archive -C $nexo
         if ($LASTEXITCODE -ne 0) {
-            throw "Extracting Nexo's commit $nexoCommit failed."
+            throw "Extracting Nexo's release $nexoRelease failed."
         }
     }
     finally {
         Remove-Item -LiteralPath $archive -Force -ErrorAction SilentlyContinue
     }
 
-    Set-Content -LiteralPath $stamp -Value $nexoCommit -NoNewline
+    Set-Content -LiteralPath $stamp -Value $nexoTag -NoNewline
 }
 
 if ($Clean) {

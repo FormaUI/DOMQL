@@ -18,7 +18,7 @@ concurrency:
 env:
   PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright
 
-# DOMQL builds against Nexo at the commit nexo.commit pins, taken from a checkout beside its own, formaui-net.Nexo beside formaui-net.DOMQL, until it consumes a released Nexo package, so each job checks out both, Nexo at that commit.
+# DOMQL builds against the Nexo release nexo.release pins, the tree of its tag, taken from a checkout beside its own, formaui-net.Nexo beside formaui-net.DOMQL, until it consumes Nexo's published package, so each job checks out both, Nexo at that tag.
 defaults:
   run:
     working-directory: formaui-net.DOMQL
@@ -34,16 +34,18 @@ jobs:
         with:
           path: formaui-net.DOMQL
 
-      # The Nexo commit DOMQL builds against, which nexo.commit pins.
-      - name: Read the pinned Nexo commit
+      # The tag of the Nexo release DOMQL builds against, which nexo.release pins.
+      - name: Read the pinned Nexo release
         id: nexo
-        run: echo "commit=$(tr -d '[:space:]' < nexo.commit)" >> "$GITHUB_OUTPUT"
+        run: echo "tag=v$(tr -d '[:space:]' < nexo.release)" >> "$GITHUB_OUTPUT"
 
+      # Nexo's whole history, since DOMQL's documents link to commits a record of the past names, which the link test reads.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: FormaUI/Nexo
-          ref: ${{ steps.nexo.outputs.commit }}
+          ref: ${{ steps.nexo.outputs.tag }}
           path: formaui-net.Nexo
+          fetch-depth: 0
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -84,16 +86,18 @@ jobs:
         with:
           path: formaui-net.DOMQL
 
-      # The Nexo commit DOMQL builds against, which nexo.commit pins.
-      - name: Read the pinned Nexo commit
+      # The tag of the Nexo release DOMQL builds against, which nexo.release pins.
+      - name: Read the pinned Nexo release
         id: nexo
-        run: echo "commit=$(tr -d '[:space:]' < nexo.commit)" >> "$GITHUB_OUTPUT"
+        run: echo "tag=v$(tr -d '[:space:]' < nexo.release)" >> "$GITHUB_OUTPUT"
 
+      # Nexo's whole history, since DOMQL's documents link to commits a record of the past names, which the link test reads.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: FormaUI/Nexo
-          ref: ${{ steps.nexo.outputs.commit }}
+          ref: ${{ steps.nexo.outputs.tag }}
           path: formaui-net.Nexo
+          fetch-depth: 0
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:

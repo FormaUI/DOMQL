@@ -404,7 +404,7 @@ Each entry is one of three kinds:
 - **Kind:** Contract.
 - **Decision:** `on(type, options?)` takes a second, optional positional argument, a `Listening { capture }`, so `on("click", { capture = true })` listens as the event is captured on its way to its target, and `on("click")` as before, at the target and as it bubbles. It listens passively either way, for observing alone, as [D2](#d2) has it.
 - **Why:**
-  - A member's argument form is positional or options, never both, and `on("click")` keeps its form, so the option is a structured value its parameter constructs from the object expression written there, as Nexo's [constructing a structure](https://github.com/FormaUI/Nexo/blob/812920516b6295c9b79355bd8f128ad46fd6da85/spec/language/types.md#types-constructing-a-structure) sets out.
+  - A member's argument form is positional or options, never both, and `on("click")` keeps its form, so the option is a structured value its parameter constructs from the object expression written there, as Nexo's [constructing a structure](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/language/types.md#types-constructing-a-structure) sets out.
   - A structure leaves room for another listening option without changing the argument form, which would break every subscription.
   - Listening in the capture phase at an ancestor observes an event before any listener nearer its target runs, so a listener there that stops it hides nothing.
 - **Declined:**
@@ -922,7 +922,7 @@ Each entry is one of three kinds:
 *November 2, 2026*
 
 - **Kind:** Contract.
-- **Decision:** A host call's function argument reaches its implementation as a kept function, which Nexo's language `1.0.0-beta.20` designed for DOMQL ([C13](features-status.md#planned-extension-contract)), as its [decisions](https://github.com/FormaUI/Nexo/blob/812920516b6295c9b79355bd8f128ad46fd6da85/docs/decisions.md#d49) record. DOMQL ends it as the execution keeping it ends: a continuous execution's instance ending or accepting other arguments, a once execution's answer settling, a subscription ending. Each call counts as an evaluation of the instance's, so what it reads reads alone.
+- **Decision:** A host call's function argument reaches its implementation as a kept function, which Nexo's language `1.0.0-beta.20` designed for DOMQL ([C13](features-status.md#planned-extension-contract)), as its [decisions](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/docs/decisions.md#d49) record. DOMQL ends it as the execution keeping it ends: a continuous execution's instance ending or accepting other arguments, a once execution's answer settling, a subscription ending. Each call counts as an evaluation of the instance's, so what it reads reads alone.
 - **Why:**
   - A running behavior keeps a test of what it hears, as a route's condition, and calls it inside each event's dispatch; data alone left every such test a protocol of the module's own.
   - DOMQL alone knows when what it started ends, so it disposes each prepared call then, and a call after that fails with Nexo's code, where it would read a page the caller has moved on from.
@@ -1147,7 +1147,7 @@ Each entry is one of three kinds:
 - **Why:**
   - Every planned capability is implemented or declined but A1 and A5's queue. What callers use today, the JavaScript half, is complete.
   - The C# half is a client of that contract. It maps results onto records, drives the operations the JavaScript half offers, and carries across the boundary the order that half already keeps ([D69](#d69)). The questions D46 leaves open are its own: a host's own transport, records a field discriminates, and checking text without a parser in .NET. Should its design need more of the JavaScript half, that is an addition, which a beta allows.
-  - Nexo holds the same stance: it is in its beta, as its [decisions](https://github.com/FormaUI/Nexo/blob/main/docs/decisions.md#d27) record, while its tooling waits for its design, as its [status](https://github.com/FormaUI/Nexo/blob/main/docs/features-status.md#tooling) records.
+  - Nexo holds the same stance: it is in its beta, as its [decisions](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/docs/decisions.md#d27) record, while its tooling waits for its design, as its [status](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/docs/features-status.md#tooling) records.
   - A caller reads `domql.info.versions` to learn what it can rely on. A beta runtime implementing an alpha specification would promise a stability its contract's version denies.
 - **Declined:**
   - Waiting for the C# half. Its design has not started, and the JavaScript half would go without a promise until it ends.
@@ -1171,3 +1171,17 @@ Each entry is one of three kinds:
 - **Declined:**
   - Staying on `1.0.0-beta.20`, which would keep the faults the sweep fixed.
   - Refusing a path into a dictionary or a pair in DOMQL's own check, as the specification said. A result holds them as `entries` and `key` and `value`, as a change set addresses them, so a selection that can't reach them would be the one operation that can't.
+
+<a id="d77"></a>
+
+## D77 — DOMQL builds against Nexo's releases
+
+*November 3, 2026*
+
+- **Kind:** Process.
+- **Decision:** `nexo.release` pins a release of Nexo, `1.0.0-beta.1` first, and the build extracts the tree of its tag, `v1.0.0-beta.1`, where `nexo.commit` pinned a commit. Every link into Nexo names that tag, so the links move with the pin, `main` among the links it replaces. A link to another commit is a record of the past.
+- **Why:**
+  - Nexo now advances its language once per release and cuts each release as a signed tag, as its [D66](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/docs/decisions.md#d66) records, so a release is what DOMQL can rely on.
+  - A commit pin named one fix, and moving it rewrote a hash in 81 places across 21 documents.
+  - A link to Nexo's `main` changes under DOMQL's documents, unseen.
+- **Declined:** Waiting for Nexo's packages on a registry, which would keep DOMQL on a commit until they are published; the packages remain the next step, as [consuming the language](features-status.md#consuming-nexo) sets out.

@@ -16,11 +16,11 @@ Each entry says what its version breaks:
 
 *November 3, 2026 · Nexo language `1.0.0-beta.40` · definition format 38*
 
-DOMQL moves to Nexo's language `1.0.0-beta.40`, as [D76](docs/decisions.md#d76) records. Each change below is Nexo's, which its [language history](https://github.com/FormaUI/Nexo/blob/812920516b6295c9b79355bd8f128ad46fd6da85/LANGUAGE-HISTORY.md#v1-0-0-beta-40) sets out by version; these are the ones a query, a caller and a module meet.
+DOMQL moves to Nexo's language `1.0.0-beta.40`, as [D76](docs/decisions.md#d76) records. Each change below is Nexo's, which its [language history](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/LANGUAGE-HISTORY.md#v1-0-0-beta-40) sets out by version; these are the ones a query, a caller and a module meet.
 
 **Queries**
 
-- [`and` and `or`](https://github.com/FormaUI/Nexo/blob/812920516b6295c9b79355bd8f128ad46fd6da85/spec/language/expressions.md#logical-expressions-negations-and-groups-type) share a type only where their value is used: `it.disabled() and "locked" or "open"` is a `String`, where it was refused.
+- [`and` and `or`](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/language/expressions.md#logical-expressions-negations-and-groups-type) share a type only where their value is used: `it.disabled() and "locked" or "open"` is a `String`, where it was refused.
 - A conversion of a value of `Any` converts by the type the value turns out to be, failing with NEXO5053 where nothing converts it, where it was refused at resolution.
 - A computed name through a namespace reads as it does after `@`: `Domql.["window"]` is `Domql.window`.
 - A query nesting deeper than 256 levels is refused, NEXO1072, and so is a string holding a surrogate standing alone, NEXO1049.
@@ -34,7 +34,7 @@ DOMQL moves to Nexo's language `1.0.0-beta.40`, as [D76](docs/decisions.md#d76) 
 
 **Modules**
 
-- [A member reading maintained values](https://github.com/FormaUI/Nexo/blob/812920516b6295c9b79355bd8f128ad46fd6da85/spec/runtime/members.md) declares a result that can be null, NEXO4071, since it reads as null until its first sample arrives.
+- [A member reading maintained values](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/runtime/members.md) declares a result that can be null, NEXO4071, since it reads as null until its first sample arrives.
 - A module's `typeOf` answering nothing is a fault, NEXO5002.
 - A fixed parameter is required and takes no default, NEXO4072, and an observation takes no expression or predicate parameter, NEXO4055.
 - A module error names a declaration only by a name that is a string.
@@ -540,7 +540,7 @@ DOMQL moves to Nexo's language `1.0.0-beta.15`, which settles what Nexo's status
 - **Membership compares by key equality alone.** `contains`, `indexOf`, `distinct` and `distinctBy` take numbers, strings, Booleans, references and null, so a list of elements works as before, and one of objects, lists or values of `Any` is refused (NEXO3083), where it was compared by identity.
 - **A result path is checked wherever it is given,** so `select` refuses a malformed path as it did, and steps into an object's own fields and a list's items alone.
 - **A module's declarations name Nexo's own types qualified,** as `Nexo.Number`, where the module declares a type of that name.
-- **Conditions Nexo told apart by message have codes of their own,** NEXO5043 to NEXO5050 among them, as [Nexo's language history](https://github.com/FormaUI/Nexo/blob/812920516b6295c9b79355bd8f128ad46fd6da85/LANGUAGE-HISTORY.md) records.
+- **Conditions Nexo told apart by message have codes of their own,** NEXO5043 to NEXO5050 among them, as [Nexo's language history](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/LANGUAGE-HISTORY.md) records.
 
 **Breaking:** a query that tested membership in a list of objects, lists or values of `Any` is refused; test a key field instead, as `items.any(it.id == id)`.
 
