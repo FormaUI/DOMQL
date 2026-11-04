@@ -92,6 +92,19 @@ const DOCUMENTS = {
     'spec/evaluation.md': [],
     'spec/watches.md': [
         { about: 'a body local following what a member misses' },
+        {
+            about: 'a body local following a large subtree\'s edits through a member that reads none of its text',
+            modules: [domql => domql.createModule('Edits', {
+                types: [{
+                    name: 'EditsElements', kind: 'extension', target: 'Domql.Element',
+                    members: [{
+                        name: 'edits', kind: 'property', result: 'Boolean',
+                        updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', childList: true, characterData: true, subtree: true }] },
+                        impl: () => true,
+                    }],
+                }],
+            })],
+        },
     ],
     'spec/results.md': [],
     'spec/events.md': [
