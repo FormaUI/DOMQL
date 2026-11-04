@@ -10,7 +10,8 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 Each entry says what its version breaks:
 
 - **Before the beta,** a version could break what the one before it allowed, with no guidance on migrating.
-- **From `1.0.0-beta.1` on,** no breaking redesign is planned. A version that breaks what the one before it allowed says, beside each break, how a query, a caller or a module migrates.
+- **From `1.0.0-beta.1` until the first release candidate,** a decision may be replaced where a demonstrated fault, an ambiguous contract or a measured cost justifies it, whether or not Forma has met it, as [D100](docs/decisions.md#d100) records. A version that breaks what the one before it allowed says, beside each break, how a query, a caller or a module migrates.
+- **From `1.0.0-rc.1` on,** nothing breaks before 2.0.
 
 <a id="v1-0-0-beta-2"></a>
 
@@ -121,6 +122,7 @@ DOMQL moves to Nexo's language `1.0.0-beta.41`, by way of `1.0.0-beta.40`, as [D
 
 - [A delivery inside a handler](spec/behaviors.md#behaviors-occurrences) reaches every subscription before the one around it goes on, so a later subscription hears it first, and [an acknowledgment](spec/behaviors.md#behaviors-acknowledgment) rejects at the first failure while others may still be applying the occurrence, as [D93](docs/decisions.md#d93) records; neither changed, the specification promised more.
 - [A kept value beside an outside writer](spec/vocabulary.md#execution-element-owned-writes-yielding) is judged by a heuristic, and [a committed position](spec/vocabulary.md#execution-element-owned-writes-framework) is let go of once its host confirms the render, not the occurrence's acknowledgment, as [D94](docs/decisions.md#d94) records.
+- [A transient measurement's read](spec/vocabulary.md#extension-modules-environment) is synchronous and writes nothing, and [a module's state per document](spec/vocabulary.md#extension-modules-state-per-document) is one for each copy of its code, as [D98](docs/decisions.md#d98) and [D99](docs/decisions.md#d99) record.
 - [A member reading maintained values](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/runtime/members.md) declares a result that can be null, NEXO4071, since it reads as null until its first sample arrives.
 - A module's `typeOf` answering nothing is a fault, NEXO5002.
 - A fixed parameter is required and takes no default, NEXO4072, and an observation takes no expression or predicate parameter, NEXO4055.

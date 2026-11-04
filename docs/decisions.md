@@ -215,6 +215,7 @@ Each entry is one of three kinds:
   - A Boolean function takes no argument, so the plan's `checkVisibility({ visibilityProperty: true })` can't be one, and `displayed()` serves the queries that filter what a surface shows.
   - No API answers whether an element can take focus, so `focusable()` follows HTML's list: displayed and visible, neither disabled nor inert, and given a `tabindex` or focusable by default. A browser test checks it against what `focus()` focuses.
   - Both observe the attributes and structure along the flat-tree ancestry and the element's own size, so a box a stylesheet hides is observed wherever its size changes.
+- **Since:** the formula suggested for Tab's reach is withdrawn, since `tabindex="-2"` passed it, as [D96](#d96) records.
 - **Declined:**
   - An element's `visible()`, beside the document's, for a question no query needs apart from `focusable()`.
   - Deciding focusability by trying `focus()`, which changes the page.
@@ -305,6 +306,7 @@ Each entry is one of three kinds:
   - The facts of one selection belong together, so they are one structured value, captured once, as a rectangle's edges are. Its range stays a reference, since what it holds is read on demand, and a structure holding a reference is read through an object expression, as an event is.
   - A `Range`'s members observe the selection and the document, so a range the page's code moves, other than the selection's, is missed, and they are partly observable.
   - A range's `rect`, `text`, `collapsed` and `all` answer the types an element's members of those names answer, so a receiver of unknown type reads them as one. `selection` answers a `Selection?` of an element and a `DocumentSelection?` of the document, two questions the plan named alike, so a query reads it of a receiver whose type it knows.
+- **Since:** the three selections follow three contracts, as [D97](#d97) names them.
 - **Declined:**
   - `DocumentSelection` as a reference type read fresh member by member, which could answer a type of one selection and a range of the next.
   - Keeping `selection` and `hasSelection` partly observable, which the browser no longer justifies.
@@ -852,6 +854,7 @@ Each entry is one of three kinds:
   - DOMQL can drain only its own observers, which it made; a framework's own observers see the class come and go, as they would without DOMQL.
   - The class's change restores itself before a frame is laid out, so no resize or intersection is reported, and the records of other changes keep their delivery, a microtask later.
   - An observation type's measurement is the one change watching makes, restored before it returns; a member reads alone, so it never measures.
+- **Since:** the read is synchronous and writes nothing, as [D98](#d98) records.
 - **Declined:**
   - Any change beside one class, an inline style or an attribute, which no measurement asks for yet.
   - Muting DOMQL's observers for the read's length, which would lose a change the read itself makes.
@@ -882,6 +885,7 @@ Each entry is one of three kinds:
   - Each instance of DOMQL has a registry of its own, so state DOMQL kept would be one per instance, and two bundles on one page would each hold a copy; the module's code is one, wherever it is registered.
   - State a document keeps for its life, as the culture it accepted, is started before any request and never reset, which a hook at the last release would contradict; the module makes it on first meeting the document, and starts it as its code loads where it must come first.
   - A module that wants to stop work as its last behavior ends counts its own instances, which its start and its dispose see.
+- **Since:** one for each copy of the module's code, as [D99](#d99) records.
 - **Declined:** A store DOMQL keeps by module and document, with hooks at first use and last release, which would split one document's state between instances and reset what must outlive every request.
 
 <a id="d58"></a>
@@ -1491,3 +1495,70 @@ Each entry is one of three kinds:
 - **Decision:** A watch's result at each evaluation is a full evaluation's, and it also wakes for every read a full evaluation makes: a local its result never uses, and the condition of a branch whose result stays the same. A member that keeps a history for each watch behaves as under a full evaluation.
 - **Why:** "The same result as a full evaluation" left out what a consumer relies on as much: which later changes wake the watch. [D19](#d19)'s `let edited = panel.text` before a geometry read exists to have an edit read the geometry again. An optimizer could give today's geometry, drop the unused local, and miss tomorrow's edit. Two tests now hold it through what a watch reports: a member whose observation misses a value is read anew after an edit an unused local reads, and after a branch's condition changes while its result stays equal.
 - **Declined:** Promising every member is evaluated each time, which would close incremental evaluation off.
+
+<a id="d96"></a>
+
+## D96 — `focusable` answers whether an element can take focus, never Tab's order
+
+*November 4, 2026*
+
+- **Kind:** Contract, correcting [D14](#d14).
+- **Decision:** `focusable` reads whether an element can take focus, as HTML's focusable areas decide. Whether the Tab key reaches it, and in what order, is sequential focus navigation, which a module that navigates focus owns. DOMQL suggests no formula for it.
+- **Why:** D14 declined a `tabbable()` by suggesting `it.focusable() and (it["tabindex"] ?? "0") != "-1"`. A review found that formula accepts `tabindex="-2"`, which keeps an element out of the Tab order as `-1` does, and the browser's order counts more than `tabindex` besides.
+- **Declined:** A corrected formula, which would still not be the browser's order.
+
+<a id="d97"></a>
+
+## D97 — Three selections follow three contracts
+
+*November 4, 2026*
+
+- **Kind:** Record, correcting [D20](#d20).
+- **Decision:** D20 is read as three contracts:
+  - **An element's `selection` and `hasSelection`,** a text control's or an editable element's, are observable.
+  - **The document's `selection`** is partly observable: the nodes holding the selection removed from a shadow tree collapse it unobserved.
+  - **A live `Range`'s members** are partly observable: a range other than the selection's that the page's code moves, and a change inside a shadow tree, are missed.
+- **Why:** D20 declined "keeping `selection` and `hasSelection` partly observable" while its own reasons left the document's selection partly observable, as the declaration says. A review found the record read as if every selection were observable. The specification already states each; the record now names which is which.
+
+<a id="d98"></a>
+
+## D98 — A transient measurement's read is synchronous and writes nothing
+
+*November 4, 2026*
+
+- **Kind:** Contract, completing [D55](#d55).
+- **Decision:** The `read` of `measureUnder` is a synchronous measurement that writes nothing. A class it adds is undone with the rest of the attribute, and a promise it answers is answered after the class is gone. A measurement of another class nested inside one restores the attribute as it found it, and a `read` that throws leaves it restored.
+- **Why:** The runtime restores the whole class attribute after the read and drains that element's class records, so a class the read added was lost without a word. A review asked that the contract say so, and that restoration after a failure and a nested measurement be tested. Tests now hold all three.
+- **Declined:** Keeping a class the read writes, which would have the measurement's own class records drained beside a write a watch needs to hear.
+
+<a id="d99"></a>
+
+## D99 — A module's state per document is one for each copy of its code
+
+*November 4, 2026*
+
+- **Kind:** Contract, qualifying [D57](#d57).
+- **Decision:** A module keeps its state per document in a `WeakMap` of its code's own, so it is one across every instance of DOMQL that registers that copy of the code. Two copies, bundled apart, are two modules with a map each. A service the whole document shares, as one routing its input or coordinating its culture, is loaded once to coordinate.
+- **Why:** D57 said "one across every instance", which a review found true only for one copy of the code.
+- **Declined:** A registry global to the page, which no consumer needs to coordinate two copies.
+
+<a id="d100"></a>
+
+## D100 — Until the release candidate, a fault, an ambiguity or a measured cost may reopen a decision
+
+*November 4, 2026*
+
+- **Kind:** Process, revising [D75](#d75) and [D80](#d80).
+- **Decision:** Until `1.0.0-rc.1`, a decision may be replaced where a demonstrated fault, an ambiguous public contract or a measured cost that grows with a page justifies it, whether or not Forma has met it. Its version's entry says how to migrate, and Forma moves with it. From `1.0.0-rc.1` on, nothing breaks before 2.0. Forma's scripts running on DOMQL stays a requirement of 1.0.
+- **Why:** A review asked that DOMQL keep a demanding first consumer without making it the only reason to change. This review is the case: the focus gap and the reversed axis were faults Forma's scripts hadn't hit yet.
+- **Declined:** Changing only what Forma meets, which would carry a fault a second consumer finds into 1.0.
+
+<a id="d101"></a>
+
+## D101 — Retained memory is reported apart from allocation
+
+*November 4, 2026*
+
+- **Kind:** Process, refining [D45](#d45).
+- **Decision:** A measurement of a change reports the memory it retains apart from what it allocates, and a cache's bound, as D84's 16, stays the implementation's setting, never a caller's guarantee.
+- **Why:** D84 showed why: cycling through strings it had kept became slower, yet the bound ended growth that outlived disposal, 75.7 MB retained after 20,000 distinct strings against a plateau near 1 MB. Read together, the two numbers would have hidden the fix.

@@ -111,7 +111,7 @@ Each feature, the contract that states it, its state in the implementation, and 
 | DOMQL's observations and frames for module code, `env.observe` and `env.frame`, a frame's writes before its reads | [The environment](../spec/vocabulary.md#extension-modules-environment) | Implemented, as [D53](decisions.md#d53) records | [`alpha.305`](../VERSION-HISTORY.md#v1-0-0-alpha-305) |
 | Queries from module code, `env.domql`, and no execution while a query is evaluated | [The environment](../spec/vocabulary.md#extension-modules-environment) | Implemented, as [D54](decisions.md#d54) records | [`alpha.305`](../VERSION-HISTORY.md#v1-0-0-alpha-305) |
 | A transient measurement, `env.measureUnder`, which DOMQL's own observers never hear | [The environment](../spec/vocabulary.md#extension-modules-environment) | Implemented, as [D55](decisions.md#d55) records | [`alpha.305`](../VERSION-HISTORY.md#v1-0-0-alpha-305) |
-| A module's state per document, one across every instance of DOMQL | [State per document](../spec/vocabulary.md#extension-modules-state-per-document) | Implemented, as [D57](decisions.md#d57) records | [`alpha.306`](../VERSION-HISTORY.md#v1-0-0-alpha-306) |
+| A module's state per document, one for each copy of its code across every instance of DOMQL | [State per document](../spec/vocabulary.md#extension-modules-state-per-document) | Implemented, as [D57](decisions.md#d57) records | [`alpha.306`](../VERSION-HISTORY.md#v1-0-0-alpha-306) |
 | A captured member's history, kept per holder by the operation's environment | [History per holder](../spec/vocabulary.md#extension-modules-history-per-holder) | Implemented, as [D58](decisions.md#d58) records | [`alpha.306`](../VERSION-HISTORY.md#v1-0-0-alpha-306) |
 | A null argument passed as it stands where its parameter accepts null | [Arguments](../spec/vocabulary.md#extension-modules) | Implemented, as [D59](decisions.md#d59) records | [`alpha.307`](../VERSION-HISTORY.md#v1-0-0-alpha-307) |
 | Nested options holding an element, a structured option written in place | [Arguments](../spec/vocabulary.md#extension-modules) | Implemented, as [D60](decisions.md#d60) records | [`alpha.307`](../VERSION-HISTORY.md#v1-0-0-alpha-307) |
@@ -234,7 +234,7 @@ None remains: C1 to C14 are implemented, as [the features](#the-host) show, each
 - A behavior's event sources are DOMQL's, and hear every instance for their owner on their receiver ([D49](decisions.md#d49)); `deliver` answers a promise that settles once each subscription applied the occurrence ([D50](decisions.md#d50)), and delivering is synchronous and never throws ([D51](decisions.md#d51)).
 - A behavior's state is read by its module's members, followed through the `behavior` observation ([D52](decisions.md#d52)).
 - Module code observes and schedules through DOMQL's own ([D53](decisions.md#d53)), reaches its instance and executes nothing while a query is evaluated ([D54](decisions.md#d54)), and measures under a class DOMQL's observers never hear ([D55](decisions.md#d55)).
-- A module's state per document is its own, one across every instance ([D57](decisions.md#d57)), and a member's history its holder's ([D58](decisions.md#d58)).
+- A module's state per document is its own, one for each copy of its code across every instance ([D57](decisions.md#d57), [D99](decisions.md#d99)), and a member's history its holder's ([D58](decisions.md#d58)).
 - A null option is passed as it stands where its parameter accepts null ([D59](decisions.md#d59)), and nested options holding an element are Nexo's structured values ([D60](decisions.md#d60)).
 - A kept function ends as the execution that keeps it ends ([D61](decisions.md#d61)).
 
@@ -328,13 +328,13 @@ Both wait for Nexo's published packages, and publishing stays with the maintaine
 
 **Until 1.0, DOMQL takes no new feature:** no new vocabulary, event, execution, API or behaviour a query or a caller can use. A change before 1.0 does one of these:
 
-- fixes a fault, or a contract that contradicts itself;
+- fixes a fault, demonstrated, whether or not Forma has met it, or a contract that contradicts itself or says too little to rely on;
 - makes a diagnostic say more;
-- makes DOMQL faster or leaner, measured as [the design](domql-design.md) records each measurement that decides something;
+- makes DOMQL faster or leaner, or fixes a cost that grows with what a page holds, measured as [the design](domql-design.md) records each measurement that decides something;
 - documents what is there;
 - meets a requirement above.
 
-A feature Forma's scripts need, as replacing them shows, is the one exception, and a decision records it.
+A feature Forma's scripts need, as replacing them shows, is the one exception, and a decision records it. Until the first release candidate, a fault, an ambiguous contract or a measured cost may reopen a decision even where Forma hasn't met it, so Forma is the integration 1.0 waits for, never the only reason to change, as [D100](decisions.md#d100) records.
 
 <a id="backlog"></a>
 

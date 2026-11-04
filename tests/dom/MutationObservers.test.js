@@ -72,6 +72,34 @@ describe('MutationObservers', () => {
             expect(cell.hasAttribute('class')).toBe(false);
         });
 
+        it('restores the class attribute where its read throws, the failure reaching its caller', async () => {
+            await isolated.query('import Measures\npanel:measuredClass', { panel }).evaluateAsync();
+
+            const failure = new Error('read failed');
+
+            expect(() => observationEnvironment.measureUnder(panel, { class: 'tall' }, () => {
+                throw failure;
+            })).toThrow(failure);
+            expect(panel.getAttribute('class')).toBe('open');
+        });
+
+        it('nests a measurement under another class inside one, each restoring the attribute as it found it', async () => {
+            await isolated.query('import Measures\npanel:measuredClass', { panel }).evaluateAsync();
+
+            const read = observationEnvironment.measureUnder(panel, { class: 'tall' }, () => [panel.className, observationEnvironment.measureUnder(panel, { class: 'dense' }, () => panel.className), panel.className]);
+
+            expect(read).toEqual(['open tall', 'open tall dense', 'open tall']);
+            expect(panel.getAttribute('class')).toBe('open');
+        });
+
+        it('undoes a class its read writes, since a read writes nothing: the attribute stands as it was before the measurement', async () => {
+            await isolated.query('import Measures\npanel:measuredClass', { panel }).evaluateAsync();
+
+            observationEnvironment.measureUnder(panel, { class: 'tall' }, () => panel.classList.add('written'));
+
+            expect(panel.getAttribute('class')).toBe('open');
+        });
+
         it('reads an element holding the class already as it is', async () => {
             panel.className = 'wide';
             await isolated.query('import Measures\npanel:measuredClass', { panel }).evaluateAsync();
