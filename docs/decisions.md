@@ -1601,3 +1601,14 @@ Each entry is one of three kinds:
 - **Why:** A review's drag workload found every update finding a location only a failure reads, about 9% of a numeric update.
 - **Measured** in five paired rounds against the commit before it, in Chromium: an owned write's update binding a number 10.95 → 9.95 µs, every pair 7.3% to 12.7% faster, and 5,196 → 4,971 bytes; one binding a new string 2.7% faster, within the noise. The drag's frame time is unchanged, within its noise.
 - **Declined:** A getter finding it on first read, which allocated its closure and accessor on every update, 6% more a numeric step.
+
+<a id="d105"></a>
+
+## D105 — One subscription's acknowledgment is the delivery's
+
+*November 5, 2026*
+
+- **Kind:** Implementation, measured.
+- **Decision:** Where one subscription hears an occurrence, `deliver` answers that subscription's acknowledgment itself, fulfilled with nothing as the occurrence is applied or rejected with its failure, as joining it alone with `Promise.all` would. Two or more are still joined.
+- **Why:** A review's workload found the join costing about 13 to 15% of an occurrence one subscription hears, the most common delivery.
+- **Measured** in five paired rounds against the commit before it, in Chromium: a move one subscription hears 3.00 → 2.38 µs and 2,938 → 2,493 bytes, one delivered as it is 2.25 → 1.75 µs, one with a slow handler 3.83 → 3.30 µs; four subscriptions unchanged, within the noise, and so are the acknowledgments outstanding and the memory retained.

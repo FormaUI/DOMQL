@@ -540,6 +540,36 @@ describe('Behaviors\' occurrences', () => {
             expect(order).toEqual(['sync', 'async', 'acknowledged']);
         });
 
+        it('settles as its one subscription applies the occurrence: fulfilled with nothing as the handler returns, or as the promise it returned fulfils, and rejected where it fails', async () => {
+            let finish;
+            const order = [];
+
+            listen('drops', { zone }, {}, args => {
+                if (args.value.key === 'broken') {
+                    throw new Error('broken handler');
+                }
+
+                return args.value.key === 'slow' ? new Promise(resolve => {
+                    finish = resolve;
+                }).then(() => order.push('applied')) : undefined;
+            });
+            run({ zone });
+
+            await expect(zones[0].drop('quick')).resolves.toBeUndefined();
+
+            const slow = zones[0].drop('slow').then(value => order.push(`acknowledged with ${value}`));
+
+            await Promise.resolve();
+            expect(order).toEqual([]);
+
+            finish();
+            await slow;
+
+            expect(order).toEqual(['applied', 'acknowledged with undefined']);
+            await expect(zones[0].drop('broken')).rejects.toMatchObject({ kind: 'evaluation', code: 'DOMQL5020', cause: expect.objectContaining({ message: 'broken handler' }) });
+            expect(reported).toEqual([expect.objectContaining({ message: 'broken handler' })]);
+        });
+
         it('rejects where no subscription listens, or one ends before it applies the occurrence, with DOMQL5017', async () => {
             run({ zone });
 

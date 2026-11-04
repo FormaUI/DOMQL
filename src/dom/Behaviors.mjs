@@ -200,6 +200,11 @@ export class Behaviors {
             return this.#unheardBy(running, source, location);
         }
 
+        // One subscription's acknowledgment is the delivery's, fulfilled with nothing as it applies the occurrence, or rejected with its failure, as joining it alone would be.
+        if (receivers.length === 1) {
+            return receivers[0](value);
+        }
+
         // A handler that subscribes or stops another as it receives the occurrence changes who hears the next, never this one.
         return Promise.all([...receivers].map(receive => receive(value))).then(() => undefined);
     }
