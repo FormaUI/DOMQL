@@ -1562,3 +1562,18 @@ Each entry is one of three kinds:
 - **Kind:** Process, refining [D45](#d45).
 - **Decision:** A measurement of a change reports the memory it retains apart from what it allocates, and a cache's bound, as D84's 16, stays the implementation's setting, never a caller's guarantee.
 - **Why:** D84 showed why: cycling through strings it had kept became slower, yet the bound ended growth that outlived disposal, 75.7 MB retained after 20,000 distinct strings against a plateau near 1 MB. Read together, the two numbers would have hidden the fix.
+
+<a id="d102"></a>
+
+## D102 — A transient measurement drains only the observers that could record its class
+
+*November 5, 2026*
+
+- **Kind:** Implementation, measured.
+- **Decision:** `MutationObservers` keeps each observer by the nodes it observes in a way that records a class's change: attributes observed, with no filter or one naming `class`. A measurement drains only those watching the element itself, or an ancestor with `subtree`, and every other observer keeps its normal delivery.
+- **Why:** A review's workload found a measurement walking and draining every observer its window runs, growing with them: 2 ms a measurement beside a watch of 10,000 rows, an observer a row, so fitting 20 columns took 40 ms and allocated 28 MB.
+- **Measured** in five paired rounds against the commit before it, in Chromium:
+  - 101, 1,001 and 10,001 observers: a measurement reading a width took 72 → 50.5, 246 → 50.5 and 1,997 → 50.5 µs, and allocated 14.6 KB → 0.7 KB, 142 KB → 0.7 KB and 1.41 MB → 0.6 KB.
+  - No observer: unchanged, 46.5 → 47.0 µs, within the noise.
+  - Retained memory once a 10,000-row watch is disposed: 628 → 632 KB, within the noise, and both plateau over 40 watches.
+- **Declined:** Two first forms that allocated per measurement where no observer watched, a set of candidates and an iterator, which cost 200–370 bytes there.

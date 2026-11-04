@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
+import { MutationObservers } from '#domql/dom/MutationObservers.mjs';
 
 /** Lets every task and microtask queued so far run. */
 const settle = () => new Promise(resolve => setTimeout(resolve, 0));
@@ -159,5 +160,111 @@ describe('MutationObservers', () => {
                 expect(() => observationEnvironment.measureUnder(element, options, read)).toThrow(expect.objectContaining({ kind: 'structure', code: 'DOMQL2012' }));
             }
         });
+    });
+});
+
+describe('The observers a transient measurement drains', () => {
+    let observers;
+    let native;
+    let panel;
+    let cell;
+
+    /** Each native observer made, in the order they were made, and how many times its records were taken. */
+    let made;
+    let taken;
+
+    /** What each observer's callback received, by its name: each record's type, target and attribute. */
+    let received;
+
+    /** An observer of DOMQL's, named, observing the node with the options given; its native observer is the latest made. */
+    const observing = (name, target, options, window = globalThis.window) => {
+        const observer = observers.create(window, records => received.push([name, ...records.map(({ type, target: node, attributeName }) => `${type} ${node.id} ${attributeName}`)]));
+
+        observer.observe(target, options);
+
+        return { name, observer, native: made.at(-1) };
+    };
+
+    /** The names of the observers whose records were taken, and how many times each. */
+    const drained = all => all.filter(({ native: observer }) => taken.has(observer)).map(({ name, native: observer }) => `${name} ${taken.get(observer)}`);
+
+    beforeEach(() => {
+        native = window.MutationObserver;
+        made = [];
+        taken = new Map();
+        received = [];
+        window.MutationObserver = class extends native {
+            constructor(callback) {
+                super(callback);
+                made.push(this);
+            }
+
+            takeRecords() {
+                taken.set(this, (taken.get(this) ?? 0) + 1);
+
+                return super.takeRecords();
+            }
+        };
+        observers = new MutationObservers();
+        document.body.innerHTML = '<div id="panel"><span id="cell"></span></div><aside id="aside"></aside>';
+        panel = document.getElementById('panel');
+        cell = document.getElementById('cell');
+    });
+
+    afterEach(() => {
+        window.MutationObserver = native;
+        document.body.innerHTML = '';
+    });
+
+    it('takes records only from those that record a change of the element\'s class, and leaves every other one\'s to its own delivery', async () => {
+        const all = [
+            observing('the element\'s attributes', cell, { attributes: true }),
+            observing('a class within an ancestor', panel, { attributes: true, attributeFilter: ['class'], subtree: true }),
+            observing('a filter implying attributes', panel, { attributeFilter: ['id', 'class'], subtree: true }),
+            observing('the element\'s other attribute', cell, { attributes: true, attributeFilter: ['data-key'] }),
+            observing('an ancestor\'s children', panel, { childList: true, subtree: true }),
+            observing('an ancestor\'s own attributes', panel, { attributes: true }),
+            observing('another element\'s subtree', document.getElementById('aside'), { attributes: true, subtree: true }),
+            observing('another window\'s observer', cell, { attributes: true }, { MutationObserver: window.MutationObserver }),
+        ];
+
+        cell.setAttribute('data-key', 'before');
+
+        expect(observers.measureUnder(cell, 'wide', () => cell.className)).toBe('wide');
+        expect(cell.hasAttribute('class')).toBe(false);
+        expect(drained(all)).toEqual(['the element\'s attributes 2', 'a class within an ancestor 2', 'a filter implying attributes 2']);
+
+        await settle();
+
+        // The drained hand on what else they recorded, the change of the key; the rest are delivered as they recorded it, the other window's observer the class's change among it.
+        expect(received.sort()).toEqual([
+            ['another window\'s observer', 'attributes cell data-key', 'attributes cell class', 'attributes cell class'],
+            ['the element\'s attributes', 'attributes cell data-key'],
+            ['the element\'s other attribute', 'attributes cell data-key'],
+        ]);
+    });
+
+    it('takes none from an observer that observes the node otherwise since, or is disconnected, and takes them again once it observes so again', () => {
+        const otherwise = observing('observing children since', panel, { attributes: true, subtree: true });
+        const disconnected = observing('disconnected', cell, { attributes: true });
+        const again = observing('observing again', cell, { attributes: true });
+
+        otherwise.observer.observe(panel, { childList: true, subtree: true });
+        disconnected.observer.disconnect();
+        again.observer.disconnect();
+        again.observer.observe(panel, { attributes: true, attributeFilter: ['class'], subtree: true });
+
+        observers.measureUnder(cell, 'wide', () => null);
+
+        expect(drained([otherwise, disconnected, again])).toEqual(['observing again 2']);
+    });
+
+    it('takes none from any observer for an element holding the class already, which it reads as it is', () => {
+        const all = [observing('the element\'s attributes', cell, { attributes: true })];
+
+        cell.className = 'wide';
+
+        expect(observers.measureUnder(cell, 'wide', () => cell.className)).toBe('wide');
+        expect(drained(all)).toEqual([]);
     });
 });

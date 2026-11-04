@@ -22,3 +22,4 @@ Each release of DOMQL's packages, newest first. The NuGet package `formaui-net.D
 - A class or a property an owned write keeps survives a framework rendering the element twice in quick succession, where the holder yielded to the second render and dropped it.
 - A query's text keeps the resolutions of its 16 bindings used most recently, where each string an update bound for the first time kept one more, about 4 KB, for as long as the text was in use.
 - An owned write that keeps its value keeps its one observer through its updates, about 4 µs an update less in Chromium.
+- A transient measurement drains only the mutation observers that could record its class's change, rather than every one its window runs: beside a watch of 10,000 rows, an observer a row, a measurement takes about 50 µs in Chromium rather than 2 ms, and allocates 0.6 KB rather than 1.4 MB.
