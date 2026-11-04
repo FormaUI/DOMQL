@@ -3,10 +3,10 @@ import { userEvent } from '@vitest/browser/context';
 import { domql } from '#domql/domql.js';
 
 /**
- * The built-in Boolean functions in a real browser, each called two ways after every cause: evaluated afresh, which is what the browser decides, and watched, which is what the function's observations catch.
- * Where the two agree, the watch caught the change; where only the evaluation moved, the change is one the function's contract says a watch misses.
+ * The built-in states in a real browser, each read two ways after every cause: evaluated afresh, which is what the browser decides, and watched, which is what the state's observations catch.
+ * Where the two agree, the watch caught the change; where only the evaluation moved, the change is one the state's contract says a watch misses.
  */
-describe('Boolean functions in a browser', () => {
+describe('states in a browser', () => {
     let watches;
 
     beforeEach(() => {
@@ -31,8 +31,8 @@ describe('Boolean functions in a browser', () => {
         return new Proxy({}, { get: (_, id) => document.getElementById(id) });
     };
 
-    /** Watches the element's Boolean function, or its ARIA view's where asked, and answers what the watch last reported and what the browser decides now. */
-    const watching = (element, name, isAria = false) => watchingQuery(isAria ? `e.aria.${name}()` : `e.${name}()`, { e: element });
+    /** Watches the element's state, or its ARIA view's where asked, and answers what the watch last reported and what the browser decides now. */
+    const watching = (element, name, isAria = false) => watchingQuery(isAria ? `e.aria.${name}` : `e.${name}`, { e: element });
 
     /** Watches the query, and answers what the watch last reported and what the browser decides now. */
     const watchingQuery = async (text, bindings) => {
@@ -128,16 +128,16 @@ describe('Boolean functions in a browser', () => {
         });
     });
 
-    describe('focus and focusWithin', () => {
+    describe('focused and focusWithin', () => {
         it('follow focus moving into an element and within it', async () => {
             const { outer, field } = page('<div id="outer"><input id="field"></div><button id="other">x</button>');
-            const focus = await watching(field, 'focus');
+            const focused = await watching(field, 'focused');
             const within = await watching(outer, 'focusWithin');
 
             expect(await within.after(() => userEvent.click(field))).toEqual({ watched: true, decided: true });
-            expect(focus.watched).toBe(true);
+            expect(focused.watched).toBe(true);
             expect(await within.after(() => userEvent.click(document.getElementById('other')))).toEqual({ watched: false, decided: false });
-            expect(focus.watched).toBe(false);
+            expect(focused.watched).toBe(false);
         });
 
         it('follow the focused element being removed, which moves focus away', async () => {
@@ -150,27 +150,27 @@ describe('Boolean functions in a browser', () => {
         });
     });
 
-    describe('hover, as :hover matches', () => {
+    describe('hovered, as :hover matches', () => {
         it('follows the pointer moving over an element and off it', async () => {
             const { target, away } = page('<div id="target" style="width: 100px; height: 100px">t</div><div id="away" style="width: 100px; height: 100px">a</div>');
-            const hover = await watching(target, 'hover');
+            const hovered = await watching(target, 'hovered');
 
-            expect(await hover.after(() => userEvent.hover(target))).toEqual({ watched: true, decided: true });
-            expect(await hover.after(() => userEvent.hover(away))).toEqual({ watched: false, decided: false });
+            expect(await hovered.after(() => userEvent.hover(target))).toEqual({ watched: true, decided: true });
+            expect(await hovered.after(() => userEvent.hover(away))).toEqual({ watched: false, decided: false });
         });
 
         it('follows an element moving under a pointer that does not move, which Chromium fires pointer events for', async () => {
             const { target, away } = page('<div id="target" style="position: absolute; left: 0; top: 0; width: 100px; height: 100px">t</div><div id="away" style="position: absolute; left: 200px; top: 0; width: 100px; height: 100px">a</div>');
-            const hover = await watching(away, 'hover');
+            const hovered = await watching(away, 'hovered');
 
             await userEvent.hover(target);
             await settle();
 
-            expect(await hover.after(() => { away.style.left = '0'; away.style.zIndex = '1'; })).toEqual({ watched: true, decided: true });
+            expect(await hovered.after(() => { away.style.left = '0'; away.style.zIndex = '1'; })).toEqual({ watched: true, decided: true });
         });
     });
 
-    describe('the ARIA view\'s Boolean functions, as their attributes say', () => {
+    describe('the ARIA view\'s states, as their attributes say', () => {
         it('follow aria-checked and aria-disabled as they change, mixed answering false', async () => {
             const { box } = page('<div id="box" role="checkbox"></div>');
             const checked = await watching(box, 'checked', true);
@@ -182,7 +182,7 @@ describe('Boolean functions in a browser', () => {
             expect(await disabled.after(() => box.removeAttribute('aria-disabled'))).toEqual({ watched: false, decided: false });
         });
 
-        it('stay as they are while the native state changes, as the native functions do while the attributes change', async () => {
+        it('stay as they are while the native state changes, as the native states do while the attributes change', async () => {
             const { box } = page('<input id="box" type="checkbox">');
             const aria = await watching(box, 'checked', true);
             const native = await watching(box, 'checked');
@@ -234,7 +234,7 @@ describe('Boolean functions in a browser', () => {
 
             document.body.innerHTML = Object.entries(markup).map(([id, html]) => `<div id="${id}">${html}</div>`).join('');
 
-            const focusable = element => domql.query('e.focusable()', { e: element }).evaluate();
+            const focusable = element => domql.query('e.focusable', { e: element }).evaluate();
             const answers = Object.fromEntries(Object.keys(markup).map(id => {
                 const container = document.getElementById(id);
 
@@ -257,7 +257,7 @@ describe('Boolean functions in a browser', () => {
 
                 element.focus();
 
-                expect(domql.query('e.focusable()', { e: element }).evaluate(), id).toBe(document.activeElement === element);
+                expect(domql.query('e.focusable', { e: element }).evaluate(), id).toBe(document.activeElement === element);
 
                 element.blur();
             }

@@ -172,7 +172,7 @@ const keys: DomqlEventListener = domql.query<{ key: string }>('panel.on("keydown
 const clicking: 'ready' | 'disposed' = clicks.status;
 
 // A subscription's reactions are once executions carried out as each event is heard, whose results its handler receives as promises.
-const reacting: DomqlSubscribeOptions = { reactions: [domql.query('Domql.window.writeClipboard(event.text)')], owner: 'menu' };
+const reacting: DomqlSubscribeOptions = { reactions: [domql.query('Domql.window.writeToClipboard(event.text)')], owner: 'menu' };
 const copies: DomqlEventListener = domql.query<{ text: string }>('panel.on("click") { text = "copied" }', { panel }).subscribe(async (sender, args: DomqlEventArgs<{ text: string }>) => {
     if (args.status === 'ready') {
         const results: unknown[] = await Promise.all(args.reactions ?? []);
@@ -371,9 +371,9 @@ const contents: DomqlModuleContents = {
         name: 'ChildMetrics',
         kind: 'structured',
         members: [{ name: 'childCount', kind: 'property', result: 'Number' }, {
-            // A test of its receiver is a function whose result is a Boolean, called as `it:metrics.charted()`.
+            // A state of its receiver is a property whose result is a Boolean, read as `it:metrics.charted`.
             name: 'charted',
-            kind: 'function',
+            kind: 'property',
             result: 'Boolean',
             updates: { changes: 'constant', reads: 'fresh' },
             impl: ({ receiver }) => (receiver as { childCount: number }).childCount > 0,
@@ -419,7 +419,7 @@ const lamps: DomqlModuleContents = {
     types: [{ name: 'Lamp', kind: 'reference', isInstance: value => value instanceof HTMLButtonElement, members: [] }],
 };
 
-// @ts-expect-error A module declares its tests as members, functions whose result is a Boolean, and no predicates.
+// @ts-expect-error A module declares its states as members, properties whose result is a Boolean, and no predicates.
 domql.createModule('Tests', { predicates: [] });
 
 // @ts-expect-error A module is created from its contents alone, each declaration carrying its implementation.
@@ -441,8 +441,8 @@ const binding: DomqlDefinitionNode = { kind: 'conditional', binding: { name: 'n'
 const keyed: DomqlDefinitionNode = { kind: 'indexerAccess', receiver: { kind: 'memberAccess', receiver: { kind: 'scriptParameter', name: 'panel' }, name: 'style' }, argument: { kind: 'literal', value: 'color' } };
 // @ts-expect-error An indexer access has no name.
 const namedIndexer: DomqlDefinitionNode = { kind: 'indexerAccess', receiver: { kind: 'scriptParameter', name: 'panel' }, name: 'style', argument: { kind: 'literal', value: 'color' } };
-const booleanFunctions: DomqlModuleContents = {
-    types: [{ name: 'LitElements', kind: 'extension', target: 'Domql.Element', members: [{ name: 'lit', kind: 'function', result: 'Boolean', updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: ['data-lit'] }] } }] }],
+const states: DomqlModuleContents = {
+    types: [{ name: 'LitElements', kind: 'extension', target: 'Domql.Element', members: [{ name: 'lit', kind: 'property', result: 'Boolean', updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: ['data-lit'] }] } }] }],
 };
 
 const indexers: DomqlModuleContents = {

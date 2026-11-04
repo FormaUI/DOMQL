@@ -9,10 +9,12 @@ Each release of DOMQL's packages, newest first. The NuGet package `formaui-net.D
 
 ## `1.0.0-beta.1`
 
-*Unreleased · specification `1.0.0-beta.2` · Nexo language `1.0.0-beta.40` · definition format 38*
+*Unreleased · specification `1.0.0-beta.2` · Nexo language `1.0.0-beta.41` · definition format 38*
 
 - The first beta, and the first release. The [version history](VERSION-HISTORY.md) records what came before it.
-- Runs on Nexo's language `1.0.0-beta.40`, as the [version history](VERSION-HISTORY.md#v1-0-0-beta-2) sets out: `and` and `or` typed where their value is used, a selection into a dictionary's `entries` and a pair's `key` and `value`, and a module's maintained members declaring nullable results, among the rest.
+- Runs on Nexo's language `1.0.0-beta.41`, from Nexo's release `1.0.0-beta.2`, as the [version history](VERSION-HISTORY.md#v1-0-0-beta-2) sets out: `and` and `or` typed where their value is used, a selection into a dictionary's `entries` and a pair's `key` and `value`, a module's maintained members declaring nullable results, and the members that make a value of their receiver called as functions, `round()` and `trim()` among them, among the rest.
+- Each state DOMQL declares is a Boolean property, read without a call, `it.checked`, where it was a function, `it.checked()`. An element's `hover` and `focus`, the document's `focus`, and the window's `share` and `clipboard` are `hovered`, `focused`, `canShare` and `hasClipboard`.
+- Each built-in execution is named by its verb: `takeFocus`, `writeClipboard`, `readClipboard`, `writeValue` and `writeSelection` are `focus`, `writeToClipboard`, `readFromClipboard`, `replaceValue` and `select`, and `writeMuted(muted)` and `writeIndeterminate(indeterminate)` are `mute()` and `unmute()`, and `markIndeterminate()` and `clearIndeterminate()`.
 - A query declares its bindings' types, `domql.query(text, bindings, { types })`, so data binds as a module's structured type, a map as a dictionary and a set as a list; `DomqlQueryOptions` types the options.
 - A class or a property an owned write keeps survives a framework rendering the element twice in quick succession, where the holder yielded to the second render and dropped it.
 - A query's text keeps the resolutions of its 16 bindings used most recently, where each string an update bound for the first time kept one more, about 4 KB, for as long as the text was in use.

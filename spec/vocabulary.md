@@ -3,17 +3,25 @@
 <a id="built-in-vocabulary"></a>
 <a id="vocabulary"></a>
 
-The **built-in vocabulary** is what DOMQL's module, `Domql`, declares: the DOM's types, and the module members, properties, functions, Boolean functions among them, event sources, executions and observations a query reads and changes them through. Everything a query can ask about is a member a module contributes, DOMQL's own module and every extension by one contract, so adding a member leaves the grammar unchanged.
+The **built-in vocabulary** is what DOMQL's module, `Domql`, declares: the DOM's types, and the module members, properties, states among them, functions, event sources, executions and observations a query reads and changes them through. Everything a query can ask about is a member a module contributes, DOMQL's own module and every extension by one contract, so adding a member leaves the grammar unchanged.
 
 ```domql
 panel.size?.width                        // A property of an element, then a property of the size it answers.
 panel["data-key"]                        // An attribute, through the unnamed indexer.
 panel.closest(".row")                    // A function, given its selector.
-panel.disabled()                         // A Boolean function, which tests the element.
+panel.disabled                           // A state, a Boolean property of the element.
 Domql.window.media["(min-width: 40em)"]  // A named indexer of the window, a module member.
 ```
 
 Properties and functions are named in camelCase, and names are case-sensitive. Built-in members expose state or event sources, and built-in executions change the page, each one platform call; an execution that carries a policy comes from an extension. A property is read by property access, and a function is written as a call or as a named indexer, as its declaration says; the tables write each as it is written, with a receiver left out. A member available on a node is available on each of its kinds, one available on an element on elements alone, and one available on a shadow view on an element's `shadow`.
+
+<a id="vocabulary-properties-and-functions"></a>
+
+**Properties and functions.** The vocabulary follows Nexo's rule for [states and tests](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/language/vocabulary.md#vocabulary-boolean-functions): a property names what its receiver is, has or is in, and a function does work or takes what it needs.
+
+- **A state is a property.** What the user, the browser or the page sets and clears, as whether an element is checked, focused or hovered, is a Boolean property read without a call, `panel.checked`, as [states](#states) set out.
+- **An execution is a function.** A change DOMQL makes is named by the verb it carries out and called with its parentheses, whether or not it takes an argument, `panel.focus()`, as [executions](#built-in-executions) set out.
+- **A member that takes an argument is a function** whatever it answers, as `matches(selector)` and `contains(other)` are.
 
 Nexo's own module declares the members of lists, among them `count`, `first`, `last`, `max`, `min`, `sum`, `where` and the unnamed indexer `[index]`, and those of numbers and strings; the entries below for the members of lists a query of the DOM reads most point to Nexo's specification, which defines them all. DOMQL's event sources and event types are set out in [events](events.md).
 
@@ -24,7 +32,7 @@ In this document:
 3. [Measurements and layout](#vocabulary-measurements-and-layout)
 4. [Properties](#properties)
 5. [Functions](#functions)
-6. [Boolean functions](#boolean-functions)
+6. [States](#states)
 7. [Executions](#built-in-executions)
 8. [Built-in conversions](#built-in-conversions)
 9. [Observations](#observations)
@@ -34,7 +42,7 @@ In this document:
 
 ## Module members
 
-DOMQL's module, `Domql`, declares two [module members](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/language/modules.md#namespaces-module-members), read through its namespace, each with no receiver:
+DOMQL's module, `Domql`, declares two [module members](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/language/modules.md#namespaces-module-members), read through its namespace, each with no receiver:
 
 | Member | Type | Reads | Changes |
 | --- | --- | --- | --- |
@@ -47,7 +55,7 @@ Neither needs a binding, and a caller's binding named `Domql` is read as `~Domql
 
 ## Types
 
-DOMQL's module declares each of its types with its members, as Nexo's [declaring a type](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/runtime/modules.md#modules-declaring-a-type) sets out: its reference types, which a query reads through and a result never holds, and its structured types, which hold data. Its `typeOf` recognizes the values a host binds, and each reference type's `isInstance` checks membership:
+DOMQL's module declares each of its types with its members, as Nexo's [declaring a type](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/runtime/modules.md#modules-declaring-a-type) sets out: its reference types, which a query reads through and a result never holds, and its structured types, which hold data. Its `typeOf` recognizes the values a host binds, and each reference type's `isInstance` checks membership:
 
 | Reference type | Supertype | What it is | Where a value has the type |
 | --- | --- | --- | --- |
@@ -55,7 +63,7 @@ DOMQL's module declares each of its types with its members, as Nexo's [declaring
 | `Element`, `Document`, `DocumentFragment`, `ShadowRoot` | `Node` | The kinds of node | DOMQL's `typeOf`, a member's result, as the items of `children` are, or a declared binding |
 | `Window` | None | The window a query runs in | DOMQL's `typeOf`, `Domql.window`'s result, or a declared binding |
 | `Shadow` | None | An element's [shadow view](nodes-and-shadow-trees.md#shadow-trees-the-view) | An element's `shadow`, or a declared binding |
-| `Aria` | None | An element's [ARIA view](#conditions) | An element's `aria`, or a declared binding |
+| `Aria` | None | An element's [ARIA view](#states) | An element's `aria`, or a declared binding |
 | `Range` | None | A range of a document, as the document's selection holds one | A selection's `range`, DOMQL's `typeOf` for a range a host binds, or a declared binding |
 
 `Shadow` and `Aria` are views: an element's `shadow` and `aria` answer the element itself, of the view's type, whose `isInstance` accepts every element, and no wrapper is made or kept. DOMQL's `typeOf` never answers a view, and an `Element` can't be cast to either view: their memberships accepting every element doesn't make the types related. `Aria` declares a cast to `Element`, without an `impl`, so `(panel.aria as Element).aria` reads the element's view again. Each node type, `Window`, each view and `Range` has no data form, so no result holds one.
@@ -90,11 +98,11 @@ An element with a layout box whose dimensions are zero has actual measurements o
 
 <a id="vocabulary-tolerance"></a>
 
-**Tolerance.** A member that measures layout in CSS pixels declares a [tolerance](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/runtime/members.md#what-a-member-declares-numeric-tolerance) of 0.05, a twentieth of a pixel, for every number it answers, so a watch reports a measurement only once it moves by more than that from the one it last reported, as [comparing snapshots](results.md#comparing-snapshots) sets out:
+**Tolerance.** A member that measures layout in CSS pixels declares a [tolerance](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/runtime/members.md#what-a-member-declares-numeric-tolerance) of 0.05, a twentieth of a pixel, for every number it answers, so a watch reports a measurement only once it moves by more than that from the one it last reported, as [comparing snapshots](results.md#comparing-snapshots) sets out:
 
 - **What it absorbs.** A box settling by a unit of the browser's layout, 1/64 of a pixel in Chromium and WebKit and 1/60 in Firefox, and the rounding of the arithmetic that answers a measurement, as `right` is `left` and `width` added.
 - **What it reports.** Any move a device pixel shows, which is a quarter of a pixel at a device pixel ratio of 4. A move made in steps smaller than the tolerance is reported once the steps add up to more, since each is compared with the measurement last reported.
-- **Who declares it.** `rect`, `clientRect`, `rectRelativeTo`, `size`, `clientSize`, `scroll` and `grid` of an element, and `size` and `scroll` of the window. A number computed from one, as `it.rect?.width / 2`, compares exactly, as Nexo's [arithmetic](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/language/expressions.md#arithmetic-watching) sets out, and an evaluation once is never rounded.
+- **Who declares it.** `rect`, `clientRect`, `rectRelativeTo`, `size`, `clientSize`, `scroll` and `grid` of an element, and `size` and `scroll` of the window. A number computed from one, as `it.rect?.width / 2`, compares exactly, as Nexo's [arithmetic](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/language/expressions.md#arithmetic-watching) sets out, and an evaluation once is never rounded.
 
 Scrolling reads the same way, along the axes of a box's writing mode:
 
@@ -107,7 +115,7 @@ item.scrollContainer({ axis = "block" })?.clientRect // The padding box of the b
 
 ## Properties
 
-A property exposes a value, read by property access, and takes no argument. Each property states what it answers, how its result changes, and how it reads, as [how DOMQL's members read](evaluation.md#evaluation-how-members-read) and [how a member changes](watches.md#how-a-member-changes) define.
+A property exposes a value, read by property access, and takes no argument. Each property states what it answers, how its result changes, and how it reads, as [how DOMQL's members read](evaluation.md#evaluation-how-members-read) and [how a member changes](watches.md#how-a-member-changes) define. The states the browser sets, Boolean properties as well, are set out in [states](#states).
 
 | Receiver | Property | Type |
 | --- | --- | --- |
@@ -360,7 +368,7 @@ An element that is no scroll container is scrolled by 0. Null while it has no la
 
 **Type:** `Aria`   **Reads:** Fresh
 
-**Result.** Its view of its ARIA states, which its [Boolean functions](#boolean-functions) test and its unnamed indexer reads as its ARIA attributes
+**Result.** Its view of its ARIA states, which its [states](#states) read and its unnamed indexer reads as its ARIA attributes
 
 **Changes.** Constant
 
@@ -600,7 +608,7 @@ An element that is no scroll container is scrolled by 0. Null while it has no la
 
 ### List: count, first, last
 
-`count`, `first` and `last` are properties [Nexo's own module](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/language/collections.md#collections-list-members) declares, which owns lists, and Nexo's specification defines.
+`count`, `first` and `last` are properties [Nexo's own module](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/language/collections.md#collections-list-members) declares, which owns lists, and Nexo's specification defines.
 
 <a id="functions"></a>
 
@@ -842,7 +850,7 @@ A box whose overflow is not `visible` along one axis computes `visible` as `auto
 
 ### List: item
 
-The unnamed indexer, `[index]`, is an indexer [Nexo's own module](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/language/collections.md#collections-list-members) declares, which owns lists, and Nexo's specification defines.
+The unnamed indexer, `[index]`, is an indexer [Nexo's own module](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/language/collections.md#collections-list-members) declares, which owns lists, and Nexo's specification defines.
 
 <a id="function-list-max-min-sum"></a>
 
@@ -850,7 +858,7 @@ The unnamed indexer, `[index]`, is an indexer [Nexo's own module](https://github
 
 ### List: max, min, sum
 
-`max`, `min` and `sum` are functions [Nexo's own module](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/language/collections.md#collections-list-members) declares, which owns lists, and Nexo's specification defines.
+`max`, `min` and `sum` are functions [Nexo's own module](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/language/collections.md#collections-list-members) declares, which owns lists, and Nexo's specification defines.
 
 <a id="function-list-where"></a>
 
@@ -858,7 +866,9 @@ The unnamed indexer, `[index]`, is an indexer [Nexo's own module](https://github
 
 ### List: where
 
-`where` is a function [Nexo's own module](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/language/collections.md#collections-list-members) declares, which owns lists, and Nexo's specification defines.
+`where` is a function [Nexo's own module](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/language/collections.md#collections-list-members) declares, which owns lists, and Nexo's specification defines.
+
+<a id="states"></a>
 
 <a id="boolean-functions"></a>
 
@@ -866,11 +876,15 @@ The unnamed indexer, `[index]`, is an indexer [Nexo's own module](https://github
 
 <a id="predicates"></a>
 
-## Boolean functions
+## States
 
-DOMQL tests the DOM with [Boolean functions](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/language/vocabulary.md#vocabulary-boolean-functions), functions whose result is a Boolean: of a state the user, the browser or the page sets and clears over time, as `it.checked()` is; of a presence, as `it.focus()` is; and of a capability, as `Domql.window.share()` is. A query calls one on its receiver, `it.checked()`, or through its module, `Domql.checked(it)`, and each way reaches the one declaration, whose observations follow it.
+A **state** is what the user, the browser or the page sets and clears over time, as whether an element is checked; a presence, as whether it is focused; or a capability the browser offers, as whether it can share. Each is a Boolean property, as Nexo's [states and tests](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/language/vocabulary.md#vocabulary-boolean-functions) set out:
 
-Each applies to the receivers it declares, takes no argument, and answers a Boolean or fails the evaluation. A Boolean that follows from the receiver's structure, or from another member's value, is a property of it, as `attached`, `hasChildren` and `hasSelection` are. Boolean functions compose as Booleans do: `it.class["open"] and it.focusWithin()`.
+- **Reading one.** A query reads a state where it stands, `it.checked`, or through its module, its receiver first, `Domql.checked(it)`, and each way reaches the one declaration, whose observations follow it.
+- **Filtering by one.** A query filters by a state with a body, `rows.where(it.checked)`. Only a function has a reference, so `rows.where(Domql.checked)` is refused (NEXO3076).
+- **Composing them.** States compose as Booleans do: `it.class["open"] and it.focusWithin`.
+
+Each applies to the receivers it declares, and answers a Boolean or fails the evaluation. A Boolean that follows from the receiver's structure, or from another member's value, is a property of it too, as `attached`, `hasChildren` and `hasSelection` are, which [properties](#properties) set out.
 
 <a id="conditions-condition-declarations"></a>
 
@@ -884,26 +898,28 @@ Each applies to the receivers it declares, takes no argument, and answers a Bool
 
 <a id="conditions-conditions-compose-as-booleans-do"></a>
 
-The built-in vocabulary declares these Boolean functions, each with its native semantics: what the browser itself decides, as its pseudo-class matches, as the document reports its own state, or as the browser offers an API.
+The built-in vocabulary declares these states, each with its native semantics: what the browser itself decides, as its pseudo-class matches, as the document reports its own state, or as the browser offers an API.
 
-| Receiver | Boolean function |
+| Receiver | State |
 | --- | --- |
-| Element | [`disabled`](#boolean-function-element-disabled) |
-| Element | [`readonly`](#boolean-function-element-readonly) |
-| Element | [`textEditable`](#boolean-function-element-texteditable) |
-| Element | [`focus`](#boolean-function-element-focus) |
-| Element | [`focusWithin`](#boolean-function-element-focuswithin) |
-| Element | [`displayed`](#boolean-function-element-displayed) |
-| Element | [`focusable`](#boolean-function-element-focusable) |
-| Element | [`hover`](#boolean-function-element-hover) |
-| Element | [`popoverOpen`](#boolean-function-element-popoveropen) |
-| Element | [`checked`](#boolean-function-element-checked) |
-| Element | [`indeterminate`](#boolean-function-element-indeterminate) |
-| Element | [`autofilled`](#boolean-function-element-autofilled) |
-| Document | [`visible`](#boolean-function-document-visible) |
-| Document | [`focus`](#boolean-function-document-focus) |
-| Window | [`share`](#boolean-function-window-share) |
-| Window | [`clipboard`](#boolean-function-window-clipboard) |
+| Element | [`disabled`](#state-element-disabled) |
+| Element | [`readonly`](#state-element-readonly) |
+| Element | [`textEditable`](#state-element-texteditable) |
+| Element | [`focused`](#state-element-focused) |
+| Element | [`focusWithin`](#state-element-focuswithin) |
+| Element | [`displayed`](#state-element-displayed) |
+| Element | [`focusable`](#state-element-focusable) |
+| Element | [`hovered`](#state-element-hovered) |
+| Element | [`popoverOpen`](#state-element-popoveropen) |
+| Element | [`checked`](#state-element-checked) |
+| Element | [`indeterminate`](#state-element-indeterminate) |
+| Element | [`autofilled`](#state-element-autofilled) |
+| Document | [`visible`](#state-document-visible) |
+| Document | [`focused`](#state-document-focused) |
+| Window | [`canShare`](#state-window-canshare) |
+| Window | [`hasClipboard`](#state-window-hasclipboard) |
+
+<a id="state-element-disabled"></a>
 
 <a id="boolean-function-element-disabled"></a>
 
@@ -913,11 +929,13 @@ The built-in vocabulary declares these Boolean functions, each with its native s
 
 ### Element: disabled
 
-**Syntax:** `disabled()`   **Reads:** Fresh
+**Type:** `Boolean`   **Reads:** Fresh
 
 **True when.** The element matches `:disabled`, as the browser decides it: by its own `disabled` attribute, a disabled ancestor `fieldset` other than through that fieldset's first `legend`, or a disabled `optgroup` holding an `option`; whether it carries a `disabled` attribute is `it["disabled"]`, a separate question
 
 **Changes.** Observable: its own and its ancestors' `disabled` attributes and the structure between them
+
+<a id="state-element-readonly"></a>
 
 <a id="boolean-function-element-readonly"></a>
 
@@ -927,11 +945,13 @@ The built-in vocabulary declares these Boolean functions, each with its native s
 
 ### Element: readonly
 
-**Syntax:** `readonly()`   **Reads:** Fresh
+**Type:** `Boolean`   **Reads:** Fresh
 
 **True when.** Native `readonly` applies to the control and is set: a text area, or an input whose type is `text`, `search`, `url`, `tel`, `email`, `password`, `date`, `month`, `week`, `time`, `datetime-local` or `number`; any other element answers false, whatever its attributes
 
 **Changes.** Observable: its `readonly` and `type` attributes
+
+<a id="state-element-texteditable"></a>
 
 <a id="boolean-function-element-texteditable"></a>
 
@@ -941,7 +961,7 @@ The built-in vocabulary declares these Boolean functions, each with its native s
 
 ### Element: textEditable
 
-**Syntax:** `textEditable()`   **Reads:** Fresh
+**Type:** `Boolean`   **Reads:** Fresh
 
 **True when.** The element supports text editing and its current state permits it: a text area, or an input whose type is `text`, `search`, `url`, `tel`, `email`, `password` or `number`, that is neither disabled nor read-only; or an element whose content is editable, as the nearest `contenteditable` of a state, its own or an ancestor's, decides: `true`, the empty value and `plaintext-only` make it editable and `false` does not, while an invalid value, `inherit` among them, inherits, as the attribute does natively; where none decides, the document's design mode does.
 
@@ -949,19 +969,23 @@ An element with the `inert` attribute, itself or on an ancestor in the flat tree
 
 **Changes.** Partly observable: everything `disabled` observes, the `readonly` and `type` attributes, the `contenteditable` attributes of the element and its ancestors, the `inert` attributes along its flat tree, and the structure and slot assignments between them are observed; the document's design mode is not
 
+<a id="state-element-focused"></a>
+
 <a id="boolean-function-element-focus"></a>
 
 <a id="condition-element-has-focus"></a>
 
 <a id="conditions-element-hasfocus"></a>
 
-### Element: focus
+### Element: focused
 
-**Syntax:** `focus()`   **Reads:** Fresh
+**Type:** `Boolean`   **Reads:** Fresh
 
 **True when.** It is the focused element of its tree
 
 **Changes.** Observable: focus moving, and the focused element removed, which moves focus away
+
+<a id="state-element-focuswithin"></a>
 
 <a id="boolean-function-element-focuswithin"></a>
 
@@ -971,37 +995,43 @@ An element with the `inert` attribute, itself or on an ancestor in the flat tree
 
 ### Element: focusWithin
 
-**Syntax:** `focusWithin()`   **Reads:** Fresh
+**Type:** `Boolean`   **Reads:** Fresh
 
 **True when.** It matches `:focus-within`: it or an element within it is focused, across the shadow trees it hosts
 
-**Changes.** Observable, as `focus` is
+**Changes.** Observable, as `focused` is
+
+<a id="state-element-displayed"></a>
 
 <a id="boolean-function-element-displayed"></a>
 
 ### Element: displayed
 
-**Syntax:** `displayed()`   **Reads:** Fresh
+**Type:** `Boolean`   **Reads:** Fresh
 
 **True when.** The browser renders a box for it, as `checkVisibility()` decides: it is attached, neither it nor an ancestor is `display: none`, it is not `display: contents`, and no ancestor's `content-visibility` skips its content. A box hidden by `visibility` or by its opacity, and one of no size, is displayed
 
 **Changes.** Partly observable: its size, and the attributes and the structure of every tree its flat-tree ancestry passes through, are observed; a stylesheet's rules hiding or showing it where its box keeps its size, as a box of no size, and `content-visibility` skipping it, are not
 
+<a id="state-element-focusable"></a>
+
 <a id="boolean-function-element-focusable"></a>
 
 ### Element: focusable
 
-**Syntax:** `focusable()`   **Reads:** Fresh
+**Type:** `Boolean`   **Reads:** Fresh
 
 **True when.** It can take focus, as HTML's focusable areas decide, since no API of the browser answers it:
 
 - It is displayed and visible, as `checkVisibility({ visibilityProperty: true })` decides.
-- It is neither disabled, as `disabled()` decides, nor inert, as `textEditable` reads the `inert` attribute along its flat tree.
+- It is neither disabled, as `disabled` decides, nor inert, as `textEditable` reads the `inert` attribute along its flat tree.
 - It has a `tabindex` HTML reads as an integer, a negative one included, or is focusable by default: an `a` or an `area` with an `href`, a `button`, a `select`, a `textarea`, an `iframe`, an `input` of any type but `hidden`, its `details`'s first `summary`, an `audio` or a `video` with `controls`, or an editing host, an element whose content is editable while its parent's is not.
 
 Whether the Tab key reaches it, which a negative `tabindex` prevents, is another question, which its `tabindex` answers
 
 **Changes.** Partly observable: as `displayed`; a visibility a stylesheet's rules change, the inertness a modal dialog gives the rest of the document and the document's design mode are not observed either
+
+<a id="state-element-hovered"></a>
 
 <a id="boolean-function-element-hover"></a>
 
@@ -1009,13 +1039,15 @@ Whether the Tab key reaches it, which a negative `tabindex` prevents, is another
 
 <a id="conditions-element-ishover"></a>
 
-### Element: hover
+### Element: hovered
 
-**Syntax:** `hover()`   **Reads:** Fresh
+**Type:** `Boolean`   **Reads:** Fresh
 
 **True when.** It matches `:hover`: the pointer is over it or over an element within it
 
 **Changes.** Partly observable: the pointer moving over and off elements is observed; an element moving under a pointer that does not move, where the browser fires no pointer event for it, is not
+
+<a id="state-element-popoveropen"></a>
 
 <a id="boolean-function-element-popoveropen"></a>
 
@@ -1025,11 +1057,13 @@ Whether the Tab key reaches it, which a negative `tabindex` prevents, is another
 
 ### Element: popoverOpen
 
-**Syntax:** `popoverOpen()`   **Reads:** Fresh
+**Type:** `Boolean`   **Reads:** Fresh
 
 **True when.** It matches `:popover-open`: it is a popover that is showing
 
 **Changes.** Observable: its showing and hiding, its `popover` attribute removed and its removal included
+
+<a id="state-element-checked"></a>
 
 <a id="boolean-function-element-checked"></a>
 
@@ -1039,31 +1073,37 @@ Whether the Tab key reaches it, which a negative `tabindex` prevents, is another
 
 ### Element: checked
 
-**Syntax:** `checked()`   **Reads:** Fresh
+**Type:** `Boolean`   **Reads:** Fresh
 
 **True when.** It matches `:checked`: a checked checkbox or radio button, or a selected option
 
 **Changes.** Partly observable: the user's input in its tree, a radio button another of its group unchecks and an option its select changes included, form resets, the `checked` and `selected` attributes and the structure of its tree are observed; the page's code setting `checked` or `selected`, or a select's `value` or `selectedIndex`, fires no event and is not
 
+<a id="state-element-indeterminate"></a>
+
 <a id="boolean-function-element-indeterminate"></a>
 
 ### Element: indeterminate
 
-**Syntax:** `indeterminate()`   **Reads:** Fresh
+**Type:** `Boolean`   **Reads:** Fresh
 
 **True when.** It matches `:indeterminate`: a checkbox the page's code made mixed, a radio button none of whose group is checked, or a progress bar without a value
 
 **Changes.** Partly observable: the user's input in its tree and form resets, the `checked`, `name`, `type` and `value` attributes and the structure of its tree are observed; the page's code setting `indeterminate` or `checked` fires no event and is not
 
+<a id="state-element-autofilled"></a>
+
 <a id="boolean-function-element-autofilled"></a>
 
 ### Element: autofilled
 
-**Syntax:** `autofilled()`   **Reads:** Fresh
+**Type:** `Boolean`   **Reads:** Fresh
 
 **True when.** It matches `:autofill`, or `:-webkit-autofill` in a browser that knows no other: the browser filled its value, from a saved address or password, and the user has not edited it since
 
 **Changes.** Partly observable: the user's input and changes in its tree are observed, which the browser fires as it fills a field the user chose a suggestion for; the browser filling a field on its own, as a password manager does as the page loads, fires no event and is not. No observation follows the filling itself, since one would write a stylesheet into the page, which watching never does
+
+<a id="state-document-visible"></a>
 
 <a id="boolean-function-document-visible"></a>
 
@@ -1073,11 +1113,13 @@ Whether the Tab key reaches it, which a negative `tabindex` prevents, is another
 
 ### Document: visible
 
-**Syntax:** `visible()`   **Reads:** Fresh
+**Type:** `Boolean`   **Reads:** Fresh
 
 **True when.** The document is visible
 
 **Changes.** Observable
+
+<a id="state-document-focused"></a>
 
 <a id="boolean-function-document-focus"></a>
 
@@ -1085,13 +1127,15 @@ Whether the Tab key reaches it, which a negative `tabindex` prevents, is another
 
 <a id="conditions-document-hasfocus"></a>
 
-### Document: focus
+### Document: focused
 
-**Syntax:** `focus()`   **Reads:** Fresh
+**Type:** `Boolean`   **Reads:** Fresh
 
 **True when.** Focus is anywhere within the document
 
 **Changes.** Observable
+
+<a id="state-window-canshare"></a>
 
 <a id="boolean-function-window-share"></a>
 
@@ -1099,13 +1143,15 @@ Whether the Tab key reaches it, which a negative `tabindex` prevents, is another
 
 <a id="conditions-window-supportsshare"></a>
 
-### Window: share
+### Window: canShare
 
-**Syntax:** `share()`   **Reads:** Fresh
+**Type:** `Boolean`   **Reads:** Fresh
 
 **True when.** The browser offers the Web Share API, `navigator.share`, in this context; it says nothing of whether a particular share succeeds, which takes the user's activation, data the browser can share and the user's choice
 
 **Changes.** Constant
+
+<a id="state-window-hasclipboard"></a>
 
 <a id="boolean-function-window-clipboard"></a>
 
@@ -1113,22 +1159,24 @@ Whether the Tab key reaches it, which a negative `tabindex` prevents, is another
 
 <a id="conditions-window-supportsclipboard"></a>
 
-### Window: clipboard
+### Window: hasClipboard
 
-**Syntax:** `clipboard()`   **Reads:** Fresh
+**Type:** `Boolean`   **Reads:** Fresh
 
 **True when.** The browser offers the asynchronous clipboard, `navigator.clipboard`, which it does in a secure context alone; it says nothing of whether reading or writing is permitted, which the user and the browser decide when it is asked
 
 **Changes.** Constant
 
-A Boolean function's ARIA counterpart is no part of it: `it.checked()` is what `:checked` matches, whatever `aria-checked` says. An element's ARIA states are Boolean functions of its ARIA view, `it.aria`, a value of the type `Aria`, which has no data form, so a result never holds one, and `it.aria.checked()` tests one.
+A state's ARIA counterpart is no part of it: `it.checked` is what `:checked` matches, whatever `aria-checked` says. An element's ARIA states are states of its ARIA view, `it.aria`, a value of the type `Aria`, which has no data form, so a result never holds one, and `it.aria.checked` reads one.
 
 Each reads the element's own attribute under a contract of its own, falling back on no native state, and observes that attribute:
 
-| Receiver | Boolean function |
+| Receiver | State |
 | --- | --- |
-| ARIA view | [`checked`](#boolean-function-aria-view-checked) |
-| ARIA view | [`disabled`](#boolean-function-aria-view-disabled) |
+| ARIA view | [`checked`](#state-aria-view-checked) |
+| ARIA view | [`disabled`](#state-aria-view-disabled) |
+
+<a id="state-aria-view-checked"></a>
 
 <a id="boolean-function-aria-view-checked"></a>
 
@@ -1138,11 +1186,13 @@ Each reads the element's own attribute under a contract of its own, falling back
 
 ### ARIA view: checked
 
-**Syntax:** `checked()`   **Reads:** Fresh
+**Type:** `Boolean`   **Reads:** Fresh
 
 **True when.** The element's own `aria-checked` is `true`, compared ignoring ASCII case; a missing attribute, `false`, `mixed`, the empty string and any other value, padded with spaces included, answer false
 
 **Changes.** Observable: its `aria-checked` attribute
+
+<a id="state-aria-view-disabled"></a>
 
 <a id="boolean-function-aria-view-disabled"></a>
 
@@ -1152,21 +1202,21 @@ Each reads the element's own attribute under a contract of its own, falling back
 
 ### ARIA view: disabled
 
-**Syntax:** `disabled()`   **Reads:** Fresh
+**Type:** `Boolean`   **Reads:** Fresh
 
 **True when.** The element's own `aria-disabled` is `true`, compared as `checked` compares; an ancestor's `aria-disabled` is not read
 
 **Changes.** Observable: its `aria-disabled` attribute
 
-So `it.checked() or it.aria.checked()` is whether either says checked, and `it.aria["checked"] == "mixed"` tells a mixed state, which the ARIA view's `checked` answers false for, from the others. The ARIA view's unnamed indexer reads the attribute written on the element, as `it["aria-checked"]` does, and never the element's effective accessibility state.
+So `it.checked or it.aria.checked` is whether either says checked, and `it.aria["checked"] == "mixed"` tells a mixed state, which the ARIA view's `checked` answers false for, from the others. The ARIA view's unnamed indexer reads the attribute written on the element, as `it["aria-checked"]` does, and never the element's effective accessibility state.
 
-No other ARIA attribute has a Boolean function until one is declared, each with a contract of its own, since not every ARIA attribute is a Boolean; an extension declares one on the ARIA view, a type it does not own, as the [rules for extensions](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/language/extensions.md#extensions) let any module do.
+No other ARIA attribute has a state until one is declared, each with a contract of its own, since not every ARIA attribute is a Boolean; an extension declares one on the ARIA view, a type it does not own, as the [rules for extensions](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/language/extensions.md#extensions) let any module do.
 
 <a id="conditions-related-questions"></a>
 
 ### Related questions
 
-`it.focus()` asks whether the element itself is focused, `it.focusWithin()` whether focus is anywhere within it, `it.focusable()` whether it can take focus, and `Domql.document.activeElement` which element has it; an extension can offer richer focus semantics, as a Boolean function of elements under its module's own name or of its own types; they are separate questions with separate names.
+`it.focused` asks whether the element itself is focused, `it.focusWithin` whether focus is anywhere within it, `it.focusable` whether it can take focus, and `Domql.document.activeElement` which element has it, while `it.focus()` moves focus to it; an extension can offer richer focus semantics, as a state of elements under its module's own name or of its own types; they are separate questions with separate names.
 
 `readonly` and `textEditable` are separate questions too, and neither is the other's opposite:
 
@@ -1184,8 +1234,10 @@ No other ARIA attribute has a Boolean function until one is declared, each with 
 
 DOMQL's module declares these [executions](executions.md), each a host call DOMQL carries out: a once execution, which `executeAsync` carries out and which answers its result, and a continuous one, which `run` starts and which answers none. Each is one call of the platform's, and answers what the platform did in DOMQL's types; a change that carries a policy, as stepping focus through a list or placing a surface, is an extension's.
 
+Each is a function named by the verb it carries out, called with its parentheses whether or not it takes an argument, as [properties and functions](#vocabulary-properties-and-functions) set out. A change that sets a state one way or the other is two executions, one for each way, as `mute()` and `unmute()` are, where the state it sets is read as a property, as `focus()` sets what `focused` reads.
+
 ```domql
-field.takeFocus()                                 // Whether focus landed on the field.
+field.focus()                                     // Whether focus landed on the field.
 list.scrollTo({ block = 0, behavior = "smooth" }) // Whether the list moved, once it has.
 ```
 
@@ -1196,20 +1248,20 @@ Each states its syntax and signature, as a function's does, what it does and ans
 | Receiver | Execution | Mode |
 | --- | --- | --- |
 | Element, document, window | [`dispatch({ type, bubbles, detail })`](#execution-dispatch) | Once |
-| Element | [`takeFocus({ preventScroll })`](#execution-element-takefocus) | Once |
+| Element | [`focus({ preventScroll })`](#execution-element-focus) | Once |
 | Element, window | [`scrollTo({ inline, block, behavior })`, `scrollBy({ inline, block, behavior })`](#execution-scrollto-scrollby) | Once |
 | Element | [`scrollIntoView({ block, inline, behavior })`](#execution-element-scrollintoview) | Once |
 | Element | [`capturePointer({ pointerId })`, `releasePointer({ pointerId })`](#execution-element-capturepointer-releasepointer) | Once |
 | Element | [`showPopover()`, `hidePopover()`](#execution-element-showpopover-hidepopover) | Once |
 | Element | [`showModal()`, `close({ returnValue })`](#execution-element-showmodal-close) | Once |
-| Element | [`play()`, `pause()`, `writeMuted(muted)`](#execution-element-play-pause-writemuted) | Once |
-| Window | [`writeClipboard(text)`, `readClipboard({ types })`](#execution-window-writeclipboard-readclipboard) | Once |
+| Element | [`play()`, `pause()`, `mute()`, `unmute()`](#execution-element-play-pause-mute-unmute) | Once |
+| Window | [`writeToClipboard(text)`, `readFromClipboard({ types })`](#execution-window-writetoclipboard-readfromclipboard) | Once |
 | Window | [`download({ name, content, type })`](#execution-window-download) | Once |
 | Window | [`print()`](#execution-window-print) | Once |
 | Window | [`requestShare({ title, text, url })`](#execution-window-requestshare) | Once |
-| Element | [`writeIndeterminate(indeterminate)`](#execution-element-writeindeterminate) | Once |
-| Element | [`writeValue(value)`](#execution-element-writevalue) | Once |
-| Element | [`writeSelection({ start, end })`](#execution-element-writeselection) | Once |
+| Element | [`markIndeterminate()`, `clearIndeterminate()`](#execution-element-markindeterminate-clearindeterminate) | Once |
+| Element | [`replaceValue(value)`](#execution-element-replacevalue) | Once |
+| Element | [`select({ start, end })`](#execution-element-select) | Once |
 | Document selection | [`select({ node })`, `selectContents({ node, collapse })`, `collapse({ node, offset })`](#execution-document-selection-placement) | Once |
 | Element | [`ownAttribute({ name, value, restore, keep })`, `ownClass({ name, present, restore, keep })`, `ownStyle({ property, value, restore, keep })`, `ownText({ value, restore, keep })`](#execution-element-owned-writes) | Continuous |
 | Element | [`ownFileSource({ input, index, restore })`](#execution-element-ownfilesource) | Continuous |
@@ -1224,15 +1276,17 @@ Each states its syntax and signature, as a function's does, what it does and ans
 
 **Answers.** Whether a listener cancelled it, as `preventDefault` does
 
+<a id="execution-element-focus"></a>
+
 <a id="execution-element-takefocus"></a>
 
-### Element: takeFocus
+### Element: focus
 
-**Syntax:** `takeFocus({ preventScroll })`   **Signature:** optional `preventScroll`: `Boolean`, false when omitted → `Boolean`   **Mode:** Once   **Activation:** None
+**Syntax:** `focus({ preventScroll })`   **Signature:** optional `preventScroll`: `Boolean`, false when omitted → `Boolean`   **Mode:** Once   **Activation:** None
 
 **Does.** Moves focus to the element, as its `focus()` does in the page's code, scrolling it into view unless `preventScroll` is true
 
-**Answers.** Whether focus landed on it, as its [`focus()`](#boolean-function-element-focus) answers afterwards: false where it can't take focus, as one disabled, inert, hidden or no focusable area is, and focus stays where it was
+**Answers.** Whether focus landed on it, as its [`focused`](#state-element-focused) reads afterwards: false where it can't take focus, as one disabled, inert, hidden or no focusable area is, and focus stays where it was
 
 <a id="execution-scrollto-scrollby"></a>
 
@@ -1278,7 +1332,7 @@ A scroll is **instant** where its `behavior` is `"instant"`, or `"auto"` where t
 
 **Does.** Shows the popover in the top layer, or hides it, as the browser's own `showPopover()` and `hidePopover()` do, firing its `beforetoggle` and `toggle` events and hiding the other popovers its showing closes
 
-**Answers.** Whether it changed the popover, as [`popoverOpen()`](#boolean-function-element-popoveropen) reads it afterwards. An element already in the state asked for answers false without calling the browser, which would leave it as it is or refuse it, as some browsers do: `showPopover()` answers false for a popover showing already, and `hidePopover()` for one hidden already and for an element that is no popover; each answers false too where a `beforetoggle` listener keeps the popover as it was. `showPopover()` fails for an element that is no popover, and for one in no document, which the browser refuses, its refusal the failure's cause
+**Answers.** Whether it changed the popover, as [`popoverOpen`](#state-element-popoveropen) reads it afterwards. An element already in the state asked for answers false without calling the browser, which would leave it as it is or refuse it, as some browsers do: `showPopover()` answers false for a popover showing already, and `hidePopover()` for one hidden already and for an element that is no popover; each answers false too where a `beforetoggle` listener keeps the popover as it was. `showPopover()` fails for an element that is no popover, and for one in no document, which the browser refuses, its refusal the failure's cause
 
 <a id="execution-element-showmodal-close"></a>
 
@@ -1290,27 +1344,31 @@ A scroll is **instant** where its `behavior` is `"instant"`, or `"auto"` where t
 
 **Answers.** Whether it changed the dialog: `showModal()` answers false for a dialog open modally already, and `close` for one closed already, without calling the browser. Each fails for an element that is no dialog, and `showModal()` for a dialog open without being modal or in no document, which the browser refuses, its refusal the failure's cause
 
+<a id="execution-element-play-pause-mute-unmute"></a>
+
 <a id="execution-element-play-pause-writemuted"></a>
 
-### Element: play, pause, writeMuted
+### Element: play, pause, mute, unmute
 
-**Syntax:** `play()`, `pause()`, `writeMuted(muted)`   **Signature:** `play` → `String`; `pause` → `Boolean`; `writeMuted`: `muted`: `Boolean` → `Boolean`   **Mode:** Once   **Activation:** The browser's autoplay policy, for `play`
+**Syntax:** `play()`, `pause()`, `mute()`, `unmute()`   **Signature:** `play` → `String`; `pause`, `mute`, `unmute` → `Boolean`   **Mode:** Once   **Activation:** The browser's autoplay policy, for `play`
 
-**Does.** Plays an `audio` or a `video` element, pauses it, or mutes it and unmutes it, as its own `play()`, `pause()` and `muted` do in the page's code
+**Does.** Plays an `audio` or a `video` element, pauses it, mutes it or unmutes it, as its own `play()`, `pause()` and `muted` do in the page's code
 
-**Answers.** `play` answers how the browser took the request, once it settles it: `"playing"`; `"blocked"`, where its autoplay policy refuses to play without the user's activation; `"aborted"`, where a pause or a new source interrupts it first; and `"unsupported"`, where it can play no source the element has, and for an element that is no media element. A failure of another kind fails the execution, its cause the browser's error. `pause` and `writeMuted` answer whether they changed the element, false where it was so already and for an element that is no media element, which they leave as it is
+**Answers.** `play` answers how the browser took the request, once it settles it: `"playing"`; `"blocked"`, where its autoplay policy refuses to play without the user's activation; `"aborted"`, where a pause or a new source interrupts it first; and `"unsupported"`, where it can play no source the element has, and for an element that is no media element. A failure of another kind fails the execution, its cause the browser's error. `pause`, `mute` and `unmute` answer whether they changed the element, as its [`playback`](#property-element-playback) reads it afterwards: false where it was so already and for an element that is no media element, which they leave as it is
 
 **Activation.** Most browsers play a muted element without the user's activation and want it for sound; a browser test shows headless Chromium blocking either until the user acts, and playing from a subscription's handler of the click
 
+<a id="execution-window-writetoclipboard-readfromclipboard"></a>
+
 <a id="execution-window-writeclipboard-readclipboard"></a>
 
-### Window: writeClipboard, readClipboard
+### Window: writeToClipboard, readFromClipboard
 
-**Syntax:** `writeClipboard(text)`, `readClipboard({ types })`   **Signature:** `writeClipboard`: `text`: `String` → `String`; `readClipboard`: optional `types`: `List<String>`, `["text/plain"]` when omitted → `ClipboardContent`   **Mode:** Once   **Activation:** As the browser decides
+**Syntax:** `writeToClipboard(text)`, `readFromClipboard({ types })`   **Signature:** `writeToClipboard`: `text`: `String` → `String`; `readFromClipboard`: optional `types`: `List<String>`, `["text/plain"]` when omitted → `ClipboardContent`   **Mode:** Once   **Activation:** As the browser decides
 
 **Does.** Writes the text to the clipboard, as `navigator.clipboard.writeText` does, or reads what the clipboard holds of each format asked for, as `navigator.clipboard.read` does, each as text; where the browser reads no items, its `readText` serves `text/plain` alone
 
-**Answers.** `writeClipboard` answers how the browser took the request: `"written"`; `"refused"`, where it refuses without the user's activation, a permission or a focused document; `"unsupported"`, where it offers no asynchronous clipboard, as outside a secure context, which [`clipboard()`](#boolean-function-window-clipboard) tells beforehand; and `"failed"` for any other error. `readClipboard` answers a `ClipboardContent { outcome, entries }`, its `outcome` `"read"` or one of the others, and its `entries` each a `ClipboardEntry { type, text }` of a format asked for that the clipboard holds, in the order asked, none where it read nothing
+**Answers.** `writeToClipboard` answers how the browser took the request: `"written"`; `"refused"`, where it refuses without the user's activation, a permission or a focused document; `"unsupported"`, where it offers no asynchronous clipboard, as outside a secure context, which [`hasClipboard`](#state-window-hasclipboard) tells beforehand; and `"failed"` for any other error. `readFromClipboard` answers a `ClipboardContent { outcome, entries }`, its `outcome` `"read"` or one of the others, and its `entries` each a `ClipboardEntry { type, text }` of a format asked for that the clipboard holds, in the order asked, none where it read nothing
 
 **Activation.** Writing needs a focused document, and the user's activation or the clipboard's permission, as the browser decides; reading needs the clipboard's read permission, or the user's leave, which some browsers ask for as the page reads. A browser test shows headless Chromium refusing both to a page given no permission
 
@@ -1342,33 +1400,39 @@ A scroll is **instant** where its `behavior` is `"instant"`, or `"auto"` where t
 
 **Does.** Asks the browser to share what is given, as `navigator.share` does, with the user's choice of where
 
-**Answers.** How the browser and the user took the request, once they settle it: `"shared"`; `"canceled"`, where the user dismissed it; `"refused"`, where the browser refuses it, as without the user's activation; `"invalid"`, where it can't share what is given, as nothing at all; `"unsupported"`, where it offers no Web Share API, which [`share()`](#boolean-function-window-share) tells beforehand; and `"failed"` for any other error
+**Answers.** How the browser and the user took the request, once they settle it: `"shared"`; `"canceled"`, where the user dismissed it; `"refused"`, where the browser refuses it, as without the user's activation; `"invalid"`, where it can't share what is given, as nothing at all; `"unsupported"`, where it offers no Web Share API, which [`canShare`](#state-window-canshare) tells beforehand; and `"failed"` for any other error
+
+<a id="execution-element-markindeterminate-clearindeterminate"></a>
 
 <a id="execution-element-writeindeterminate"></a>
 
-### Element: writeIndeterminate
+### Element: markIndeterminate, clearIndeterminate
 
-**Syntax:** `writeIndeterminate(indeterminate)`   **Signature:** `indeterminate`: `Boolean` → `Boolean`   **Mode:** Once   **Activation:** None
+**Syntax:** `markIndeterminate()`, `clearIndeterminate()`   **Signature:** → `Boolean`   **Mode:** Once   **Activation:** None
 
-**Does.** Sets whether a checkbox shows as mixed, as its `indeterminate` property does in the page's code, which fires no event and leaves whether it is checked as it is
+**Does.** Makes a checkbox show as mixed, or clears it, as its `indeterminate` property does in the page's code, which fires no event and leaves whether it is checked as it is: the DOM keeps the mixed state apart from `checked`
 
-**Answers.** Whether it changed it, as [`indeterminate()`](#boolean-function-element-indeterminate) reads it afterwards; false for an element that is no checkbox, which it leaves as it is
+**Answers.** Whether it changed it, as [`indeterminate`](#state-element-indeterminate) reads it afterwards: false where it was so already, and for an element that is no checkbox, which it leaves as it is
+
+<a id="execution-element-replacevalue"></a>
 
 <a id="execution-element-writevalue"></a>
 
-### Element: writeValue
+### Element: replaceValue
 
-**Syntax:** `writeValue(value)`   **Signature:** `value`: `String` → `String?`   **Mode:** Once   **Activation:** None
+**Syntax:** `replaceValue(value)`   **Signature:** `value`: `String` → `String?`   **Mode:** Once   **Activation:** None
 
 **Does.** Sets the value of an `input`, a `textarea` or a `select`, as its `value` property does in the page's code, which fires no event, so a watch of its [`value`](#property-element-value) misses it; a select's selects the option of that value, and none where none has it
 
 **Answers.** The value it replaced, as `value` read it before; null for any other element, which it leaves as it is. A file input given any value but the empty string fails, as the browser refuses it
 
+<a id="execution-element-select"></a>
+
 <a id="execution-element-writeselection"></a>
 
-### Element: writeSelection
+### Element: select
 
-**Syntax:** `writeSelection({ start, end })`   **Signature:** `start`, `end`: `Number` → `Boolean`   **Mode:** Once   **Activation:** None
+**Syntax:** `select({ start, end })`   **Signature:** `start`, `end`: `Number` → `Boolean`   **Mode:** Once   **Activation:** None
 
 **Does.** Places the selection as its [`selection`](#property-element-selection) reads it: a text input's or a text area's at those offsets, as `setSelectionRange` does, and, for an element whose content is editable, the document's selection at those offsets in its [`text`](#property-element-text); an offset past the end is held at the end, and a start after the end is moved to it. It moves no focus
 
@@ -1430,7 +1494,7 @@ Module code holds a target the same way, through an owned write it runs with [`e
 
 ## Built-in conversions
 
-A query converts with the four conversions [Nexo's own module](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/runtime/modules.md#vocabulary-conversions) declares between the language's types of data, which DOMQL's module, owning none of those types, declares none of; each rejects a value it cannot convert:
+A query converts with the four conversions [Nexo's own module](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/runtime/modules.md#vocabulary-conversions) declares between the language's types of data, which DOMQL's module, owning none of those types, declares none of; each rejects a value it cannot convert:
 
 | From | To | Converts |
 | --- | --- | --- |
@@ -1443,7 +1507,7 @@ A query converts with the four conversions [Nexo's own module](https://github.co
 
 ## Observations
 
-A member names the [observations](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/runtime/observations.md#observations) that cover its changes, each by its type and its target, and DOMQL starts each one that a watch, a waiting evaluation or an event's object expression needs, and stops it once nothing needs it. DOMQL's module declares the browser's observations as ten observation types, each animation frame as an eleventh, and the state a behavior offers as a twelfth, which the members of any module and module code through its [environment](#extension-modules-environment) can name, and five observation targets.
+A member names the [observations](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/runtime/observations.md#observations) that cover its changes, each by its type and its target, and DOMQL starts each one that a watch, a waiting evaluation or an event's object expression needs, and stops it once nothing needs it. DOMQL's module declares the browser's observations as ten observation types, each animation frame as an eleventh, and the state a behavior offers as a twelfth, which the members of any module and module code through its [environment](#extension-modules-environment) can name, and five observation targets.
 
 <a id="observations-types"></a>
 
@@ -1470,7 +1534,7 @@ Each type is shared by equivalent requests, those of the same target and the sam
 
 ### Observation targets
 
-An observation observes its member's receiver, an argument, `{ argument }`, or a target DOMQL's module declares, as Nexo's [observation targets](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/runtime/observations.md#observations-targets) set out:
+An observation observes its member's receiver, an argument, `{ argument }`, or a target DOMQL's module declares, as Nexo's [observation targets](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/runtime/observations.md#observations-targets) set out:
 
 | Target | Found from the receiver | Observes |
 | --- | --- | --- |
@@ -1486,7 +1550,7 @@ DOMQL resolves each target as it starts an observation, and each evaluation that
 
 ## Extension modules
 
-A module extends the built-in vocabulary as Nexo's [modules](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/runtime/modules.md#modules) set out: it declares types of its own, each with its members and operators, Boolean functions among them, and event types, executions and observation types, and adds members to DOMQL's types in its [extensions](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/language/extensions.md#extensions), each naming the one type it extends qualified, as `{ name: 'ChartElements', kind: 'extension', target: 'Domql.Element', members: [/* … */] }` adds members to elements. `domql.createModule(name, contents)` creates one from its declarations, each that runs code carrying its implementation as its `impl`, and `domql.registerModule(module)` registers it in the instance's registry, which holds DOMQL's module and every module registered with it. A request is resolved against the modules it imports, registered by then, so a module a query imports is registered beforehand, once, rather than for every evaluation.
+A module extends the built-in vocabulary as Nexo's [modules](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/runtime/modules.md#modules) set out: it declares types of its own, each with its members and operators, states among them, and event types, executions and observation types, and adds members to DOMQL's types in its [extensions](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/language/extensions.md#extensions), each naming the one type it extends qualified, as `{ name: 'ChartElements', kind: 'extension', target: 'Domql.Element', members: [/* … */] }` adds members to elements. `domql.createModule(name, contents)` creates one from its declarations, each that runs code carrying its implementation as its `impl`, and `domql.registerModule(module)` registers it in the instance's registry, which holds DOMQL's module and every module registered with it. A request is resolved against the modules it imports, registered by then, so a module a query imports is registered beforehand, once, rather than for every evaluation.
 
 ```js
 domql.registerModule(domql.createModule("Charts", {
@@ -1507,14 +1571,15 @@ domql.registerModule(domql.createModule("Charts", {
 domql.query("import Charts\npanel:palette", { panel }).evaluate();
 ```
 
-- **A query imports it, and reads its extensions with `:`.** A query that uses a module's vocabulary imports the module, `import Charts`, as [its imports](queries.md#making-a-query-imports) set out, and reads a member an extension adds with `:`, never `.`: `panel:palette`, or `panel:ChartElements.palette` where two of its extensions declare one name, as Nexo's [extension access](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/language/extensions.md#extensions-access) sets out. DOMQL's own members stand within its types, so a query reads them with `.`.
+- **A query imports it, and reads its extensions with `:`.** A query that uses a module's vocabulary imports the module, `import Charts`, as [its imports](queries.md#making-a-query-imports) set out, and reads a member an extension adds with `:`, never `.`: `panel:palette`, or `panel:ChartElements.palette` where two of its extensions declare one name, as Nexo's [extension access](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/language/extensions.md#extensions-access) sets out. DOMQL's own members stand within its types, so a query reads them with `.`.
 - **DOMQL's members win on its types.** A name DOMQL's type declares is read with `.` as DOMQL's, and an extension's member of that name is read with `:` alone. Two modules' extensions declaring one name both register, and a query that reads the name where neither is more specific is refused where it does so (NEXO3024), naming the extensions to write.
-- **What an implementation receives.** Every implementation receives the one object Nexo's [implementations](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/runtime/members.md#members-what-an-implementation-receives) receive, whose `env` is the [environment](#extension-modules-environment) of the operation that reaches it.
-- **Arguments.** A host call's implementation receives its arguments as Nexo prepares them, by parameter name. A null argument whose parameter accepts null is passed as it stands, as a bound of null meaning the viewport, and one whose parameter propagates null skips the call, as [Nexo's null arguments](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/language/members.md#nullability-a-null-argument-follows-the-parameter) set out. An option of a structured type, written in place as an object expression, as `buttons = { container = viewport, step = 3 }`, is [constructed](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/language/types.md#types-constructing-a-structure) as that type's data, a field of a reference type holding the element it names, and reaches the implementation as a frozen structure.
+- **States and work.** A module declares a state as a Boolean property, and a member that does work or takes an argument as a function, as [properties and functions](#vocabulary-properties-and-functions) set out; Nexo refuses neither form, so a module follows the rule itself.
+- **What an implementation receives.** Every implementation receives the one object Nexo's [implementations](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/runtime/members.md#members-what-an-implementation-receives) receive, whose `env` is the [environment](#extension-modules-environment) of the operation that reaches it.
+- **Arguments.** A host call's implementation receives its arguments as Nexo prepares them, by parameter name. A null argument whose parameter accepts null is passed as it stands, as a bound of null meaning the viewport, and one whose parameter propagates null skips the call, as [Nexo's null arguments](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/language/members.md#nullability-a-null-argument-follows-the-parameter) set out. An option of a structured type, written in place as an object expression, as `buttons = { container = viewport, step = 3 }`, is [constructed](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/language/types.md#types-constructing-a-structure) as that type's data, a field of a reference type holding the element it names, and reaches the implementation as a frozen structure.
 
 <a id="extension-modules-kept-functions"></a>
 
-- **Kept functions.** A host call's function argument, as a test of what a behavior hears, `when = it.matches(".pick")`, reaches its implementation as a function it keeps and calls later, a [kept function](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/runtime/host-calls.md#runtime-host-calls-kept-functions): each call reads the page as it is then, through the locals and the bindings the call was prepared with, as a query evaluated once reads, so a member it reads reads alone, and is checked against the parameter's contract. DOMQL ends the functions an execution keeps as the execution ends: a continuous execution's as its instance ends, and as an update gives its instance others, once the instance accepted them; a once execution's as its implementation's answer settles, a canceled one's among them; and an event source's as its subscription ends. A call of one afterwards fails with Nexo's NEXO5051, which the implementation receives as it does any failure of the call.
+- **Kept functions.** A host call's function argument, as a test of what a behavior hears, `when = it.matches(".pick")`, reaches its implementation as a function it keeps and calls later, a [kept function](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/runtime/host-calls.md#runtime-host-calls-kept-functions): each call reads the page as it is then, through the locals and the bindings the call was prepared with, as a query evaluated once reads, so a member it reads reads alone, and is checked against the parameter's contract. DOMQL ends the functions an execution keeps as the execution ends: a continuous execution's as its instance ends, and as an update gives its instance others, once the instance accepted them; a once execution's as its implementation's answer settles, a canceled one's among them; and an event source's as its subscription ends. A call of one afterwards fails with Nexo's NEXO5051, which the implementation receives as it does any failure of the call.
 - **Reading.** A member's implementation is synchronous and reads alone, as Nexo requires of every vocabulary, so evaluating, watching and subscribing change nothing; a change to the page is an [execution](executions.md).
 - **Event types.** A module adds event types of its own as keys of DOMQL's type selector `event`, each a mapping, `{ selector: 'event', key, type }`, naming the type its events are captured as, so `on` listens to them as it listens to the built-in ones.
 - **Observations.** A member of any module names DOMQL's observation types and targets as DOMQL's own members do. DOMQL resolves the targets its own module declares alone, so a module declaring observation targets of its own is refused when it is registered, and an observation type a module declares, which owns no target, observes the receiver or an argument. An observation type a module declares is started by its implementation, which receives `request`, the observation's `type`, its `target` and its `arguments`, each argument the member names resolved to its value; `notify`, which it calls when what it observes may have changed; and `env`, [an observation's environment](#extension-modules-observation-environment). It answers an object whose `stop()` ends the observation and, for a maintained observation, whose `sample()` answers its latest sample, `{ pending, value }`. A maintained observation whose sample can lag behind the page, as one the browser reports after it lays a frame out, offers `resampleAsync()` too: it takes a new sample and answers a promise that settles once that sample has arrived, which a [refresh that resamples](watches.md#watching-resampling) waits for. One that offers none is read as it stands, its sample taken to be current whenever `sample()` answers it.
@@ -1539,7 +1604,7 @@ An operation gives every implementation it reaches one environment, its `env`, m
 
 <a id="extension-modules-history-per-holder"></a>
 
-**History per holder.** The environment is one per operation, so a member that reads captured values, keeping what it measured before as Nexo's [captured reading](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/runtime/members.md#how-a-member-reads) has its holder keep it, keys that history by its environment and its receiver, in a `WeakMap` of its own: each watch, wait and subscription keeps its own, from its start to its end, and lets it go with the operation, and an evaluation once, whose environment is its own, reports what it sees with none.
+**History per holder.** The environment is one per operation, so a member that reads captured values, keeping what it measured before as Nexo's [captured reading](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/runtime/members.md#how-a-member-reads) has its holder keep it, keys that history by its environment and its receiver, in a `WeakMap` of its own: each watch, wait and subscription keeps its own, from its start to its end, and lets it go with the operation, and an evaluation once, whose environment is its own, reports what it sees with none.
 
 <a id="extension-modules-state-per-document"></a>
 
@@ -1553,10 +1618,10 @@ An operation gives every implementation it reaches one environment, its `env`, m
 
 ### Registering a module while requests run
 
-A query's imports decide what it resolves against, so a module registered later changes no resolution's meaning: a running watch, subscription or continuous execution keeps the resolution it has, and goes on evaluating and delivering, as Nexo keeps a resolution [current](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/runtime/resolution.md#runtime-reuse).
+A query's imports decide what it resolves against, so a module registered later changes no resolution's meaning: a running watch, subscription or continuous execution keeps the resolution it has, and goes on evaluating and delivering, as Nexo keeps a resolution [current](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/runtime/resolution.md#runtime-reuse).
 
-- **A module that recognizes values.** A module declaring a `typeOf` may recognize values a resolution captures, so it makes stale the resolutions that may meet such a value, as Nexo's [reusing a resolution](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/runtime/resolution.md#runtime-reuse) sets out: one whose host call supplies `DomEvent`, whose `target` is a nullable reference, among them. An operation started after it resolves its request again.
-- **A running watch or a waiting evaluation made stale** resolves its request again at its next evaluation, which evaluates the whole query anew, as each of its evaluations does, so it goes on as before. A watch compares that evaluation's result as it compares any, within each value's tolerance: Nexo gives every resolution of one definition the same [origins](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/runtime/evaluation.md#runtime-results) where it selects the same declarations. Resolving again checks what starting the watch checked, and its refusal is that evaluation's failure.
+- **A module that recognizes values.** A module declaring a `typeOf` may recognize values a resolution captures, so it makes stale the resolutions that may meet such a value, as Nexo's [reusing a resolution](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/runtime/resolution.md#runtime-reuse) sets out: one whose host call supplies `DomEvent`, whose `target` is a nullable reference, among them. An operation started after it resolves its request again.
+- **A running watch or a waiting evaluation made stale** resolves its request again at its next evaluation, which evaluates the whole query anew, as each of its evaluations does, so it goes on as before. A watch compares that evaluation's result as it compares any, within each value's tolerance: Nexo gives every resolution of one definition the same [origins](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/runtime/evaluation.md#runtime-results) where it selects the same declarations. Resolving again checks what starting the watch checked, and its refusal is that evaluation's failure.
 - **A subscription or a once execution made stale** prepares its request again where a value its host call supplies is next projected: at the next event, or as the execution's result arrives. Where that preparation reaches the declaration it was carried out through, the value is projected through it, its locals and the object expression evaluated as that preparation finds them, and a subscription goes on listening with the receiver and the arguments its event source started with. Where it reaches none, or another, the subscription hands its handler the failure `DOMQL5015` and ends, and the once execution rejects with it, its effect standing. Where preparing it again fails, the subscription hands its handler that failure and ends, and the once execution rejects with it.
 
 <a id="extension-modules-loading"></a>
@@ -1585,7 +1650,7 @@ chart.evaluate();
 
 ### Host calls DOMQL carries out
 
-A module declares an event source or an execution as a [host call](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/language/members.md#members-host-calls), a function with `invokedBy: 'host'`, within a type, within an extension, or among its module members, and gives DOMQL what Nexo leaves to its host: the `requestKind` the call makes, `subscription` for an event source or `execution`; an execution's `executionMode`, `once` or `continuous`; and the `impl` that carries it out. `domql.createModule` keeps these in DOMQL's own catalog, and gives Nexo the declaration without them, so Nexo resolves and prepares the call and DOMQL alone invokes it. One declaration standing within several types, as DOMQL's `on` does within `Element`, `Document` and `Window`, is kept for each.
+A module declares an event source or an execution as a [host call](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/language/members.md#members-host-calls), a function with `invokedBy: 'host'`, within a type, within an extension, or among its module members, and gives DOMQL what Nexo leaves to its host: the `requestKind` the call makes, `subscription` for an event source or `execution`; an execution's `executionMode`, `once` or `continuous`; and the `impl` that carries it out. `domql.createModule` keeps these in DOMQL's own catalog, and gives Nexo the declaration without them, so Nexo resolves and prepares the call and DOMQL alone invokes it. One declaration standing within several types, as DOMQL's `on` does within `Element`, `Document` and `Window`, is kept for each.
 
 | Host call | `requestKind` | `executionMode` | Its `result` | Its implementation receives | It answers |
 | --- | --- | --- | --- | --- | --- |
@@ -1599,4 +1664,4 @@ A [command](behaviors.md#behaviors-commands) and an [event source of occurrences
 
 `domql.createModule` refuses, with a module error naming the declaration, the type it stands within and the key, of the code [errors](errors.md#errors-module) give, a host call whose `requestKind` is missing or neither `subscription` nor `execution`; an execution whose `executionMode` is missing or neither `once` nor `continuous`; an event source given an `executionMode`, or declaring no result, since each event it delivers is the value its subscription projects; a member the evaluator invokes given either key, an unnamed indexer named `[]`, as Nexo names it; a continuous execution that declares a result; a `behavior` on a continuous execution, or naming no behavior by a name; one naming no continuous execution of its module; and an event source of a behavior declaring an `impl` or parameters. `domql.registerModule` refuses a module declaring a host call its catalog holds nothing of, as a module `domql.createModule` did not make. So an execution whose mode was left out is refused as an execution missing its mode.
 
-On a receiver of unknown type, a host call has no declaration yet, so its [candidates](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/runtime/host-calls.md#runtime-host-calls), every declaration that takes the call as it is written, say what it does, as they say who invokes it. Where they disagree on what they request, the request is refused as ambiguous with a validation error, located at the call.
+On a receiver of unknown type, a host call has no declaration yet, so its [candidates](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/runtime/host-calls.md#runtime-host-calls), every declaration that takes the call as it is written, say what it does, as they say who invokes it. Where they disagree on what they request, the request is refused as ambiguous with a validation error, located at the call.

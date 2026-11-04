@@ -404,7 +404,7 @@ Each entry is one of three kinds:
 - **Kind:** Contract.
 - **Decision:** `on(type, options?)` takes a second, optional positional argument, a `Listening { capture }`, so `on("click", { capture = true })` listens as the event is captured on its way to its target, and `on("click")` as before, at the target and as it bubbles. It listens passively either way, for observing alone, as [D2](#d2) has it.
 - **Why:**
-  - A member's argument form is positional or options, never both, and `on("click")` keeps its form, so the option is a structured value its parameter constructs from the object expression written there, as Nexo's [constructing a structure](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/language/types.md#types-constructing-a-structure) sets out.
+  - A member's argument form is positional or options, never both, and `on("click")` keeps its form, so the option is a structured value its parameter constructs from the object expression written there, as Nexo's [constructing a structure](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/language/types.md#types-constructing-a-structure) sets out.
   - A structure leaves room for another listening option without changing the argument form, which would break every subscription.
   - Listening in the capture phase at an ancestor observes an event before any listener nearer its target runs, so a listener there that stops it hides nothing.
 - **Declined:**
@@ -922,7 +922,7 @@ Each entry is one of three kinds:
 *November 2, 2026*
 
 - **Kind:** Contract.
-- **Decision:** A host call's function argument reaches its implementation as a kept function, which Nexo's language `1.0.0-beta.20` designed for DOMQL ([C13](features-status.md#planned-extension-contract)), as its [decisions](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/docs/decisions.md#d49) record. DOMQL ends it as the execution keeping it ends: a continuous execution's instance ending or accepting other arguments, a once execution's answer settling, a subscription ending. Each call counts as an evaluation of the instance's, so what it reads reads alone.
+- **Decision:** A host call's function argument reaches its implementation as a kept function, which Nexo's language `1.0.0-beta.20` designed for DOMQL ([C13](features-status.md#planned-extension-contract)), as its [decisions](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/docs/decisions.md#d49) record. DOMQL ends it as the execution keeping it ends: a continuous execution's instance ending or accepting other arguments, a once execution's answer settling, a subscription ending. Each call counts as an evaluation of the instance's, so what it reads reads alone.
 - **Why:**
   - A running behavior keeps a test of what it hears, as a route's condition, and calls it inside each event's dispatch; data alone left every such test a protocol of the module's own.
   - DOMQL alone knows when what it started ends, so it disposes each prepared call then, and a call after that fails with Nexo's code, where it would read a page the caller has moved on from.
@@ -1148,7 +1148,7 @@ Each entry is one of three kinds:
 - **Why:**
   - Every planned capability is implemented or declined but A1 and A5's queue. What callers use today, the JavaScript half, is complete.
   - The C# half is a client of that contract. It maps results onto records, drives the operations the JavaScript half offers, and carries across the boundary the order that half already keeps ([D69](#d69)). The questions D46 leaves open are its own: a host's own transport, records a field discriminates, and checking text without a parser in .NET. Should its design need more of the JavaScript half, that is an addition, which a beta allows.
-  - Nexo holds the same stance: it is in its beta, as its [decisions](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/docs/decisions.md#d27) record, while its tooling waits for its design, as its [status](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/docs/features-status.md#tooling) records.
+  - Nexo holds the same stance: it is in its beta, as its [decisions](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/docs/decisions.md#d27) record, while its tooling waits for its design, as its [status](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/docs/features-status.md#tooling) records.
   - A caller reads `domql.info.versions` to learn what it can rely on. A beta runtime implementing an alpha specification would promise a stability its contract's version denies.
 - **Declined:**
   - Waiting for the C# half. Its design has not started, and the JavaScript half would go without a promise until it ends.
@@ -1182,7 +1182,7 @@ Each entry is one of three kinds:
 - **Kind:** Process.
 - **Decision:** `nexo.release` pins a release of Nexo, `1.0.0-beta.1` first, and the build extracts the tree of its tag, `v1.0.0-beta.1`, where `nexo.commit` pinned a commit. Every link into Nexo names that tag, so the links move with the pin, `main` among the links it replaces. A link to another commit is a record of the past.
 - **Why:**
-  - Nexo now advances its language once per release and cuts each release as a signed tag, as its [D66](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/docs/decisions.md#d66) records, so a release is what DOMQL can rely on.
+  - Nexo now advances its language once per release and cuts each release as a signed tag, as its [D66](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/docs/decisions.md#d66) records, so a release is what DOMQL can rely on.
   - A commit pin named one fix, and moving it rewrote a hash in 81 places across 21 documents.
   - A link to Nexo's `main` changes under DOMQL's documents, unseen.
 - **Declined:** Waiting for Nexo's packages on a registry, which would keep DOMQL on a commit until they are published; the packages remain the next step, as [consuming the language](features-status.md#consuming-nexo) sets out.
@@ -1212,7 +1212,7 @@ Each entry is one of three kinds:
   - A release is a signed tag, `v` and its version, on the commit that dates its changelog entry. Its packages are published from that tag.
   - `1.0.0-beta.2` is the first version collected so. The versions before it stand as they were declared.
 - **Why:**
-  - A version a caller relies on is one a release fixes, and DOMQL's version history and Nexo's language history now follow one rule, as Nexo's [D66](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/docs/decisions.md#d66) records.
+  - A version a caller relies on is one a release fixes, and DOMQL's version history and Nexo's language history now follow one rule, as Nexo's [D66](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/docs/decisions.md#d66) records.
   - It narrows [D75](#d75)'s rule that each version advances for its own reason: the specification version's reason is now a release whose contract changed.
 - **Declined:** Dating a release when its packages are published, which leaves a caller nothing to pin until a registry holds them; DOMQL's packages wait for Nexo's anyway.
 
@@ -1228,7 +1228,7 @@ Each entry is one of three kinds:
   - Until then, a change fixes, explains, speeds up or documents, or meets a requirement. A feature lands only where Forma's scripts need it, as a decision records.
 - **Why:**
   - The beta promised no breaking redesign, but said nothing about when breaks end.
-  - DOMQL's contract holds Nexo's language, so it can be no more settled than Nexo, which waits for its own 1.0 as its [D67](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/docs/decisions.md#d67) records.
+  - DOMQL's contract holds Nexo's language, so it can be no more settled than Nexo, which waits for its own 1.0 as its [D67](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/docs/decisions.md#d67) records.
   - The planned capabilities came from reading Forma's scripts, so running them is the test of DOMQL's contract.
 - **Declined:**
   - Making the C# half a requirement, which would hold 1.0 for a design the owner hasn't decided is needed.
@@ -1244,7 +1244,7 @@ Each entry is one of three kinds:
 - **Decision:** From `1.0.0-beta.1` on, each entry of the [version history](../VERSION-HISTORY.md) leads with examples of what its version changed: a query's in a `domql` block, a caller's or a module's in a `js` block. Each line's comment says what it does at that version and what it did before. The entry's list follows them as the reference. Each example is run at its version when its entry is written; the gate doesn't run them.
 - **Why:**
   - The list states each change precisely, but a caller migrating needs the line to write.
-  - Nexo's language history follows the same rule, as its [D70](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/docs/decisions.md#d70) records, and running its examples found what `1.0.0-beta.2`'s entry here misstated: a chain's limit counts terms, and a grouped chain is written `a + b + (c + d)`.
+  - Nexo's language history follows the same rule, as its [D70](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/docs/decisions.md#d70) records, and running its examples found what `1.0.0-beta.2`'s entry here misstated: a chain's limit counts terms, and a grouped chain is written `a + b + (c + d)`.
 - **Declined:** Running the history's examples in the gate, which would make a record of the past change with later versions.
 
 <a id="d82"></a>
@@ -1254,7 +1254,7 @@ Each entry is one of three kinds:
 *November 3, 2026*
 
 - **Kind:** Contract.
-- **Decision:** `domql.query(text, bindings, { types })` declares the type of a top-level binding by its notation, which Nexo's `createBindings` binds as its [declared types](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/runtime/bindings.md#runtime-bindings) do. Every binding made from the query keeps the types, `with`'s, an execution's update and a reaction's, and the query keeps a copy of them.
+- **Decision:** `domql.query(text, bindings, { types })` declares the type of a top-level binding by its notation, which Nexo's `createBindings` binds as its [declared types](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/runtime/bindings.md#runtime-bindings) do. Every binding made from the query keeps the types, `with`'s, an execution's update and a reaction's, and the query keeps a copy of them.
 - **Why:**
   - It is the feature the 1.0 freeze allows, as [D80](#d80) records: replacing Forma's scripts needs it. Forma's input router binds its routes as `List<FormaInput.Route>` and its overrides as a dictionary of structures, and its culture coordinator binds its starting state as a structure. Data typed from itself is of no module's type, so each was refused (NEXO3042), and routes whose families carry different fields could not be bound at all.
   - Nexo already captures data as a declared type, a map as a dictionary and a set as a list, and checks it, so DOMQL passes the types through and adds no rule of its own.
@@ -1325,3 +1325,61 @@ Each entry is one of three kinds:
 - **Declined:**
   - Adopting incremental evaluation now, which no workload has shown a need for, as the deferred item records.
   - Keeping the promise, which would leave incremental evaluation for 2.0.
+
+<a id="d87"></a>
+
+## D87 — A state is a property, read without a call
+
+*November 4, 2026*
+
+- **Kind:** Contract, approved by the owner.
+- **Decision:**
+  - DOMQL moves to Nexo's language `1.0.0-beta.41`, whose release is Nexo's `1.0.0-beta.2`, and follows its rule that a property names what its receiver is, has or is in, and a function does work, as Nexo's [D77](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/docs/decisions.md#d77) records.
+  - Every state DOMQL declares is a Boolean property, read without a call, `it.checked`: an element's `disabled`, `readonly`, `textEditable`, `focused`, `focusWithin`, `displayed`, `focusable`, `hovered`, `popoverOpen`, `checked`, `indeterminate` and `autofilled`, the document's `visible` and `focused`, the window's `canShare` and `hasClipboard`, and the ARIA view's `checked` and `disabled`. Each was a Boolean function.
+  - Five take new names as they become properties:
+
+    | Before | Now |
+    | --- | --- |
+    | Element `hover()` | `hovered` |
+    | Element `focus()` | `focused` |
+    | Document `focus()` | `focused` |
+    | Window `share()` | `canShare` |
+    | Window `clipboard()` | `hasClipboard` |
+
+  - A member that takes an argument stays a function, whatever it answers: `contains(other)`, `hasPointerCapture(pointerId)`, `intersects`, `overlaps`, `matches`, and the indexers `class[…]` and `media[…]`.
+- **Why:**
+  - The owner's call, following Nexo's: a state is something the receiver is in, and `checked()` read as though checking were done.
+  - A state was a function only so a query could pass it by reference, `where(Domql.checked)`, where a body reads as well, `where(it.checked)`.
+  - Each new name says what the property reads. `hover` and `focus` are verbs, and `focus` names the execution that moves focus, which [D88](#d88) gives it. `share` and `clipboard` named the API, where the property says whether the window can share or has a clipboard.
+  - Nexo's NEXO3017 writes the property to read where a query calls one, so each query that breaks is told what to write, and the [version history](../VERSION-HISTORY.md#v1-0-0-beta-2) says how to migrate.
+- **Declined:**
+  - Keeping the functions beside the properties, which would give one state two members.
+  - Keeping the old names as properties, `it.hover` and `it.focus`, which read as verbs, and where `focus` is the name the execution that moves focus takes.
+
+<a id="d88"></a>
+
+## D88 — An action is a function named by its verb
+
+*November 4, 2026*
+
+- **Kind:** Contract, approved by the owner.
+- **Decision:**
+  - Each built-in execution is a function named by the verb it carries out, called with its parentheses whether or not it takes an argument:
+
+    | Before | Now |
+    | --- | --- |
+    | `takeFocus` | `focus` |
+    | `writeClipboard` | `writeToClipboard` |
+    | `readClipboard` | `readFromClipboard` |
+    | `writeValue` | `replaceValue` |
+    | `writeSelection({ start, end })` | `select({ start, end })` |
+
+  - An execution that wrote a state one way or the other by a Boolean argument is two executions, each taking nothing and answering whether it changed the element: `writeMuted(muted)` is `mute()` and `unmute()`, and `writeIndeterminate(indeterminate)` is `markIndeterminate()` and `clearIndeterminate()`.
+  - The implementations keep their keys' names in step with the declarations', and carry each out as before.
+- **Why:**
+  - With states as properties ([D87](#d87)), the member that does something is the function, so its name says what it does: `focus()` moves focus, and `focused` reads where it is.
+  - A Boolean argument hid which way the call went; `mute()` reads as what it does, where `writeMuted(true)` read as writing a state.
+  - `replaceValue` says the call answers the value it replaced, and `select` is the platform's own verb for a text control's selection, as the document selection's `select` is.
+- **Declined:**
+  - `check(true)` for the mixed state, which would set the mixed state through checking, where the DOM keeps `indeterminate` apart from `checked`.
+  - Keeping `writeMuted(muted)` and `writeIndeterminate(indeterminate)` beside the pairs, which would give one change two members.

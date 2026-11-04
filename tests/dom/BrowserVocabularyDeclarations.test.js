@@ -87,15 +87,15 @@ describe('BrowserVocabularyDeclarations', () => {
     it('declares each member the specification lists within the type it reads', () => {
         expect(typeMembers.map(({ type, member }) => nameOf(type, member)).sort()).toEqual([
             'Node.children', 'Node.parent', 'Node.root', 'Node.host', 'Node.first', 'Node.all', 'Node.contains',
-            'Element.disabled', 'Element.readonly', 'Element.textEditable', 'Element.focus', 'Element.focusWithin', 'Element.displayed', 'Element.focusable', 'Element.hover', 'Element.popoverOpen', 'Element.checked', 'Element.indeterminate', 'Element.autofilled',
+            'Element.disabled', 'Element.readonly', 'Element.textEditable', 'Element.focused', 'Element.focusWithin', 'Element.displayed', 'Element.focusable', 'Element.hovered', 'Element.popoverOpen', 'Element.checked', 'Element.indeterminate', 'Element.autofilled',
             'Element.localName', 'Element.classes', 'Element.text', 'Element.html', 'Element.value', 'Element.playback', 'Element.inlineStyle', 'Element.files', 'Element.sizeLimits',
             'Element.rect', 'Element.clientRect', 'Element.size', 'Element.clientSize', 'Element.scroll', 'Element.grid', 'Element.selection', 'Element.shadow', 'Element.aria', 'Element.direction', 'Element.attached', 'Element.hasChildren', 'Element.hasSelection',
             'Element.previousSibling', 'Element.nextSibling', 'Element.index', 'Element.hasPointerCapture',
             'Element[]', 'Element.attribute', 'Element.class', 'Element.style', 'Element.intersects', 'Element.overlaps', 'Element.matches', 'Element.rectRelativeTo', 'Element.closest', 'Element.scrollContainer', 'Element.on',
-            'Element.dispatch', 'Element.takeFocus', 'Element.scrollTo', 'Element.scrollBy', 'Element.scrollIntoView', 'Element.showPopover', 'Element.hidePopover', 'Element.showModal', 'Element.capturePointer', 'Element.releasePointer', 'Element.play', 'Element.pause', 'Element.writeMuted', 'Element.writeIndeterminate', 'Element.writeValue', 'Element.writeSelection', 'Element.ownAttribute', 'Element.ownClass', 'Element.ownStyle', 'Element.ownText', 'Element.ownFileSource', 'Element.close',
-            'Document.visible', 'Document.focus', 'Document.activeElement', 'Document.selection', 'Document.on', 'Document.dispatch',
-            'Window.size', 'Window.scroll', 'Window.devicePixelRatio', 'Window.location', 'Window.shortcutModifier', 'Window.media', 'Window.share', 'Window.clipboard', 'Window.on',
-            'Window.dispatch', 'Window.scrollTo', 'Window.scrollBy', 'Window.writeClipboard', 'Window.readClipboard', 'Window.download', 'Window.print', 'Window.requestShare',
+            'Element.dispatch', 'Element.focus', 'Element.scrollTo', 'Element.scrollBy', 'Element.scrollIntoView', 'Element.showPopover', 'Element.hidePopover', 'Element.showModal', 'Element.capturePointer', 'Element.releasePointer', 'Element.play', 'Element.pause', 'Element.mute', 'Element.unmute', 'Element.markIndeterminate', 'Element.clearIndeterminate', 'Element.replaceValue', 'Element.select', 'Element.ownAttribute', 'Element.ownClass', 'Element.ownStyle', 'Element.ownText', 'Element.ownFileSource', 'Element.close',
+            'Document.visible', 'Document.focused', 'Document.activeElement', 'Document.selection', 'Document.on', 'Document.dispatch',
+            'Window.size', 'Window.scroll', 'Window.devicePixelRatio', 'Window.location', 'Window.shortcutModifier', 'Window.media', 'Window.canShare', 'Window.hasClipboard', 'Window.on',
+            'Window.dispatch', 'Window.scrollTo', 'Window.scrollBy', 'Window.writeToClipboard', 'Window.readFromClipboard', 'Window.download', 'Window.print', 'Window.requestShare',
             'Shadow.root', 'Shadow.elements',
             'Aria.checked', 'Aria.disabled', 'Aria[]', 'Aria.attribute', 'Aria as Element',
             'Range.rect', 'Range.collapsed', 'Range.text', 'Range.startElement', 'Range.endElement', 'Range.commonAncestor', 'Range.intersects', 'Range.all', 'Range.offsetsIn',
@@ -154,24 +154,27 @@ describe('BrowserVocabularyDeclarations', () => {
         }
     });
 
-    it('declares each test as a Boolean member, a presence test named with has', () => {
-        const tests = typeMembers.filter(({ member }) => member.result === 'Boolean' && member.kind === 'property').map(({ type, member }) => nameOf(type, member));
+    it('declares each state as a Boolean property, read without a call: those the browser sets, of elements, the document, the window and ARIA views, and those that follow from structure, a presence named with has', () => {
+        const states = typeMembers.filter(({ member }) => member.result === 'Boolean' && member.kind === 'property').map(({ type, member }) => nameOf(type, member));
 
-        expect(tests).toEqual(['Element.attached', 'Element.hasChildren', 'Element.hasSelection', 'Range.collapsed']);
+        expect(states).toEqual([
+            'Element.disabled', 'Element.readonly', 'Element.textEditable', 'Element.focused', 'Element.focusWithin', 'Element.displayed', 'Element.focusable', 'Element.hovered', 'Element.popoverOpen', 'Element.checked', 'Element.indeterminate', 'Element.autofilled',
+            'Element.attached', 'Element.hasChildren', 'Element.hasSelection',
+            'Document.visible', 'Document.focused', 'Window.canShare', 'Window.hasClipboard', 'Aria.checked', 'Aria.disabled', 'Range.collapsed',
+        ]);
     });
 
-    it('declares the tests of elements, the document, the window and ARIA views as Boolean functions, the state the browser sets rather than one that follows from structure', () => {
-        const tests = typeMembers.filter(({ member }) => member.kind === 'function' && member.invokedBy !== 'host' && member.result === 'Boolean' && member.parameters.length === 0).map(({ type, member }) => `${nameOf(type, member)}()`);
+    it('declares a Boolean function only where it takes what it tests against, a state being a property', () => {
+        const functions = typeMembers.filter(({ member }) => member.kind === 'function' && member.invokedBy !== 'host' && member.result === 'Boolean');
 
-        expect(tests).toEqual([
-            'Element.disabled()', 'Element.readonly()', 'Element.textEditable()', 'Element.focus()', 'Element.focusWithin()', 'Element.displayed()', 'Element.focusable()', 'Element.hover()', 'Element.popoverOpen()', 'Element.checked()', 'Element.indeterminate()', 'Element.autofilled()',
-            'Document.visible()', 'Document.focus()', 'Window.share()', 'Window.clipboard()', 'Aria.checked()', 'Aria.disabled()',
+        expect(functions.map(({ type, member }) => `${nameOf(type, member)}(${member.parameters.map(parameter => parameter.name).join(', ')})`)).toEqual([
+            'Node.contains(other)', 'Element.hasPointerCapture(pointerId)', 'Element.matches(selector)', 'Range.intersects(node)',
         ]);
     });
 
     it('declares the document a query runs against and its window as module members of Domql, read through its namespace', () => {
         expect(module.members.map(member => `${member.name}: ${member.result}`)).toEqual(['document: Document', 'window: Window']);
-        expect(registry.resolve('{ visible = Domql.document.visible(), width = Domql.window.size.width }', {}, { imports: ['Domql'] }).usedDeclarations.map(use => use.qualifiedName)).toEqual(['Domql.document', 'Document.visible', 'Domql.window', 'Window.size', 'Size.width']);
+        expect(registry.resolve('{ visible = Domql.document.visible, width = Domql.window.size.width }', {}, { imports: ['Domql'] }).usedDeclarations.map(use => use.qualifiedName)).toEqual(['Domql.document', 'Document.visible', 'Domql.window', 'Window.size', 'Size.width']);
     });
 
     it('lets one name answer on different receivers', () => {
@@ -264,13 +267,13 @@ describe('BrowserVocabularyDeclarations', () => {
         ]);
     });
 
-    it('lets a module beside it declare a member and a Boolean function of any name on an element', () => {
+    it('lets a module beside it declare a member and a state of any name on an element', () => {
         const charts = extensionModule('Charts', 'Element', [
             declaration({ name: 'palette' }),
-            declaration({ name: 'plotted', kind: 'function', result: 'Boolean', parameters: [], updates: { changes: 'unobserved', reads: 'fresh' } }),
+            declaration({ name: 'plotted', result: 'Boolean', updates: { changes: 'unobserved', reads: 'fresh' } }),
         ]);
         const extended = nexo.createRegistry([module, charts]);
-        const resolution = extended.resolve('import Charts\nreturn { palette = el:palette, plotted = el:plotted() }', { el: document.createElement('div') }, { imports: ['Domql'] });
+        const resolution = extended.resolve('import Charts\nreturn { palette = el:palette, plotted = el:plotted }', { el: document.createElement('div') }, { imports: ['Domql'] });
 
         expect(resolution.usedDeclarations.map(use => extended.getDeclaringModuleName(use.declaration))).toEqual(['Charts', 'Charts']);
     });
@@ -309,7 +312,7 @@ describe('BrowserVocabularyDeclarations', () => {
 
         expect(executions.map(({ type, member }) => `${nameOf(type, member)}(${member.parameters.map(parameter => `${parameter.name}: ${parameter.type}${parameter.required ? '' : ` = ${JSON.stringify(parameter.default)}`}`).join(', ')}): ${member.result ?? 'none'}, ${DispatchTable.get(member).executionMode}`)).toEqual([
             'Element.dispatch(type: String, bubbles: Boolean = false, detail: Any? = null): Boolean, once',
-            'Element.takeFocus(preventScroll: Boolean = false): Boolean, once',
+            'Element.focus(preventScroll: Boolean = false): Boolean, once',
             'Element.scrollTo(inline: Number? = null, block: Number? = null, behavior: String = "auto"): Boolean, once',
             'Element.scrollBy(inline: Number? = null, block: Number? = null, behavior: String = "auto"): Boolean, once',
             'Element.scrollIntoView(block: String = "start", inline: String = "nearest", behavior: String = "auto"): Boolean, once',
@@ -320,10 +323,12 @@ describe('BrowserVocabularyDeclarations', () => {
             'Element.releasePointer(pointerId: Number): Boolean, once',
             'Element.play(): String, once',
             'Element.pause(): Boolean, once',
-            'Element.writeMuted(muted: Boolean): Boolean, once',
-            'Element.writeIndeterminate(indeterminate: Boolean): Boolean, once',
-            'Element.writeValue(value: String): String?, once',
-            'Element.writeSelection(start: Number, end: Number): Boolean, once',
+            'Element.mute(): Boolean, once',
+            'Element.unmute(): Boolean, once',
+            'Element.markIndeterminate(): Boolean, once',
+            'Element.clearIndeterminate(): Boolean, once',
+            'Element.replaceValue(value: String): String?, once',
+            'Element.select(start: Number, end: Number): Boolean, once',
             'Element.ownAttribute(name: String, value: String?, restore: Boolean = true, keep: Boolean = false): none, continuous',
             'Element.ownClass(name: String, present: Boolean = true, restore: Boolean = true, keep: Boolean = false): none, continuous',
             'Element.ownStyle(property: String, value: String?, restore: Boolean = true, keep: Boolean = false): none, continuous',
@@ -334,13 +339,13 @@ describe('BrowserVocabularyDeclarations', () => {
             'Window.dispatch(type: String, bubbles: Boolean = false, detail: Any? = null): Boolean, once',
             'Window.scrollTo(inline: Number? = null, block: Number? = null, behavior: String = "auto"): Boolean, once',
             'Window.scrollBy(inline: Number? = null, block: Number? = null, behavior: String = "auto"): Boolean, once',
-            'Window.writeClipboard(text: String): String, once',
-            'Window.readClipboard(types: List<String> = ["text/plain"]): ClipboardContent, once',
+            'Window.writeToClipboard(text: String): String, once',
+            'Window.readFromClipboard(types: List<String> = ["text/plain"]): ClipboardContent, once',
             'Window.download(name: String, content: String, type: String = "text/plain"): none, once',
             'Window.print(): none, once',
             'Window.requestShare(title: String? = null, text: String? = null, url: String? = null): String, once',
         ]);
-        expect(executions.filter(({ member }) => member.arguments === 'positional').map(({ type, member }) => nameOf(type, member))).toEqual(['Element.writeMuted', 'Element.writeIndeterminate', 'Element.writeValue', 'Window.writeClipboard']);
+        expect(executions.filter(({ member }) => member.arguments === 'positional').map(({ type, member }) => nameOf(type, member))).toEqual(['Element.replaceValue', 'Window.writeToClipboard']);
         expect(executions.every(({ member }) => DispatchTable.get(member).requestKind === 'execution')).toBe(true);
 
         // The document's selection, a structured value, places the selection it stands for.

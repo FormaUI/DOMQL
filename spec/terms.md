@@ -2,7 +2,7 @@
 
 <a id="terms"></a>
 
-Each term this specification uses, what it means, and where its authoritative explanation is. A term here defines nothing its linked document does not, and a term of the language, as a script, a binding, a member, an import, a module or a host call, is [the language's](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/language/terms.md), and one of the runtime, as a registry, a resolution or a module key, is [the runtime's](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/runtime/terms.md), each Nexo's.
+Each term this specification uses, what it means, and where its authoritative explanation is. A term here defines nothing its linked document does not, and a term of the language, as a script, a binding, a member, an import, a module or a host call, is [the language's](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/language/terms.md), and one of the runtime, as a registry, a resolution or a module key, is [the runtime's](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/runtime/terms.md), each Nexo's.
 
 In this document:
 
@@ -35,7 +35,8 @@ In this document:
 | Built-in vocabulary | What DOMQL's module, `Domql`, declares | [Built-in vocabulary](vocabulary.md#built-in-vocabulary) |
 | Node | A value of the DOM tree, of a kind of node: an element, a document, a document fragment or a shadow root | [Nodes](nodes-and-shadow-trees.md#nodes) |
 | Shadow view | An element's `shadow`, whose members answer its shadow relationships | [The view](nodes-and-shadow-trees.md#shadow-trees-the-view) |
-| ARIA view | An element's `aria`, whose Boolean functions and unnamed indexer read its own ARIA attributes | [Boolean functions](vocabulary.md#boolean-functions) |
+| State | What the user, the browser or the page sets and clears, a presence or a capability the browser offers, declared as a Boolean property read without a call, as `checked` is | [States](vocabulary.md#states) |
+| ARIA view | An element's `aria`, whose states and unnamed indexer read its own ARIA attributes | [States](vocabulary.md#states) |
 | A node's root | The root of the tree the node is in | [Trees and slots](nodes-and-shadow-trees.md#trees-and-slots) |
 | Flat-tree ancestors | The nodes reached from a node step by step, through the slot it is assigned to, a shadow root's host, or its parent | [Trees and slots](nodes-and-shadow-trees.md#trees-and-slots) |
 | A node's roots | The roots of the trees that hold or can show a node, collected along its flat-tree ancestry | [Trees and slots](nodes-and-shadow-trees.md#trees-and-slots) |
@@ -71,7 +72,7 @@ In this document:
 
 | Term | Meaning | Reference |
 | --- | --- | --- |
-| Host call | Nexo's call of a function the host invokes, which ends a query; DOMQL carries each out as an event source or an execution | [Host calls](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/language/members.md#members-host-calls) |
+| Host call | Nexo's call of a function the host invokes, which ends a query; DOMQL carries each out as an event source or an execution | [Host calls](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/language/members.md#members-host-calls) |
 | Event source | A host call that delivers things that happened, as `on(type)` does | [Event sources](events.md#event-sources) |
 | Event type | A key of DOMQL's type selector `event`, which names the type its events are captured as | [Event types](events.md#event-types) |
 | Subscription | A query whose chain ends in an event source, which shapes each event into data | [Events](events.md#events) |
@@ -88,6 +89,6 @@ In this document:
 | Occurrence | What a behavior reports, handed to an event source of its module, which the subscriptions listening for its owner on its receiver hear | [Occurrences](behaviors.md#behaviors-occurrences) |
 | Acknowledgment | What `deliver` answers: a promise that settles once each subscription has applied what it delivered | [Acknowledgment](behaviors.md#behaviors-acknowledgment) |
 | State a behavior offers | What a member of a behavior's module reads through the instance running for its owner on its receiver, which a watch follows through the `behavior` observation | [State](behaviors.md#behaviors-state) |
-| Built-in execution | An execution DOMQL's module declares, one platform call answering what it did | [Executions](vocabulary.md#built-in-executions) |
+| Built-in execution | An execution DOMQL's module declares, one platform call answering what it did, a function named by the verb it carries out, as `focus()` is | [Executions](vocabulary.md#built-in-executions) |
 | Transient activation | The browser's leave for a page to do some things only while the user has just acted, which some built-in executions need | [Activation](vocabulary.md#built-in-executions) |
 | Owned write | A continuous execution that holds one target of an element, an attribute, a class, an inline style property or its text, at its value while it runs, among the target's other holders | [Owned writes](vocabulary.md#execution-element-owned-writes) |

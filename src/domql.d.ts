@@ -596,7 +596,10 @@ export interface DomqlMemberImplementationInput {
 export interface DomqlMemberDeclaration {
     /** Its name, and the type parameters it declares in angle brackets after it; left out for an unnamed indexer, which brackets after its receiver invoke. */
     name?: string;
-    /** A property, read by its name; a function, called; or an indexer, given its one key in brackets, after its name, `it.style["color"]`, or, unnamed, after its receiver, `it["data-key"]`. */
+    /**
+     * A property, read by its name, as what its receiver is, has or is in, a state among them, `it.checked`; a function, called, as a member that does work or takes arguments, `it.focus()`; or an indexer, given its
+     * one key in brackets, after its name, `it.style["color"]`, or, unnamed, after its receiver, `it["data-key"]`.
+     */
     kind: 'property' | 'function' | 'indexer';
     /** Who invokes a function: the evaluator, the default, or DOMQL as the host, a host call that takes value parameters alone and no updates. */
     invokedBy?: 'evaluator' | 'host';

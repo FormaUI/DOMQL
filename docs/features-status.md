@@ -2,15 +2,15 @@
 
 ## Current state
 
-**DOMQL is in its beta, `1.0.0-beta.1`. Its vocabulary, queries, watches, events, executions and behaviors are implemented on Nexo's language `1.0.0-beta.40`, definition version 38. The specification describes DOMQL's `1.0.0-beta.2`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Every [planned capability](#planned-capabilities) is implemented or declined but the C# half's, A1 and A5's queue, which wait for its design.**
+**DOMQL is in its beta, `1.0.0-beta.1`. Its vocabulary, queries, watches, events, executions and behaviors are implemented on Nexo's language `1.0.0-beta.41`, definition version 38. The specification describes DOMQL's `1.0.0-beta.2`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Every [planned capability](#planned-capabilities) is implemented or declined but the C# half's, A1 and A5's queue, which wait for its design.**
 
 | Version | Implementation | Specification |
 | --- | --- | --- |
 | DOMQL specification | `1.0.0-beta.2` | `1.0.0-beta.2` |
-| Nexo language | `1.0.0-beta.40` | `1.0.0-beta.40` |
+| Nexo language | `1.0.0-beta.41` | `1.0.0-beta.41` |
 | Definition format | 38 | 38 |
 
-- **The language DOMQL runs on.** DOMQL builds against Nexo's release `1.0.0-beta.1`, which `nexo.release` pins, of Nexo's language `1.0.0-beta.40`, and its documents link to [Nexo's documents at its tag](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/README.md). The language was called Lexica before the [migration](#migration-to-nexo).
+- **The language DOMQL runs on.** DOMQL follows Nexo's language `1.0.0-beta.41`, which Nexo's release `1.0.0-beta.2` carries, so it builds against that release once `nexo.release` pins it, through a checkout `NEXO_SOURCE` names until then; `nexo.release` pins `1.0.0-beta.1` now, of language `1.0.0-beta.40`, and its documents link to [Nexo's documents at that tag](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/README.md), moving with the pin. The language was called Lexica before the [migration](#migration-to-nexo).
 - **Packages.** The bundle and type declarations are built, with Nexo bundled inside `domql.js`. The NuGet package is packed locally, carrying the runtime version `1.0.0-beta.1`, and is unpublished. The npm package is not made yet: `package.json` is private and carries no version.
 - **The C# half** waits for its design, as [D46](decisions.md#d46) records.
 
@@ -47,7 +47,7 @@ Each feature, the contract that states it, its state in the implementation, and 
 | Properties, functions and indexers of the DOM | [Built-in vocabulary](../spec/vocabulary.md) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
 | Nexo's indexer forms and type names in PascalCase | [Types](../spec/vocabulary.md#vocabulary-types) | Implemented | [`alpha.277`](../VERSION-HISTORY.md#v1-0-0-alpha-277) |
 | `Domql.document` and `Domql.window` | [Module members](../spec/vocabulary.md#module-members) | Implemented | [`alpha.278`](../VERSION-HISTORY.md#v1-0-0-alpha-278) |
-| Boolean functions | [Boolean functions](../spec/vocabulary.md#boolean-functions) | Implemented | [`alpha.276`](../VERSION-HISTORY.md#v1-0-0-alpha-276) |
+| States, each a Boolean property read without a call, with `hovered`, `focused`, `canShare` and `hasClipboard` | [States](../spec/vocabulary.md#states) | Implemented, as Boolean properties since [D87](decisions.md#d87) | [`alpha.276`](../VERSION-HISTORY.md#v1-0-0-alpha-276), [`beta.2`](../VERSION-HISTORY.md#v1-0-0-beta-2) |
 | Conversions, Nexo's, which DOMQL's queries use | [Built-in conversions](../spec/vocabulary.md#built-in-conversions) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
 | Observation types, shared in sessions | [Observation types](../spec/vocabulary.md#observations-types) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
 | Continuous measurement, the `frame` observation, its cost measured | [Observation types](../spec/vocabulary.md#observations-types) | Implemented, as [D56](decisions.md#d56) records | [`alpha.305`](../VERSION-HISTORY.md#v1-0-0-alpha-305) |
@@ -65,8 +65,8 @@ Each feature, the contract that states it, its state in the implementation, and 
 | The observation target `children`, and a document's size | [Observation targets](../spec/vocabulary.md#observations-targets) | Implemented | [`alpha.280`](../VERSION-HISTORY.md#v1-0-0-alpha-280) |
 | The focused element, `Domql.document.activeElement`, through open shadow roots | [`activeElement`](../spec/vocabulary.md#property-document-activeelement) | Implemented | [`alpha.281`](../VERSION-HISTORY.md#v1-0-0-alpha-281) |
 | An element's `direction`, as `dir` decides it along its ancestry | [`direction`](../spec/vocabulary.md#property-element-direction) | Implemented | [`alpha.281`](../VERSION-HISTORY.md#v1-0-0-alpha-281) |
-| Boolean functions `displayed()` and `focusable()` | [`displayed`](../spec/vocabulary.md#boolean-function-element-displayed), [`focusable`](../spec/vocabulary.md#boolean-function-element-focusable) | Implemented | [`alpha.281`](../VERSION-HISTORY.md#v1-0-0-alpha-281) |
-| A control's `value`, and Boolean functions `indeterminate()` and `autofilled()` | [`value`](../spec/vocabulary.md#property-element-value), [`indeterminate`](../spec/vocabulary.md#boolean-function-element-indeterminate), [`autofilled`](../spec/vocabulary.md#boolean-function-element-autofilled) | Implemented; no observation follows autofill itself, as [D17](decisions.md#d17) records | [`alpha.282`](../VERSION-HISTORY.md#v1-0-0-alpha-282) |
+| States `displayed` and `focusable` | [`displayed`](../spec/vocabulary.md#state-element-displayed), [`focusable`](../spec/vocabulary.md#state-element-focusable) | Implemented | [`alpha.281`](../VERSION-HISTORY.md#v1-0-0-alpha-281) |
+| A control's `value`, and states `indeterminate` and `autofilled` | [`value`](../spec/vocabulary.md#property-element-value), [`indeterminate`](../spec/vocabulary.md#state-element-indeterminate), [`autofilled`](../spec/vocabulary.md#state-element-autofilled) | Implemented; no observation follows autofill itself, as [D17](decisions.md#d17) records | [`alpha.282`](../VERSION-HISTORY.md#v1-0-0-alpha-282) |
 | An element's `text`, `html`, `localName`, `classes` and `inlineStyle[property]` | [`text`](../spec/vocabulary.md#property-element-text), [`html`](../spec/vocabulary.md#property-element-html), [`inlineStyle`](../spec/vocabulary.md#function-element-inlinestyle) | Implemented | [`alpha.282`](../VERSION-HISTORY.md#v1-0-0-alpha-282) |
 | A media element's `playback`, observed through its media events | [`playback`](../spec/vocabulary.md#property-element-playback) | Implemented | [`alpha.282`](../VERSION-HISTORY.md#v1-0-0-alpha-282) |
 | The document selection, `Domql.document.selection`, its `Range`, and an editable element's `selection` | [Document `selection`](../spec/vocabulary.md#property-document-selection), [`Range`](../spec/vocabulary.md#property-range-rect), [Element `selection`](../spec/vocabulary.md#property-element-selection) | Implemented; an element's `selection` and `hasSelection` observable, as [D20](decisions.md#d20) records | [`alpha.283`](../VERSION-HISTORY.md#v1-0-0-alpha-283) |
@@ -79,11 +79,11 @@ Each feature, the contract that states it, its state in the implementation, and 
 | A chosen file shown as an element's source, `ownFileSource`, its object URL owned and revoked | [`ownFileSource`](../spec/vocabulary.md#execution-element-ownfilesource) | Implemented, as [D44](decisions.md#d44) records | [`alpha.300`](../VERSION-HISTORY.md#v1-0-0-alpha-300) |
 | Placing the document's selection, `select`, `selectContents` and `collapse` of `Domql.document.selection` | [Selection placement](../spec/vocabulary.md#execution-document-selection-placement) | Implemented, as [D43](decisions.md#d43) records | [`alpha.299`](../VERSION-HISTORY.md#v1-0-0-alpha-299) |
 | `dispatch`, a custom event of the page's own, of an element, the document and the window | [`dispatch`](../spec/vocabulary.md#execution-dispatch) | Implemented, as [D42](decisions.md#d42) records | [`alpha.298`](../VERSION-HISTORY.md#v1-0-0-alpha-298) |
-| Built-in executions: focusing, `takeFocus`, and scrolling, `scrollTo`, `scrollBy` and `scrollIntoView`, of an element and of the window | [Executions](../spec/vocabulary.md#built-in-executions) | Implemented, as [D34](decisions.md#d34) and [D35](decisions.md#d35) record | [`alpha.292`](../VERSION-HISTORY.md#v1-0-0-alpha-292) |
+| Built-in executions: focusing, `focus`, and scrolling, `scrollTo`, `scrollBy` and `scrollIntoView`, of an element and of the window | [Executions](../spec/vocabulary.md#built-in-executions) | Implemented, as [D34](decisions.md#d34) and [D35](decisions.md#d35) record, named by their verbs as [D88](decisions.md#d88) records | [`alpha.292`](../VERSION-HISTORY.md#v1-0-0-alpha-292), [`beta.2`](../VERSION-HISTORY.md#v1-0-0-beta-2) |
 | An instant scroll answered as the browser's method returns, without waiting for a frame, and a scroll in a hidden document asked for as instant | [Instant scrolls](../spec/vocabulary.md#execution-scroll-instant) | Implemented, as [D67](decisions.md#d67) records | [`alpha.312`](../VERSION-HISTORY.md#v1-0-0-alpha-312) |
 | Pointer capture, `capturePointer` and `releasePointer` | [`capturePointer`](../spec/vocabulary.md#execution-element-capturepointer-releasepointer) | Implemented, as [D37](decisions.md#d37) records | [`alpha.294`](../VERSION-HISTORY.md#v1-0-0-alpha-294) |
-| The browser's facilities, `writeClipboard`, `readClipboard`, `download`, `print` and `requestShare`, and a media element's `play`, `pause` and `writeMuted`; `readClipboardText` and `writeCookie` declined, as [D40](decisions.md#d40) and [D41](decisions.md#d41) record | [`writeClipboard`](../spec/vocabulary.md#execution-window-writeclipboard-readclipboard), [`requestShare`](../spec/vocabulary.md#execution-window-requestshare), [`play`](../spec/vocabulary.md#execution-element-play-pause-writemuted) | Implemented | [`alpha.297`](../VERSION-HISTORY.md#v1-0-0-alpha-297) |
-| A form control's writes, `writeIndeterminate`, `writeValue` and `writeSelection`, firing no event | [`writeValue`](../spec/vocabulary.md#execution-element-writevalue), [`writeSelection`](../spec/vocabulary.md#execution-element-writeselection) | Implemented, as [D39](decisions.md#d39) records | [`alpha.296`](../VERSION-HISTORY.md#v1-0-0-alpha-296) |
+| The browser's facilities, `writeToClipboard`, `readFromClipboard`, `download`, `print` and `requestShare`, and a media element's `play`, `pause`, `mute` and `unmute`; `readClipboardText` and `writeCookie` declined, as [D40](decisions.md#d40) and [D41](decisions.md#d41) record | [`writeToClipboard`](../spec/vocabulary.md#execution-window-writetoclipboard-readfromclipboard), [`requestShare`](../spec/vocabulary.md#execution-window-requestshare), [`play`](../spec/vocabulary.md#execution-element-play-pause-mute-unmute) | Implemented, named by their verbs as [D88](decisions.md#d88) records | [`alpha.297`](../VERSION-HISTORY.md#v1-0-0-alpha-297), [`beta.2`](../VERSION-HISTORY.md#v1-0-0-beta-2) |
+| A form control's writes, `markIndeterminate`, `clearIndeterminate`, `replaceValue` and `select`, firing no event | [`markIndeterminate`](../spec/vocabulary.md#execution-element-markindeterminate-clearindeterminate), [`replaceValue`](../spec/vocabulary.md#execution-element-replacevalue), [`select`](../spec/vocabulary.md#execution-element-select) | Implemented, as [D39](decisions.md#d39) records, named by their verbs as [D88](decisions.md#d88) records | [`alpha.296`](../VERSION-HISTORY.md#v1-0-0-alpha-296), [`beta.2`](../VERSION-HISTORY.md#v1-0-0-beta-2) |
 | Owned writes of an attribute, a class and an inline style property, `ownAttribute`, `ownClass` and `ownStyle`, each restoring and keeping its value as it says | [Owned writes](../spec/vocabulary.md#execution-element-owned-writes) | Implemented, as [D38](decisions.md#d38) records | [`alpha.295`](../VERSION-HISTORY.md#v1-0-0-alpha-295) |
 | The top layer's executions, `showPopover`, `hidePopover`, `showModal` and `close` | [`showPopover`](../spec/vocabulary.md#execution-element-showpopover-hidepopover), [`showModal`](../spec/vocabulary.md#execution-element-showmodal-close) | Implemented, as [D36](decisions.md#d36) records | [`alpha.293`](../VERSION-HISTORY.md#v1-0-0-alpha-293) |
 | Following a change a member misses through a body's local | [Following a change a member misses](../spec/watches.md#dependencies-following-what-a-member-misses) | Implemented | [`alpha.282`](../VERSION-HISTORY.md#v1-0-0-alpha-282) |
@@ -141,9 +141,9 @@ DOMQL moved from Lexica at `0e98b3e`, language `1.0.0-alpha.33`, to Nexo's langu
 - **One pin.** The migration was planned in checkpoints, each on a Nexo commit pinned as Nexo's work landed. Nexo reached its beta first, and its checklists describe the beta, so DOMQL moved to the beta at one pin, its checkpoints the order of the work, and passed its gate once on the beta: pinning a commit for each checkpoint would have meant writing against interfaces Nexo had already changed again.
 - **Imports.** DOMQL supplies its own module, `Domql`, as every query's import, and a query writes its other imports. An application configures no imports of its own, so a query's text means the same whatever was configured, as [D4](decisions.md#d4) records.
 - **Errors.** DOMQL's own conditions take `DOMQL` codes, catalogued in [errors](../spec/errors.md), bounded to the conditions it reports today; an error of Nexo's passing through DOMQL keeps its own code.
-- **Module errors.** A module error of DOMQL's own, as its dispatch table's refusals are, is built with `NexoError.module`, which Nexo declared for its hosts in language `1.0.0-beta.2` for DOMQL's migration, as its [decisions](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/docs/decisions.md#d29) record.
-- **Host calls on a receiver of unknown type.** What such a call requests is read from the candidates Nexo answers for it, every declaration that takes the call as it is written, which Nexo answers from language `1.0.0-beta.3` for DOMQL, as its [decisions](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/docs/decisions.md#d30) record. DOMQL read them from an index of its own before, which counted host calls a query could not reach.
-- **What the migration found in Nexo since,** fixed in Nexo's languages `1.0.0-beta.4` to `1.0.0-beta.8`, as its [decisions](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/docs/decisions.md#d31) record: a host call on a value of `Any` is refused as Nexo resolves it, where DOMQL refused it as a value to evaluate; a module's own type named `Pair` is named by that name in its declarations; `@Domql` standing alone gives `~Domql`; a watch made stale by a module recognizing values compares within each value's tolerance, as Nexo keeps origins across resolutions of one definition; and a member read through a value of `Any` is compared within the tolerance it declares.
+- **Module errors.** A module error of DOMQL's own, as its dispatch table's refusals are, is built with `NexoError.module`, which Nexo declared for its hosts in language `1.0.0-beta.2` for DOMQL's migration, as its [decisions](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/docs/decisions.md#d29) record.
+- **Host calls on a receiver of unknown type.** What such a call requests is read from the candidates Nexo answers for it, every declaration that takes the call as it is written, which Nexo answers from language `1.0.0-beta.3` for DOMQL, as its [decisions](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/docs/decisions.md#d30) record. DOMQL read them from an index of its own before, which counted host calls a query could not reach.
+- **What the migration found in Nexo since,** fixed in Nexo's languages `1.0.0-beta.4` to `1.0.0-beta.8`, as its [decisions](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/docs/decisions.md#d31) record: a host call on a value of `Any` is refused as Nexo resolves it, where DOMQL refused it as a value to evaluate; a module's own type named `Pair` is named by that name in its declarations; `@Domql` standing alone gives `~Domql`; a watch made stale by a module recognizing values compares within each value's tolerance, as Nexo keeps origins across resolutions of one definition; and a member read through a value of `Any` is compared within the tolerance it declares.
 
 Contracts: [Queries](../spec/queries.md), [types](../spec/vocabulary.md#vocabulary-types), [extension modules](../spec/vocabulary.md#extension-modules), [results](../spec/results.md), [errors](../spec/errors.md).
 
@@ -209,7 +209,7 @@ None remains: O1 to O4 and O6 are implemented, as [the features](#the-doms-vocab
 
 ### Executions
 
-None remains: X1 to X10 are implemented, as [the features](#the-doms-vocabulary) show. Three are named apart from DOMQL's Boolean functions `focus()`, `clipboard()` and `share()`: `takeFocus`, `writeClipboard` and `requestShare`. What their decisions settled:
+None remains: X1 to X10 are implemented, as [the features](#the-doms-vocabulary) show. Each is named by the verb it carries out, and the states beside them by what they read, as `focus()` and `focused`, `writeToClipboard` and `hasClipboard`, and `requestShare` and `canShare` are ([D87](decisions.md#d87), [D88](decisions.md#d88)). What their decisions settled:
 
 - Focusing answers whether focus landed ([D34](decisions.md#d34)).
 - A scroll is logical and answers once it has ended ([D35](decisions.md#d35)).
@@ -217,7 +217,7 @@ None remains: X1 to X10 are implemented, as [the features](#the-doms-vocabulary)
 - A pointer's capture answers whether the element holds it ([D37](decisions.md#d37)).
 - An owned write says whether it restores and keeps its value ([D38](decisions.md#d38)).
 - A form control's writes answer what they changed ([D39](decisions.md#d39)).
-- The browser's facilities answer how the browser took the request, and `readClipboardText` is declined beside `readClipboard` ([D40](decisions.md#d40)); `writeCookie` is declined ([D41](decisions.md#d41)).
+- The browser's facilities answer how the browser took the request, and `readClipboardText` is declined beside `readFromClipboard` ([D40](decisions.md#d40)); `writeCookie` is declined ([D41](decisions.md#d41)).
 - `dispatch` answers whether a listener cancelled its event ([D42](decisions.md#d42)).
 - The document's selection places itself ([D43](decisions.md#d43)).
 - A chosen file's source is built in, its object URL the execution's own ([D44](decisions.md#d44)).
@@ -284,7 +284,7 @@ Consume Nexo's published packages before publishing DOMQL's.
 2. Write the NuGet bundle with `../nexo/nexo.js` as an import, and the npm bundle with `@formaui-net/nexo`, rather than carrying the language inside.
 3. Have the gate check that DOMQL's packages depend on Nexo's and Nexo's on nothing of DOMQL's, and run DOMQL's tests against the packaged Nexo.
 
-Needs Nexo's packages, which its [release](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/docs/features-status.md#release) publishes.
+Needs Nexo's packages, which its [release](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/docs/features-status.md#release) publishes.
 
 ### Packages
 
@@ -318,7 +318,7 @@ Both wait for Nexo's published packages, and publishing stays with the maintaine
 
 | Requirement | Why | State |
 | --- | --- | --- |
-| **Nexo's 1.0.** DOMQL runs on Nexo's 1.0, from its published packages. | DOMQL's contract holds the language its queries are written in, so it promises no more than Nexo does. | Nexo is in its beta, at `1.0.0-beta.1`, as [what Nexo's 1.0 requires](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/docs/features-status.md#what-1-0-requires) sets out. |
+| **Nexo's 1.0.** DOMQL runs on Nexo's 1.0, from its published packages. | DOMQL's contract holds the language its queries are written in, so it promises no more than Nexo does. | Nexo is in its beta, at `1.0.0-beta.1`, as [what Nexo's 1.0 requires](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/docs/features-status.md#what-1-0-requires) sets out. |
 | **Contracts settled.** No decision is open, and each [deferred](#deferred) item and [decision not taken](domql-design.md#decisions-not-taken) is shown to land without a break. | What may still change after 1.0 must be able to change compatibly. | Holds: no decision is open, and each [deferred](#deferred) item and [decision not taken](domql-design.md#decisions-not-taken) lands as an addition or within the implementation. A watch's promise to evaluate its whole query each time was the one that would have made evaluating less a break; [what an evaluation gives](../spec/watches.md#watching-what-an-evaluation-gives) now leaves it to DOMQL. |
 | **The C# half decided.** It is designed, or decided to follow 1.0 as an addition. | It waits for the owner's design, as [D46](decisions.md#d46) records, and a .NET application may need it to drive DOMQL. | Waits for its design. |
 | **Published.** DOMQL's packages are on npm and NuGet, tested as consumers install them. | A caller pins a release it can install. | The NuGet package is packed locally, and the npm package is not made yet. |
@@ -343,7 +343,7 @@ This work is separate from the plan above. No order is assigned here.
 
 | Work | Status | Remaining |
 | --- | --- | --- |
-| Editor tooling | Waits for Nexo's design | Nexo's, through its syntax tree, in its [tooling](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/docs/features-status.md#tooling), which waits for its design |
+| Editor tooling | Waits for Nexo's design | Nexo's, through its syntax tree, in its [tooling](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/docs/features-status.md#tooling), which waits for its design |
 
 **Verification outside the gate.** Performance is measured outside the gate, by `npm run bench` and `npm run scale` from `tests/`. `Domql.window.size` following a scrollbar that appears or goes runs in the gate, as a browser test with a launch of its own.
 

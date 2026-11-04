@@ -102,8 +102,8 @@ export class BrowserVocabularyImplementations {
             assignedElements: ({ receiver: element }) => (typeof element.assignedElements === 'function' ? element.assignedElements({ flatten: true }) : null),
 
             media: ({ receiver: window, args: { query } }) => window.matchMedia(query).matches,
-            supportsShare: ({ receiver: window }) => typeof window.navigator.share === 'function',
-            supportsClipboard: ({ receiver: window }) => window.navigator.clipboard !== undefined,
+            canShare: ({ receiver: window }) => typeof window.navigator.share === 'function',
+            hasClipboard: ({ receiver: window }) => window.navigator.clipboard !== undefined,
             attribute: ({ receiver: element, args: { name } }) => element.getAttribute(name),
             // The ARIA view's attribute of the name, the element's own attribute `aria-` and the name, read as the attribute indexer reads it.
             ariaAttribute: ({ receiver: element, args: { name } }) => element.getAttribute(`aria-${name}`),
@@ -183,13 +183,13 @@ export class BrowserVocabularyImplementations {
             rangeIntersects: ({ receiver: range, args: { node } }) => range.intersectsNode(node),
             rangeAll: ({ receiver: range, args: { selector } }) => BrowserVocabularyImplementations.#allIn(range, selector),
             offsetsIn: ({ receiver: range, args: { element } }) => BrowserVocabularyImplementations.#offsetsIn(range, element),
-            hover: ({ receiver: element }) => element.matches(':hover'),
+            hovered: ({ receiver: element }) => element.matches(':hover'),
             popoverOpen: ({ receiver: element }) => element.matches(':popover-open'),
             checked: ({ receiver: element }) => element.matches(':checked'),
             visible: ({ receiver: document }) => document.visibilityState === 'visible',
             hasChildren: ({ receiver: element }) => element.childElementCount > 0,
             hasSelection: ({ receiver: element }) => BrowserVocabularyImplementations.#hasSelection(element),
-            hasFocus: ({ receiver: document }) => document.hasFocus(),
+            documentFocused: ({ receiver: document }) => document.hasFocus(),
         };
     }
 

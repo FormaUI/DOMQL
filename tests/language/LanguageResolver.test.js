@@ -72,7 +72,7 @@ describe('LanguageResolver', () => {
         });
 
         it('types an object expression by its written field names', () => {
-            expect(resolve('panel { size = it.size, hasFocus = it.focus() }').type.toString()).toBe('{ size: Size?, hasFocus: Boolean }');
+            expect(resolve('panel { size = it.size, hasFocus = it.focused }').type.toString()).toBe('{ size: Size?, hasFocus: Boolean }');
         });
 
         it('types a bound value by the type it has', () => {
@@ -577,44 +577,46 @@ describe('LanguageResolver', () => {
             expect(failure('NEXO3048', 'panel.on("click") { x = it.clientX } == null').message).toContain("'==' compares values, and this is a host call");
         });
 
-        it('give the test to write for a value compared with the name of one of its Boolean members, a property or a function, and nothing for any other', () => {
+        it('give the state to read for a value compared with the name of one of its Boolean properties, and nothing for any other, an execution of the name among them', () => {
             expect(failure('NEXO3030', 'panel == "attached"').message).toContain("a test is the member that answers it, so write 'panel.attached'");
             expect(failure('NEXO3030', 'panel != "attached"').message).toContain("write 'not panel.attached'");
-            expect(failure('NEXO3030', 'panel == state', { panel, state: 'disabled' }).message).toContain("write 'panel.disabled()'");
-            expect(failure('NEXO3030', 'panel != "disabled"').message).toContain("write 'not panel.disabled()'");
-            expect(failure('NEXO3030', 'panel.first("a") == "focus"').message).toContain(`write 'panel.first("a")?.focus()'`);
+            expect(failure('NEXO3030', 'panel == state', { panel, state: 'disabled' }).message).toContain("write 'panel.[state]'");
+            expect(failure('NEXO3030', 'panel != "disabled"').message).toContain("write 'not panel.disabled'");
+            expect(failure('NEXO3030', 'panel.first("a") == "focused"').message).toContain(`write 'panel.first("a")?.focused'`);
+            expect(failure('NEXO3030', 'panel == "focus"').message).not.toContain('write');
             expect(failure('NEXO3030', 'panel == "visible"').message).not.toContain('write');
             expect(failure('NEXO3030', 'panel == "Attached"').message).not.toContain('write');
             expect(failure('NEXO3030', 'panel == "children"').message).not.toContain('write');
         });
     });
 
-    describe('tests', () => {
-        it('resolve a test as the Boolean member it is, a property or a function, nullable where an optional access reads it', () => {
-            const resolved = resolve('panel.disabled()');
+    describe('states', () => {
+        it('resolve a state as the Boolean property it is, nullable where an optional access reads it', () => {
+            const resolved = resolve('panel.disabled');
 
             expect(resolved.type.toString()).toBe('Boolean');
             expect(resolved.usedDeclarations.find(use => use.pointer === '/expression').name).toBe('disabled');
             expect(resolve('(panel.parent as Element)?.attached').type.toString()).toBe('Boolean?');
-            expect(resolve('(panel.parent as Element)?.disabled()').type.toString()).toBe('Boolean?');
+            expect(resolve('(panel.parent as Element)?.disabled').type.toString()).toBe('Boolean?');
             expect(resolve('panel.[name]', { panel, name: 'attached' }).type.toString()).toBe('Boolean');
-            expect(resolve('Domql.document.visible() and Domql.document.focus()').type.toString()).toBe('Boolean');
+            expect(resolve('panel.[name]', { panel, name: 'focusWithin' }).type.toString()).toBe('Boolean');
+            expect(resolve('Domql.document.visible and Domql.document.focused').type.toString()).toBe('Boolean');
         });
 
-        it('refuse a test the receiver has not, naming the receiver that has it', () => {
-            expect(failure('NEXO3001', 'panel.visible()').message).toContain("'visible' is not available on Element; it is available on Document");
+        it('refuse a state the receiver has not, naming the receiver that has it, and a state called, giving the property to read', () => {
+            expect(failure('NEXO3001', 'panel.visible').message).toContain("'visible' is not available on Element; it is available on Document");
             expect(failure('NEXO3001', 'Domql.document.attached').message).toContain("'attached' is not available on Document; it is available on Element");
+            expect(failure('NEXO3017', 'panel.disabled()').message).toContain("'disabled' is a property: write 'panel.disabled'");
         });
 
-        it('call a test through its module, directly or by a reference a local holds, the receiver it is called with selecting its declaration, and refuse a receiver it does not take', () => {
-            const resolved = resolve('Domql.focus(panel) and Domql.focus(Domql.document)');
+        it('read a state through its module, the receiver it is given selecting its declaration, and refuse a receiver it does not take and a reference to it, which only a function has', () => {
+            const resolved = resolve('Domql.focused(panel) and Domql.focused(Domql.document)');
 
             expect(resolved.type.toString()).toBe('Boolean');
-            expect(resolved.usedDeclarations.map(use => use.qualifiedName)).toEqual(['Element.focus', 'Domql.document', 'Document.focus']);
-            expect(resolve('Domql.share(Domql.window) and Domql.visible(Domql.document)').type.toString()).toBe('Boolean');
-            expect(resolve('let test = Domql.visible\nreturn test(Domql.document)').type.toString()).toBe('Boolean');
+            expect(resolved.usedDeclarations.map(use => use.qualifiedName)).toEqual(['Element.focused', 'Domql.document', 'Document.focused']);
+            expect(resolve('Domql.canShare(Domql.window) and Domql.visible(Domql.document)').type.toString()).toBe('Boolean');
             expect(failure('NEXO3042', 'Domql.visible(panel)').message).toContain("'Domql.visible' takes a receiver of Document, and is given Element");
-            expect(failure('NEXO3042', 'let test = Domql.visible\nreturn test(panel)').message).toContain("'test' holds a reference to 'Domql.visible', which takes a receiver of Document, and is given Element");
+            expect(failure('NEXO3076', 'let test = Domql.visible\nreturn test(Domql.document)').message).toContain("'Domql.visible' is a property, read with its receiver as Domql.visible(receiver), and only a function has a reference");
         });
 
         it('test for null with is null, a Boolean that is never null, whatever its subject', () => {
@@ -663,7 +665,7 @@ describe('LanguageResolver', () => {
 
     describe('logical expressions', () => {
         it('type an and, an or and a not as a Boolean', () => {
-            expect(resolve('panel.attached and panel.focus()').type.toString()).toBe('Boolean');
+            expect(resolve('panel.attached and panel.focused').type.toString()).toBe('Boolean');
             expect(resolve('panel.attached or (((panel.parent as Element)?.attached) ?? false)').type.toString()).toBe('Boolean');
             expect(resolve('not panel.attached').type.toString()).toBe('Boolean');
         });
@@ -704,11 +706,11 @@ describe('LanguageResolver', () => {
         });
 
         it('resolve every operand with its own location, the implicit parameter of each the one around the expression', () => {
-            const { usedDeclarations } = resolve('panel { both = it.attached and (it.disabled() or it.focus()) }');
+            const { usedDeclarations } = resolve('panel { both = it.attached and (it.disabled or it.focused) }');
             const nameAt = pointer => usedDeclarations.find(use => use.pointer === pointer).name;
 
             expect(nameAt('/expression/objectFields/0/value/operands/0')).toBe('attached');
-            expect(nameAt('/expression/objectFields/0/value/operands/1/operands/1')).toBe('focus');
+            expect(nameAt('/expression/objectFields/0/value/operands/1/operands/1')).toBe('focused');
         });
 
         it('validate an operand that evaluation might never reach', () => {
@@ -719,10 +721,10 @@ describe('LanguageResolver', () => {
         });
 
         it('count every operand when a watch asks what can be followed', () => {
-            const error = failure('DOMQL3003', 'panel.attached or panel.textEditable()', { panel }, { watch: true });
+            const error = failure('DOMQL3003', 'panel.attached or panel.textEditable', { panel }, { watch: true });
 
             expect(error.message).toContain("'Element.textEditable' (which misses the document's design mode)");
-            expect(() => resolve('panel.attached or panel.textEditable()', { panel }, { watch: true, acceptPartialObservation: true })).not.toThrow();
+            expect(() => resolve('panel.attached or panel.textEditable', { panel }, { watch: true, acceptPartialObservation: true })).not.toThrow();
         });
 
         it('let a group start a chain', () => {
@@ -805,7 +807,7 @@ describe('LanguageResolver', () => {
         });
 
         it('finds each node, by the node itself, with its pointer and its resolution', () => {
-            const resolved = resolveInNexo('panel.all("i") { h = it.size?.height, on = it.attached or it.focus() }');
+            const resolved = resolveInNexo('panel.all("i") { h = it.size?.height, on = it.attached or it.focused }');
             const { expression: query } = resolved.definition;
             const [chain, on] = query.objectFields.map(field => field.value);
             const height = chain.chain;
@@ -816,7 +818,7 @@ describe('LanguageResolver', () => {
             expect(resolved.resolutionOf(height).kind).toBe('dataProperty');
             expect(resolved.resolutionOf(chain)).toBeUndefined();
             expect(resolved.pointerOf(on.operands[1])).toBe('/expression/objectFields/1/value/operands/1');
-            expect(resolved.resolutionOf(on.operands[1]).declaration.name).toBe('focus');
+            expect(resolved.resolutionOf(on.operands[1]).declaration.name).toBe('focused');
             expect(resolved.resolutionOf(query).kind).toBe('projection');
         });
     });

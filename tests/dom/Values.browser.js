@@ -76,7 +76,7 @@ describe('Values and text in a browser', () => {
     describe('indeterminate, as :indeterminate matches', () => {
         it('follows the user clicking a mixed checkbox, and misses the page\'s code making it mixed', async () => {
             const { box } = page('<input id="box" type="checkbox">');
-            const indeterminate = await watching('e.indeterminate()', { e: box });
+            const indeterminate = await watching('e.indeterminate', { e: box });
 
             expect(await indeterminate.after(() => { box.indeterminate = true; })).toEqual({ watched: false, decided: true });
             expect(await indeterminate.after(() => userEvent.click(box))).toEqual({ watched: false, decided: false });
@@ -84,8 +84,8 @@ describe('Values and text in a browser', () => {
 
         it('follows a radio group gaining a checked button, and a progress bar given a value', async () => {
             const { a, bar } = page('<input id="a" type="radio" name="g"><input id="b" type="radio" name="g"><progress id="bar"></progress>');
-            const radio = await watching('e.indeterminate()', { e: a });
-            const progress = await watching('e.indeterminate()', { e: bar });
+            const radio = await watching('e.indeterminate', { e: a });
+            const progress = await watching('e.indeterminate', { e: bar });
 
             expect(radio.watched).toBe(true);
             expect(await radio.after(() => userEvent.click(document.getElementById('b')))).toEqual({ watched: false, decided: false });
@@ -98,7 +98,7 @@ describe('Values and text in a browser', () => {
         it('answers false for a field nothing filled, without failing in a browser that knows :autofill', () => {
             const { field } = page('<input id="field" autocomplete="email">');
 
-            expect(domql.query('e.autofilled()', { e: field }).evaluate()).toBe(false);
+            expect(domql.query('e.autofilled', { e: field }).evaluate()).toBe(false);
         });
     });
 

@@ -50,8 +50,8 @@ export class BrowserExecutionImplementations {
                 return !target.dispatchEvent(new CustomEvent(type, { bubbles, cancelable: true, detail }));
             },
 
-            // Focusing answers whether focus landed on the element, as its focus() Boolean function reads it.
-            takeFocus: ({ receiver: element, args: { preventScroll } }) => {
+            // Focusing answers whether focus landed on the element, as its focused state reads it.
+            focus: ({ receiver: element, args: { preventScroll } }) => {
                 element.focus({ preventScroll });
 
                 return element.getRootNode().activeElement === element;
@@ -66,14 +66,15 @@ export class BrowserExecutionImplementations {
             capturePointer: ({ receiver: element, args: { pointerId } }) => BrowserExecutionImplementations.#capturePointer(element, pointerId),
             releasePointer: ({ receiver: element, args: { pointerId } }) => BrowserExecutionImplementations.#toggle(element, () => element.hasPointerCapture(pointerId), false, () => element.releasePointerCapture(pointerId)),
 
-            // A media element's playback: how the browser took the request to play, and whether pausing or muting changed it.
+            // A media element's playback: how the browser took the request to play, and whether pausing, muting or unmuting changed it.
             play: ({ receiver: element }) => BrowserExecutionImplementations.#play(element),
             pause: ({ receiver: element }) => MEDIA_ELEMENTS.has(element.localName) && BrowserExecutionImplementations.#toggle(element, () => element.paused, true, () => element.pause()),
-            writeMuted: ({ receiver: element, args: { muted } }) => MEDIA_ELEMENTS.has(element.localName) && BrowserExecutionImplementations.#toggle(element, () => element.muted, muted, () => { element.muted = muted; }),
+            mute: ({ receiver: element }) => BrowserExecutionImplementations.#writeMuted(element, true),
+            unmute: ({ receiver: element }) => BrowserExecutionImplementations.#writeMuted(element, false),
 
             // The browser's facilities, each answering how the browser took the request.
-            writeClipboard: ({ receiver: window, args: { text } }) => BrowserExecutionImplementations.#outcomeOf(window.navigator.clipboard?.writeText?.bind(window.navigator.clipboard), [text], 'written'),
-            readClipboard: ({ receiver: window, args: { types } }) => BrowserExecutionImplementations.#readClipboard(window.navigator.clipboard, types),
+            writeToClipboard: ({ receiver: window, args: { text } }) => BrowserExecutionImplementations.#outcomeOf(window.navigator.clipboard?.writeText?.bind(window.navigator.clipboard), [text], 'written'),
+            readFromClipboard: ({ receiver: window, args: { types } }) => BrowserExecutionImplementations.#readClipboard(window.navigator.clipboard, types),
             download: ({ receiver: window, args }) => BrowserExecutionImplementations.#download(window, args),
             print: ({ receiver: window }) => {
                 window.print();
@@ -105,16 +106,9 @@ export class BrowserExecutionImplementations {
             }),
 
             // A form control's state, as the page's code writes it, which fires no event.
-            writeIndeterminate: ({ receiver: element, args: { indeterminate } }) => {
-                if (element.localName !== 'input' || element.type !== 'checkbox' || element.indeterminate === indeterminate) {
-                    return false;
-                }
-
-                element.indeterminate = indeterminate;
-
-                return true;
-            },
-            writeValue: ({ receiver: element, args: { value } }) => {
+            markIndeterminate: ({ receiver: element }) => BrowserExecutionImplementations.#writeIndeterminate(element, true),
+            clearIndeterminate: ({ receiver: element }) => BrowserExecutionImplementations.#writeIndeterminate(element, false),
+            replaceValue: ({ receiver: element, args: { value } }) => {
                 if (!VALUE_ELEMENTS.has(element.localName)) {
                     return null;
                 }
@@ -125,7 +119,7 @@ export class BrowserExecutionImplementations {
 
                 return replaced;
             },
-            writeSelection: ({ receiver: element, args: { start, end } }) => BrowserExecutionImplementations.#select(element, start, end),
+            select: ({ receiver: element, args: { start, end } }) => BrowserExecutionImplementations.#select(element, start, end),
 
             // The writes DOMQL owns while they run, each holding its target at its value.
             ownAttribute: own((element, { name }) => OwnedWrites.attribute(element, name), ({ value }) => value),
@@ -404,6 +398,22 @@ export class BrowserExecutionImplementations {
         change();
 
         return isIn() === wanted;
+    }
+
+    /** Mutes a media element or unmutes it, as its `muted` property does, and answers whether that changed it: false where it was so already, and for an element that is no media element, which it leaves as it is. */
+    static #writeMuted(element, muted) {
+        return MEDIA_ELEMENTS.has(element.localName) && BrowserExecutionImplementations.#toggle(element, () => element.muted, muted, () => { element.muted = muted; });
+    }
+
+    /** Makes a checkbox mixed or clears it, as its `indeterminate` property does, and answers whether that changed it: false where it was so already, and for an element that is no checkbox, which it leaves as it is. */
+    static #writeIndeterminate(element, indeterminate) {
+        if (element.localName !== 'input' || element.type !== 'checkbox' || element.indeterminate === indeterminate) {
+            return false;
+        }
+
+        element.indeterminate = indeterminate;
+
+        return true;
     }
 
     /** Sets the capture of the pointer to the element, and answers whether it holds it: not for a pointer that is not active, or an element in no document, which the browser refuses. */

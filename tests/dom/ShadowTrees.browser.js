@@ -153,7 +153,7 @@ describe('Watches in shadow trees', () => {
         const shadow = host(document.body, '<input>');
         const input = shadow.root.querySelector('input');
 
-        watch('input.textEditable()', { input });
+        watch('input.textEditable', { input });
         await settle();
         await reports(() => shadow.element.setAttribute('inert', ''));
         await reports(() => shadow.element.removeAttribute('inert'));
@@ -166,7 +166,7 @@ describe('Watches in shadow trees', () => {
         const input = document.createElement('input');
 
         shadow.element.append(input);
-        watch('input.textEditable()', { input });
+        watch('input.textEditable', { input });
         await settle();
         await reports(() => shadow.root.querySelector('.inert').assign(input));
         await reports(() => shadow.root.querySelector('.open').assign(input));

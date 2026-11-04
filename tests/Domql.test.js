@@ -50,7 +50,7 @@ const elementExtension = (name, members) => ({ name, kind: 'extension', target: 
 describe('domql', () => {
     describe('query from text', () => {
         it('reads the specification\'s example into its definition', () => {
-            const query = domql.query('panel { size = it.size, hasFocus = it.focusWithin() }');
+            const query = domql.query('panel { size = it.size, hasFocus = it.focusWithin }');
 
             expect(query.definition).toEqual({
                 version: 38,
@@ -60,7 +60,7 @@ describe('domql', () => {
                     context: parameter('panel'),
                     objectFields: [
                         { name: 'size', value: member('size') },
-                        { name: 'hasFocus', value: call('focusWithin') },
+                        { name: 'hasFocus', value: member('focusWithin') },
                     ],
                 },
             });
@@ -87,7 +87,7 @@ describe('domql', () => {
         });
 
         it('takes the arguments of a call, each a simple expression, which its parentheses delimit and commas separate', () => {
-            expect(domql.query('rows.where(it.attached and it.visible())').definition.expression.arguments[0].kind).toBe('and');
+            expect(domql.query('rows.where(it.attached and it.displayed)').definition.expression.arguments[0].kind).toBe('and');
             expect(domql.query('panel.closest(".a", ".b")').definition.expression.arguments).toEqual([literal('.a'), literal('.b')]);
         });
 
@@ -183,11 +183,11 @@ describe('domql', () => {
         });
     });
 
-    describe('tests', () => {
-        it('read a test as the Boolean member it is, a property read as any is and a Boolean function called as any function is', () => {
-            expect(domql.query('Domql.document.visible()').definition.expression).toEqual(call('visible', undefined, domqlMember('document')));
+    describe('states', () => {
+        it('read a state as the Boolean property it is, read as any property is', () => {
+            expect(domql.query('Domql.document.visible').definition.expression).toEqual(member('visible', domqlMember('document')));
             expect(domql.query('input.hasSelection').definition.expression).toEqual(member('hasSelection', parameter('input')));
-            expect(domql.query('panel.all("input").where(it.disabled())').definition.expression.arguments).toEqual([call('disabled')]);
+            expect(domql.query('panel.all("input").where(it.disabled)').definition.expression.arguments).toEqual([member('disabled')]);
         });
 
         it('read a name the language once took as a verb as an ordinary name, called as any member is and naming a field', () => {
@@ -222,7 +222,7 @@ describe('domql', () => {
             ['an equality without its right operand', { kind: 'equality', left: parameter('panel') }, '/expression', 'NEXO2000'],
             ['an equality whose left operand is no node', equality(1, parameter('panel')), '/expression/left', 'NEXO2000'],
             ['an equality of the implicit parameter at the top level', equality(context, literal(null)), '/expression/left', 'NEXO2026'],
-            ['a predicate, which a call of a Boolean function replaces', { kind: 'predicate', verb: 'is', target: parameter('panel'), name: literal(null) }, '/expression', 'NEXO2000'],
+            ['a predicate, which a state read as a property replaces', { kind: 'predicate', verb: 'is', target: parameter('panel'), name: literal(null) }, '/expression', 'NEXO2000'],
         ])('refuse a definition with %s', (_, query, pointer, code) => {
             const error = getError(() => domql.query(definitionOf(query), { panel: document.body }));
 
@@ -234,13 +234,13 @@ describe('domql', () => {
 
     describe('logical expressions and groups', () => {
         it('combine whole expressions, and binding tighter than or', () => {
-            const { expression: query } = domql.query('panel.attached or input.disabled() and enabled').definition;
+            const { expression: query } = domql.query('panel.attached or input.disabled and enabled').definition;
 
             expect(query).toEqual({
                 kind: 'or',
                 operands: [
                     member('attached', parameter('panel')),
-                    { kind: 'and', operands: [call('disabled', undefined, parameter('input')), parameter('enabled')] },
+                    { kind: 'and', operands: [member('disabled', parameter('input')), parameter('enabled')] },
                 ],
             });
         });
@@ -259,12 +259,12 @@ describe('domql', () => {
         });
 
         it('stand as a field under the name written for it, as every field does', () => {
-            expect(getError(() => domql.query('panel {.attached or.disabled() }'))).toMatchObject({ kind: 'syntax', code: 'NEXO1051' });
-            expect(() => domql.query('panel { unavailable = it.attached or it.disabled() }')).not.toThrow();
+            expect(getError(() => domql.query('panel {.attached or.disabled }'))).toMatchObject({ kind: 'syntax', code: 'NEXO1051' });
+            expect(() => domql.query('panel { unavailable = it.attached or it.disabled }')).not.toThrow();
         });
 
         it('are created from a definition as they are parsed from text', () => {
-            const parsed = domql.query('input.disabled() or (input.readonly() and input.textEditable())', { input: document.body });
+            const parsed = domql.query('input.disabled or (input.readonly and input.textEditable)', { input: document.body });
 
             expect(domql.query(parsed.definition, { input: document.body }).definition).toEqual(parsed.definition);
         });
@@ -301,7 +301,7 @@ describe('domql', () => {
             expect(getError(() => domql.query('(if wide then panel else sidebar end).rect.width')).message).toContain('A conditional is never the receiver of a chain: bind its value to a local first');
             expect(domql.query('let target = if wide then panel else sidebar end\nreturn target.rect.width').definition.expression.result).toEqual(member('width', member('rect', { kind: 'local', name: 'target' })));
             expect(domql.query('(if a then true else false end) and b').definition.expression.kind).toBe('and');
-            expect(domql.query('panel { state = if it.disabled() then "locked" else "open" end }').definition.expression.objectFields[0].value.kind).toBe('conditional');
+            expect(domql.query('panel { state = if it.disabled then "locked" else "open" end }').definition.expression.objectFields[0].value.kind).toBe('conditional');
         });
 
         it('are created from a definition as they are parsed from text', () => {
@@ -616,8 +616,8 @@ describe('domql', () => {
             expect(domql.query('{ is = 1 }').definition.expression.objectFields[0].name).toBe('is');
             expect(domql.query('panel { let is = it.size, width = is.width }').definition.expression.objectFields[0].value).toEqual(member('width', { kind: 'local', name: 'is' }));
             expect(domql.query('a.is').definition.expression).toEqual(member('is', parameter('a')));
-            expect(domql.query('a.checked() == true').definition.expression).toEqual(equality(call('checked', undefined, parameter('a')), literal(true)));
-            expect(domql.query('a?.checked()').definition.expression).toEqual(chain(optional(call('checked', undefined, parameter('a')))));
+            expect(domql.query('a.checked == true').definition.expression).toEqual(equality(member('checked', parameter('a')), literal(true)));
+            expect(domql.query('a?.checked').definition.expression).toEqual(chain(optional(member('checked', parameter('a')))));
         });
 
         it.each([
@@ -1055,7 +1055,7 @@ describe('domql', () => {
 
     describe('query from a definition', () => {
         it('creates the query its text parses into', () => {
-            const parsed = domql.query('panel { size = it.size, hasFocus = it.focusWithin() }', { panel: 1 });
+            const parsed = domql.query('panel { size = it.size, hasFocus = it.focusWithin }', { panel: 1 });
             const created = domql.query(parsed.definition, { panel: 2 });
 
             expect(created.definition).toEqual(parsed.definition);
@@ -3548,7 +3548,7 @@ describe('domql conversions', () => {
     });
 });
 
-describe('domql Boolean functions', () => {
+describe('domql states', () => {
     // Each test loads its own copy of domql, with a registry of its own.
     let isolated;
     let panel;
@@ -3564,9 +3564,9 @@ describe('domql Boolean functions', () => {
     const queryOf = (text, bindings = {}) => isolated.query(`import Lit\n${text}`, { panel, ...bindings });
     const evaluate = (text, bindings = {}) => queryOf(text, bindings).evaluate();
 
-    /** A module of a test on elements, and of tests on a view type of its own, one partly observable, one whose function the test supplies. */
+    /** A module of a state of elements, and of states of a view type of its own, one partly observable, one whose implementation the test supplies, beside a test that does work, a function. */
     const registerLit = ({ glow = view => view.on } = {}) => {
-        const test = (name, updates, impl) => ({ name, kind: 'function', result: 'Boolean', parameters: [], updates, impl });
+        const state = (name, updates, impl) => ({ name, kind: 'property', result: 'Boolean', updates, impl });
         const constant = { changes: 'constant', reads: 'fresh' };
 
         isolated.registerModule(isolated.createModule('Lit', {
@@ -3575,69 +3575,71 @@ describe('domql Boolean functions', () => {
                     name: 'LitView', kind: 'structured',
                     members: [
                         { name: 'on', kind: 'property', result: 'Boolean' },
-                        test('glowing', { changes: 'partly-observable', misses: 'a glow its source sets alone', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: true }] }, ({ receiver: view }) => glow(view)),
-                        test('steady', constant, () => true),
+                        state('glowing', { changes: 'partly-observable', misses: 'a glow its source sets alone', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: true }] }, ({ receiver: view }) => glow(view)),
+                        state('steady', constant, () => true),
+                        // Whether the light answers when it is asked now, work a function does.
+                        { name: 'ping', kind: 'function', result: 'Boolean', parameters: [], updates: constant, impl: ({ receiver: view }) => view.on },
                     ],
                 },
                 elementExtension('LitElements', [
                     { name: 'light', kind: 'property', result: 'LitView', updates: constant, impl: () => ({ on: true }) },
                     { name: 'lights', kind: 'property', result: 'List<LitView>', updates: constant, impl: () => [{ on: true }, { on: false }] },
-                    test('lit', { changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: ['data-lit'] }] }, ({ receiver: element }) => element.hasAttribute('data-lit')),
+                    state('lit', { changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: ['data-lit'] }] }, ({ receiver: element }) => element.hasAttribute('data-lit')),
                 ]),
             ],
         }));
     };
 
-    it('tests its receiver through its own function, called directly or, on a type of its module\'s own, through its module, and answers a Boolean', () => {
+    it('reads a state of its receiver as a property, where it stands or, on a type of its module\'s own, through its module, and answers a Boolean', () => {
         registerLit();
         panel.setAttribute('data-lit', '');
 
-        expect(evaluate('panel:lit()')).toBe(true);
-        expect(evaluate('panel:light.glowing()')).toBe(true);
+        expect(evaluate('panel:lit')).toBe(true);
+        expect(evaluate('panel:light.glowing')).toBe(true);
         expect(evaluate('Lit.glowing(panel:light)')).toBe(true);
-        expect(evaluate('panel:lit() and Lit.steady(panel:light)')).toBe(true);
+        expect(evaluate('panel:lit and Lit.steady(panel:light)')).toBe(true);
         expect(String(queryOf('Lit.glowing(panel:light)').resolve().type)).toBe('Boolean');
     });
 
-    it('passes a test where a function is taken, by reference through its module, as an arrow function, a function a local holds or an implicit body', () => {
+    it('filters by a state with an implicit body, an arrow function or a function a local holds, and passes a test that does work by reference through its module', () => {
         registerLit();
 
-        expect(evaluate('panel { let test = v => v.glowing(), referenced = it:lights.where(Lit.glowing).count, held = it:lights.where(test).count, arrow = it:lights.where(v => v.steady()).count, body = it:lights.where(it.steady()).count }')).toEqual({ referenced: 1, held: 1, arrow: 2, body: 2 });
+        expect(evaluate('panel { let test = v => v.glowing, held = it:lights.where(test).count, arrow = it:lights.where(v => v.steady).count, body = it:lights.where(it.steady).count, referenced = it:lights.where(Lit.ping).count }')).toEqual({ held: 1, arrow: 2, body: 2, referenced: 1 });
     });
 
     it.each(['is', 'has', 'supports'])('reads %s, a verb the language once had, as any name, which no declaration has', verb => {
         registerLit();
 
-        expect(getError(() => queryOf(`panel.${verb}(Lit.steady)`).resolve())).toMatchObject({ kind: 'validation', code: 'NEXO3001', message: expect.stringContaining(`'${verb}' is no member of the vocabulary`) });
+        expect(getError(() => queryOf(`panel.${verb}(panel:light.steady)`).resolve())).toMatchObject({ kind: 'validation', code: 'NEXO3001', message: expect.stringContaining(`'${verb}' is no member of the vocabulary`) });
     });
 
-    it('refuses a test of other receivers, naming the receivers it is of, and one a function parameter\'s contract does not take', () => {
+    it('refuses a state of other receivers, naming the receivers it is of, and a reference to a state, which only a function has', () => {
         registerLit();
 
         const refusalOf = text => getError(() => queryOf(text).resolve());
 
-        expect(refusalOf('panel.glowing()')).toMatchObject({ code: 'NEXO3001', message: expect.stringContaining("'glowing' is not available on Element; it is available on LitView") });
-        expect(refusalOf('Domql.window:lit()')).toMatchObject({ code: 'NEXO3062', message: expect.stringContaining("No extension the script reaches declares 'lit' for Window") });
-        expect(refusalOf('panel.children.where(Lit.glowing)')).toMatchObject({ code: 'NEXO3037', message: expect.stringContaining("and 'Lit.glowing' names no function that takes those or answers that") });
+        expect(refusalOf('panel.glowing')).toMatchObject({ code: 'NEXO3001', message: expect.stringContaining("'glowing' is not available on Element; it is available on LitView") });
+        expect(refusalOf('Domql.window:lit')).toMatchObject({ code: 'NEXO3062', message: expect.stringContaining("No extension the script reaches declares 'lit' for Window") });
+        expect(refusalOf('panel:lights.where(Lit.glowing)')).toMatchObject({ code: 'NEXO3076', message: expect.stringContaining("'Lit.glowing' is a property, read with its receiver as Lit.glowing(receiver), and only a function has a reference") });
     });
 
-    it('skips its function for a null receiver read with ?., or given to its qualified form', () => {
+    it('skips its implementation for a null receiver read with ?., or given to its qualified form', () => {
         let tests = 0;
 
         registerLit({ glow: () => { tests++; return true; } });
 
-        expect(evaluate('missing?.glowing()', { missing: null })).toBeNull();
+        expect(evaluate('missing?.glowing', { missing: null })).toBeNull();
         expect(evaluate('Lit.glowing(missing)', { missing: null })).toBeNull();
-        expect(evaluate('panel:light?.glowing()')).toBe(true);
+        expect(evaluate('panel:light?.glowing')).toBe(true);
         expect(tests).toBe(1);
     });
 
     it.each([
-        ['through : on a receiver that can be null, giving the form with ?:', 'panel.first(".none"):lit()', 'NEXO3063', "write 'panel.first(\".none\")?:lit()'"],
-        ['given an argument it takes none of', 'panel:lit(1)', 'NEXO3058', "'lit' takes no argument"],
+        ['through : on a receiver that can be null, giving the form with ?:', 'panel.first(".none"):lit', 'NEXO3063', "write 'panel.first(\".none\")?:lit'"],
+        ['called, giving the form that reads it', 'panel:lit()', 'NEXO3017', "'lit' is a property: write 'panel:lit'"],
         ['through its module, given a receiver of another type', 'Lit.glowing(5)', 'NEXO3042', "'Lit.glowing' takes a receiver of LitView, and is given Number"],
         ['through its module, given no receiver', 'Lit.glowing()', 'NEXO3080', "'Lit.glowing' is the qualified form of a member of a receiver"],
-    ])('is refused as any call is %s', (_, text, code, message) => {
+    ])('is refused as any property is %s', (_, text, code, message) => {
         registerLit();
 
         const error = getError(() => queryOf(text).resolve());
@@ -3647,28 +3649,28 @@ describe('domql Boolean functions', () => {
         expect(error.message).toContain(message);
     });
 
-    it('keeps each function its own contract, however it is reached, so a partly observable one leaves the others as they are', () => {
+    it('keeps each state its own contract, however it is reached, so a partly observable one leaves the others as they are', () => {
         registerLit();
 
-        expect(() => queryOf('{ lit = panel:lit(), steady = panel:light.steady() }').resolve({ watch: true })).not.toThrow();
+        expect(() => queryOf('{ lit = panel:lit, steady = panel:light.steady }').resolve({ watch: true })).not.toThrow();
 
-        const direct = getError(() => queryOf('{ lit = panel:lit(), glowing = panel:light.glowing() }').resolve({ watch: true }));
-        const qualified = getError(() => queryOf('{ lit = panel:lit(), glowing = Lit.glowing(panel:light) }').resolve({ watch: true }));
+        const direct = getError(() => queryOf('{ lit = panel:lit, glowing = panel:light.glowing }').resolve({ watch: true }));
+        const qualified = getError(() => queryOf('{ lit = panel:lit, glowing = Lit.glowing(panel:light) }').resolve({ watch: true }));
 
         expect(direct.code).toBe('DOMQL3003');
         expect(direct.message).toContain(`A watch over 'LitView.glowing' (which misses a glow its source sets alone) is refused unless the watch accepts partial observation`);
         expect(direct.location.pointer).toBe('/expression/objectFields/1/value');
         expect(qualified.message).toContain(`A watch over 'LitView.glowing' (which misses a glow its source sets alone) is refused unless the watch accepts partial observation`);
-        expect(() => queryOf('panel:light.glowing()').resolve({ watch: true, acceptPartialObservation: true })).not.toThrow();
+        expect(() => queryOf('panel:light.glowing').resolve({ watch: true, acceptPartialObservation: true })).not.toThrow();
     });
 
     it.each([
         ['throws', () => { throw new Error('the lamp is gone'); }, "The member 'glowing' failed: the lamp is gone", 'NEXO5007'],
         ['answers what is no Boolean', () => 'yes', "The member 'glowing' answered \"yes\", and it declares Boolean", 'NEXO5006'],
-    ])('fails with an evaluation error naming the function where it %s, called directly or through its module', (_, glow, message, code) => {
+    ])('fails with an evaluation error naming the state where its implementation %s, read where it stands or through its module', (_, glow, message, code) => {
         registerLit({ glow });
 
-        for (const text of ['panel:light.glowing()', 'Lit.glowing(panel:light)']) {
+        for (const text of ['panel:light.glowing', 'Lit.glowing(panel:light)']) {
             const error = getError(() => evaluate(text));
 
             expect(error.kind).toBe('evaluation');
@@ -3678,7 +3680,7 @@ describe('domql Boolean functions', () => {
     });
 });
 
-describe('domql ARIA conditions', () => {
+describe('domql ARIA states', () => {
     let element;
 
     beforeEach(() => {
@@ -3704,27 +3706,27 @@ describe('domql ARIA conditions', () => {
             element.setAttribute('aria-disabled', value);
         }
 
-        expect(evaluate('e.aria.checked()')).toBe(answer);
-        expect(evaluate('e.aria.disabled()')).toBe(answer);
+        expect(evaluate('e.aria.checked')).toBe(answer);
+        expect(evaluate('e.aria.disabled')).toBe(answer);
     });
 
     it('reads the element\'s own attribute, never an ancestor\'s, and keeps mixed for the attribute itself', () => {
         document.getElementById('parent').setAttribute('aria-disabled', 'true');
         element.setAttribute('aria-checked', 'mixed');
 
-        expect(evaluate('e.aria.disabled()')).toBe(false);
+        expect(evaluate('e.aria.disabled')).toBe(false);
         expect(evaluate('e["aria-checked"] == "mixed"')).toBe(true);
     });
 
-    it('stands apart from the native condition of the same name, each falling back on nothing of the other', () => {
+    it('stands apart from the native state of the same name, each falling back on nothing of the other', () => {
         element.checked = true;
 
-        expect(evaluate('{ native = e.checked(), aria = e.aria.checked(), either = e.checked() or e.aria.checked() }')).toEqual({ native: true, aria: false, either: true });
+        expect(evaluate('{ native = e.checked, aria = e.aria.checked, either = e.checked or e.aria.checked }')).toEqual({ native: true, aria: false, either: true });
 
         element.checked = false;
         element.setAttribute('aria-checked', 'true');
 
-        expect(evaluate('{ native = e.checked(), aria = e.aria.checked() }')).toEqual({ native: false, aria: true });
+        expect(evaluate('{ native = e.checked, aria = e.aria.checked }')).toEqual({ native: false, aria: true });
     });
 
     it.each([
@@ -3769,8 +3771,8 @@ describe('domql ARIA conditions', () => {
 
     it.each([
         ['the view itself as a result, which is no data', 'e.aria', 'NEXO3043', 'The result would hold Aria, which is no data'],
-        ['a native test the view has not', 'e.aria.hover()', 'NEXO3001', "'hover' is not available on Aria; it is available on Element"],
-        ['an ARIA test nothing declares', 'e.aria.expanded()', 'NEXO3001', "'expanded' is no member of the vocabulary"],
+        ['a native state the view has not', 'e.aria.hovered', 'NEXO3001', "'hovered' is not available on Aria; it is available on Element"],
+        ['an ARIA state nothing declares', 'e.aria.expanded', 'NEXO3001', "'expanded' is no member of the vocabulary"],
     ])('refuses %s', (_, text, code, message) => {
         const error = getError(() => domql.query(text, { e: element }).resolve());
 
@@ -4633,8 +4635,9 @@ describe('domql function values and arrow functions', () => {
         const forms = ['panel.children.where(it.matches(".a")).count', 'panel.children.where(row => row.matches(".a")).count', 'let marked = row => row.matches(".a")\nreturn panel.children.where(marked).count'];
 
         expect(forms.map(text => domql.query(text, { panel }).evaluate())).toEqual([2, 2, 2]);
-        expect(domql.query('panel.children.where(Domql.disabled).count', { panel }).evaluate()).toBe(0);
-        expect(refusalOf('panel.children.where(Domql.visible).count', { panel }).message).toContain("'Domql.visible' names no function that takes those or answers that");
+        expect(domql.query('panel.children.where(it.disabled).count', { panel }).evaluate()).toBe(0);
+        expect(refusalOf('panel.children.where(Domql.disabled).count', { panel })).toMatchObject({ code: 'NEXO3076', message: expect.stringContaining("'Domql.disabled' is a property, read with its receiver as Domql.disabled(receiver), and only a function has a reference") });
+        expect(refusalOf('panel.children.where(Domql.contains).count', { panel }).message).toContain("'Domql.contains' names no function that takes those or answers that");
     });
 });
 
@@ -4946,7 +4949,7 @@ describe('domql text-editable content', () => {
     ])('answers text-editable where %s, as contenteditable does natively', (_, html, expected) => {
         document.body.innerHTML = html;
 
-        expect(domql.query('t.textEditable()', { t: document.getElementById('t') }).evaluate()).toBe(expected);
+        expect(domql.query('t.textEditable', { t: document.getElementById('t') }).evaluate()).toBe(expected);
     });
 });
 
@@ -5841,7 +5844,7 @@ describe('domql environment', () => {
                 updates: { changes: 'constant', reads: 'fresh' },
                 impl: ({ receiver, args: { tool }, env }) => {
                     probed = tool === 'evaluate' ? env.domql.query('panel.children.count', { panel: receiver }).evaluate({ window: env.window })
-                        : tool === 'execute' ? env.domql.query('panel.takeFocus()', { panel: receiver }).executeAsync()
+                        : tool === 'execute' ? env.domql.query('panel.focus()', { panel: receiver }).executeAsync()
                         : tool === 'run' ? env.domql.query('panel.ownClass({ name = "busy" })', { panel: receiver }).run()
                         : tool === 'observe' ? env.observe({ type: 'resize', target: receiver }, () => {})
                         : env.frame(() => {});

@@ -1,5 +1,5 @@
 /**
- * BrowserVocabularyDeclarations — the declarations of DOMQL's vocabulary, the DOM's: its nodes, elements, shadow trees, ARIA views and window, their members, Boolean functions among them, events and observations, and the document and the window a query reads, as the specification's tables state them
+ * BrowserVocabularyDeclarations — the declarations of DOMQL's vocabulary, the DOM's: its nodes, elements, shadow trees, ARIA views and window, their members, states and executions among them, events and observations, and the document and the window a query reads, as the specification's tables state them
  */
 
 import { nexo } from '@formaui-net/nexo';
@@ -125,7 +125,8 @@ export class BrowserVocabularyDeclarations {
         // A declaration takes the implementation given under its key, and none where none is given, which leaves it resolved against and never invoked.
         const implementing = (key, declaration) => (implementations[key] === undefined ? declaration : { ...declaration, impl: implementations[key] });
         const observationType = (name, contract, key, rest = {}) => implementing(key, { name, contract, ...rest });
-        const test = (key, name, { updates }) => implementing(key, func(name, 'Boolean', { updates }));
+        // A state its receiver is in, a Boolean property read without a call, as a property names what its receiver is, has or is in.
+        const state = (key, name, { updates }) => implementing(key, property(name, 'Boolean', { updates }));
 
         // A built-in execution, a host call DOMQL carries out once, answering its result, or keeps running, as its mode says.
         const execution = (key, name, result, { mode = 'once', ...options } = {}) => implementing(key, { ...func(name, result, { invokedBy: 'host', ...options }), requestKind: 'execution', executionMode: mode });
@@ -164,31 +165,31 @@ export class BrowserVocabularyDeclarations {
                 ], { abstract: true }),
 
                 referenceType('Element', value => nodeKindOf(value) === 'Element', [
-                    // The tests of elements, each a Boolean function as the browser decides it, its native semantics: a pseudo-class's matching.
-                    test('disabled', 'disabled', { updates: updatesOf({ observations: [{ type: 'mutation', of: 'root', attributes: ['disabled'], childList: true, subtree: true }] }) }),
-                    test('readOnly', 'readonly', { updates: updatesOf({ observations: [{ type: 'mutation', of: 'receiver', attributes: ['readonly', 'type'] }] }) }),
-                    test('textEditable', 'textEditable', { updates: updatesOf({ changes: 'partly-observable', misses: 'the document\'s design mode', observations: [{ type: 'mutation', of: 'roots', attributes: ['disabled', 'readonly', 'type', 'contenteditable', 'inert'], childList: true, subtree: true }] }) }),
-                    test('focused', 'focus', { updates: updatesOf({ observations: [FOCUS] }) }),
-                    test('focusWithin', 'focusWithin', { updates: updatesOf({ observations: [FOCUS] }) }),
-                    test('displayed', 'displayed', { updates: updatesOf({ changes: 'partly-observable', misses: RENDERING_MISSES, observations: RENDERING }) }),
-                    test('focusable', 'focusable', { updates: updatesOf({ changes: 'partly-observable', misses: `${RENDERING_MISSES}, a visibility a stylesheet's rules change, the inertness a modal dialog gives the rest of the document, and the document's design mode`, observations: RENDERING }) }),
-                    test('hover', 'hover', { updates: updatesOf({ changes: 'partly-observable', misses: 'an element moving under a pointer that does not move, where the browser fires no pointer event for it', observations: [{ type: 'event', of: 'document', types: ['pointerover', 'pointerout'] }] }) }),
-                    test('popoverOpen', 'popoverOpen', { updates: updatesOf({ observations: [POPOVERS] }) }),
-                    test('checked', 'checked', {
+                    // The states of elements, each a Boolean property as the browser decides it, its native semantics: a pseudo-class's matching.
+                    state('disabled', 'disabled', { updates: updatesOf({ observations: [{ type: 'mutation', of: 'root', attributes: ['disabled'], childList: true, subtree: true }] }) }),
+                    state('readOnly', 'readonly', { updates: updatesOf({ observations: [{ type: 'mutation', of: 'receiver', attributes: ['readonly', 'type'] }] }) }),
+                    state('textEditable', 'textEditable', { updates: updatesOf({ changes: 'partly-observable', misses: 'the document\'s design mode', observations: [{ type: 'mutation', of: 'roots', attributes: ['disabled', 'readonly', 'type', 'contenteditable', 'inert'], childList: true, subtree: true }] }) }),
+                    state('focused', 'focused', { updates: updatesOf({ observations: [FOCUS] }) }),
+                    state('focusWithin', 'focusWithin', { updates: updatesOf({ observations: [FOCUS] }) }),
+                    state('displayed', 'displayed', { updates: updatesOf({ changes: 'partly-observable', misses: RENDERING_MISSES, observations: RENDERING }) }),
+                    state('focusable', 'focusable', { updates: updatesOf({ changes: 'partly-observable', misses: `${RENDERING_MISSES}, a visibility a stylesheet's rules change, the inertness a modal dialog gives the rest of the document, and the document's design mode`, observations: RENDERING }) }),
+                    state('hovered', 'hovered', { updates: updatesOf({ changes: 'partly-observable', misses: 'an element moving under a pointer that does not move, where the browser fires no pointer event for it', observations: [{ type: 'event', of: 'document', types: ['pointerover', 'pointerout'] }] }) }),
+                    state('popoverOpen', 'popoverOpen', { updates: updatesOf({ observations: [POPOVERS] }) }),
+                    state('checked', 'checked', {
                         updates: updatesOf({
                             changes: 'partly-observable',
                             misses: 'the page\'s code setting checked or selected, or a select\'s value or selectedIndex, which fires no event',
                             observations: [USER_INPUT, { type: 'mutation', of: 'root', attributes: ['checked', 'selected'], childList: true, subtree: true }],
                         }),
                     }),
-                    test('indeterminate', 'indeterminate', {
+                    state('indeterminate', 'indeterminate', {
                         updates: updatesOf({
                             changes: 'partly-observable',
                             misses: 'the page\'s code setting indeterminate or checked, which fires no event',
                             observations: [USER_INPUT, { type: 'mutation', of: 'root', attributes: ['checked', 'name', 'type', 'value'], childList: true, subtree: true }],
                         }),
                     }),
-                    test('autofilled', 'autofilled', { updates: updatesOf({ changes: 'partly-observable', misses: 'the browser filling a field on its own, as a password manager does as the page loads, which fires no event', observations: [USER_INPUT] }) }),
+                    state('autofilled', 'autofilled', { updates: updatesOf({ changes: 'partly-observable', misses: 'the browser filling a field on its own, as a password manager does as the page loads, which fires no event', observations: [USER_INPUT] }) }),
 
                     implementing('rect', property('rect', 'Rectangle?', { updates: updatesOf({ ...GEOMETRY, ...MEASURED, observations: [RESIZE, SCROLLING, WINDOW_RESIZE] }) })),
                     implementing('clientRect', property('clientRect', 'Rectangle?', { updates: updatesOf({ ...GEOMETRY, ...MEASURED, observations: [CLIENT_RESIZE, SCROLLING, WINDOW_RESIZE] }) })),
@@ -255,7 +256,7 @@ export class BrowserVocabularyDeclarations {
 
                     // The changes DOMQL makes to an element, each one platform call answering what it did.
                     dispatch,
-                    execution('takeFocus', 'takeFocus', 'Boolean', { arguments: 'options', parameters: [valueParameter('preventScroll', 'Boolean', { default: false })] }),
+                    execution('focus', 'focus', 'Boolean', { arguments: 'options', parameters: [valueParameter('preventScroll', 'Boolean', { default: false })] }),
                     execution('scrollTo', 'scrollTo', 'Boolean', { arguments: 'options', parameters: SCROLL_PARAMETERS }),
                     execution('scrollBy', 'scrollBy', 'Boolean', { arguments: 'options', parameters: SCROLL_PARAMETERS }),
                     execution('scrollIntoView', 'scrollIntoView', 'Boolean', { arguments: 'options', parameters: [valueParameter('block', 'String', { default: 'start' }), valueParameter('inline', 'String', { default: 'nearest' }), SCROLL_BEHAVIOR] }),
@@ -264,15 +265,17 @@ export class BrowserVocabularyDeclarations {
                     execution('showModal', 'showModal', 'Boolean'),
                     execution('capturePointer', 'capturePointer', 'Boolean', { arguments: 'options', parameters: [valueParameter('pointerId', 'Number')] }),
                     execution('releasePointer', 'releasePointer', 'Boolean', { arguments: 'options', parameters: [valueParameter('pointerId', 'Number')] }),
-                    // A media element's playback, played, paused and muted as the page's code does it.
+                    // A media element's playback, played, paused, muted and unmuted as the page's code does it.
                     execution('play', 'play', 'String'),
                     execution('pause', 'pause', 'Boolean'),
-                    execution('writeMuted', 'writeMuted', 'Boolean', { parameters: [valueParameter('muted', 'Boolean')] }),
+                    execution('mute', 'mute', 'Boolean'),
+                    execution('unmute', 'unmute', 'Boolean'),
 
                     // The state of a form control, written as the page's code writes it, firing no event.
-                    execution('writeIndeterminate', 'writeIndeterminate', 'Boolean', { parameters: [valueParameter('indeterminate', 'Boolean')] }),
-                    execution('writeValue', 'writeValue', 'String?', { parameters: [valueParameter('value', 'String')] }),
-                    execution('writeSelection', 'writeSelection', 'Boolean', { arguments: 'options', parameters: [valueParameter('start', 'Number'), valueParameter('end', 'Number')] }),
+                    execution('markIndeterminate', 'markIndeterminate', 'Boolean'),
+                    execution('clearIndeterminate', 'clearIndeterminate', 'Boolean'),
+                    execution('replaceValue', 'replaceValue', 'String?', { parameters: [valueParameter('value', 'String')] }),
+                    execution('select', 'select', 'Boolean', { arguments: 'options', parameters: [valueParameter('start', 'Number'), valueParameter('end', 'Number')] }),
 
                     // The writes DOMQL owns while they run, each holding one target of the element.
                     execution('ownAttribute', 'ownAttribute', undefined, { mode: 'continuous', arguments: 'options', parameters: [valueParameter('name', 'String'), valueParameter('value', 'String?', { nulls: 'accept' }), ...OWNERSHIP] }),
@@ -284,9 +287,9 @@ export class BrowserVocabularyDeclarations {
                 ], { supertype: 'Node' }),
 
                 referenceType('Document', value => nodeKindOf(value) === 'Document', [
-                    // The document's own state, each a Boolean function as the browser decides it.
-                    test('visible', 'visible', { updates: updatesOf({ observations: [{ type: 'visibility', of: 'receiver' }] }) }),
-                    test('hasFocus', 'focus', { updates: updatesOf({ observations: [{ type: 'event', of: 'window', types: ['focus', 'blur'] }] }) }),
+                    // The document's own states, each a Boolean property as the browser decides it.
+                    state('visible', 'visible', { updates: updatesOf({ observations: [{ type: 'visibility', of: 'receiver' }] }) }),
+                    state('documentFocused', 'focused', { updates: updatesOf({ observations: [{ type: 'event', of: 'window', types: ['focus', 'blur'] }] }) }),
                     implementing('activeElement', property('activeElement', 'Element?', { updates: updatesOf({ observations: [FOCUS] }) })),
                     dispatch,
                     implementing('documentSelection', property('selection', 'DocumentSelection?', {
@@ -317,9 +320,9 @@ export class BrowserVocabularyDeclarations {
                     implementing('shortcutModifier', property('shortcutModifier', 'String', { updates: updatesOf({ changes: 'constant' }) })),
                     implementing('media', indexer('media', 'Boolean', { parameters: [valueParameter('query', 'String')], updates: updatesOf({ observations: [{ type: 'media', of: 'window', query: { argument: 'query' } }] }) })),
 
-                    // The capabilities the window's browser offers, each the presence of the API it names, which says nothing of whether a particular use of it succeeds.
-                    test('supportsShare', 'share', { updates: updatesOf({ changes: 'constant' }) }),
-                    test('supportsClipboard', 'clipboard', { updates: updatesOf({ changes: 'constant' }) }),
+                    // The capabilities the window's browser offers, each a state of the window, the presence of the API it names, which says nothing of whether a particular use of it succeeds.
+                    state('canShare', 'canShare', { updates: updatesOf({ changes: 'constant' }) }),
+                    state('hasClipboard', 'hasClipboard', { updates: updatesOf({ changes: 'constant' }) }),
                     on,
 
                     // The changes DOMQL makes to the window, each one platform call answering what it did.
@@ -328,8 +331,8 @@ export class BrowserVocabularyDeclarations {
                     execution('windowScrollBy', 'scrollBy', 'Boolean', { arguments: 'options', parameters: SCROLL_PARAMETERS }),
 
                     // The browser's facilities, each answering how the browser took the request.
-                    execution('writeClipboard', 'writeClipboard', 'String', { parameters: [valueParameter('text', 'String')] }),
-                    execution('readClipboard', 'readClipboard', 'ClipboardContent', { arguments: 'options', parameters: [valueParameter('types', 'List<String>', { default: ['text/plain'] })] }),
+                    execution('writeToClipboard', 'writeToClipboard', 'String', { parameters: [valueParameter('text', 'String')] }),
+                    execution('readFromClipboard', 'readFromClipboard', 'ClipboardContent', { arguments: 'options', parameters: [valueParameter('types', 'List<String>', { default: ['text/plain'] })] }),
                     execution('download', 'download', undefined, { arguments: 'options', parameters: [valueParameter('name', 'String'), valueParameter('content', 'String'), valueParameter('type', 'String', { default: 'text/plain' })] }),
                     execution('print', 'print', undefined),
                     execution('requestShare', 'requestShare', 'String', {
@@ -345,9 +348,9 @@ export class BrowserVocabularyDeclarations {
                 ]),
 
                 referenceType('Aria', value => nodeKindOf(value) === 'Element', [
-                    // The ARIA tests of an element's ARIA view, each its own attribute's value read under its own contract, never its native state.
-                    test('ariaChecked', 'checked', { updates: updatesOf({ observations: [{ type: 'mutation', of: 'receiver', attributes: ['aria-checked'] }] }) }),
-                    test('ariaDisabled', 'disabled', { updates: updatesOf({ observations: [{ type: 'mutation', of: 'receiver', attributes: ['aria-disabled'] }] }) }),
+                    // The ARIA states of an element's ARIA view, each its own attribute's value read under its own contract, never its native state.
+                    state('ariaChecked', 'checked', { updates: updatesOf({ observations: [{ type: 'mutation', of: 'receiver', attributes: ['aria-checked'] }] }) }),
+                    state('ariaDisabled', 'disabled', { updates: updatesOf({ observations: [{ type: 'mutation', of: 'receiver', attributes: ['aria-disabled'] }] }) }),
                     ...[null, 'attribute'].map(name => implementing('ariaAttribute', indexer(name, 'String?', { parameters: [valueParameter('name', 'String')], updates: updatesOf({ observations: [{ type: 'mutation', of: 'receiver', attributes: [{ argument: 'name', prefix: 'aria-' }] }] }) }))),
 
                     // The view is the element itself, so the cast answers it as it is, and reads it as the element again.

@@ -34,9 +34,9 @@ describe('BrowserExecutionImplementations', () => {
 
     describe('requests', () => {
         it('are once executions, resolved as executions and refused by the operations of other requests', () => {
-            expect(domql.query('field.takeFocus()', { field }).resolve()).toMatchObject({ kind: 'execution', executionMode: 'once' });
-            expect(String(domql.query('field.takeFocus()', { field }).resolve().type)).toBe('Boolean');
-            expect(() => domql.query('field.takeFocus()', { field }).evaluate()).toThrow(expect.objectContaining({ kind: 'validation', code: 'DOMQL3004', message: expect.stringContaining('it executes an effect once.\nUse executeAsync().') }));
+            expect(domql.query('field.focus()', { field }).resolve()).toMatchObject({ kind: 'execution', executionMode: 'once' });
+            expect(String(domql.query('field.focus()', { field }).resolve().type)).toBe('Boolean');
+            expect(() => domql.query('field.focus()', { field }).evaluate()).toThrow(expect.objectContaining({ kind: 'validation', code: 'DOMQL3004', message: expect.stringContaining('it executes an effect once.\nUse executeAsync().') }));
         });
 
         it('resolve on a receiver of unknown type, whose declarations of the name agree on what they request', async () => {
@@ -83,9 +83,9 @@ describe('BrowserExecutionImplementations', () => {
         });
     });
 
-    describe('takeFocus', () => {
+    describe('focus', () => {
         it('focuses an element that can take focus, answering that focus landed on it', async () => {
-            expect(await execute('field.takeFocus()', { field })).toBe(true);
+            expect(await execute('field.focus()', { field })).toBe(true);
             expect(document.activeElement).toBe(field);
         });
 
@@ -96,7 +96,7 @@ describe('BrowserExecutionImplementations', () => {
             // The simulated document focuses any element, so this one refuses as a browser would.
             plain.focus = () => {};
 
-            expect(await execute('plain.takeFocus()', { plain })).toBe(false);
+            expect(await execute('plain.focus()', { plain })).toBe(false);
             expect(document.activeElement).toBe(field);
         });
 
@@ -105,8 +105,8 @@ describe('BrowserExecutionImplementations', () => {
 
             field.focus = options => calls.push(options);
 
-            await execute('field.takeFocus()', { field });
-            await execute('field.takeFocus({ preventScroll = true })', { field });
+            await execute('field.focus()', { field });
+            await execute('field.focus({ preventScroll = true })', { field });
 
             expect(calls).toEqual([{ preventScroll: false }, { preventScroll: true }]);
         });
@@ -270,18 +270,22 @@ describe('BrowserExecutionImplementations', () => {
             expect(error).toMatchObject({ kind: 'evaluation', code: 'DOMQL5001', cause: expect.objectContaining({ name: 'InvalidStateError' }) });
         });
 
-        it('pauses and mutes a media element, answering whether each changed it, and changes nothing of another element', async () => {
+        it('pauses, mutes and unmutes a media element, answering whether each changed it, and changes nothing of another element', async () => {
             const audio = mediaPlaying(() => Promise.resolve());
 
             await execute('audio.play()', { audio });
 
             expect(await execute('audio.pause()', { audio })).toBe(true);
             expect(await execute('audio.pause()', { audio })).toBe(false);
-            expect(await execute('audio.writeMuted(true)', { audio })).toBe(true);
+            expect(await execute('audio.mute()', { audio })).toBe(true);
             expect(audio.muted).toBe(true);
-            expect(await execute('audio.writeMuted(true)', { audio })).toBe(false);
+            expect(await execute('audio.mute()', { audio })).toBe(false);
+            expect(await execute('audio.unmute()', { audio })).toBe(true);
+            expect(audio.muted).toBe(false);
+            expect(await execute('audio.unmute()', { audio })).toBe(false);
             expect(await execute('plain.pause()', { plain: document.createElement('div') })).toBe(false);
-            expect(await execute('plain.writeMuted(true)', { plain: document.createElement('div') })).toBe(false);
+            expect(await execute('plain.mute()', { plain: document.createElement('div') })).toBe(false);
+            expect(await execute('plain.unmute()', { plain: document.createElement('div') })).toBe(false);
         });
     });
 
@@ -299,10 +303,10 @@ describe('BrowserExecutionImplementations', () => {
             const written = [];
             const clipboardOf = writeText => windowWith({ clipboard: { writeText } });
 
-            expect(await executeIn('Domql.window.writeClipboard("copied")', clipboardOf(text => written.push(text)))).toBe('written');
-            expect(await executeIn('Domql.window.writeClipboard("copied")', clipboardOf(refused('NotAllowedError')))).toBe('refused');
-            expect(await executeIn('Domql.window.writeClipboard("copied")', clipboardOf(refused('DataError')))).toBe('failed');
-            expect(await executeIn('Domql.window.writeClipboard("copied")', windowWith({}))).toBe('unsupported');
+            expect(await executeIn('Domql.window.writeToClipboard("copied")', clipboardOf(text => written.push(text)))).toBe('written');
+            expect(await executeIn('Domql.window.writeToClipboard("copied")', clipboardOf(refused('NotAllowedError')))).toBe('refused');
+            expect(await executeIn('Domql.window.writeToClipboard("copied")', clipboardOf(refused('DataError')))).toBe('failed');
+            expect(await executeIn('Domql.window.writeToClipboard("copied")', windowWith({}))).toBe('unsupported');
             expect(written).toEqual(['copied']);
         });
 
@@ -310,19 +314,19 @@ describe('BrowserExecutionImplementations', () => {
             const item = { types: ['text/plain', 'text/html'], getType: type => Promise.resolve({ text: () => Promise.resolve(type === 'text/html' ? '<b>x</b>' : 'x') }) };
             const reading = read => windowWith({ clipboard: { read } });
 
-            expect(await executeIn('Domql.window.readClipboard({ types = ["text/html", "image/png", "text/plain"] })', reading(() => Promise.resolve([item])))).toEqual({
+            expect(await executeIn('Domql.window.readFromClipboard({ types = ["text/html", "image/png", "text/plain"] })', reading(() => Promise.resolve([item])))).toEqual({
                 outcome: 'read',
                 entries: [{ type: 'text/html', text: '<b>x</b>' }, { type: 'text/plain', text: 'x' }],
             });
-            expect(await executeIn('Domql.window.readClipboard() { outcome = it.outcome, count = it.entries.count }', reading(refused('NotAllowedError')))).toEqual({ outcome: 'refused', count: 0 });
+            expect(await executeIn('Domql.window.readFromClipboard() { outcome = it.outcome, count = it.entries.count }', reading(refused('NotAllowedError')))).toEqual({ outcome: 'refused', count: 0 });
         });
 
         it('read the clipboard\'s text alone where the browser reads no items, and answer unsupported where it offers no clipboard', async () => {
             const texts = windowWith({ clipboard: { readText: () => Promise.resolve('plain') } });
 
-            expect(await executeIn('Domql.window.readClipboard()', texts)).toEqual({ outcome: 'read', entries: [{ type: 'text/plain', text: 'plain' }] });
-            expect(await executeIn('Domql.window.readClipboard({ types = ["text/html"] })', texts)).toEqual({ outcome: 'read', entries: [] });
-            expect(await executeIn('Domql.window.readClipboard()', windowWith({}))).toEqual({ outcome: 'unsupported', entries: [] });
+            expect(await executeIn('Domql.window.readFromClipboard()', texts)).toEqual({ outcome: 'read', entries: [{ type: 'text/plain', text: 'plain' }] });
+            expect(await executeIn('Domql.window.readFromClipboard({ types = ["text/html"] })', texts)).toEqual({ outcome: 'read', entries: [] });
+            expect(await executeIn('Domql.window.readFromClipboard()', windowWith({}))).toEqual({ outcome: 'unsupported', entries: [] });
         });
 
         it('download text as a file through an object URL, which it revokes once the browser has begun the download', async () => {
@@ -511,43 +515,45 @@ describe('BrowserExecutionImplementations', () => {
         it('make a checkbox mixed and not, answering whether it changed it, and change nothing of an element that is no checkbox', async () => {
             const box = byId('box');
 
-            expect(await execute('box.writeIndeterminate(true)', { box })).toBe(true);
+            expect(await execute('box.markIndeterminate()', { box })).toBe(true);
             expect(box.indeterminate).toBe(true);
-            expect(await execute('box.writeIndeterminate(true)', { box })).toBe(false);
-            expect(await execute('box.writeIndeterminate(false)', { box })).toBe(true);
-            expect(await execute('field.writeIndeterminate(true)', { field: byId('field') })).toBe(false);
+            expect(await execute('box.markIndeterminate()', { box })).toBe(false);
+            expect(await execute('box.clearIndeterminate()', { box })).toBe(true);
+            expect(box.indeterminate).toBe(false);
+            expect(await execute('box.clearIndeterminate()', { box })).toBe(false);
+            expect(await execute('field.markIndeterminate()', { field: byId('field') })).toBe(false);
             expect(byId('field').indeterminate).toBe(false);
         });
 
-        it('write a control\'s value, answering the value it replaced, firing no event, and nothing for an element that is no control', async () => {
+        it('replace a control\'s value, answering the value it replaced, firing no event, and nothing for an element that is no control', async () => {
             const fields = ['field', 'notes', 'list'].map(byId);
             const events = [];
 
             fields.forEach(control => ['input', 'change'].forEach(type => control.addEventListener(type, () => events.push(type))));
 
-            expect(await execute('field.writeValue("")', { field: fields[0] })).toBe('draft');
-            expect(await execute('notes.writeValue("new")', { notes: fields[1] })).toBe('old');
-            expect(await execute('list.writeValue("b")', { list: fields[2] })).toBe('a');
+            expect(await execute('field.replaceValue("")', { field: fields[0] })).toBe('draft');
+            expect(await execute('notes.replaceValue("new")', { notes: fields[1] })).toBe('old');
+            expect(await execute('list.replaceValue("b")', { list: fields[2] })).toBe('a');
             expect(fields.map(control => control.value)).toEqual(['', 'new', 'b']);
-            expect(await execute('plain.writeValue("x")', { plain: byId('plain') })).toBeNull();
+            expect(await execute('plain.replaceValue("x")', { plain: byId('plain') })).toBeNull();
             expect(events).toEqual([]);
         });
 
         it('place a text control\'s selection, answering that it placed it, and none of an element that exposes none', async () => {
             const field = byId('field');
 
-            expect(await execute('field.writeSelection({ start = 1, end = 3 })', { field })).toBe(true);
+            expect(await execute('field.select({ start = 1, end = 3 })', { field })).toBe(true);
             expect([field.selectionStart, field.selectionEnd]).toEqual([1, 3]);
-            expect(await execute('plain.writeSelection({ start = 0, end = 1 })', { plain: byId('plain') })).toBe(false);
+            expect(await execute('plain.select({ start = 0, end = 1 })', { plain: byId('plain') })).toBe(false);
         });
 
         it('place the document\'s selection at offsets in an editable element\'s text, as its selection reads them, an offset past the end held at the end', async () => {
             const editor = byId('editor');
 
-            expect(await execute('editor.writeSelection({ start = 2, end = 6 })', { editor })).toBe(true);
+            expect(await execute('editor.select({ start = 2, end = 6 })', { editor })).toBe(true);
             expect(document.getSelection().toString()).toBe('e tw');
             expect(domql.query('editor.selection', { editor }).evaluate()).toEqual({ start: 2, end: 6 });
-            expect(await execute('editor.writeSelection({ start = 8, end = 99 })', { editor })).toBe(true);
+            expect(await execute('editor.select({ start = 8, end = 99 })', { editor })).toBe(true);
             expect(domql.query('editor.selection', { editor }).evaluate()).toEqual({ start: 8, end: 13 });
         });
     });

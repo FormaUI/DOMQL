@@ -40,10 +40,10 @@ describe('Executions in a browser', () => {
 
             const [field, plain, hidden] = ['field', 'plain', 'hidden'].map(id => document.getElementById(id));
 
-            expect(await execute('field.takeFocus()', { field })).toBe(true);
+            expect(await execute('field.focus()', { field })).toBe(true);
             expect(document.activeElement).toBe(field);
-            expect(await execute('plain.takeFocus()', { plain })).toBe(false);
-            expect(await execute('hidden.takeFocus()', { hidden })).toBe(false);
+            expect(await execute('plain.focus()', { plain })).toBe(false);
+            expect(await execute('hidden.focus()', { hidden })).toBe(false);
             expect(document.activeElement).toBe(field);
         });
 
@@ -52,10 +52,10 @@ describe('Executions in a browser', () => {
 
             const field = document.getElementById('field');
 
-            expect(await execute('field.takeFocus({ preventScroll = true })', { field })).toBe(true);
+            expect(await execute('field.focus({ preventScroll = true })', { field })).toBe(true);
             expect(window.scrollY).toBe(0);
             field.blur();
-            expect(await execute('field.takeFocus()', { field })).toBe(true);
+            expect(await execute('field.focus()', { field })).toBe(true);
             expect(window.scrollY).toBeGreaterThan(0);
         });
     });
@@ -263,15 +263,15 @@ describe('Executions in a browser', () => {
         };
 
         it('answers that the browser refuses the clipboard to a page it gave no permission, as headless Chromium does', async () => {
-            expect(await execute('Domql.window.writeClipboard("copied")')).toBe('refused');
-            expect(await execute('Domql.window.readClipboard()')).toEqual({ outcome: 'refused', entries: [] });
+            expect(await execute('Domql.window.writeToClipboard("copied")')).toBe('refused');
+            expect(await execute('Domql.window.readFromClipboard()')).toEqual({ outcome: 'refused', entries: [] });
         });
 
         it('answers that sharing is unsupported where the browser offers no Web Share API, as headless Chromium does', async () => {
-            expect(await execute('Domql.window.requestShare({ title = "Report" })')).toBe(domql.query('Domql.window.share()').evaluate() ? 'refused' : 'unsupported');
+            expect(await execute('Domql.window.requestShare({ title = "Report" })')).toBe(domql.query('Domql.window.canShare').evaluate() ? 'refused' : 'unsupported');
         });
 
-        it('plays, pauses and mutes a media element, answering how the browser took each request, its autoplay policy blocking it until the user acts', async () => {
+        it('plays, pauses, mutes and unmutes a media element, answering how the browser took each request, its autoplay policy blocking it until the user acts', async () => {
             document.body.innerHTML = '<audio id="audio"></audio><audio id="broken"></audio><button id="button">Play</button>';
 
             const audio = document.getElementById('audio');
@@ -281,7 +281,7 @@ describe('Executions in a browser', () => {
             audio.src = silence();
             broken.src = URL.createObjectURL(new Blob([new Uint8Array(16)], { type: 'audio/wav' }));
 
-            expect(await execute('audio.writeMuted(true)', { audio })).toBe(true);
+            expect(await execute('audio.mute()', { audio })).toBe(true);
             expect(await execute('audio.play()', { audio })).toBe('blocked');
 
             document.getElementById('button').addEventListener('click', () => played.push(execute('audio.play()', { audio })));
@@ -290,6 +290,8 @@ describe('Executions in a browser', () => {
             expect(await Promise.all(played)).toEqual(['playing']);
             expect(await execute('audio.pause()', { audio })).toBe(true);
             expect(await execute('audio.pause()', { audio })).toBe(false);
+            expect(await execute('audio.unmute()', { audio })).toBe(true);
+            expect(audio.muted).toBe(false);
             expect(await execute('broken.play()', { broken })).toBe('unsupported');
         });
     });
@@ -350,32 +352,34 @@ describe('Executions in a browser', () => {
     });
 
     describe('form controls', () => {
-        it('writes a checkbox mixed, a field\'s value and its selection, as the page\'s code writes them, which the browser shows', async () => {
+        it('marks a checkbox mixed and clears it, and replaces a field\'s value and selects its text, as the page\'s code writes them, which the browser shows', async () => {
             document.body.innerHTML = '<input id="box" type="checkbox"><input id="field" value="draft">';
 
             const box = document.getElementById('box');
             const field = document.getElementById('field');
 
-            expect(await execute('box.writeIndeterminate(true)', { box })).toBe(true);
+            expect(await execute('box.markIndeterminate()', { box })).toBe(true);
             expect(box.matches(':indeterminate')).toBe(true);
-            expect(await execute('field.writeValue("final")', { field })).toBe('draft');
-            expect(await execute('field.writeSelection({ start = 1, end = 9 })', { field })).toBe(true);
+            expect(await execute('box.clearIndeterminate()', { box })).toBe(true);
+            expect(box.matches(':indeterminate')).toBe(false);
+            expect(await execute('field.replaceValue("final")', { field })).toBe('draft');
+            expect(await execute('field.select({ start = 1, end = 9 })', { field })).toBe(true);
             expect(domql.query('field { value = it.value, selection = it.selection }', { field }).evaluate()).toEqual({ value: 'final', selection: { start: 1, end: 5 } });
         });
 
         it('answers false for a field of a type the selection API excludes, as a number field', async () => {
             document.body.innerHTML = '<input id="field" type="number" value="12">';
 
-            expect(await execute('field.writeSelection({ start = 0, end = 1 })', { field: document.getElementById('field') })).toBe(false);
+            expect(await execute('field.select({ start = 0, end = 1 })', { field: document.getElementById('field') })).toBe(false);
         });
 
-        it('fails to write a file input\'s value other than the empty string, which the browser refuses', async () => {
+        it('fails to replace a file input\'s value with any but the empty string, which the browser refuses', async () => {
             document.body.innerHTML = '<input id="picker" type="file">';
 
             const picker = document.getElementById('picker');
 
-            expect((await execute('picker.writeValue("x")', { picker }).catch(error => error)).cause.name).toBe('InvalidStateError');
-            expect(await execute('picker.writeValue("")', { picker })).toBe('');
+            expect((await execute('picker.replaceValue("x")', { picker }).catch(error => error)).cause.name).toBe('InvalidStateError');
+            expect(await execute('picker.replaceValue("")', { picker })).toBe('');
         });
 
         it('places the selection at offsets in the text of an editing host\'s nested elements', async () => {
@@ -383,7 +387,7 @@ describe('Executions in a browser', () => {
 
             const editor = document.getElementById('editor');
 
-            expect(await execute('editor.writeSelection({ start = 5, end = 9 })', { editor })).toBe(true);
+            expect(await execute('editor.select({ start = 5, end = 9 })', { editor })).toBe(true);
             expect(document.getSelection().getRangeAt(0).toString()).toBe('woth');
             expect(domql.query('editor.selection', { editor }).evaluate()).toEqual({ start: 5, end: 9 });
         });
@@ -609,7 +613,7 @@ describe('Executions in a browser', () => {
 
             // Opening, then focusing, in one task: the field is rendered once the dialog is open, so focus lands.
             const opened = execute('dialog.showModal()', { dialog });
-            const focused = execute('field.takeFocus()', { field });
+            const focused = execute('field.focus()', { field });
 
             expect(await opened).toBe(true);
             expect(await focused).toBe(true);
@@ -619,7 +623,7 @@ describe('Executions in a browser', () => {
             field.blur();
 
             // Focusing, then opening: the field in a closed dialog is rendered nowhere as focusing is carried out.
-            const unfocused = execute('field.takeFocus()', { field });
+            const unfocused = execute('field.focus()', { field });
             const reopened = execute('dialog.showModal()', { dialog });
 
             expect(await unfocused).toBe(false);

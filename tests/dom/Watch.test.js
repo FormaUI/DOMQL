@@ -470,13 +470,13 @@ describe('Watch', () => {
         });
     });
 
-    describe('a Boolean function', () => {
+    describe('a state', () => {
         it.each([
-            ['called', 'panel:lit()'],
-            ['called through a reference bound to its receiver', 'let lit = panel:lit\nreturn lit()'],
+            ['read where it stands', 'panel:lit'],
+            ['read as a condition', 'if panel:lit then true else false end'],
         ])('follows the observations its own declaration names, %s', async (_, body) => {
             isolated.registerModule(isolated.createModule('Lit', {
-                types: [elementExtension('Lit', [{ name: 'lit', kind: 'function', result: 'Boolean', parameters: [], updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: ['data-lit'] }] }, impl: ({ receiver: element }) => element.hasAttribute('data-lit') }])],
+                types: [elementExtension('Lit', [{ name: 'lit', kind: 'property', result: 'Boolean', updates: { changes: 'observable', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: ['data-lit'] }] }, impl: ({ receiver: element }) => element.hasAttribute('data-lit') }])],
             }));
             watch(`import Lit\n${body}`, { panel });
             await settle();

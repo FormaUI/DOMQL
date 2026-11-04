@@ -291,19 +291,19 @@ describe('QueryEvaluator', () => {
         });
     });
 
-    describe('tests and conditions', () => {
+    describe('states', () => {
         it('answers is and has', () => {
             document.body.insertAdjacentHTML('beforeend', '<button id="b" disabled></button><input id="i" readonly><textarea id="t"></textarea><div id="e" contenteditable="true"><span id="s"></span></div><div inert><div id="n" contenteditable="true"></div></div>');
             const element = id => document.getElementById(id);
 
-            expect(read('b.disabled()', { b: element('b') })).toBe(true);
-            expect(read('panel.disabled()', { panel })).toBe(false);
-            expect(read('i.readonly()', { i: element('i') })).toBe(true);
-            expect(read('i.textEditable()', { i: element('i') })).toBe(false);
-            expect(read('t.textEditable()', { t: element('t') })).toBe(true);
-            expect(read('s.textEditable()', { s: element('s') })).toBe(true);
-            expect(read('n.textEditable()', { n: element('n') })).toBe(false);
-            expect(read('panel.textEditable()', { panel })).toBe(false);
+            expect(read('b.disabled', { b: element('b') })).toBe(true);
+            expect(read('panel.disabled', { panel })).toBe(false);
+            expect(read('i.readonly', { i: element('i') })).toBe(true);
+            expect(read('i.textEditable', { i: element('i') })).toBe(false);
+            expect(read('t.textEditable', { t: element('t') })).toBe(true);
+            expect(read('s.textEditable', { s: element('s') })).toBe(true);
+            expect(read('n.textEditable', { n: element('n') })).toBe(false);
+            expect(read('panel.textEditable', { panel })).toBe(false);
             expect(read('panel.hasChildren', { panel })).toBe(true);
             expect(read('item.hasChildren', { item: items[0] })).toBe(false);
         });
@@ -317,11 +317,11 @@ describe('QueryEvaluator', () => {
             const button = document.createElement('button');
             document.body.append(button);
 
-            expect(read('button.focus()', { button })).toBe(false);
+            expect(read('button.focused', { button })).toBe(false);
 
             button.focus();
 
-            expect(read('button.focus()', { button })).toBe(true);
+            expect(read('button.focused', { button })).toBe(true);
         });
 
         it('reads the document\'s focused element, null where its body has focus', () => {
@@ -341,15 +341,15 @@ describe('QueryEvaluator', () => {
         it('answers whether an element is focusable, by its kind, its tabindex and its state', () => {
             document.body.innerHTML = '<button id="b"></button><button id="off" disabled></button><div id="d"></div><div id="t" tabindex="-1"></div><a id="a"></a><a id="h" href="#"></a><input id="i" type="hidden">';
 
-            const focusable = id => read('e.focusable()', { e: document.getElementById(id) });
+            const focusable = id => read('e.focusable', { e: document.getElementById(id) });
 
             expect(['b', 'off', 'd', 't', 'a', 'h', 'i'].map(focusable)).toEqual([true, false, false, true, false, true, false]);
-            expect(read('e.focusable()', { e: document.createElement('button') })).toBe(false);
+            expect(read('e.focusable', { e: document.createElement('button') })).toBe(false);
         });
 
-        it('answers the document\'s conditions', () => {
-            expect(read('Domql.document.visible()')).toBeTypeOf('boolean');
-            expect(read('Domql.document.focus()')).toBeTypeOf('boolean');
+        it('answers the document\'s states', () => {
+            expect(read('Domql.document.visible')).toBeTypeOf('boolean');
+            expect(read('Domql.document.focused')).toBeTypeOf('boolean');
         });
 
         it('gives a member the document and the window it is read in where an argument names a root', () => {
@@ -413,12 +413,12 @@ describe('QueryEvaluator', () => {
 
         it('test the implicit parameter inside an object expression and an expression argument', () => {
             expect(read('panel { attached = it.attached, empty = it.hasChildren }', { panel })).toEqual({ attached: true, empty: true });
-            expect(read('panel.children.where(it.attached and it.focus()).count', { panel })).toBe(0);
+            expect(read('panel.children.where(it.attached and it.focused).count', { panel })).toBe(0);
         });
 
-        it('read a test by reference, and a member by the name the bindings hold', () => {
-            // A reference to a module's function takes its receiver first; Domql.focus alone names Element's and Document's, so it would be ambiguous.
-            expect(read('let isFocused = Domql.focusWithin\nreturn isFocused(panel) or panel.[other]', { panel, other: 'attached' })).toBe(true);
+        it('read a state through its module, its receiver first, and a member by the name the bindings hold', () => {
+            expect(read('Domql.focusWithin(panel) or panel.[other]', { panel, other: 'attached' })).toBe(true);
+            expect(read('Domql.focused(Domql.document) or panel.[other]', { panel, other: 'focusWithin' })).toBeTypeOf('boolean');
         });
 
         it('answer whether a subject is null with is null, never null itself', () => {
@@ -621,7 +621,7 @@ describe('QueryEvaluator', () => {
         it('answers whether a field is autofilled, which nothing has filled', () => {
             document.body.innerHTML = '<input id="field">';
 
-            expect(read('e.autofilled()', { e: document.getElementById('field') })).toBe(false);
+            expect(read('e.autofilled', { e: document.getElementById('field') })).toBe(false);
         });
     });
 
@@ -804,7 +804,7 @@ describe('QueryEvaluator', () => {
             expect(read('Domql.window.size.width')).toBeTypeOf('number');
             expect(read('Domql.window.devicePixelRatio')).toBeTypeOf('number');
             expect(read('Domql.window.media["(min-width: 0px)"]')).toBe(true);
-            expect(read('Domql.window { share = it.share() }').share).toBeTypeOf('boolean');
+            expect(read('Domql.window { canShare = it.canShare, hasClipboard = it.hasClipboard }')).toEqual({ canShare: expect.any(Boolean), hasClipboard: expect.any(Boolean) });
         });
 
         it('reads the window it is given', () => {
@@ -1015,7 +1015,7 @@ describe('QueryEvaluator evaluation', () => {
         });
 
         it('stand where each member is written, inside the items of a list and the operands of an or', () => {
-            const evaluation = evaluate('panel.all("i") { h = it.rect?.height, on = it.attached or it.focus() }', { panel });
+            const evaluation = evaluate('panel.all("i") { h = it.rect?.height, on = it.attached or it.focused }', { panel });
 
             expect(evaluation.dependencies.map(dependency => [dependency.member, dependency.pointer])).toEqual([
                 ['all', '/expression/context'],
@@ -1083,12 +1083,12 @@ describe('QueryEvaluator evaluation', () => {
             expect(membersOf(evaluate('if on then panel.size else panel.clientSize end', { panel, on: false }))).toEqual(['clientSize']);
         });
 
-        it('include the tests an or reached, and none it did not need', () => {
-            const reached = evaluate('panel.attached or panel.focus()', { panel });
-            const both = evaluate('panel.focus() or panel.attached', { panel });
+        it('include the states an or reached, and none it did not need', () => {
+            const reached = evaluate('panel.attached or panel.focused', { panel });
+            const both = evaluate('panel.focused or panel.attached', { panel });
 
             expect(membersOf(reached)).toEqual(['attached']);
-            expect(membersOf(both)).toEqual(['focus', 'attached']);
+            expect(membersOf(both)).toEqual(['focused', 'attached']);
         });
 
         it('are kept with the failure of an evaluation that recorded them before it failed', () => {

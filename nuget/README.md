@@ -2,9 +2,9 @@
 
 **A declarative approach to managing the DOM.**
 
-DOMQL is a JavaScript library for querying the DOM, allowing you to read information from a document once or observe it as it changes. This guide takes you from your first query to watching results, handling events and extending the library. Its queries are written in [Nexo](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/README.md).
+DOMQL is a JavaScript library for querying the DOM, allowing you to read information from a document once or observe it as it changes. This guide takes you from your first query to watching results, handling events and extending the library. Its queries are written in [Nexo](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/README.md).
 
-> **Beta:** no breaking redesign is planned, and a version that breaks what the one before it allowed says how to migrate. `formaui-net.DOMQL` is not yet published to NuGet. [Build the package locally](#install-and-load) to try it. The package distributes a JavaScript ES module; the API in this guide runs in JavaScript. Every example here runs on this beta. The runtime, `1.0.0-beta.1`, implements DOMQL's specification `1.0.0-beta.2` on Nexo's language `1.0.0-beta.40`, definition version 38. [The status overview](https://github.com/FormaUI/DOMQL/blob/main/docs/features-status.md) says what is implemented and what is being built.
+> **Beta:** no breaking redesign is planned, and a version that breaks what the one before it allowed says how to migrate. `formaui-net.DOMQL` is not yet published to NuGet. [Build the package locally](#install-and-load) to try it. The package distributes a JavaScript ES module; the API in this guide runs in JavaScript. Every example here runs on this beta. The runtime, `1.0.0-beta.1`, implements DOMQL's specification `1.0.0-beta.2` on Nexo's language `1.0.0-beta.41`, definition version 38. [The status overview](https://github.com/FormaUI/DOMQL/blob/main/docs/features-status.md) says what is implemented and what is being built.
 
 ## In this guide
 
@@ -576,7 +576,7 @@ Null means a value is missing or unavailable. Use `?.` to read through a value t
 
 ```js
 domql.query(
-    'panel.first("input")?.disabled() ?? false',
+    'panel.first("input")?.disabled ?? false',
     { panel }
 ).evaluate();
 // false: the example panel has no input.
@@ -606,23 +606,27 @@ domql.query(
 
 Null does not hide an invalid query. An unknown member or incompatible argument remains an error.
 
-### Test a condition
+### Read a state
 
-An element's state that the user or the browser changes, such as whether it is checked, disabled or focused, is a condition. Test it with its Boolean function, which follows the browser's own rules, and the matching ARIA state through `.aria`:
+An element's state that the user or the browser changes, such as whether it is checked, disabled or focused, is a Boolean property, read without a call. It follows the browser's own rules, and the matching ARIA state is read through `.aria`:
 
 ```domql
-control { checked = it.checked(), ariaChecked = it.aria.checked() }
+control { checked = it.checked, ariaChecked = it.aria.checked }
 ```
 
-`.checked()` is true for a checked checkbox or radio button, or a selected option, as `:checked` matches. `.aria.checked()` is true only where `aria-checked` is `"true"`; read `it.aria["checked"]`, the attribute's own text as `it["aria-checked"]` reads it, or null where it is absent, to tell `"mixed"` from `"false"`. The two never stand in for each other, so write `it.checked() or it.aria.checked()` where either counts. Elements answer `disabled()`, `readonly()`, `textEditable()`, `hover()`, `popoverOpen()`, `checked()`, `focus()` and `focusWithin()`; the document `visible()` and `focus()`; and the window `share()` and `clipboard()`, whether the browser offers each API.
+`.checked` is true for a checked checkbox or radio button, or a selected option, as `:checked` matches. `.aria.checked` is true only where `aria-checked` is `"true"`; read `it.aria["checked"]`, the attribute's own text as `it["aria-checked"]` reads it, or null where it is absent, to tell `"mixed"` from `"false"`. The two never stand in for each other, so write `it.checked or it.aria.checked` where either counts.
 
-A Boolean function can be called through DOMQL's module as well, its receiver its first argument: `Domql.checked(it)` is `it.checked()`.
+- **Elements:** `disabled`, `readonly`, `textEditable`, `hovered`, `popoverOpen`, `checked`, `indeterminate`, `autofilled`, `focused` and `focusWithin`.
+- **The document:** `visible` and `focused`.
+- **The window:** `canShare` and `hasClipboard`, whether the browser offers each API.
 
-`displayed()` asks whether the browser renders a box for an element, and `focusable()` whether it can take focus. With the document's `activeElement`, the focused element through open shadow roots, a query finds where focus can go and where it is:
+A state can be read through DOMQL's module as well, its receiver its first argument: `Domql.checked(it)` is `it.checked`. Filter by one with a body, `rows.where(it.checked)`: only a function has a reference, so `rows.where(Domql.checked)` is refused. A member that does something is a function, called with its parentheses, as the executions are: `it.focus()` moves focus to the element, and `it.focused` says whether it has it.
+
+`displayed` asks whether the browser renders a box for an element, and `focusable` whether it can take focus. With the document's `activeElement`, the focused element through open shadow roots, a query finds where focus can go and where it is:
 
 ```domql
 panel {
-    stops = it.all("*").where(it.focusable()).count,
+    stops = it.all("*").where(it.focusable).count,
     focused = Domql.document.activeElement?["id"],
     rtl = it.direction == "rtl"
 }
@@ -639,7 +643,7 @@ panel.parent == null
 Use `and`, `or` and `not` for Boolean logic:
 
 ```domql
-input.disabled() or (input.readonly() and not input.textEditable())
+input.disabled or (input.readonly and not input.textEditable)
 ```
 
 `not` binds more tightly than `and`, which binds more tightly than `or`. Evaluation stops as soon as an operand determines the answer: the operands after it are still validated, but are not evaluated or observed and cannot fail at run time.
@@ -655,7 +659,7 @@ In the second line, `input.rect` reads the input with a plain `.`, because the r
 
 `or` falls back for `null` and `false`, and `??` for `null` alone: `false or true` is `true`, and `false ?? true` is `false`.
 
-DOMQL types every expression, so the values `and` and `or` give must share a type where the value is used. A condition, the operand of `not` and an operand of another `and` or `or` test truthiness alone, so `it.disabled() and "locked" or "open"` is a `String`: the `false` that selects `"open"` reaches nothing. `it.disabled() and it`, used as a value, could give `false` or an element, and is refused; write `if it.disabled() then it else null end` if `null` is an acceptable alternative. Use a conditional whenever the chosen value may itself be `false` or `null`: `c and x or y` gives `y` where `x` is falsey, which `if c then x else y end` does not.
+DOMQL types every expression, so the values `and` and `or` give must share a type where the value is used. A condition, the operand of `not` and an operand of another `and` or `or` test truthiness alone, so `it.disabled and "locked" or "open"` is a `String`: the `false` that selects `"open"` reaches nothing. `it.disabled and it`, used as a value, could give `false` or an element, and is refused; write `if it.disabled then it else null end` if `null` is an acceptable alternative. Use a conditional whenever the chosen value may itself be `false` or `null`: `c and x or y` gives `y` where `x` is falsey, which `if c then x else y end` does not.
 
 Mixing `??` with `==`, `!=`, `not`, `and` or `or` requires parentheses around one of the expressions.
 
@@ -665,9 +669,9 @@ Use `if`, `then` and `else` to choose between values. Add `elseif` for another c
 
 ```domql
 input {
-    state = if it.disabled() then
+    state = if it.disabled then
         "locked"
-    elseif it.readonly() then
+    elseif it.readonly then
         "read"
     else
         "open"
@@ -992,7 +996,7 @@ Modules can also declare Boolean members, properties and functions whose result 
 
 A member the host invokes, `invokedBy: 'host'`, is a host call that DOMQL carries out: an event source, `requestKind: 'subscription'`, or an execution, `requestKind: 'execution'`, which runs `once` or `continuous` as its `executionMode` says. An event source's implementation receives the receiver, arguments, environment and an event-delivery callback, as `{ receiver, args, env, deliver }`, and returns an object with a `stop` method to end listening. Each event is captured as the type its declaration's result names, and a module adds event types of its own as mappings of DOMQL's type selector `event`, `{ selector: 'event', key, type }`, each naming the type its events are captured as.
 
-[Nexo's modules](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/runtime/modules.md#modules) specify the full extension contracts. The next section shows execution modules.
+[Nexo's modules](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/runtime/modules.md#modules) specify the full extension contracts. The next section shows execution modules.
 
 ### Bind data as a module's type
 
@@ -1076,7 +1080,7 @@ DOMQL makes a few changes itself, each one browser call that answers what it did
 list.scrollTo({ block = 0, behavior = "smooth" })
 ```
 
-`dispatch({ type, bubbles, detail })` dispatches an event of the page's own and answers whether a listener cancelled it. `takeFocus()` focuses an element and answers whether focus landed on it, and `showPopover()`, `hidePopover()`, `showModal()` and `close()` show and hide popovers and dialogs, each answering whether it changed them; `capturePointer({ pointerId })` and `releasePointer({ pointerId })` capture a pointer while it is pressed; `Domql.document.selection?.select({ node })`, `selectContents` and `collapse` place the document's selection; and `writeValue`, `writeIndeterminate` and `writeSelection` write a control's state as the page's code does, firing no event. `Domql.window.writeClipboard(text)`, `readClipboard()`, `download({ … })`, `print()` and `requestShare({ … })`, and a media element's `play()`, answer how the browser took the request, as `"refused"` where it wants the user's activation, which a subscription's handler has while the event that called it lasts. `scrollTo` and `scrollBy` scroll an element or `Domql.window` along the axes of its writing mode, from the start of its content even under RTL, and answer whether it moved once the scroll has ended; `scrollIntoView` answers whether the element is in view then. `ownAttribute`, `ownClass`, `ownStyle`, `ownText` and `ownFileSource`, which shows a chosen file as an image's source, are continuous: `run()` holds an attribute, a class, an inline style property or the element's text at its value until the handle is disposed, which writes back the value it found unless `restore = false`, and `keep = true` writes it again before paint where another writer, as a framework re-rendering the element, changes it, yielding to a writer that writes its own value again in answer. `ownText` writes into the text node the element holds, in place, so a framework that rendered the node keeps it. The specification lists every [built-in execution](https://github.com/FormaUI/DOMQL/blob/main/spec/vocabulary.md#built-in-executions) and what each needs of the user.
+`dispatch({ type, bubbles, detail })` dispatches an event of the page's own and answers whether a listener cancelled it. `focus()` focuses an element and answers whether focus landed on it, and `showPopover()`, `hidePopover()`, `showModal()` and `close()` show and hide popovers and dialogs, each answering whether it changed them; `capturePointer({ pointerId })` and `releasePointer({ pointerId })` capture a pointer while it is pressed; `Domql.document.selection?.select({ node })`, `selectContents` and `collapse` place the document's selection; and `replaceValue(value)`, `markIndeterminate()`, `clearIndeterminate()` and `select({ start, end })` write a control's state as the page's code does, firing no event. A media element's `pause()`, `mute()` and `unmute()` answer whether they changed it. `Domql.window.writeToClipboard(text)`, `readFromClipboard()`, `download({ … })`, `print()` and `requestShare({ … })`, and a media element's `play()`, answer how the browser took the request, as `"refused"` where it wants the user's activation, which a subscription's handler has while the event that called it lasts. `scrollTo` and `scrollBy` scroll an element or `Domql.window` along the axes of its writing mode, from the start of its content even under RTL, and answer whether it moved once the scroll has ended; `scrollIntoView` answers whether the element is in view then. `ownAttribute`, `ownClass`, `ownStyle`, `ownText` and `ownFileSource`, which shows a chosen file as an image's source, are continuous: `run()` holds an attribute, a class, an inline style property or the element's text at its value until the handle is disposed, which writes back the value it found unless `restore = false`, and `keep = true` writes it again before paint where another writer, as a framework re-rendering the element, changes it, yielding to a writer that writes its own value again in answer. `ownText` writes into the text node the element holds, in place, so a framework that rendered the node keeps it. The specification lists every [built-in execution](https://github.com/FormaUI/DOMQL/blob/main/spec/vocabulary.md#built-in-executions) and what each needs of the user.
 
 ### Execute once
 
@@ -1534,9 +1538,9 @@ filtered.dispose();
 ## Learn more
 
 - [Repository README](https://github.com/FormaUI/DOMQL): what DOMQL is for, what is built, and how to build and test it.
-- [Nexo specification](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/spec/README.md): the language DOMQL is written in, its syntax, types, null semantics, imports and extensions, and the runtime contracts of its modules.
+- [Nexo specification](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/README.md): the language DOMQL is written in, its syntax, types, null semantics, imports and extensions, and the runtime contracts of its modules.
 - [DOMQL specification](https://github.com/FormaUI/DOMQL/blob/main/spec/README.md): queries, the DOM's vocabulary, evaluating and watching a query, its results, events, executions, and the API.
-- [DOMQL design](https://github.com/FormaUI/DOMQL/blob/main/docs/domql-design.md): how DOMQL is built, and the decisions it did not take, and the [Nexo design](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.1/docs/nexo-design.md): how the language and its runtime are built.
+- [DOMQL design](https://github.com/FormaUI/DOMQL/blob/main/docs/domql-design.md): how DOMQL is built, and the decisions it did not take, and the [Nexo design](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/docs/nexo-design.md): how the language and its runtime are built.
 
 - [Changelog](https://github.com/FormaUI/DOMQL/blob/main/CHANGELOG.md): each release of the package and what it changed.
 - [Status](https://github.com/FormaUI/DOMQL/blob/main/docs/features-status.md): what is implemented, what is being built, and what remains.
