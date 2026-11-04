@@ -4,24 +4,62 @@
 <a id="the-api"></a>
 <a id="callers"></a>
 
-A caller reaches DOMQL through one object, `domql`: it makes a query object from text or a definition, binding its parameters, and carries out every operation through it. It evaluates a query once or watches it, subscribes to a subscription, executes a once execution, or runs, updates and disposes a continuous one; a watch's caller also chooses its schedule, its update strategy and whether it accepts partial observation. An operation that keeps running answers a handle, through which its caller follows it and ends it. The package exports `domql` and `NexoError` by name, and its TypeScript declarations type a query by its result, `domql.query<T>(…)`, and each handle by what it delivers.
+A caller uses DOMQL through one object, `domql`. A query is a short script, written as text, that reads the page, listens to it or changes it, and the values its names stand for are given beside it, as its **bindings**:
 
 ```js
-const panelQuery = domql.query("panel { size = it.size }", { panel });
-
-const result = panelQuery.evaluate();               // Its result, once.
-const width = panelQuery.select("size", "width");  // A part of its result, a selection.
-const watch = panelQuery.watch({ signal });         // A handle that keeps its result current until the signal aborts.
+await domql.executeAsync('field.focus()', { field }); // Moves the focus to the element `field` is bound to.
 ```
+
+Here `'field.focus()'` is the query, and `{ field }` binds the name `field` in it to an element of the page.
 
 In this document:
 
-1. [Entry points and operations](#api-entry-points-and-operations)
-2. [Objects](#api-objects)
-3. [Events of a handle](#events-of-a-handle)
-4. [Order across handles](#api-order-across-handles)
-5. [Lifetimes](#lifetimes)
-6. [Errors](#api-errors)
+1. [Two ways to run a query](#api-two-ways-to-run-a-query)
+2. [Entry points and operations](#api-entry-points-and-operations)
+3. [Objects](#api-objects)
+4. [Events of a handle](#events-of-a-handle)
+5. [Order across handles](#api-order-across-handles)
+6. [Lifetimes](#lifetimes)
+7. [Errors](#api-errors)
+
+<a id="api-two-ways-to-run-a-query"></a>
+<a id="api-carrying-a-request-out-at-once"></a>
+
+## Two ways to run a query
+
+A query runs in one of two ways, and runs the same in both:
+
+- **Directly, in one call,** for a query used once: `domql.evaluate(text, bindings)` answers its result.
+- **Through a query object,** for a query used again: `domql.query(text, bindings)` makes the object, which holds the query and its bindings, and the object's methods run it, as often as needed. `domql.query(text, bindings).evaluate()` answers what `domql.evaluate(text, bindings)` does.
+
+```js
+// Once, directly.
+const size = domql.evaluate('panel.size', { panel });
+
+// Again and again, through a query object.
+const panelQuery = domql.query('panel { size = it.size }', { panel });
+const now = panelQuery.evaluate();                 // Its result now.
+const width = panelQuery.select('size', 'width');  // Its width alone: width.evaluate() runs the query and answers it.
+const watch = panelQuery.watch({ signal });        // Its result kept current until the signal aborts.
+```
+
+Both ways offer the same six operations. Which one a query takes follows from what it does: a query that reads the page is evaluated or watched, one that listens to it is subscribed to, and one that changes it is executed or run.
+
+| Operation | What it does | Returns |
+| --- | --- | --- |
+| `evaluate` | Runs a query that reads the page, once | Its result |
+| `evaluateAsync` | Runs it once, first waiting for the values that arrive later from an observer, as whether an element is in view | A promise of its result |
+| `watch` | Keeps its result current as the page changes | A `DomqlWatch` |
+| `subscribe` | Calls a handler with each event a query listens for, as each click | A `DomqlEventListener` |
+| `executeAsync` | Makes a change once, as moving the focus | A promise of what the change answers |
+| `run` | Starts a change that keeps running, as a trap holding the focus in a dialog, until its handle ends it | A `DomqlExecutionHandle` |
+
+- **Their arguments.** Run directly, an operation takes the query's text, or its [definition](queries.md#making-a-query), then its bindings, then its options: `domql.watch(text, bindings, options)`. `subscribe` takes its handler after the bindings: `domql.subscribe(text, bindings, handler, options)`. Through a query object, an operation takes its options alone, `query.watch(options)`, `subscribe` its handler first, `query.subscribe(handler, options)`.
+- **Their options.** Each operation's own are listed [below](#api-entry-points-and-operations). Run directly, an operation takes the query object's own option too, `types`, which [declares a binding's type](queries.md#making-a-query-declared-types): `domql.evaluate(text, bindings, { types, window })`.
+- **Their failures.** An operation whose name ends in `Async` reports every failure by rejecting its promise, a text that isn't a valid query included. The others throw it.
+- **When to keep a query object.** To run a query again, to bind it to other values with `query.with(bindings)`, to select part of its result with `query.select(...path)`, or to check it with `query.resolve()` before running it. Running a query directly costs no more than through an object: DOMQL reuses the work of reading and checking a text it has seen.
+
+An operation that keeps running, a watch, a subscription or a running change, answers a **handle**, through which its caller follows it and ends it. The package exports `domql` and `NexoError` by name, and its TypeScript declarations type a query by its result, `domql.query<T>(…)` and `domql.evaluate<T>(…)`, and each handle by what it delivers.
 
 <a id="api-entry-points-and-operations"></a>
 
@@ -32,6 +70,7 @@ Each entry point and operation is listed here with what it takes, and the sectio
 | Entry point or operation | Meaning |
 | --- | --- |
 | `domql.query(text, bindings?, options?)`, `domql.query(definition, bindings?, options?)` | Makes a query object, binding its parameters, each of the type `options.types` [declares](queries.md#making-a-query-declared-types) for it, as [making a query](queries.md#making-a-query) sets out |
+| `domql.evaluate(text, bindings?, options?)`, and `domql.evaluateAsync`, `domql.watch`, `domql.executeAsync` and `domql.run` alike; `domql.subscribe(text, bindings, handler, options?)` | Runs a query directly, in one call, as the query object `domql.query(text, bindings)` makes runs it, as [two ways to run a query](#api-two-ways-to-run-a-query) sets out; each takes a definition in place of the text too |
 | `query.definition` | The query's immutable definition, without its bindings |
 | `query.with(bindings)` | A new query with the same definition, bound to these bindings, of the types the query declares |
 | `query.resolve(options?)` | Resolves and types a request without evaluating anything, as [resolution](queries.md#queries-resolution) sets out |
@@ -42,7 +81,6 @@ Each entry point and operation is listed here with what it takes, and the sectio
 | `query.subscribe(handler, options?)` | Subscribes to a subscription, answering a `DomqlEventListener`, as [subscribing](events.md#subscribing) sets out |
 | `query.executeAsync(options?)` | Carries out a once execution, answering a promise of its result, as [executing once](executions.md#executions-executing-once) sets out |
 | `query.run(options?)` | Starts a continuous execution, answering a `DomqlExecutionHandle`, as [running continuously](executions.md#executions-running-continuously) sets out |
-| `domql.evaluate(source, bindings?, options?)`, `domql.evaluateAsync`, `domql.watch`, `domql.executeAsync` and `domql.run`, alike, and `domql.subscribe(source, bindings, handler, options?)` | Carries a request out at once, as the query object `domql.query` makes of it would, as [carrying a request out at once](#api-carrying-a-request-out-at-once) sets out |
 | `domql.format(source)` | The canonical text of a text, a definition or a query object, as [formatting](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/runtime/definition.md#definition-canonical-text) sets out |
 | `domql.createModule(name, contents)` | Creates a module from its declarations, each that runs code carrying its implementation, as [extension modules](vocabulary.md#extension-modules) set out |
 | `domql.registerModule(module)` | Registers a module's declarations in the instance's registry, as [extension modules](vocabulary.md#extension-modules) set out |
@@ -51,19 +89,6 @@ Each entry point and operation is listed here with what it takes, and the sectio
 | `domql.info` | Which build this is and what it follows, in `versions`: `runtime`, the runtime release version, which the package and the bundle carry, its sources reporting the same; `specification`, the version of DOMQL's specification it follows; and `language`, the language specification version the Nexo runtime it runs on follows, its `nexo.info.versions.language` |
 
 Almost every operation answers directly, so the plain name is the synchronous one, and every operation that answers a promise takes the suffix `Async`, as `evaluateAsync`, `readyAsync`, `refreshAsync` and `executeAsync` do.
-
-<a id="api-carrying-a-request-out-at-once"></a>
-
-**Carrying a request out at once.** Each operation that carries a query out is an operation of the instance too, which takes the query's text or definition and its bindings first: `domql.executeAsync(source, bindings, options)` is `domql.query(source, bindings, { types }).executeAsync(options)`, and so are `evaluate`, `evaluateAsync`, `watch` and `run`, and `domql.subscribe(source, bindings, handler, options)`, `subscribe`'s.
-
-```js
-const focused = await domql.executeAsync('field.focus()', { field });
-const trap = domql.run('import FocusTraps\ndialog:focusTrap()', { dialog }, { signal });
-```
-
-- **Its options** hold the query's `types` beside the operation's own, which the operation is given without it; options that are no object reach the operation as they are, which refuses them.
-- **A failure** is the query's or the operation's, under its code. An operation answering a promise makes its query within it, so a request it can't make, its text invalid among them, rejects the promise, as every failure of such an operation does; the others throw it.
-- **A query object** is what a request kept for another operation needs: one evaluated again, bound anew with `with`, a part of it selected, or resolved. Carrying a request out at once costs what making its query does: Nexo keeps the definitions of the texts parsed most recently, and DOMQL the resolutions of each definition, as for every query.
 
 <a id="api-the-owner"></a>
 

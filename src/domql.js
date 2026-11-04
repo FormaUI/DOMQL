@@ -1011,7 +1011,7 @@ class Domql {
 }
 
 /**
- * Carries a request out at once, as the query object its text or definition makes with the bindings would: the options hold the query's `types` beside the operation's own, which it is given without them, and options that
+ * Runs a query directly, in one call, as the query object its text or definition makes with the bindings runs it: the options hold the query's `types` beside the operation's own, which it is given without them, and options that
  * are no object reach the operation as they are, which refuses them.
  */
 const carryOut = (source, bindings, options, operate, handler) => {
@@ -1024,7 +1024,7 @@ const carryOut = (source, bindings, options, operate, handler) => {
     return operate(Domql.query(source, bindings, { types }), operation, handler);
 };
 
-/** The operations a request is carried out with at once, each a query object's own. */
+/** The operations that run a query directly, each a query object's own. */
 const AT_ONCE = Object.freeze({
     evaluate: (query, options) => query.evaluate(options),
     evaluateAsync: (query, options) => query.evaluateAsync(options),
@@ -1035,7 +1035,7 @@ const AT_ONCE = Object.freeze({
 });
 
 /**
- * DOMQL: makes query objects, carries requests out at once as a query object would, formats requests, registers the modules that extend the vocabulary and loads those loaded on request, and says which build it is and
+ * DOMQL: makes query objects, runs queries directly as a query object runs them, formats requests, registers the modules that extend the vocabulary and loads those loaded on request, and says which build it is and
  * which specification it follows. An operation answering a promise makes its query within it, so a request it can't make rejects it, as every failure of such an operation does.
  */
 export const domql = Object.freeze({

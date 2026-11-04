@@ -94,7 +94,7 @@ Each feature, the contract that states it, its state in the implementation, and 
 | --- | --- | --- | --- |
 | Queries from text or a definition, `with`, `select` and `resolve` | [Queries](../spec/queries.md) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
 | Imports, `Domql` supplied to every query | [Its imports](../spec/queries.md#making-a-query-imports) | Implemented | [`alpha.278`](../VERSION-HISTORY.md#v1-0-0-alpha-278) |
-| A request carried out at once by the instance, `domql.executeAsync(text, bindings, options)` and each operation of a query alike | [Carrying a request out at once](../spec/api.md#api-carrying-a-request-out-at-once) | Implemented, as [D89](decisions.md#d89) records | [`beta.2`](../VERSION-HISTORY.md#v1-0-0-beta-2) |
+| A query run directly, in one call, `domql.executeAsync(text, bindings, options)` and each operation of a query object alike | [Two ways to run a query](../spec/api.md#api-two-ways-to-run-a-query) | Implemented, as [D89](decisions.md#d89) records | [`beta.2`](../VERSION-HISTORY.md#v1-0-0-beta-2) |
 | Bindings of the types a query declares, `domql.query(text, bindings, { types })` | [Declared types](../spec/queries.md#making-a-query-declared-types) | Implemented, as [D82](decisions.md#d82) records | [`beta.2`](../VERSION-HISTORY.md#v1-0-0-beta-2) |
 | Evaluating once, and waiting for maintained members | [Evaluation](../spec/evaluation.md) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
 | Watches, their dependencies and partial observation | [Watches](../spec/watches.md) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |

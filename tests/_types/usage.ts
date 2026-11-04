@@ -215,7 +215,7 @@ const moved: Promise<boolean> = domql.query<boolean>('import Steps\npanel:step("
 const stepped: Promise<boolean> = domql.query<boolean>('import Steps\npanel:step("back")', { panel }).executeAsync();
 const trap: DomqlExecutionHandle = domql.query('import Traps\ndialog:focusTrap()', { dialog: panel }).run({ window, signal });
 const trapping: 'ready' | 'disposed' = trap.status;
-// The instance carries a request out at once, as the query object it makes would, its query's declared types beside the operation's options.
+// A query run directly, as the query object `domql.query` makes runs it, its query's declared types beside the operation's options.
 const movedAtOnce: Promise<boolean> = domql.executeAsync<boolean>('import Steps\npanel:step("forward")', { panel }, { window, signal });
 const trapAtOnce: DomqlExecutionHandle = domql.run('import Traps\ndialog:focusTrap()', { dialog: panel }, { signal, types: { dialog: 'Domql.Element' } });
 const countedAtOnce: number = domql.evaluate<number>('panel.children.count', { panel }, { window });

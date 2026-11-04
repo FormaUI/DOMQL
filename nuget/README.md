@@ -888,8 +888,8 @@ Keep independent results in a top-level object, as above. If you instead write `
 | `query.subscribe(handler, options)` | Project events into data. Returns a listener with `status` and `dispose()`. |
 | `query.executeAsync(options)` | Carry out a module-defined once execution and return a promise of its projected result. |
 | `query.run(options)` | Start a module-defined continuous execution. Returns a handle with `status`, `update(bindings)`, `subscribe('error', handler)` and `dispose()`. |
-| `domql.evaluate(text, bindings, options)`, and `evaluateAsync`, `watch`, `executeAsync` and `run` alike | Carry a request out at once, as `domql.query(text, bindings).evaluate(options)` would. `options` also takes the query's `types`. Keep a query object to use it again. |
-| `domql.subscribe(text, bindings, handler, options)` | Subscribe at once, as `domql.query(text, bindings).subscribe(handler, options)` would. |
+| `domql.evaluate(text, bindings, options)`, and `evaluateAsync`, `watch`, `executeAsync` and `run` alike | Run a query directly, in one call: `domql.evaluate(text, bindings)` answers what `domql.query(text, bindings).evaluate()` does. `options` also takes the query's `types`. Keep a query object to run a query again. |
+| `domql.subscribe(text, bindings, handler, options)` | Subscribe directly, in one call, as `domql.query(text, bindings).subscribe(handler, options)` does. |
 | `domql.format(source)` | Return canonical query text from text, a definition or a query object; no bindings or registered vocabulary are needed. |
 | `domql.createModule(name, contents)` | Create an extension module. |
 | `domql.registerModule(module)` | Register a module for query resolution. |

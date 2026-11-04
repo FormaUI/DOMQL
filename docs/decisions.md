@@ -1386,18 +1386,18 @@ Each entry is one of three kinds:
 
 <a id="d89"></a>
 
-## D89 — The instance carries a request out at once
+## D89 — A query runs directly, in one call, or through a query object
 
 *November 4, 2026*
 
 - **Kind:** Contract, approved by the owner.
-- **Decision:** Each operation that carries a query out is an operation of the instance too, taking the query's text or definition and its bindings first: `domql.evaluate`, `evaluateAsync`, `watch`, `executeAsync` and `run` take `(source, bindings, options)`, and `domql.subscribe` takes `(source, bindings, handler, options)`. Each is exactly the query object's operation on the query `domql.query` makes: its options hold the query's `types` beside the operation's own, which the operation is given without it. An operation answering a promise makes its query within it, so a request it can't make rejects it.
+- **Decision:** A query runs in one of two ways: directly, in one call, or through the query object `domql.query` makes. Each operation that runs a query is an operation of `domql` too, taking the query's text or definition and its bindings first: `domql.evaluate`, `evaluateAsync`, `watch`, `executeAsync` and `run` take `(source, bindings, options)`, and `domql.subscribe` takes `(source, bindings, handler, options)`. Each is exactly the query object's operation on the query `domql.query` makes: its options hold the query's `types` beside the operation's own, which the operation is given without it. An operation answering a promise makes its query within it, so a request it can't make rejects it.
 - **Why:**
   - The owner's call: a request carried out once, as `field.focus()` or a dialog's focus trap, made a query object only to call one method on it, `domql.query('field.focus()', { field }).executeAsync()`.
-  - Every operation, not the executions alone, so the rule is one to remember: the instance carries out what a query object does.
+  - Every operation, not the executions alone, so the rule is one to remember: whatever a query object runs, `domql` runs directly.
   - It costs what making the query does, since Nexo keeps the definitions of the texts parsed most recently and DOMQL the resolutions of each definition.
   - An operation answering a promise reports every failure by rejecting it, a request it can't make among them, so a caller handles one path.
 - **Declined:**
   - Shortcuts for the executions alone, which the owner's examples named, leaving the reader to remember which operations have one.
   - Options of the query and of the operation as two arguments, `(source, bindings, queryOptions, options)`, since the query's take one key, `types`, which no operation takes.
-  - `with`, `select` and `resolve` on the instance, which make or read a query object rather than carry it out.
+  - `with`, `select` and `resolve` on `domql`, which make or read a query object rather than run a query.

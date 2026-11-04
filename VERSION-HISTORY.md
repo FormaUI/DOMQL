@@ -99,7 +99,7 @@ DOMQL moves to Nexo's language `1.0.0-beta.41`, by way of `1.0.0-beta.40`, as [D
 
 **Operations**
 
-- [The instance carries a request out at once](spec/api.md#api-carrying-a-request-out-at-once), as the query object `domql.query` makes would: `domql.evaluate`, `evaluateAsync`, `watch`, `executeAsync` and `run` take the request and its bindings, and `domql.subscribe` its handler after them, their options holding the query's `types` beside their own, as [D89](docs/decisions.md#d89) records.
+- [A query runs directly, in one call](spec/api.md#api-two-ways-to-run-a-query), as the query object `domql.query` makes runs it: `domql.evaluate`, `evaluateAsync`, `watch`, `executeAsync` and `run` take the request and its bindings, and `domql.subscribe` its handler after them, their options holding the query's `types` beside their own, as [D89](docs/decisions.md#d89) records.
 
 **Watches**
 

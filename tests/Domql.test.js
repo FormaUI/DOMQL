@@ -1319,7 +1319,7 @@ describe('domql evaluates', () => {
         });
     });
 
-    describe('a request carried out at once', () => {
+    describe('a query run directly', () => {
         it('is evaluated, waited for and watched by the instance, as the query object it makes is', async () => {
             expect(domql.evaluate('panel.children.count', { panel })).toBe(3);
             expect(domql.evaluate('Domql.window.devicePixelRatio', undefined, { window: { document, devicePixelRatio: 3, get window() { return this; } } })).toBe(3);

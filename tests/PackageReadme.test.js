@@ -150,7 +150,7 @@ describe('the package README', () => {
             },
         });
         const query = (source, bindings, options) => kept(real.query(source, bindings, options));
-        // The instance carries a request out at once as the query object it makes would, so an example doing so is carried out through a query kept as every other is, its options split as the instance splits them.
+        // A query run directly runs as the query object `domql.query` makes runs it, so an example running one directly runs it through a query kept as every other is, its options split as `domql` splits them.
         const atOnce = (source, bindings, options, operate) => {
             if (options === null || typeof options !== 'object' || !Object.hasOwn(options, 'types')) {
                 return operate(query(source, bindings), options);
