@@ -28,6 +28,14 @@ export class Behaviors {
     #listening = new Map();
 
     /**
+     * The rejection an occurrence no subscription hears answers, by the running instance and the source it is delivered to, `DOMQL5017` located at the behavior: made, handled, as the first such occurrence is
+     * delivered, and answered for each after it, since what it says, the source, the behavior and where it stands, is the same for each. It is let go of as a subscription to the source starts listening for the
+     * instance's owner on the receiver it runs on, and as the instance ends, after which an occurrence rejects otherwise.
+     * @type {WeakMap<RunningBehavior, Map<string, Promise<never>>>}
+     */
+    #unheard = new WeakMap();
+
+    /**
      * What each observation of the state behaviors offer calls, by the behavior's name and then the receiver it observes, so a behavior of that name starting, updated, moving or ending there, or saying the state it offers
      * changed, tells it. An entry is made as an observation starts and released as the last of its receiver stops.
      * @type {Map<string, Map<unknown, (() => void)[]>>}
@@ -68,6 +76,7 @@ export class Behaviors {
 
         running.hasEnded = true;
         this.#remove(running);
+        this.#unheard.delete(running);
         this.#tell(running.name, running.receiver);
     }
 
@@ -158,6 +167,11 @@ export class Behaviors {
 
         receivers.push(receive);
 
+        // The instances running for the owner on the receiver are heard from now on, so the rejection kept for an occurrence no subscription heard goes.
+        for (const running of Behaviors.#entriesAt(this.#running, Behaviors.#keyOf(module, behavior), owner, receiver) ?? []) {
+            this.#unheard.get(running)?.delete(source);
+        }
+
         return {
             stop: () => {
                 const index = receivers.indexOf(receive);
@@ -183,11 +197,33 @@ export class Behaviors {
         const receivers = this.#listening.get(Behaviors.#keyOf(running.module, running.name, source))?.get(running.owner)?.get(running.receiver);
 
         if (receivers === undefined) {
-            return Promise.reject(NexoError.evaluation('DOMQL5017', `No subscription of '${source}' listens for this owner on this receiver, so no subscriber applied the occurrence '${running.name}' delivered`, location));
+            return this.#unheardBy(running, source, location);
         }
 
         // A handler that subscribes or stops another as it receives the occurrence changes who hears the next, never this one.
         return Promise.all([...receivers].map(receive => receive(value))).then(() => undefined);
+    }
+
+    /** The rejection of an occurrence of the running instance's source that no subscription hears, made at the first and answered until a subscription to the source listens for it. */
+    #unheardBy(running, source, location) {
+        let rejections = this.#unheard.get(running);
+
+        if (rejections === undefined) {
+            rejections = new Map();
+            this.#unheard.set(running, rejections);
+        }
+
+        let rejected = rejections.get(source);
+
+        if (rejected === undefined) {
+            rejected = Promise.reject(NexoError.evaluation('DOMQL5017', `No subscription of '${source}' listens for this owner on this receiver, so no subscriber applied the occurrence '${running.name}' delivered`, location));
+
+            // Handled as it is made, so a behavior that leaves it is never reported for it.
+            rejected.catch(() => {});
+            rejections.set(source, rejected);
+        }
+
+        return rejected;
     }
 
     /** Takes the entry out of its receiver's instances, releasing every map it leaves empty. */

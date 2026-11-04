@@ -554,6 +554,36 @@ describe('Behaviors\' occurrences', () => {
             expect(reported).toEqual([]);
         });
 
+        it('rejects each occurrence no subscription hears with DOMQL5017 located at the behavior, until one subscribes, and again once it ends, reporting none it leaves, and with DOMQL5018 once the behavior ends', async () => {
+            const unheard = {
+                kind: 'evaluation',
+                code: 'DOMQL5017',
+                message: 'No subscription of \'drops\' listens for this owner on this receiver, so no subscriber applied the occurrence \'zone\' delivered (line 2, column 1, at /expression/chain)',
+                location: { pointer: '/expression/chain', offset: 13, line: 2, column: 1 },
+            };
+            const failureOf = promise => promise.then(() => 'applied', ({ kind, code, message, location }) => ({ kind, code, message, location }));
+
+            const zoneOf = run({ zone });
+
+            expect(await Promise.all([failureOf(zones[0].drop('a')), failureOf(zones[0].drop('b')), failureOf(zones[0].hover('c'))])).toEqual([unheard, unheard, { ...unheard, message: unheard.message.replace('\'drops\'', '\'hovers\'') }]);
+
+            const drops = listen('drops', { zone });
+
+            expect(await failureOf(zones[0].drop('d'))).toBe('applied');
+
+            drops.listener.dispose();
+            zones[0].drop('e');
+
+            expect(await failureOf(zones[0].drop('f'))).toEqual(unheard);
+
+            zoneOf.dispose();
+
+            expect(await failureOf(zones[0].drop('g'))).toEqual({ ...unheard, code: 'DOMQL5018', message: 'The execution \'zone\' has ended, and delivers nothing more (line 2, column 1, at /expression/chain)' });
+            expect(drops.received).toEqual([{ key: 'd', label: 'files' }]);
+            await new Promise(resolve => setTimeout(resolve, 0));
+            expect(reported).toEqual([]);
+        });
+
         it('rejects where a subscription fails to apply it, with DOMQL5020 whose cause is the failure, the handler\'s going to the window\'s error reporting as well', async () => {
             const thrown = new Error('broken handler');
 

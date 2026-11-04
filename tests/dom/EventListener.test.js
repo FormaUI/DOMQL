@@ -708,6 +708,23 @@ describe('EventListener', () => {
             expect(heard).toEqual([1, 3, 4, 5]);
         });
 
+        it('rejects the acknowledgment of each event it drops, however many an interval drops, with DOMQL5024 located at the subscription', async () => {
+            const { source, heard } = subscribeBeats({ throttle: 100 });
+            const outcomes = [1, 2, 3, 4, 5].map(n => source.deliver({ n }).then(() => 'applied', ({ kind, code, message, location }) => ({ kind, code, message, location })));
+
+            await vi.advanceTimersByTimeAsync(100);
+
+            const dropped = {
+                kind: 'evaluation',
+                code: 'DOMQL5024',
+                message: 'The subscription\'s throttle dropped the occurrence for a later one (line 3, column 1, at /expression/context)',
+                location: { pointer: '/expression/context', offset: 26, line: 3, column: 1 },
+            };
+
+            expect(await Promise.all(outcomes)).toEqual(['applied', dropped, dropped, dropped, 'applied']);
+            expect(heard).toEqual([1, 5]);
+        });
+
         it('never drops a failed event, which hands over the event held before it and then itself', async () => {
             const { source, heard } = subscribeBeats({ throttle: 100 });
 

@@ -34,6 +34,12 @@ export class EventListener {
     /** The event a throttle holds until its interval ends: the handler's call, and the acknowledgment that follows it; null while it holds none. @type {{ callback: () => Promise<void>, acknowledgment: Acknowledgment } | null} */
     #held = null;
 
+    /**
+     * The failure the acknowledgment of an event a throttle dropped rejects with, `DOMQL5024` located at the subscription, and the call it was made for: made as the first event is dropped and kept for every later one
+     * projected through the same call, since it names the same place; a call prepared again makes another. Null before the first. @type {{ call: object, error: NexoError } | null}
+     */
+    #dropped = null;
+
     /** What stops the source, once it has started. @type {{ stop: () => void } | null} */
     #sourceHandle = null;
 
@@ -276,9 +282,18 @@ export class EventListener {
         const acknowledgment = this.#acknowledge();
 
         this.#held = { callback, acknowledgment };
-        dropped?.acknowledgment.reject(NexoError.evaluation('DOMQL5024', 'The subscription\'s throttle dropped the occurrence for a later one', this.#getLocation(this.#preparedCall.pointer)));
+        dropped?.acknowledgment.reject(this.#droppedFailure());
 
         return acknowledgment.promise;
+    }
+
+    /** The failure of an event the throttle dropped for a later one, the one made for the call each event is projected through. */
+    #droppedFailure() {
+        if (this.#dropped?.call !== this.#preparedCall) {
+            this.#dropped = { call: this.#preparedCall, error: NexoError.evaluation('DOMQL5024', 'The subscription\'s throttle dropped the occurrence for a later one', this.#getLocation(this.#preparedCall.pointer)) };
+        }
+
+        return this.#dropped.error;
     }
 
     /** Starts the throttle's interval, at whose end the event it holds, if any, is handed over, and the next interval starts. */

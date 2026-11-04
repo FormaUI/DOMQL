@@ -1577,3 +1577,15 @@ Each entry is one of three kinds:
   - No observer: unchanged, 46.5 → 47.0 µs, within the noise.
   - Retained memory once a 10,000-row watch is disposed: 628 → 632 KB, within the noise, and both plateau over 40 watches.
 - **Declined:** Two first forms that allocated per measurement where no observer watched, a set of candidates and an iterator, which cost 200–370 bytes there.
+
+<a id="d103"></a>
+
+## D103 — An unheard or dropped occurrence rejects with an error made once
+
+*November 5, 2026*
+
+- **Kind:** Implementation, measured.
+- **Decision:** A behavior keeps one rejected promise for each running instance and source while no subscription hears it, `DOMQL5017`, made on the first unheard occurrence, marked handled, and let go of as a subscription starts listening or the instance ends. A throttled subscription makes its `DOMQL5024` failure once for the call it projects through. Each rejection keeps its code, message and location.
+- **Why:** A review's workload found an occurrence no subscription hears costing about 4.5 times one that a subscription applies, and a throttled subscription about 5 times an unthrottled one: almost all of it was a `NexoError` made for each, its stack written as Nexo makes it.
+- **Measured** in five paired rounds against the commit before it, in Chromium: a move no subscription hears 13.95 → 0.20 µs and 4,661 → 244 bytes; one a subscription throttles 16.38 → 3.15 µs and 7,593 → 3,248 bytes; four subscriptions, one throttled and one slow, 24.80 → 10.38 µs. One unthrottled subscription is unchanged, within the noise, and so is the memory a run and disposal of 1,000 to 6,000 behaviors retains.
+- **Declined:** A rejection without a stack, which would differ from every other failure Nexo and DOMQL raise.

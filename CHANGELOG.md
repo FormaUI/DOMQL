@@ -23,3 +23,4 @@ Each release of DOMQL's packages, newest first. The NuGet package `formaui-net.D
 - A query's text keeps the resolutions of its 16 bindings used most recently, where each string an update bound for the first time kept one more, about 4 KB, for as long as the text was in use.
 - An owned write that keeps its value keeps its one observer through its updates, about 4 µs an update less in Chromium.
 - A transient measurement drains only the mutation observers that could record its class's change, rather than every one its window runs: beside a watch of 10,000 rows, an observer a row, a measurement takes about 50 µs in Chromium rather than 2 ms, and allocates 0.6 KB rather than 1.4 MB.
+- An occurrence no subscription hears, and one a throttle drops, rejects with an error made once rather than one each time: a pointer move no subscription hears takes about 0.2 µs in Chromium rather than 14, and one a throttled subscription hears about 3 µs rather than 16.
