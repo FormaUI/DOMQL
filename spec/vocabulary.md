@@ -470,7 +470,7 @@ An element that is no scroll container is scrolled by 0. Null while it has no la
 
 **Result.** The focused element: the document's `activeElement`, and, where that is a host whose open shadow root holds the focus, the element focused there, through every such root; null where the document reports none, its body or its root element, as it does while no element has focus. A closed shadow root hides what is focused inside it, so its host is answered
 
-**Changes.** Observable: focus moving, and the focused element removed, which moves focus away
+**Changes.** Observable: focus moving, inside an open shadow root too, and the focused element removed, which moves focus away, through the [`focus`](#observations-types) observation
 
 <a id="property-shadow-view-root"></a>
 
@@ -983,7 +983,7 @@ An element with the `inert` attribute, itself or on an ancestor in the flat tree
 
 **True when.** It is the focused element of its tree
 
-**Changes.** Observable: focus moving, and the focused element removed, which moves focus away
+**Changes.** Observable: focus moving, inside an open shadow root too, and the focused element removed, which moves focus away, through the [`focus`](#observations-types) observation
 
 <a id="state-element-focuswithin"></a>
 
@@ -1507,7 +1507,7 @@ A query converts with the four conversions [Nexo's own module](https://github.co
 
 ## Observations
 
-A member names the [observations](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/runtime/observations.md#observations) that cover its changes, each by its type and its target, and DOMQL starts each one that a watch, a waiting evaluation or an event's object expression needs, and stops it once nothing needs it. DOMQL's module declares the browser's observations as ten observation types, each animation frame as an eleventh, and the state a behavior offers as a twelfth, which the members of any module and module code through its [environment](#extension-modules-environment) can name, and five observation targets.
+A member names the [observations](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/runtime/observations.md#observations) that cover its changes, each by its type and its target, and DOMQL starts each one that a watch, a waiting evaluation or an event's object expression needs, and stops it once nothing needs it. DOMQL's module declares the browser's observations as eleven observation types, each animation frame as a twelfth, and the state a behavior offers as a thirteenth, which the members of any module and module code through its [environment](#extension-modules-environment) can name, and five observation targets.
 
 <a id="observations-types"></a>
 
@@ -1524,11 +1524,12 @@ Each type is shared by equivalent requests, those of the same target and the sam
 | `media` | Invalidation | Whether a media query matches | `query`, the media query | `query` |
 | `pixelRatio` | Invalidation | The device pixel ratio | None | None |
 | `event` | Invalidation | Events of the given types reaching the target, or reaching it in the capture phase | `types`, a list of event types; `capture`, a Boolean, false when omitted | `types`, `capture` |
+| `focus` | Invalidation | The focus moving in a document, followed into every open shadow root it is within, since a move inside one root reaches no further than it, and the focused element removed, which moves the focus away, an event for which not every browser fires | None | None |
 | `visibility` | Invalidation | Whether the document is visible | None | None |
 | `navigation` | Invalidation | The window's URL: the Navigation API's current entry changing, which every navigation within the document and the history API change, or, in a browser without it, the window's `popstate` and `hashchange` | None | None |
 | `frame` | Invalidation | Each animation frame of the window, at the start of its writes, while it is held, so what reads it is evaluated again in that frame's reads: **continuous measurement**, which follows what moves under no change another observation reports, as content moving under a still pointer | None | None |
 | `behavior` | Invalidation | The [state a behavior offers](behaviors.md#behaviors-state) on a receiver: an instance of the behavior of that name starting there, updated, moving there or away, or ending, and its saying that what it offers may have changed | `behavior`, the behavior's name | `behavior` |
-| `selector` | Invalidation | What a selector reads in a tree: its structure and the attributes the selector tests, a class for `.`, an id for `#`, each attribute an attribute selector names and what each pseudo-class reads, as `disabled` for `:disabled`, every attribute for a pseudo-class whose reads DOMQL doesn't know; focus moving, where it tests `:focus`, `:focus-within` or `:focus-visible`; and popovers opening and closing, where it tests `:popover-open` | `selector`, the selector | `selector` |
+| `selector` | Invalidation | What a selector reads in a tree: its structure and the attributes the selector tests, a class for `.`, an id for `#`, each attribute an attribute selector names and what each pseudo-class reads, as `disabled` for `:disabled`, every attribute for a pseudo-class whose reads DOMQL doesn't know; focus moving, as the `focus` observation follows it, where it tests `:focus`, `:focus-within` or `:focus-visible`; and popovers opening and closing, where it tests `:popover-open` | `selector`, the selector | `selector` |
 
 <a id="observations-targets"></a>
 

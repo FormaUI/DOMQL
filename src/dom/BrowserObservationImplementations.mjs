@@ -2,6 +2,7 @@
  * BrowserObservationImplementations — the functions that start the DOM vocabulary's types of observation in a browser
  */
 
+import { FocusChain } from './FocusChain.mjs';
 import { MutationObservers } from './MutationObservers.mjs';
 import { Selectors } from './Selectors.mjs';
 
@@ -38,6 +39,7 @@ export class BrowserObservationImplementations {
             observeMedia: BrowserObservationImplementations.#observeMedia,
             observePixelRatio: BrowserObservationImplementations.#observePixelRatio,
             observeEvents: BrowserObservationImplementations.#observeEvents,
+            observeFocus: input => BrowserObservationImplementations.#observeFocus(input, mutationObservers),
             observeVisibility: BrowserObservationImplementations.#observeVisibility,
             observeNavigation: BrowserObservationImplementations.#observeNavigation,
             observeSelector: input => BrowserObservationImplementations.#observeSelector(input, mutationObservers),
@@ -250,14 +252,19 @@ export class BrowserObservationImplementations {
         return BrowserObservationImplementations.#listen(target, types, capture, notify);
     }
 
+    /** The focus moving in a document, through every open shadow root it moves within, and the focused element removed, which moves the focus away. */
+    static #observeFocus({ request: { target }, notify, env: { window } }, mutationObservers) {
+        return new FocusChain(target.ownerDocument ?? target, notify, mutationObservers, window);
+    }
+
     /** Whether the document is visible. */
     static #observeVisibility({ request: { target }, notify }) {
         return BrowserObservationImplementations.#listen(target, ['visibilitychange'], false, notify);
     }
 
     /**
-     * What a selector reads within a tree: the tree's structure and the attributes the selector tests, every attribute where it holds a pseudo-class whose reads are unknown; focus moving where it tests focus, as the
-     * document hears it; and a popover's toggle, captured at the root since it does not bubble, where it tests `:popover-open`.
+     * What a selector reads within a tree: the tree's structure and the attributes the selector tests, every attribute where it holds a pseudo-class whose reads are unknown; focus moving where it tests focus, followed
+     * through the open shadow roots it moves within, as the `focus` observation follows it; and a popover's toggle, captured at the root since it does not bubble, where it tests `:popover-open`.
      */
     static #observeSelector({ request: { target, arguments: { selector } }, notify, env: { window } }, mutationObservers) {
         const { attributes, focus, popovers } = Selectors.readsOf(selector);
@@ -276,7 +283,7 @@ export class BrowserObservationImplementations {
         observer.observe(target, options);
 
         if (focus) {
-            listeners.push(BrowserObservationImplementations.#listen(target.ownerDocument ?? target, ['focusin', 'focusout'], false, notify));
+            listeners.push(new FocusChain(target.ownerDocument ?? target, notify, mutationObservers, window));
         }
 
         if (popovers) {

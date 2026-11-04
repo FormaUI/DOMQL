@@ -181,6 +181,7 @@ Each entry is one of three kinds:
   - The document reports its body while no element has focus, so a query that asks which element has focus would otherwise test for the body itself.
   - Focus restored or kept within a surface needs the element inside a component, not the host the document retargets it to.
   - `focusin` and `focusout` are composed, so focus moving inside a shadow tree reaches the document, and Chromium fires them as a focused element is removed. A browser test settles it, so the member is observable.
+- **Since:** the focus is followed into every open shadow root it is within, and the focused element's removal is observed, as [D90](#d90) records.
 - **Declined:**
   - Answering the body as the document does, which makes every query tell "nothing" from a focused body.
   - Stopping at the host, which a query would have to step into by hand, root by root.
@@ -391,6 +392,7 @@ Each entry is one of three kinds:
   - The plan scoped them to the receiver's subtree, which misses an ancestor's class in `.open .row`, since a selector matches in the whole tree, and still evaluates a watch again for every write landing inside the receiver, a behavior's own `tabindex` writes and layer stamps among them. What a selector reads, not where, decides what changes its answer.
   - A selector names what it tests in its own text, so a scan of it, which passes over strings and escapes, finds its attributes without parsing its grammar. A watch test shows a `tabindex` written in the tree evaluating nothing again, where it evaluated the watch before.
   - Listening for focus only where a selector tests it keeps every focus move in the document from evaluating each watch of `all` again.
+- **Since:** a selector testing focus follows it as the `focus` observation does, into open shadow roots, as [D90](#d90) records.
 - **Declined:**
   - The receiver's subtree, for the reasons above.
   - A full parse of selectors, which the scan doesn't need: what it reads is the same.
@@ -1401,3 +1403,20 @@ Each entry is one of three kinds:
   - Shortcuts for the executions alone, which the owner's examples named, leaving the reader to remember which operations have one.
   - Options of the query and of the operation as two arguments, `(source, bindings, queryOptions, options)`, since the query's take one key, `types`, which no operation takes.
   - `with`, `select` and `resolve` on `domql`, which make or read a query object rather than run a query.
+
+<a id="d90"></a>
+
+## D90 — The focus is followed into every open shadow root it is within
+
+*November 4, 2026*
+
+- **Kind:** Contract, closing a gap between the specification and the runtime.
+- **Decision:** A new observation type, `focus`, follows where the focus is in a document. It listens to the document and to every open shadow root the focus is within, moving its listeners as the focus moves, and observes the trees the focused element stands in, so the element's removal is heard. `focused`, `focusWithin`, `activeElement` and a selector testing `:focus`, `:focus-within` or `:focus-visible` all observe through it.
+- **Why:**
+  - A review found the gap. `activeElement` reads through open shadow roots ([D12](#d12)), but its watch heard `focusin` and `focusout` at the document alone. A focus move between two elements of one root reaches no further than that root, since its target and its related target both retarget to the root's host, so a watch kept reporting where the focus had been while a fresh read answered where it was.
+  - The specification already said removing the focused element changes these members. Firefox and WebKit fire no event for it, so the runtime now observes the removal itself.
+  - Between a `focusout` and the next `focusin`, the focus rests on the body. A root keeps its listener until the focus settles on an element, so the `focusin` inside it is still heard.
+- **Tested** in Chromium, Firefox and WebKit: a move inside one root, across nested roots and back, a move made by script, and the focused element removed, each watched and read afresh. Before the change, three of the four cases failed in Chromium.
+- **Declined:**
+  - Listening in the capture phase at the document, which hears no more: the event's path stops at the root.
+  - Listening to every shadow root in the document, which costs a listener for each, whether the focus goes there or not.

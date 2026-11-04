@@ -11,7 +11,7 @@ const { createValueParameterDeclaration: valueParameter, createPropertyDeclarati
 const RESIZE = { type: 'resize', of: 'receiver' };
 const WINDOW_RESIZE = { type: 'resize', of: 'window' };
 const SCROLLING = { type: 'event', of: 'roots', types: ['scroll'], capture: true };
-const FOCUS = { type: 'event', of: 'document', types: ['focusin', 'focusout'] };
+const FOCUS = { type: 'focus', of: 'document' };
 // A popover opening or closing changes no attribute; its toggle event, which does not bubble, is heard as it is captured at the root.
 const POPOVERS = { type: 'event', of: 'root', types: ['toggle'], capture: true };
 const ATTRIBUTES = { type: 'mutation', of: 'receiver', attributes: true };
@@ -452,6 +452,7 @@ export class BrowserVocabularyDeclarations {
                 observationType('media', 'invalidation', 'observeMedia', { identity: ['query'] }),
                 observationType('pixelRatio', 'invalidation', 'observePixelRatio'),
                 observationType('event', 'invalidation', 'observeEvents', { identity: ['types', 'capture'] }),
+                observationType('focus', 'invalidation', 'observeFocus'),
                 observationType('visibility', 'invalidation', 'observeVisibility'),
                 observationType('navigation', 'invalidation', 'observeNavigation'),
                 observationType('selector', 'invalidation', 'observeSelector', { identity: ['selector'] }),
