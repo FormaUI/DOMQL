@@ -735,6 +735,20 @@ export interface Domql {
     query<T = unknown>(text: string, bindings?: DomqlBindings, options?: DomqlQueryOptions): DomqlQuery<T>;
     /** Makes a query object from a request's definition, binding its parameters. */
     query<T = unknown>(definition: DomqlDefinition, bindings?: DomqlBindings, options?: DomqlQueryOptions): DomqlQuery<T>;
+    /** Evaluates a request once, as `query(source, bindings, { types }).evaluate(options)` does: the options hold the query's `types` beside the evaluation's own. */
+    evaluate<T = unknown>(source: string | DomqlDefinition, bindings?: DomqlBindings, options?: DomqlQueryOptions & DomqlEvaluateOptions): T;
+    /** Evaluates a request once, waiting for its maintained members, as `query(source, bindings, { types }).evaluateAsync(options)` does; a request it can't make rejects it. */
+    evaluateAsync<T = unknown>(source: string | DomqlDefinition, bindings?: DomqlBindings, options?: DomqlQueryOptions & DomqlEvaluateAsyncOptions): Promise<T>;
+    /** Watches a request, as `query(source, bindings, { types }).watch(options)` does. */
+    watch<T = unknown>(source: string | DomqlDefinition, bindings?: DomqlBindings, options?: DomqlQueryOptions & DomqlWatchOptions): DomqlWatch<T>;
+    /** Watches a request's live state, as `query(source, bindings, { types }).watch(options)` does. */
+    watch<T = unknown>(source: string | DomqlDefinition, bindings: DomqlBindings | undefined, options: DomqlQueryOptions & DomqlLiveStateWatchOptions): DomqlLiveStateWatch<T>;
+    /** Subscribes to a request's subscription, as `query(source, bindings, { types }).subscribe(handler, options)` does. */
+    subscribe<T = unknown>(source: string | DomqlDefinition, bindings: DomqlBindings | undefined, handler: (sender: DomqlEventListener, args: DomqlEventArgs<T>) => unknown, options?: DomqlQueryOptions & DomqlSubscribeOptions): DomqlEventListener;
+    /** Carries out the once execution a request ends in, as `query(source, bindings, { types }).executeAsync(options)` does; a request it can't make rejects it. */
+    executeAsync<T = unknown>(source: string | DomqlDefinition, bindings?: DomqlBindings, options?: DomqlQueryOptions & DomqlOperationOptions): Promise<T>;
+    /** Starts the continuous execution a request ends in, as `query(source, bindings, { types }).run(options)` does. */
+    run(source: string | DomqlDefinition, bindings?: DomqlBindings, options?: DomqlQueryOptions & DomqlOperationOptions): DomqlExecutionHandle;
     /** The canonical text of a request, given as its text, its definition or a query object: it parses and checks the structure, writes every import the definition records but `Domql`, which DOMQL supplies, needs no bindings, and formatting what it gives gives that again. */
     format(source: string | DomqlDefinition | DomqlQuery): string;
     /** Creates a module from the vocabulary it declares, each declaration that runs code carrying its implementation. */

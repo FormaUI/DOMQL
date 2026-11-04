@@ -23,5 +23,5 @@ domql.registerModule(domql.createModule('Marks', {
     }]
 }));
 
-await domql.query('import Marks\npanel:mark("reviewed")', { panel }).executeAsync();
+await domql.executeAsync('import Marks\npanel:mark("reviewed")', { panel });
 // true

@@ -149,7 +149,27 @@ describe('the package README', () => {
                 }
             },
         });
-        const domql = { ...real, query: (source, bindings, options) => kept(real.query(source, bindings, options)) };
+        const query = (source, bindings, options) => kept(real.query(source, bindings, options));
+        // The instance carries a request out at once as the query object it makes would, so an example doing so is carried out through a query kept as every other is, its options split as the instance splits them.
+        const atOnce = (source, bindings, options, operate) => {
+            if (options === null || typeof options !== 'object' || !Object.hasOwn(options, 'types')) {
+                return operate(query(source, bindings), options);
+            }
+
+            const { types, ...operation } = options;
+
+            return operate(query(source, bindings, { types }), operation);
+        };
+        const domql = {
+            ...real,
+            query,
+            evaluate: (source, bindings, options) => atOnce(source, bindings, options, (made, rest) => made.evaluate(rest)),
+            evaluateAsync: async (source, bindings, options) => atOnce(source, bindings, options, (made, rest) => made.evaluateAsync(rest)),
+            watch: (source, bindings, options) => atOnce(source, bindings, options, (made, rest) => made.watch(rest)),
+            subscribe: (source, bindings, handler, options) => atOnce(source, bindings, options, (made, rest) => made.subscribe(handler, rest)),
+            executeAsync: async (source, bindings, options) => atOnce(source, bindings, options, (made, rest) => made.executeAsync(rest)),
+            run: (source, bindings, options) => atOnce(source, bindings, options, (made, rest) => made.run(rest)),
+        };
 
         document.body.innerHTML = fixture('document.html');
         layOut(document);

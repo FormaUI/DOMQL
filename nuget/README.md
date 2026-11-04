@@ -888,6 +888,8 @@ Keep independent results in a top-level object, as above. If you instead write `
 | `query.subscribe(handler, options)` | Project events into data. Returns a listener with `status` and `dispose()`. |
 | `query.executeAsync(options)` | Carry out a module-defined once execution and return a promise of its projected result. |
 | `query.run(options)` | Start a module-defined continuous execution. Returns a handle with `status`, `update(bindings)`, `subscribe('error', handler)` and `dispose()`. |
+| `domql.evaluate(text, bindings, options)`, and `evaluateAsync`, `watch`, `executeAsync` and `run` alike | Carry a request out at once, as `domql.query(text, bindings).evaluate(options)` would. `options` also takes the query's `types`. Keep a query object to use it again. |
+| `domql.subscribe(text, bindings, handler, options)` | Subscribe at once, as `domql.query(text, bindings).subscribe(handler, options)` would. |
 | `domql.format(source)` | Return canonical query text from text, a definition or a query object; no bindings or registered vocabulary are needed. |
 | `domql.createModule(name, contents)` | Create an extension module. |
 | `domql.registerModule(module)` | Register a module for query resolution. |
@@ -1084,7 +1086,7 @@ list.scrollTo({ block = 0, behavior = "smooth" })
 
 ### Execute once
 
-A module declares once executions of its own, host calls that can change the page. `executeAsync()` prepares its receiver and arguments, invokes it, and returns a promise of its result. Its implementation may also return a promise.
+A module declares once executions of its own, host calls that can change the page. `domql.executeAsync(text, bindings)`, or `executeAsync()` on a query object, prepares its receiver and arguments, invokes it, and returns a promise of its result. Its implementation may also return a promise.
 
 This example registers a once execution that sets a data attribute and reports whether the value changed:
 
@@ -1114,7 +1116,7 @@ domql.registerModule(domql.createModule('Marks', {
     }]
 }));
 
-await domql.query('import Marks\npanel:mark("reviewed")', { panel }).executeAsync();
+await domql.executeAsync('import Marks\npanel:mark("reviewed")', { panel });
 // true
 ```
 
@@ -1160,7 +1162,7 @@ domql.registerModule(domql.createModule('Highlights', {
     }]
 }));
 
-const highlight = domql.query('import Highlights\npanel:highlight(color)', { panel, color: 'gold' }).run();
+const highlight = domql.run('import Highlights\npanel:highlight(color)', { panel, color: 'gold' });
 console.log(panel.dataset.highlight);
 // 'gold'
 

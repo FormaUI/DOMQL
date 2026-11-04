@@ -42,6 +42,7 @@ Each entry point and operation is listed here with what it takes, and the sectio
 | `query.subscribe(handler, options?)` | Subscribes to a subscription, answering a `DomqlEventListener`, as [subscribing](events.md#subscribing) sets out |
 | `query.executeAsync(options?)` | Carries out a once execution, answering a promise of its result, as [executing once](executions.md#executions-executing-once) sets out |
 | `query.run(options?)` | Starts a continuous execution, answering a `DomqlExecutionHandle`, as [running continuously](executions.md#executions-running-continuously) sets out |
+| `domql.evaluate(source, bindings?, options?)`, `domql.evaluateAsync`, `domql.watch`, `domql.executeAsync` and `domql.run`, alike, and `domql.subscribe(source, bindings, handler, options?)` | Carries a request out at once, as the query object `domql.query` makes of it would, as [carrying a request out at once](#api-carrying-a-request-out-at-once) sets out |
 | `domql.format(source)` | The canonical text of a text, a definition or a query object, as [formatting](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/runtime/definition.md#definition-canonical-text) sets out |
 | `domql.createModule(name, contents)` | Creates a module from its declarations, each that runs code carrying its implementation, as [extension modules](vocabulary.md#extension-modules) set out |
 | `domql.registerModule(module)` | Registers a module's declarations in the instance's registry, as [extension modules](vocabulary.md#extension-modules) set out |
@@ -50,6 +51,19 @@ Each entry point and operation is listed here with what it takes, and the sectio
 | `domql.info` | Which build this is and what it follows, in `versions`: `runtime`, the runtime release version, which the package and the bundle carry, its sources reporting the same; `specification`, the version of DOMQL's specification it follows; and `language`, the language specification version the Nexo runtime it runs on follows, its `nexo.info.versions.language` |
 
 Almost every operation answers directly, so the plain name is the synchronous one, and every operation that answers a promise takes the suffix `Async`, as `evaluateAsync`, `readyAsync`, `refreshAsync` and `executeAsync` do.
+
+<a id="api-carrying-a-request-out-at-once"></a>
+
+**Carrying a request out at once.** Each operation that carries a query out is an operation of the instance too, which takes the query's text or definition and its bindings first: `domql.executeAsync(source, bindings, options)` is `domql.query(source, bindings, { types }).executeAsync(options)`, and so are `evaluate`, `evaluateAsync`, `watch` and `run`, and `domql.subscribe(source, bindings, handler, options)`, `subscribe`'s.
+
+```js
+const focused = await domql.executeAsync('field.focus()', { field });
+const trap = domql.run('import FocusTraps\ndialog:focusTrap()', { dialog }, { signal });
+```
+
+- **Its options** hold the query's `types` beside the operation's own, which the operation is given without it; options that are no object reach the operation as they are, which refuses them.
+- **A failure** is the query's or the operation's, under its code. An operation answering a promise makes its query within it, so a request it can't make, its text invalid among them, rejects the promise, as every failure of such an operation does; the others throw it.
+- **A query object** is what a request kept for another operation needs: one evaluated again, bound anew with `with`, a part of it selected, or resolved. Carrying a request out at once costs what making its query does: Nexo keeps the definitions of the texts parsed most recently, and DOMQL the resolutions of each definition, as for every query.
 
 <a id="api-the-owner"></a>
 

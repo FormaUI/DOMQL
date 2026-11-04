@@ -40,6 +40,13 @@ domql.query('Domql.window.writeToClipboard(event.text)');                       
 ```
 
 ```js
+await domql.executeAsync('field.focus()', { field });                          // as domql.query('field.focus()', { field }).executeAsync(); a TypeError before, no such operation
+const trap = domql.run('import FocusTraps\ndialog:focusTrap()', { dialog }, { signal }); // as domql.query(…, { dialog }).run({ signal })
+domql.evaluate('items.count', { items }, { types: { items: 'List<Number>' } }); // the query's types beside the evaluation's options
+await domql.executeAsync('field {', { field });                                // rejects with NEXO1051, as every failure of an operation answering a promise
+```
+
+```js
 const query = domql.query('{ counts = ["a" = 1, "b" = 2] }');
 
 query.select('counts', 'entries', 1, 'value').evaluate();  // 2; NEXO3602 before
@@ -76,6 +83,7 @@ DOMQL moves to Nexo's language `1.0.0-beta.41`, by way of `1.0.0-beta.40`, as [D
 
 - Nexo's own members that make a value of their receiver are functions: a number's `round()`, `floor()`, `ceiling()`, `truncate()` and `abs()`, a text's `trim()`, `lowercase()` and `uppercase()`, and a list's `reverse()`, `distinct()` and `flatten()`, each a property before.
 - A letter right after a number makes one invalid token, NEXO1000, so `1else` is refused, where it read as `1` and `else`.
+- A number is written in hexadecimal, octal or binary too, `0xFF`, `0o17` and `0b1010`, and a `_` may stand between two digits of any number, `1_000_000`, where `0xFF` read as `0` and a member written without its dot, NEXO1011.
 - [`and` and `or`](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/language/expressions.md#logical-expressions-negations-and-groups-type) share a type only where their value is used: `it.attached and "here" or "away"` is a `String`, where it was refused.
 - A conversion of a value of `Any` converts by the type the value turns out to be, failing with NEXO5053 where nothing converts it, where it was refused at resolution.
 - A computed name through a namespace reads as it does after `@`: `Domql.["window"]` is `Domql.window`.
@@ -88,6 +96,10 @@ DOMQL moves to Nexo's language `1.0.0-beta.41`, by way of `1.0.0-beta.40`, as [D
 - [Built-in executions](spec/vocabulary.md#built-in-executions) are named by the verb they carry out: `focus()`, `writeToClipboard(text)`, `readFromClipboard({ types })`, `replaceValue(value)` and `select({ start, end })`, which were `takeFocus`, `writeClipboard`, `readClipboard`, `writeValue` and `writeSelection`.
 - Writing a state one way or the other is two executions, each taking nothing: `mute()` and `unmute()`, which were `writeMuted(true)` and `writeMuted(false)`, and `markIndeterminate()` and `clearIndeterminate()`, which were `writeIndeterminate(true)` and `writeIndeterminate(false)`. Each answers whether it changed the element, as before.
 - [A render is a patch, however soon it comes](spec/vocabulary.md#execution-element-owned-writes-yielding): a holder that keeps its value yields only to a writer that restores its own value in answer. A framework rendering an element again within the two frames after DOMQL wrote a kept value again, each render a value of its own, is written against as its first render was, where the holder yielded to it and lost the class or the property, as [D83](docs/decisions.md#d83) records.
+
+**Operations**
+
+- [The instance carries a request out at once](spec/api.md#api-carrying-a-request-out-at-once), as the query object `domql.query` makes would: `domql.evaluate`, `evaluateAsync`, `watch`, `executeAsync` and `run` take the request and its bindings, and `domql.subscribe` its handler after them, their options holding the query's `types` beside their own, as [D89](docs/decisions.md#d89) records.
 
 **Watches**
 

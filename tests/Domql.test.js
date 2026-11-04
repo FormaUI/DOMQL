@@ -1319,6 +1319,60 @@ describe('domql evaluates', () => {
         });
     });
 
+    describe('a request carried out at once', () => {
+        it('is evaluated, waited for and watched by the instance, as the query object it makes is', async () => {
+            expect(domql.evaluate('panel.children.count', { panel })).toBe(3);
+            expect(domql.evaluate('Domql.window.devicePixelRatio', undefined, { window: { document, devicePixelRatio: 3, get window() { return this; } } })).toBe(3);
+            expect(await domql.evaluateAsync('panel.children.count', { panel })).toBe(3);
+
+            const counts = [];
+            const watch = domql.watch('panel.children.count', { panel }, { schedule: 'immediate' });
+
+            watch.subscribe('change', (_sender, args) => counts.push(args.value));
+            await watch.refreshAsync();
+            watch.dispose();
+
+            expect(counts).toEqual([3]);
+        });
+
+        it('is subscribed to, executed and run by the instance, as the query object it makes is', async () => {
+            const buttons = [];
+            const heard = [];
+            const listener = domql.subscribe('panel.on("click") { button = it.button }', { panel }, (_sender, args) => buttons.push(args.value.button));
+
+            panel.click();
+            listener.dispose();
+            panel.addEventListener('panel-opened', event => heard.push(event.type));
+
+            expect(await domql.executeAsync('panel.dispatch({ type = "panel-opened" })', { panel })).toBe(false);
+
+            const busy = domql.run('panel.ownClass({ name = "busy" })', { panel });
+            const held = panel.classList.contains('busy');
+
+            busy.dispose();
+
+            expect([buttons, heard, held, panel.classList.contains('busy')]).toEqual([[0], ['panel-opened'], true, false]);
+        });
+
+        it('takes the query\'s declared types beside the operation\'s options, giving the operation its own alone', async () => {
+            const items = new Set([1, 2]);
+            const controller = new AbortController();
+
+            expect(domql.evaluate('items.count', { items }, { types: { items: 'List<Number>' } })).toBe(2);
+            expect(await domql.evaluateAsync('items.count', { items }, { types: { items: 'List<Number>' }, signal: controller.signal })).toBe(2);
+            controller.abort(new Error('stopped'));
+            await expect(domql.executeAsync('panel.dispatch({ type = "panel-opened" })', { panel }, { types: {}, signal: controller.signal })).rejects.toThrow('stopped');
+        });
+
+        it('fails as making its query fails, a waiting operation rejecting with the failure where the others throw it', async () => {
+            expect(getError(() => domql.evaluate('panel {', { panel }))).toMatchObject({ kind: 'syntax', code: 'NEXO1051' });
+            expect(getError(() => domql.run('panel {', { panel }))).toMatchObject({ kind: 'syntax', code: 'NEXO1051' });
+            await expect(domql.executeAsync('panel {', { panel })).rejects.toMatchObject({ kind: 'syntax', code: 'NEXO1051' });
+            await expect(domql.evaluateAsync('Domql.window.size', null)).rejects.toMatchObject({ kind: 'structure', code: 'NEXO2020' });
+            expect(getError(() => domql.evaluate('items.count', { items: [1] }, { types: { items: 'Nothing<' } }))).toMatchObject({ kind: 'structure' });
+        });
+    });
+
     describe('a request of another kind', () => {
         const subscription = () => domql.query('panel.on("click") { button = it.button }', { panel });
 

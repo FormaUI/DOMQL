@@ -1010,9 +1010,42 @@ class Domql {
     }
 }
 
-/** DOMQL: makes query objects, formats requests, registers the modules that extend the vocabulary and loads those loaded on request, and says which build it is and which specification it follows. */
+/**
+ * Carries a request out at once, as the query object its text or definition makes with the bindings would: the options hold the query's `types` beside the operation's own, which it is given without them, and options that
+ * are no object reach the operation as they are, which refuses them.
+ */
+const carryOut = (source, bindings, options, operate, handler) => {
+    if (options === null || typeof options !== 'object' || !Object.hasOwn(options, 'types')) {
+        return operate(Domql.query(source, bindings), options, handler);
+    }
+
+    const { types, ...operation } = options;
+
+    return operate(Domql.query(source, bindings, { types }), operation, handler);
+};
+
+/** The operations a request is carried out with at once, each a query object's own. */
+const AT_ONCE = Object.freeze({
+    evaluate: (query, options) => query.evaluate(options),
+    evaluateAsync: (query, options) => query.evaluateAsync(options),
+    watch: (query, options) => query.watch(options),
+    subscribe: (query, options, handler) => query.subscribe(handler, options),
+    executeAsync: (query, options) => query.executeAsync(options),
+    run: (query, options) => query.run(options),
+});
+
+/**
+ * DOMQL: makes query objects, carries requests out at once as a query object would, formats requests, registers the modules that extend the vocabulary and loads those loaded on request, and says which build it is and
+ * which specification it follows. An operation answering a promise makes its query within it, so a request it can't make rejects it, as every failure of such an operation does.
+ */
 export const domql = Object.freeze({
     query: (source, bindings, options) => Domql.query(source, bindings, options),
+    evaluate: (source, bindings, options) => carryOut(source, bindings, options, AT_ONCE.evaluate),
+    evaluateAsync: async (source, bindings, options) => carryOut(source, bindings, options, AT_ONCE.evaluateAsync),
+    watch: (source, bindings, options) => carryOut(source, bindings, options, AT_ONCE.watch),
+    subscribe: (source, bindings, handler, options) => carryOut(source, bindings, options, AT_ONCE.subscribe, handler),
+    executeAsync: async (source, bindings, options) => carryOut(source, bindings, options, AT_ONCE.executeAsync),
+    run: (source, bindings, options) => carryOut(source, bindings, options, AT_ONCE.run),
     format: source => Domql.format(source),
     createModule: (name, contents) => Domql.createModule(name, contents),
     registerModule: module => Domql.registerModule(module),

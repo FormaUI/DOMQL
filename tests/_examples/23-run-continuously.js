@@ -29,7 +29,7 @@ domql.registerModule(domql.createModule('Highlights', {
     }]
 }));
 
-const highlight = domql.query('import Highlights\npanel:highlight(color)', { panel, color: 'gold' }).run();
+const highlight = domql.run('import Highlights\npanel:highlight(color)', { panel, color: 'gold' });
 console.log(panel.dataset.highlight);
 // 'gold'
 
