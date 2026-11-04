@@ -29,6 +29,7 @@ panel { state = it.attached and "here" }                   // NEXO3040, false or
 Domql.["window"].size                                      // Domql.window.size; NEXO1000 before
 1.e3                                                       // NEXO3001, now saying to write 1e3
 b.focused                                                  // watched: true once focus moves from a to b inside one open shadow root; stayed false before
+list.scroll?.block.offset                                  // a column-reverse list's distance into its content, within its range; an overscroll past its start read as progress before
 ```
 
 ```js
@@ -77,6 +78,7 @@ DOMQL moves to Nexo's language `1.0.0-beta.41`, by way of `1.0.0-beta.40`, as [D
 **Vocabulary**
 
 - [Focus is followed into open shadow roots](spec/vocabulary.md#observations-types): `focused`, `focusWithin`, `activeElement` and a selector testing focus report a move between two elements of one open shadow root, which they missed, since its events reach no further than the root, and the focused element's removal, which Firefox and WebKit fire no event for, as [D90](docs/decisions.md#d90) records.
+- [`scroll`'s offset](spec/vocabulary.md#property-element-scroll) runs as the box's style says, a reversed flex container's included, and stays within its range, so an elastic overscroll past either end reads as that end.
 - [States](spec/vocabulary.md#states) are Boolean properties, read without a call, as Nexo's [states and tests](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/language/vocabulary.md#vocabulary-boolean-functions) set out: an element's `disabled`, `readonly`, `textEditable`, `focusWithin`, `displayed`, `focusable`, `popoverOpen`, `checked`, `indeterminate` and `autofilled`, the document's `visible`, and the ARIA view's `checked` and `disabled`, each a function before.
 - Five states take new names as they become properties: an element's `hover` and `focus` are `hovered` and `focused`, the document's `focus` is `focused`, and the window's `share` and `clipboard` are `canShare` and `hasClipboard`.
 - A state is read through its module as before, `Domql.checked(it)`, and filtered by with a body, `rows.where(it.checked)`; a reference to one, `rows.where(Domql.checked)`, is refused (NEXO3076), since only a function has one.
@@ -95,6 +97,7 @@ DOMQL moves to Nexo's language `1.0.0-beta.41`, by way of `1.0.0-beta.40`, as [D
 
 **Executions**
 
+- [A scroll of a reversed axis](spec/vocabulary.md#execution-scrollto-scrollby) goes into the content from an offset of 0 too, since the box's style says which way an axis runs: `list.scrollTo({ block = 40 })` of a `column-reverse` list at its origin scrolls it 40 into its content, where it was held at the origin, as [D91](docs/decisions.md#d91) records.
 - [Built-in executions](spec/vocabulary.md#built-in-executions) are named by the verb they carry out: `focus()`, `writeToClipboard(text)`, `readFromClipboard({ types })`, `replaceValue(value)` and `select({ start, end })`, which were `takeFocus`, `writeClipboard`, `readClipboard`, `writeValue` and `writeSelection`.
 - Writing a state one way or the other is two executions, each taking nothing: `mute()` and `unmute()`, which were `writeMuted(true)` and `writeMuted(false)`, and `markIndeterminate()` and `clearIndeterminate()`, which were `writeIndeterminate(true)` and `writeIndeterminate(false)`. Each answers whether it changed the element, as before.
 - [A render is a patch, however soon it comes](spec/vocabulary.md#execution-element-owned-writes-yielding): a holder that keeps its value yields only to a writer that restores its own value in answer. A framework rendering an element again within the two frames after DOMQL wrote a kept value again, each render a value of its own, is written against as its first render was, where the holder yielded to it and lost the class or the property, as [D83](docs/decisions.md#d83) records.

@@ -242,15 +242,43 @@ export class BrowserVocabularyImplementations {
     }
 
     /**
-     * How far a box is scrolled along each logical axis of the element's writing mode: each offset its scroll position without its sign, which the browser gives below 0 where its scroll origin lies at the right or the
-     * bottom, as under RTL; its extent, of the scrolling area; and its viewport, of the scrollport.
-     * @param {Element} element Whose writing mode names the axes.
+     * Whether the browser counts a box's scroll position down from 0 along each physical axis, `left` and `top`, as it does where the box's scroll origin lies at its right or its bottom, which its style places: under
+     * RTL and in a writing mode whose lines or blocks run that way, and along a flex container's main axis where its direction is reversed, or its cross axis where it wraps in reverse, each reversal undoing the one
+     * before. The style decides it, never the position: a reversed axis reads 0 at its origin, and a normal one reads below 0 while an elastic overscroll bounces past its start.
+     * @param {Element} element The box whose style places its scroll origin, the root element for the viewport's.
+     * @returns {{ left: boolean, top: boolean }}
+     */
+    static reversedAxesOf(element) {
+        const style = element.ownerDocument.defaultView.getComputedStyle(element);
+        const vertical = /^(vertical|sideways)/.test(style.writingMode);
+        const rtl = style.direction === 'rtl';
+        const reversed = { left: vertical ? /-rl$/.test(style.writingMode) : rtl, top: vertical && (style.writingMode === 'sideways-lr' ? !rtl : rtl) };
+
+        if (/flex$/.test(style.display)) {
+            const isColumn = style.flexDirection.startsWith('column');
+            const wrapsReversed = style.flexWrap === 'wrap-reverse';
+            // The main axis is the inline one for a row and the block one for a column, and the cross axis the other.
+            const flips = { inline: (style.flexDirection === 'row-reverse') !== (isColumn && wrapsReversed), block: (style.flexDirection === 'column-reverse') !== (!isColumn && wrapsReversed) };
+
+            reversed[vertical ? 'top' : 'left'] = reversed[vertical ? 'top' : 'left'] !== flips.inline;
+            reversed[vertical ? 'left' : 'top'] = reversed[vertical ? 'left' : 'top'] !== flips.block;
+        }
+
+        return reversed;
+    }
+
+    /**
+     * How far a box is scrolled along each logical axis of the element's writing mode: each offset its distance from the scroll origin into its content, which the browser counts down from 0 along a reversed axis,
+     * held within its range, so a bounce past either end, as an elastic overscroll makes, reads as that end; its extent, of the scrolling area; and its viewport, of the scrollport.
+     * @param {Element} element Whose style names the axes and places the scroll origin.
      * @param {{ scrollLeft: number, scrollTop: number, scrollWidth: number, scrollHeight: number }} position The scroll position and the scrolling area.
      * @param {{ clientWidth: number, clientHeight: number }} port The scrollport.
      */
     static #scroll(element, position, port) {
-        const horizontal = { offset: Math.abs(position.scrollLeft), extent: position.scrollWidth, viewport: port.clientWidth };
-        const vertical = { offset: Math.abs(position.scrollTop), extent: position.scrollHeight, viewport: port.clientHeight };
+        const reversed = BrowserVocabularyImplementations.reversedAxesOf(element);
+        const along = (value, isReversed, extent, viewport) => ({ offset: Math.min(Math.max(isReversed ? -value : value, 0), Math.max(extent - viewport, 0)), extent, viewport });
+        const horizontal = along(position.scrollLeft, reversed.left, position.scrollWidth, port.clientWidth);
+        const vertical = along(position.scrollTop, reversed.top, position.scrollHeight, port.clientHeight);
 
         return BrowserVocabularyImplementations.isVertical(element) ? { inline: vertical, block: horizontal } : { inline: horizontal, block: vertical };
     }

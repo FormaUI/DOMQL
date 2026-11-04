@@ -268,7 +268,7 @@ A property exposes a value, read by property access, and takes no argument. Each
 
 **Result.** How far it is scrolled along each axis of its writing mode, `inline` and `block`, the inline axis vertical in a vertical writing mode. Along each:
 
-- `offset`, how far it is scrolled from its scroll origin, which is never negative: under RTL, where the scroll origin lies at the right, the browser answers a `scrollLeft` of 0 down to the negative of its range, and `offset` is its distance from 0, so 0 shows the start of its content in every direction.
+- `offset`, how far it is scrolled from its scroll origin into its content, from 0 to `extent - viewport`, so 0 shows the start of its content in every direction. Where its style places the scroll origin at its right or its bottom, the browser counts the position from 0 down to the negative of its range, and `offset` is its distance from 0: under RTL, in a writing mode whose lines or blocks run that way, and along a flex container's main axis where its `flex-direction` is reversed, or its cross axis where it wraps in reverse, each reversal undoing another. A position past either end, as an elastic overscroll bounces to, reads as that end.
 - `extent`, the size of its scrolling area, as `scrollWidth` or `scrollHeight`.
 - `viewport`, the size of its scrollport, its padding box without scrollbars, as `clientWidth` or `clientHeight`.
 
@@ -1294,7 +1294,7 @@ Each states its syntax and signature, as a function's does, what it does and ans
 
 **Syntax:** `scrollTo({ inline, block, behavior })`, `scrollBy({ inline, block, behavior })`   **Signature:** optional `inline`, `block`: `Number?`, the axis left as it is when omitted or null; optional `behavior`: `String`, `"auto"` when omitted → `Boolean`   **Mode:** Once   **Activation:** None
 
-**Does.** Scrolls the box along the axes of its writing mode, as its [`scroll`](#property-element-scroll) reads them, the window's along those of the document's root element, as [its `scroll`](#property-window-scroll) reads them. `scrollTo` sets each axis's offset from the scroll origin to the number given, and `scrollBy` moves it by the number given, toward the end of the content where it is positive, so `scrollTo({ inline = 0 })` shows the start of the content under RTL too, where the browser counts the position down from 0. The browser holds the offset within the box's scroll range. `behavior` is `"auto"`, as the box's `scroll-behavior` decides, `"instant"` or `"smooth"`.
+**Does.** Scrolls the box along the axes of its writing mode, as its [`scroll`](#property-element-scroll) reads them, the window's along those of the document's root element, as [its `scroll`](#property-window-scroll) reads them. `scrollTo` sets each axis's offset from the scroll origin to the number given, and `scrollBy` moves it by the number given, toward the end of the content where it is positive, so `scrollTo({ inline = 0 })` shows the start of the content under RTL too, where the browser counts the position down from 0. Which way an axis runs is its box's style's, as `scroll` reads it, never its position's, so a scroll from an offset of 0 goes into the content of a reversed flex container too. The browser holds the offset within the box's scroll range. `behavior` is `"auto"`, as the box's `scroll-behavior` decides, `"instant"` or `"smooth"`.
 
 <a id="execution-scroll-instant"></a>
 

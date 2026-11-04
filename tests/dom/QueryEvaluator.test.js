@@ -736,12 +736,25 @@ describe('QueryEvaluator', () => {
     });
 
     describe('scrolling', () => {
-        it('reads how far an element is scrolled along each axis of its writing mode, its offset without the sign RTL gives it', () => {
+        it('reads how far an element is scrolled along each axis of its writing mode, from the scroll origin its style places, held within its range', () => {
+            panel.style.direction = 'rtl';
             scrollTo(panel, { scrollLeft: -30, scrollTop: 12.5, scrollWidth: 900, scrollHeight: 1200, clientWidth: 640, clientHeight: 480 });
 
             expect(read('panel.scroll', { panel })).toEqual({ inline: { offset: 30, extent: 900, viewport: 640 }, block: { offset: 12.5, extent: 1200, viewport: 480 } });
             expect(read('panel.scroll { room = it.inline.extent - it.inline.viewport }', { panel })).toEqual({ room: 260 });
 
+            // An elastic overscroll past either end reads as that end: past the start of the reversed inline axis, and past the end of the block axis.
+            scrollTo(panel, { scrollLeft: 8, scrollTop: 800, scrollWidth: 900, scrollHeight: 1200, clientWidth: 640, clientHeight: 480 });
+
+            expect(read('panel.scroll { inline = it.inline.offset, block = it.block.offset }', { panel })).toEqual({ inline: 0, block: 720 });
+
+            // A normal axis reads a position below 0 as its start, never as progress into the content.
+            panel.style.direction = '';
+            scrollTo(panel, { scrollLeft: -6, scrollTop: 12.5, scrollWidth: 900, scrollHeight: 1200, clientWidth: 640, clientHeight: 480 });
+
+            expect(read('panel.scroll { inline = it.inline.offset }', { panel })).toEqual({ inline: 0 });
+
+            scrollTo(panel, { scrollLeft: -30, scrollTop: 12.5, scrollWidth: 900, scrollHeight: 1200, clientWidth: 640, clientHeight: 480 });
             panel.style.writingMode = 'vertical-rl';
 
             expect(read('panel.scroll', { panel })).toEqual({ inline: { offset: 12.5, extent: 1200, viewport: 480 }, block: { offset: 30, extent: 900, viewport: 640 } });

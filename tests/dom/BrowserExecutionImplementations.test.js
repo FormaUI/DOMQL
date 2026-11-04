@@ -129,8 +129,9 @@ describe('BrowserExecutionImplementations', () => {
             expect(await execute('panel.scrollTo()', { panel })).toBe(false);
         });
 
-        it('count an axis whose position the browser gives below 0 from its scroll origin at the end, as under RTL', async () => {
-            panel.scrollLeft = -10;
+        it('count an axis whose style places its scroll origin at the end from that origin, as under RTL, from a position of 0 too', async () => {
+            panel.style.direction = 'rtl';
+            panel.scrollLeft = 0;
 
             expect(await execute('panel.scrollTo({ inline = 30 })', { panel })).toBe(true);
             expect(panel.scrollLeft).toBe(-30);

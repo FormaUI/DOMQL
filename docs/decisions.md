@@ -134,6 +134,7 @@ Each entry is one of three kinds:
   - Under RTL, and in a vertical writing mode whose lines run right to left, browsers answer a scroll position from 0 down to the negative of its range. The offset from the origin is the same number in every direction, so a query asks `it.inline.offset > 0` whatever the direction.
   - The inline axis is the one a list of chips or tabs scrolls along, whatever the writing mode, so a query names the axis it means.
   - `viewport` keeps the plan's name: the scrollport is the viewport of its scroll container in CSS's own terms.
+- **Since:** the box's style alone says which way an axis runs, so a scroll from 0 goes into a reversed flex container's content, and an offset is held within its range, as [D91](#d91) records.
 - **Declined:**
   - Physical `x` and `y`, which make every query that handles RTL or a vertical writing mode compute the offset itself.
   - An offset from the inline start where the browser places the scroll origin at the end, as in a reversed flex container: the browser's own origin is the start of the content there, and computing another needs the box's alignment, which no API answers.
@@ -535,6 +536,7 @@ Each entry is one of three kinds:
   - A query computes where to scroll from what `scroll` reads, so writing in the same terms needs no conversion under RTL or in a vertical writing mode, where the browser counts a position down from 0. DOMQL reads the sign from the box's writing mode and direction, or from a position already below 0, as in a reversed flex container.
   - A browser test settled that Chromium's scroll methods answer a promise that settles once the scroll ends, a smooth one included, so the answer waits for it. A browser whose methods answer none is waited for frame by frame, from the third frame, since a browser test measured a smooth scroll beginning to move a frame or two after it is asked.
   - Whether it moved tells a scroll that did something from one already at its end, as a list paged past its last row; whether the element is in view is what a caller acts on next, as focusing what it revealed. In view is judged as `overlaps` judges boxes, against the viewport and each ancestor that clips, so a box of `overflow: clip`, which no scroll reaches, answers false.
+- **Since:** an axis runs as its box's style says, from an offset of 0 too, as [D91](#d91) records.
 - **Declined:**
   - Answering at once, which says nothing of a smooth scroll.
   - Physical `left` and `top`, which every query that handles RTL converts.
@@ -1420,3 +1422,19 @@ Each entry is one of three kinds:
 - **Declined:**
   - Listening in the capture phase at the document, which hears no more: the event's path stops at the root.
   - Listening to every shadow root in the document, which costs a listener for each, whether the focus goes there or not.
+
+<a id="d91"></a>
+
+## D91 — A box's style says which way its axes run, and an offset stays within its range
+
+*November 4, 2026*
+
+- **Kind:** Contract.
+- **Decision:** Which way a box's scroll axes run is read from its style alone: its writing mode and direction, a reversed `flex-direction` along a flex container's main axis, and `flex-wrap: wrap-reverse` along its cross axis, each reversal undoing another. `scroll` and the scrolls of [D35](#d35) both read it. An offset is held between 0 and `extent - viewport`, so a position past either end reads as that end.
+- **Why:**
+  - A review found two faults. A reversed axis was recognized only once its position was below 0, so at exactly 0 a `column-reverse` list took `scrollTo({ block = 40 })` as a scroll to `+40`, which the browser held at its origin. And `scroll` read the position without its sign, so an elastic overscroll bouncing past the start of a reversed axis read as progress into the content.
+  - A position can't say which way an axis runs: a reversed axis reads 0 at its origin, and a normal one reads below 0 while it bounces past its start.
+- **Tested** in Chromium, Firefox and WebKit: a `column-reverse` list scrolled from 0, read back, scrolled by more and returned to 0, a `row-reverse` list under LTR and under RTL, a `wrap-reverse` container's cross axis, and a normal list. Before the change, the three reversed cases failed in Chromium.
+- **Declined:**
+  - Probing an axis by writing a position and reading it back, which scrolls the box and fires its `scroll` event.
+  - Keeping a position below 0 as a sign of a reversed axis beside the style, which misreads a normal axis's overscroll.

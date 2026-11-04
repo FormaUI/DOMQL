@@ -455,16 +455,13 @@ export class BrowserExecutionImplementations {
     }
 
     /**
-     * Each logical axis of a box, the physical one it is along, and whether the browser counts its position down from 0, as it does where the box's scroll origin lies at its right or its bottom: under RTL, and in a
-     * writing mode whose lines or blocks run that way. A position already below 0 says so whatever the box's style, as in a reversed flex container.
+     * Each logical axis of a box, the physical one it is along, and whether the browser counts its position down from 0, as its style decides it, so a scroll from an offset of 0 goes into the content along a
+     * reversed axis too, as in a reversed flex container.
      */
     static #axesOf(scroller) {
-        const { placedBy, window } = scroller;
-        const position = scroller.position();
-        const style = window.getComputedStyle(placedBy);
+        const { placedBy } = scroller;
         const vertical = BrowserVocabularyImplementations.isVertical(placedBy);
-        const rtl = style.direction === 'rtl';
-        const reversed = { left: position.left < 0 || (vertical ? /-rl$/.test(style.writingMode) : rtl), top: position.top < 0 || (vertical && (style.writingMode === 'sideways-lr' ? !rtl : rtl)) };
+        const reversed = BrowserVocabularyImplementations.reversedAxesOf(placedBy);
         const along = name => ({ name, reversed: reversed[name] });
 
         return vertical ? { inline: along('top'), block: along('left') } : { inline: along('left'), block: along('top') };
