@@ -460,7 +460,65 @@ describe('Behaviors\' occurrences', () => {
         });
     });
 
+    describe('a delivery made while a handler handles another', () => {
+        it('reaches every subscription before the delivery that caused it goes on, so a later subscription hears the nested occurrence first', () => {
+            const trace = [];
+
+            listen('drops', { zone }, {}, args => {
+                trace.push(`A${args.value.key}`);
+
+                // A handling the first occurrence makes the behavior deliver the second, as a handler moving it does.
+                if (args.value.key === '1') {
+                    zones[0].drop('2');
+                }
+            });
+            listen('drops', { zone }, {}, args => {
+                trace.push(`B${args.value.key}`);
+            });
+            run({ zone });
+            zones[0].drop('1');
+
+            expect(trace).toEqual(['A1', 'A2', 'B2', 'B1']);
+        });
+
+        it('keeps the order of consecutive deliveries, each reaching every subscription before the next', () => {
+            const trace = [];
+
+            listen('drops', { zone }, {}, args => trace.push(`A${args.value.key}`));
+            listen('drops', { zone }, {}, args => trace.push(`B${args.value.key}`));
+            run({ zone });
+            zones[0].drop('1');
+            zones[0].drop('2');
+
+            expect(trace).toEqual(['A1', 'B1', 'A2', 'B2']);
+        });
+    });
+
     describe('deliver\'s promise', () => {
+        it('rejects at the first subscription that fails, while another may still be applying the occurrence', async () => {
+            let finish;
+            let applied = false;
+
+            listen('drops', { zone }, {}, () => new Promise(resolve => {
+                finish = resolve;
+            }).then(() => {
+                applied = true;
+            }));
+            listen('drops', { zone }, {}, () => {
+                throw new Error('broken handler');
+            });
+            run({ zone });
+
+            await expect(zones[0].drop('a')).rejects.toMatchObject({ code: 'DOMQL5020' });
+            expect(applied).toBe(false);
+
+            finish();
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(applied).toBe(true);
+        });
+
         it('settles once every subscription has applied the occurrence: its handler returned, and the promise it returned fulfilled', async () => {
             let finish;
             const order = [];

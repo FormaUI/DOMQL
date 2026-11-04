@@ -126,6 +126,40 @@ describe('Watch', () => {
         return settle();
     };
 
+    describe('what wakes it', () => {
+        /** What the member `hidden` answers: a value its observation misses, which only an evaluation the watch makes for another reason reads anew. */
+        let hidden;
+
+        beforeEach(() => {
+            hidden = 1;
+            isolated.registerModule(isolated.createModule('Hidden', {
+                types: [elementExtension('Hidden', [{ name: 'hidden', kind: 'property', result: 'Number', updates: { changes: 'partly-observable', misses: 'the value the test sets', reads: 'fresh', observations: [{ type: 'mutation', of: 'receiver', attributes: ['data-never'] }] }, impl: () => hidden }])],
+            }));
+        });
+
+        it('follows a local its result never reads, so an edit it reads wakes the watch, which reads what it missed', async () => {
+            watch('import Hidden\nlet edited = panel.text\nreturn panel:hidden', { panel }, { acceptPartialObservation: true });
+            await settle();
+
+            hidden = 2;
+            panel.append('edited');
+            await settle();
+
+            expect(snapshots).toEqual([1, 2]);
+        });
+
+        it('follows a branch whose dependency changes while its result stays equal, so the change wakes the watch', async () => {
+            watch('import Hidden\n{ hidden = panel:hidden, mode = if panel["data-mode"] == "wide" then 1 else 1 end }', { panel }, { acceptPartialObservation: true });
+            await settle();
+
+            hidden = 2;
+            panel.setAttribute('data-mode', 'wide');
+            await settle();
+
+            expect(snapshots).toEqual([{ hidden: 1, mode: 1 }, { hidden: 2, mode: 1 }]);
+        });
+    });
+
     describe('the first snapshot', () => {
         it('is reported after the call returns, through the change event every snapshot raises', async () => {
             const watched = watch('panel["data-n"]', { panel });

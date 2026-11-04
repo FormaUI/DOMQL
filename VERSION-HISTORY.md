@@ -108,6 +108,7 @@ DOMQL moves to Nexo's language `1.0.0-beta.41`, by way of `1.0.0-beta.40`, as [D
 
 **Watches**
 
+- [What wakes a watch](spec/watches.md#watching-what-an-evaluation-gives): every read a full evaluation makes wakes it as it changes, an unused local's and an unchanged branch's condition's included, so DOMQL may evaluate less of a query without missing what a member misses, as [D95](docs/decisions.md#d95) records.
 - [What an evaluation gives](spec/watches.md#watching-what-an-evaluation-gives): a watch's result is the one a full evaluation of its query would give, and how much of the query it evaluates again is DOMQL's, where it promised to evaluate the whole query each time. It still does; the promise no longer holds a later release to it, as [D86](docs/decisions.md#d86) records.
 
 **Results**
@@ -118,6 +119,8 @@ DOMQL moves to Nexo's language `1.0.0-beta.41`, by way of `1.0.0-beta.40`, as [D
 
 **Modules**
 
+- [A delivery inside a handler](spec/behaviors.md#behaviors-occurrences) reaches every subscription before the one around it goes on, so a later subscription hears it first, and [an acknowledgment](spec/behaviors.md#behaviors-acknowledgment) rejects at the first failure while others may still be applying the occurrence, as [D93](docs/decisions.md#d93) records; neither changed, the specification promised more.
+- [A kept value beside an outside writer](spec/vocabulary.md#execution-element-owned-writes-yielding) is judged by a heuristic, and [a committed position](spec/vocabulary.md#execution-element-owned-writes-framework) is let go of once its host confirms the render, not the occurrence's acknowledgment, as [D94](docs/decisions.md#d94) records.
 - [A member reading maintained values](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/runtime/members.md) declares a result that can be null, NEXO4071, since it reads as null until its first sample arrives.
 - A module's `typeOf` answering nothing is a fault, NEXO5002.
 - A fixed parameter is required and takes no default, NEXO4072, and an observation takes no expression or predicate parameter, NEXO4055.

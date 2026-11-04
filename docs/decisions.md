@@ -1281,6 +1281,7 @@ Each entry is one of three kinds:
   - A framework writes an attribute only as its own render changes it, so it never writes the value it wrote just before. A writer keeping a value of its own, as module code holding `lang` does, restores that value. The whole attribute, a class list or a style declaration, tells the two apart, where the class's presence, which [D70](#d70) declined to judge by, can't.
   - The specification already called the other holder a writer that "writes its own value again in answer"; the implementation judged by the time of the answer alone.
   - In a Blazor Web App of its own, a component wrote its whole `class` with `setAttribute`, and only as its rendered value changed. Renders of a press's `pointerdown` and `focusin` handlers landed in one frame, which D70 already kept. Once the focus handler awaited 20 or 40 ms, its render came one or two frames after DOMQL's correction, and before this decision `is-dragging` was lost in 8 to 20 of 20 presses, Server and WebAssembly; after it, in none.
+- **Since:** these rules are a heuristic beside a writer DOMQL doesn't run, as [D94](#d94) records.
 - **Declined:**
   - A longer or shorter window, which only moves the render that is lost.
   - Yielding after several answers in a row, which still loses the class to a burst of renders during a press.
@@ -1326,6 +1327,7 @@ Each entry is one of three kinds:
 - **Why:**
   - 1.0 requires each deferred item and decision not taken to land without a break. Reviewing them found one promise that would make one a break: a watch "evaluates its whole query each time", so evaluating only what changed, the deferred incremental evaluation, would have broken a module counting on a call at each evaluation. Every other item lands as an addition or within the implementation.
   - A member already reads alone, and may already keep its result until its observations fire, so no correct module depends on the number of calls.
+- **Since:** a watch wakes for every read a full evaluation makes, as [D95](#d95) records.
 - **Declined:**
   - Adopting incremental evaluation now, which no workload has shown a need for, as the deferred item records.
   - Keeping the promise, which would leave incremental evaluation for 2.0.
@@ -1451,3 +1453,41 @@ Each entry is one of three kinds:
   - The review asked that the focus and scrolling cases run in all three engines, and running them found differences a Chromium-only run hides. WebKit focuses no button on a click, as Safari doesn't. Firefox snaps a scroll position to the device's pixels, −39.82 for −40. Chromium fires `focusout` as the focused element is removed, which Firefox and WebKit don't.
   - Running every browser test in every engine would triple the gate's browser run for layout no engine decides differently.
 - **Declined:** WebKit and Firefox for every browser test, until a test of layout needs them.
+
+<a id="d93"></a>
+
+## D93 — A delivery inside a handler reaches every subscription first, and an acknowledgment rejects at the first failure
+
+*November 4, 2026*
+
+- **Kind:** Contract, narrowing a guarantee the specification overstated.
+- **Decision:** Delivering is synchronous and depth-first. An occurrence a handler delivers while it handles another reaches every subscription before the delivery around it calls its next handler, so a later subscription hears the nested occurrence first: A1, A2, B2, B1. Consecutive deliveries keep their order for every subscription. A throttled subscription hands its handler the latest ready occurrence instead, and one made during a delivery hears from the next. An acknowledgment rejects with the first failure as it happens, while others may still be applying the occurrence.
+- **Why:**
+  - A review exercised the delivery with two subscribers and found the trace A1, A2, B2, B1, where the specification said each subscription hears occurrences in the order they are delivered. The runtime is right for a synchronous delivery, which must call every handler before `deliver` returns; the promise was wrong.
+  - A caller deciding whether to deliver again reads the acknowledgment, so it must know a rejection says nothing of the other subscriptions.
+  - Tests now hold both: the nested trace, consecutive order, and a rejection while another handler is still applying.
+- **Declined:** Queueing a nested delivery until the outer one ends, which would make `deliver` answer before its handlers ran, and break handling inside the native dispatch ([D51](#d51)).
+
+<a id="d94"></a>
+
+## D94 — An outside writer is judged by a heuristic, and a committed position is let go of once its host confirms the render
+
+*November 4, 2026*
+
+- **Kind:** Contract, narrowing [D83](#d83) and [D70](#d70).
+- **Decision:**
+  - D83's rules for a writer DOMQL doesn't run, a value written again in answer and a render within two frames, are a heuristic: a framework replaying a class string and an independent writer defending it make the same mutations. Two of DOMQL's own holdings hand a target over exactly, through the holder stack.
+  - A position a gesture commits is held with `restore = false` until its host confirms that the framework's render of the committed value has reached the page, as by a command to the behavior after that render. The occurrence's acknowledgment says only that its handler applied it, which may be no more than asking for the render.
+- **Why:** A review found both overstated. D83's measured improvement beside Blazor stands, but it can't be a guarantee about writers it can't tell apart. And a handler that only queued a render had acknowledged an earlier step than the geometry reaching the page, so ending the holding on the acknowledgment could show a frame of the old position.
+- **Declined:** A general protocol for outside writers to announce themselves, which no framework speaks.
+
+<a id="d95"></a>
+
+## D95 — A watch wakes for what a full evaluation would follow
+
+*November 4, 2026*
+
+- **Kind:** Contract, strengthening [D86](#d86).
+- **Decision:** A watch's result at each evaluation is a full evaluation's, and it also wakes for every read a full evaluation makes: a local its result never uses, and the condition of a branch whose result stays the same. A member that keeps a history for each watch behaves as under a full evaluation.
+- **Why:** "The same result as a full evaluation" left out what a consumer relies on as much: which later changes wake the watch. [D19](#d19)'s `let edited = panel.text` before a geometry read exists to have an edit read the geometry again. An optimizer could give today's geometry, drop the unused local, and miss tomorrow's edit. Two tests now hold it through what a watch reports: a member whose observation misses a value is read anew after an edit an unused local reads, and after a branch's condition changes while its result stays equal.
+- **Declined:** Promising every member is evaluated each time, which would close incremental evaluation off.

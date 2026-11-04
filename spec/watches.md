@@ -137,7 +137,7 @@ Invalidation, evaluation and delivery each keep their own schedule. An observati
 
 <a id="watching-what-an-evaluation-gives"></a>
 
-**What an evaluation gives.** Each time a watch evaluates, its result is the one a full evaluation of its query would give. How much of the query it evaluates again to reach it is DOMQL's, so a member's implementation is called as often as an evaluation needs it, never on a promise of one call each time: a member may keep its result until its own observations fire, and a watch may evaluate again only what its observations say changed.
+**What an evaluation gives.** Each time a watch evaluates, its result is the one a full evaluation of its query would give. It wakes for what a full evaluation would follow, too: every read a full evaluation makes, a local's its result never uses and the condition of a branch whose result stays the same among them, wakes the watch as it changes, so what a member misses is read anew, as an editor's text read into an unused local has its geometry read again after an edit ([D19](../docs/decisions.md#d19)). A member that keeps a history for each watch behaves as it would under a full evaluation, as [D95](../docs/decisions.md#d95) records. How much of the query it evaluates again to reach it is DOMQL's, so a member's implementation is called as often as an evaluation needs it, never on a promise of one call each time: a member may keep its result until its own observations fire, and a watch may evaluate again only what its observations say changed.
 
 <a id="elements-that-leave-the-document"></a>
 

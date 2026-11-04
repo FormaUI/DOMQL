@@ -1465,6 +1465,7 @@ A scroll is **instant** where its `behavior` is `"instant"`, or `"auto"` where t
 
 - **Another holder.** A writer that writes its own value again in answer to DOMQL's, in the microtasks after it or among the writes of the two frames after it, keeps a value of its own, as a module's code holding the document's `lang` does: its answer restores the attribute or the text the target is part of as that writer left it before DOMQL wrote again. The holder yields to it rather than fight it: the other writer's value stands, and every writer's after it, until an update writes the holder's again and keeps it from then on.
 - **A render is a patch, however soon it comes.** A framework writes an attribute or a text as its own render changes it, so each write is a value it hadn't written just before. A write within those frames that leaves the attribute or the text otherwise than that writer left it is a patch, as the first was, and the holder writes its value again, as [D83](../docs/decisions.md#d83) records.
+- **A heuristic, beside an outside writer.** These two rules judge a writer DOMQL doesn't run by what it writes: a framework replaying the same class string and an independent writer defending that string make the same mutations, and the holder may take either for the other. Two of DOMQL's own holdings hand a target over exactly, through the holder stack, as [D94](../docs/decisions.md#d94) records.
 
 <a id="execution-element-owned-writes-framework"></a>
 
@@ -1473,7 +1474,7 @@ A scroll is **instant** where its `behavior` is `"instant"`, or `"auto"` where t
 | The target is | Hold it with | So that |
 | --- | --- | --- |
 | Rendered by the framework, as part of a whole `class` or `style` attribute | `keep = true` | A patch that writes the whole attribute again, wiping the class or the property, is undone before paint, however soon one render follows another, and a writer is yielded to only where it writes its own value again in answer |
-| Committed to the framework, as a position a gesture ends with | `restore = false`, ended once the framework has applied the commit, as the [acknowledgment](behaviors.md#behaviors-acknowledgment) of the occurrence reporting it says | The value stands as the holding ends, and the framework's render of the committed value takes the target over without a frame of the old one |
+| Committed to the framework, as a position a gesture ends with | `restore = false`, ended once its host confirms that the framework's render of the committed value has reached the page, as by a command to the behavior after that render. The [acknowledgment](behaviors.md#behaviors-acknowledgment) of the occurrence reporting the commit says only that its handler applied it, which may be no more than asking for the render | The value stands as the holding ends, and the framework's render of the committed value takes the target over without a frame of the old one |
 | A rendered node's text, as a count written as the reader types | `ownText` | The framework's own text node is written in place, so the nodes it holds stay the ones it rendered |
 
 Module code holds a target the same way, through an owned write it runs with [`env.domql`](#extension-modules-environment), so its holdings and every other caller's take turns as holders do.
