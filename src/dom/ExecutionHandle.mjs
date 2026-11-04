@@ -9,8 +9,8 @@ import { EventDispatcher } from './EventDispatcher.mjs';
 /**
  * A continuous execution prepared against one binding set: its declaration, null while a receiver of unknown type has selected none, its name, what ends the functions its arguments give the implementation to keep, the
  * module that declares it and the event sources its occurrences are delivered to, each null with its declaration, the implementation that starts it, the receiver and arguments it is started or updated with, which are null
- * where the preparation was skipped, the environment, and where it stands.
- * @typedef {{ declaration: object | null, name: string, disposeCall: () => void, module: string | null, sources: ReadonlySet<string> | null, start: Function | undefined, receiver: unknown, args: Record<string, unknown> | null, environment: object, location: object }} PreparedExecution
+ * where the preparation was skipped, the environment, and the resolution and the pointer of its call, which say where it stands as a failure, or an instance as it starts, asks.
+ * @typedef {{ declaration: object | null, name: string, disposeCall: () => void, module: string | null, sources: ReadonlySet<string> | null, start: Function | undefined, receiver: unknown, args: Record<string, unknown> | null, environment: object, resolution: { getLocation: (pointer: string) => object }, pointer: string }} PreparedExecution
  */
 
 export class ExecutionHandle {
@@ -94,7 +94,7 @@ export class ExecutionHandle {
 
         // A receiver of unknown type selects no declaration, so an execution that has none yet takes the one its bindings select, and keeps it.
         if (execution.declaration !== null && this.#declaration !== null && execution.declaration !== this.#declaration) {
-            throw NexoError.validation('DOMQL3006', `These bindings select the execution '${execution.name}', which is another execution; run it as one of its own`, execution.location);
+            throw NexoError.validation('DOMQL3006', `These bindings select the execution '${execution.name}', which is another execution; run it as one of its own`, ExecutionHandle.#locationOf(execution));
         }
 
         this.#declaration = execution.declaration ?? this.#declaration;
@@ -118,7 +118,7 @@ export class ExecutionHandle {
             // The instance keeps what it last accepted, the functions it keeps among them.
             execution.disposeCall();
 
-            throw NexoError.evaluation('DOMQL5006', `The execution '${execution.name}' failed to update`, execution.location, { cause: error });
+            throw NexoError.evaluation('DOMQL5006', `The execution '${execution.name}' failed to update`, ExecutionHandle.#locationOf(execution), { cause: error });
         }
 
         // The functions the arguments it replaced gave it end, since the instance runs with the new ones.
@@ -162,7 +162,8 @@ export class ExecutionHandle {
      * Has the execution's implementation create its instance, which must answer how it is updated and disposed, and keeps it for its owner on its receiver, the latest there; a failure it reports while it runs is raised as
      * an `error` event, and each occurrence it hands `deliver`, from its start on, is delivered to the subscriptions of its source listening for its owner on its receiver.
      */
-    #start({ name, module, sources, start, receiver, args, environment, location }) {
+    #start({ name, module, sources, start, receiver, args, environment, resolution, pointer }) {
+        const location = resolution.getLocation(pointer);
         const running = { module, name, owner: this.#owner, receiver, instance: null, hasEnded: false };
         let instance;
 
@@ -252,5 +253,10 @@ export class ExecutionHandle {
 
         this.#disposeCall = () => {};
         disposeCall();
+    }
+
+    /** Where a prepared execution's call stands, which a failure names, found as one asks, so an update that fails at nothing finds none. */
+    static #locationOf({ resolution, pointer }) {
+        return resolution.getLocation(pointer);
     }
 }

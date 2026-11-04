@@ -690,7 +690,8 @@ class Domql {
                 receiver: isPrepared ? call.receiver : null,
                 args: isPrepared ? call.args : null,
                 environment,
-                location: resolved.getLocation(call.pointer),
+                resolution: resolved,
+                pointer: call.pointer,
             };
         };
 

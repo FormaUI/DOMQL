@@ -2810,6 +2810,32 @@ describe('domql receivers of unknown type', () => {
         expect(error.kind).toBe('validation');
         expect(error.code).toBe('DOMQL3006');
         expect(error.message).toContain('another execution');
+        expect(error.location).toEqual({ pointer: '/expression/chain', offset: 12, line: 2, column: 1 });
+    });
+
+    it('locate at the call the failure to start an execution an update starts, after a preparation that skipped, and after updates that failed at nothing', () => {
+        const execution = {
+            name: 'mark', kind: 'function', invokedBy: 'host', requestKind: 'execution', executionMode: 'continuous', arguments: 'positional',
+            parameters: [{ name: 'tone', kind: 'value', type: 'String', required: true, nulls: 'propagate' }],
+            impl: ({ args: { tone } }) => {
+                if (tone === 'broken') {
+                    throw new Error('no such tone');
+                }
+
+                return { update: () => {}, dispose: () => {} };
+            },
+        };
+
+        isolated.registerModule(isolated.createModule('Mark', { types: [elementExtension('MarkElements', [execution])] }));
+
+        const running = isolated.query('import Mark\nitem:mark(tone)', { item: panel, tone: null }).run();
+
+        running.update({ item: panel, tone: null });
+
+        const error = getError(() => running.update({ item: panel, tone: 'broken' }));
+
+        expect(error).toMatchObject({ kind: 'evaluation', code: 'DOMQL5007', message: 'The execution \'mark\' failed to start (line 2, column 1, at /expression)', location: { pointer: '/expression', offset: 12, line: 2, column: 1 } });
+        expect(error.cause.message).toBe('no such tone');
     });
 
     it('refuse a name whose host calls disagree on what they request, which a receiver of unknown type leaves ambiguous', () => {

@@ -1589,3 +1589,15 @@ Each entry is one of three kinds:
 - **Why:** A review's workload found an occurrence no subscription hears costing about 4.5 times one that a subscription applies, and a throttled subscription about 5 times an unthrottled one: almost all of it was a `NexoError` made for each, its stack written as Nexo makes it.
 - **Measured** in five paired rounds against the commit before it, in Chromium: a move no subscription hears 13.95 → 0.20 µs and 4,661 → 244 bytes; one a subscription throttles 16.38 → 3.15 µs and 7,593 → 3,248 bytes; four subscriptions, one throttled and one slow, 24.80 → 10.38 µs. One unthrottled subscription is unchanged, within the noise, and so is the memory a run and disposal of 1,000 to 6,000 behaviors retains.
 - **Declined:** A rejection without a stack, which would differ from every other failure Nexo and DOMQL raise.
+
+<a id="d104"></a>
+
+## D104 — An update finds its location only where a failure needs it
+
+*November 5, 2026*
+
+- **Kind:** Implementation, measured.
+- **Decision:** A continuous execution's preparation carries its resolution and its pointer, and its handle finds the location only for an update's failure and once as an instance starts, for its start's failures and its `deliver`.
+- **Why:** A review's drag workload found every update finding a location only a failure reads, about 9% of a numeric update.
+- **Measured** in five paired rounds against the commit before it, in Chromium: an owned write's update binding a number 10.95 → 9.95 µs, every pair 7.3% to 12.7% faster, and 5,196 → 4,971 bytes; one binding a new string 2.7% faster, within the noise. The drag's frame time is unchanged, within its noise.
+- **Declined:** A getter finding it on first read, which allocated its closure and accessor on every update, 6% more a numeric step.

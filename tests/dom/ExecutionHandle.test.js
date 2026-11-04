@@ -148,6 +148,16 @@ describe('ExecutionHandle', () => {
             expect(disposed).toBe(1);
         });
 
+        it('locates at the call the failure to start an instance an update starts, where the preparation before it skipped', () => {
+            isolated.registerModule(execution('broken', () => { throw new Error('closed'); }));
+
+            const broken = run('import Broken\npanel:broken(color)', { panel, color: null });
+            const thrown = getError(() => broken.update({ panel, color: 'gold' }));
+
+            expect(thrown).toMatchObject({ kind: 'evaluation', code: 'DOMQL5007', message: 'The execution \'broken\' failed to start (line 2, column 1, at /expression)', location: { pointer: '/expression', offset: 14, line: 2, column: 1 } });
+            expect(broken.status).toBe('ready');
+        });
+
         it('is refused for a request of another kind, and a request of a continuous execution is refused by the other calls', () => {
             expect(getError(() => run('panel.children.count', { panel }))).toMatchObject({ kind: 'validation', code: 'DOMQL3004', message: expect.stringContaining("Cannot run 'panel.children.count': it produces a value.\nUse evaluate(), evaluateAsync() or watch().") });
             expect(getError(() => isolated.query('import Highlight\npanel:highlight("gold")', { panel }).evaluate())).toMatchObject({ kind: 'validation', code: 'DOMQL3004', message: expect.stringContaining("Cannot evaluate 'import Highlight\npanel:highlight(\"gold\")': it keeps an effect running.\nUse run().") });
