@@ -91,6 +91,7 @@ Tests mirror `src/` under `tests/`. Layout, geometry and browser-managed state b
 | --- | --- | --- |
 | `npm test` | `tests/` | Unit tests |
 | `npm run test:browser` | `tests/` | Headless Chromium tests |
+| `npm run test:engines` | `tests/` | The tests of what engines decide differently, in Chromium, Firefox and WebKit |
 | `npm run bench` | `tests/` | Benchmarks, outside the gate |
 | `npm run scale` | `tests/` | A watch of 1,000 to 100,000 rows timed in Chromium, outside the gate |
 | `./build.ps1` | Repository root | Tests, bundle, package build and format check |

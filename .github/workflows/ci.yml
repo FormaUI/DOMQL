@@ -60,17 +60,17 @@ jobs:
         with:
           global-json-file: formaui-net.DOMQL/nuget/global.json
 
-      # The browser the tests run in, kept for as long as the tests' dependencies, and so Playwright, stay the same.
+      # The browsers the tests run in, kept for as long as the tests' dependencies, and so Playwright, stay the same.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('formaui-net.DOMQL/tests/package-lock.json') }}
 
-      # Chromium needs system libraries that the runner does not have.
-      - name: Install the browser's system libraries
+      # The browsers need system libraries that the runner does not have.
+      - name: Install the browsers' system libraries
         run: |
           npm ci --prefix tests --no-audit --no-fund
-          npx --prefix tests playwright install-deps chromium
+          npx --prefix tests playwright install-deps chromium firefox webkit
 
       - name: Gate
         shell: pwsh

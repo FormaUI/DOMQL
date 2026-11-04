@@ -1438,3 +1438,16 @@ Each entry is one of three kinds:
 - **Declined:**
   - Probing an axis by writing a position and reading it back, which scrolls the box and fires its `scroll` event.
   - Keeping a position below 0 as a sign of a reversed axis beside the style, which misreads a normal axis's overscroll.
+
+<a id="d92"></a>
+
+## D92 — What engines decide differently is tested in each engine
+
+*November 4, 2026*
+
+- **Kind:** Process.
+- **Decision:** The gate's browser run tests what browser engines decide differently in Chromium, Firefox and WebKit, through `tests/vitest.engines.config.js`, beside the tests of layout it runs in Chromium alone. A test belongs there where its result is an engine's: where a focus event inside a shadow root reaches, which events removing the focused element fires, where a box's scroll origin lies.
+- **Why:**
+  - The review asked that the focus and scrolling cases run in all three engines, and running them found differences a Chromium-only run hides. WebKit focuses no button on a click, as Safari doesn't. Firefox snaps a scroll position to the device's pixels, −39.82 for −40. Chromium fires `focusout` as the focused element is removed, which Firefox and WebKit don't.
+  - Running every browser test in every engine would triple the gate's browser run for layout no engine decides differently.
+- **Declined:** WebKit and Firefox for every browser test, until a test of layout needs them.

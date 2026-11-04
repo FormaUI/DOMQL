@@ -6,7 +6,7 @@ Runs the script tests, bundles DOMQL, builds the package project, and checks its
 Removes every build output first, so the build starts from nothing.
 
 .PARAMETER Browser
-Also runs the tests that need a real browser's layout, in headless Chromium, which is installed first if it is not.
+Also runs the tests that need a real browser's layout, in headless Chromium, and those of what browser engines decide differently in Chromium, Firefox and WebKit, each installed first if it is not.
 
 .NOTES
 DOMQL builds against the Nexo release nexo.release pins, the tree of its tag, which it extracts into .nexo from the checkout beside this one, formaui-net.Nexo, fetching the tag where the checkout lacks it. Set NEXO_SOURCE to a Nexo checkout to build against that checkout's working tree instead, for a change made in both repositories.
@@ -150,9 +150,9 @@ if ($LASTEXITCODE -ne 0) {
 
 if ($Browser) {
     Write-Host 'Testing in a browser'
-    npx --prefix $tests playwright install chromium
+    npx --prefix $tests playwright install chromium firefox webkit
     if ($LASTEXITCODE -ne 0) {
-        throw 'Installing the browser failed.'
+        throw 'Installing the browsers failed.'
     }
 
     npm run test:browser --prefix $tests
@@ -163,6 +163,12 @@ if ($Browser) {
     npm run test:scrollbars --prefix $tests
     if ($LASTEXITCODE -ne 0) {
         throw 'The browser tests of scrollbars failed.'
+    }
+
+    Write-Host 'Testing in each browser engine'
+    npm run test:engines --prefix $tests
+    if ($LASTEXITCODE -ne 0) {
+        throw 'The tests in each browser engine failed.'
     }
 }
 

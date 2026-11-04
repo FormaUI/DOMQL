@@ -67,6 +67,7 @@ Choose the test environment that can verify the behavior:
 | --- | --- |
 | Structure, attributes and other behavior that needs no layout | The simulated-DOM unit tests |
 | Layout, geometry or browser-managed state | A `*.browser.js` file, run in headless Chromium |
+| What browser engines decide differently, as where a focus event inside a shadow root reaches or where a box's scroll origin lies | A `*.browser.js` file named in `tests/vitest.engines.config.js` too, run in Chromium, Firefox and WebKit |
 | Files read or compiled by tests | An underscore folder, such as `tests/_examples/` or `tests/_types/` |
 
 The simulated DOM does not calculate layout. Run browser tests from the repository root with:
@@ -75,7 +76,7 @@ The simulated DOM does not calculate layout. Run browser tests from the reposito
 ./build.ps1 -Browser
 ```
 
-You can also run `npm run test:browser` from `tests/`.
+You can also run `npm run test:browser` from `tests/`, and `npm run test:engines` for the tests run in each engine.
 
 Two details to keep in mind:
 
