@@ -1,15 +1,15 @@
 name: CI
 
-# The gate on every change, on a clean Linux machine of a fixed release, so a new image never changes a result unasked: the tests, the tests in a real browser, the bundle, the package project's build with no warnings, and the format check.
+# The gate on every push but main's, which promotion fast-forwards to a commit that passed on candidate, and on every pull request, on a clean Linux machine of a fixed release, so a new image never changes a result unasked: the tests, the tests in a real browser, the bundle, the package project's build with no warnings, and the format check. A push to candidate runs the full gate, which packs the NuGet package and verifies it as consumers install it, and keeps the packages for the release to publish.
 on:
   push:
-    branches: [main]
+    branches-ignore: [main]
   pull_request:
 
 permissions:
   contents: read
 
-# A newer push to a pull request supersedes the older run; every commit on main keeps its own result.
+# A newer push to a pull request supersedes the older run; every commit on a branch keeps its own result.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -18,7 +18,7 @@ concurrency:
 env:
   PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright
 
-# DOMQL builds against the Nexo release nexo.release pins, the tree of its tag, taken from a checkout beside its own, formaui-net.Nexo beside formaui-net.DOMQL, until it consumes Nexo's published package, so each job checks out both, Nexo at that tag.
+# DOMQL builds against the Nexo release nexo.release pins, the tree of its tag, taken from a checkout beside its own, formaui-net.Nexo beside formaui-net.DOMQL, until it consumes Nexo's published package, so the job checks out both, Nexo at that tag.
 defaults:
   run:
     working-directory: formaui-net.DOMQL
@@ -28,6 +28,8 @@ jobs:
   gate:
     name: Gate
     runs-on: ubuntu-24.04
+    env:
+      CANDIDATE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/candidate' }}
     steps:
       # The gated commit alone, since the sources declare every version and nothing reads the history.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -73,50 +75,22 @@ jobs:
           npx --prefix tests playwright install-deps chromium firefox webkit
 
       - name: Gate
+        if: env.CANDIDATE != 'true'
         shell: pwsh
         run: ./build.ps1 -Browser
 
-  package:
-    name: Package
-    needs: gate
-    runs-on: ubuntu-24.04
-    steps:
-      # The gated commit alone, since the sources declare every version and nothing reads the history.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          path: formaui-net.DOMQL
-
-      # The tag of the Nexo release DOMQL builds against, which nexo.release pins.
-      - name: Read the pinned Nexo release
-        id: nexo
-        run: echo "tag=v$(tr -d '[:space:]' < nexo.release)" >> "$GITHUB_OUTPUT"
-
-      # Nexo's whole history, since DOMQL's documents link to commits a record of the past names, which the link test reads.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: FormaUI/Nexo
-          ref: ${{ steps.nexo.outputs.tag }}
-          path: formaui-net.Nexo
-          fetch-depth: 0
-
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: |
-            formaui-net.DOMQL/package-lock.json
-            formaui-net.DOMQL/tests/package-lock.json
-
-      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        with:
-          global-json-file: formaui-net.DOMQL/nuget/global.json
-
-      - name: Pack
+      - name: Full gate
+        if: env.CANDIDATE == 'true'
         shell: pwsh
-        run: ./publish.ps1
+        run: ./build.ps1 -Browser -Full
 
+      # The packages the full gate built and verified, under the name the release's checks read them by, kept as long as GitHub allows.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: env.CANDIDATE == 'true'
         with:
-          name: package
-          path: formaui-net.DOMQL/artifacts/*.nupkg
+          name: packages
+          path: |
+            formaui-net.DOMQL/artifacts/*.nupkg
+            formaui-net.DOMQL/artifacts/*.snupkg
           if-no-files-found: error
+          retention-days: 90
