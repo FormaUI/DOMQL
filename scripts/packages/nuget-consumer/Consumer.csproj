@@ -1,14 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
-    <!-- An application that references formaui-net.DOMQL from its feed, at the version build.ps1 -Full gives as DomqlVersion, and serves the package's files at _content/domql/. -->
+    <!-- An application that references formaui-net.DOMQL from its feed, at the version build.ps1 -Full gives as DomqlVersion, and serves the package's files at _content/domql/. An editor loads it without a version, as an application with no package; a build without one fails. -->
     <PropertyGroup>
         <TargetFramework>net11.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
-    <ItemGroup>
+    <ItemGroup Condition="'$(DomqlVersion)' != ''">
         <PackageReference Include="formaui-net.DOMQL" Version="[$(DomqlVersion)]" />
     </ItemGroup>
+
+    <Target Name="RequireDomqlVersion" BeforeTargets="Build" Condition="'$(DomqlVersion)' == ''">
+        <Error Text="DomqlVersion names no version of formaui-net.DOMQL to reference; ./build.ps1 -Full gives it." />
+    </Target>
 
 </Project>
