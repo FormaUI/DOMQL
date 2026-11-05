@@ -1677,3 +1677,22 @@ Each entry is one of three kinds:
 - **Declined:**
   - Keeping `file:.nexo` and rewriting the dependency as the package is packed, so the repository would never state the dependency its package declares.
   - Keeping `nexo.release` beside the lock, a third file naming one release.
+
+<a id="d110"></a>
+
+## D110 — DOMQL publishes its sources to npm
+
+*November 5, 2026*
+
+- **Kind:** Process, approved.
+- **Decision:** `@formaui-net/domql` holds DOMQL's ES module sources and their declarations, `src/domql.d.ts`, which import Nexo from `@formaui-net/nexo`, the dependency it declares at the lowest version DOMQL works with ([D109](#d109)). It carries the runtime version from `1.0.0-preview.2` on, and `release.yml` publishes it under its stage's dist-tag through trusted publishing, as Nexo's is. The bundle, with Nexo inside it, stays the NuGet package's. It replaces what [D107](#d107) declined.
+  - **Verification.** The full gate packs it, checks its files, and installs it into a Node project with Nexo's package from npm, which resolves a query, finds DOMQL's `NexoError` to be Nexo's own, and type-checks against the declarations.
+- **Why:**
+  - The owner's call: DOMQL is on npm as Nexo is, and being on both feeds, tested as consumers install them, is what 1.0 requires.
+  - Nexo's npm package is published, so DOMQL's depends on it rather than carrying the language: a host that installs both loads one Nexo, and catches one `NexoError`.
+  - Sources are what Nexo's npm package ships, and what a bundler or an import map resolves. The bundle is the NuGet package's build output.
+  - `1.0.0-preview.1` is released, and a release's packages are fixed once it's published, as FormaUI Versioning's [publication](https://github.com/FormaUI/Versioning/blob/v1.0.0-preview.1/docs/releases.md#publication) sets out, so the npm package is the next release's.
+- **Declined:**
+  - Shipping the bundle on npm: it carries Nexo inside it, so a host that installs Nexo too would load two, each with its own `NexoError`.
+  - Publishing an npm package of `1.0.0-preview.1` from another commit, which would give a fixed release a package its full gate never built.
+  - Waiting for the NuGet package to depend on Nexo's as well, which changes how a .NET application serves the language, and which [consuming the language](features-status.md#consuming-nexo) plans on its own.

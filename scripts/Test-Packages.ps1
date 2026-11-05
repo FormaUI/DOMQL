@@ -1,9 +1,12 @@
 <#
 .SYNOPSIS
-Verifies DOMQL's package as consumers receive it.
+Verifies DOMQL's packages as consumers receive them.
 
 .DESCRIPTION
-Checks that the NuGet package and its symbols hold exactly the files their lists in scripts/packages name. Then it installs the package into a web application outside the repository, from a local feed holding the package and nuget.org alone, publishes the application, and has its published domql.js resolve a query.
+Checks that each package in a directory holds exactly the files its list in scripts/packages names. Then it installs each into a consumer outside the repository, from a local feed holding the packages and the public registries alone:
+
+- the npm package into a Node project, with Nexo's package from npm, which imports it by its name, resolves a query, and type-checks against its declarations;
+- the NuGet package into a web application, which publishes it, and whose published domql.js resolves a query.
 
 .PARAMETER Directory
 The directory holding the packages, and nothing else.
@@ -29,13 +32,35 @@ $Directory = (Resolve-Path $Directory).Path
 
 # Each package the release holds, by its file name, with the list of the files it holds.
 $expected = [ordered]@{
+    "formaui-net-domql-$Version.tgz"    = 'npm.files'
     "formaui-net.DOMQL.$Version.nupkg"  = 'nuget.files'
     "formaui-net.DOMQL.$Version.snupkg" = 'nuget-symbols.files'
 }
 
-# The paths a NuGet package holds, as its archive holds them.
+# The paths a package holds: an npm tarball's under its package folder, a NuGet package's as its archive holds them.
 function Get-PackageFile {
     param([Parameter(Mandatory)] [string] $Path)
+
+    if ($Path.EndsWith('.tgz')) {
+        $stream = [System.IO.File]::OpenRead($Path)
+        $gzip = [System.IO.Compression.GZipStream]::new($stream, [System.IO.Compression.CompressionMode]::Decompress)
+        $tar = [System.Formats.Tar.TarReader]::new($gzip)
+
+        try {
+            while ($entry = $tar.GetNextEntry()) {
+                if ($entry.EntryType -ne [System.Formats.Tar.TarEntryType]::Directory) {
+                    $entry.Name -replace '^package/', ''
+                }
+            }
+        }
+        finally {
+            $tar.Dispose()
+            $gzip.Dispose()
+            $stream.Dispose()
+        }
+
+        return
+    }
 
     $archive = [System.IO.Compression.ZipFile]::OpenRead($Path)
 
@@ -82,7 +107,24 @@ $work = Join-Path ([System.IO.Path]::GetTempPath()) "domql-packages-$([guid]::Ne
 $previousPackages = $env:NUGET_PACKAGES
 
 try {
-    # The NuGet package, restored into a web application from the local feed and nuget.org into packages of its own, so no cached copy of the same version stands in for it. The consumer takes its own files alone, whatever an IDE built beside them.
+    # The npm package, installed into a Node project beside the TypeScript the tests compile with, its dependency on Nexo's package from the public registry. Each consumer takes its own files alone, whatever an IDE built beside them.
+    Write-Host 'Installing the npm package into a consumer'
+    $npmConsumer = New-Item -ItemType Directory -Path (Join-Path $work 'npm')
+    Get-ChildItem -LiteralPath (Join-Path $packages 'npm-consumer') -File | Copy-Item -Destination $npmConsumer
+    $typescript = (Get-Content -LiteralPath (Join-Path $root 'tests' 'package-lock.json') -Raw | ConvertFrom-Json -AsHashtable).packages['node_modules/typescript'].version
+
+    Push-Location $npmConsumer
+    try {
+        Invoke-Checked 'Installing the npm package' { npm install (Join-Path $Directory "formaui-net-domql-$Version.tgz") "typescript@$typescript" --no-audit --no-fund --loglevel=error }
+        Invoke-Checked 'Resolving with the npm package' { node consumer.mjs $Version }
+        Invoke-Checked 'Type-checking against the npm package' { npx --no-install tsc -p . }
+        Write-Host "  @formaui-net/domql $Version type-checks against its declarations"
+    }
+    finally {
+        Pop-Location
+    }
+
+    # The NuGet package, restored into a web application from the local feed and nuget.org into packages of its own, so no cached copy of the same version stands in for it.
     Write-Host 'Installing the NuGet package into a consumer'
     $consumer = New-Item -ItemType Directory -Path (Join-Path $work 'nuget')
     Get-ChildItem -LiteralPath (Join-Path $packages 'nuget-consumer') -File | Copy-Item -Destination $consumer

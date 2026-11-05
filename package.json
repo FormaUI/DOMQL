@@ -1,14 +1,37 @@
 {
     "name": "@formaui-net/domql",
-    "private": true,
+    "version": "1.0.0-preview.2",
+    "description": "DOMQL is a JavaScript library for querying the DOM, allowing you to read information from a document once or observe it as it changes.",
+    "license": "Apache-2.0",
+    "author": "Eyal Alon",
+    "homepage": "https://github.com/FormaUI/DOMQL#readme",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/FormaUI/DOMQL.git"
+    },
     "type": "module",
+    "exports": {
+        ".": {
+            "types": "./src/domql.d.ts",
+            "default": "./src/domql.js"
+        }
+    },
+    "files": [
+        "src",
+        "LICENSE",
+        "NOTICE",
+        "README.md"
+    ],
+    "publishConfig": {
+        "access": "public"
+    },
     "scripts": {
         "bundle": "node scripts/bundle.mjs"
     },
-    "devDependencies": {
-        "esbuild": "^0.25.0"
-    },
     "dependencies": {
         "@formaui-net/nexo": "^1.0.0-preview.1"
+    },
+    "devDependencies": {
+        "esbuild": "^0.25.0"
     }
 }

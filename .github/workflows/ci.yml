@@ -90,6 +90,7 @@ jobs:
         with:
           name: packages
           path: |
+            formaui-net.DOMQL/artifacts/*.tgz
             formaui-net.DOMQL/artifacts/*.nupkg
             formaui-net.DOMQL/artifacts/*.snupkg
           if-no-files-found: error

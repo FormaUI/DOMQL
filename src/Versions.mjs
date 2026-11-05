@@ -6,7 +6,7 @@ import { nexo } from '@formaui-net/nexo';
 
 export class Versions {
     /** The runtime release version, which the package and the bundle carry. */
-    static runtime = '1.0.0-preview.1';
+    static runtime = '1.0.0-preview.2';
 
     /** The DOMQL specification version the implementation follows. */
     static specification = '1.0.0-preview.1';

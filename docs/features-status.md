@@ -11,7 +11,7 @@
 | Definition format | 38 | 38 |
 
 - **The language DOMQL runs on.** DOMQL follows Nexo's language `1.0.0-preview.1`, which Nexo's release `1.0.0-preview.1` carries, the version of Nexo's npm package DOMQL installs, as [D108](decisions.md#d108) and [D109](decisions.md#d109) record, and its documents link to [Nexo's documents at that tag](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/spec/README.md), moving with the pin. The language was called Lexica before the [migration](#migration-to-nexo).
-- **Packages.** The bundle and type declarations are built, with Nexo bundled inside `domql.js`. The NuGet package carries the runtime version `1.0.0-preview.1`, and `release.yml` publishes it to nuget.org from the release's tag. The npm package is not made yet: `package.json` is private and carries no version.
+- **Packages.** The bundle and type declarations are built, with Nexo bundled inside `domql.js`. The npm package holds DOMQL's sources, which import Nexo's package, and the NuGet package the bundle. Both carry the runtime version, and `release.yml` publishes each from a release's tag: the NuGet package from `1.0.0-preview.1`, and the npm package from `1.0.0-preview.2`.
 - **The C# half** waits for its design, as [D46](decisions.md#d46) records.
 
 The [specification](../spec/README.md) defines the contract, and the [design](domql-design.md) explains the architecture. The [version history](../VERSION-HISTORY.md) records what each version changed, and the [changelog](../CHANGELOG.md) each release of the packages. This file tracks DOMQL's implementation and its remaining work. "Implemented" means built and tested in the gate for the current implementation version; it does not imply that later specification changes are implemented.
@@ -24,7 +24,7 @@ The [specification](../spec/README.md) defines the contract, and the [design](do
 | --- | --- |
 | [The C# half](#the-c-half) | Waits for its design |
 | [Planned capabilities](#planned-capabilities) | The C# half's alone remain, waiting for its design |
-| [Release](#release) | Done: `1.0.0-preview.1`, DOMQL's first release, is released, on Nexo's first preview |
+| [Release](#release) | `1.0.0-preview.1` is released; `1.0.0-preview.2`, which adds the npm package, waits for npm's placeholder and trusted publisher |
 | [What 1.0 requires](#what-1-0-requires) | Six requirements, one met in part |
 
 - **A specification version collects the changes between two releases.** A change to DOMQL's contract joins the [version history](../VERSION-HISTORY.md)'s newest entry while it reads *Unreleased*, and opens the next version's entry once it is released, as [D79](decisions.md#d79) records.
@@ -271,7 +271,15 @@ None remains: T1 to T3 are implemented, as [the features](#the-host) show: an im
 
 ## Release
 
-DOMQL releases as [cutting a release](../CONTRIBUTING.md#cut-a-release) sets out, by FormaUI Versioning's path, as [D107](decisions.md#d107) records. Its first release, `1.0.0-preview.1`, is released, tagged `v1.0.0-preview.1`, and `release.yml` publishes its NuGet package, with Nexo inside its bundle, to nuget.org through trusted publishing. nuget.org's policy names `FormaUI/DOMQL`, `release.yml` and the `release` environment. Consuming Nexo's published packages follows it.
+DOMQL releases as [cutting a release](../CONTRIBUTING.md#cut-a-release) sets out, by FormaUI Versioning's path, as [D107](decisions.md#d107) records. Its first release, `1.0.0-preview.1`, is released, tagged `v1.0.0-preview.1`, and `release.yml` publishes its NuGet package, with Nexo inside its bundle, to nuget.org through trusted publishing. nuget.org's policy names `FormaUI/DOMQL`, `release.yml` and the `release` environment.
+
+**Remaining for `1.0.0-preview.2`,** which adds the npm package, as [D110](decisions.md#d110) records:
+
+1. Publish a placeholder, `@formaui-net/domql@0.0.0`, deprecated in favour of `@formaui-net/domql@preview`, since npm takes a trusted publisher only for a package it holds, as Nexo's was.
+2. Create npm's trusted publisher for `release.yml` in the `release` environment, allowing `npm publish`.
+3. Release `1.0.0-preview.2`.
+
+The placeholder and the trusted publisher need the owner's account.
 
 <a id="consuming-lexica"></a>
 <a id="consuming-nexo"></a>
@@ -283,7 +291,7 @@ DOMQL releases as [cutting a release](../CONTRIBUTING.md#cut-a-release) sets out
 **Remaining:**
 
 1. Depend on Nexo's NuGet package, `formaui-net.Nexo`, naming the lowest Nexo version DOMQL works with, as the npm dependency does.
-2. Write the NuGet bundle with `../nexo/nexo.js` as an import, and the npm bundle with `@formaui-net/nexo`, rather than carrying the language inside.
+2. Write the NuGet bundle with `../nexo/nexo.js` as an import, rather than carrying the language inside, as the npm package's sources import `@formaui-net/nexo`.
 3. Have the gate check that DOMQL's packages depend on Nexo's and Nexo's on nothing of DOMQL's.
 
 Nexo's packages are published from its `1.0.0-preview.1`, as its [release](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/docs/features-status.md#release) records.
@@ -292,15 +300,11 @@ Nexo's packages are published from its `1.0.0-preview.1`, as its [release](https
 
 **Current:**
 
-- **NuGet:** the full gate, `./build.ps1 -Full`, packs `formaui-net.DOMQL` locally, checks it holds exactly the files `scripts/packages` lists, and installs it into a web application outside the repository, whose published `domql.js` resolves a query. It carries the runtime version `src/Versions.mjs` declares, `1.0.0-preview.1`, and `release.yml` publishes it to nuget.org from each release's tag.
-- **npm:** not made yet. `package.json` is private and carries no version.
-- **The gate** holds the NuGet package, both READMEs, the [changelog](../CHANGELOG.md) and `domql.info.versions` to the versions the sources declare. The sources declare the version due at the next release, so nothing advances before a release is cut, as [D75](decisions.md#d75) and [D79](decisions.md#d79) record.
+- **NuGet:** the full gate, `./build.ps1 -Full`, packs `formaui-net.DOMQL` locally, checks it holds exactly the files `scripts/packages` lists, and installs it into a web application outside the repository, whose published `domql.js` resolves a query. It carries the runtime version `src/Versions.mjs` declares, and `release.yml` publishes it to nuget.org from each release's tag, from `1.0.0-preview.1` on.
+- **npm:** the full gate packs `@formaui-net/domql`, checks it holds exactly the files `scripts/packages/npm.files` lists, and installs it into a Node project outside the repository, with Nexo's package from npm. The project resolves a query, finds DOMQL's `NexoError` to be Nexo's own, and type-checks against the declarations. The package holds DOMQL's ES module sources and declarations, which import `@formaui-net/nexo`, so a host that installs both loads one Nexo, as [D110](decisions.md#d110) records. It carries the runtime version, and `release.yml` publishes it to npm from `1.0.0-preview.2` on.
+- **The gate** holds both packages, both READMEs, the [changelog](../CHANGELOG.md) and `domql.info.versions` to the versions the sources declare. The sources declare the version due at the next release, so nothing advances before a release is cut, as [D75](decisions.md#d75) and [D79](decisions.md#d79) record.
 
-**Remaining:**
-
-1. Make the npm package, `@formaui-net/domql`, carrying the runtime version as the NuGet package does, its bundle importing `@formaui-net/nexo`, as [consuming the language](#consuming-nexo) sets out, and have `release.yml` publish it beside the NuGet package.
-
-It follows [consuming the language](#consuming-nexo). `release.yml` publishes the NuGet package from each release's tag, as [contributing](../CONTRIBUTING.md#cut-a-release) sets out.
+`release.yml` publishes both packages from each release's tag, as [contributing](../CONTRIBUTING.md#cut-a-release) sets out.
 
 ### Preview
 
@@ -322,7 +326,7 @@ It follows [consuming the language](#consuming-nexo). `release.yml` publishes th
 | **Nexo's 1.0.** DOMQL runs on Nexo's 1.0, from its published packages. | DOMQL's contract holds the language its queries are written in, so it promises no more than Nexo does. | Nexo is in its preview, at `1.0.0-preview.1`, as [what Nexo's 1.0 requires](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/docs/features-status.md#what-1-0-requires) sets out. |
 | **Contracts settled.** No decision is open, and each [deferred](#deferred) item and [decision not taken](domql-design.md#decisions-not-taken) is shown to land without a break. | What may still change after 1.0 must be able to change compatibly. | Holds: no decision is open, and each [deferred](#deferred) item and [decision not taken](domql-design.md#decisions-not-taken) lands as an addition or within the implementation. A watch's promise to evaluate its whole query each time was the one that would have made evaluating less a break; [what an evaluation gives](../spec/watches.md#watching-what-an-evaluation-gives) now leaves it to DOMQL. |
 | **The C# half decided.** It is designed, or decided to follow 1.0 as an addition. | It waits for the owner's design, as [D46](decisions.md#d46) records, and a .NET application may need it to drive DOMQL. | Waits for its design. |
-| **Published.** DOMQL's packages are on npm and NuGet, tested as consumers install them. | A caller pins a release it can install. | In part: the NuGet package is published from `1.0.0-preview.1`, and the npm package is not made yet. |
+| **Published.** DOMQL's packages are on npm and NuGet, tested as consumers install them. | A caller pins a release it can install. | In part: the NuGet package is published from `1.0.0-preview.1`, and the npm package is made, for `1.0.0-preview.2`. |
 | **Used for real.** Forma's own scripts run as DOMQL queries, watches, subscriptions and executions on a published release. | The [planned capabilities](#planned-capabilities) came from reading those scripts, and only running them settles the contract. | Planned. |
 | **A release candidate that breaks nothing.** `1.0.0-rc.1` is released once the rest hold, and Forma takes it with no change but its version. `1.0.0` is its contract, unchanged. | It is the last check that nothing still needs to break. | Waits for the rest. |
 

@@ -51,8 +51,9 @@ describe('Alignment', () => {
         expect(installed.resolved).toBe(`https://registry.npmjs.org/@formaui-net/nexo/-/nexo-${installed.version}.tgz`);
     });
 
-    it('has a package that carries the runtime version the sources declare, which they report', () => {
+    it('has packages that carry the runtime version the sources declare, which they report', () => {
         expect(project).toContain('src\\Versions.mjs');
+        expect(JSON.parse(read('package.json')).version).toBe(Versions.runtime);
         expect(domql.info.versions.runtime).toBe(Versions.runtime);
         expect(domql.info.versions.specification).toBe(Versions.specification);
     });

@@ -1,9 +1,17 @@
 # Changelog
 
-Each release of DOMQL's packages, newest first. The NuGet package `formaui-net.DOMQL` carries the runtime version, and the npm package `@formaui-net/domql` will carry the same once it is made. An entry names the version of DOMQL's specification the release implements, the Nexo language and definition format it runs on, and what changed in the implementation. What changed in DOMQL's contract is in the [version history](VERSION-HISTORY.md).
+Each release of DOMQL's packages, newest first. The npm package `@formaui-net/domql` and the NuGet package `formaui-net.DOMQL` carry the runtime version. An entry names the version of DOMQL's specification the release implements, the Nexo language and definition format it runs on, and what changed in the implementation. What changed in DOMQL's contract is in the [version history](VERSION-HISTORY.md).
 
 - **An entry is dated when its release is cut,** and reads *Unreleased* until then. [Cutting a release](CONTRIBUTING.md#cut-a-release) tags its commit, and its packages are published from that tag.
 - **A change a caller can notice** is listed in the newest entry while it is unreleased. Once it is released, the change opens the next version's entry, and the sources declare that version in the same commit.
+
+<a id="v1-0-0-preview-2"></a>
+
+## `1.0.0-preview.2`
+
+*Unreleased · specification `1.0.0-preview.1` · Nexo language `1.0.0-preview.1` · definition format 38*
+
+- DOMQL is published to npm, as `@formaui-net/domql`: its ES module sources and their declarations, which import Nexo from its own package, `@formaui-net/nexo`, from `1.0.0-preview.1` on. A host that installs both loads one Nexo, and catches Nexo's own `NexoError`. Install it with `npm install @formaui-net/domql@preview`.
 
 <a id="v1-0-0-preview-1"></a>
 

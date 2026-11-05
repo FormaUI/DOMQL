@@ -9,7 +9,7 @@ Removes every build output first, so the build starts from nothing.
 Also runs the tests that need a real browser's layout, in headless Chromium, and those of what browser engines decide differently in Chromium, Firefox and WebKit, each installed first if it is not.
 
 .PARAMETER Full
-Runs the full gate: the gate, then the NuGet package and its symbols packed into artifacts/ as a release ships them, each checked against the files its list names and installed into a consumer outside the repository, by scripts/Test-Packages.ps1. A release's full gate runs with -Browser too.
+Runs the full gate: the gate, then the npm package, the NuGet package and its symbols packed into artifacts/ as a release ships them, each checked against the files its list names and installed into a consumer outside the repository, by scripts/Test-Packages.ps1. A release's full gate runs with -Browser too.
 
 .NOTES
 DOMQL builds against Nexo's npm package, at the release package.json declares and the lock installs. Set NEXO_SOURCE to a Nexo checkout to build against that checkout's working tree instead, linked in the package's place, for a change made in both repositories. The link test reads Nexo's documents at the release's tag from Nexo's checkout: the one NEXO_SOURCE names, or formaui-net.Nexo beside this one, fetching the tag where the checkout lacks it.
@@ -173,7 +173,7 @@ if (-not $Full) {
     return
 }
 
-# The packages a release publishes: packed afresh, by a build that records its source as a release's does.
+# The packages a release publishes: packed afresh, the NuGet package by a build that records its source as a release's does.
 if (Test-Path $artifacts) {
     Remove-Item $artifacts -Recurse -Force
 }
@@ -188,6 +188,12 @@ try {
 }
 finally {
     Pop-Location
+}
+
+Write-Host 'Packing the npm package'
+npm pack $root --pack-destination $artifacts --loglevel=error
+if ($LASTEXITCODE -ne 0) {
+    throw 'npm pack failed.'
 }
 
 $version = [regex]::Match((Get-Content (Join-Path $root 'src' 'Versions.mjs') -Raw), "runtime = '([^']+)'").Groups[1].Value

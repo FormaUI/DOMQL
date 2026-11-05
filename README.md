@@ -4,7 +4,7 @@
 
 DOMQL is a JavaScript library for querying the DOM, allowing you to read information from a document once or observe it as it changes. Its queries are written in [Nexo](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/spec/README.md).
 
-> **Preview.** No breaking redesign is planned, and a version that breaks what the one before it allowed says how to migrate. The runtime, `1.0.0-preview.1`, implements DOMQL's specification `1.0.0-preview.1` on Nexo's language `1.0.0-preview.1`, definition version 38. DOMQL declares the DOM as types of its own. It is published to NuGet as `formaui-net.DOMQL`, and not yet to npm; you can also [build and try it locally](#build-and-try-it). See [the status overview](docs/features-status.md), and [what 1.0 requires](docs/features-status.md#what-1-0-requires).
+> **Preview.** No breaking redesign is planned, and a version that breaks what the one before it allowed says how to migrate. The runtime, `1.0.0-preview.2`, implements DOMQL's specification `1.0.0-preview.1` on Nexo's language `1.0.0-preview.1`, definition version 38. DOMQL declares the DOM as types of its own. It is published to npm and NuGet, as [installing it](#install) sets out, and you can also [build and try it locally](#build-and-try-it). See [the status overview](docs/features-status.md), and [what 1.0 requires](docs/features-status.md#what-1-0-requires).
 
 ## Features
 
@@ -20,7 +20,21 @@ DOMQL is a JavaScript library for querying the DOM, allowing you to read informa
 - Typed extension modules: members, observations, event sources and executions
 - Validation before anything is evaluated
 - Definitions as JSON
-- One ES module with TypeScript declarations
+- ES modules with TypeScript declarations, from npm or NuGet
+
+## Install
+
+From npm, as ES modules that import Nexo from its own package, `@formaui-net/nexo`, and that a module imports as `import { domql } from '@formaui-net/domql'`:
+
+```sh
+npm install @formaui-net/domql@preview
+```
+
+From NuGet, as one bundle with Nexo inside it, which a .NET web application serves at `_content/domql/domql.js`, as the [library guide](nuget/README.md#install-and-load) sets out:
+
+```sh
+dotnet add package formaui-net.DOMQL --prerelease
+```
 
 ## Your first query
 
@@ -113,10 +127,10 @@ Clone the repository. You'll need Node.js with npm, PowerShell and the .NET SDK 
 ```powershell
 ./build.ps1           # The build and the checks
 ./build.ps1 -Browser  # With the real-browser tests
-./build.ps1 -Full     # A local NuGet package, in artifacts/, verified as installed
+./build.ps1 -Full     # The npm and NuGet packages, in artifacts/, verified as installed
 ```
 
-The package supplies the bundle at `_content/domql/domql.js`, with its TypeScript declarations beside it.
+The NuGet package supplies the bundle at `_content/domql/domql.js`, and the npm package the sources, each with its TypeScript declarations.
 
 ## License
 

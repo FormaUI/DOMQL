@@ -1,0 +1,5 @@
+{
+    "name": "domql-npm-consumer",
+    "private": true,
+    "type": "module"
+}

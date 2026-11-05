@@ -1,6 +1,6 @@
 name: Release
 
-# A release tag's push: the release check of the FormaUI Versioning release DOMQL follows, then the packages candidate's full gate built, attached to the tag's GitHub release with their digests, and published from there to nuget.org through trusted publishing. A run that fails runs again for the same tag, publishing what the feed lacks. DOMQL publishes no npm package yet.
+# A release tag's push: the release check of the FormaUI Versioning release DOMQL follows, then the packages candidate's full gate built, attached to the tag's GitHub release with their digests, and published from there to nuget.org and npm through trusted publishing. A run that fails runs again for the same tag, publishing what each feed lacks.
 on:
   push:
     tags: ['v*']
@@ -42,6 +42,12 @@ jobs:
           packages-artifact: packages
           name: DOMQL
 
+      # Node's npm, 11.5.1 or later, which trusted publishing needs.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: nuget/global.json
@@ -63,4 +69,23 @@ jobs:
           dotnet nuget push (Join-Path $env:PACKAGES "formaui-net.DOMQL.$env:VERSION.nupkg") --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
           if ($LASTEXITCODE -ne 0) {
               throw 'Publishing to nuget.org failed.'
+          }
+
+      # The npm package, under the dist-tag of its stage, past a version npm holds already; trusted publishing records its provenance. It depends on Nexo's npm package, which Nexo's own release published.
+      - name: Publish to npm
+        shell: pwsh
+        env:
+          PACKAGES: ${{ steps.packages.outputs.directory }}
+          VERSION: ${{ steps.check.outputs.version }}
+        run: |
+          $held = npm view "@formaui-net/domql@$env:VERSION" version 2>$null
+          if ($held -eq $env:VERSION) {
+              Write-Host "npm holds @formaui-net/domql $env:VERSION already."
+              exit 0
+          }
+
+          $tag = if ($env:VERSION -match '-(preview|rc)\.') { $Matches[1] } else { 'latest' }
+          npm publish (Join-Path $env:PACKAGES "formaui-net-domql-$env:VERSION.tgz") --tag $tag --access public
+          if ($LASTEXITCODE -ne 0) {
+              throw 'Publishing to npm failed.'
           }
