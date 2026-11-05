@@ -21,10 +21,20 @@
         <PackageReadmeFile>README.md</PackageReadmeFile>
     </PropertyGroup>
 
+    <!-- Where a package came from: Source Link records the repository and the commit it was built from, which the full gate's pack sets ContinuousIntegrationBuild for, and the assembly's symbols ship beside the package. -->
+    <PropertyGroup>
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+        <EnablePackageValidation>true</EnablePackageValidation>
+    </PropertyGroup>
+
     <ItemGroup>
         <None Include="..\LICENSE" Pack="true" PackagePath="\" Visible="false" />
         <None Include="..\NOTICE" Pack="true" PackagePath="\" Visible="false" />
         <None Include="README.md" Pack="true" PackagePath="\" />
+        <!-- The SDK the build pins is the build's, never a consumer's. -->
+        <Content Update="global.json" Pack="false" />
     </ItemGroup>
 
     <!-- The version: the runtime release version src/Versions.mjs declares, so the package, the bundle and the sources report one version. -->
@@ -32,6 +42,8 @@
         <VersionsSource>$(MSBuildProjectDirectory)\..\src\Versions.mjs</VersionsSource>
         <Version>$([System.Text.RegularExpressions.Regex]::Replace($([System.IO.File]::ReadAllText('$(VersionsSource)')), '(?s)^.*runtime = \x27([^\x27]+)\x27.*$', '$1'))</Version>
         <PackageVersion>$(Version)</PackageVersion>
+        <!-- The release's entry in the changelog, at the release's tag. -->
+        <PackageReleaseNotes>What DOMQL $(Version) changed: https://github.com/FormaUI/DOMQL/blob/v$(Version)/CHANGELOG.md#v$(Version.Replace('.', '-'))</PackageReleaseNotes>
     </PropertyGroup>
 
     <!-- A package without the bundle would ship nothing, and one whose bundle answers another version would misreport itself, so packing stops until publish.ps1 has made the bundle of this version. -->
