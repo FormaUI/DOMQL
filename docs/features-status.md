@@ -275,9 +275,8 @@ DOMQL releases as [cutting a release](../CONTRIBUTING.md#cut-a-release) sets out
 
 **Remaining for `1.0.0-preview.1`:**
 
-1. Create `dev` and `candidate` from `main`'s tip. The organization's linear-history rule refuses a new branch holding `main`'s one merge commit, `3c68220`, made before the rules, so the owner lifts it for DOMQL while they're made.
-2. Create nuget.org's trusted-publishing policy for `release.yml` in the `release` environment, which needs the owner's account.
-3. Release `1.0.0-preview.1`.
+1. Create nuget.org's trusted-publishing policy for `release.yml` in the `release` environment, which needs the owner's account.
+2. Release `1.0.0-preview.1`.
 
 <a id="consuming-lexica"></a>
 <a id="consuming-nexo"></a>
