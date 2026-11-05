@@ -4,7 +4,7 @@
 
 DOMQL is a JavaScript library for querying the DOM, allowing you to read information from a document once or observe it as it changes. This guide takes you from your first query to watching results, handling events and extending the library. Its queries are written in [Nexo](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/spec/README.md).
 
-> **Preview:** no breaking redesign is planned, and a version that breaks what the one before it allowed says how to migrate. `formaui-net.DOMQL` is not yet published to NuGet. [Build the package locally](#install-and-load) to try it. The package distributes a JavaScript ES module; the API in this guide runs in JavaScript. Every example here runs on this preview. The runtime, `1.0.0-preview.1`, implements DOMQL's specification `1.0.0-preview.1` on Nexo's language `1.0.0-preview.1`, definition version 38. [The status overview](https://github.com/FormaUI/DOMQL/blob/main/docs/features-status.md) says what is implemented and what is being built.
+> **Preview:** no breaking redesign is planned, and a version that breaks what the one before it allowed says how to migrate. `formaui-net.DOMQL` is published to NuGet as a pre-release, which you [install by name](#install-and-load). The package distributes a JavaScript ES module; the API in this guide runs in JavaScript. Every example here runs on this preview. The runtime, `1.0.0-preview.1`, implements DOMQL's specification `1.0.0-preview.1` on Nexo's language `1.0.0-preview.1`, definition version 38. [The status overview](https://github.com/FormaUI/DOMQL/blob/main/docs/features-status.md) says what is implemented and what is being built.
 
 ## In this guide
 
@@ -22,13 +22,16 @@ DOMQL is a JavaScript library for querying the DOM, allowing you to read informa
 
 ## Install and load
 
-Build the repository with `./build.ps1 -Full`. This writes the local NuGet package to `artifacts/`, verified as an application installs it; see the [repository setup instructions](https://github.com/FormaUI/DOMQL#build-and-try-it) for prerequisites.
-
-From your application's project directory, add the package using that folder as the source. Adjust the path to your local `artifacts/` directory:
+From your application's project directory, add the package from nuget.org. It's a pre-release, so `dotnet add package` needs `--prerelease`:
 
 ```sh
-dotnet add package formaui-net.DOMQL --prerelease --source ./artifacts
+dotnet add package formaui-net.DOMQL --prerelease
 ```
+
+To try a change before it's released, build the package yourself:
+
+1. Run `./build.ps1 -Full` in the repository. It writes the package to `artifacts/`, verified as an application installs it. The [repository setup instructions](https://github.com/FormaUI/DOMQL#build-and-try-it) list the prerequisites.
+2. Add it from there, adjusting the path to your `artifacts/` directory: `dotnet add package formaui-net.DOMQL --prerelease --source ./artifacts`.
 
 In a .NET web application hosted at the site root, import DOMQL from a JavaScript module:
 

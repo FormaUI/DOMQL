@@ -17,7 +17,7 @@ Each entry says what its version breaks:
 
 ## `1.0.0-preview.1`
 
-*Unreleased · Nexo language `1.0.0-preview.1` · definition format 38*
+*November 5, 2026 · Nexo language `1.0.0-preview.1` · definition format 38*
 
 ```domql
 input.disabled                                             // a state, a Boolean property; input.disabled() before, NEXO3017 now

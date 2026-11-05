@@ -9,7 +9,7 @@ Each release of DOMQL's packages, newest first. The NuGet package `formaui-net.D
 
 ## `1.0.0-preview.1`
 
-*Unreleased · specification `1.0.0-preview.1` · Nexo language `1.0.0-preview.1` · definition format 38*
+*November 5, 2026 · specification `1.0.0-preview.1` · Nexo language `1.0.0-preview.1` · definition format 38*
 
 - The first preview, and the first release, as [FormaUI Versioning's stages](https://github.com/FormaUI/Versioning/blob/v1.0.0-preview.1/docs/versions.md#stages) name it: the runtime and the specification take `1.0.0-preview.1`, with the beta's promise. The [version history](VERSION-HISTORY.md) records what came before it.
 - The NuGet package links its release notes to its changelog entry at its tag, records its repository and commit through Source Link, and ships its symbols beside it as a `.snupkg`. It no longer holds the build's `global.json`, which it delivered to a consumer as content.
