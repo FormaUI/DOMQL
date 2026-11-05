@@ -3,7 +3,7 @@
 Each version of DOMQL, newest first, with the features it added and what it changed. A version names DOMQL's contract, its [specification](spec/README.md): the DOM's vocabulary, the module that declares it, and DOMQL as the host that carries queries out. The language is Nexo's, called Lexica before `1.0.0-alpha.278`, so each entry also names the language version and definition format it describes.
 
 - **A version collects the changes made between two releases.** The first change to DOMQL's contract after a [release](CHANGELOG.md) opens the next version's entry, which reads *Unreleased*, and each later change joins it. The release that first implements the version dates it, and fixes it.
-- **Versions before `1.0.0-beta.2` advanced with each change,** before DOMQL's first release, each dated by the day the specification first described it.
+- **Versions before `1.0.0-preview.1` advanced with each change,** before DOMQL's first release, each dated by the day the specification first described it.
 - **A change stands in the first version whose implementation follows it.**
 - **From `1.0.0-beta.1` on, an entry leads with examples** of what its version changed: a query's in a `domql` block, a caller's or a module's in a `js` block, each line's comment saying what it does at that version and what it did before. The list below them is the reference. A version the specification describes ahead of the implementation says so, and says which of its changes the implementation has already.
 
@@ -13,9 +13,9 @@ Each entry says what its version breaks:
 - **From `1.0.0-beta.1` until the first release candidate,** a decision may be replaced where a demonstrated fault, an ambiguous contract or a measured cost justifies it, whether or not Forma has met it, as [D100](docs/decisions.md#d100) records. A version that breaks what the one before it allowed says, beside each break, how a query, a caller or a module migrates.
 - **From `1.0.0-rc.1` on,** nothing breaks before 2.0.
 
-<a id="v1-0-0-beta-2"></a>
+<a id="v1-0-0-preview-1"></a>
 
-## `1.0.0-beta.2`
+## `1.0.0-preview.1`
 
 *Unreleased · Nexo language `1.0.0-beta.41` · definition format 38*
 

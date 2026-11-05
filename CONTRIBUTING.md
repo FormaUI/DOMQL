@@ -54,7 +54,7 @@ The [Nexo specification](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec
 
 Keep each change focused, and follow the surrounding code's conventions. Use `.editorconfig` for formatting and style.
 
-Since DOMQL entered its beta, two rules hold for a change its callers can notice:
+Since DOMQL's beta, two rules hold for a change its callers can notice:
 
 - **A break says how to migrate.** A version that breaks what the one before it allowed says how to migrate, beside the break, in its entry in the [version history](VERSION-HISTORY.md).
 - **A change a caller can notice is listed** in the [changelog](CHANGELOG.md), by its rules.

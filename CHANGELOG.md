@@ -5,14 +5,14 @@ Each release of DOMQL's packages, newest first. The NuGet package `formaui-net.D
 - **An entry is dated when its release is cut,** and reads *Unreleased* until then. [Cutting a release](CONTRIBUTING.md#cut-a-release) tags its commit, and its packages are published from that tag.
 - **A change a caller can notice** is listed in the newest entry while it is unreleased. Once it is released, the change opens the next version's entry, and the sources declare that version in the same commit.
 
-<a id="v1-0-0-beta-1"></a>
+<a id="v1-0-0-preview-1"></a>
 
-## `1.0.0-beta.1`
+## `1.0.0-preview.1`
 
-*Unreleased · specification `1.0.0-beta.2` · Nexo language `1.0.0-beta.41` · definition format 38*
+*Unreleased · specification `1.0.0-preview.1` · Nexo language `1.0.0-beta.41` · definition format 38*
 
-- The first beta, and the first release. The [version history](VERSION-HISTORY.md) records what came before it.
-- Runs on Nexo's language `1.0.0-beta.41`, from Nexo's release `1.0.0-beta.2`, as the [version history](VERSION-HISTORY.md#v1-0-0-beta-2) sets out: `and` and `or` typed where their value is used, a selection into a dictionary's `entries` and a pair's `key` and `value`, a module's maintained members declaring nullable results, and the members that make a value of their receiver called as functions, `round()` and `trim()` among them, among the rest.
+- The first preview, and the first release, as [FormaUI Versioning's stages](https://github.com/FormaUI/Versioning/blob/v1.0.0-preview.1/docs/versions.md#stages) name it: the runtime and the specification take `1.0.0-preview.1`, with the beta's promise. The [version history](VERSION-HISTORY.md) records what came before it.
+- Runs on Nexo's language `1.0.0-beta.41`, from Nexo's release `1.0.0-beta.2`, as the [version history](VERSION-HISTORY.md#v1-0-0-preview-1) sets out: `and` and `or` typed where their value is used, a selection into a dictionary's `entries` and a pair's `key` and `value`, a module's maintained members declaring nullable results, and the members that make a value of their receiver called as functions, `round()` and `trim()` among them, among the rest.
 - Each state DOMQL declares is a Boolean property, read without a call, `it.checked`, where it was a function, `it.checked()`. An element's `hover` and `focus`, the document's `focus`, and the window's `share` and `clipboard` are `hovered`, `focused`, `canShare` and `hasClipboard`.
 - Each built-in execution is named by its verb: `takeFocus`, `writeClipboard`, `readClipboard`, `writeValue` and `writeSelection` are `focus`, `writeToClipboard`, `readFromClipboard`, `replaceValue` and `select`, and `writeMuted(muted)` and `writeIndeterminate(indeterminate)` are `mute()` and `unmute()`, and `markIndeterminate()` and `clearIndeterminate()`.
 - A watch of `focused`, `focusWithin`, `activeElement` or a selector testing focus follows the focus moving inside an open shadow root, and the focused element removed, in every engine.

@@ -4,7 +4,7 @@
 
 DOMQL is a JavaScript library for querying the DOM, allowing you to read information from a document once or observe it as it changes. This guide takes you from your first query to watching results, handling events and extending the library. Its queries are written in [Nexo](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/README.md).
 
-> **Beta:** no breaking redesign is planned, and a version that breaks what the one before it allowed says how to migrate. `formaui-net.DOMQL` is not yet published to NuGet. [Build the package locally](#install-and-load) to try it. The package distributes a JavaScript ES module; the API in this guide runs in JavaScript. Every example here runs on this beta. The runtime, `1.0.0-beta.1`, implements DOMQL's specification `1.0.0-beta.2` on Nexo's language `1.0.0-beta.41`, definition version 38. [The status overview](https://github.com/FormaUI/DOMQL/blob/main/docs/features-status.md) says what is implemented and what is being built.
+> **Preview:** no breaking redesign is planned, and a version that breaks what the one before it allowed says how to migrate. `formaui-net.DOMQL` is not yet published to NuGet. [Build the package locally](#install-and-load) to try it. The package distributes a JavaScript ES module; the API in this guide runs in JavaScript. Every example here runs on this preview. The runtime, `1.0.0-preview.1`, implements DOMQL's specification `1.0.0-preview.1` on Nexo's language `1.0.0-beta.41`, definition version 38. [The status overview](https://github.com/FormaUI/DOMQL/blob/main/docs/features-status.md) says what is implemented and what is being built.
 
 ## In this guide
 

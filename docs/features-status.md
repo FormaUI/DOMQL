@@ -2,16 +2,16 @@
 
 ## Current state
 
-**DOMQL is in its beta, `1.0.0-beta.1`. Its vocabulary, queries, watches, events, executions and behaviors are implemented on Nexo's language `1.0.0-beta.41`, definition version 38. The specification describes DOMQL's `1.0.0-beta.2`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Every [planned capability](#planned-capabilities) is implemented or declined but the C# half's, A1 and A5's queue, which wait for its design.**
+**DOMQL is in its preview, `1.0.0-preview.1`. Its vocabulary, queries, watches, events, executions and behaviors are implemented on Nexo's language `1.0.0-beta.41`, definition version 38. The specification describes DOMQL's `1.0.0-preview.1`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Every [planned capability](#planned-capabilities) is implemented or declined but the C# half's, A1 and A5's queue, which wait for its design.**
 
 | Version | Implementation | Specification |
 | --- | --- | --- |
-| DOMQL specification | `1.0.0-beta.2` | `1.0.0-beta.2` |
+| DOMQL specification | `1.0.0-preview.1` | `1.0.0-preview.1` |
 | Nexo language | `1.0.0-beta.41` | `1.0.0-beta.41` |
 | Definition format | 38 | 38 |
 
 - **The language DOMQL runs on.** DOMQL follows Nexo's language `1.0.0-beta.41`, which Nexo's release `1.0.0-beta.2` carries, so it builds against that release once `nexo.release` pins it, through a checkout `NEXO_SOURCE` names until then; `nexo.release` pins `1.0.0-beta.1` now, of language `1.0.0-beta.40`, and its documents link to [Nexo's documents at that tag](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/README.md), moving with the pin. The language was called Lexica before the [migration](#migration-to-nexo).
-- **Packages.** The bundle and type declarations are built, with Nexo bundled inside `domql.js`. The NuGet package is packed locally, carrying the runtime version `1.0.0-beta.1`, and is unpublished. The npm package is not made yet: `package.json` is private and carries no version.
+- **Packages.** The bundle and type declarations are built, with Nexo bundled inside `domql.js`. The NuGet package is packed locally, carrying the runtime version `1.0.0-preview.1`, and is unpublished. The npm package is not made yet: `package.json` is private and carries no version.
 - **The C# half** waits for its design, as [D46](decisions.md#d46) records.
 
 The [specification](../spec/README.md) defines the contract, and the [design](domql-design.md) explains the architecture. The [version history](../VERSION-HISTORY.md) records what each version changed, and the [changelog](../CHANGELOG.md) each release of the packages. This file tracks DOMQL's implementation and its remaining work. "Implemented" means built and tested in the gate for the current implementation version; it does not imply that later specification changes are implemented.
@@ -24,7 +24,7 @@ The [specification](../spec/README.md) defines the contract, and the [design](do
 | --- | --- |
 | [The C# half](#the-c-half) | Waits for its design |
 | [Planned capabilities](#planned-capabilities) | The C# half's alone remain, waiting for its design |
-| [Release](#release) | The beta is declared; publishing waits for Nexo's published packages |
+| [Release](#release) | The preview is declared, `1.0.0-preview.1`, DOMQL's first release; it waits for Nexo's first preview, which it builds against |
 | [What 1.0 requires](#what-1-0-requires) | Six requirements, one met in part |
 
 - **A specification version collects the changes between two releases.** A change to DOMQL's contract joins the [version history](../VERSION-HISTORY.md)'s newest entry while it reads *Unreleased*, and opens the next version's entry once it is released, as [D79](decisions.md#d79) records.
@@ -47,7 +47,7 @@ Each feature, the contract that states it, its state in the implementation, and 
 | Properties, functions and indexers of the DOM | [Built-in vocabulary](../spec/vocabulary.md) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
 | Nexo's indexer forms and type names in PascalCase | [Types](../spec/vocabulary.md#vocabulary-types) | Implemented | [`alpha.277`](../VERSION-HISTORY.md#v1-0-0-alpha-277) |
 | `Domql.document` and `Domql.window` | [Module members](../spec/vocabulary.md#module-members) | Implemented | [`alpha.278`](../VERSION-HISTORY.md#v1-0-0-alpha-278) |
-| States, each a Boolean property read without a call, with `hovered`, `focused`, `canShare` and `hasClipboard` | [States](../spec/vocabulary.md#states) | Implemented, as Boolean properties since [D87](decisions.md#d87) | [`alpha.276`](../VERSION-HISTORY.md#v1-0-0-alpha-276), [`beta.2`](../VERSION-HISTORY.md#v1-0-0-beta-2) |
+| States, each a Boolean property read without a call, with `hovered`, `focused`, `canShare` and `hasClipboard` | [States](../spec/vocabulary.md#states) | Implemented, as Boolean properties since [D87](decisions.md#d87) | [`alpha.276`](../VERSION-HISTORY.md#v1-0-0-alpha-276), [`preview.1`](../VERSION-HISTORY.md#v1-0-0-preview-1) |
 | Conversions, Nexo's, which DOMQL's queries use | [Built-in conversions](../spec/vocabulary.md#built-in-conversions) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
 | Observation types, shared in sessions | [Observation types](../spec/vocabulary.md#observations-types) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
 | Continuous measurement, the `frame` observation, its cost measured | [Observation types](../spec/vocabulary.md#observations-types) | Implemented, as [D56](decisions.md#d56) records | [`alpha.305`](../VERSION-HISTORY.md#v1-0-0-alpha-305) |
@@ -75,15 +75,15 @@ Each feature, the contract that states it, its state in the implementation, and 
 | `all`, `first`, `matches` and `closest` observing what their selector reads, the `selector` observation | [`matches`](../spec/vocabulary.md#function-element-matches), [observation types](../spec/vocabulary.md#observations-types) | Implemented | [`alpha.286`](../VERSION-HISTORY.md#v1-0-0-alpha-286) |
 | An element's `sizeLimits` in pixels, and a file input's `files` | [`sizeLimits`](../spec/vocabulary.md#property-element-sizelimits), [`files`](../spec/vocabulary.md#property-element-files) | Implemented | [`alpha.285`](../VERSION-HISTORY.md#v1-0-0-alpha-285) |
 | `hasPointerCapture(pointerId)` | [`hasPointerCapture`](../spec/vocabulary.md#function-element-haspointercapture) | Implemented | [`alpha.284`](../VERSION-HISTORY.md#v1-0-0-alpha-284) |
-| Owned writes beside a framework: an element's text, `ownText`, written into the node it holds, and a kept value that yields to a writer keeping its own | [Owned writes](../spec/vocabulary.md#execution-element-owned-writes), [beside a framework](../spec/vocabulary.md#execution-element-owned-writes-framework) | Implemented, as [D70](decisions.md#d70) and [D83](decisions.md#d83) record | [`alpha.315`](../VERSION-HISTORY.md#v1-0-0-alpha-315), [`beta.2`](../VERSION-HISTORY.md#v1-0-0-beta-2) |
+| Owned writes beside a framework: an element's text, `ownText`, written into the node it holds, and a kept value that yields to a writer keeping its own | [Owned writes](../spec/vocabulary.md#execution-element-owned-writes), [beside a framework](../spec/vocabulary.md#execution-element-owned-writes-framework) | Implemented, as [D70](decisions.md#d70) and [D83](decisions.md#d83) record | [`alpha.315`](../VERSION-HISTORY.md#v1-0-0-alpha-315), [`preview.1`](../VERSION-HISTORY.md#v1-0-0-preview-1) |
 | A chosen file shown as an element's source, `ownFileSource`, its object URL owned and revoked | [`ownFileSource`](../spec/vocabulary.md#execution-element-ownfilesource) | Implemented, as [D44](decisions.md#d44) records | [`alpha.300`](../VERSION-HISTORY.md#v1-0-0-alpha-300) |
 | Placing the document's selection, `select`, `selectContents` and `collapse` of `Domql.document.selection` | [Selection placement](../spec/vocabulary.md#execution-document-selection-placement) | Implemented, as [D43](decisions.md#d43) records | [`alpha.299`](../VERSION-HISTORY.md#v1-0-0-alpha-299) |
 | `dispatch`, a custom event of the page's own, of an element, the document and the window | [`dispatch`](../spec/vocabulary.md#execution-dispatch) | Implemented, as [D42](decisions.md#d42) records | [`alpha.298`](../VERSION-HISTORY.md#v1-0-0-alpha-298) |
-| Built-in executions: focusing, `focus`, and scrolling, `scrollTo`, `scrollBy` and `scrollIntoView`, of an element and of the window | [Executions](../spec/vocabulary.md#built-in-executions) | Implemented, as [D34](decisions.md#d34) and [D35](decisions.md#d35) record, named by their verbs as [D88](decisions.md#d88) records | [`alpha.292`](../VERSION-HISTORY.md#v1-0-0-alpha-292), [`beta.2`](../VERSION-HISTORY.md#v1-0-0-beta-2) |
+| Built-in executions: focusing, `focus`, and scrolling, `scrollTo`, `scrollBy` and `scrollIntoView`, of an element and of the window | [Executions](../spec/vocabulary.md#built-in-executions) | Implemented, as [D34](decisions.md#d34) and [D35](decisions.md#d35) record, named by their verbs as [D88](decisions.md#d88) records | [`alpha.292`](../VERSION-HISTORY.md#v1-0-0-alpha-292), [`preview.1`](../VERSION-HISTORY.md#v1-0-0-preview-1) |
 | An instant scroll answered as the browser's method returns, without waiting for a frame, and a scroll in a hidden document asked for as instant | [Instant scrolls](../spec/vocabulary.md#execution-scroll-instant) | Implemented, as [D67](decisions.md#d67) records | [`alpha.312`](../VERSION-HISTORY.md#v1-0-0-alpha-312) |
 | Pointer capture, `capturePointer` and `releasePointer` | [`capturePointer`](../spec/vocabulary.md#execution-element-capturepointer-releasepointer) | Implemented, as [D37](decisions.md#d37) records | [`alpha.294`](../VERSION-HISTORY.md#v1-0-0-alpha-294) |
-| The browser's facilities, `writeToClipboard`, `readFromClipboard`, `download`, `print` and `requestShare`, and a media element's `play`, `pause`, `mute` and `unmute`; `readClipboardText` and `writeCookie` declined, as [D40](decisions.md#d40) and [D41](decisions.md#d41) record | [`writeToClipboard`](../spec/vocabulary.md#execution-window-writetoclipboard-readfromclipboard), [`requestShare`](../spec/vocabulary.md#execution-window-requestshare), [`play`](../spec/vocabulary.md#execution-element-play-pause-mute-unmute) | Implemented, named by their verbs as [D88](decisions.md#d88) records | [`alpha.297`](../VERSION-HISTORY.md#v1-0-0-alpha-297), [`beta.2`](../VERSION-HISTORY.md#v1-0-0-beta-2) |
-| A form control's writes, `markIndeterminate`, `clearIndeterminate`, `replaceValue` and `select`, firing no event | [`markIndeterminate`](../spec/vocabulary.md#execution-element-markindeterminate-clearindeterminate), [`replaceValue`](../spec/vocabulary.md#execution-element-replacevalue), [`select`](../spec/vocabulary.md#execution-element-select) | Implemented, as [D39](decisions.md#d39) records, named by their verbs as [D88](decisions.md#d88) records | [`alpha.296`](../VERSION-HISTORY.md#v1-0-0-alpha-296), [`beta.2`](../VERSION-HISTORY.md#v1-0-0-beta-2) |
+| The browser's facilities, `writeToClipboard`, `readFromClipboard`, `download`, `print` and `requestShare`, and a media element's `play`, `pause`, `mute` and `unmute`; `readClipboardText` and `writeCookie` declined, as [D40](decisions.md#d40) and [D41](decisions.md#d41) record | [`writeToClipboard`](../spec/vocabulary.md#execution-window-writetoclipboard-readfromclipboard), [`requestShare`](../spec/vocabulary.md#execution-window-requestshare), [`play`](../spec/vocabulary.md#execution-element-play-pause-mute-unmute) | Implemented, named by their verbs as [D88](decisions.md#d88) records | [`alpha.297`](../VERSION-HISTORY.md#v1-0-0-alpha-297), [`preview.1`](../VERSION-HISTORY.md#v1-0-0-preview-1) |
+| A form control's writes, `markIndeterminate`, `clearIndeterminate`, `replaceValue` and `select`, firing no event | [`markIndeterminate`](../spec/vocabulary.md#execution-element-markindeterminate-clearindeterminate), [`replaceValue`](../spec/vocabulary.md#execution-element-replacevalue), [`select`](../spec/vocabulary.md#execution-element-select) | Implemented, as [D39](decisions.md#d39) records, named by their verbs as [D88](decisions.md#d88) records | [`alpha.296`](../VERSION-HISTORY.md#v1-0-0-alpha-296), [`preview.1`](../VERSION-HISTORY.md#v1-0-0-preview-1) |
 | Owned writes of an attribute, a class and an inline style property, `ownAttribute`, `ownClass` and `ownStyle`, each restoring and keeping its value as it says | [Owned writes](../spec/vocabulary.md#execution-element-owned-writes) | Implemented, as [D38](decisions.md#d38) records | [`alpha.295`](../VERSION-HISTORY.md#v1-0-0-alpha-295) |
 | The top layer's executions, `showPopover`, `hidePopover`, `showModal` and `close` | [`showPopover`](../spec/vocabulary.md#execution-element-showpopover-hidepopover), [`showModal`](../spec/vocabulary.md#execution-element-showmodal-close) | Implemented, as [D36](decisions.md#d36) records | [`alpha.293`](../VERSION-HISTORY.md#v1-0-0-alpha-293) |
 | Following a change a member misses through a body's local | [Following a change a member misses](../spec/watches.md#dependencies-following-what-a-member-misses) | Implemented | [`alpha.282`](../VERSION-HISTORY.md#v1-0-0-alpha-282) |
@@ -94,8 +94,8 @@ Each feature, the contract that states it, its state in the implementation, and 
 | --- | --- | --- | --- |
 | Queries from text or a definition, `with`, `select` and `resolve` | [Queries](../spec/queries.md) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
 | Imports, `Domql` supplied to every query | [Its imports](../spec/queries.md#making-a-query-imports) | Implemented | [`alpha.278`](../VERSION-HISTORY.md#v1-0-0-alpha-278) |
-| A query run directly, in one call, `domql.executeAsync(text, bindings, options)` and each operation of a query object alike | [Two ways to run a query](../spec/api.md#api-two-ways-to-run-a-query) | Implemented, as [D89](decisions.md#d89) records | [`beta.2`](../VERSION-HISTORY.md#v1-0-0-beta-2) |
-| Bindings of the types a query declares, `domql.query(text, bindings, { types })` | [Declared types](../spec/queries.md#making-a-query-declared-types) | Implemented, as [D82](decisions.md#d82) records | [`beta.2`](../VERSION-HISTORY.md#v1-0-0-beta-2) |
+| A query run directly, in one call, `domql.executeAsync(text, bindings, options)` and each operation of a query object alike | [Two ways to run a query](../spec/api.md#api-two-ways-to-run-a-query) | Implemented, as [D89](decisions.md#d89) records | [`preview.1`](../VERSION-HISTORY.md#v1-0-0-preview-1) |
+| Bindings of the types a query declares, `domql.query(text, bindings, { types })` | [Declared types](../spec/queries.md#making-a-query-declared-types) | Implemented, as [D82](decisions.md#d82) records | [`preview.1`](../VERSION-HISTORY.md#v1-0-0-preview-1) |
 | Evaluating once, and waiting for maintained members | [Evaluation](../spec/evaluation.md) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
 | Watches, their dependencies and partial observation | [Watches](../spec/watches.md) | Implemented | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
 | Snapshots, live state and change sets | [Results](../spec/results.md) | Implemented; a selection takes a dictionary or a pair whole | [Before `alpha.275`](../VERSION-HISTORY.md#before-1-0-0-alpha-275) |
@@ -130,6 +130,7 @@ Each feature, the contract that states it, its state in the implementation, and 
 | The element a watch's list item came from, `watch.sourceOf(...path)`, for a handler in the browser | [`sourceOf`](../spec/watches.md#watching-source-elements) | Implemented, as [D72](decisions.md#d72) records | [`alpha.317`](../VERSION-HISTORY.md#v1-0-0-alpha-317) |
 | Delivery options: a delayed schedule a refresh flushes, reporting on parts, and a subscription's throttle | [The delayed schedule](../spec/watches.md#watching-delayed), [reporting on parts](../spec/results.md#results-reporting-on-parts), [throttling](../spec/events.md#events-throttling) | Implemented, as [D73](decisions.md#d73) records | [`alpha.318`](../VERSION-HISTORY.md#v1-0-0-alpha-318) |
 | The beta, its promise and the changelog | [Version history](../VERSION-HISTORY.md#v1-0-0-beta-1), [changelog](../CHANGELOG.md) | Implemented, as [D75](decisions.md#d75) records | [`beta.1`](../VERSION-HISTORY.md#v1-0-0-beta-1) |
+| The preview, the beta's promise under FormaUI Versioning's name for it | [Stages](https://github.com/FormaUI/Versioning/blob/v1.0.0-preview.1/docs/versions.md#stages) | Implemented, as [D106](decisions.md#d106) records | [`preview.1`](../VERSION-HISTORY.md#v1-0-0-preview-1) |
 | The C# half | [Design](domql-design.md#the-c-half) | Waits for its design | — |
 
 <a id="migration-to-nexo"></a>
@@ -291,7 +292,7 @@ Needs Nexo's packages, which its [release](https://github.com/FormaUI/Nexo/blob/
 
 **Current:**
 
-- **NuGet:** `./publish.ps1` packs `formaui-net.DOMQL` locally. It carries the runtime version `src/Versions.mjs` declares, `1.0.0-beta.1`, and is unpublished.
+- **NuGet:** `./publish.ps1` packs `formaui-net.DOMQL` locally. It carries the runtime version `src/Versions.mjs` declares, `1.0.0-preview.1`, and is unpublished.
 - **npm:** not made yet. `package.json` is private and carries no version.
 - **The gate** holds the NuGet package, both READMEs, the [changelog](../CHANGELOG.md) and `domql.info.versions` to the versions the sources declare. The sources declare the version due at the next release, so nothing advances before a release is cut, as [D75](decisions.md#d75) and [D79](decisions.md#d79) record.
 
@@ -302,9 +303,9 @@ Needs Nexo's packages, which its [release](https://github.com/FormaUI/Nexo/blob/
 
 Both wait for Nexo's published packages, and publishing stays with the maintainer.
 
-### Beta
+### Preview
 
-**Done.** DOMQL entered the beta at `1.0.0-beta.1`, as [D75](decisions.md#d75) records:
+**Done.** DOMQL entered the beta at `1.0.0-beta.1`, as [D75](decisions.md#d75) records, and its first release, `1.0.0-preview.1`, leaves it for the preview, the stage [FormaUI Versioning](https://github.com/FormaUI/Versioning/blob/v1.0.0-preview.1/docs/versions.md#stages) names for a contract that may still change, with the same promise, as [D106](decisions.md#d106) records:
 
 - The documents and the module API were audited, and the behavior of a cast inside an optional enclosed access was settled.
 - The specification and the runtime both took `1.0.0-beta.1`. The contract is that of `1.0.0-alpha.318`, unchanged.

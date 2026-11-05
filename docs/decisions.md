@@ -1176,7 +1176,7 @@ Each entry is one of three kinds:
 - **Why:**
   - Nexo's maintenance sweep, its `1.0.0-beta.21` to `1.0.0-beta.40`, fixed faults a query and a module could meet: stack overflows, a hang, unsound typing of `Any`, and texts that read otherwise than they were written.
   - A selection checks its path with Nexo's `typeAt` and reads it with `valueAt`, which now step into the form a result holds a dictionary or a pair in, so a selection reaches every part a result holds.
-  - Each break the move brings is one a beta allows with guidance: the [version history](../VERSION-HISTORY.md#v1-0-0-beta-2) gives each its migration.
+  - Each break the move brings is one a beta allows with guidance: the [version history](../VERSION-HISTORY.md#v1-0-0-preview-1) gives each its migration.
 - **Declined:**
   - Staying on `1.0.0-beta.20`, which would keep the faults the sweep fixed.
   - Refusing a path into a dictionary or a pair in DOMQL's own check, as the specification said. A result holds them as `entries` and `key` and `value`, as a change set addresses them, so a selection that can't reach them would be the one operation that can't.
@@ -1361,7 +1361,7 @@ Each entry is one of three kinds:
   - The owner's call, following Nexo's: a state is something the receiver is in, and `checked()` read as though checking were done.
   - A state was a function only so a query could pass it by reference, `where(Domql.checked)`, where a body reads as well, `where(it.checked)`.
   - Each new name says what the property reads. `hover` and `focus` are verbs, and `focus` names the execution that moves focus, which [D88](#d88) gives it. `share` and `clipboard` named the API, where the property says whether the window can share or has a clipboard.
-  - Nexo's NEXO3017 writes the property to read where a query calls one, so each query that breaks is told what to write, and the [version history](../VERSION-HISTORY.md#v1-0-0-beta-2) says how to migrate.
+  - Nexo's NEXO3017 writes the property to read where a query calls one, so each query that breaks is told what to write, and the [version history](../VERSION-HISTORY.md#v1-0-0-preview-1) says how to migrate.
 - **Declined:**
   - Keeping the functions beside the properties, which would give one state two members.
   - Keeping the old names as properties, `it.hover` and `it.focus`, which read as verbs, and where `focus` is the name the execution that moves focus takes.
@@ -1612,3 +1612,17 @@ Each entry is one of three kinds:
 - **Decision:** Where one subscription hears an occurrence, `deliver` answers that subscription's acknowledgment itself, fulfilled with nothing as the occurrence is applied or rejected with its failure, as joining it alone with `Promise.all` would. Two or more are still joined.
 - **Why:** A review's workload found the join costing about 13 to 15% of an occurrence one subscription hears, the most common delivery.
 - **Measured** in five paired rounds against the commit before it, in Chromium: a move one subscription hears 3.00 → 2.38 µs and 2,938 → 2,493 bytes, one delivered as it is 2.25 → 1.75 µs, one with a slow handler 3.83 → 3.30 µs; four subscriptions unchanged, within the noise, and so are the acknowledgments outstanding and the memory retained.
+
+<a id="d106"></a>
+
+## D106 — DOMQL leaves the beta for the preview
+
+*November 5, 2026*
+
+- **Kind:** Process, approved.
+- **Decision:** DOMQL follows [FormaUI Versioning `v1.0.0-preview.1`](https://github.com/FormaUI/Versioning/blob/v1.0.0-preview.1/README.md), whose [stages](https://github.com/FormaUI/Versioning/blob/v1.0.0-preview.1/docs/versions.md#stages) are preview, release candidate and stable. Its first release leaves the beta: the runtime, `1.0.0-beta.1`, and the specification, `1.0.0-beta.2`, both unreleased, take `1.0.0-preview.1`, which SemVer orders after every beta, and so do the changelog's and the version history's unreleased entries. Later previews number on from it, `1.0.0-preview.N`.
+- **Why:**
+  - The owner's call: every FormaUI project versions by one set of rules, and those rules name no beta.
+  - The preview's promise is the beta's, as [D75](#d75) and [D100](#d100) set it: a decision may be replaced until `1.0.0-rc.1`, a break says how to migrate, and from `1.0.0-rc.1` on nothing breaks before 2.0. Only the name changes.
+  - DOMQL has never been released, so no tag or published version carries a beta.
+- **Declined:** Keeping the betas until the release candidate, which would leave DOMQL outside the rules Nexo and Forma follow.
