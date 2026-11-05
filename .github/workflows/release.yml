@@ -1,0 +1,66 @@
+name: Release
+
+# A release tag's push: the release check of the FormaUI Versioning release DOMQL follows, then the packages candidate's full gate built, attached to the tag's GitHub release with their digests, and published from there to nuget.org through trusted publishing. A run that fails runs again for the same tag, publishing what the feed lacks. DOMQL publishes no npm package yet.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+# Each action is pinned to the commit of the release named in its comment.
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-24.04
+    # Only a v* tag deploys to the release environment, and the feed's trusted-publishing policy names it, so only a release tag's run publishes.
+    environment: release
+    permissions:
+      contents: write
+      actions: read
+      pull-requests: read
+      id-token: write
+    steps:
+      # The whole history, so the check finds the tag's commit in main's.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      # The runtime version src/Versions.mjs declares, which the package carries.
+      - id: check
+        uses: FormaUI/Versioning/actions/release-check@68ff74cadbe94084384d29be93466713fd989b53 # v1.0.0-preview.1
+        with:
+          gate-workflow: ci.yml
+          version-command: >-
+            [regex]::Match((Get-Content src/Versions.mjs -Raw), "runtime = '([^']+)'").Groups[1].Value
+          packages-artifact: packages
+
+      - id: packages
+        uses: FormaUI/Versioning/actions/release-packages@68ff74cadbe94084384d29be93466713fd989b53 # v1.0.0-preview.1
+        with:
+          gate-run-id: ${{ steps.check.outputs.gate-run-id }}
+          packages-artifact: packages
+          name: DOMQL
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: nuget/global.json
+
+      # A short-lived nuget.org key, for the account NUGET_USER names, whose trusted-publishing policy names this workflow.
+      - id: nuget
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+        with:
+          user: ${{ vars.NUGET_USER }}
+
+      # The package and its symbols, past a version nuget.org holds already.
+      - name: Publish to nuget.org
+        shell: pwsh
+        env:
+          NUGET_API_KEY: ${{ steps.nuget.outputs.NUGET_API_KEY }}
+          PACKAGES: ${{ steps.packages.outputs.directory }}
+          VERSION: ${{ steps.check.outputs.version }}
+        run: |
+          dotnet nuget push (Join-Path $env:PACKAGES "formaui-net.DOMQL.$env:VERSION.nupkg") --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
+          if ($LASTEXITCODE -ne 0) {
+              throw 'Publishing to nuget.org failed.'
+          }
