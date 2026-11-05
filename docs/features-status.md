@@ -271,7 +271,14 @@ None remains: T1 to T3 are implemented, as [the features](#the-host) show: an im
 
 ## Release
 
-Consume Nexo's published packages before publishing DOMQL's.
+DOMQL releases as [cutting a release](../CONTRIBUTING.md#cut-a-release) sets out, by FormaUI Versioning's path, as [D107](decisions.md#d107) records. Its first release, `1.0.0-preview.1`, publishes the NuGet package with Nexo inside its bundle, and consuming Nexo's published packages follows it.
+
+**Remaining for `1.0.0-preview.1`:**
+
+1. Create `dev` and `candidate` from `main`'s tip. The organization's linear-history rule refuses a new branch holding `main`'s one merge commit, `3c68220`, made before the rules, so the owner lifts it for DOMQL while they're made.
+2. Move `nexo.release` to Nexo's `1.0.0-preview.1`, once Nexo tags it, and link Nexo's documents at that tag.
+3. Create nuget.org's trusted-publishing policy for `release.yml` in the `release` environment, which needs the owner's account.
+4. Release `1.0.0-preview.1`.
 
 <a id="consuming-lexica"></a>
 <a id="consuming-nexo"></a>
@@ -282,7 +289,7 @@ Consume Nexo's published packages before publishing DOMQL's.
 
 **Remaining:**
 
-1. Depend on Nexo's released packages, `@formaui-net/nexo` and `formaui-net.Nexo`, each of an exact version.
+1. Depend on Nexo's released packages, `@formaui-net/nexo` and `formaui-net.Nexo`, each naming the lowest Nexo version DOMQL works with.
 2. Write the NuGet bundle with `../nexo/nexo.js` as an import, and the npm bundle with `@formaui-net/nexo`, rather than carrying the language inside.
 3. Have the gate check that DOMQL's packages depend on Nexo's and Nexo's on nothing of DOMQL's, and run DOMQL's tests against the packaged Nexo.
 
@@ -298,10 +305,9 @@ Needs Nexo's packages, which its [release](https://github.com/FormaUI/Nexo/blob/
 
 **Remaining:**
 
-1. Make the npm package, `@formaui-net/domql`, carrying the runtime version as the NuGet package does, its bundle importing `@formaui-net/nexo`, as [consuming the language](#consuming-nexo) sets out.
-2. Publish both, once DOMQL consumes Nexo's published packages, from the tag of a release [cut](../CONTRIBUTING.md#cut-a-release) as contributing sets out, which dates its entry in the changelog.
+1. Make the npm package, `@formaui-net/domql`, carrying the runtime version as the NuGet package does, its bundle importing `@formaui-net/nexo`, as [consuming the language](#consuming-nexo) sets out, and have `release.yml` publish it beside the NuGet package.
 
-Both wait for Nexo's published packages, and publishing stays with the maintainer.
+It waits for Nexo's published packages. `release.yml` publishes the NuGet package from each release's tag, as [contributing](../CONTRIBUTING.md#cut-a-release) sets out.
 
 ### Preview
 

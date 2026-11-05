@@ -2,6 +2,8 @@
 
 DOMQL is a query language and JavaScript library for the DOM: reading information from the document, keeping it current, responding to events and updating the page's content or state. Its queries are written in Nexo, and DOMQL defines the DOM as Nexo's domain. A query only reads; the document changes only through an execution, a host call a module supplies, which DOMQL carries out once or keeps running. Source ES modules live in `src/`; the build produces one minified bundle, distributed by the `formaui-net.DOMQL` NuGet package.
 
+DOMQL follows [FormaUI Versioning `v1.0.0-preview.1`](https://github.com/FormaUI/Versioning/blob/v1.0.0-preview.1/README.md) for its [stages](https://github.com/FormaUI/Versioning/blob/v1.0.0-preview.1/docs/versions.md#stages), [branches](https://github.com/FormaUI/Versioning/blob/v1.0.0-preview.1/docs/branches.md), [commits](https://github.com/FormaUI/Versioning/blob/v1.0.0-preview.1/docs/commits.md), [releases](https://github.com/FormaUI/Versioning/blob/v1.0.0-preview.1/docs/releases.md) and [packages](https://github.com/FormaUI/Versioning/blob/v1.0.0-preview.1/docs/packages.md); [contributing](CONTRIBUTING.md#versions-and-releases) states what it leaves to DOMQL.
+
 ## Before making a change
 
 Read the documents that govern the affected contract:
@@ -19,7 +21,7 @@ Read the documents that govern the affected contract:
 | [Library guide](nuget/README.md) | Using DOMQL by example; it ships in the package, so it links absolutely |
 | `.editorconfig` | Code style; read it before writing C# |
 
-Until 1.0, add no feature: [what 1.0 requires](docs/features-status.md#what-1-0-requires) says what a change may do. Update the specification before changing a contract, the vocabulary, the API or what an operation does, and the design before changing how DOMQL is built. Advance the specification version once per release: the first change to DOMQL's contract after a release opens the next version's entry in the [version history](VERSION-HISTORY.md), and the sources and the specification declare that version in the same commit; each later change before the next release joins that entry. An entry leads with examples of what changed, run at its version, and its list below them is the reference. Since the beta, a break needs guidance on migrating. Cut a release only as [contributing](CONTRIBUTING.md#cut-a-release) sets out. List a change a caller can notice in the [changelog](CHANGELOG.md), by its rules. Each subject has one home: state a rule where it belongs and link to it elsewhere; a rule of the language or its runtime is Nexo's. Record a gap between the design and the code in the status overview until it closes, and update a row's status as soon as its work lands.
+Until 1.0, add no feature: [what 1.0 requires](docs/features-status.md#what-1-0-requires) says what a change may do. Update the specification before changing a contract, the vocabulary, the API or what an operation does, and the design before changing how DOMQL is built. Advance the specification version once per release: the first change to DOMQL's contract after a release opens the next version's entry in the [version history](VERSION-HISTORY.md), and the sources and the specification declare that version in the same commit; each later change before the next release joins that entry. An entry leads with examples of what changed, run at its version, and its list below them is the reference. A break needs guidance on migrating, as the [preview](https://github.com/FormaUI/Versioning/blob/v1.0.0-preview.1/docs/versions.md#stages) promises. Cut a release only as [contributing](CONTRIBUTING.md#cut-a-release) sets out. List a change a caller can notice in the [changelog](CHANGELOG.md), by its rules. Each subject has one home: state a rule where it belongs and link to it elsewhere; a rule of the language or its runtime is Nexo's. Record a gap between the design and the code in the status overview until it closes, and update a row's status as soon as its work lands.
 
 Use these sources rather than inventing scope, status or style rules.
 
@@ -122,9 +124,4 @@ Ask for permission before each state-changing Git command, once the work is read
 
 ## Commit messages
 
-Describe the durable change, not the session that produced it. Follow the format in [CONTRIBUTING.md](CONTRIBUTING.md#commit-messages).
-
-- Make the title cover the whole commit. Split unrelated work when one honest title cannot cover it.
-- Add a body only when the title needs context.
-- Explain the resulting change; omit implementation narration, file or member inventories, test counts and routine verification.
-- Do not add attribution trailers such as `Co-Authored-By`.
+Write each commit as [FormaUI Versioning's commits](https://github.com/FormaUI/Versioning/blob/v1.0.0-preview.1/docs/commits.md) set out, its scope `domql`.

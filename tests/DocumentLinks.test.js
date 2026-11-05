@@ -165,6 +165,12 @@ const ownProblemsOf = file => {
     return reportOf(file, found, target => ownProblemOf(file, target));
 };
 
+/** A link into FormaUI Versioning's documents, by the tag of the release it names. */
+const VERSIONING_ADDRESS = /https:\/\/github\.com\/FormaUI\/Versioning\/blob\/([^/]+)\//g;
+
+/** An action of FormaUI Versioning's a workflow calls, by the commit it pins and the release its comment names. */
+const VERSIONING_ACTION = /uses: FormaUI\/Versioning\/\S+@(\S+) # (\S+)/g;
+
 describe('the links of DOMQL\'s documents', () => {
     const files = filesOf('.');
 
@@ -177,6 +183,18 @@ describe('the links of DOMQL\'s documents', () => {
 
     it('reach each document and anchor of DOMQL\'s they name', () => {
         expect(files.filter(file => extname(file) === '.md').flatMap(ownProblemsOf)).toEqual([]);
+    });
+
+    it('name one release of FormaUI Versioning, the one DOMQL follows: a document by its tag, and a workflow by its full commit, with the tag beside it', () => {
+        const read = file => readFileSync(resolve(root, file), 'utf8');
+        const tags = files.flatMap(file => [...read(file).matchAll(VERSIONING_ADDRESS)].map(([, tag]) => tag));
+        const actions = readdirSync(resolve(root, '.github/workflows')).flatMap(name => [...read(join('.github/workflows', name)).matchAll(VERSIONING_ACTION)].map(([, commit, tag]) => ({ commit, tag })));
+        const [tag] = tags;
+
+        expect(new Set(tags)).toEqual(new Set([tag]));
+        expect(actions.length).toBeGreaterThan(0);
+        expect(new Set(actions.map(({ commit }) => commit)).size).toBe(1);
+        actions.forEach(action => expect(action).toEqual({ commit: expect.stringMatching(/^[0-9a-f]{40}$/), tag }));
     });
 
     it('read a heading\'s anchor as GitHub writes it, a repeated heading\'s numbered', () => {

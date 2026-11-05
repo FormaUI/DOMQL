@@ -1626,3 +1626,24 @@ Each entry is one of three kinds:
   - The preview's promise is the beta's, as [D75](#d75) and [D100](#d100) set it: a decision may be replaced until `1.0.0-rc.1`, a break says how to migrate, and from `1.0.0-rc.1` on nothing breaks before 2.0. Only the name changes.
   - DOMQL has never been released, so no tag or published version carries a beta.
 - **Declined:** Keeping the betas until the release candidate, which would leave DOMQL outside the rules Nexo and Forma follow.
+
+<a id="d107"></a>
+
+## D107 — DOMQL releases by FormaUI Versioning's path
+
+*November 5, 2026*
+
+- **Kind:** Process, approved.
+- **Decision:** DOMQL follows [FormaUI Versioning `v1.0.0-preview.1`](https://github.com/FormaUI/Versioning/blob/v1.0.0-preview.1/README.md) for its branches, commits, releases and packages, as it does for its stages ([D106](#d106)). [Contributing](../CONTRIBUTING.md#versions-and-releases) states what the rules leave to DOMQL.
+  - **Branches.** `dev` holds the integrated work, `candidate` the release's candidate, and `main` the latest release, advancing only by promotion. `dev` and `main` require `ci.yml`'s `Gate`, and `main` the `Promotion` check too, as Nexo's do.
+  - **Gates.** The fast gate, `./build.ps1 -Browser`, runs on every push but `main`'s and on every pull request. The full gate, `./build.ps1 -Browser -Full`, runs on a push to `candidate`: it packs the package and its symbols, checks each against the files `scripts/packages` lists, installs the package outside the repository from a local feed, and keeps them for the release.
+  - **Releases.** A pull request into `main` runs Versioning's promotion check, and a release tag's push its release check. `release.yml` then publishes the package the full gate built, attached to the tag's GitHub release with its digest, to nuget.org through trusted publishing, from the `release` environment, which only `v*` tags deploy to.
+  - **Packages.** The NuGet package records its source through Source Link, ships its symbols, links its release notes to its changelog entry and validates itself. DOMQL publishes no npm package until it consumes Nexo's published packages, and a package of DOMQL's that depends on Nexo's names the lowest Nexo version it works with, since Versioning asks an exact version only of a package of the same project.
+  - **Links.** A document links into Versioning at its release's tag, and a workflow calls its actions by that release's commit, with the tag beside it; the link test holds every one to one release.
+- **Why:**
+  - The owner's call: every FormaUI project releases by one set of rules, and works the same way.
+  - Verifying the package as consumers receive it found it delivering the build's `global.json` to every consumer as content.
+  - The bundle carries Nexo inside it, so the NuGet package needs nothing of Nexo's published, and DOMQL's first release need not wait for Nexo's.
+- **Declined:**
+  - Publishing an npm package now, whose sources import `@formaui-net/nexo` by name and would need DOMQL's bundle to stop carrying the language, the work [consuming the language](features-status.md#consuming-nexo) plans.
+  - Keeping `publish.ps1` beside the full gate: one command packs and verifies what a release publishes.

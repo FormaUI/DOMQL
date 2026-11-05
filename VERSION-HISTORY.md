@@ -10,8 +10,8 @@ Each version of DOMQL, newest first, with the features it added and what it chan
 Each entry says what its version breaks:
 
 - **Before the beta,** a version could break what the one before it allowed, with no guidance on migrating.
-- **From `1.0.0-beta.1` until the first release candidate,** a decision may be replaced where a demonstrated fault, an ambiguous contract or a measured cost justifies it, whether or not Forma has met it, as [D100](docs/decisions.md#d100) records. A version that breaks what the one before it allowed says, beside each break, how a query, a caller or a module migrates.
-- **From `1.0.0-rc.1` on,** nothing breaks before 2.0.
+- **From `1.0.0-beta.1` until the first release candidate,** through the betas and the previews, a decision may be replaced where a demonstrated fault, an ambiguous contract or a measured cost justifies it, whether or not Forma has met it, as [D100](docs/decisions.md#d100) records. A version that breaks what the one before it allowed says, beside each break, how a query, a caller or a module migrates.
+- **From `1.0.0-rc.1` on,** nothing breaks before 2.0, as [FormaUI Versioning's stages](https://github.com/FormaUI/Versioning/blob/v1.0.0-preview.1/docs/versions.md#stages) promise.
 
 <a id="v1-0-0-preview-1"></a>
 
