@@ -46,10 +46,10 @@
         <PackageReleaseNotes>What DOMQL $(Version) changed: https://github.com/FormaUI/DOMQL/blob/v$(Version)/CHANGELOG.md#v$(Version.Replace('.', '-'))</PackageReleaseNotes>
     </PropertyGroup>
 
-    <!-- A package without the bundle would ship nothing, and one whose bundle answers another version would misreport itself, so packing stops until publish.ps1 has made the bundle of this version. -->
+    <!-- A package without the bundle would ship nothing, and one whose bundle answers another version would misreport itself, so packing stops until build.ps1 has made the bundle of this version. -->
     <Target Name="EnsureBundle" BeforeTargets="Pack">
-        <Error Condition="!Exists('$(MSBuildProjectDirectory)\wwwroot\domql.js')" Text="wwwroot/domql.js is missing; run ./publish.ps1, which bundles DOMQL and packs it." />
-        <Error Condition="!$([System.IO.File]::ReadAllText('$(MSBuildProjectDirectory)\wwwroot\domql.js').Contains('&quot;$(Version)&quot;'))" Text="wwwroot/domql.js answers another version than $(Version); run ./publish.ps1, which bundles DOMQL of this version and packs it." />
+        <Error Condition="!Exists('$(MSBuildProjectDirectory)\wwwroot\domql.js')" Text="wwwroot/domql.js is missing; run ./build.ps1 -Full, which bundles DOMQL and packs it." />
+        <Error Condition="!$([System.IO.File]::ReadAllText('$(MSBuildProjectDirectory)\wwwroot\domql.js').Contains('&quot;$(Version)&quot;'))" Text="wwwroot/domql.js answers another version than $(Version); run ./build.ps1 -Full, which bundles DOMQL of this version and packs it." />
     </Target>
 
 </Project>

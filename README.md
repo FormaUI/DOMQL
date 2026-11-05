@@ -113,7 +113,7 @@ Clone the repository. You'll need Node.js with npm, PowerShell and the .NET SDK 
 ```powershell
 ./build.ps1           # The build and the checks
 ./build.ps1 -Browser  # With the real-browser tests
-./publish.ps1         # A local NuGet package, in artifacts/
+./build.ps1 -Full     # A local NuGet package, in artifacts/, verified as installed
 ```
 
 The package supplies the bundle at `_content/domql/domql.js`, with its TypeScript declarations beside it.

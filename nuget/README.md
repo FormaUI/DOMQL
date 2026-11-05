@@ -22,7 +22,7 @@ DOMQL is a JavaScript library for querying the DOM, allowing you to read informa
 
 ## Install and load
 
-Build the repository with `./publish.ps1`. This writes the local NuGet package to `artifacts/`; see the [repository setup instructions](https://github.com/FormaUI/DOMQL#build-and-try-it) for prerequisites.
+Build the repository with `./build.ps1 -Full`. This writes the local NuGet package to `artifacts/`, verified as an application installs it; see the [repository setup instructions](https://github.com/FormaUI/DOMQL#build-and-try-it) for prerequisites.
 
 From your application's project directory, add the package using that folder as the source. Adjust the path to your local `artifacts/` directory:
 

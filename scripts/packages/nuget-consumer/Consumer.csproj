@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+    <!-- An application that references formaui-net.DOMQL from its feed, at the version build.ps1 -Full gives as DomqlVersion, and serves the package's files at _content/domql/. -->
+    <PropertyGroup>
+        <TargetFramework>net11.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="formaui-net.DOMQL" Version="[$(DomqlVersion)]" />
+    </ItemGroup>
+
+</Project>

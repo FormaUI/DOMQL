@@ -1,0 +1,16 @@
+# The files the NuGet package formaui-net.DOMQL holds, by their path in the package; build.ps1 -Full checks the package holds exactly these.
+LICENSE
+NOTICE
+README.md
+[Content_Types].xml
+_rels/.rels
+build/Microsoft.AspNetCore.StaticWebAssets.targets
+build/formaui-net.DOMQL.PackageAssets.json
+build/formaui-net.DOMQL.targets
+buildMultiTargeting/formaui-net.DOMQL.targets
+buildTransitive/formaui-net.DOMQL.targets
+formaui-net.DOMQL.nuspec
+lib/net11.0/Forma.DOMQL.dll
+package/services/metadata/core-properties/nuget.psmdcp
+staticwebassets/domql.d.ts
+staticwebassets/domql.js

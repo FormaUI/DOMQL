@@ -94,7 +94,7 @@ A release is a signed tag on the commit that dates it. The [changelog](CHANGELOG
 1. Date the changelog's newest entry by the day of the release, and the version history's newest entry where it reads *Unreleased*.
 2. Pass the gate, `./build.ps1 -Browser`, and commit.
 3. Tag the commit with a signed tag named for the release, as `git tag -s v1.0.0-beta.1`, and push the tag.
-4. Pack the packages from the tag with `./publish.ps1`, and publish them.
+4. Pack the packages from the tag with `./build.ps1 -Browser -Full`, which verifies them as consumers install them, and publish them.
 
 After a release, the next change a caller can notice opens the changelog's next entry, and the next change to DOMQL's contract the version history's.
 

@@ -9,7 +9,11 @@ nuget/bin/
 nuget/obj/
 artifacts/
 
-# The bundle that publish.ps1 makes from src/.
+# What an IDE builds of the package consumer the full gate copies out of the repository.
+scripts/packages/*/bin/
+scripts/packages/*/obj/
+
+# The bundle that build.ps1 makes from src/.
 nuget/wwwroot/
 
 # The browser CI installs for the browser tests.

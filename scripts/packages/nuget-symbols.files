@@ -1,0 +1,6 @@
+# The files the symbol package formaui-net.DOMQL.snupkg holds, by their path in the package; build.ps1 -Full checks the package holds exactly these.
+[Content_Types].xml
+_rels/.rels
+formaui-net.DOMQL.nuspec
+lib/net11.0/Forma.DOMQL.pdb
+package/services/metadata/core-properties/nuget.psmdcp

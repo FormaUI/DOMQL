@@ -8,6 +8,9 @@ Removes every build output first, so the build starts from nothing.
 .PARAMETER Browser
 Also runs the tests that need a real browser's layout, in headless Chromium, and those of what browser engines decide differently in Chromium, Firefox and WebKit, each installed first if it is not.
 
+.PARAMETER Full
+Runs the full gate: the gate, then the NuGet package and its symbols packed into artifacts/ as a release ships them, each checked against the files its list names and installed into a consumer outside the repository, by scripts/Test-Packages.ps1. A release's full gate runs with -Browser too.
+
 .NOTES
 DOMQL builds against the Nexo release nexo.release pins, the tree of its tag, which it extracts into .nexo from the checkout beside this one, formaui-net.Nexo, fetching the tag where the checkout lacks it. Set NEXO_SOURCE to a Nexo checkout to build against that checkout's working tree instead, for a change made in both repositories.
 
@@ -16,11 +19,15 @@ DOMQL builds against the Nexo release nexo.release pins, the tree of its tag, wh
 
 .EXAMPLE
 ./build.ps1 -Browser
+
+.EXAMPLE
+./build.ps1 -Browser -Full
 #>
 [CmdletBinding()]
 param(
     [switch] $Clean,
-    [switch] $Browser
+    [switch] $Browser,
+    [switch] $Full
 )
 
 Set-StrictMode -Version Latest
@@ -197,3 +204,27 @@ try {
 finally {
     Pop-Location
 }
+
+if (-not $Full) {
+    return
+}
+
+# The packages a release publishes: packed afresh, by a build that records its source as a release's does.
+if (Test-Path $artifacts) {
+    Remove-Item $artifacts -Recurse -Force
+}
+
+Push-Location $nuget
+try {
+    Write-Host 'Packing the NuGet package'
+    dotnet pack Forma.DOMQL.csproj -c Release -nologo -o $artifacts -p:ContinuousIntegrationBuild=true
+    if ($LASTEXITCODE -ne 0) {
+        throw 'dotnet pack failed.'
+    }
+}
+finally {
+    Pop-Location
+}
+
+$version = [regex]::Match((Get-Content (Join-Path $root 'src' 'Versions.mjs') -Raw), "runtime = '([^']+)'").Groups[1].Value
+& (Join-Path $root 'scripts' 'Test-Packages.ps1') -Directory $artifacts -Version $version

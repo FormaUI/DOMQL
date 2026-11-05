@@ -292,7 +292,7 @@ Needs Nexo's packages, which its [release](https://github.com/FormaUI/Nexo/blob/
 
 **Current:**
 
-- **NuGet:** `./publish.ps1` packs `formaui-net.DOMQL` locally. It carries the runtime version `src/Versions.mjs` declares, `1.0.0-preview.1`, and is unpublished.
+- **NuGet:** the full gate, `./build.ps1 -Full`, packs `formaui-net.DOMQL` locally, checks it holds exactly the files `scripts/packages` lists, and installs it into a web application outside the repository, whose published `domql.js` resolves a query. It carries the runtime version `src/Versions.mjs` declares, `1.0.0-preview.1`, and is unpublished.
 - **npm:** not made yet. `package.json` is private and carries no version.
 - **The gate** holds the NuGet package, both READMEs, the [changelog](../CHANGELOG.md) and `domql.info.versions` to the versions the sources declare. The sources declare the version due at the next release, so nothing advances before a release is cut, as [D75](decisions.md#d75) and [D79](decisions.md#d79) record.
 

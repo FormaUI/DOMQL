@@ -32,7 +32,7 @@ Use these sources rather than inventing scope, status or style rules.
 | `src/dom/` | Evaluation, watches, events, executions, observations, sessions and built-in implementations |
 | `src/snapshots/` | Computing, comparing, dispatching and applying snapshot updates using identity metadata; no DOM access |
 | `tests/` | Tests mirroring the source folders |
-| `scripts/` | Bundling scripts |
+| `scripts/` | Bundling scripts, and the package's file lists and verification |
 | `spec/` | The specification, one document per subject, indexed by `spec/README.md` |
 | `docs/` | The design, the status overview and the decisions |
 | `VERSION-HISTORY.md` | Each DOMQL version and what it changed |
@@ -96,7 +96,7 @@ Tests mirror `src/` under `tests/`. Layout, geometry and browser-managed state b
 | `npm run scale` | `tests/` | Chromium workloads timed outside the gate, one file at a time: a watch of 1,000 to 100,000 rows, a drag through owned writes, an edit in a large editor, a behavior's deliveries and owners, and transient measurements beside many observers |
 | `./build.ps1` | Repository root | Tests, bundle, package build and format check |
 | `./build.ps1 -Browser` | Repository root | Gate including browser tests |
-| `./publish.ps1` | Repository root | Gate followed by package creation |
+| `./build.ps1 -Browser -Full` | Repository root | The full gate: the gate including browser tests, then the NuGet package packed and verified as consumers install it |
 
 Every compiler warning is a build failure. Keep `*.bench.js` and `*.scale.js` beside the corresponding tests, store baselines in `.local/`, and record a measurement that decides something in the design, beside the decision it settles.
 
