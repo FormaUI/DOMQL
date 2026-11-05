@@ -291,7 +291,7 @@ DOMQL releases as [cutting a release](../CONTRIBUTING.md#cut-a-release) sets out
 2. Write the NuGet bundle with `../nexo/nexo.js` as an import, and the npm bundle with `@formaui-net/nexo`, rather than carrying the language inside.
 3. Have the gate check that DOMQL's packages depend on Nexo's and Nexo's on nothing of DOMQL's, and run DOMQL's tests against the packaged Nexo.
 
-Needs Nexo's packages, which its [release](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/docs/features-status.md#release) publishes.
+Nexo's packages are published from its `1.0.0-preview.1`, as its [release](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/docs/features-status.md#release) records, so this work can start.
 
 ### Packages
 
@@ -305,7 +305,7 @@ Needs Nexo's packages, which its [release](https://github.com/FormaUI/Nexo/blob/
 
 1. Make the npm package, `@formaui-net/domql`, carrying the runtime version as the NuGet package does, its bundle importing `@formaui-net/nexo`, as [consuming the language](#consuming-nexo) sets out, and have `release.yml` publish it beside the NuGet package.
 
-It waits for Nexo's published packages. `release.yml` publishes the NuGet package from each release's tag, as [contributing](../CONTRIBUTING.md#cut-a-release) sets out.
+It follows [consuming the language](#consuming-nexo). `release.yml` publishes the NuGet package from each release's tag, as [contributing](../CONTRIBUTING.md#cut-a-release) sets out.
 
 ### Preview
 
