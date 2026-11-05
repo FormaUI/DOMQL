@@ -24,8 +24,8 @@ The [specification](../spec/README.md) defines the contract, and the [design](do
 | --- | --- |
 | [The C# half](#the-c-half) | Waits for its design |
 | [Planned capabilities](#planned-capabilities) | The C# half's alone remain, waiting for its design |
-| [Release](#release) | `1.0.0-preview.1` is released; `1.0.0-preview.2`, which adds the npm package, waits for npm's placeholder and trusted publisher |
-| [What 1.0 requires](#what-1-0-requires) | Six requirements, one met in part |
+| [Release](#release) | Done: `1.0.0-preview.2`, which adds the npm package, is released |
+| [What 1.0 requires](#what-1-0-requires) | Six requirements, two met |
 
 - **A specification version collects the changes between two releases.** A change to DOMQL's contract joins the [version history](../VERSION-HISTORY.md)'s newest entry while it reads *Unreleased*, and opens the next version's entry once it is released, as [D79](decisions.md#d79) records.
 - **A breaking change says how to migrate.** Since the beta, a version's entry in the [version history](../VERSION-HISTORY.md) says how to migrate beside each thing it breaks.
@@ -273,13 +273,7 @@ None remains: T1 to T3 are implemented, as [the features](#the-host) show: an im
 
 DOMQL releases as [cutting a release](../CONTRIBUTING.md#cut-a-release) sets out, by FormaUI Versioning's path, as [D107](decisions.md#d107) records. Its first release, `1.0.0-preview.1`, is released, tagged `v1.0.0-preview.1`, and `release.yml` publishes its NuGet package, with Nexo inside its bundle, to nuget.org through trusted publishing. nuget.org's policy names `FormaUI/DOMQL`, `release.yml` and the `release` environment.
 
-**Remaining for `1.0.0-preview.2`,** which adds the npm package, as [D110](decisions.md#d110) records:
-
-1. Publish a placeholder, `@formaui-net/domql@0.0.0`, deprecated in favour of `@formaui-net/domql@preview`, since npm takes a trusted publisher only for a package it holds, as Nexo's was.
-2. Create npm's trusted publisher for `release.yml` in the `release` environment, allowing `npm publish`.
-3. Release `1.0.0-preview.2`.
-
-The placeholder and the trusted publisher need the owner's account.
+Its second, `1.0.0-preview.2`, is released, tagged `v1.0.0-preview.2`, and `release.yml` publishes its npm package beside the NuGet package, as [D110](decisions.md#d110) records. npm's trusted publisher names the same repository, workflow and environment, and allows `npm publish`. A deprecated placeholder, `@formaui-net/domql@0.0.0`, holds npm's `latest` dist-tag until 1.0, as Nexo's does, since npm takes a trusted publisher only for a package it holds.
 
 <a id="consuming-lexica"></a>
 <a id="consuming-nexo"></a>
@@ -326,7 +320,7 @@ Nexo's packages are published from its `1.0.0-preview.1`, as its [release](https
 | **Nexo's 1.0.** DOMQL runs on Nexo's 1.0, from its published packages. | DOMQL's contract holds the language its queries are written in, so it promises no more than Nexo does. | Nexo is in its preview, at `1.0.0-preview.1`, as [what Nexo's 1.0 requires](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/docs/features-status.md#what-1-0-requires) sets out. |
 | **Contracts settled.** No decision is open, and each [deferred](#deferred) item and [decision not taken](domql-design.md#decisions-not-taken) is shown to land without a break. | What may still change after 1.0 must be able to change compatibly. | Holds: no decision is open, and each [deferred](#deferred) item and [decision not taken](domql-design.md#decisions-not-taken) lands as an addition or within the implementation. A watch's promise to evaluate its whole query each time was the one that would have made evaluating less a break; [what an evaluation gives](../spec/watches.md#watching-what-an-evaluation-gives) now leaves it to DOMQL. |
 | **The C# half decided.** It is designed, or decided to follow 1.0 as an addition. | It waits for the owner's design, as [D46](decisions.md#d46) records, and a .NET application may need it to drive DOMQL. | Waits for its design. |
-| **Published.** DOMQL's packages are on npm and NuGet, tested as consumers install them. | A caller pins a release it can install. | In part: the NuGet package is published from `1.0.0-preview.1`, and the npm package is made, for `1.0.0-preview.2`. |
+| **Published.** DOMQL's packages are on npm and NuGet, tested as consumers install them. | A caller pins a release it can install. | Holds: the NuGet package is published from `1.0.0-preview.1` and the npm package from `1.0.0-preview.2`, each verified as consumers install it before its release. |
 | **Used for real.** Forma's own scripts run as DOMQL queries, watches, subscriptions and executions on a published release. | The [planned capabilities](#planned-capabilities) came from reading those scripts, and only running them settles the contract. | Planned. |
 | **A release candidate that breaks nothing.** `1.0.0-rc.1` is released once the rest hold, and Forma takes it with no change but its version. `1.0.0` is its contract, unchanged. | It is the last check that nothing still needs to break. | Waits for the rest. |
 

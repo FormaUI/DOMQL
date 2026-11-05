@@ -9,7 +9,7 @@ Each release of DOMQL's packages, newest first. The npm package `@formaui-net/do
 
 ## `1.0.0-preview.2`
 
-*Unreleased · specification `1.0.0-preview.1` · Nexo language `1.0.0-preview.1` · definition format 38*
+*November 5, 2026 · specification `1.0.0-preview.1` · Nexo language `1.0.0-preview.1` · definition format 38*
 
 - DOMQL is published to npm, as `@formaui-net/domql`: its ES module sources and their declarations, which import Nexo from its own package, `@formaui-net/nexo`, from `1.0.0-preview.1` on. A host that installs both loads one Nexo, and catches Nexo's own `NexoError`. Install it with `npm install @formaui-net/domql@preview`.
 
