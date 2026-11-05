@@ -10,9 +10,9 @@ Read the documents that govern the affected contract:
 
 | Document | Authority |
 | --- | --- |
-| [Nexo specification](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/README.md) | Nexo's two contracts, at the release DOMQL builds against: the language's, what a query means, and the runtime's, how DOMQL as its host binds, resolves, evaluates and registers modules |
+| [Nexo specification](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/spec/README.md) | Nexo's two contracts, at the release DOMQL builds against: the language's, what a query means, and the runtime's, how DOMQL as its host binds, resolves, evaluates and registers modules |
 | [DOMQL specification](spec/README.md) | DOMQL's module and DOMQL as host: queries, nodes and shadow trees, the built-in vocabulary, evaluation, watching, results, events, executions, and the public API, one document per subject |
-| [Nexo design](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/docs/nexo-design.md) | How Nexo is built: its stages, modules, evaluation and tooling |
+| [Nexo design](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/docs/nexo-design.md) | How Nexo is built: its stages, modules, evaluation and tooling |
 | [DOMQL design](docs/domql-design.md) | How DOMQL is built: its architecture, resolution, sessions, watching, comparing and patching, the C# half, and the decisions not taken |
 | [Status](docs/features-status.md) | What is implemented, the migration to Nexo, the planned capabilities, open decisions and deferred work |
 | [Decisions](docs/decisions.md) | Each decision taken without stopping to ask, with why and what was declined, for review |
@@ -47,7 +47,7 @@ Add a folder when a new responsibility needs one. Keep dependencies in this dire
 - `dom/` may depend on Nexo and `snapshots/`.
 - `snapshots/` may depend on Nexo.
 
-The language is Nexo, the package `@formaui-net/nexo`, which DOMQL imports by its name and depends on through `file:.nexo`, until it consumes a published package. `build.ps1` fills `.nexo` with the release `nexo.release` pins, the tree of its tag, taken from a checkout of [FormaUI/Nexo](https://github.com/FormaUI/Nexo) beside this one, named `formaui-net.Nexo`, so a change reaches DOMQL only when `nexo.release` moves to a release that holds it; with `NEXO_SOURCE` naming a checkout, `.nexo` links to that checkout's working tree instead. A change to the language is made there, and a change DOMQL needs of it in both repositories together, with `NEXO_SOURCE` set, moving `nexo.release` once Nexo releases it. Link Nexo's documents at the pinned release's tag, as `https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/README.md`, so they move with the pin.
+The language is Nexo, the package `@formaui-net/nexo`, which DOMQL imports by its name and depends on through `file:.nexo`, until it consumes a published package. `build.ps1` fills `.nexo` with the release `nexo.release` pins, the tree of its tag, taken from a checkout of [FormaUI/Nexo](https://github.com/FormaUI/Nexo) beside this one, named `formaui-net.Nexo`, so a change reaches DOMQL only when `nexo.release` moves to a release that holds it; with `NEXO_SOURCE` naming a checkout, `.nexo` links to that checkout's working tree instead. A change to the language is made there, and a change DOMQL needs of it in both repositories together, with `NEXO_SOURCE` set, moving `nexo.release` once Nexo releases it. Link Nexo's documents at the pinned release's tag, as `https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/spec/README.md`, so they move with the pin.
 
 Pass the window and document into DOM code; do not read globals there. Importing the language layer and resolving a query must work without a DOM.
 

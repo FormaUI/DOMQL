@@ -2,9 +2,9 @@
 
 **A declarative approach to managing the DOM.**
 
-DOMQL is a JavaScript library for querying the DOM, allowing you to read information from a document once or observe it as it changes. This guide takes you from your first query to watching results, handling events and extending the library. Its queries are written in [Nexo](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/README.md).
+DOMQL is a JavaScript library for querying the DOM, allowing you to read information from a document once or observe it as it changes. This guide takes you from your first query to watching results, handling events and extending the library. Its queries are written in [Nexo](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/spec/README.md).
 
-> **Preview:** no breaking redesign is planned, and a version that breaks what the one before it allowed says how to migrate. `formaui-net.DOMQL` is not yet published to NuGet. [Build the package locally](#install-and-load) to try it. The package distributes a JavaScript ES module; the API in this guide runs in JavaScript. Every example here runs on this preview. The runtime, `1.0.0-preview.1`, implements DOMQL's specification `1.0.0-preview.1` on Nexo's language `1.0.0-beta.41`, definition version 38. [The status overview](https://github.com/FormaUI/DOMQL/blob/main/docs/features-status.md) says what is implemented and what is being built.
+> **Preview:** no breaking redesign is planned, and a version that breaks what the one before it allowed says how to migrate. `formaui-net.DOMQL` is not yet published to NuGet. [Build the package locally](#install-and-load) to try it. The package distributes a JavaScript ES module; the API in this guide runs in JavaScript. Every example here runs on this preview. The runtime, `1.0.0-preview.1`, implements DOMQL's specification `1.0.0-preview.1` on Nexo's language `1.0.0-preview.1`, definition version 38. [The status overview](https://github.com/FormaUI/DOMQL/blob/main/docs/features-status.md) says what is implemented and what is being built.
 
 ## In this guide
 
@@ -998,7 +998,7 @@ Modules can also declare Boolean members, properties and functions whose result 
 
 A member the host invokes, `invokedBy: 'host'`, is a host call that DOMQL carries out: an event source, `requestKind: 'subscription'`, or an execution, `requestKind: 'execution'`, which runs `once` or `continuous` as its `executionMode` says. An event source's implementation receives the receiver, arguments, environment and an event-delivery callback, as `{ receiver, args, env, deliver }`, and returns an object with a `stop` method to end listening. Each event is captured as the type its declaration's result names, and a module adds event types of its own as mappings of DOMQL's type selector `event`, `{ selector: 'event', key, type }`, each naming the type its events are captured as.
 
-[Nexo's modules](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/runtime/modules.md#modules) specify the full extension contracts. The next section shows execution modules.
+[Nexo's modules](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/spec/runtime/modules.md#modules) specify the full extension contracts. The next section shows execution modules.
 
 ### Bind data as a module's type
 
@@ -1540,9 +1540,9 @@ filtered.dispose();
 ## Learn more
 
 - [Repository README](https://github.com/FormaUI/DOMQL): what DOMQL is for, what is built, and how to build and test it.
-- [Nexo specification](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/README.md): the language DOMQL is written in, its syntax, types, null semantics, imports and extensions, and the runtime contracts of its modules.
+- [Nexo specification](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/spec/README.md): the language DOMQL is written in, its syntax, types, null semantics, imports and extensions, and the runtime contracts of its modules.
 - [DOMQL specification](https://github.com/FormaUI/DOMQL/blob/main/spec/README.md): queries, the DOM's vocabulary, evaluating and watching a query, its results, events, executions, and the API.
-- [DOMQL design](https://github.com/FormaUI/DOMQL/blob/main/docs/domql-design.md): how DOMQL is built, and the decisions it did not take, and the [Nexo design](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/docs/nexo-design.md): how the language and its runtime are built.
+- [DOMQL design](https://github.com/FormaUI/DOMQL/blob/main/docs/domql-design.md): how DOMQL is built, and the decisions it did not take, and the [Nexo design](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/docs/nexo-design.md): how the language and its runtime are built.
 
 - [Changelog](https://github.com/FormaUI/DOMQL/blob/main/CHANGELOG.md): each release of the package and what it changed.
 - [Status](https://github.com/FormaUI/DOMQL/blob/main/docs/features-status.md): what is implemented, what is being built, and what remains.

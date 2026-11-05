@@ -2,15 +2,15 @@
 
 ## Current state
 
-**DOMQL is in its preview, `1.0.0-preview.1`. Its vocabulary, queries, watches, events, executions and behaviors are implemented on Nexo's language `1.0.0-beta.41`, definition version 38. The specification describes DOMQL's `1.0.0-preview.1`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Every [planned capability](#planned-capabilities) is implemented or declined but the C# half's, A1 and A5's queue, which wait for its design.**
+**DOMQL is in its preview, `1.0.0-preview.1`. Its vocabulary, queries, watches, events, executions and behaviors are implemented on Nexo's language `1.0.0-preview.1`, definition version 38. The specification describes DOMQL's `1.0.0-preview.1`, which the implementation follows: the DOM declared as DOMQL's own types, read through the `Domql` module every query imports. Every [planned capability](#planned-capabilities) is implemented or declined but the C# half's, A1 and A5's queue, which wait for its design.**
 
 | Version | Implementation | Specification |
 | --- | --- | --- |
 | DOMQL specification | `1.0.0-preview.1` | `1.0.0-preview.1` |
-| Nexo language | `1.0.0-beta.41` | `1.0.0-beta.41` |
+| Nexo language | `1.0.0-preview.1` | `1.0.0-preview.1` |
 | Definition format | 38 | 38 |
 
-- **The language DOMQL runs on.** DOMQL follows Nexo's language `1.0.0-beta.41`, which Nexo's release `1.0.0-beta.2` carries, so it builds against that release once `nexo.release` pins it, through a checkout `NEXO_SOURCE` names until then; `nexo.release` pins `1.0.0-beta.1` now, of language `1.0.0-beta.40`, and its documents link to [Nexo's documents at that tag](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/README.md), moving with the pin. The language was called Lexica before the [migration](#migration-to-nexo).
+- **The language DOMQL runs on.** DOMQL follows Nexo's language `1.0.0-preview.1`, which Nexo's release `1.0.0-preview.1` carries and `nexo.release` pins, as [D108](decisions.md#d108) records, and its documents link to [Nexo's documents at that tag](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/spec/README.md), moving with the pin. The language was called Lexica before the [migration](#migration-to-nexo).
 - **Packages.** The bundle and type declarations are built, with Nexo bundled inside `domql.js`. The NuGet package is packed locally, carrying the runtime version `1.0.0-preview.1`, and is unpublished. The npm package is not made yet: `package.json` is private and carries no version.
 - **The C# half** waits for its design, as [D46](decisions.md#d46) records.
 
@@ -24,7 +24,7 @@ The [specification](../spec/README.md) defines the contract, and the [design](do
 | --- | --- |
 | [The C# half](#the-c-half) | Waits for its design |
 | [Planned capabilities](#planned-capabilities) | The C# half's alone remain, waiting for its design |
-| [Release](#release) | The preview is declared, `1.0.0-preview.1`, DOMQL's first release; it waits for Nexo's first preview, which it builds against |
+| [Release](#release) | The preview is declared, `1.0.0-preview.1`, DOMQL's first release, on Nexo's first preview; nuget.org's trusted publishing remains before it's cut |
 | [What 1.0 requires](#what-1-0-requires) | Six requirements, one met in part |
 
 - **A specification version collects the changes between two releases.** A change to DOMQL's contract joins the [version history](../VERSION-HISTORY.md)'s newest entry while it reads *Unreleased*, and opens the next version's entry once it is released, as [D79](decisions.md#d79) records.
@@ -143,9 +143,9 @@ DOMQL moved from Lexica at `0e98b3e`, language `1.0.0-alpha.33`, to Nexo's langu
 - **One pin.** The migration was planned in checkpoints, each on a Nexo commit pinned as Nexo's work landed. Nexo reached its beta first, and its checklists describe the beta, so DOMQL moved to the beta at one pin, its checkpoints the order of the work, and passed its gate once on the beta: pinning a commit for each checkpoint would have meant writing against interfaces Nexo had already changed again.
 - **Imports.** DOMQL supplies its own module, `Domql`, as every query's import, and a query writes its other imports. An application configures no imports of its own, so a query's text means the same whatever was configured, as [D4](decisions.md#d4) records.
 - **Errors.** DOMQL's own conditions take `DOMQL` codes, catalogued in [errors](../spec/errors.md), bounded to the conditions it reports today; an error of Nexo's passing through DOMQL keeps its own code.
-- **Module errors.** A module error of DOMQL's own, as its dispatch table's refusals are, is built with `NexoError.module`, which Nexo declared for its hosts in language `1.0.0-beta.2` for DOMQL's migration, as its [decisions](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/docs/decisions.md#d29) record.
-- **Host calls on a receiver of unknown type.** What such a call requests is read from the candidates Nexo answers for it, every declaration that takes the call as it is written, which Nexo answers from language `1.0.0-beta.3` for DOMQL, as its [decisions](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/docs/decisions.md#d30) record. DOMQL read them from an index of its own before, which counted host calls a query could not reach.
-- **What the migration found in Nexo since,** fixed in Nexo's languages `1.0.0-beta.4` to `1.0.0-beta.8`, as its [decisions](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/docs/decisions.md#d31) record: a host call on a value of `Any` is refused as Nexo resolves it, where DOMQL refused it as a value to evaluate; a module's own type named `Pair` is named by that name in its declarations; `@Domql` standing alone gives `~Domql`; a watch made stale by a module recognizing values compares within each value's tolerance, as Nexo keeps origins across resolutions of one definition; and a member read through a value of `Any` is compared within the tolerance it declares.
+- **Module errors.** A module error of DOMQL's own, as its dispatch table's refusals are, is built with `NexoError.module`, which Nexo declared for its hosts in language `1.0.0-beta.2` for DOMQL's migration, as its [decisions](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/docs/decisions.md#d29) record.
+- **Host calls on a receiver of unknown type.** What such a call requests is read from the candidates Nexo answers for it, every declaration that takes the call as it is written, which Nexo answers from language `1.0.0-beta.3` for DOMQL, as its [decisions](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/docs/decisions.md#d30) record. DOMQL read them from an index of its own before, which counted host calls a query could not reach.
+- **What the migration found in Nexo since,** fixed in Nexo's languages `1.0.0-beta.4` to `1.0.0-beta.8`, as its [decisions](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/docs/decisions.md#d31) record: a host call on a value of `Any` is refused as Nexo resolves it, where DOMQL refused it as a value to evaluate; a module's own type named `Pair` is named by that name in its declarations; `@Domql` standing alone gives `~Domql`; a watch made stale by a module recognizing values compares within each value's tolerance, as Nexo keeps origins across resolutions of one definition; and a member read through a value of `Any` is compared within the tolerance it declares.
 
 Contracts: [Queries](../spec/queries.md), [types](../spec/vocabulary.md#vocabulary-types), [extension modules](../spec/vocabulary.md#extension-modules), [results](../spec/results.md), [errors](../spec/errors.md).
 
@@ -276,16 +276,15 @@ DOMQL releases as [cutting a release](../CONTRIBUTING.md#cut-a-release) sets out
 **Remaining for `1.0.0-preview.1`:**
 
 1. Create `dev` and `candidate` from `main`'s tip. The organization's linear-history rule refuses a new branch holding `main`'s one merge commit, `3c68220`, made before the rules, so the owner lifts it for DOMQL while they're made.
-2. Move `nexo.release` to Nexo's `1.0.0-preview.1`, once Nexo tags it, and link Nexo's documents at that tag.
-3. Create nuget.org's trusted-publishing policy for `release.yml` in the `release` environment, which needs the owner's account.
-4. Release `1.0.0-preview.1`.
+2. Create nuget.org's trusted-publishing policy for `release.yml` in the `release` environment, which needs the owner's account.
+3. Release `1.0.0-preview.1`.
 
 <a id="consuming-lexica"></a>
 <a id="consuming-nexo"></a>
 
 ### Consuming the language
 
-**Current:** DOMQL depends on `@formaui-net/nexo` through `file:.nexo`, which the build fills with Nexo's release `nexo.release` pins, `1.0.0-beta.1`, the tree of its tag, taken from a checkout beside this one named `formaui-net.Nexo`, or links to the checkout `NEXO_SOURCE` names; CI checks Nexo out at the same tag. It imports the language's entry point alone, and bundles it into `domql.js`. The language's tests that run through DOMQL's entry point are DOMQL's integration tests.
+**Current:** DOMQL depends on `@formaui-net/nexo` through `file:.nexo`, which the build fills with Nexo's release `nexo.release` pins, `1.0.0-preview.1`, the tree of its tag, taken from a checkout beside this one named `formaui-net.Nexo`, or links to the checkout `NEXO_SOURCE` names; CI checks Nexo out at the same tag. It imports the language's entry point alone, and bundles it into `domql.js`. The language's tests that run through DOMQL's entry point are DOMQL's integration tests.
 
 **Remaining:**
 
@@ -293,7 +292,7 @@ DOMQL releases as [cutting a release](../CONTRIBUTING.md#cut-a-release) sets out
 2. Write the NuGet bundle with `../nexo/nexo.js` as an import, and the npm bundle with `@formaui-net/nexo`, rather than carrying the language inside.
 3. Have the gate check that DOMQL's packages depend on Nexo's and Nexo's on nothing of DOMQL's, and run DOMQL's tests against the packaged Nexo.
 
-Needs Nexo's packages, which its [release](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/docs/features-status.md#release) publishes.
+Needs Nexo's packages, which its [release](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/docs/features-status.md#release) publishes.
 
 ### Packages
 
@@ -326,7 +325,7 @@ It waits for Nexo's published packages. `release.yml` publishes the NuGet packag
 
 | Requirement | Why | State |
 | --- | --- | --- |
-| **Nexo's 1.0.** DOMQL runs on Nexo's 1.0, from its published packages. | DOMQL's contract holds the language its queries are written in, so it promises no more than Nexo does. | Nexo is in its beta, at `1.0.0-beta.1`, as [what Nexo's 1.0 requires](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/docs/features-status.md#what-1-0-requires) sets out. |
+| **Nexo's 1.0.** DOMQL runs on Nexo's 1.0, from its published packages. | DOMQL's contract holds the language its queries are written in, so it promises no more than Nexo does. | Nexo is in its preview, at `1.0.0-preview.1`, as [what Nexo's 1.0 requires](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/docs/features-status.md#what-1-0-requires) sets out. |
 | **Contracts settled.** No decision is open, and each [deferred](#deferred) item and [decision not taken](domql-design.md#decisions-not-taken) is shown to land without a break. | What may still change after 1.0 must be able to change compatibly. | Holds: no decision is open, and each [deferred](#deferred) item and [decision not taken](domql-design.md#decisions-not-taken) lands as an addition or within the implementation. A watch's promise to evaluate its whole query each time was the one that would have made evaluating less a break; [what an evaluation gives](../spec/watches.md#watching-what-an-evaluation-gives) now leaves it to DOMQL. |
 | **The C# half decided.** It is designed, or decided to follow 1.0 as an addition. | It waits for the owner's design, as [D46](decisions.md#d46) records, and a .NET application may need it to drive DOMQL. | Waits for its design. |
 | **Published.** DOMQL's packages are on npm and NuGet, tested as consumers install them. | A caller pins a release it can install. | The NuGet package is packed locally, and the npm package is not made yet. |
@@ -351,7 +350,7 @@ This work is separate from the plan above. No order is assigned here.
 
 | Work | Status | Remaining |
 | --- | --- | --- |
-| Editor tooling | Waits for Nexo's design | Nexo's, through its syntax tree, in its [tooling](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/docs/features-status.md#tooling), which waits for its design |
+| Editor tooling | Waits for Nexo's design | Nexo's, through its syntax tree, in its [tooling](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/docs/features-status.md#tooling), which waits for its design |
 
 **Verification outside the gate.** Performance is measured outside the gate, by `npm run bench` and `npm run scale` from `tests/`. `Domql.window.size` following a scrollbar that appears or goes runs in the gate, as a browser test with a launch of its own.
 

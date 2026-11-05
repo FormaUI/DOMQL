@@ -4106,9 +4106,9 @@ describe('domql bodies', () => {
     });
 
     it.each([
-        ['a query that is a body', 'let a=1\nlet b=a*2\nreturn b', 'let a = 1\nlet b = a * 2\nreturn b'],
-        ['a do block in a field', '{ doubled = do\nlet width = w\nreturn width * 2\nend }', '{\n    doubled = do\n        let width = w\n        return width * 2\n    end\n}'],
-        ['a conditional of explicit results, each on its own lines', 'if a then\nlet x = 1\nreturn x\nelseif b then\nreturn 2\nelse\nreturn 3\nend', 'if a then\n    let x = 1\n    return x\nelseif b then\n    return 2\nelse\n    return 3\nend'],
+        ['a query that is a body', 'let a=1\nlet b=a*2\nreturn b', 'let a = 1\nlet b = a * 2\n\nreturn b'],
+        ['a do block in a field', '{ doubled = do\nlet width = w\nreturn width * 2\nend }', '{\n    doubled = do\n        let width = w\n\n        return width * 2\n    end\n}'],
+        ['a conditional of explicit results, each on its own lines', 'if a then\nlet x = 1\nreturn x\nelseif b then\nreturn 2\nelse\nreturn 3\nend', 'if a then\n    let x = 1\n\n    return x\nelseif b then\n    return 2\nelse\n    return 3\nend'],
         ['a conditional of implicit results, on one line', 'if a then 1 else 2 end', 'if a then 1 else 2 end'],
         ['an implicit conditional whose alternative is an explicit one, kept apart', 'if a then\n1\nelse\nif b then\nreturn 2\nelse\nreturn 3\nend\nend', 'if a then\n    1\nelse\n    if b then\n        return 2\n    else\n        return 3\n    end\nend'],
         ['a conditional on one line where a hole holds it', '$"{if a then 1 else 2 end}"', '$"{if a then 1 else 2 end}"'],
@@ -4221,9 +4221,9 @@ describe('domql functions', () => {
     });
 
     it.each([
-        ['a function of one expression, on its line', 'let f=function(x)x*2 end\nreturn f(1)', 'let f = function(x) x * 2 end\nreturn f(1)'],
-        ['a function whose body returns, on the lines within it', 'let f = function(x)\nlet d = x * 2\nreturn d\nend\nreturn f(1)', 'let f = function(x)\n    let d = x * 2\n    return d\nend\nreturn f(1)'],
-        ['a function whose one expression spans lines', 'let f = function(x)\nif x < 0 then\nreturn 0\nelse\nreturn x\nend\nend\nreturn f(1)', 'let f = function(x)\n    if x < 0 then\n        return 0\n    else\n        return x\n    end\nend\nreturn f(1)'],
+        ['a function of one expression, on its line', 'let f=function(x)x*2 end\nreturn f(1)', 'let f = function(x) x * 2 end\n\nreturn f(1)'],
+        ['a function whose body returns, on the lines within it', 'let f = function(x)\nlet d = x * 2\nreturn d\nend\nreturn f(1)', 'let f = function(x)\n    let d = x * 2\n\n    return d\nend\n\nreturn f(1)'],
+        ['a function whose one expression spans lines', 'let f = function(x)\nif x < 0 then\nreturn 0\nelse\nreturn x\nend\nend\nreturn f(1)', 'let f = function(x)\n    if x < 0 then\n        return 0\n    else\n        return x\n    end\nend\n\nreturn f(1)'],
         ['a function in an object local', '{ let f = function(a, b) a + b end, s = f(1, 2) }', '{\n    let f = function(a, b) a + b end,\n    s = f(1, 2)\n}'],
     ])('writes %s', (_, text, formatted) => {
         expect(domql.format(text)).toBe(formatted);
@@ -4389,7 +4389,7 @@ describe('domql reserved names', () => {
 
     it('calls a function a reserved word names after @', () => {
         expect(evaluate('let end = function(x) x + 1 end\nreturn @end(1)')).toBe(2);
-        expect(domql.format('let end = function(x) x + 1 end\nreturn @end(1)')).toBe('let end = function(x) x + 1 end\nreturn @end(1)');
+        expect(domql.format('let end = function(x) x + 1 end\nreturn @end(1)')).toBe('let end = function(x) x + 1 end\n\nreturn @end(1)');
     });
 
     it('takes to as a declared name, a reference, a field, a member and a conversion in one query', () => {
@@ -4419,7 +4419,7 @@ describe('domql reserved names', () => {
         ['an ordinary binding nothing hides, bare', parameter('panel'), 'panel'],
         ['a reserved binding, after ~', parameter('to'), '~to'],
         ['a binding a field hides, after ~', { kind: 'object', objectFields: [{ name: 'panel', value: literal(1) }, { name: 'a', value: parameter('panel') }] }, '{\n    panel = 1,\n    a = ~panel\n}'],
-        ['a reserved local, after @', { kind: 'body', locals: [{ name: 'to', value: literal(1) }], result: { kind: 'local', name: 'to' } }, 'let to = 1\nreturn @to'],
+        ['a reserved local, after @', { kind: 'body', locals: [{ name: 'to', value: literal(1) }], result: { kind: 'local', name: 'to' } }, 'let to = 1\n\nreturn @to'],
         ['a member of a module, through its namespace', domqlMember('document'), 'Domql.document'],
         ['a binding named after a module, after ~', parameter('Domql'), '~Domql'],
     ])('writes %s', (_, query, text) => {
@@ -4604,10 +4604,10 @@ describe('domql function values and arrow functions', () => {
         const { definition } = domql.query('let double = (row) => row * 2\nreturn double(4)');
 
         expect(definition.expression.locals[0].value).toEqual({ kind: 'function', parameters: ['row'], body: { kind: 'arithmetic', operator: '*', left: { kind: 'local', name: 'row' }, right: literal(2) }, arrow: true });
-        expect(domql.format(definition)).toBe('let double = row => row * 2\nreturn double(4)');
-        expect(domql.format('let f = (a, b) => a\nreturn f(1, 2)')).toBe('let f = (a, b) => a\nreturn f(1, 2)');
-        expect(domql.format('let f = () => 1\nreturn f()')).toBe('let f = () => 1\nreturn f()');
-        expect(domql.format('let f = it => @it + 1\nreturn f(1)')).toBe('let f = it => @it + 1\nreturn f(1)');
+        expect(domql.format(definition)).toBe('let double = row => row * 2\n\nreturn double(4)');
+        expect(domql.format('let f = (a, b) => a\nreturn f(1, 2)')).toBe('let f = (a, b) => a\n\nreturn f(1, 2)');
+        expect(domql.format('let f = () => 1\nreturn f()')).toBe('let f = () => 1\n\nreturn f()');
+        expect(domql.format('let f = it => @it + 1\nreturn f(1)')).toBe('let f = it => @it + 1\n\nreturn f(1)');
         expect(domql.query(domql.format(definition)).definition).toEqual(definition);
     });
 

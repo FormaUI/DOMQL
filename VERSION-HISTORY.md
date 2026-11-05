@@ -17,7 +17,7 @@ Each entry says what its version breaks:
 
 ## `1.0.0-preview.1`
 
-*Unreleased · Nexo language `1.0.0-beta.41` · definition format 38*
+*Unreleased · Nexo language `1.0.0-preview.1` · definition format 38*
 
 ```domql
 input.disabled                                             // a state, a Boolean property; input.disabled() before, NEXO3017 now
@@ -56,6 +56,7 @@ query.select('counts', 'entries', 1, 'value').evaluate();  // 2; NEXO3602 before
 query.select('counts', 'b').evaluate();                    // NEXO3602: a dictionary holds its entries
 domql.query('import Routes\nRoutes.first(routes)', { routes }, { types: { routes: 'List<Routes.Route>' } });  // routes captured as routes; NEXO3042 before
 domql.format('-(-1)');                                     // '1'; '-(-1)' before
+domql.format('let n = 1\nreturn n');                       // 'let n = 1\n\nreturn n'; 'let n = 1\nreturn n' before
 ```
 
 ```js
@@ -74,13 +75,13 @@ const updates = { changes: 'observable', reads: 'maintained', observations: [{ t
 typeOf: value => undefined                                        // NEXO5002 as a binding asks it; answer null
 ```
 
-DOMQL moves to Nexo's language `1.0.0-beta.41`, by way of `1.0.0-beta.40`, as [D76](docs/decisions.md#d76) and [D87](docs/decisions.md#d87) record, and follows its rule that a property names what its receiver is, has or is in, and a function does work: DOMQL's states are properties, as D87 records, and its executions are named by their verbs, as [D88](docs/decisions.md#d88) records. Nexo's [language history](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/LANGUAGE-HISTORY.md#v1-0-0-beta-41) sets out its own changes by version; those below are the ones a query, a caller and a module meet.
+DOMQL moves to Nexo's language `1.0.0-preview.1`, by way of `1.0.0-beta.40` and `1.0.0-beta.41`, as [D76](docs/decisions.md#d76), [D87](docs/decisions.md#d87) and [D108](docs/decisions.md#d108) record, and follows its rule that a property names what its receiver is, has or is in, and a function does work: DOMQL's states are properties, as D87 records, and its executions are named by their verbs, as [D88](docs/decisions.md#d88) records. Nexo's [language history](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/LANGUAGE-HISTORY.md#v1-0-0-preview-1) sets out its own changes by version; those below are the ones a query, a caller and a module meet.
 
 **Vocabulary**
 
 - [Focus is followed into open shadow roots](spec/vocabulary.md#observations-types): `focused`, `focusWithin`, `activeElement` and a selector testing focus report a move between two elements of one open shadow root, which they missed, since its events reach no further than the root, and the focused element's removal, which Firefox and WebKit fire no event for, as [D90](docs/decisions.md#d90) records.
 - [`scroll`'s offset](spec/vocabulary.md#property-element-scroll) runs as the box's style says, a reversed flex container's included, and stays within its range, so an elastic overscroll past either end reads as that end.
-- [States](spec/vocabulary.md#states) are Boolean properties, read without a call, as Nexo's [states and tests](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/language/vocabulary.md#vocabulary-boolean-functions) set out: an element's `disabled`, `readonly`, `textEditable`, `focusWithin`, `displayed`, `focusable`, `popoverOpen`, `checked`, `indeterminate` and `autofilled`, the document's `visible`, and the ARIA view's `checked` and `disabled`, each a function before.
+- [States](spec/vocabulary.md#states) are Boolean properties, read without a call, as Nexo's [states and tests](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/spec/language/vocabulary.md#vocabulary-boolean-functions) set out: an element's `disabled`, `readonly`, `textEditable`, `focusWithin`, `displayed`, `focusable`, `popoverOpen`, `checked`, `indeterminate` and `autofilled`, the document's `visible`, and the ARIA view's `checked` and `disabled`, each a function before.
 - Five states take new names as they become properties: an element's `hover` and `focus` are `hovered` and `focused`, the document's `focus` is `focused`, and the window's `share` and `clipboard` are `canShare` and `hasClipboard`.
 - A state is read through its module as before, `Domql.checked(it)`, and filtered by with a body, `rows.where(it.checked)`; a reference to one, `rows.where(Domql.checked)`, is refused (NEXO3076), since only a function has one.
 
@@ -89,7 +90,7 @@ DOMQL moves to Nexo's language `1.0.0-beta.41`, by way of `1.0.0-beta.40`, as [D
 - Nexo's own members that make a value of their receiver are functions: a number's `round()`, `floor()`, `ceiling()`, `truncate()` and `abs()`, a text's `trim()`, `lowercase()` and `uppercase()`, and a list's `reverse()`, `distinct()` and `flatten()`, each a property before.
 - A letter right after a number makes one invalid token, NEXO1000, so `1else` is refused, where it read as `1` and `else`.
 - A number is written in hexadecimal, octal or binary too, `0xFF`, `0o17` and `0b1010`, and a `_` may stand between two digits of any number, `1_000_000`, where `0xFF` read as `0` and a member written without its dot, NEXO1011.
-- [`and` and `or`](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/language/expressions.md#logical-expressions-negations-and-groups-type) share a type only where their value is used: `it.attached and "here" or "away"` is a `String`, where it was refused.
+- [`and` and `or`](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/spec/language/expressions.md#logical-expressions-negations-and-groups-type) share a type only where their value is used: `it.attached and "here" or "away"` is a `String`, where it was refused.
 - A conversion of a value of `Any` converts by the type the value turns out to be, failing with NEXO5053 where nothing converts it, where it was refused at resolution.
 - A computed name through a namespace reads as it does after `@`: `Domql.["window"]` is `Domql.window`.
 - [A query declares its bindings' types](spec/queries.md#making-a-query-declared-types), `domql.query(text, bindings, { types })`, capturing data as a module's structured type, a map as a dictionary, where every binding was typed from its value.
@@ -115,7 +116,7 @@ DOMQL moves to Nexo's language `1.0.0-beta.41`, by way of `1.0.0-beta.40`, as [D
 **Results**
 
 - [A selection](spec/queries.md#selecting-a-result) steps into a dictionary's `entries` and a pair's `key` and `value`, the form [a result holds them](spec/results.md#results-collections) in, where a path into either was refused.
-- `domql.format` writes a negated number literal as the number, `-(-1)` as `1`, and a call's arguments after a block's `end` on lines of their own.
+- `domql.format` writes a negated number literal as the number, `-(-1)` as `1`, a call's arguments after a block's `end` on lines of their own, and an empty line between a body's last local and its `return`, at every level, as Nexo's [canonical bodies](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/spec/runtime/definition.md#bodies-definition-and-canonical-text) set out.
 - Data a result holds nesting deeper than 1,000 levels is refused, NEXO5052, and a `sum` or a `sequence` no finite number holds, NEXO5020.
 
 **Modules**
@@ -123,7 +124,7 @@ DOMQL moves to Nexo's language `1.0.0-beta.41`, by way of `1.0.0-beta.40`, as [D
 - [A delivery inside a handler](spec/behaviors.md#behaviors-occurrences) reaches every subscription before the one around it goes on, so a later subscription hears it first, and [an acknowledgment](spec/behaviors.md#behaviors-acknowledgment) rejects at the first failure while others may still be applying the occurrence, as [D93](docs/decisions.md#d93) records; neither changed, the specification promised more.
 - [A kept value beside an outside writer](spec/vocabulary.md#execution-element-owned-writes-yielding) is judged by a heuristic, and [a committed position](spec/vocabulary.md#execution-element-owned-writes-framework) is let go of once its host confirms the render, not the occurrence's acknowledgment, as [D94](docs/decisions.md#d94) records.
 - [A transient measurement's read](spec/vocabulary.md#extension-modules-environment) is synchronous and writes nothing, and [a module's state per document](spec/vocabulary.md#extension-modules-state-per-document) is one for each copy of its code, as [D98](docs/decisions.md#d98) and [D99](docs/decisions.md#d99) record.
-- [A member reading maintained values](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/runtime/members.md) declares a result that can be null, NEXO4071, since it reads as null until its first sample arrives.
+- [A member reading maintained values](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/spec/runtime/members.md) declares a result that can be null, NEXO4071, since it reads as null until its first sample arrives.
 - A module's `typeOf` answering nothing is a fault, NEXO5002.
 - A fixed parameter is required and takes no default, NEXO4072, and an observation takes no expression or predicate parameter, NEXO4055.
 - A module error names a declaration only by a name that is a string.
@@ -149,7 +150,7 @@ DOMQL moves to Nexo's language `1.0.0-beta.41`, by way of `1.0.0-beta.40`, as [D
 - `value and x`, where `value` is of `Any`, is of `Any`. Give it a fallback, or test it where one type is needed.
 - An object expression after a member declared `Any` that answers a list applies to the list once. Declare the member's result as a list, `List<Any>`, so it applies to each item.
 - A query nesting deeper than 256 levels, summing more than 256 terms, or holding a string with a surrogate standing alone, is refused. Group part of a long chain, as `a + b + (c + d)` does, and write the whole character.
-- A caller that compared `domql.format`'s text for such a negation or such a call reads the new text, which parses to the same definition.
+- A caller that compared `domql.format`'s text for such a negation, such a call or a body with locals reads the new text, which parses to the same definition.
 - A holder that keeps its value writes it again against a writer that answers with a new value each time, as code animating the property it holds does, where it yielded. Hold the target with `keep = false`, or end the holding while the other writer writes it.
 - A module member's implementation is no longer promised a call at each evaluation of a watch, though it still gets one. Count nothing on its calls, and keep what must follow every evaluation out of it: a member reads alone.
 
@@ -644,7 +645,7 @@ DOMQL moves to Nexo's language `1.0.0-beta.15`, which settles what Nexo's status
 - **Membership compares by key equality alone.** `contains`, `indexOf`, `distinct` and `distinctBy` take numbers, strings, Booleans, references and null, so a list of elements works as before, and one of objects, lists or values of `Any` is refused (NEXO3083), where it was compared by identity.
 - **A result path is checked wherever it is given,** so `select` refuses a malformed path as it did, and steps into an object's own fields and a list's items alone.
 - **A module's declarations name Nexo's own types qualified,** as `Nexo.Number`, where the module declares a type of that name.
-- **Conditions Nexo told apart by message have codes of their own,** NEXO5043 to NEXO5050 among them, as [Nexo's language history](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/LANGUAGE-HISTORY.md) records.
+- **Conditions Nexo told apart by message have codes of their own,** NEXO5043 to NEXO5050 among them, as [Nexo's language history](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/LANGUAGE-HISTORY.md) records.
 
 **Breaking:** a query that tested membership in a list of objects, lists or values of `Any` is refused; test a key field instead, as `items.any(it.id == id)`.
 

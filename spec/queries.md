@@ -82,7 +82,7 @@ const fromDefinition = domql.query(panelQuery.definition, { panel });
 
 ### Its imports
 
-A query uses the vocabulary of the modules it imports, as Nexo's [imports](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/language/modules.md#scripts-imports) set out, and DOMQL's own module, `Domql`, is imported by every query.
+A query uses the vocabulary of the modules it imports, as Nexo's [imports](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/spec/language/modules.md#scripts-imports) set out, and DOMQL's own module, `Domql`, is imported by every query.
 
 - **DOMQL supplies `Domql`.** DOMQL reads every query's text with the import `Domql` supplied, so a query reads the DOM's members, `Domql.document` and `Domql.window`, and names DOMQL's types, as `Element`, without writing `import Domql`. Writing it as well is harmless.
 - **Another module is imported by the query.** A query that uses a module its caller registered begins with that module's import, `import Charts`, and reads the members its extensions add to DOMQL's types with `:`, as `panel:palette`, as [extension modules](vocabulary.md#extension-modules) set out. Registering a module adds nothing to a query's imports, so a query that does not import a module reads the same before the module is registered and after. A module [loaded on request](vocabulary.md#extension-modules-loading) is loaded before a query importing it is carried out, which its imports name.
@@ -93,7 +93,7 @@ A query uses the vocabulary of the modules it imports, as Nexo's [imports](https
 
 ### Binding its parameters
 
-Each parameter is bound under the name the query uses, with a value Nexo's [script parameters and bindings](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/language/scripts.md#scripts-script-parameters) allow, and a result is data, which a caller receives in its own language's form. `with` answers a new query whose bindings replace the old ones whole, of the types the query declares; the query it was called on, and every operation running from it, are unaffected. A query can be made without its bindings and bound afterwards, and a required binding that is missing fails before anything is carried out.
+Each parameter is bound under the name the query uses, with a value Nexo's [script parameters and bindings](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/spec/language/scripts.md#scripts-script-parameters) allow, and a result is data, which a caller receives in its own language's form. `with` answers a new query whose bindings replace the old ones whole, of the types the query declares; the query it was called on, and every operation running from it, are unaffected. A query can be made without its bindings and bound afterwards, and a required binding that is missing fails before anything is carried out.
 
 A binding is typed from its value, unless the query [declares its type](#making-a-query-declared-types): every value is typed from itself, a null, an empty list and a list holding nulls among them, so a query is made for an element that is not there yet as it is for one that is.
 
@@ -105,7 +105,7 @@ const another = query.with({ panel: otherPanel, ids: [1, 2] });
 
 <a id="making-a-query-declared-types"></a>
 
-**Declared types.** `domql.query(text, bindings, { types })` declares the type of a top-level binding by its notation, as Nexo's [declared types](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/runtime/bindings.md#runtime-bindings) bind it, where data typed from itself would be of no module's type:
+**Declared types.** `domql.query(text, bindings, { types })` declares the type of a top-level binding by its notation, as Nexo's [declared types](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/spec/runtime/bindings.md#runtime-bindings) bind it, where data typed from itself would be of no module's type:
 
 ```js
 const routed = domql.query("import Forma\nForma.firstKey(routes)", { routes: [{ key: "Enter" }] }, { types: { routes: "List<Forma.Route>" } });
@@ -134,7 +134,7 @@ A query belongs to the instance of the library that made it, and an instance ref
 
 ## Resolution
 
-A request is resolved before it is first carried out, and resolution validates it against the vocabulary its imports make available, as Nexo's [resolution](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/runtime/resolution.md#runtime-bindings-and-resolution) sets out; a module a request imports is registered by its caller beforehand. A resolution is kept while Nexo says it is current, so a module registered later leaves a running watch, subscription or execution as it was, unless the module recognizes values its resolution may meet, as [registering a module while requests run](vocabulary.md#extension-modules-registering) sets out. A misspelling or a wrong argument is an error before anything is evaluated; a member's fit to its receiver is checked once the receiver's type is specific enough, which a null receiver's is not; null is always a result.
+A request is resolved before it is first carried out, and resolution validates it against the vocabulary its imports make available, as Nexo's [resolution](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/spec/runtime/resolution.md#runtime-bindings-and-resolution) sets out; a module a request imports is registered by its caller beforehand. A resolution is kept while Nexo says it is current, so a module registered later leaves a running watch, subscription or execution as it was, unless the module recognizes values its resolution may meet, as [registering a module while requests run](vocabulary.md#extension-modules-registering) sets out. A misspelling or a wrong argument is an error before anything is evaluated; a member's fit to its receiver is checked once the receiver's type is specific enough, which a null receiver's is not; null is always a result.
 
 `query.resolve(options?)` resolves a request without evaluating anything, and answers its kind, `value`, `subscription` or `execution`, an execution's `executionMode`, null for a request of another kind, and its type, null for an execution that answers no result; it needs no browser. It answers its definition and the declarations it uses as well, each with its `qualifiedName`, `typeAt(path)`, the type a path reaches, and `getLocation(pointer)`, where a pointer into its definition stands in its text. Its options `watch` and `acceptPartialObservation` resolve it as a watch would, so a watch's refusal of a partly observable member, as [accepting partial observation](watches.md#accepting-partial-observation) sets out, is found before a watch starts.
 
@@ -142,7 +142,7 @@ A request is resolved before it is first carried out, and resolution validates i
 
 ## Request kinds and their operations
 
-Evaluating, watching or subscribing to a request reads the document and changes nothing, whatever vocabulary it uses; an [execution](executions.md) explicitly requests effects, carried out only when its caller executes or runs it. The request's source decides its kind: a query gives a value, or ends in a [host call](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/language/members.md#members-host-calls), which DOMQL carries out as its declaration says, by subscribing to an event source, or by executing once or running continuously an execution of that mode. The one entry point serves every request kind, and resolution refuses an operation the kind does not take before anything is evaluated or started, with a validation error that says what the request does and names the operation it takes:
+Evaluating, watching or subscribing to a request reads the document and changes nothing, whatever vocabulary it uses; an [execution](executions.md) explicitly requests effects, carried out only when its caller executes or runs it. The request's source decides its kind: a query gives a value, or ends in a [host call](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/spec/language/members.md#members-host-calls), which DOMQL carries out as its declaration says, by subscribing to an event source, or by executing once or running continuously an execution of that mode. The one entry point serves every request kind, and resolution refuses an operation the kind does not take before anything is evaluated or started, with a validation error that says what the request does and names the operation it takes:
 
 ```text
 Cannot execute 'panel.size': it produces a value.
@@ -175,6 +175,6 @@ rowsQuery.select(0, "height");
 - **A path's shape is checked at once.** `select` refuses, without resolving anything, a path item that is neither a written field's name nor an index that is a whole number and not negative, as `-1` and `1.5` are not.
 - **A path's fit is checked at resolution.** Whether a field exists, and whether an index applies to a list, is checked when an operation resolves the query, before anything is evaluated or observed; a selection of a query whose vocabulary is not yet registered is therefore made without failing.
 - **What it gives.** A nullable ancestor and a list index out of range give null, and a list index follows a position, never a particular element.
-- **Dictionaries and pairs** are selected in the form a [result holds them](results.md#results-collections), as Nexo's [result paths](https://github.com/FormaUI/Nexo/blob/v1.0.0-beta.2/spec/runtime/resolution.md#runtime-result-paths) step into them: `select("counts", "entries")` gives a dictionary's entries, `select("counts", "entries", 0, "value")` the value of its first, and `select("range", "key")` a pair's key. Any other name after a dictionary or a pair is refused at resolution.
+- **Dictionaries and pairs** are selected in the form a [result holds them](results.md#results-collections), as Nexo's [result paths](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/spec/runtime/resolution.md#runtime-result-paths) step into them: `select("counts", "entries")` gives a dictionary's entries, `select("counts", "entries", 0, "value")` the value of its first, and `select("range", "key")` a pair's key. Any other name after a dictionary or a pair is refused at resolution.
 - **The whole query.** A selection reads the whole query's result, so the whole query decides its dependencies, its failures and its readiness.
 - **Its watch** delivers its first value, each change to that value, and its value again after a failed evaluation. It watches snapshots alone; a caller that wants live state of a smaller result writes that result in DOMQL.
