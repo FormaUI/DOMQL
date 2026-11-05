@@ -1,0 +1,30 @@
+name: Promotion
+
+# The promotion check on every pull request into main, from the FormaUI Versioning release DOMQL follows: it comes from candidate, ci.yml's full gate passed on its head commit and kept the packages, its version is higher than every release's and on no feed, and its changelog entry is dated.
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+# Each action is pinned to the commit of the release named in its comment.
+jobs:
+  promotion:
+    name: Promotion
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      # The runtime version src/Versions.mjs declares, which the package carries.
+      - uses: FormaUI/Versioning/actions/promotion-check@68ff74cadbe94084384d29be93466713fd989b53 # v1.0.0-preview.1
+        with:
+          gate-workflow: ci.yml
+          version-command: >-
+            [regex]::Match((Get-Content src/Versions.mjs -Raw), "runtime = '([^']+)'").Groups[1].Value
+          packages-artifact: packages
