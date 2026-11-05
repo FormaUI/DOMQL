@@ -12,7 +12,7 @@ Also runs the tests that need a real browser's layout, in headless Chromium, and
 Runs the full gate: the gate, then the NuGet package and its symbols packed into artifacts/ as a release ships them, each checked against the files its list names and installed into a consumer outside the repository, by scripts/Test-Packages.ps1. A release's full gate runs with -Browser too.
 
 .NOTES
-DOMQL builds against the Nexo release nexo.release pins, the tree of its tag, which it extracts into .nexo from the checkout beside this one, formaui-net.Nexo, fetching the tag where the checkout lacks it. Set NEXO_SOURCE to a Nexo checkout to build against that checkout's working tree instead, for a change made in both repositories.
+DOMQL builds against Nexo's npm package, at the release package.json declares and the lock installs. Set NEXO_SOURCE to a Nexo checkout to build against that checkout's working tree instead, linked in the package's place, for a change made in both repositories. The link test reads Nexo's documents at the release's tag from Nexo's checkout: the one NEXO_SOURCE names, or formaui-net.Nexo beside this one, fetching the tag where the checkout lacks it.
 
 .EXAMPLE
 ./build.ps1 -Clean
@@ -38,81 +38,22 @@ $nuget = Join-Path $root 'nuget'
 $solution = 'Forma.DOMQL.slnx'
 $tests = Join-Path $root 'tests'
 $artifacts = Join-Path $root 'artifacts'
-$nexo = Join-Path $root '.nexo'
-$nexoCheckout = Join-Path (Split-Path $root -Parent) 'formaui-net.Nexo'
-$nexoRelease = (Get-Content (Join-Path $root 'nexo.release') -Raw).Trim()
+$nodeModules = Join-Path $root 'node_modules'
+$nexoInstalled = Join-Path $nodeModules '@formaui-net' 'nexo'
+$nexoCheckout = if ($env:NEXO_SOURCE) { (Resolve-Path -LiteralPath $env:NEXO_SOURCE).Path } else { Join-Path (Split-Path $root -Parent) 'formaui-net.Nexo' }
+
+# The Nexo release DOMQL builds against: the version the lock installs, which package.json declares as the lowest it works with.
+$nexoRelease = (Get-Content (Join-Path $root 'package-lock.json') -Raw | ConvertFrom-Json -AsHashtable).packages['node_modules/@formaui-net/nexo'].version
 $nexoTag = "v$nexoRelease"
 
-# Removes .nexo, a link alone where it is one, so the checkout it points to is never touched.
-function Remove-Nexo {
-    $item = Get-Item -LiteralPath $nexo -Force -ErrorAction SilentlyContinue
-    if ($null -eq $item) {
-        return
+# Removes node_modules, a link inside it first, so removing it never reaches into the checkout the link leads to.
+function Remove-NodeModules {
+    $link = Get-Item -LiteralPath $nexoInstalled -Force -ErrorAction SilentlyContinue
+    if ($link -and $link.LinkType) {
+        $link.Delete()
     }
 
-    if ($item.LinkType) {
-        $item.Delete()
-    }
-    else {
-        Remove-Item -LiteralPath $nexo -Recurse -Force
-    }
-}
-
-# Makes .nexo the Nexo DOMQL builds against: a link to NEXO_SOURCE where it is set, and otherwise the tree of the pinned release's tag.
-function Initialize-Nexo {
-    $item = Get-Item -LiteralPath $nexo -Force -ErrorAction SilentlyContinue
-
-    if ($env:NEXO_SOURCE) {
-        $source = (Resolve-Path -LiteralPath $env:NEXO_SOURCE).Path
-        if ($item -and $item.LinkType -and ($item.Target -eq $source)) {
-            return
-        }
-
-        Remove-Nexo
-        $linkType = if ($IsWindows) { 'Junction' } else { 'SymbolicLink' }
-        New-Item -ItemType $linkType -Path $nexo -Target $source | Out-Null
-        Write-Host "Linking Nexo at $source"
-        return
-    }
-
-    # A release's tag never moves, so a tree stamped with it is that release's.
-    $stamp = Join-Path $nexo '.release'
-    if ($item -and -not $item.LinkType -and (Test-Path $stamp) -and ((Get-Content $stamp -Raw).Trim() -eq $nexoTag)) {
-        return
-    }
-
-    if (-not (Test-Path (Join-Path $nexoCheckout '.git'))) {
-        throw "DOMQL builds against Nexo's release $nexoRelease, the tag $nexoTag of a checkout at $nexoCheckout; clone Nexo there, or set NEXO_SOURCE to a checkout."
-    }
-
-    git -C $nexoCheckout cat-file -e "refs/tags/$nexoTag^{commit}" 2>$null
-    if ($LASTEXITCODE -ne 0) {
-        git -C $nexoCheckout fetch origin "refs/tags/${nexoTag}:refs/tags/${nexoTag}"
-        if ($LASTEXITCODE -ne 0) {
-            throw "Nexo's checkout does not have the tag $nexoTag, and fetching it failed."
-        }
-    }
-
-    Write-Host "Extracting Nexo's release $nexoRelease"
-    Remove-Nexo
-    New-Item -ItemType Directory -Path $nexo | Out-Null
-    $archive = Join-Path ([System.IO.Path]::GetTempPath()) "nexo-$nexoTag.tar"
-    try {
-        git -C $nexoCheckout archive --format=tar -o $archive "refs/tags/$nexoTag"
-        if ($LASTEXITCODE -ne 0) {
-            throw "Archiving Nexo's release $nexoRelease failed."
-        }
-
-        tar -xf $archive -C $nexo
-        if ($LASTEXITCODE -ne 0) {
-            throw "Extracting Nexo's release $nexoRelease failed."
-        }
-    }
-    finally {
-        Remove-Item -LiteralPath $archive -Force -ErrorAction SilentlyContinue
-    }
-
-    Set-Content -LiteralPath $stamp -Value $nexoTag -NoNewline
+    Remove-Item -LiteralPath $nodeModules -Recurse -Force
 }
 
 if ($Clean) {
@@ -124,19 +65,22 @@ if ($Clean) {
     }
 }
 
-Initialize-Nexo
+# Nexo as DOMQL builds against it: the npm package the lock installs, or, with NEXO_SOURCE set, a link in its place to that checkout's working tree. An installation that is neither is made again.
+$installed = Get-Item -LiteralPath $nexoInstalled -Force -ErrorAction SilentlyContinue
+# A link's target is relative on Linux and macOS and absolute on Windows, so it resolves against the link's own folder.
+$linkedToSource = $env:NEXO_SOURCE -and $installed -and $installed.LinkType -and ([System.IO.Path]::GetFullPath($installed.Target, (Split-Path $installed.FullName -Parent)) -eq [System.IO.Path]::GetFullPath($nexoCheckout))
+$installedRelease = $installed -and -not $installed.LinkType -and ((Get-Content (Join-Path $nexoInstalled 'package.json') -Raw | ConvertFrom-Json).version -eq $nexoRelease)
+if ((Test-Path $nodeModules) -and -not $linkedToSource -and -not $installedRelease) {
+    Remove-NodeModules
+}
 
-# The root's link to Nexo must lead to .nexo; one made before the pin leads to the checkout itself.
-$linked = Get-Item -LiteralPath (Join-Path $root 'node_modules/@formaui-net/nexo') -Force -ErrorAction SilentlyContinue
-# npm links with a relative target on Linux and macOS and an absolute one on Windows, so a target resolves against the link's own folder.
-$linkedToNexo = $linked -and $linked.LinkType -and ([System.IO.Path]::GetFullPath($linked.Target, (Split-Path $linked.FullName -Parent)) -eq [System.IO.Path]::GetFullPath($nexo))
-if (-not $linkedToNexo -and (Test-Path (Join-Path $root 'node_modules'))) {
-    # The link alone first, so removing node_modules never reaches into the checkout it leads to.
-    if ($linked -and $linked.LinkType) {
-        $linked.Delete()
-    }
-
-    Remove-Item -LiteralPath (Join-Path $root 'node_modules') -Recurse -Force
+# The tree, or the link to a checkout, a build kept Nexo in before it installed Nexo's package, which a checkout made then may still hold; a link alone is removed.
+$extracted = Get-Item -LiteralPath (Join-Path $root '.nexo') -Force -ErrorAction SilentlyContinue
+if ($extracted -and $extracted.LinkType) {
+    $extracted.Delete()
+}
+elseif ($extracted) {
+    Remove-Item -LiteralPath $extracted.FullName -Recurse -Force
 }
 
 foreach ($folder in $root, $tests) {
@@ -146,6 +90,26 @@ foreach ($folder in $root, $tests) {
         if ($LASTEXITCODE -ne 0) {
             throw "npm ci failed for $folder."
         }
+    }
+}
+
+if ($env:NEXO_SOURCE -and -not $linkedToSource) {
+    Remove-Item -LiteralPath $nexoInstalled -Recurse -Force
+    $linkType = if ($IsWindows) { 'Junction' } else { 'SymbolicLink' }
+    New-Item -ItemType $linkType -Path $nexoInstalled -Target $nexoCheckout | Out-Null
+    Write-Host "Linking Nexo at $nexoCheckout"
+}
+
+# DOMQL's documents link to Nexo's at the release's tag, which the link test reads from Nexo's checkout.
+if (-not (Test-Path (Join-Path $nexoCheckout '.git'))) {
+    throw "DOMQL's documents link to Nexo's at $nexoTag, which the link test reads from a checkout of Nexo at $nexoCheckout; clone Nexo there, or set NEXO_SOURCE to a checkout."
+}
+
+git -C $nexoCheckout cat-file -e "refs/tags/$nexoTag^{commit}" 2>$null
+if ($LASTEXITCODE -ne 0) {
+    git -C $nexoCheckout fetch origin "refs/tags/${nexoTag}:refs/tags/${nexoTag}"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Nexo's checkout does not have the tag $nexoTag, and fetching it failed."
     }
 }
 

@@ -10,7 +10,7 @@
 | Nexo language | `1.0.0-preview.1` | `1.0.0-preview.1` |
 | Definition format | 38 | 38 |
 
-- **The language DOMQL runs on.** DOMQL follows Nexo's language `1.0.0-preview.1`, which Nexo's release `1.0.0-preview.1` carries and `nexo.release` pins, as [D108](decisions.md#d108) records, and its documents link to [Nexo's documents at that tag](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/spec/README.md), moving with the pin. The language was called Lexica before the [migration](#migration-to-nexo).
+- **The language DOMQL runs on.** DOMQL follows Nexo's language `1.0.0-preview.1`, which Nexo's release `1.0.0-preview.1` carries, the version of Nexo's npm package DOMQL installs, as [D108](decisions.md#d108) and [D109](decisions.md#d109) record, and its documents link to [Nexo's documents at that tag](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/spec/README.md), moving with the pin. The language was called Lexica before the [migration](#migration-to-nexo).
 - **Packages.** The bundle and type declarations are built, with Nexo bundled inside `domql.js`. The NuGet package carries the runtime version `1.0.0-preview.1`, and `release.yml` publishes it to nuget.org from the release's tag. The npm package is not made yet: `package.json` is private and carries no version.
 - **The C# half** waits for its design, as [D46](decisions.md#d46) records.
 
@@ -278,15 +278,15 @@ DOMQL releases as [cutting a release](../CONTRIBUTING.md#cut-a-release) sets out
 
 ### Consuming the language
 
-**Current:** DOMQL depends on `@formaui-net/nexo` through `file:.nexo`, which the build fills with Nexo's release `nexo.release` pins, `1.0.0-preview.1`, the tree of its tag, taken from a checkout beside this one named `formaui-net.Nexo`, or links to the checkout `NEXO_SOURCE` names; CI checks Nexo out at the same tag. It imports the language's entry point alone, and bundles it into `domql.js`. The language's tests that run through DOMQL's entry point are DOMQL's integration tests.
+**Current:** DOMQL depends on Nexo's npm package, `@formaui-net/nexo`, from `1.0.0-preview.1`, the release its lock installs and its tests run against, as [D109](decisions.md#d109) records; with `NEXO_SOURCE` naming a Nexo checkout, the build links that checkout's working tree in the package's place. CI checks Nexo out at the release's tag, whose documents the link test reads. It imports the language's entry point alone, and bundles it into `domql.js`. The language's tests that run through DOMQL's entry point are DOMQL's integration tests.
 
 **Remaining:**
 
-1. Depend on Nexo's released packages, `@formaui-net/nexo` and `formaui-net.Nexo`, each naming the lowest Nexo version DOMQL works with.
+1. Depend on Nexo's NuGet package, `formaui-net.Nexo`, naming the lowest Nexo version DOMQL works with, as the npm dependency does.
 2. Write the NuGet bundle with `../nexo/nexo.js` as an import, and the npm bundle with `@formaui-net/nexo`, rather than carrying the language inside.
-3. Have the gate check that DOMQL's packages depend on Nexo's and Nexo's on nothing of DOMQL's, and run DOMQL's tests against the packaged Nexo.
+3. Have the gate check that DOMQL's packages depend on Nexo's and Nexo's on nothing of DOMQL's.
 
-Nexo's packages are published from its `1.0.0-preview.1`, as its [release](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/docs/features-status.md#release) records, so this work can start.
+Nexo's packages are published from its `1.0.0-preview.1`, as its [release](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/docs/features-status.md#release) records.
 
 ### Packages
 

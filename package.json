@@ -9,6 +9,6 @@
         "esbuild": "^0.25.0"
     },
     "dependencies": {
-        "@formaui-net/nexo": "file:.nexo"
+        "@formaui-net/nexo": "^1.0.0-preview.1"
     }
 }

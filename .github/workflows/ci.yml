@@ -18,7 +18,7 @@ concurrency:
 env:
   PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright
 
-# DOMQL builds against the Nexo release nexo.release pins, the tree of its tag, taken from a checkout beside its own, formaui-net.Nexo beside formaui-net.DOMQL, until it consumes Nexo's published package, so the job checks out both, Nexo at that tag.
+# DOMQL builds against Nexo's npm package, and its link test reads Nexo's documents at the release's tag from a checkout beside its own, formaui-net.Nexo beside formaui-net.DOMQL, so the job checks out both, Nexo at that tag.
 defaults:
   run:
     working-directory: formaui-net.DOMQL
@@ -36,12 +36,12 @@ jobs:
         with:
           path: formaui-net.DOMQL
 
-      # The tag of the Nexo release DOMQL builds against, which nexo.release pins.
-      - name: Read the pinned Nexo release
+      # The tag of the Nexo release DOMQL builds against, the version of Nexo's package the lock installs.
+      - name: Read the Nexo release
         id: nexo
-        run: echo "tag=v$(tr -d '[:space:]' < nexo.release)" >> "$GITHUB_OUTPUT"
+        run: echo "tag=v$(jq -r '.packages["node_modules/@formaui-net/nexo"].version' package-lock.json)" >> "$GITHUB_OUTPUT"
 
-      # Nexo's whole history, since DOMQL's documents link to commits a record of the past names, which the link test reads.
+      # Nexo's whole history, since DOMQL's documents link to the release's tag and to commits a record of the past names, which the link test reads.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: FormaUI/Nexo

@@ -1660,3 +1660,20 @@ Each entry is one of three kinds:
   - DOMQL's first release runs on a released Nexo, and Nexo's first preview is its newest release.
   - The language changed nothing a query relies on: a body's canonical text changes, and reads back as the same definition.
 - **Declined:** Releasing DOMQL on Nexo's `1.0.0-beta.2`, a stage FormaUI Versioning no longer names, beside a DOMQL in its preview.
+
+<a id="d109"></a>
+
+## D109 — DOMQL builds against Nexo's npm package
+
+*November 5, 2026*
+
+- **Kind:** Process, approved.
+- **Decision:** DOMQL depends on `@formaui-net/nexo` from npm at `^1.0.0-preview.1`, the lowest version it works with, as [D107](#d107) sets out, and its lock installs that release; a test holds the two to one version. `nexo.release`, and the tree the build extracted into `.nexo` ([D77](#d77)), are gone. CI checks Nexo out at the release's tag, and the link test reads Nexo's documents there, from the checkout's history ([D78](#d78)). `NEXO_SOURCE` links a Nexo checkout's working tree in the package's place, as it linked `.nexo`.
+- **Why:**
+  - Nexo's packages are published from its `1.0.0-preview.1`, so the step D77 left for them can be taken.
+  - DOMQL's npm package declares Nexo's as a dependency, which `file:.nexo` can't be: a consumer has no `.nexo`.
+  - The tests run against the package a consumer installs, as [consuming the language](features-status.md#consuming-nexo) plans, whose integrity the lock records as Nexo's release published it.
+  - The release is named where npm reads it, `package.json` and its lock. `nexo.release` named it a third time, and the lock's entry for `.nexo` had stayed at `1.0.0-beta.1`, unseen.
+- **Declined:**
+  - Keeping `file:.nexo` and rewriting the dependency as the package is packed, so the repository would never state the dependency its package declares.
+  - Keeping `nexo.release` beside the lock, a third file naming one release.

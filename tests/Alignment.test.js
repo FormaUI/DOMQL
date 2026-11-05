@@ -43,6 +43,14 @@ describe('Alignment', () => {
         expect(format).toBe(describedFormat);
     });
 
+    it('declares Nexo\'s package at the lowest version it works with, the release the lock installs from npm', () => {
+        const declared = JSON.parse(read('package.json')).dependencies['@formaui-net/nexo'];
+        const installed = JSON.parse(read('package-lock.json')).packages['node_modules/@formaui-net/nexo'];
+
+        expect(declared).toBe(`^${installed.version}`);
+        expect(installed.resolved).toBe(`https://registry.npmjs.org/@formaui-net/nexo/-/nexo-${installed.version}.tgz`);
+    });
+
     it('has a package that carries the runtime version the sources declare, which they report', () => {
         expect(project).toContain('src\\Versions.mjs');
         expect(domql.info.versions.runtime).toBe(Versions.runtime);

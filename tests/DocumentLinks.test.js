@@ -6,14 +6,14 @@ import { describe, it, expect } from 'vitest';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-/** The folders that hold no document of DOMQL's: Git's, dependencies, Nexo's copy, build outputs, the browser CI installs, and the notes Git ignores. */
-const SKIPPED = new Set(['.git', '.local', '.nexo', '.playwright', '.vs', '.idea', 'artifacts', 'bin', 'node_modules', 'obj', 'wwwroot']);
+/** The folders that hold no document of DOMQL's: Git's, dependencies, build outputs, the browser CI installs, and the notes Git ignores. */
+const SKIPPED = new Set(['.git', '.local', '.playwright', '.vs', '.idea', 'artifacts', 'bin', 'node_modules', 'obj', 'wwwroot']);
 
 /** The kinds of file a link into Nexo may stand in; a document's own links are read in Markdown alone. */
 const LINKING = new Set(['.md', '.js', '.mjs', '.ts', '.ps1', '.yml', '.json']);
 
-/** The release of Nexo DOMQL builds against, as `nexo.release` pins it, and the tag that names it. */
-const release = readFileSync(resolve(root, 'nexo.release'), 'utf8').trim();
+/** The release of Nexo DOMQL builds against, the version of Nexo's package the lock installs, and the tag that names it. */
+const release = JSON.parse(readFileSync(resolve(root, 'package-lock.json'), 'utf8')).packages['node_modules/@formaui-net/nexo'].version;
 const tag = `v${release}`;
 
 /** A link into Nexo's repository at a ref: the ref, the file's path in it, and the anchor in that file, if one is given. */
@@ -76,22 +76,23 @@ const anchorsOf = text => {
     return anchors;
 };
 
-/** The Nexo checkout whose history holds the commits a record of the past names: the one `NEXO_SOURCE` names, or the one beside this repository. */
+/** The Nexo checkout whose history holds the release's tag and the commits a record of the past names: the one `NEXO_SOURCE` names, or the one beside this repository. */
 const nexoCheckout = process.env.NEXO_SOURCE ? resolve(process.env.NEXO_SOURCE) : resolve(root, '..', 'formaui-net.Nexo');
 
-/** A file of Nexo's as a ref holds it, or undefined where the ref holds no such file: the pinned release's from `.nexo`, which holds its tree, and a commit's from the checkout's history. */
+/** A file of Nexo's as a ref holds it, from the checkout's history, or undefined where the ref holds no such file; each is read once for the run, since a tag and a commit never change. */
+const nexoFiles = new Map();
 const nexoFileAt = (ref, path) => {
-    if (ref === tag) {
-        const file = resolve(root, '.nexo', path);
+    const key = `${ref}:${path}`;
 
-        return existsSync(file) ? readFileSync(file, 'utf8') : undefined;
+    if (!nexoFiles.has(key)) {
+        try {
+            nexoFiles.set(key, execFileSync('git', ['-C', nexoCheckout, 'show', key], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }));
+        } catch {
+            nexoFiles.set(key, undefined);
+        }
     }
 
-    try {
-        return execFileSync('git', ['-C', nexoCheckout, 'show', `${ref}:${path}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
-    } catch {
-        return undefined;
-    }
+    return nexoFiles.get(key);
 };
 
 /** The commits of Nexo's that a record of DOMQL's past links to, each with what it holds; every other link names the pinned release, so it moves when the pin does. */

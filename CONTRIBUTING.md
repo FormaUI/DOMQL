@@ -14,19 +14,19 @@ You'll need:
 - PowerShell to run the build scripts.
 - The .NET SDK pinned in `nuget/global.json`.
 
-DOMQL is written in [Nexo](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/spec/README.md), which it builds against at the release `nexo.release` pins, taken from its tag in a checkout of [FormaUI/Nexo](https://github.com/FormaUI/Nexo) beside this one, until it consumes a published package. Clone it beside this repository under the name the build looks for:
+DOMQL is written in [Nexo](https://github.com/FormaUI/Nexo/blob/v1.0.0-preview.1/spec/README.md), which it installs from npm, `@formaui-net/nexo`, at the release `package.json` declares and its lock installs. Its link test reads Nexo's documents at that release's tag from a checkout of [FormaUI/Nexo](https://github.com/FormaUI/Nexo) beside this one, so clone it beside this repository under the name the build looks for:
 
 ```sh
 git clone https://github.com/FormaUI/Nexo.git formaui-net.Nexo
 ```
 
-After cloning the repositories, run the build, which extracts the pinned Nexo into `.nexo`, installs the dependencies and runs the unit tests:
+After cloning the repositories, run the build, which installs the dependencies, Nexo's package among them, and runs the unit tests:
 
 ```sh
 pwsh ./build.ps1
 ```
 
-To work on Nexo and DOMQL together, set `NEXO_SOURCE` to a Nexo checkout, and the build links `.nexo` to its working tree; unset it to build against the pinned release again.
+To work on Nexo and DOMQL together, set `NEXO_SOURCE` to a Nexo checkout, and the build links its working tree in the package's place; unset it to build against the release again. To move to another release, run `npm install @formaui-net/nexo@^<version>`, which declares it as the lowest version DOMQL works with, and move every link into Nexo to its tag in the same commit.
 
 Run the full build from the repository root:
 
@@ -136,7 +136,7 @@ The [changelog](CHANGELOG.md) records each release, and the [version history](VE
 
 A release is a candidate that passed its full gate, promoted to `main` and tagged there, as [FormaUI Versioning's releases](https://github.com/FormaUI/Versioning/blob/v1.0.0-preview.1/docs/releases.md) set out. Publishing its package is the step after it.
 
-1. **Set the release on `dev`.** Pause merges unrelated to it, as [stabilizing a candidate](https://github.com/FormaUI/Versioning/blob/v1.0.0-preview.1/docs/branches.md#stabilizing-a-candidate) sets out. Check that `src/Versions.mjs` declares the release's version and `nexo.release` the Nexo release it builds against, date the changelog's newest entry by the day of the release, and date the version history's newest entry where it reads *Unreleased*.
+1. **Set the release on `dev`.** Pause merges unrelated to it, as [stabilizing a candidate](https://github.com/FormaUI/Versioning/blob/v1.0.0-preview.1/docs/branches.md#stabilizing-a-candidate) sets out. Check that `src/Versions.mjs` declares the release's version and `package.json` the Nexo release it builds against, date the changelog's newest entry by the day of the release, and date the version history's newest entry where it reads *Unreleased*.
 2. **Select the candidate.** Fast-forward `candidate` to `dev`'s tip, `git push origin dev:candidate`. `ci.yml` runs the full gate on it. A fix lands on `dev`, and `candidate` moves to the corrected tip.
 3. **Promote it.** Open a pull request from `candidate` into `main`, which `promotion.yml` checks. Once the check passes, a release signer fast-forwards `main` to it, `git push origin candidate:main`.
 4. **Tag it.** A release signer tags `main`'s commit with an annotated, signed tag, `git tag -s v1.0.0-preview.1 -m "DOMQL 1.0.0-preview.1"`, and pushes it, `git push origin v1.0.0-preview.1`. A pushed tag is never moved or deleted.
