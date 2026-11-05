@@ -106,7 +106,7 @@ The language a query is written in is Nexo's, and its contract is Nexo's.
 | --- | --- | --- | --- |
 | The package version | `runtime` | The package, the bundle, the release's tag and `domql.info.versions.runtime` | The [changelog](CHANGELOG.md) |
 | The specification version | `specification` | DOMQL's contract, the [specification](spec/README.md) | The [version history](VERSION-HISTORY.md) |
-| The language version | `language`, read from the Nexo runtime DOMQL runs on | Nothing of DOMQL's: it names the Nexo language DOMQL runs on, the release `nexo.release` pins | Nexo's |
+| The language version | `language`, read from the Nexo runtime DOMQL runs on | Nothing of DOMQL's: it names the Nexo language DOMQL runs on, the release `package.json` declares | Nexo's |
 
 **The gates.** The fast gate, `./build.ps1 -Browser`, runs the tests, the tests in a real browser, the bundle, the package project's build with no warnings and the format check. The full gate, `./build.ps1 -Browser -Full`, runs it, then packs the package and its symbols into `artifacts/`, checks each holds exactly the files its list in `scripts/packages/` names, and installs the package outside the repository from a local feed into a web application whose published `domql.js` resolves a query.
 
@@ -124,7 +124,7 @@ The language a query is written in is Nexo's, and its contract is Nexo's.
 
 | Package | What it holds | Its targets | Its feed | Depends on |
 | --- | --- | --- | --- | --- |
-| NuGet, `formaui-net.DOMQL` | The bundle, `domql.js`, with Nexo inside it, and its declarations, served at `_content/domql/`, with the README, license and notice, as `scripts/packages/nuget.files` lists them, and its symbols beside it, as `scripts/packages/nuget-symbols.files` lists them | `net11.0` applications | nuget.org | Nothing: it carries the Nexo release `nexo.release` pins inside its bundle |
+| NuGet, `formaui-net.DOMQL` | The bundle, `domql.js`, with Nexo inside it, and its declarations, served at `_content/domql/`, with the README, license and notice, as `scripts/packages/nuget.files` lists them, and its symbols beside it, as `scripts/packages/nuget-symbols.files` lists them | `net11.0` applications | nuget.org | Nothing: it carries the Nexo release `package.json` declares inside its bundle |
 
 DOMQL publishes no npm package yet: `package.json` is private, and the npm package waits for DOMQL to consume Nexo's published packages, as the status's [packages](docs/features-status.md#packages) set out. A package of DOMQL's that depends on Nexo's names the lowest Nexo version DOMQL works with.
 
