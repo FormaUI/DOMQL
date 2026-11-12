@@ -95,16 +95,38 @@ console.log(snapshot.items[0].selected); // false
 
 The source import above works when serving the repository; the [library guide](nuget/README.md#install-and-load) loads the packaged bundle, and goes on to watching, events, the language and extensions.
 
-## How DOMQL differs from jQuery
+## Why DOMQL
 
-| | jQuery | DOMQL |
-| --- | --- | --- |
-| Main abstraction | Element collections with methods | Typed requests |
-| Reading data | JavaScript assembles the result | A query describes the result |
-| Keeping data current | Application code repeats its reads | A watch tracks declared observations |
-| Events | Handlers work with events | Subscriptions project events into data |
-| Changing the page | DOM manipulation methods | Built-in and module-defined executions, once or continuous, each answering what it did |
-| Extension | Plugins | Typed vocabulary modules |
+A component that needs the page's state, such as focus, selection, sizes or scrolling, has to:
+
+1. read it;
+2. observe what changes it;
+3. schedule the next read;
+4. compare the results;
+5. notify whatever uses them;
+6. and dispose of its listeners when it's done.
+
+Each component that does this by hand repeats the work, and does it a little differently.
+
+DOMQL makes that work one shared contract. The caller describes the data it needs, and DOMQL supplies the vocabulary, the observation, the scheduling and the delivery of results. Events and executions extend the same contract to what happens on the page, and to changes the caller asks for.
+
+DOMQL is explicit about what it can't follow. Each member declares whether its changes are observable, partly observable or unobserved. A watch of a partly observable member needs its caller's consent, and a watch of an unobserved one is refused, as [how a member changes](spec/watches.md#how-a-member-changes) sets out.
+
+Plain JavaScript stays the simpler choice for a small, local operation. A DOM utility library helps with each read or event, but the application still owns observing, scheduling and delivering. DOMQL earns its place when those responsibilities recur across an application.
+
+## Why queries are Nexo scripts
+
+Nexo gives DOMQL control over what a query means, and sight of how it evaluates:
+
+| Stage | What DOMQL learns |
+| --- | --- |
+| Before evaluation | Which declarations a query may use, and whether their observations allow watching it. A member of a value of unknown type is checked against every declaration it could select. |
+| During evaluation | Each member the query actually reads, with its receiver and its arguments. A watch observes what its last evaluation read, starting and stopping observations as those reads change, as [dependencies](spec/watches.md#dependencies) sets out. |
+| After evaluation | The result as immutable data, with metadata recording where each item came from, where a projection keeps it, which DOMQL uses to compare one result with the next. |
+
+A query is text or a definition, which DOMQL interprets without running it as JavaScript. So a query can be stored or generated, and the C# half, which waits for its design, is planned to send queries from .NET.
+
+A JavaScript callback gives none of this by itself. A restricted JavaScript API, or another embedded language, could provide it with integration and enforcement of its own. Nexo provides it as its hosting contract, and DOMQL declares the DOM as a Nexo module like any other.
 
 ## Documents
 
