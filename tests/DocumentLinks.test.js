@@ -79,20 +79,39 @@ const anchorsOf = text => {
 /** The Nexo checkout whose history holds the release's tag and the commits a record of the past names: the one `NEXO_SOURCE` names, or the one beside this repository. */
 const nexoCheckout = process.env.NEXO_SOURCE ? resolve(process.env.NEXO_SOURCE) : resolve(root, '..', 'formaui-net.Nexo');
 
-/** A file of Nexo's as a ref holds it, from the checkout's history, or undefined where the ref holds no such file; each is read once for the run, since a tag and a commit never change. */
-const nexoFiles = new Map();
+/** Files of Nexo's as refs hold them, each `ref:path`, read from the checkout's history by one `git cat-file --batch`; a file a ref doesn't hold reads as undefined. */
+const readNexoFiles = keys => {
+    const output = execFileSync('git', ['-C', nexoCheckout, 'cat-file', '--batch'], { input: keys.map(key => `${key}\n`).join(''), stdio: ['pipe', 'pipe', 'ignore'], maxBuffer: 256 * 1024 * 1024 });
+    const files = new Map();
+    let offset = 0;
+
+    keys.forEach(key => {
+        const end = output.indexOf(10, offset);
+        // A found object's header is its name, its type and its size, and its content follows; a missing one's is its name and `missing`, and nothing follows.
+        const [, type, size] = output.toString('utf8', offset, end).split(' ');
+
+        offset = end + 1;
+        if (size === undefined) {
+            files.set(key, undefined);
+
+            return;
+        }
+
+        files.set(key, type === 'blob' ? output.toString('utf8', offset, offset + Number(size)) : undefined);
+        offset += Number(size) + 1;
+    });
+
+    return files;
+};
+
+/** Every file of Nexo's a document links to, as its ref holds it, read together the first time one is asked for, since one process reading them all costs far less than one for each; a tag and a commit never change, so each is read once for the run. */
+let nexoFiles;
 const nexoFileAt = (ref, path) => {
     const key = `${ref}:${path}`;
 
-    if (!nexoFiles.has(key)) {
-        try {
-            nexoFiles.set(key, execFileSync('git', ['-C', nexoCheckout, 'show', key], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }));
-        } catch {
-            nexoFiles.set(key, undefined);
-        }
-    }
+    nexoFiles ??= readNexoFiles([...new Set(filesOf('.').flatMap(file => [...readFileSync(resolve(root, file), 'utf8').matchAll(NEXO_LINK)].map(([, linkRef, linkPath]) => `${linkRef}:${linkPath}`)))]);
 
-    return nexoFiles.get(key);
+    return nexoFiles.has(key) ? nexoFiles.get(key) : readNexoFiles([key]).get(key);
 };
 
 /** The commits of Nexo's that a record of DOMQL's past links to, each with what it holds; every other link names the pinned release, so it moves when the pin does. */
