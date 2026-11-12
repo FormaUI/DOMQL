@@ -97,9 +97,15 @@ The source import above works when serving the repository; the [library guide](n
 
 ## Why DOMQL
 
-A component that needs the page's state, such as focus, selection, sizes or scrolling, has to:
+With DOMQL, a component describes the page state it needs and receives it as data. DOMQL reads that state, follows its changes and keeps the result current.
 
-1. read it;
+DOMQL comes from [Forma](https://github.com/FormaUI/Forma), FormaUI's Blazor component library. Forma's components rely on many scripts: reusable behaviors, operations, and objects that support existing components. Knowledge of the page was spread across them, each script tracking its own part at its own level. As they came to interact, they grew hard to reason about and to cache. Each new case took another script, or another change to one. Each answer the C# side needed was another round trip into JavaScript.
+
+The idea that led to DOMQL was one place to ask about the page's state, as one queries a database, in place of scripts that each track it. A component would ask which element has the focus, how large the window is, whether a container can scroll and where its scroll stands.
+
+To answer such a question by hand and keep the answer current, a component has to:
+
+1. read the state;
 2. observe what changes it;
 3. schedule the next read;
 4. compare the results;
@@ -108,7 +114,7 @@ A component that needs the page's state, such as focus, selection, sizes or scro
 
 Each component that does this by hand repeats the work, and does it a little differently.
 
-DOMQL makes that work one shared contract. The caller describes the data it needs, and DOMQL supplies the vocabulary, the observation, the scheduling and the delivery of results. Events and executions extend the same contract to what happens on the page, and to changes the caller asks for.
+DOMQL makes that work one shared contract: it supplies the vocabulary, the observation, the scheduling and the delivery of results. Events and executions extend the same contract to what happens on the page, and to changes the caller asks for.
 
 DOMQL is explicit about what it can't follow. Each member declares whether its changes are observable, partly observable or unobserved. A watch of a partly observable member needs its caller's consent, and a watch of an unobserved one is refused, as [how a member changes](spec/watches.md#how-a-member-changes) sets out.
 
@@ -116,7 +122,9 @@ Plain JavaScript stays the simpler choice for a small, local operation. A DOM ut
 
 ## Why queries are Nexo scripts
 
-Nexo gives DOMQL control over what a query means, and sight of how it evaluates:
+The questions Forma's components asked came to combine, filter and shape what they read in more and more ways. A language expressed them more naturally than more JavaScript coordinating each case, and gave them consistent semantics. That language grew inside DOMQL and became Nexo.
+
+Nexo also gives DOMQL control over what a query means, and sight of how it evaluates:
 
 | Stage | What DOMQL learns |
 | --- | --- |
