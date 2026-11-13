@@ -24,7 +24,7 @@ The [specification](../spec/README.md) defines the contract, and the [design](do
 | --- | --- |
 | [The C# half](#the-c-half) | Waits for its design |
 | [Planned capabilities](#planned-capabilities) | The C# half's alone remain, waiting for its design |
-| [Release](#release) | Done: `1.0.0-preview.2`, which adds the npm package, is released |
+| [Release](#release) | Done: `1.0.0-preview.3`, whose npm package changes only the README it carries, is released |
 | [What 1.0 requires](#what-1-0-requires) | Six requirements, two met |
 
 - **A specification version collects the changes between two releases.** A change to DOMQL's contract joins the [version history](../VERSION-HISTORY.md)'s newest entry while it reads *Unreleased*, and opens the next version's entry once it is released, as [D79](decisions.md#d79) records.
@@ -273,7 +273,7 @@ None remains: T1 to T3 are implemented, as [the features](#the-host) show: an im
 
 DOMQL releases as [cutting a release](../CONTRIBUTING.md#cut-a-release) sets out, by FormaUI Versioning's path, as [D107](decisions.md#d107) records. Its first release, `1.0.0-preview.1`, is released, tagged `v1.0.0-preview.1`, and `release.yml` publishes its NuGet package, with Nexo inside its bundle, to nuget.org through trusted publishing. nuget.org's policy names `FormaUI/DOMQL`, `release.yml` and the `release` environment.
 
-Its second, `1.0.0-preview.2`, is released, tagged `v1.0.0-preview.2`, and `release.yml` publishes its npm package beside the NuGet package, as [D110](decisions.md#d110) records. npm's trusted publisher names the same repository, workflow and environment, and allows `npm publish`. A deprecated placeholder, `@formaui-net/domql@0.0.0`, holds npm's `latest` dist-tag until 1.0, as Nexo's does, since npm takes a trusted publisher only for a package it holds.
+Its second, `1.0.0-preview.2`, is released, tagged `v1.0.0-preview.2`, and `release.yml` publishes its npm package beside the NuGet package, as [D110](decisions.md#d110) records. npm's trusted publisher names the same repository, workflow and environment, and allows `npm publish`. A deprecated placeholder, `@formaui-net/domql@0.0.0`, holds npm's `latest` dist-tag until 1.0, as Nexo's does, since npm takes a trusted publisher only for a package it holds. Its third, `1.0.0-preview.3`, whose npm package changes only the README it carries, is released, tagged `v1.0.0-preview.3`, and published the same way.
 
 <a id="consuming-lexica"></a>
 <a id="consuming-nexo"></a>

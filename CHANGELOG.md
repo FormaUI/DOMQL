@@ -9,7 +9,7 @@ Each release of DOMQL's packages, newest first. The npm package `@formaui-net/do
 
 ## `1.0.0-preview.3`
 
-*Unreleased · specification `1.0.0-preview.1` · Nexo language `1.0.0-preview.1` · definition format 38*
+*November 13, 2026 · specification `1.0.0-preview.1` · Nexo language `1.0.0-preview.1` · definition format 38*
 
 - The README, which the npm package carries, says why DOMQL exists, where it and its queries come from, and why npm's `latest` tag holds a deprecated placeholder. Nothing else changes but the version the packages and `domql.info.versions.runtime` report.
 
