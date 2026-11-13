@@ -1,6 +1,6 @@
 {
     "name": "@formaui-net/domql",
-    "version": "1.0.0-preview.2",
+    "version": "1.0.0-preview.3",
     "description": "DOMQL is a JavaScript library for querying the DOM, allowing you to read information from a document once or observe it as it changes.",
     "license": "Apache-2.0",
     "author": "Eyal Alon",

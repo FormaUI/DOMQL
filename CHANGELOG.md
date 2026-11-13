@@ -5,6 +5,14 @@ Each release of DOMQL's packages, newest first. The npm package `@formaui-net/do
 - **An entry is dated when its release is cut,** and reads *Unreleased* until then. [Cutting a release](CONTRIBUTING.md#cut-a-release) tags its commit, and its packages are published from that tag.
 - **A change a caller can notice** is listed in the newest entry while it is unreleased. Once it is released, the change opens the next version's entry, and the sources declare that version in the same commit.
 
+<a id="v1-0-0-preview-3"></a>
+
+## `1.0.0-preview.3`
+
+*Unreleased · specification `1.0.0-preview.1` · Nexo language `1.0.0-preview.1` · definition format 38*
+
+- The README, which the npm package carries, says why DOMQL exists, where it and its queries come from, and why npm's `latest` tag holds a deprecated placeholder. Nothing else changes but the version the packages and `domql.info.versions.runtime` report.
+
 <a id="v1-0-0-preview-2"></a>
 
 ## `1.0.0-preview.2`
