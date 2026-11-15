@@ -6,8 +6,8 @@ import { describe, it, expect } from 'vitest';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-/** The folders that hold no document of DOMQL's: Git's, dependencies, build outputs, the browser CI installs, and the notes Git ignores. */
-const SKIPPED = new Set(['.git', '.local', '.playwright', '.vs', '.idea', 'artifacts', 'bin', 'node_modules', 'obj', 'wwwroot']);
+/** The folders that hold no document of DOMQL's: Git's, dependencies, build outputs, the browser CI installs, and the sandbox Git ignores. */
+const SKIPPED = new Set(['.git', '.sandbox', '.playwright', '.vs', '.idea', 'artifacts', 'bin', 'node_modules', 'obj', 'wwwroot']);
 
 /** The kinds of file a link into Nexo may stand in; a document's own links are read in Markdown alone. */
 const LINKING = new Set(['.md', '.js', '.mjs', '.ts', '.ps1', '.yml', '.json']);

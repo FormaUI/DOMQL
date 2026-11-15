@@ -16,8 +16,8 @@ nuget/wwwroot/
 # The browser CI installs for the browser tests.
 .playwright/
 
-# Work that belongs to a person: experiments, spikes and notes.
-.local/
+# Work that stays out of the repository: experiments, spikes, notes, scratch and temporary files, and benchmark baselines.
+.sandbox/
 
 # npm's logs.
 npm-debug.log*

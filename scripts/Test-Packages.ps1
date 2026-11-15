@@ -103,6 +103,7 @@ foreach ($name in $expected.Keys) {
     Write-Host "  $name holds the $($listed.Count) files its list names"
 }
 
+# Outside the repository, not in .sandbox/: within it, Node and TypeScript would also search the repository's own node_modules, which no consumer has.
 $work = Join-Path ([System.IO.Path]::GetTempPath()) "domql-packages-$([guid]::NewGuid().ToString('N'))"
 $previousPackages = $env:NUGET_PACKAGES
 

@@ -40,7 +40,7 @@ Use these sources rather than inventing scope, status or style rules.
 | `VERSION-HISTORY.md` | Each DOMQL version and what it changed |
 | `CHANGELOG.md` | Each release of the packages and what it changed |
 | `nuget/` | The package project, which distributes the bundle, and the library guide |
-| `.local/` | Personal experiments, spikes, notes and benchmark baselines; ignored by Git |
+| `.sandbox/` | Work that stays out of the repository: experiments, spikes, notes, scratch and temporary files, and benchmark baselines; ignored by Git |
 
 Add a folder when a new responsibility needs one. Keep dependencies in this direction:
 
@@ -100,7 +100,7 @@ Tests mirror `src/` under `tests/`. Layout, geometry and browser-managed state b
 | `./build.ps1 -Browser` | Repository root | Gate including browser tests |
 | `./build.ps1 -Browser -Full` | Repository root | The full gate: the gate including browser tests, then the NuGet package packed and verified as consumers install it |
 
-Every compiler warning is a build failure. Keep `*.bench.js` and `*.scale.js` beside the corresponding tests, store baselines in `.local/`, and record a measurement that decides something in the design, beside the decision it settles.
+Every compiler warning is a build failure. Keep `*.bench.js` and `*.scale.js` beside the corresponding tests, store baselines in `.sandbox/`, and record a measurement that decides something in the design, beside the decision it settles.
 
 ## Documentation and versions
 
